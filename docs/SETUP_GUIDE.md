@@ -17,20 +17,23 @@ repositório contém apenas o nome da variável em `.env.example`.
 
 | Serviço | Estado | Uso planejado |
 |---|---|---|
-| Git local | instalado | histórico e commits |
-| GitHub CLI | não instalado | criar repositório e enviar commits |
+| Git local | instalado e sincronizado | histórico e commits |
+| GitHub CLI | instalado e autenticado | repositório e automações |
 | GitHub App | não autorizado | PRs, issues e revisão |
-| Supabase | conectado | PostgreSQL, Auth e Storage |
+| Supabase | conectado, cota gratuita esgotada | adaptador opcional |
 | Vercel | conectado | somente `apps/web` e `apps/admin` |
-| Docker/Podman | não disponível | Supabase local ainda indisponível |
+| Docker/Podman | não disponível | PostgreSQL em contêiner indisponível |
 | Python/Node/pnpm | disponíveis | collectors, testes e monorepo |
 
 Existem dois projetos Supabase conectados, mas pertencem a outros sites. Eles
-não serão reutilizados. A equipe Vercel conectada ainda não possui projetos.
+não serão reutilizados, pausados ou apagados. O projeto gratuito adicional foi
+recusado pelo limite da conta; o desenvolvimento segue em modo local portável.
+A equipe Vercel conectada ainda não possui projetos.
 
-## Etapa 1 — GitHub
+## Etapa 1 — GitHub concluído
 
-Objetivo: criar um repositório **privado** chamado `barreiras-em-dados`.
+O repositório privado é
+<https://github.com/maxsuellbomfim/barreiras-em-dados>, com branch `main`.
 
 Responsabilidade do usuário:
 
@@ -50,7 +53,29 @@ Responsabilidade do agente:
 Os ZIPs de inspiração, `.venv`, `node_modules`, `.env` e artefatos coletados
 ficam apenas no computador e estão ignorados.
 
-## Etapa 2 — novo projeto Supabase
+## Etapa 2 — persistência local e futuro provedor
+
+O modo atual usa:
+
+```dotenv
+PERSISTENCE_MODE=filesystem
+LOCAL_DATA_DIRECTORY=data/local-evidence
+```
+
+Ele não exige segredo, preserva objetos e manifestos por SHA-256 e é permitido
+somente em `development` e `test`. A pasta `data/` não entra no Git.
+
+Antes de staging, será escolhido um provedor separado para PostgreSQL e
+armazenamento privado. Opções gratuitas ou de baixo custo serão avaliadas por:
+
+- compatibilidade real com PostgreSQL e migrations;
+- TLS, backups e exportação;
+- armazenamento privado compatível com S3 ou adaptável;
+- execução de workers fora da Vercel;
+- limites, suspensão por inatividade e custo previsível;
+- ausência de dependência proprietária no domínio.
+
+### Adaptador Supabase adiado
 
 Nome sugerido: `Barreiras em Dados`.
 
@@ -65,7 +90,7 @@ Antes da criação:
 4. o usuário confirma explicitamente o custo;
 5. somente então o projeto é criado.
 
-O projeto recebe:
+Se o adaptador for retomado, o projeto recebe:
 
 - migrations versionadas deste repositório;
 - bucket privado `raw-artifacts`;
@@ -156,7 +181,8 @@ gerenciador de segredos; não serão entregues ao agente por mensagem.
 |---|---|
 | Portal público Next.js | Vercel |
 | Painel admin Next.js | Vercel |
-| PostgreSQL/Auth/Storage | Supabase |
+| PostgreSQL/Auth/Storage | provedor ainda não escolhido |
+| Evidência de desenvolvimento | filesystem local append-only |
 | Collectors Python agendados | GitHub Actions, provisoriamente |
 | Filas | PostgreSQL |
 | Processamento de documentos | worker Python |
@@ -168,12 +194,12 @@ isolamento exigirem.
 
 ## Ordem de implantação
 
-1. GitHub privado e primeiro commit.
-2. Projeto Supabase separado e migrations.
-3. Teste remoto de uma coleta de um dia.
-4. Health interno de fontes.
-5. Esqueleto do admin com Auth, MFA e auditoria.
-6. Download de PDF/TXT e fila.
+1. GitHub privado e primeiro commit — concluído.
+2. Acervo local imutável e replay de uma coleta de um dia — concluído.
+3. Download local de PDF/TXT e preservação como artefato filho.
+4. Escolha e ensaio remoto do PostgreSQL/Storage.
+5. Health interno de fontes.
+6. Esqueleto do admin com Auth, MFA e auditoria.
 7. Extração determinística inicial.
 8. Um provedor de IA para extração assistiva.
 9. Revisão humana.

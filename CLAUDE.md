@@ -17,11 +17,16 @@ estatísticos em acusações.
 
 ## Etapa ativa
 
-A etapa ativa é **1A — coleta preservada do Diário**. A persistência de páginas
-JSON está implementada localmente, mas o gate remoto continua aberto. Antes de
-PDF, parser de atos ou PNCP, aplique migrations em Supabase descartável, use
-login membro de `collector_worker`, restrinja Storage, execute uma janela de um
-dia, repita-a e restaure o objeto pelo SHA-256.
+A etapa ativa é **1A — coleta preservada do Diário**. Páginas JSON podem ser
+preservadas em modo local append-only, sem segredo ou provedor, e o replay de
+uma janela real já foi validado. O próximo limite é baixar PDF/TXT como
+artefatos filhos no mesmo acervo local. Parser de atos e PNCP continuam fora de
+escopo.
+
+Antes de staging ou publicação, escolha um provedor separado, aplique migrations
+em PostgreSQL descartável, use login membro de `collector_worker`, restrinja o
+armazenamento privado e repita o teste de restauração por SHA-256. Não reutilize,
+pause ou apague projetos externos para liberar cota.
 
 ## Regras inegociáveis
 

@@ -29,6 +29,7 @@ Este repositório está na etapa 1A. O escopo ativo é:
 - contratos de dados independentes de linguagem;
 - migrations fundamentais do PostgreSQL;
 - conector e persistência idempotente do Querido Diário;
+- acervo local append-only por SHA-256, sem dependência de nuvem;
 - fixtures e testes do conector.
 
 Não existe ainda conteúdo público de caráter reputacional, detecção de

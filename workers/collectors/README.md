@@ -15,23 +15,38 @@ python -m unittest discover -s tests/collectors -p 'test_*.py'
 Os testes usam transporte, relógio e aleatoriedade injetados. Nenhum teste
 unitário acessa a rede.
 
-## Persistência da primeira janela
+## Persistência local da primeira janela
 
-Instale os extras fixados de PostgreSQL e Storage em um ambiente virtual e
-preencha somente variáveis server-side:
+O modo padrão de desenvolvimento não exige banco, conta de nuvem ou segredo:
+
+```powershell
+$env:PYTHONPATH='workers/collectors/src'
+$env:PERSISTENCE_MODE='filesystem'
+$env:LOCAL_DATA_DIRECTORY='data/local-evidence'
+python -m barreiras_collectors.commands.collect_querido_diario `
+  --since 2026-06-10 `
+  --until 2026-06-10
+```
+
+O comando exige uma janela de no máximo sete dias. Ele salva a resposta JSON em
+uma chave derivada do SHA-256, restaura os bytes e grava um manifesto canônico.
+Repetir a mesma janela reutiliza o objeto e o manifesto. Alteração posterior,
+travessia de diretório ou conflito de identidade interrompem a execução.
+
+`data/` é ignorada pelo Git. O modo `filesystem` é recusado em staging e
+produção.
+
+## Adaptador PostgreSQL + Supabase Storage
+
+O adaptador anterior continua disponível apenas para um ambiente isolado:
 
 ```powershell
 python -m pip install -e ".[postgres,storage]"
-$env:PYTHONPATH='workers/collectors/src'
-python -m barreiras_collectors.commands.collect_querido_diario `
-  --since 2026-07-24 `
-  --until 2026-07-30
+$env:PERSISTENCE_MODE='postgres-supabase'
 ```
 
-O comando exige uma janela de no máximo sete dias. Ele salva primeiro a resposta
-JSON em `raw-artifacts`, restaura e confere o SHA-256, e só então registra a
-execução, o artefato e os registros no PostgreSQL. Repetir a mesma janela reutiliza
-o objeto e não duplica registros.
+Ele exige `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY` e o bucket
+privado `raw-artifacts`.
 
 Não use `postgres` como login do worker em staging/produção. Provisione um login
 dedicado como membro de `collector_worker`; o papel não possui `DELETE` nem

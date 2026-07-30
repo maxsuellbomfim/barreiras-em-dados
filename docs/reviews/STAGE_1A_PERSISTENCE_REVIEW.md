@@ -115,3 +115,45 @@ Pendências:
 
 Somente depois: baixar PDF/TXT como artefatos filhos. Parser de atos e PNCP
 continuam fora desta etapa.
+
+## Adendo — modo local portável
+
+Data: 30/07/2026
+
+O passo remoto acima foi adiado porque a conta Supabase atingiu o limite de dois
+projetos gratuitos. Nenhum projeto existente foi reutilizado, pausado ou
+apagado. O ADR 0008 substitui a dependência operacional imediata por um modo
+local restrito a desenvolvimento/teste.
+
+### Implementado
+
+- objetos locais endereçados por SHA-256 e criados sem overwrite;
+- restauração e hash verificados depois da escrita;
+- manifestos canônicos com hash no nome do arquivo;
+- uma versão de manifesto por execução e versão de parser;
+- IDs locais determinísticos para execução e artefato;
+- replay alinhado à idempotência do repositório PostgreSQL;
+- bloqueio de travessia de diretório e links simbólicos;
+- recusa do modo `filesystem` em staging/produção;
+- configuração local sem chaves ou banco.
+
+### Verificação
+
+- 33 testes Python: aprovados;
+- Ruff lint e format: aprovados;
+- coleta pública real de `2026-06-10`: 2 registros preservados;
+- replay da mesma janela: 1 objeto e 1 manifesto, sem duplicação;
+- janela `2026-07-01`: resposta `empty` preservada sem ser tratada como falha;
+- hashes do objeto e do manifesto conferem com seus nomes;
+- alteração de objeto e manifesto exercitada por testes negativos.
+
+O acervo de ensaio está em `data/local-evidence/` e não integra o repositório.
+Ele não substitui o teste futuro de PostgreSQL, grants, backup e armazenamento
+privado no provedor escolhido.
+
+### Próxima menor etapa
+
+Baixar um único PDF e, quando disponível, seu TXT como artefatos filhos,
+aplicando allowlist de host, limite de tamanho, MIME real, SHA-256, replay e
+relação explícita com a edição de origem. Ainda não interpretar nem publicar o
+conteúdo.

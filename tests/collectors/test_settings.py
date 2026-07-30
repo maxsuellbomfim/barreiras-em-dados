@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from barreiras_collectors.settings import (
     CollectorSettings,
@@ -15,7 +16,16 @@ class CollectorSettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.querido_diario_territory_id, "2903201")
         self.assertEqual(settings.requests_per_minute, 30)
-        self.assertEqual(settings.raw_artifacts_bucket, "raw-artifacts")
+
+    def test_default_persistence_is_local_and_requires_no_secret(self) -> None:
+        settings = PersistenceSettings.from_env({})
+
+        self.assertEqual(settings.mode, "filesystem")
+        self.assertEqual(
+            settings.local_data_directory,
+            Path("data") / "local-evidence",
+        )
+        self.assertIsNone(settings.database_url)
 
     def test_rejects_non_official_or_insecure_api_host(self) -> None:
         for url in (
@@ -44,24 +54,27 @@ class CollectorSettingsTests(unittest.TestCase):
         settings = PersistenceSettings.from_env(
             {
                 "APP_ENV": "development",
+                "PERSISTENCE_MODE": "postgres-supabase",
                 "DATABASE_URL": (
                     "postgresql://collector:password@db.example/"
                     "postgres?sslmode=require"
                 ),
                 "SUPABASE_URL": "https://project.supabase.co",
-                "SUPABASE_SECRET_KEY": "sb_secret_example_key_long_enough",
+                "SUPABASE_SECRET_KEY": "testheader.testpayload.testsignature",
             }
         )
 
         self.assertEqual(settings.raw_artifacts_bucket, "raw-artifacts")
+        self.assertEqual(settings.mode, "postgres-supabase")
 
     def test_rejects_remote_database_without_required_tls(self) -> None:
         with self.assertRaises(EnvironmentValidationError):
             PersistenceSettings.from_env(
                 {
+                    "PERSISTENCE_MODE": "postgres-supabase",
                     "DATABASE_URL": "postgresql://collector:password@db.example/db",
                     "SUPABASE_URL": "https://project.supabase.co",
-                    "SUPABASE_SECRET_KEY": "sb_secret_example_key_long_enough",
+                    "SUPABASE_SECRET_KEY": "testheader.testpayload.testsignature",
                 }
             )
 
@@ -70,14 +83,37 @@ class CollectorSettingsTests(unittest.TestCase):
             PersistenceSettings.from_env(
                 {
                     "APP_ENV": "production",
+                    "PERSISTENCE_MODE": "postgres-supabase",
                     "DATABASE_URL": (
                         "postgresql://postgres:password@db.example/"
                         "postgres?sslmode=require"
                     ),
                     "SUPABASE_URL": "https://project.supabase.co",
-                    "SUPABASE_SECRET_KEY": "sb_secret_example_key_long_enough",
+                    "SUPABASE_SECRET_KEY": "testheader.testpayload.testsignature",
                 }
             )
+
+    def test_rejects_filesystem_mode_outside_development_or_test(self) -> None:
+        with self.assertRaises(EnvironmentValidationError):
+            PersistenceSettings.from_env(
+                {
+                    "APP_ENV": "production",
+                    "PERSISTENCE_MODE": "filesystem",
+                }
+            )
+
+    def test_rejects_local_directory_traversal(self) -> None:
+        for path in ("../outside", "data/../../outside", "C:\\outside"):
+            with (
+                self.subTest(path=path),
+                self.assertRaises(EnvironmentValidationError),
+            ):
+                PersistenceSettings.from_env(
+                    {
+                        "PERSISTENCE_MODE": "filesystem",
+                        "LOCAL_DATA_DIRECTORY": path,
+                    }
+                )
 
 
 if __name__ == "__main__":

@@ -58,7 +58,7 @@
 - HTML renderizado somente após sanitização estrita;
 - nenhum comando construído com texto da fonte.
 
-### Banco e Supabase
+### Banco e provedor
 
 - schemas internos não expostos pela Data API;
 - RLS em toda tabela de schema exposto;
@@ -82,6 +82,10 @@
 - operações pelo Storage API, sem editar tabelas `storage` diretamente.
 - credencial ampla de Storage somente em ambiente controlado; produção exige
   identidade de workload limitada ao bucket/prefixo e teste negativo de acesso.
+- modo local permitido somente em `development`/`test`;
+- diretório local relativo, fora do Git e sem links simbólicos;
+- criação exclusiva de objetos/manifestos e verificação pelo hash do nome;
+- o acervo local não é backup de produção nem mecanismo de controle de acesso.
 
 ### Administração
 

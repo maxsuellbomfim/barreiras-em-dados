@@ -40,10 +40,11 @@ Menor próxima fatia vertical:
 Gate:
 
 - replay produz os mesmos registros sem duplicar;
+- modo local é restrito a desenvolvimento/teste e detecta adulteração;
 - 429/5xx/timeout/circuit breaker/DLQ testados;
 - lacunas e última coleta visíveis;
-- bucket privado e grants revisados;
-- restauração de um artefato por hash comprovada.
+- restauração de um artefato por hash comprovada;
+- antes de staging, bucket privado, grants e backup do provedor são revisados.
 
 ## Etapa 1B — Documento e extração candidata
 

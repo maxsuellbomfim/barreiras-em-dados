@@ -56,8 +56,9 @@ Artefatos e registros recebidos. É append-only. Um artefato é identificado por
 SHA-256 do conteúdo, não por URL. A mesma URL pode entregar conteúdos diferentes
 e o mesmo conteúdo pode aparecer em URLs diferentes.
 
-Objetos grandes ficam em Storage/S3 privado. O PostgreSQL mantém hash, tamanho,
-MIME detectado, object key, cabeçalhos relevantes e metadados de coleta. A
+Objetos grandes ficam em armazenamento privado compatível com S3 ou em um
+adaptador equivalente. O PostgreSQL mantém hash, tamanho, MIME detectado,
+object key, cabeçalhos relevantes e metadados de coleta. A
 escrita usa chave endereçada pelo SHA-256 e não permite upsert. O worker restaura
 o objeto e verifica hash/tamanho antes de abrir a curta transação que registra
 execução, observação e registros brutos. Se o banco falhar, o objeto permanece
@@ -67,6 +68,12 @@ O mesmo objeto pode ser referenciado por várias observações. `raw_artifacts`
 representa a observação — URL, horário e execução — e não impõe unicidade à
 `object_key`. `raw_records` permite uma versão por
 `(raw_artifact_id, record_index, parser_version)`.
+
+Em desenvolvimento e testes, `PERSISTENCE_MODE=filesystem` grava os mesmos
+objetos em `data/local-evidence/objects` e manifestos canônicos em
+`data/local-evidence/manifests`. Esse acervo é append-only, detecta adulteração e
+fica fora do Git. Não substitui PostgreSQL nem pode ser usado em staging ou
+produção. A decisão está no ADR 0008.
 
 ### Domínios normalizados
 
@@ -151,6 +158,7 @@ Métricas mínimas:
 ## Ambientes
 
 - desenvolvimento local sem dados pessoais reais quando fixtures bastarem;
+- acervo local real limitado, ignorado pelo Git e sem publicação;
 - staging com buckets e banco separados;
 - produção com admin, secrets e logs isolados;
 - Vercel apenas para `apps/web` e `apps/admin`;
@@ -164,9 +172,9 @@ provisionado fora das migrations e recebe esse papel; não usa o proprietário
 estado de coleta e inserir no bruto. Não há `DELETE` ou `UPDATE` em artefatos e
 registros brutos.
 
-Uma chave secreta do Supabase pode ser usada apenas no ensaio controlado do
-Storage. Como ela ignora RLS, produção exige identidade de workload restrita ao
-bucket e prefixo do coletor.
+Uma chave administrativa de qualquer provedor pode ser usada apenas em ensaio
+controlado. Produção exige identidade de workload restrita ao bucket, prefixo e
+operações necessárias. Chaves amplas nunca chegam ao frontend.
 
 ## Referências
 

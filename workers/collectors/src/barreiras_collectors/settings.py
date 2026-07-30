@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 
@@ -21,7 +22,6 @@ class CollectorSettings:
     connect_timeout_seconds: float
     read_timeout_seconds: float
     max_attempts: int
-    raw_artifacts_bucket: str
 
     @classmethod
     def from_env(
@@ -84,12 +84,6 @@ class CollectorSettings:
             maximum=10,
         )
 
-        bucket = values.get("SUPABASE_RAW_ARTIFACTS_BUCKET", "raw-artifacts")
-        if bucket != "raw-artifacts":
-            raise EnvironmentValidationError(
-                "SUPABASE_RAW_ARTIFACTS_BUCKET deve ser raw-artifacts."
-            )
-
         for public_key in (
             "NEXT_PUBLIC_SUPABASE_SECRET_KEY",
             "NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY",
@@ -107,16 +101,17 @@ class CollectorSettings:
             connect_timeout_seconds=connect_timeout,
             read_timeout_seconds=read_timeout,
             max_attempts=max_attempts,
-            raw_artifacts_bucket=bucket,
         )
 
 
 @dataclass(frozen=True)
 class PersistenceSettings:
-    database_url: str
-    supabase_url: str
-    supabase_secret_key: str
-    raw_artifacts_bucket: str
+    mode: str
+    local_data_directory: Path | None
+    database_url: str | None
+    supabase_url: str | None
+    supabase_secret_key: str | None
+    raw_artifacts_bucket: str | None
 
     @classmethod
     def from_env(
@@ -125,9 +120,46 @@ class PersistenceSettings:
     ) -> PersistenceSettings:
         values = environment if environment is not None else os.environ
         collector = CollectorSettings.from_env(values)
+        mode = values.get("PERSISTENCE_MODE", "filesystem").strip()
+        if mode not in {"filesystem", "postgres-supabase"}:
+            raise EnvironmentValidationError(
+                "PERSISTENCE_MODE deve ser filesystem ou postgres-supabase."
+            )
+        if mode == "filesystem":
+            if collector.app_env not in {"development", "test"}:
+                raise EnvironmentValidationError(
+                    "Persistência em filesystem é permitida apenas em development/test."
+                )
+            raw_directory = values.get(
+                "LOCAL_DATA_DIRECTORY",
+                "data/local-evidence",
+            ).strip()
+            local_directory = Path(raw_directory)
+            if (
+                not raw_directory
+                or local_directory.is_absolute()
+                or any(part in {"", ".", ".."} for part in local_directory.parts)
+            ):
+                raise EnvironmentValidationError(
+                    "LOCAL_DATA_DIRECTORY deve ser um caminho relativo seguro."
+                )
+            return cls(
+                mode=mode,
+                local_data_directory=local_directory,
+                database_url=None,
+                supabase_url=None,
+                supabase_secret_key=None,
+                raw_artifacts_bucket=None,
+            )
+
         database_url = _required(values, "DATABASE_URL")
         supabase_url = _required(values, "SUPABASE_URL").rstrip("/")
         secret_key = _required(values, "SUPABASE_SECRET_KEY")
+        bucket = values.get("SUPABASE_RAW_ARTIFACTS_BUCKET", "raw-artifacts")
+        if bucket != "raw-artifacts":
+            raise EnvironmentValidationError(
+                "SUPABASE_RAW_ARTIFACTS_BUCKET deve ser raw-artifacts."
+            )
 
         parsed_database = urlparse(database_url)
         if (
@@ -189,10 +221,12 @@ class PersistenceSettings:
             )
 
         return cls(
+            mode=mode,
+            local_data_directory=None,
             database_url=database_url,
             supabase_url=supabase_url,
             supabase_secret_key=secret_key,
-            raw_artifacts_bucket=collector.raw_artifacts_bucket,
+            raw_artifacts_bucket=bucket,
         )
 
 

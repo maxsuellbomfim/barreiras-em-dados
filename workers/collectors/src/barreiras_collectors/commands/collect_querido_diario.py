@@ -9,9 +9,13 @@ from datetime import date
 
 from ..connectors.querido_diario import QueridoDiarioClient
 from ..logging import log_event
+from ..persistence.filesystem import FilesystemCollectionRepository
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import QueridoDiarioPersistenceService
-from ..persistence.storage import SupabaseStorageObjectStore
+from ..persistence.storage import (
+    FilesystemArtifactObjectStore,
+    SupabaseStorageObjectStore,
+)
 from ..resilience import RetryPolicy
 from ..settings import CollectorSettings, PersistenceSettings
 
@@ -21,8 +25,8 @@ MAX_WINDOW_DAYS = 7
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Preserva no Storage e no PostgreSQL uma janela curta de metadados "
-            "do Querido Diário para Barreiras."
+            "Preserva uma janela curta de metadados do Querido Diário para "
+            "Barreiras no modo local ou no adaptador de nuvem configurado."
         )
     )
     parser.add_argument("--since", type=date.fromisoformat, required=True)
@@ -39,27 +43,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
-
-    try:
-        from supabase import create_client
-    except ImportError as error:
-        raise RuntimeError(
-            "Instale a dependência opcional 'storage' para executar a coleta."
-        ) from error
-
-    supabase_client = create_client(
-        persistence_settings.supabase_url,
-        persistence_settings.supabase_secret_key,
-    )
-    bucket_client = supabase_client.storage.from_(
-        persistence_settings.raw_artifacts_bucket
-    )
-    service = QueridoDiarioPersistenceService(
-        object_store=SupabaseStorageObjectStore(bucket_client),
-        repository=PostgresCollectionRepository.from_dsn(
-            persistence_settings.database_url
-        ),
-    )
+    service = _build_persistence_service(persistence_settings)
     source = QueridoDiarioClient(
         base_url=collector_settings.querido_diario_base_url,
         territory_id=collector_settings.querido_diario_territory_id,
@@ -107,8 +91,46 @@ def main(argv: Sequence[str] | None = None) -> int:
         pages=pages,
         inserted_records=inserted_records,
         existing_records=existing_records,
+        persistence_mode=persistence_settings.mode,
     )
     return 0
+
+
+def _build_persistence_service(
+    settings: PersistenceSettings,
+) -> QueridoDiarioPersistenceService:
+    if settings.mode == "filesystem":
+        if settings.local_data_directory is None:
+            raise RuntimeError("Diretório local não foi configurado.")
+        root = settings.local_data_directory
+        return QueridoDiarioPersistenceService(
+            object_store=FilesystemArtifactObjectStore(root / "objects"),
+            repository=FilesystemCollectionRepository(root / "manifests"),
+        )
+
+    if (
+        settings.database_url is None
+        or settings.supabase_url is None
+        or settings.supabase_secret_key is None
+        or settings.raw_artifacts_bucket is None
+    ):
+        raise RuntimeError("Configuração de nuvem incompleta.")
+    try:
+        from supabase import create_client
+    except ImportError as error:
+        raise RuntimeError(
+            "Instale a dependência opcional 'storage' para executar a coleta."
+        ) from error
+
+    supabase_client = create_client(
+        settings.supabase_url,
+        settings.supabase_secret_key,
+    )
+    bucket_client = supabase_client.storage.from_(settings.raw_artifacts_bucket)
+    return QueridoDiarioPersistenceService(
+        object_store=SupabaseStorageObjectStore(bucket_client),
+        repository=PostgresCollectionRepository.from_dsn(settings.database_url),
+    )
 
 
 if __name__ == "__main__":
