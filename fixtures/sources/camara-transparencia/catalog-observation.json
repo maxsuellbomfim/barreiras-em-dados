@@ -1,0 +1,100 @@
+{
+  "_fixture": {
+    "kind": "sanitized-discovery-observation",
+    "source": "Portal da Transparência da Câmara Municipal de Barreiras",
+    "observed_at": "2026-07-30",
+    "contains_record_values": false
+  },
+  "catalog_url": "https://portaldatransparencia.cmbarreiras.ba.gov.br/dados-abertos/",
+  "endpoint_url": "https://portaldatransparencia.cmbarreiras.ba.gov.br/api",
+  "response_contract": {
+    "success_root_fields": ["resource", "count", "data"],
+    "error_http_status_observed": 200,
+    "error_root_fields": ["error"],
+    "pagination": {
+      "parameters": ["limit", "offset"],
+      "count_semantics": "returned_rows",
+      "total_available": false
+    },
+    "cache_control": "no-store, no-cache, must-revalidate",
+    "etag_observed": false,
+    "last_modified_observed": false,
+    "cors_observed": false,
+    "rate_limit_headers_observed": false
+  },
+  "artifact_hosts_observed": [
+    "portaldatransparencia.cmbarreiras.ba.gov.br"
+  ],
+  "representative_fields": {
+    "indicacoes": [
+      "id_indicacao",
+      "numero_protocolo",
+      "data",
+      "data_protocolo",
+      "data_aprovacao",
+      "titulo",
+      "tipo",
+      "situacao",
+      "autoria",
+      "informacoes",
+      "url",
+      "ativo"
+    ],
+    "sessoes-legislativo": [
+      "id",
+      "numero",
+      "descricao",
+      "titulo",
+      "data",
+      "url_pauta",
+      "url_ata",
+      "url_frequencia",
+      "url_votacao",
+      "descricao_pauta",
+      "descricao_ata",
+      "descricao_frequencia",
+      "descricao_votacao"
+    ],
+    "servidores": [
+      "id_serv",
+      "data",
+      "titulo",
+      "tipo",
+      "mes_ref",
+      "ano_ref",
+      "informacoes",
+      "url",
+      "ativo"
+    ]
+  },
+  "resources": [
+    "atos-oficiais",
+    "audiencias-publicas",
+    "balancetes",
+    "contratos",
+    "duodecimos",
+    "indicacoes",
+    "leis",
+    "licitacoes",
+    "pdc-balanco-pdc",
+    "pdc-concursos-e-selecoes",
+    "pdc-modelo-nova-lei-de-licitacoes",
+    "pdc-obras-pdc",
+    "pdc-pesquisa-de-satisfacao",
+    "pdc-planejamento-estrategico",
+    "pdc-plano-anual-de-avaliacao-interna",
+    "pdc-plano-anual-de-contratacoes-pac",
+    "pdc-plano-de-contratacao-anual-pca",
+    "pdc-plano-municipal-de-saude-e-relatorios",
+    "pdc-prestacao-de-contas",
+    "pdc-recursos-extraordinarios",
+    "pdc-relacao-dos-fiscais-de-contrato",
+    "pdc-relatorio-mensal-controle-interno",
+    "pdc-tabela-de-cargos-e-salarios",
+    "pdc-tipos",
+    "processos",
+    "rgf",
+    "servidores",
+    "sessoes-legislativo"
+  ]
+}

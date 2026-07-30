@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreirasemdados.org/schemas/evidence-item/1-0-0",
+  "title": "Evidence item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_sha256",
+    "source_url",
+    "collected_at",
+    "quote",
+    "quote_sha256",
+    "page_number",
+    "start_offset",
+    "end_offset"
+  ],
+  "properties": {
+    "artifact_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "collected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "quote": {
+      "type": "string",
+      "minLength": 1
+    },
+    "quote_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "page_number": {
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "start_offset": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "end_offset": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "bounding_box": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    }
+  }
+}

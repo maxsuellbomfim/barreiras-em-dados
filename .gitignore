@@ -1,0 +1,41 @@
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+build/
+coverage/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local databases and collected artifacts
+*.db
+*.sqlite*
+data/
+artifacts/
+downloads/
+
+# External reference archives — local inspiration, never part of the product
+honestidade-politicos-brasil-main.zip
+Poligrafo-main.zip
+transparencia-politica-2026-main.zip
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

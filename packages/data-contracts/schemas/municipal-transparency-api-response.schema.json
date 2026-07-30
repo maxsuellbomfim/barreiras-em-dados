@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreirasemdados.org/schemas/municipal-transparency-api-response/1-0-0",
+  "title": "Municipal transparency API response",
+  "description": "Contrato comum observado nas APIs da Prefeitura e da Câmara de Barreiras em 2026-07-30.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["resource", "count", "data"],
+      "properties": {
+        "resource": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "not": {
+        "required": ["error"]
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["error"],
+      "properties": {
+        "error": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "not": {
+        "anyOf": [
+          {
+            "required": ["data"]
+          },
+          {
+            "required": ["count"]
+          }
+        ]
+      }
+    }
+  ]
+}

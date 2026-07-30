@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreirasemdados.org/schemas/querido-diario-gazette-page/1-0-0",
+  "title": "Querido Diário gazette page",
+  "description": "Contrato observado na API Querido Diário 0.19.0 em 2026-07-30.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["total_gazettes", "gazettes"],
+  "properties": {
+    "total_gazettes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "gazettes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gazette"
+      }
+    }
+  },
+  "$defs": {
+    "gazette": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "territory_id",
+        "date",
+        "scraped_at",
+        "url",
+        "territory_name",
+        "state_code",
+        "excerpts",
+        "edition",
+        "is_extra_edition",
+        "txt_url"
+      ],
+      "properties": {
+        "territory_id": {
+          "type": "string",
+          "pattern": "^\\d{7}$"
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "scraped_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "territory_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state_code": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        },
+        "excerpts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "edition": {
+          "type": ["string", "null"]
+        },
+        "is_extra_edition": {
+          "type": ["boolean", "null"]
+        },
+        "txt_url": {
+          "type": ["string", "null"],
+          "format": "uri"
+        }
+      }
+    }
+  }
+}

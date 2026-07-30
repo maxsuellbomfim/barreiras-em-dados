@@ -1,0 +1,24 @@
+{
+  "name": "barreiras-em-dados",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Plataforma cívica municipal orientada a evidências.",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "workers/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check:contracts": "node packages/data-contracts/scripts/validate-schemas.mjs",
+    "check:migration": "node packages/database/scripts/test-foundation-migration.mjs",
+    "check:sources": "node packages/data-contracts/scripts/validate-source-observations.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.4"
+  }
+}

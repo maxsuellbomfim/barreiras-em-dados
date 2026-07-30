@@ -1,0 +1,68 @@
+"""Tipos da fronteira entre aquisição, Storage e PostgreSQL."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from ..connectors.querido_diario import CollectedPage
+
+
+class PersistenceError(RuntimeError):
+    """Falha explícita ao preservar ou registrar uma coleta."""
+
+
+class ArtifactIntegrityError(PersistenceError):
+    """Os bytes restaurados não correspondem ao hash esperado."""
+
+
+class PersistenceContractError(PersistenceError):
+    """O bruto e a representação validada deixaram de concordar."""
+
+
+@dataclass(frozen=True)
+class StoredObject:
+    object_key: str
+    sha256: str
+    byte_size: int
+    created: bool
+
+
+@dataclass(frozen=True)
+class RawRecordInput:
+    source_record_key: str
+    record_type: str
+    record_index: int
+    payload: dict[str, Any]
+    payload_sha256: str
+    parser_version: str
+    idempotency_key: str
+
+
+@dataclass(frozen=True)
+class PersistenceBatch:
+    page: CollectedPage
+    object_key: str
+    artifact_idempotency_key: str
+    collector_version: str
+    parser_version: str
+    records: tuple[RawRecordInput, ...]
+
+
+@dataclass(frozen=True)
+class RepositoryPersistResult:
+    collection_run_id: str
+    raw_artifact_id: str
+    inserted_records: int
+    existing_records: int
+
+
+@dataclass(frozen=True)
+class PersistenceResult:
+    collection_run_id: str
+    raw_artifact_id: str
+    object_key: str
+    sha256: str
+    object_created: bool
+    inserted_records: int
+    existing_records: int

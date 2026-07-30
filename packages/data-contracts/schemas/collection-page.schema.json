@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreirasemdados.org/schemas/collection-page/1-0-0",
+  "title": "Collection page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_name",
+    "schema_version",
+    "source_code",
+    "endpoint_code",
+    "idempotency_key",
+    "request_url",
+    "final_url",
+    "requested_at",
+    "received_at",
+    "attempts",
+    "http_status",
+    "collection_status",
+    "body_sha256",
+    "body_size_bytes",
+    "media_type",
+    "cursor",
+    "payload"
+  ],
+  "properties": {
+    "schema_name": {
+      "const": "collection-page"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "source_code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "endpoint_code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idempotency_key": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "request_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "final_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "attempts": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "http_status": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 599
+    },
+    "collection_status": {
+      "enum": ["success", "empty", "partial"]
+    },
+    "body_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "body_size_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "media_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cursor": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "response_headers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "payload": {}
+  }
+}
