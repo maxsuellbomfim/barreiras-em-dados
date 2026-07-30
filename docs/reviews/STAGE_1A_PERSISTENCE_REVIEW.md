@@ -157,3 +157,19 @@ Baixar um único PDF e, quando disponível, seu TXT como artefatos filhos,
 aplicando allowlist de host, limite de tamanho, MIME real, SHA-256, replay e
 relação explícita com a edição de origem. Ainda não interpretar nem publicar o
 conteúdo.
+
+## Adendo — projeto Supabase provisionado
+
+Data: 30/07/2026
+
+Com autorização expressa, `Site Kelvin Vinicius` foi pausado de forma
+recuperável para liberar a cota gratuita. `Maxsuell Bomfim | Defesa em Saúde`
+permaneceu ativo e intocado.
+
+O projeto `Barreiras em Dados` foi criado em `sa-east-1`, com custo confirmado
+de US$ 0/mês, e verificado como `ACTIVE_HEALTHY`. Nenhuma migration, seed, chave,
+bucket ou configuração de Auth foi aplicada nesta operação.
+
+O próximo gate passa a ser: aplicar migrations e seed versionados, executar
+advisors de segurança/desempenho, verificar schemas internos, provisionar
+identidade dedicada do coletor e criar o bucket privado sem acesso público.

@@ -18,15 +18,14 @@ estatísticos em acusações.
 ## Etapa ativa
 
 A etapa ativa é **1A — coleta preservada do Diário**. Páginas JSON podem ser
-preservadas em modo local append-only, sem segredo ou provedor, e o replay de
-uma janela real já foi validado. O próximo limite é baixar PDF/TXT como
-artefatos filhos no mesmo acervo local. Parser de atos e PNCP continuam fora de
-escopo.
+preservadas em modo local append-only e o replay de uma janela real já foi
+validado. Um projeto Supabase isolado chamado `Barreiras em Dados` está ativo em
+São Paulo. O próximo gate é aplicar migrations e seed, executar advisors,
+provisionar login membro de `collector_worker` e restringir o bucket privado.
 
-Antes de staging ou publicação, escolha um provedor separado, aplique migrations
-em PostgreSQL descartável, use login membro de `collector_worker`, restrinja o
-armazenamento privado e repita o teste de restauração por SHA-256. Não reutilize,
-pause ou apague projetos externos para liberar cota.
+Somente depois desse gate, baixe PDF/TXT como artefatos filhos. Parser de atos e
+PNCP continuam fora de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não
+apagado, para liberar a cota; não o reutilize nem altere os demais projetos.
 
 ## Regras inegociáveis
 

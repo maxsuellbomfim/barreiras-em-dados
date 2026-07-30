@@ -29,9 +29,10 @@ Em `development` e `test`, o modo `filesystem`:
 Esse manifesto é um pacote local de evidência e replay. Ele não substitui o
 PostgreSQL como banco operacional nem é permitido em staging ou produção.
 
-O futuro provedor deverá oferecer PostgreSQL padrão e armazenamento privado
-compatível com S3 ou uma nova implementação da mesma porta. Auth poderá ser
-escolhido separadamente.
+O provedor atual ou uma substituição futura deverá oferecer PostgreSQL padrão e
+armazenamento privado compatível com S3 ou uma nova implementação da mesma
+porta. Auth poderá ser escolhido separadamente. O provisionamento posterior de
+um projeto Supabase isolado não altera esta decisão de portabilidade.
 
 ## Consequências
 
