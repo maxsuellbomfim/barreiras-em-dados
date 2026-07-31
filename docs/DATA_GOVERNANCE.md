@@ -91,6 +91,32 @@ para revisão/DLQ; não são descartados silenciosamente.
 - documentos brutos são classificados antes de receber acesso público;
 - fixtures removem dados pessoais não necessários.
 
+## Identidade e relações
+
+- nome semelhante nunca confirma pessoa ou empresa;
+- CNPJ exato pode confirmar pessoa jurídica dentro da validade e da fonte;
+- CPF completo não é chave pública e não aparece em projeções;
+- associação de pessoa natural exige identificador permitido ou revisão humana
+  com duas evidências independentes quando houver impacto reputacional;
+- toda aresta de relacionamento possui evidência própria, data e validade;
+- vínculo societário, contratual, eleitoral ou funcional não implica amizade,
+  influência, benefício, coordenação ou culpa;
+- candidatos de reconciliação permanecem internos e expiram ou são resolvidos
+  por decisão auditada.
+
+## Dados judiciais, eleitorais e sancionatórios
+
+- processo aberto não equivale a condenação;
+- classe/assunto não substitui leitura do papel processual e da decisão;
+- sanção de pessoa jurídica não é herdada automaticamente por sócio,
+  administrador, agente público ou contratante;
+- declaração de bens do TSE é um retrato autodeclarado de uma eleição, não
+  patrimônio atual;
+- datas de início, fim, situação, recurso, retificação e fonte permanecem
+  visíveis;
+- nova classe de dado reputacional exige avaliação de impacto, base/finalidade,
+  minimização, política editorial e revisão jurídica antes da coleta em escala.
+
 ## Retenção
 
 | Dado | Política inicial |

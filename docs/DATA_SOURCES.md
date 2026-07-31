@@ -29,6 +29,15 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | PNCP | contratações, itens, resultados, contratos, documentos | P1 | documentação inicial |
 | SICONFI | demonstrativos contábeis e fiscais | P2 | documentação inicial |
 | TCM-BA | dados municipais e prestações | P2 | descoberta |
+| Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | documentação inicial |
+| Tesouro Transparente | transferências constitucionais/legais e emendas | P3 | documentação inicial |
+| Transparência Bahia | transferências a municípios, despesas e emendas estaduais | P3 | descoberta inicial |
+| Câmara dos Deputados | mandatos, proposições, votações e despesas | P3 | API confirmada |
+| Assembleia Legislativa da Bahia | parlamentares, comissões e proposições | P3 | API indicada; contrato a descobrir |
+| TSE Dados Abertos | candidaturas, resultados e bens declarados | P4 | datasets confirmados |
+| CGU/Portal da Transparência | CEIS, CNEP, CEPIM, CEAF, acordos e emendas | P4 | API confirmada; token necessário |
+| Receita Federal — CNPJ aberto | empresas e QSA | P4 | download em lote; descoberta |
+| CNJ/DataJud | metadados processuais sem partes no schema público | bloqueada | gate jurídico |
 
 ## Querido Diário
 
@@ -116,6 +125,81 @@ Não reduzir o SICONFI diretamente a um indicador sem antes guardar as linhas qu
 o compõem.
 
 Referência: [API SICONFI](https://apidatalake.tesouro.gov.br/docs/siconfi/)
+
+## Transferências e emendas
+
+Usar fontes complementares, sem somar estágios diferentes:
+
+- Transferegov para parcerias, transferências especiais e respectivos eventos
+  financeiros;
+- Tesouro Transparente para transferências constitucionais/legais e conjuntos
+  de emendas;
+- Portal da Transparência/CGU para emendas e documentos de despesa;
+- Transparência Bahia para recursos estaduais e transferências a municípios;
+- API local da Prefeitura para receita e PDC de emendas/transferências.
+
+Em 17/07/2026, o Transferegov anunciou novo ambiente de APIs e descontinuação do
+ambiente anterior em 31/08/2026. O conector deverá apontar para o ambiente novo
+e registrar versão do contrato.
+
+Referências:
+
+- [APIs públicas do Transferegov](https://api-publica.transferegov.gestao.gov.br/)
+- [Comunicado de migração de 2026](https://www.gov.br/obrasgov/pt-br/noticias/2026/comunicado-23-2026-mudancas-nos-acessos-as-apis-de-dados-abertos-do-transferegov-br-e-do-obrasgov-br)
+- [Transferências no Tesouro Transparente](https://www.tesourotransparente.gov.br/temas/estados-e-municipios/transferencias-a-estados-e-municipios)
+- [Informações de municípios — Transparência Bahia](https://www.transparencia.ba.gov.br/InformacaoMunicipio)
+
+## Representação legislativa e eleições
+
+A Câmara dos Deputados possui API REST e downloads oficiais para deputados,
+despesas, órgãos, proposições, eventos e votações. A ALBA informa uma API de
+parlamentares, comissões, normas, proposições e trâmites; endpoints e condições
+ainda precisam de inventário.
+
+O TSE fornece datasets por eleição, inclusive candidaturas e bens declarados.
+Cada declaração será vinculada à eleição e candidatura; não será tratada como
+patrimônio atual.
+
+Referências:
+
+- [API da Câmara dos Deputados](https://dadosabertos.camara.leg.br/swagger/api.html)
+- [Dados abertos da ALBA](https://www.al.ba.gov.br/transparencia/avisos2)
+- [Candidatos e bens — TSE](https://dadosabertos.tse.jus.br/group/candidatos)
+
+## Sanções e vínculos societários
+
+A API do Portal da Transparência/CGU oferece CEIS, CNEP, CEPIM, CEAF e acordos
+de leniência. O consumo requer token por e-mail e respeita limites por horário.
+Consultas volumosas devem preferir downloads de dados abertos.
+
+O CNPJ aberto da Receita Federal contém estabelecimentos, empresas e QSA em
+arquivos de lote. A API de consulta CNPJ do Conecta gov.br não deve ser
+presumida pública para este projeto: a documentação a destina a órgãos e
+entidades federais habilitados.
+
+Referências:
+
+- [API do Portal da Transparência](https://portaldatransparencia.gov.br/api-de-dados/)
+- [Dados abertos do CNPJ](https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/dados-abertos/cadastros)
+- [Metadados do CNPJ](https://www.gov.br/receitafederal/dados/cnpj-metadados.pdf)
+
+## DataJud
+
+A API Pública do DataJud disponibiliza metadados de processos públicos. O
+glossário documenta número, classe, assuntos, órgão julgador e movimentos, mas
+não partes, nomes ou CPF/CNPJ. Logo, não implementa busca confiável por pessoa.
+
+O termo de uso versão 1.2 limita tratamento de dados pessoais, atribui ao
+usuário a responsabilidade pela interpretação, limita a 120 requisições por
+minuto sem autorização e exige ciência ao CNJ sobre material derivado divulgado
+publicamente. A fonte fica bloqueada para perfis de pessoas até revisão jurídica
+qualificada e esclarecimento formal do CNJ.
+
+Referências:
+
+- [API Pública do DataJud](https://datajud-wiki.cnj.jus.br/api-publica/)
+- [Glossário público](https://datajud-wiki.cnj.jus.br/api-publica/glossario/)
+- [Termo de uso v1.2](https://formularios.cnj.jus.br/wp-content/uploads/2023/11/Termos-de-uso-api-publica-V1.2.pdf)
 
 ## Portais locais e TCM-BA
 

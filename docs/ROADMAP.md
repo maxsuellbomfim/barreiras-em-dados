@@ -127,7 +127,54 @@ Gate:
 Entradas independentes, cada uma com política de minimização e gate próprio.
 Folha não será simplesmente importada e publicada integralmente.
 
-## Etapa 5 — Anomalias
+## Etapa 5 — Fluxos territoriais
+
+- receita diária somente após modelar data contábil, estornos e atualização;
+- transferências constitucionais, legais, voluntárias, fundo a fundo e
+  especiais;
+- emendas por autoria, beneficiário, objeto e estágio financeiro;
+- recursos estaduais e federais destinados a Barreiras;
+- páginas de órgãos e secretarias com atos, metas e execução verificáveis.
+
+Gate:
+
+- valores reconciliados sem somar estágios incompatíveis;
+- cobertura e atraso visíveis;
+- vínculo entre entrada e despesa somente com chave determinística ou revisão;
+- nenhuma nota subjetiva de utilidade ou desempenho.
+
+## Etapa 6 — Representação política
+
+- critérios públicos de vínculo territorial;
+- mandatos estaduais e federais acompanhados;
+- proposições, votações, comissões, agenda e despesas;
+- emendas relacionadas a Barreiras;
+- declarações eleitorais por pleito, com limitações.
+
+Gate:
+
+- identidade e vínculo territorial revisados;
+- metodologia igual para partido, gestão e pessoa;
+- bens eleitorais não apresentados como patrimônio atual;
+- nenhuma conclusão reputacional automática.
+
+## Etapa 7 — Registros oficiais e rede de vínculos
+
+- CEIS, CNEP, CEPIM, CEAF e acordos por identificador exato;
+- QSA da Receita Federal com minimização;
+- rede de vínculos públicos em PostgreSQL e React Flow;
+- exportações verificáveis em PDF, DOCX e XLSX;
+- avaliação separada do DataJud.
+
+Gate:
+
+- evidência por nó e por aresta;
+- homônimo não publicado como identidade;
+- sanção não propagada a pessoas relacionadas;
+- exports auditados e submetidos às mesmas regras do portal;
+- DataJud liberado somente por parecer jurídico e esclarecimento do CNJ.
+
+## Etapa 8 — Anomalias
 
 Ativar apenas regras operacionais de baixo risco. Regras financeiras ou
 reputacionais exigem amostra anotada, especialista, revisão legal/editorial e
@@ -137,7 +184,7 @@ ADR adicional.
 
 - busca semântica/embeddings;
 - chatbot;
-- grafo societário;
+- banco de grafos dedicado;
 - ML complexo;
 - múltiplos municípios;
 - broker externo;

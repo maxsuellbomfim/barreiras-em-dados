@@ -81,10 +81,19 @@ produção. A decisão está no ADR 0008.
 - `hr`: pessoas, cargos, atos, concursos e folha minimizada;
 - `procurement`: fornecedores, compras, itens, propostas, contratos e obras;
 - `finance`: receitas e estágios da despesa;
+- `territory`: transferências intergovernamentais, emendas e vínculos com
+  Barreiras;
+- `legislative`: mandatos, atividades, votações e despesas parlamentares;
+- `integrity`: sanções e referências oficiais submetidas a gate editorial;
+- `relationships`: afirmações de vínculo documentado entre entidades;
 - `analysis`: regras e achados;
 - `editorial`: revisão, publicação, conflitos e alertas;
 - `evidence`: ligações entre afirmações derivadas e origem;
 - `audit`: eventos de auditoria.
+
+Os quatro domínios adicionais são limites futuros, não schemas autorizados na
+migration atual. Entram somente após descoberta da fonte, contrato, fixture,
+ameaças e ADR de ativação.
 
 ### `api`
 
@@ -140,6 +149,27 @@ PostgreSQL inicialmente:
 - índices B-tree compostos para estado editorial + data;
 - `pg_trgm` somente para busca tolerante de nomes;
 - paginação por cursor (`data`, `id`), não OFFSET em páginas profundas.
+
+## Relações e grafo
+
+O PostgreSQL continuará como fonte de verdade inicial. Nós públicos representam
+entidades normalizadas; arestas representam **afirmações de vínculo** com tipo,
+validade, método de resolução, estado editorial e evidência própria.
+
+React Flow será apenas a projeção interativa. O frontend não calcula identidade,
+centralidade reputacional ou “risco”. Banco de grafos só será considerado
+quando consultas reais e medições demonstrarem limitação do PostgreSQL.
+
+## Gateway de IA
+
+`services/agent-runtime` exporá, quando ativado, tarefas estreitas com entrada e
+saída tipadas. O domínio não conhecerá SDK de provedor. Cada chamada registra
+modelo, versão, template, hash da entrada, parâmetros, custo e decisão posterior.
+
+Segredos, conteúdo bruto e dados pessoais ficam fora do frontend. Respostas de
+modelo são candidatos; validação de schema não significa validação factual.
+Totais, conciliações, identidades e publicação continuam determinísticos ou
+humanos conforme o caso.
 
 ## Observabilidade
 

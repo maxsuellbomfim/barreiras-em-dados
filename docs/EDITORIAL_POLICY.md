@@ -59,6 +59,22 @@ de licitude. Regras:
 - proibição de título acusatório baseado em anomalia;
 - sem publicação automática, mesmo que a regra tenha alta confiança.
 
+### Gates adicionais
+
+| Conteúdo | Condição mínima |
+|---|---|
+| Sanção CEIS/CNEP/CEPIM/CEAF | identificador exato, vigência e fonte oficial |
+| Relação societária | fonte cadastral, papel, data e identidade resolvida |
+| Declaração eleitoral | eleição e aviso de que o valor é autodeclarado |
+| Processo judicial | papel processual e situação confirmados; revisão jurídica |
+| Grafo | evidência por aresta e ausência de inferência visual de culpa |
+| Exportação reputacional | revisão humana, auditoria e mesmas restrições do portal |
+
+DataJud não será usado para busca automática por nome com o contrato público
+atual. Seu schema documentado não oferece partes e seus termos exigem avaliação
+jurídica adicional. O módulo fica bloqueado até o gate registrado no
+[ADR 0009](adr/0009-territorial-observatory-and-reputational-boundary.md).
+
 ## Neutralidade
 
 - mesma metodologia para Prefeitura, Câmara, gestões, partidos e fornecedores;
@@ -67,6 +83,11 @@ de licitude. Regras:
 - dispensa ou inexigibilidade não é descrita como irregular por si;
 - nomeação, exoneração e aditivo são atos administrativos, sem valência
   editorial automática.
+- receber emenda, ter contrato, integrar sociedade ou aparecer no mesmo grafo
+  não indica favorecimento ou coordenação;
+- processo judicial não será descrito como condenação;
+- desempenho de secretaria será descrito por atos, metas e execução
+  verificáveis, não por nota editorial de “utilidade”.
 
 ## Correções
 
