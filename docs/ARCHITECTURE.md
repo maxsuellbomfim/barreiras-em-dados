@@ -160,6 +160,23 @@ React Flow será apenas a projeção interativa. O frontend não calcula identid
 centralidade reputacional ou “risco”. Banco de grafos só será considerado
 quando consultas reais e medições demonstrarem limitação do PostgreSQL.
 
+## Perfis políticos
+
+Um perfil é uma composição de projeções aprovadas dos domínios `org`, `hr`,
+`territory`, `legislative`, `integrity`, `relationships` e `editorial`. Não
+existe uma tabela “dossiê” nem um documento agregado como fonte de verdade.
+
+Coletores de TSE, Câmara, ALBA, portais locais, CGU ou outros publicadores podem
+executar independentemente na aquisição. A publicação respeita a ordem:
+
+`raw → contrato → normalização → identidade → reconciliação → revisão →
+projeção`.
+
+ETLs não recebem permissão de escrita em projeções públicas. Dados ausentes ou
+ainda não revisados permanecem `unavailable`, `not_collected` ou
+`under_review`; nunca são convertidos em zero, inexistência ou certidão
+positiva/negativa.
+
 ## Gateway de IA
 
 `services/agent-runtime` exporá, quando ativado, tarefas estreitas com entrada e

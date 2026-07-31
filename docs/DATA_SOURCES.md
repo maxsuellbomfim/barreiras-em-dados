@@ -35,8 +35,12 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | Câmara dos Deputados | mandatos, proposições, votações e despesas | P3 | API confirmada |
 | Assembleia Legislativa da Bahia | parlamentares, comissões e proposições | P3 | API indicada; contrato a descobrir |
 | TSE Dados Abertos | candidaturas, resultados e bens declarados | P4 | datasets confirmados |
+| TSE Prestação de Contas | receitas, despesas e doadores por candidatura | P4 | dataset confirmado; minimização pendente |
 | CGU/Portal da Transparência | CEIS, CNEP, CEPIM, CEAF, acordos e emendas | P4 | API confirmada; token necessário |
 | Receita Federal — CNPJ aberto | empresas e QSA | P4 | download em lote; descoberta |
+| IBAMA | autos de infração ambiental | bloqueada | fonte confirmada; gate reputacional |
+| ANAC/RAB | aeronaves e dados cadastrais | bloqueada | dataset confirmado; finalidade/LGPD pendentes |
+| SPU | imóveis da União em Barreiras | P4 | fonte territorial; não é patrimônio privado |
 | CNJ/DataJud | metadados processuais sem partes no schema público | bloqueada | gate jurídico |
 
 ## Querido Diário
@@ -157,14 +161,52 @@ parlamentares, comissões, normas, proposições e trâmites; endpoints e condi�
 ainda precisam de inventário.
 
 O TSE fornece datasets por eleição, inclusive candidaturas e bens declarados.
+Em 31/07/2026, o conjunto oficial “Candidatos - 2026” informa frequência diária
+e contém recursos separados para candidaturas, informações complementares, bens,
+coligações, vagas, motivos de cassação e redes sociais. Cada situação exibida
+deve trazer o instante da coleta; anúncio partidário não substitui registro
+oficial.
+
 Cada declaração será vinculada à eleição e candidatura; não será tratada como
 patrimônio atual.
+
+A prestação de contas eleitoral disponibiliza receitas e despesas de campanha.
+Doadores devem ser ligados pelo identificador da candidatura, nunca apenas por
+nome+UF. CPF, endereço, conta e outros dados de pessoa natural não entram na
+projeção pública sem análise específica de necessidade. O projeto utilizará o
+download oficial; não implementará “bypass de WAF”.
 
 Referências:
 
 - [API da Câmara dos Deputados](https://dadosabertos.camara.leg.br/swagger/api.html)
 - [Dados abertos da ALBA](https://www.al.ba.gov.br/transparencia/avisos2)
 - [Candidatos e bens — TSE](https://dadosabertos.tse.jus.br/group/candidatos)
+- [Candidatos — 2026](https://dadosabertos.tse.jus.br/dataset/candidatos-2026)
+- [Prestação de contas eleitoral — TSE](https://dadosabertos.tse.jus.br/group/prestacao-de-contas-eleitorais)
+
+## Registros administrativos e patrimônio público federal
+
+O IBAMA publica dados e consulta de autos de infração ambiental. Auto é ato
+administrativo sujeito a defesa, recurso, alteração e eventual cancelamento;
+não equivale automaticamente a decisão judicial ou condenação definitiva.
+Vínculo com perfil pessoal fica bloqueado até definir identificador, situação,
+histórico, minimização e revisão.
+
+O Registro Aeronáutico Brasileiro da ANAC possui arquivos abertos e consultas
+oficiais. A existência técnica da fonte não demonstra, por si, necessidade ou
+proporcionalidade para perfil político. O conector pessoal fica bloqueado até
+avaliação de impacto, finalidade pública, campos permitidos, identidade exata e
+política de publicação.
+
+Os dados da SPU descrevem imóveis **da União** e podem alimentar o mapa de
+presença federal em Barreiras. Eles não provam propriedade particular de agente
+político e não integrarão a seção de bens pessoais.
+
+Referências:
+
+- [Consulta e dados de autos — IBAMA](https://www.gov.br/ibama/pt-br/servicos/consultas/autuacoes-e-embargos/autos-de-infracao-ambiental/tutorial-de-pesquisa-de-autos-de-infracao)
+- [Dados abertos do RAB — ANAC](https://www.gov.br/anac/pt-br/acesso-a-informacao/dados-abertos/areas-de-atuacao/aeronaves-1/registro-aeronautico-brasileiro)
+- [Transparência ativa e dados abertos — SPU](https://www.gov.br/gestao/pt-br/assuntos/patrimonio-da-uniao/perguntas-frequentes-spu/transparencia-ativa-e-dados-abertos-1)
 
 ## Sanções e vínculos societários
 

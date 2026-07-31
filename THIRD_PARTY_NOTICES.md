@@ -12,3 +12,9 @@ As ideias avaliadas vieram de:
 Qualquer incorporação futura deve identificar arquivos, versão/commit, licença,
 atribuição e modificações. Dados e documentos coletados também devem registrar
 os termos da fonte quando aplicável.
+
+Em 31/07/2026, os ETLs do Polígrafo foram apenas inventariados. Foram
+identificados scripts demonstrativos com dados fictícios, recargas destrutivas,
+credencial administrativa e tratamento de identificadores pessoais
+incompatíveis com a arquitetura deste projeto. Nenhum desses trechos foi
+copiado.

@@ -12,6 +12,8 @@ Portal de pré-lançamento:
 - [Visão do produto](docs/PRODUCT_VISION.md)
 - [Arquitetura](docs/ARCHITECTURE.md)
 - [Fontes de dados](docs/DATA_SOURCES.md)
+- [Perfis públicos documentados](docs/POLITICAL_PROFILES.md)
+- [Matriz de ETLs e fontes](docs/ETL_SOURCE_MATRIX.md)
 - [Inventários técnicos das fontes](docs/sources/README.md)
 - [Estratégia de funcionalidades](docs/FEATURE_STRATEGY.md)
 - [Sistema de design](docs/DESIGN_SYSTEM.md)

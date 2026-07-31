@@ -145,11 +145,22 @@ Gate:
 
 ## Etapa 6 — Representação política
 
+### 6A — Perfil municipal mínimo
+
+- roster oficial de prefeito, vice, secretários e vereadores;
+- cargo, vigência, partido quando aplicável e evidência;
+- subsídio legal e remuneração bruta por competência;
+- candidaturas municipais de 2024 e candidaturas oficiais de 2026;
+- página com cobertura, atualização e correções.
+
+### 6B — Atuação e representação ampliada
+
 - critérios públicos de vínculo territorial;
 - mandatos estaduais e federais acompanhados;
 - proposições, votações, comissões, agenda e despesas;
 - emendas relacionadas a Barreiras;
-- declarações eleitorais por pleito, com limitações.
+- declarações eleitorais por pleito, com limitações;
+- fotos oficiais com metadados e histórico.
 
 Gate:
 
@@ -157,6 +168,7 @@ Gate:
 - metodologia igual para partido, gestão e pessoa;
 - bens eleitorais não apresentados como patrimônio atual;
 - nenhuma conclusão reputacional automática.
+- ausência de fonte não exibida como zero ou “ficha limpa”.
 
 ## Etapa 7 — Registros oficiais e rede de vínculos
 

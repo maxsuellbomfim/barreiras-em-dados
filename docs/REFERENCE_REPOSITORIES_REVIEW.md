@@ -46,6 +46,25 @@ histórico, em vez de produzir uma comparação nacional superficial.
 O conector novo usa `published_since`/`published_until`, preserva os bytes e
 falha de forma distinguível de resultado vazio.
 
+### Auditoria dos ETLs citados
+
+Em 31/07/2026, a leitura dos scripts confirmou:
+
+- `anac-sync.ts` e `ibama-sync.ts` inserem registros fictícios e não coletam as
+  fontes anunciadas;
+- `tse-sync-real.ts` não importa bens e grava `valor_total=0`;
+- frequência presume “ausência não justificada” para todo deputado não listado
+  no evento;
+- votações agregam abstenção com ausência;
+- CEAP, emendas, frequência, votações e servidores usam exclusão e recarga;
+- doadores são agrupados por nome+UF e seus CPF/CNPJ são armazenados em arrays;
+- ETLs usam `SUPABASE_SERVICE_ROLE_KEY` e gravam diretamente em caches;
+- os dois módulos CMRJ são específicos do Rio de Janeiro.
+
+Esses arquivos permanecem apenas como inventário de funcionalidades. A decisão
+por comando e a arquitetura substituta estão em
+[Matriz de ETLs e fontes](ETL_SOURCE_MATRIX.md).
+
 ## transparencia-politica-2026
 
 ### Aproveitar e adaptar
