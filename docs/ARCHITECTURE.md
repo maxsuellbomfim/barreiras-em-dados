@@ -28,7 +28,7 @@ flowchart LR
 
 | Caminho | Papel | Estado inicial |
 |---|---|---|
-| `apps/web` | Portal público Next.js | esqueleto |
+| `apps/web` | Portal público Next.js | pré-lançamento ativo |
 | `apps/admin` | Revisão humana Next.js | esqueleto |
 | `apps/public-api` | API pública versionada | contrato futuro |
 | `services/ingestion-api` | Controle interno de ingestão/health | esqueleto |
@@ -42,6 +42,27 @@ flowchart LR
 | `packages/data-contracts` | JSON Schemas canônicos | fundação |
 | `packages/evidence` | hashing e cadeia de evidência | esqueleto |
 | `packages/methodology` | regras e versões públicas | esqueleto |
+
+## Projeção pública inicial
+
+O portal não consulta schemas internos. O schema exposto `api` contém somente a
+função curada `get_querido_diario_collection_status()`, que entrega agregados
+não reputacionais da coleta preservada. A role anônima pode executar essa
+função, mas não possui `SELECT` em `raw.raw_records` ou `raw.raw_artifacts`.
+
+```mermaid
+flowchart LR
+    W["Servidor Next.js"] -->|"publishable key"| G["PostgREST / schema api"]
+    G --> F["RPC agregada versionada"]
+    F --> S["source.collection_runs"]
+    F --> R["raw: somente leitura privilegiada"]
+    G -. "grant negado" .-> R
+```
+
+A resposta recebe validação estrita de forma e versão metodológica no servidor,
+timeout de cinco segundos e revalidação a cada cinco minutos. Ausência de
+configuração, falha HTTP ou payload inesperado retorna “indisponível”; jamais é
+convertida em contagem zero.
 
 ## Camadas de dados
 

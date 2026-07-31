@@ -86,9 +86,9 @@ Região: `sa-east-1` (São Paulo).
 
 Estado verificado: `ACTIVE_HEALTHY`.
 
-Configurações aplicadas em 30/07/2026:
+Configurações aplicadas até 31/07/2026:
 
-- 5 migrations versionadas e registradas no histórico remoto;
+- 9 migrations versionadas e registradas no histórico remoto;
 - 40 tabelas internas e nenhuma tabela no schema `public`;
 - 3 fontes e 3 endpoints iniciais;
 - bucket `raw-artifacts` privado, limitado a 100 MB por objeto e com allowlist
@@ -105,6 +105,8 @@ Configurações aplicadas em 30/07/2026:
 - exatamente um objeto de 861 bytes no bucket e nenhum fora do prefixo;
 - extensão `pg_trgm` isolada em `extensions`;
 - 123 chaves estrangeiras com índice de cobertura;
+- workflow diário executado com sucesso e replay remoto idempotente;
+- projeção pública agregada no schema `api`, sem leitura anônima do bruto;
 - advisor sem alerta de RLS ou exposição de dados;
 - um aviso do Auth sobre proteção contra senhas vazadas desativada.
 
@@ -114,7 +116,6 @@ Configurações ainda pendentes:
 - Auth somente por convite para administradores;
 - MFA TOTP obrigatório para o painel;
 - proteção contra senhas vazadas no Auth não disponível no plano gratuito;
-- primeira coleta remota de um dia e replay idempotente;
 - política operacional de logs, backup e rotação.
 
 O procedimento sem compartilhamento de senhas está em
@@ -127,10 +128,12 @@ existente. A primeira versão pública está em:
 
 <https://barreiras-em-dados.vercel.app>
 
-Ela é uma página estática de pré-lançamento, sem segredos, Supabase, login,
-cookies, analytics ou dados municipais normalizados. O código validado está em
-`apps/web`; o health check público é `/api/health`. Detalhes, limitações e
-verificação estão em [`PUBLIC_PORTAL.md`](PUBLIC_PORTAL.md).
+Ela é uma página de pré-lançamento sem login, cookies, analytics ou dados
+municipais normalizados. O servidor web consulta somente uma projeção agregada
+e não reputacional do Supabase; o navegador não acessa tabelas internas. O
+código validado está em `apps/web`; o health check público é `/api/health`.
+Detalhes, limitações e verificação estão em
+[`PUBLIC_PORTAL.md`](PUBLIC_PORTAL.md).
 
 O repositório fixa Node `22.x`. `vercel.json` executa o build filtrado do
 workspace e aponta a saída para `apps/web/.next`. A identidade Git local deste
@@ -143,13 +146,17 @@ Vercel e a produção permanece publicamente acessível.
 
 ## Etapa 3 — chaves e variáveis
 
-### Podem chegar ao navegador
+### Projeção pública do portal
 
-- `NEXT_PUBLIC_SUPABASE_URL`;
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+Devem ser cadastradas na Vercel para `Production` e `Preview`:
 
-A chave publicável identifica o projeto, mas a segurança real continua
-dependendo de grants e RLS.
+- `PUBLIC_DATA_SUPABASE_URL`;
+- `PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY`.
+
+Essas variáveis são lidas somente pelo servidor Next.js, não têm prefixo
+`NEXT_PUBLIC_` e não incluem senha. A chave publicável identifica o projeto,
+mas a segurança real continua dependendo dos grants. O portal só pode executar
+`api.get_querido_diario_collection_status()` e não pode ler tabelas brutas.
 
 ### Somente servidor
 
@@ -244,9 +251,9 @@ isolamento exigirem.
 2. Acervo local imutável e replay de uma coleta de um dia — concluído.
 3. Aplicar migrations/seed e revisar advisors no Supabase — concluído.
 4. Provisionar a identidade do coletor e restringi-la ao banco e ao
-   bucket/prefixo — identidades e testes reais concluídos; replay remoto
-   pendente.
-5. Portal público de pré-lançamento na Vercel — concluído, sem dados cívicos.
+   bucket/prefixo — identidades, testes reais e replay remoto concluídos.
+5. Portal público de pré-lançamento na Vercel — concluído; projeção agregada da
+   coleta pronta e aguardando configuração das variáveis públicas.
 6. Download local de PDF/TXT e preservação como artefato filho.
 7. Health interno de fontes.
 8. Esqueleto do admin com Auth, MFA e auditoria.

@@ -35,6 +35,11 @@ try {
       ) then
         create role authenticated nologin;
       end if;
+      if not exists (
+        select 1 from pg_catalog.pg_roles where rolname = 'authenticator'
+      ) then
+        create role authenticator nologin;
+      end if;
     end
     $$;
 
@@ -311,7 +316,8 @@ try {
       raw_artifact_id, source_record_key, record_type, record_index, payload,
       payload_sha256, parser_version, idempotency_key, collected_at
     ) values (
-      '${artifactId}', 'gazette:1', 'querido_diario_gazette', 0, '{"v":1}',
+      '${artifactId}', 'gazette:1', 'querido_diario_gazette', 0,
+      '{"date":"2026-06-10","territory_id":"2903201","v":1}',
       '${"4".repeat(64)}', 'parser/1', '${"5".repeat(64)}', now()
     ) on conflict (idempotency_key) do nothing;
 
@@ -319,7 +325,8 @@ try {
       raw_artifact_id, source_record_key, record_type, record_index, payload,
       payload_sha256, parser_version, idempotency_key, collected_at
     ) values (
-      '${artifactId}', 'gazette:1', 'querido_diario_gazette', 0, '{"v":2}',
+      '${artifactId}', 'gazette:1', 'querido_diario_gazette', 0,
+      '{"date":"2026-06-10","territory_id":"2903201","v":2}',
       '${"6".repeat(64)}', 'parser/2', '${"7".repeat(64)}', now()
     ) on conflict (idempotency_key) do nothing;
 
@@ -327,7 +334,8 @@ try {
       raw_artifact_id, source_record_key, record_type, record_index, payload,
       payload_sha256, parser_version, idempotency_key, collected_at
     ) values (
-      '${artifactId}', 'gazette:1', 'querido_diario_gazette', 0, '{"v":2}',
+      '${artifactId}', 'gazette:1', 'querido_diario_gazette', 0,
+      '{"date":"2026-06-10","territory_id":"2903201","v":2}',
       '${"6".repeat(64)}', 'parser/2', '${"7".repeat(64)}', now()
     ) on conflict (idempotency_key) do nothing;
   `);
@@ -337,6 +345,39 @@ try {
       (select count(*)::integer from raw.raw_records) as records
   `);
   assert.deepEqual(replay.rows[0], { artifacts: 1, records: 2 });
+
+  const anonymousRawPrivilege = await database.query(`
+    select has_table_privilege(
+      'anon',
+      'raw.raw_records',
+      'SELECT'
+    ) as can_read_raw_records
+  `);
+  await database.exec("set role anon;");
+  const publicCollectionStatus = await database.query(`
+    select
+      source_slug,
+      latest_status,
+      coverage_start::text as coverage_start,
+      coverage_end::text as coverage_end,
+      preserved_response_count::integer as preserved_response_count,
+      preserved_edition_count::integer as preserved_edition_count,
+      methodology_version
+    from api.get_querido_diario_collection_status()
+  `);
+  await database.exec("reset role;");
+  assert.deepEqual(publicCollectionStatus.rows[0], {
+    source_slug: "querido-diario",
+    latest_status: "succeeded",
+    coverage_start: "2026-06-10",
+    coverage_end: "2026-06-10",
+    preserved_response_count: 1,
+    preserved_edition_count: 1,
+    methodology_version: "querido-diario-collection-status/1.0.0",
+  });
+  assert.deepEqual(anonymousRawPrivilege.rows[0], {
+    can_read_raw_records: false,
+  });
 
   await assert.rejects(
     database.exec(`

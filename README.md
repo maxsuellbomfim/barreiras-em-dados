@@ -40,6 +40,7 @@ Este repositório está na etapa 1A. O escopo ativo é:
   mínimo e replay manual;
 - acervo local append-only por SHA-256, sem dependência de nuvem;
 - portal público Next.js de pré-lançamento, sem dados cívicos não revisados;
+- status público agregado da coleta, sem expor tabelas brutas;
 - fixtures e testes do conector.
 
 Não existe ainda conteúdo público de caráter reputacional, detecção de
