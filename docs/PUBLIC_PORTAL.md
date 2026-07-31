@@ -1,5 +1,22 @@
 # Portal público de pré-lançamento
 
+Produção: [https://barreiras-em-dados.vercel.app](https://barreiras-em-dados.vercel.app)
+
+Estado em 30/07/2026:
+
+- projeto Vercel `barreiras-em-dados`;
+- ambiente `production`;
+- framework detectado: Next.js;
+- deployment aprovado: `dpl_6U24rq87y9Kp48K7iSPt1qP4L41U`;
+- estado `READY`, sem erro de alias;
+- página inicial e `/api/health` respondendo HTTP 200;
+- nenhum erro de runtime encontrado após a publicação.
+
+Uma primeira tentativa de pacote foi reprovada pelo teste pós-deploy porque a
+raiz respondia 404, apesar do health check saudável. Ela não permaneceu no alias
+de produção: um segundo pacote, limitado aos dez arquivos-fonte do aplicativo,
+foi compilado, verificado e promovido automaticamente pelo novo deploy.
+
 ## Objetivo desta versão
 
 O primeiro site público existe para tornar a construção observável sem antecipar
@@ -77,6 +94,12 @@ Antes da primeira publicação foram verificados:
 - links externos com `rel="noreferrer"`;
 - comportamento para `prefers-reduced-motion`,
   `prefers-reduced-transparency` e `prefers-contrast`.
+
+O navegador automatizado local confirmou o layout completo sem erros em desktop
+e mobile. A verificação remota usou a própria integração autenticada da Vercel,
+pois o Chrome automatizado do ambiente local bloqueia navegação externa; ela
+confirmou HTML completo, metadata, cabeçalhos, health e ausência de erro de
+runtime.
 
 ## Próxima menor evolução
 

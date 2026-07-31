@@ -4,6 +4,9 @@ Fundação de uma plataforma cívica municipal, apartidária e orientada a
 evidências para tornar dados públicos da Prefeitura e da Câmara Municipal de
 Barreiras (BA) mais verificáveis e compreensíveis.
 
+Portal de pré-lançamento:
+[barreiras-em-dados.vercel.app](https://barreiras-em-dados.vercel.app)
+
 ## Documentação essencial
 
 - [Visão do produto](docs/PRODUCT_VISION.md)

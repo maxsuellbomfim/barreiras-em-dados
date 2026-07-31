@@ -21,7 +21,7 @@ repositório contém apenas o nome da variável em `.env.example`.
 | GitHub CLI | instalado e autenticado | repositório e automações |
 | GitHub App | não autorizado | PRs, issues e revisão |
 | Supabase | `Barreiras em Dados` ativo | PostgreSQL, Auth e Storage |
-| Vercel | conectado | somente `apps/web` e `apps/admin` |
+| Vercel | produção ativa | somente `apps/web`; `apps/admin` ainda não criado |
 | Docker/Podman | não disponível | PostgreSQL em contêiner indisponível |
 | PostgreSQL `psql` | cliente 17.10 instalado | acesso interativo seguro |
 | Python/Node/pnpm | disponíveis | collectors, testes e monorepo |
@@ -113,12 +113,24 @@ Configurações ainda pendentes:
 - cadastro público desativado;
 - Auth somente por convite para administradores;
 - MFA TOTP obrigatório para o painel;
-- proteção contra senhas vazadas no Auth, caso disponível no plano;
+- proteção contra senhas vazadas no Auth não disponível no plano gratuito;
 - primeira coleta remota de um dia e replay idempotente;
 - política operacional de logs, backup e rotação.
 
 O procedimento sem compartilhamento de senhas está em
 [`COLLECTOR_CREDENTIALS.md`](COLLECTOR_CREDENTIALS.md).
+
+### Portal público na Vercel
+
+O projeto isolado `barreiras-em-dados` foi criado sem substituir nenhum projeto
+existente. A primeira versão pública está em:
+
+<https://barreiras-em-dados.vercel.app>
+
+Ela é uma página estática de pré-lançamento, sem segredos, Supabase, login,
+cookies, analytics ou dados municipais normalizados. O código validado está em
+`apps/web`; o health check público é `/api/health`. Detalhes, limitações e
+verificação estão em [`PUBLIC_PORTAL.md`](PUBLIC_PORTAL.md).
 
 ## Etapa 3 — chaves e variáveis
 
@@ -223,13 +235,15 @@ isolamento exigirem.
 2. Acervo local imutável e replay de uma coleta de um dia — concluído.
 3. Aplicar migrations/seed e revisar advisors no Supabase — concluído.
 4. Provisionar a identidade do coletor e restringi-la ao banco e ao
-   bucket/prefixo — identidades ativadas; testes reais e replay pendentes.
-5. Download local de PDF/TXT e preservação como artefato filho.
-6. Health interno de fontes.
-7. Esqueleto do admin com Auth, MFA e auditoria.
-8. Extração determinística inicial.
-9. Um provedor de IA para extração assistiva.
-10. Revisão humana e primeira página pública aprovada.
+   bucket/prefixo — identidades e testes reais concluídos; replay remoto
+   pendente.
+5. Portal público de pré-lançamento na Vercel — concluído, sem dados cívicos.
+6. Download local de PDF/TXT e preservação como artefato filho.
+7. Health interno de fontes.
+8. Esqueleto do admin com Auth, MFA e auditoria.
+9. Extração determinística inicial.
+10. Um provedor de IA para extração assistiva.
+11. Revisão humana e primeira página de dados aprovada.
 
 PNCP, folha, anomalias e múltiplos provedores de IA não começam antes da
 estabilização desse primeiro fluxo.
