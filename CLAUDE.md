@@ -24,8 +24,8 @@ São Paulo. Cinco migrations, o seed e o bucket privado `raw-artifacts` já fora
 aplicados; o advisor não aponta falha de RLS ou exposição de dados, mas registra
 proteção contra senhas vazadas desativada no Auth. Todas as chaves estrangeiras
 estão indexadas. A role `collector_querido_diario` possui LOGIN, limite de duas
-conexões e continua sem privilégios administrativos. O UUID Auth
-`d3e7a733-6101-4c9e-8d7a-d0f88a243eee` está ativo exclusivamente no bucket
+conexões e continua sem privilégios administrativos. O UUID Auth técnico ativo
+é `1575c740-fcff-4b1a-89a9-e8e5a314880a`, autorizado exclusivamente no bucket
 `raw-artifacts`, prefixo `querido-diario/gazettes/`, para `SELECT` e `INSERT`.
 O cliente `psql 17.10` está instalado sem servidor ou serviço local. A senha
 PostgreSQL foi criada por prompt interativo, sem exposição. O login real da role
@@ -34,13 +34,17 @@ de transação, `DELETE`/`UPDATE` no bruto foram negados e o rollback deixou zer
 registros temporários. A identidade Auth real também foi aprovada com chave
 publicável: criou e restaurou uma página legítima do Querido Diário, confirmou
 seu SHA-256 e foi impedida de sobrescrever, apagar ou sair do prefixo autorizado.
-Há exatamente um objeto de 861 bytes no bucket e nenhum fora do prefixo. O
-próximo gate é executar uma coleta remota de um dia, vincular esse objeto ao
-PostgreSQL e repetir o replay sem duplicação, sem compartilhar senhas.
+Há exatamente um objeto de 861 bytes no bucket e nenhum fora do prefixo. A
+coleta remota de um dia e o replay foram concluídos sem duplicação. As duas
+credenciais técnicas foram rotacionadas, validadas e guardadas somente no
+GitHub Actions. O workflow diário usa privilégio mínimo, backfill de até sete
+dias e DLQ sanitizada.
 
-Somente depois desse gate, baixe PDF/TXT como artefatos filhos. Parser de atos e
-PNCP continuam fora de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não
-apagado, para liberar a cota; não o reutilize nem altere os demais projetos.
+O próximo gate é validar a execução manual do workflow publicado e implementar
+status de coleta sem expor o esquema interno. Depois, baixe PDF/TXT como
+artefatos filhos. Parser de atos e PNCP continuam fora de escopo. O projeto
+`Site Kelvin Vinicius` foi pausado, não apagado, para liberar a cota; não o
+reutilize nem altere os demais projetos.
 
 ## Regras inegociáveis
 

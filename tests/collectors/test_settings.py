@@ -93,6 +93,51 @@ class CollectorSettingsTests(unittest.TestCase):
                 }
             )
 
+    def test_production_requires_verify_full_and_versioned_ca(self) -> None:
+        base = {
+            "APP_ENV": "production",
+            "PERSISTENCE_MODE": "postgres-supabase",
+            "SUPABASE_URL": "https://project.supabase.co",
+            "SUPABASE_PUBLISHABLE_KEY": ("sb_publishable_000000000000000000000000"),
+            "SUPABASE_WORKLOAD_EMAIL": "collector@example.org",
+            "SUPABASE_WORKLOAD_PASSWORD": "a-strong-workload-password-123",
+        }
+        for database_url in (
+            (
+                "postgresql://collector_querido_diario:password@db.example/"
+                "postgres?sslmode=require"
+            ),
+            (
+                "postgresql://collector_querido_diario:password@db.example/"
+                "postgres?sslmode=verify-full"
+            ),
+            (
+                "postgresql://collector_querido_diario:password@db.example/"
+                "postgres?sslmode=verify-full&sslrootcert=other.crt"
+            ),
+            (
+                "postgresql://collector_querido_diario:password@db.example/"
+                "postgres?sslmode=verify-full&sslrootcert=/tmp/"
+                "supabase-prod-ca-2021.crt"
+            ),
+        ):
+            with self.subTest(database_url=database_url):
+                with self.assertRaises(EnvironmentValidationError):
+                    PersistenceSettings.from_env({**base, "DATABASE_URL": database_url})
+
+        settings = PersistenceSettings.from_env(
+            {
+                **base,
+                "DATABASE_URL": (
+                    "postgresql://collector_querido_diario:password@db.example/"
+                    "postgres?sslmode=verify-full&sslrootcert=config/"
+                    "certificates/supabase-prod-ca-2021.crt"
+                ),
+            }
+        )
+
+        self.assertEqual(settings.mode, "postgres-supabase")
+
     def test_rejects_any_remote_database_role_except_dedicated_worker(
         self,
     ) -> None:

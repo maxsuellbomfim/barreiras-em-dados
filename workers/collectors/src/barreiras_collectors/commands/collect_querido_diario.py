@@ -36,7 +36,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if arguments.since > arguments.until:
         parser.error("--since não pode ser posterior a --until.")
-    if (arguments.until - arguments.since).days > MAX_WINDOW_DAYS:
+    if (arguments.until - arguments.since).days >= MAX_WINDOW_DAYS:
         parser.error(f"A janela inicial não pode exceder {MAX_WINDOW_DAYS} dias.")
     if not 1 <= arguments.page_size <= 100:
         parser.error("--page-size deve estar entre 1 e 100.")
