@@ -185,6 +185,25 @@ SUPABASE_RAW_ARTIFACTS_BUCKET=raw-artifacts
 8. o mesmo comando é repetido sem duplicação;
 9. o objeto é restaurado e o SHA-256 é comparado.
 
+### Execução assistida sem salvar segredos
+
+Na raiz do projeto, execute:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/run-first-remote-replay.ps1
+```
+
+O script solicita interativamente a URI do **Session pooler**, as duas senhas,
+a publishable key e o e-mail técnico. Senhas usam entrada oculta, permanecem
+somente na memória do processo e são removidas das variáveis de ambiente ao
+final. A URI copiada do Dashboard deve manter `[YOUR-PASSWORD]`; o script monta
+a conexão da role restrita e codifica a senha separadamente.
+
+Ele executa 10/06/2026 duas vezes. O gate exige dois registros na primeira
+leitura lógica e, no replay, zero inseridos e dois existentes. Cada execução
+restaura o objeto privado e confere hash e tamanho antes da transação no banco.
+
 ## Revogação
 
 Em incidente ou troca de responsável, nesta ordem:

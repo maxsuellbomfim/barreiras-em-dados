@@ -14,8 +14,13 @@ class CollectorSettingsTests(unittest.TestCase):
     def test_defaults_are_safe_and_municipal(self) -> None:
         settings = CollectorSettings.from_env({})
 
+        self.assertEqual(settings.log_level, "INFO")
         self.assertEqual(settings.querido_diario_territory_id, "2903201")
         self.assertEqual(settings.requests_per_minute, 30)
+
+    def test_rejects_invalid_log_level(self) -> None:
+        with self.assertRaises(EnvironmentValidationError):
+            CollectorSettings.from_env({"LOG_LEVEL": "verbose"})
 
     def test_default_persistence_is_local_and_requires_no_secret(self) -> None:
         settings = PersistenceSettings.from_env({})

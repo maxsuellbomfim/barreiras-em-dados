@@ -43,6 +43,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
+    logging.basicConfig(
+        level=getattr(logging, collector_settings.log_level),
+        format="%(message)s",
+        force=True,
+    )
     service = _build_persistence_service(persistence_settings)
     source = QueridoDiarioClient(
         base_url=collector_settings.querido_diario_base_url,

@@ -8,6 +8,13 @@ dev = ["ruff==0.15.22"]
 postgres = ["psycopg[binary]==3.3.4"]
 storage = ["supabase==2.31.0"]
 
+[tool.setuptools]
+package-dir = {"" = "workers/collectors/src"}
+
+[tool.setuptools.packages.find]
+where = ["workers/collectors/src"]
+include = ["barreiras_collectors*"]
+
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["tests"]

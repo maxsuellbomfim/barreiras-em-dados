@@ -16,6 +16,7 @@ class EnvironmentValidationError(ValueError):
 @dataclass(frozen=True)
 class CollectorSettings:
     app_env: str
+    log_level: str
     querido_diario_base_url: str
     querido_diario_territory_id: str
     requests_per_minute: int
@@ -32,6 +33,10 @@ class CollectorSettings:
         app_env = values.get("APP_ENV", "development")
         if app_env not in {"development", "test", "staging", "production"}:
             raise EnvironmentValidationError("APP_ENV inválido.")
+
+        log_level = values.get("LOG_LEVEL", "INFO").strip().upper()
+        if log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            raise EnvironmentValidationError("LOG_LEVEL inválido.")
 
         base_url = values.get(
             "QUERIDO_DIARIO_BASE_URL",
@@ -95,6 +100,7 @@ class CollectorSettings:
 
         return cls(
             app_env=app_env,
+            log_level=log_level,
             querido_diario_base_url=base_url,
             querido_diario_territory_id=territory_id,
             requests_per_minute=requests_per_minute,
