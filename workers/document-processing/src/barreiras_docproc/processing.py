@@ -9,6 +9,7 @@ from typing import Protocol
 
 from .candidates import RULESET_VERSION, ActCandidate, find_candidates
 from .canonical import CanonicalText, derive_canonical_text
+from .fields import extract_act_fields, fields_payload
 
 
 class ProcessingError(RuntimeError):
@@ -67,10 +68,16 @@ def candidate_payload(
     artifact: TextArtifact,
 ) -> dict[str, object]:
     """Payload reproduzível: quem reproduzir o texto acha o mesmo trecho."""
+    fields = extract_act_fields(
+        canonical.text,
+        match_start=candidate.match_start,
+        match_end=candidate.match_end,
+    )
     return {
         "schema_name": "gazette-act-candidate",
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "act_type": candidate.act_type,
+        "fields": fields_payload(fields),
         "rule_id": candidate.rule_id,
         "ruleset_version": candidate.ruleset_version,
         "match_start": candidate.match_start,
