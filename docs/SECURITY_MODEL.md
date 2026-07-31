@@ -80,8 +80,12 @@
 - verificação de SHA-256 após upload;
 - object key derivada do hash, sem dados pessoais;
 - operações pelo Storage API, sem editar tabelas `storage` diretamente.
-- credencial ampla de Storage somente em ambiente controlado; produção exige
-  identidade de workload limitada ao bucket/prefixo e teste negativo de acesso.
+- coletor autenticado por usuário Auth técnico e chave publicável;
+- allowlist interna por UUID, bucket, prefixo, operação, estado e validade;
+- somente `SELECT` e `INSERT`; ausência explícita de `UPDATE` e `DELETE`;
+- secret/service role recusada pelo coletor porque ignora RLS;
+- desativação exige primeiro suspender a allowlist e a role PostgreSQL, depois
+  revogar as sessões Auth.
 - modo local permitido somente em `development`/`test`;
 - diretório local relativo, fora do Git e sem links simbólicos;
 - criação exclusiva de objetos/manifestos e verificação pelo hash do nome;

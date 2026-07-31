@@ -45,8 +45,18 @@ python -m pip install -e ".[postgres,storage]"
 $env:PERSISTENCE_MODE='postgres-supabase'
 ```
 
-Ele exige `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY` e o bucket
-privado `raw-artifacts`.
+Ele exige:
+
+- `DATABASE_URL` com o login `collector_querido_diario`;
+- `SUPABASE_URL`;
+- `SUPABASE_PUBLISHABLE_KEY`;
+- `SUPABASE_WORKLOAD_EMAIL`;
+- `SUPABASE_WORKLOAD_PASSWORD`;
+- bucket privado `raw-artifacts`.
+
+O usuário Auth técnico é autorizado por UUID somente para `SELECT` e `INSERT`
+em `querido-diario/gazettes/`. O coletor rejeita `SUPABASE_SECRET_KEY` e
+`SUPABASE_SERVICE_ROLE_KEY`, pois essas chaves ignoram RLS.
 
 Não use `postgres` como login do worker em staging/produção. Provisione um login
 dedicado como membro de `collector_worker`; o papel não possui `DELETE` nem

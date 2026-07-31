@@ -167,14 +167,17 @@ Métricas mínimas:
 ## Identidades de execução
 
 O PostgreSQL possui um papel-base `collector_worker` sem login. O login real é
-provisionado fora das migrations e recebe esse papel; não usa o proprietário
-`postgres`. Os grants do papel permitem apenas ler cadastros, criar/atualizar
-estado de coleta e inserir no bruto. Não há `DELETE` ou `UPDATE` em artefatos e
-registros brutos.
+ativado fora das migrations sobre a role desabilitada
+`collector_querido_diario`, que recebe esse papel e nunca usa o proprietário
+`postgres`. Os grants permitem apenas ler cadastros, criar/atualizar estado de
+coleta e inserir no bruto. Não há `DELETE` ou `UPDATE` em artefatos e registros
+brutos.
 
-Uma chave administrativa de qualquer provedor pode ser usada apenas em ensaio
-controlado. Produção exige identidade de workload restrita ao bucket, prefixo e
-operações necessárias. Chaves amplas nunca chegam ao frontend.
+No Storage, o mesmo workload autentica com chave publicável e usuário Auth
+técnico. Uma allowlist interna associa seu UUID ao bucket `raw-artifacts`, ao
+prefixo `querido-diario/gazettes/` e somente às operações `SELECT` e `INSERT`.
+Não existe política de `UPDATE` ou `DELETE`. O coletor recusa chaves
+secret/service role, que ignorariam RLS.
 
 ## Referências
 

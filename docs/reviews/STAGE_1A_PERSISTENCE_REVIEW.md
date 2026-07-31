@@ -222,3 +222,43 @@ negativos continuam sendo o gate antes da primeira escrita remota.
 
 Somente depois desse gate: baixar PDF/TXT como artefatos filhos. Parser de atos,
 admin e PNCP permanecem fora desta etapa.
+
+## Adendo — fronteiras da identidade do coletor
+
+Data: 30/07/2026
+
+Duas migrations adicionais foram aplicadas no projeto `Barreiras em Dados`:
+
+1. `provision_collector_workload_boundaries`;
+2. `deny_direct_workload_identity_access`.
+
+O banco agora possui 40 tabelas internas. A role
+`collector_querido_diario` foi criada com `NOLOGIN`, `INHERIT`, limite de duas
+conexões e sem privilégios administrativos. Ela é membro de `collector_worker`,
+herda inserções por coluna e continua sem `DELETE` em `raw_artifacts` nem
+`UPDATE` em `raw_records`.
+
+O Storage recebeu duas policies para `authenticated`: `SELECT` e `INSERT`.
+Ambas exigem UUID presente e ativo em
+`audit.storage_workload_identities`, bucket `raw-artifacts` e prefixo
+`querido-diario/gazettes/`. A allowlist está vazia; o projeto continua com zero
+usuários Auth. Acesso direto à allowlist possui política restritiva de negação.
+
+### Testes
+
+- UUID Auth não cadastrado: leitura e inserção negadas;
+- outro bucket: negado;
+- outro prefixo: negado;
+- operação `DELETE`: negada;
+- função de autorização: executável por `authenticated`, não por `anon`;
+- advisor de segurança depois das policies: zero alertas;
+- teste local de RLS permite o prefixo correto e bloqueia fuga de prefixo e
+  exclusão;
+- coletor atualizado para chave publicável + sessão Auth;
+- secret/service role recusada pela validação de ambiente;
+- 35 testes Python aprovados.
+
+Nenhuma senha, usuário Auth ou login PostgreSQL foi ativado. A próxima ação é
+manual e está descrita em `docs/COLLECTOR_CREDENTIALS.md`: o responsável cria o
+usuário técnico no painel, guarda sua senha fora do chat e informa somente o
+User UID.

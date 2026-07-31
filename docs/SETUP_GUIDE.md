@@ -87,12 +87,16 @@ Estado verificado: `ACTIVE_HEALTHY`.
 
 Configurações aplicadas em 30/07/2026:
 
-- 3 migrations versionadas e registradas no histórico remoto;
-- 39 tabelas internas e nenhuma tabela no schema `public`;
+- 5 migrations versionadas e registradas no histórico remoto;
+- 40 tabelas internas e nenhuma tabela no schema `public`;
 - 3 fontes e 3 endpoints iniciais;
 - bucket `raw-artifacts` privado, limitado a 100 MB por objeto e com allowlist
   de MIME;
 - role-base `collector_worker` sem login, sem `DELETE` ou `UPDATE` no bruto;
+- role `collector_querido_diario` sem LOGIN, membro de `collector_worker` e
+  limitada a 2 conexões;
+- políticas do Storage para `SELECT` e `INSERT` apenas no prefixo
+  `querido-diario/gazettes/`, vinculadas a UUID Auth autorizado;
 - extensão `pg_trgm` isolada em `extensions`;
 - 123 chaves estrangeiras com índice de cobertura;
 - advisors sem alerta de segurança.
@@ -102,10 +106,14 @@ Configurações ainda pendentes:
 - cadastro público desativado;
 - Auth somente por convite para administradores;
 - MFA TOTP obrigatório para o painel;
-- política restrita do Storage para o bucket e o prefixo do coletor;
-- login PostgreSQL dedicado membro de `collector_worker`;
+- criação do usuário Auth técnico e registro do seu UUID na allowlist;
+- ativação de LOGIN e senha da role `collector_querido_diario` por canal
+  interativo seguro;
 - teste negativo usando a identidade real do workload;
 - política operacional de logs, backup e rotação.
+
+O procedimento sem compartilhamento de senhas está em
+[`COLLECTOR_CREDENTIALS.md`](COLLECTOR_CREDENTIALS.md).
 
 ## Etapa 3 — chaves e variáveis
 
@@ -121,12 +129,18 @@ dependendo de grants e RLS.
 
 - `DATABASE_URL`;
 - `SUPABASE_URL`;
-- `SUPABASE_SECRET_KEY`;
-- credencial restrita do Storage;
+- `SUPABASE_WORKLOAD_EMAIL`;
+- `SUPABASE_WORKLOAD_PASSWORD`;
 - chaves de provedores de IA;
 - segredos de e-mail ou alertas.
 
 Nenhuma variável server-side recebe prefixo `NEXT_PUBLIC_`.
+
+O coletor usa `SUPABASE_PUBLISHABLE_KEY` junto da sessão do usuário Auth
+técnico. Ele recusa `SUPABASE_SECRET_KEY` e `SUPABASE_SERVICE_ROLE_KEY`, pois
+essas chaves ignoram RLS. A chave publicável pode ser conhecida pelo cliente; a
+senha do workload e a senha PostgreSQL nunca são enviadas ao repositório ou ao
+chat.
 
 No Vercel, segredos de Preview e Production devem ser marcados como
 **Sensitive**. Collectors não usam segredos do Vercel; usam o ambiente do worker
@@ -203,8 +217,8 @@ isolamento exigirem.
 1. GitHub privado e primeiro commit — concluído.
 2. Acervo local imutável e replay de uma coleta de um dia — concluído.
 3. Aplicar migrations/seed e revisar advisors no Supabase — concluído.
-4. Provisionar login do coletor e restringir sua identidade ao banco e ao
-   bucket/prefixo — etapa ativa.
+4. Provisionar a identidade do coletor e restringi-la ao banco e ao
+   bucket/prefixo — limites aplicados; ativação segura pendente.
 5. Download local de PDF/TXT e preservação como artefato filho.
 6. Health interno de fontes.
 7. Esqueleto do admin com Auth, MFA e auditoria.

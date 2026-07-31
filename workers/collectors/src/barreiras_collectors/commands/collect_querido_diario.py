@@ -111,7 +111,9 @@ def _build_persistence_service(
     if (
         settings.database_url is None
         or settings.supabase_url is None
-        or settings.supabase_secret_key is None
+        or settings.supabase_publishable_key is None
+        or settings.supabase_workload_email is None
+        or settings.supabase_workload_password is None
         or settings.raw_artifacts_bucket is None
     ):
         raise RuntimeError("Configuração de nuvem incompleta.")
@@ -124,8 +126,22 @@ def _build_persistence_service(
 
     supabase_client = create_client(
         settings.supabase_url,
-        settings.supabase_secret_key,
+        settings.supabase_publishable_key,
     )
+    try:
+        authentication = supabase_client.auth.sign_in_with_password(
+            {
+                "email": settings.supabase_workload_email,
+                "password": settings.supabase_workload_password,
+            }
+        )
+    except Exception as error:
+        raise RuntimeError(
+            "Falha ao autenticar a identidade técnica do Storage."
+        ) from error
+    if authentication.session is None or authentication.user is None:
+        raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
+
     bucket_client = supabase_client.storage.from_(settings.raw_artifacts_bucket)
     return QueridoDiarioPersistenceService(
         object_store=SupabaseStorageObjectStore(bucket_client),

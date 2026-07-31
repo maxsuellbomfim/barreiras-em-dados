@@ -110,7 +110,9 @@ class PersistenceSettings:
     local_data_directory: Path | None
     database_url: str | None
     supabase_url: str | None
-    supabase_secret_key: str | None
+    supabase_publishable_key: str | None
+    supabase_workload_email: str | None
+    supabase_workload_password: str | None
     raw_artifacts_bucket: str | None
 
     @classmethod
@@ -148,17 +150,25 @@ class PersistenceSettings:
                 local_data_directory=local_directory,
                 database_url=None,
                 supabase_url=None,
-                supabase_secret_key=None,
+                supabase_publishable_key=None,
+                supabase_workload_email=None,
+                supabase_workload_password=None,
                 raw_artifacts_bucket=None,
             )
 
         database_url = _required(values, "DATABASE_URL")
         supabase_url = _required(values, "SUPABASE_URL").rstrip("/")
-        secret_key = _required(values, "SUPABASE_SECRET_KEY")
+        publishable_key = _required(values, "SUPABASE_PUBLISHABLE_KEY")
+        workload_email = _required(values, "SUPABASE_WORKLOAD_EMAIL")
+        workload_password = _required(values, "SUPABASE_WORKLOAD_PASSWORD")
         bucket = values.get("SUPABASE_RAW_ARTIFACTS_BUCKET", "raw-artifacts")
         if bucket != "raw-artifacts":
             raise EnvironmentValidationError(
                 "SUPABASE_RAW_ARTIFACTS_BUCKET deve ser raw-artifacts."
+            )
+        if values.get("SUPABASE_SECRET_KEY") or values.get("SUPABASE_SERVICE_ROLE_KEY"):
+            raise EnvironmentValidationError(
+                "O coletor não aceita secret/service role que ignore RLS."
             )
 
         parsed_database = urlparse(database_url)
@@ -166,6 +176,7 @@ class PersistenceSettings:
             parsed_database.scheme not in {"postgres", "postgresql"}
             or not parsed_database.hostname
             or not parsed_database.username
+            or not parsed_database.password
         ):
             raise EnvironmentValidationError("DATABASE_URL não é uma URL PostgreSQL.")
 
@@ -180,12 +191,10 @@ class PersistenceSettings:
             raise EnvironmentValidationError(
                 "DATABASE_URL remota deve exigir TLS por sslmode."
             )
-        if (
-            collector.app_env in {"staging", "production"}
-            and parsed_database.username == "postgres"
-        ):
+        database_role = parsed_database.username.split(".", maxsplit=1)[0]
+        if not local_database and database_role != "collector_querido_diario":
             raise EnvironmentValidationError(
-                "DATABASE_URL deve usar login dedicado do worker."
+                "DATABASE_URL remota deve usar collector_querido_diario."
             )
 
         parsed_supabase = urlparse(supabase_url)
@@ -209,15 +218,28 @@ class PersistenceSettings:
         ):
             raise EnvironmentValidationError("SUPABASE_URL inválida ou insegura.")
 
-        is_new_secret = secret_key.startswith("sb_secret_")
-        is_legacy_jwt = secret_key.count(".") == 2
         if (
-            len(secret_key) < 24
-            or any(character.isspace() for character in secret_key)
-            or not (is_new_secret or is_legacy_jwt)
+            not publishable_key.startswith("sb_publishable_")
+            or len(publishable_key) < 24
+            or any(character.isspace() for character in publishable_key)
         ):
             raise EnvironmentValidationError(
-                "SUPABASE_SECRET_KEY não possui formato de chave server-side."
+                "SUPABASE_PUBLISHABLE_KEY não possui o formato atual."
+            )
+        if (
+            workload_email.count("@") != 1
+            or any(character.isspace() for character in workload_email)
+            or len(workload_email) > 254
+        ):
+            raise EnvironmentValidationError(
+                "SUPABASE_WORKLOAD_EMAIL não é um e-mail técnico válido."
+            )
+        if len(workload_password) < 24 or any(
+            character.isspace() for character in workload_password
+        ):
+            raise EnvironmentValidationError(
+                "SUPABASE_WORKLOAD_PASSWORD deve ter ao menos 24 caracteres "
+                "sem espaços."
             )
 
         return cls(
@@ -225,7 +247,9 @@ class PersistenceSettings:
             local_data_directory=None,
             database_url=database_url,
             supabase_url=supabase_url,
-            supabase_secret_key=secret_key,
+            supabase_publishable_key=publishable_key,
+            supabase_workload_email=workload_email,
+            supabase_workload_password=workload_password,
             raw_artifacts_bucket=bucket,
         )
 

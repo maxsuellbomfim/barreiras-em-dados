@@ -20,11 +20,14 @@ estatísticos em acusações.
 A etapa ativa é **1A — coleta preservada do Diário**. Páginas JSON podem ser
 preservadas em modo local append-only e o replay de uma janela real já foi
 validado. Um projeto Supabase isolado chamado `Barreiras em Dados` está ativo em
-São Paulo. Três migrations, o seed e o bucket privado `raw-artifacts` já foram
+São Paulo. Cinco migrations, o seed e o bucket privado `raw-artifacts` já foram
 aplicados; os advisors não possuem alerta de segurança e todas as chaves
-estrangeiras estão indexadas. O próximo gate é provisionar um login dedicado
-membro de `collector_worker`, restringir o acesso ao bucket/prefixo e exercitar
-os testes negativos com a identidade real do workload.
+estrangeiras estão indexadas. A role `collector_querido_diario` existe sem
+LOGIN, e o Storage só aceitará um UUID Auth explicitamente ativado no prefixo
+`querido-diario/gazettes/`. O próximo gate depende do usuário: criar o usuário
+Auth técnico sem compartilhar a senha e informar somente seu UUID; depois,
+ativar a senha PostgreSQL por canal interativo seguro e executar os testes com
+as identidades reais.
 
 Somente depois desse gate, baixe PDF/TXT como artefatos filhos. Parser de atos e
 PNCP continuam fora de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não
