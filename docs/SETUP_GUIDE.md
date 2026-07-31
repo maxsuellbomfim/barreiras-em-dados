@@ -136,6 +136,8 @@ O repositório fixa Node `22.x`. `vercel.json` executa o build filtrado do
 workspace e aponta a saída para `apps/web/.next`. A identidade Git local deste
 repositório usa a mesma conta autenticada no GitHub/Vercel; isso evita que a
 proteção de autoria bloqueie previews de branches e pull requests.
+Next e React aparecem também como ferramentas de desenvolvimento da raiz porque
+a detecção da Vercel ocorre antes do build filtrado do monorepo.
 
 ## Etapa 3 — chaves e variáveis
 

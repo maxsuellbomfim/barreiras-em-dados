@@ -19,6 +19,9 @@
     "test": "node --test"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.4"
+    "@electric-sql/pglite": "0.5.4",
+    "next": "16.2.12",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   }
 }

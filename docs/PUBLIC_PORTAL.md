@@ -21,7 +21,9 @@ Um preview automático posterior foi bloqueado antes do build porque a identidad
 global do Git apontava para outra conta GitHub. A produção não foi afetada. A
 identidade foi alinhada, apenas neste repositório, com `maxsuellbomfim`, o Node
 foi fixado em `22.x` e o `vercel.json` da raiz passou a declarar explicitamente
-o build e a saída do `apps/web`.
+o build e a saída do `apps/web`. As mesmas versões de Next e React também estão
+nas `devDependencies` da raiz exclusivamente para a detecção inicial da Vercel;
+o aplicativo e seu código permanecem em `apps/web`.
 
 ## Objetivo desta versão
 
