@@ -56,8 +56,9 @@ Artefatos e registros recebidos. É append-only. Um artefato é identificado por
 SHA-256 do conteúdo, não por URL. A mesma URL pode entregar conteúdos diferentes
 e o mesmo conteúdo pode aparecer em URLs diferentes.
 
-Objetos grandes ficam em Storage/S3 privado. O PostgreSQL mantém hash, tamanho,
-MIME detectado, object key, cabeçalhos relevantes e metadados de coleta. A
+Objetos grandes ficam em armazenamento privado compatível com S3 ou em um
+adaptador equivalente. O PostgreSQL mantém hash, tamanho, MIME detectado,
+object key, cabeçalhos relevantes e metadados de coleta. A
 escrita usa chave endereçada pelo SHA-256 e não permite upsert. O worker restaura
 o objeto e verifica hash/tamanho antes de abrir a curta transação que registra
 execução, observação e registros brutos. Se o banco falhar, o objeto permanece
@@ -68,16 +69,31 @@ representa a observação — URL, horário e execução — e não impõe unici
 `object_key`. `raw_records` permite uma versão por
 `(raw_artifact_id, record_index, parser_version)`.
 
+Em desenvolvimento e testes, `PERSISTENCE_MODE=filesystem` grava os mesmos
+objetos em `data/local-evidence/objects` e manifestos canônicos em
+`data/local-evidence/manifests`. Esse acervo é append-only, detecta adulteração e
+fica fora do Git. Não substitui PostgreSQL nem pode ser usado em staging ou
+produção. A decisão está no ADR 0008.
+
 ### Domínios normalizados
 
 - `org`: órgãos e departamentos;
 - `hr`: pessoas, cargos, atos, concursos e folha minimizada;
 - `procurement`: fornecedores, compras, itens, propostas, contratos e obras;
 - `finance`: receitas e estágios da despesa;
+- `territory`: transferências intergovernamentais, emendas e vínculos com
+  Barreiras;
+- `legislative`: mandatos, atividades, votações e despesas parlamentares;
+- `integrity`: sanções e referências oficiais submetidas a gate editorial;
+- `relationships`: afirmações de vínculo documentado entre entidades;
 - `analysis`: regras e achados;
 - `editorial`: revisão, publicação, conflitos e alertas;
 - `evidence`: ligações entre afirmações derivadas e origem;
 - `audit`: eventos de auditoria.
+
+Os quatro domínios adicionais são limites futuros, não schemas autorizados na
+migration atual. Entram somente após descoberta da fonte, contrato, fixture,
+ameaças e ADR de ativação.
 
 ### `api`
 
@@ -134,6 +150,44 @@ PostgreSQL inicialmente:
 - `pg_trgm` somente para busca tolerante de nomes;
 - paginação por cursor (`data`, `id`), não OFFSET em páginas profundas.
 
+## Relações e grafo
+
+O PostgreSQL continuará como fonte de verdade inicial. Nós públicos representam
+entidades normalizadas; arestas representam **afirmações de vínculo** com tipo,
+validade, método de resolução, estado editorial e evidência própria.
+
+React Flow será apenas a projeção interativa. O frontend não calcula identidade,
+centralidade reputacional ou “risco”. Banco de grafos só será considerado
+quando consultas reais e medições demonstrarem limitação do PostgreSQL.
+
+## Perfis políticos
+
+Um perfil é uma composição de projeções aprovadas dos domínios `org`, `hr`,
+`territory`, `legislative`, `integrity`, `relationships` e `editorial`. Não
+existe uma tabela “dossiê” nem um documento agregado como fonte de verdade.
+
+Coletores de TSE, Câmara, ALBA, portais locais, CGU ou outros publicadores podem
+executar independentemente na aquisição. A publicação respeita a ordem:
+
+`raw → contrato → normalização → identidade → reconciliação → revisão →
+projeção`.
+
+ETLs não recebem permissão de escrita em projeções públicas. Dados ausentes ou
+ainda não revisados permanecem `unavailable`, `not_collected` ou
+`under_review`; nunca são convertidos em zero, inexistência ou certidão
+positiva/negativa.
+
+## Gateway de IA
+
+`services/agent-runtime` exporá, quando ativado, tarefas estreitas com entrada e
+saída tipadas. O domínio não conhecerá SDK de provedor. Cada chamada registra
+modelo, versão, template, hash da entrada, parâmetros, custo e decisão posterior.
+
+Segredos, conteúdo bruto e dados pessoais ficam fora do frontend. Respostas de
+modelo são candidatos; validação de schema não significa validação factual.
+Totais, conciliações, identidades e publicação continuam determinísticos ou
+humanos conforme o caso.
+
 ## Observabilidade
 
 Logs estruturados em JSON com `run_id`, `source_id`, `endpoint_id`,
@@ -151,6 +205,7 @@ Métricas mínimas:
 ## Ambientes
 
 - desenvolvimento local sem dados pessoais reais quando fixtures bastarem;
+- acervo local real limitado, ignorado pelo Git e sem publicação;
 - staging com buckets e banco separados;
 - produção com admin, secrets e logs isolados;
 - Vercel apenas para `apps/web` e `apps/admin`;
@@ -159,14 +214,17 @@ Métricas mínimas:
 ## Identidades de execução
 
 O PostgreSQL possui um papel-base `collector_worker` sem login. O login real é
-provisionado fora das migrations e recebe esse papel; não usa o proprietário
-`postgres`. Os grants do papel permitem apenas ler cadastros, criar/atualizar
-estado de coleta e inserir no bruto. Não há `DELETE` ou `UPDATE` em artefatos e
-registros brutos.
+ativado fora das migrations sobre a role desabilitada
+`collector_querido_diario`, que recebe esse papel e nunca usa o proprietário
+`postgres`. Os grants permitem apenas ler cadastros, criar/atualizar estado de
+coleta e inserir no bruto. Não há `DELETE` ou `UPDATE` em artefatos e registros
+brutos.
 
-Uma chave secreta do Supabase pode ser usada apenas no ensaio controlado do
-Storage. Como ela ignora RLS, produção exige identidade de workload restrita ao
-bucket e prefixo do coletor.
+No Storage, o mesmo workload autentica com chave publicável e usuário Auth
+técnico. Uma allowlist interna associa seu UUID ao bucket `raw-artifacts`, ao
+prefixo `querido-diario/gazettes/` e somente às operações `SELECT` e `INSERT`.
+Não existe política de `UPDATE` ou `DELETE`. O coletor recusa chaves
+secret/service role, que ignorariam RLS.
 
 ## Referências
 

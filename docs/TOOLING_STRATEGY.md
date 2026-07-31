@@ -8,7 +8,7 @@
 | Python | uv, Ruff, mypy, pytest e Hypothesis | lockfile, lint, tipos e testes |
 | HTTP | httpx e respx | transporte assíncrono e testes isolados |
 | Contratos | Pydantic e JSON Schema 2020-12 | validar fronteiras e fixtures |
-| Banco | Supabase CLI, pgTAP e SQLFluff | migrations, políticas e lint SQL |
+| Banco | PostgreSQL, pgTAP, SQLFluff e CLI do provedor | migrations e lint SQL |
 | Web | Playwright e axe-core | fluxos e acessibilidade |
 | Segurança | Gitleaks, Semgrep, OSV-Scanner e pip-audit | segredos, SAST e dependências |
 | Observabilidade | OpenTelemetry e logs JSON | traces de coleta a publicação |
@@ -30,10 +30,11 @@ commit SHA e permissões mínimas.
 ## Integrações úteis para o Claude Code
 
 - GitHub para issues, pull requests e CI;
-- Supabase em projeto local/desenvolvimento, com acesso restrito e sem
-  `service_role` de produção;
+- provedor PostgreSQL/Storage em projeto isolado, com acesso restrito e sem
+  credencial administrativa de produção;
 - navegador/Playwright para validar interfaces;
-- documentação oficial de Querido Diário, PNCP, SICONFI e Supabase.
+- documentação oficial de Querido Diário, PNCP, SICONFI, PostgreSQL e do
+  provedor escolhido.
 
 Agentes recebem apenas ferramentas necessárias ao módulo delegado. Revisores
 jurídico-editorial e de fontes continuam somente leitura.

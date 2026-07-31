@@ -9,6 +9,9 @@
 | 0005 | Regras determinísticas e revisão humana | Aceita |
 | 0006 | Fila durável inicial no PostgreSQL | Aceita |
 | 0007 | Interface calma e centrada em evidências | Aceita |
+| 0008 | PostgreSQL e armazenamento de objetos portáveis | Aceita |
+| 0009 | Observatório territorial e limite reputacional | Aceita |
+| 0010 | Perfis políticos compostos e ETLs raw-first | Aceita |
 
 Novas decisões usam o próximo número, registram alternativas e nunca reescrevem
 silenciosamente uma decisão aceita. Uma mudança cria novo ADR que supersede o

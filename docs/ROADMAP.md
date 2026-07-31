@@ -6,6 +6,14 @@ Uma fase só termina quando testes, segurança, qualidade de dados, documentaç�
 limitações e recuperação de falhas estiverem estáveis. “Código escrito” não é
 critério de saída.
 
+### Portal público de pré-lançamento
+
+Uma página institucional pode permanecer no ar durante a etapa 1A para explicar
+fontes, método e andamento. Ela não antecipa o gate da etapa 1C: não contém
+registros municipais normalizados, alegações, anomalias ou métricas de gestão.
+Todo número exibido nessa página descreve a infraestrutura e recebe contexto
+explícito.
+
 ## Etapa 0 — Fundação
 
 Escopo:
@@ -40,10 +48,18 @@ Menor próxima fatia vertical:
 Gate:
 
 - replay produz os mesmos registros sem duplicar;
+- modo local é restrito a desenvolvimento/teste e detecta adulteração;
 - 429/5xx/timeout/circuit breaker/DLQ testados;
 - lacunas e última coleta visíveis;
-- bucket privado e grants revisados;
-- restauração de um artefato por hash comprovada.
+- restauração de um artefato por hash comprovada;
+- antes de staging, bucket privado, grants e backup do provedor são revisados.
+
+Estado em 31/07/2026:
+
+- concluídos: seed, janela JSON pequena, Storage privado, hash, restauração,
+  persistência PostgreSQL e replay remoto idempotente;
+- pendentes para encerrar 1A: PDFs/textos com limites, status interno de
+  coleta, exercício integrado de DLQ/circuit breaker e revisão de backup.
 
 ## Etapa 1B — Documento e extração candidata
 
@@ -118,7 +134,66 @@ Gate:
 Entradas independentes, cada uma com política de minimização e gate próprio.
 Folha não será simplesmente importada e publicada integralmente.
 
-## Etapa 5 — Anomalias
+## Etapa 5 — Fluxos territoriais
+
+- receita diária somente após modelar data contábil, estornos e atualização;
+- transferências constitucionais, legais, voluntárias, fundo a fundo e
+  especiais;
+- emendas por autoria, beneficiário, objeto e estágio financeiro;
+- recursos estaduais e federais destinados a Barreiras;
+- páginas de órgãos e secretarias com atos, metas e execução verificáveis.
+
+Gate:
+
+- valores reconciliados sem somar estágios incompatíveis;
+- cobertura e atraso visíveis;
+- vínculo entre entrada e despesa somente com chave determinística ou revisão;
+- nenhuma nota subjetiva de utilidade ou desempenho.
+
+## Etapa 6 — Representação política
+
+### 6A — Perfil municipal mínimo
+
+- roster oficial de prefeito, vice, secretários e vereadores;
+- cargo, vigência, partido quando aplicável e evidência;
+- subsídio legal e remuneração bruta por competência;
+- candidaturas municipais de 2024 e candidaturas oficiais de 2026;
+- página com cobertura, atualização e correções.
+
+### 6B — Atuação e representação ampliada
+
+- critérios públicos de vínculo territorial;
+- mandatos estaduais e federais acompanhados;
+- proposições, votações, comissões, agenda e despesas;
+- emendas relacionadas a Barreiras;
+- declarações eleitorais por pleito, com limitações;
+- fotos oficiais com metadados e histórico.
+
+Gate:
+
+- identidade e vínculo territorial revisados;
+- metodologia igual para partido, gestão e pessoa;
+- bens eleitorais não apresentados como patrimônio atual;
+- nenhuma conclusão reputacional automática.
+- ausência de fonte não exibida como zero ou “ficha limpa”.
+
+## Etapa 7 — Registros oficiais e rede de vínculos
+
+- CEIS, CNEP, CEPIM, CEAF e acordos por identificador exato;
+- QSA da Receita Federal com minimização;
+- rede de vínculos públicos em PostgreSQL e React Flow;
+- exportações verificáveis em PDF, DOCX e XLSX;
+- avaliação separada do DataJud.
+
+Gate:
+
+- evidência por nó e por aresta;
+- homônimo não publicado como identidade;
+- sanção não propagada a pessoas relacionadas;
+- exports auditados e submetidos às mesmas regras do portal;
+- DataJud liberado somente por parecer jurídico e esclarecimento do CNJ.
+
+## Etapa 8 — Anomalias
 
 Ativar apenas regras operacionais de baixo risco. Regras financeiras ou
 reputacionais exigem amostra anotada, especialista, revisão legal/editorial e
@@ -128,7 +203,7 @@ ADR adicional.
 
 - busca semântica/embeddings;
 - chatbot;
-- grafo societário;
+- banco de grafos dedicado;
 - ML complexo;
 - múltiplos municípios;
 - broker externo;

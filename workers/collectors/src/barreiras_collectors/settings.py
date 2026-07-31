@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 
@@ -15,13 +16,13 @@ class EnvironmentValidationError(ValueError):
 @dataclass(frozen=True)
 class CollectorSettings:
     app_env: str
+    log_level: str
     querido_diario_base_url: str
     querido_diario_territory_id: str
     requests_per_minute: int
     connect_timeout_seconds: float
     read_timeout_seconds: float
     max_attempts: int
-    raw_artifacts_bucket: str
 
     @classmethod
     def from_env(
@@ -32,6 +33,10 @@ class CollectorSettings:
         app_env = values.get("APP_ENV", "development")
         if app_env not in {"development", "test", "staging", "production"}:
             raise EnvironmentValidationError("APP_ENV inválido.")
+
+        log_level = values.get("LOG_LEVEL", "INFO").strip().upper()
+        if log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            raise EnvironmentValidationError("LOG_LEVEL inválido.")
 
         base_url = values.get(
             "QUERIDO_DIARIO_BASE_URL",
@@ -84,12 +89,6 @@ class CollectorSettings:
             maximum=10,
         )
 
-        bucket = values.get("SUPABASE_RAW_ARTIFACTS_BUCKET", "raw-artifacts")
-        if bucket != "raw-artifacts":
-            raise EnvironmentValidationError(
-                "SUPABASE_RAW_ARTIFACTS_BUCKET deve ser raw-artifacts."
-            )
-
         for public_key in (
             "NEXT_PUBLIC_SUPABASE_SECRET_KEY",
             "NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY",
@@ -101,22 +100,26 @@ class CollectorSettings:
 
         return cls(
             app_env=app_env,
+            log_level=log_level,
             querido_diario_base_url=base_url,
             querido_diario_territory_id=territory_id,
             requests_per_minute=requests_per_minute,
             connect_timeout_seconds=connect_timeout,
             read_timeout_seconds=read_timeout,
             max_attempts=max_attempts,
-            raw_artifacts_bucket=bucket,
         )
 
 
 @dataclass(frozen=True)
 class PersistenceSettings:
-    database_url: str
-    supabase_url: str
-    supabase_secret_key: str
-    raw_artifacts_bucket: str
+    mode: str
+    local_data_directory: Path | None
+    database_url: str | None
+    supabase_url: str | None
+    supabase_publishable_key: str | None
+    supabase_workload_email: str | None
+    supabase_workload_password: str | None
+    raw_artifacts_bucket: str | None
 
     @classmethod
     def from_env(
@@ -125,15 +128,61 @@ class PersistenceSettings:
     ) -> PersistenceSettings:
         values = environment if environment is not None else os.environ
         collector = CollectorSettings.from_env(values)
+        mode = values.get("PERSISTENCE_MODE", "filesystem").strip()
+        if mode not in {"filesystem", "postgres-supabase"}:
+            raise EnvironmentValidationError(
+                "PERSISTENCE_MODE deve ser filesystem ou postgres-supabase."
+            )
+        if mode == "filesystem":
+            if collector.app_env not in {"development", "test"}:
+                raise EnvironmentValidationError(
+                    "Persistência em filesystem é permitida apenas em development/test."
+                )
+            raw_directory = values.get(
+                "LOCAL_DATA_DIRECTORY",
+                "data/local-evidence",
+            ).strip()
+            local_directory = Path(raw_directory)
+            if (
+                not raw_directory
+                or local_directory.is_absolute()
+                or any(part in {"", ".", ".."} for part in local_directory.parts)
+            ):
+                raise EnvironmentValidationError(
+                    "LOCAL_DATA_DIRECTORY deve ser um caminho relativo seguro."
+                )
+            return cls(
+                mode=mode,
+                local_data_directory=local_directory,
+                database_url=None,
+                supabase_url=None,
+                supabase_publishable_key=None,
+                supabase_workload_email=None,
+                supabase_workload_password=None,
+                raw_artifacts_bucket=None,
+            )
+
         database_url = _required(values, "DATABASE_URL")
         supabase_url = _required(values, "SUPABASE_URL").rstrip("/")
-        secret_key = _required(values, "SUPABASE_SECRET_KEY")
+        publishable_key = _required(values, "SUPABASE_PUBLISHABLE_KEY")
+        workload_email = _required(values, "SUPABASE_WORKLOAD_EMAIL")
+        workload_password = _required(values, "SUPABASE_WORKLOAD_PASSWORD")
+        bucket = values.get("SUPABASE_RAW_ARTIFACTS_BUCKET", "raw-artifacts")
+        if bucket != "raw-artifacts":
+            raise EnvironmentValidationError(
+                "SUPABASE_RAW_ARTIFACTS_BUCKET deve ser raw-artifacts."
+            )
+        if values.get("SUPABASE_SECRET_KEY") or values.get("SUPABASE_SERVICE_ROLE_KEY"):
+            raise EnvironmentValidationError(
+                "O coletor não aceita secret/service role que ignore RLS."
+            )
 
         parsed_database = urlparse(database_url)
         if (
             parsed_database.scheme not in {"postgres", "postgresql"}
             or not parsed_database.hostname
             or not parsed_database.username
+            or not parsed_database.password
         ):
             raise EnvironmentValidationError("DATABASE_URL não é uma URL PostgreSQL.")
 
@@ -148,12 +197,10 @@ class PersistenceSettings:
             raise EnvironmentValidationError(
                 "DATABASE_URL remota deve exigir TLS por sslmode."
             )
-        if (
-            collector.app_env in {"staging", "production"}
-            and parsed_database.username == "postgres"
-        ):
+        database_role = parsed_database.username.split(".", maxsplit=1)[0]
+        if not local_database and database_role != "collector_querido_diario":
             raise EnvironmentValidationError(
-                "DATABASE_URL deve usar login dedicado do worker."
+                "DATABASE_URL remota deve usar collector_querido_diario."
             )
 
         parsed_supabase = urlparse(supabase_url)
@@ -177,22 +224,39 @@ class PersistenceSettings:
         ):
             raise EnvironmentValidationError("SUPABASE_URL inválida ou insegura.")
 
-        is_new_secret = secret_key.startswith("sb_secret_")
-        is_legacy_jwt = secret_key.count(".") == 2
         if (
-            len(secret_key) < 24
-            or any(character.isspace() for character in secret_key)
-            or not (is_new_secret or is_legacy_jwt)
+            not publishable_key.startswith("sb_publishable_")
+            or len(publishable_key) < 24
+            or any(character.isspace() for character in publishable_key)
         ):
             raise EnvironmentValidationError(
-                "SUPABASE_SECRET_KEY não possui formato de chave server-side."
+                "SUPABASE_PUBLISHABLE_KEY não possui o formato atual."
+            )
+        if (
+            workload_email.count("@") != 1
+            or any(character.isspace() for character in workload_email)
+            or len(workload_email) > 254
+        ):
+            raise EnvironmentValidationError(
+                "SUPABASE_WORKLOAD_EMAIL não é um e-mail técnico válido."
+            )
+        if len(workload_password) < 24 or any(
+            character.isspace() for character in workload_password
+        ):
+            raise EnvironmentValidationError(
+                "SUPABASE_WORKLOAD_PASSWORD deve ter ao menos 24 caracteres "
+                "sem espaços."
             )
 
         return cls(
+            mode=mode,
+            local_data_directory=None,
             database_url=database_url,
             supabase_url=supabase_url,
-            supabase_secret_key=secret_key,
-            raw_artifacts_bucket=collector.raw_artifacts_bucket,
+            supabase_publishable_key=publishable_key,
+            supabase_workload_email=workload_email,
+            supabase_workload_password=workload_password,
+            raw_artifacts_bucket=bucket,
         )
 
 

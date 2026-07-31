@@ -36,6 +36,36 @@ semântica local, mapear secretarias e unidades, manter séries históricas,
 resolver conflitos de identidade e revisar manualmente os casos relevantes.
 Não tentaremos generalizar prematuramente para todos os municípios.
 
+## Visão territorial 360
+
+O recorte municipal não limita o produto aos dois poderes locais. “Barreiras”
+também será tratado como território que recebe recursos, políticas, obras e
+representação de outras esferas. A expansão será feita em três camadas:
+
+1. **Município em números:** arrecadação registrada, despesas, contratos, obras,
+   entregas e atos verificáveis de órgãos e secretarias;
+2. **Recursos que chegam a Barreiras:** transferências constitucionais, legais,
+   voluntárias, fundo a fundo, convênios, programas e emendas estaduais e
+   federais, preservando cada estágio financeiro;
+3. **Representação e registros oficiais:** mandatos acompanhados, atividade
+   legislativa, declarações eleitorais, sanções e relações societárias
+   documentadas, sob controles editoriais reforçados.
+
+“Quanto Barreiras arrecadou hoje” significará o valor que a fonte contábil
+registrou como receita realizada no dia, acompanhado do horário de atualização,
+regime, cobertura e revisões. Não será apresentado como saldo bancário em tempo
+real. “O que a secretaria fez” será apresentado como **entregas, atos e execução
+verificáveis**, nunca como uma nota automática de utilidade.
+
+Os critérios para chamar alguém de “representante acompanhado de Barreiras”
+serão públicos, versionados e sustentados por fonte oficial. Deputados estaduais
+e federais são eleitos por circunscrições mais amplas; origem, domicílio,
+votação no município e atuação em favor do município são relações distintas e
+não serão confundidas.
+
+O detalhamento desta expansão está em
+[`TERRITORIAL_360_VISION.md`](TERRITORIAL_360_VISION.md).
+
 ## Primeiro resultado público
 
 Uma linha do tempo de nomeações e exonerações que permita filtrar por pessoa,
@@ -59,6 +89,9 @@ cargo, secretaria e período. Cada evento aprovado exibirá:
 8. Anomalia é um sinal técnico, não prova de ilícito.
 9. Minimização de dados vale também para documentos originalmente públicos.
 10. Metodologia, limitações e correções são parte visível do produto.
+11. Vínculo documentado não implica influência, benefício, culpa ou coordenação.
+12. Estágios financeiros distintos não são somados nem apresentados como
+    equivalentes.
 
 ## Fora de escopo
 

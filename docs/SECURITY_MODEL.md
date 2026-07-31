@@ -58,7 +58,7 @@
 - HTML renderizado somente após sanitização estrita;
 - nenhum comando construído com texto da fonte.
 
-### Banco e Supabase
+### Banco e provedor
 
 - schemas internos não expostos pela Data API;
 - RLS em toda tabela de schema exposto;
@@ -80,8 +80,16 @@
 - verificação de SHA-256 após upload;
 - object key derivada do hash, sem dados pessoais;
 - operações pelo Storage API, sem editar tabelas `storage` diretamente.
-- credencial ampla de Storage somente em ambiente controlado; produção exige
-  identidade de workload limitada ao bucket/prefixo e teste negativo de acesso.
+- coletor autenticado por usuário Auth técnico e chave publicável;
+- allowlist interna por UUID, bucket, prefixo, operação, estado e validade;
+- somente `SELECT` e `INSERT`; ausência explícita de `UPDATE` e `DELETE`;
+- secret/service role recusada pelo coletor porque ignora RLS;
+- desativação exige primeiro suspender a allowlist e a role PostgreSQL, depois
+  revogar as sessões Auth.
+- modo local permitido somente em `development`/`test`;
+- diretório local relativo, fora do Git e sem links simbólicos;
+- criação exclusiva de objetos/manifestos e verificação pelo hash do nome;
+- o acervo local não é backup de produção nem mecanismo de controle de acesso.
 
 ### Administração
 
@@ -100,6 +108,41 @@
 - paginação por cursor;
 - mensagens de erro sem stack trace, SQL ou segredo;
 - cache apenas de projeções públicas.
+
+### Integrações de IA
+
+- chaves somente no secret manager do runtime que executa a chamada;
+- allowlist de provedores, modelos e finalidades;
+- orçamento, timeout, rate limit e circuit breaker por provedor;
+- minimização/redação antes do envio e bloqueio de dados sensíveis;
+- revisão de retenção, treinamento, localização e suboperadores do provedor;
+- prompt, versão, hash da entrada e saída registrados sem duplicar segredo;
+- conteúdo retornado tratado como não confiável e validado por schema;
+- nenhuma ferramenta de escrita, publicação ou consulta livre ao banco
+  concedida ao modelo.
+
+### Grafos e exportações
+
+- API do grafo entrega somente relações aprovadas;
+- limite de profundidade, quantidade de nós e custo da consulta;
+- nenhuma busca pública por CPF ou identificador pessoal oculto;
+- exportações assíncronas, com autorização, rate limit e expiração de link;
+- hash, filtros, dataset e ator registrados na auditoria;
+- conteúdo reputacional não pode contornar revisão por meio de CSV/PDF/DOCX;
+- em células textuais de planilha, conteúdo externo iniciado por `=`, `+`, `-`
+  ou `@` é neutralizado para prevenir formula injection; células numéricas
+  tipadas não são convertidas em texto.
+
+O portal de pré-lançamento é estático, não usa cookies, autenticação,
+analytics, segredos ou acesso direto ao Supabase. HSTS, proteção contra
+iframes, `nosniff`, política de referência e bloqueio de câmera/microfone/
+geolocalização já estão ativos. A CSP com nonce permanece um gate antes de
+qualquer script externo, login ou conteúdo gerado por usuário.
+
+O lockfile fixa as versões de produção. A primeira publicação usa overrides
+para `sharp 0.35.0` e `postcss 8.5.18`, versões corrigidas para advisories
+encontrados na auditoria das dependências transitivas do Next. Build e auditoria
+devem ser repetidos quando o Next incorporar versões compatíveis sem override.
 
 ### Supply chain e CI
 

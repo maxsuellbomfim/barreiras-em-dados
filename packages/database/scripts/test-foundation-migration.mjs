@@ -22,6 +22,57 @@ const database = new PGlite({
 });
 
 try {
+  await database.exec(`
+    do $$
+    begin
+      if not exists (
+        select 1 from pg_catalog.pg_roles where rolname = 'anon'
+      ) then
+        create role anon nologin;
+      end if;
+      if not exists (
+        select 1 from pg_catalog.pg_roles where rolname = 'authenticated'
+      ) then
+        create role authenticated nologin;
+      end if;
+    end
+    $$;
+
+    create schema auth;
+    create table auth.users (
+      id uuid primary key
+    );
+    create function auth.uid()
+    returns uuid
+    language sql
+    stable
+    set search_path = ''
+    as $$
+      select nullif(
+        current_setting('request.jwt.claim.sub', true),
+        ''
+      )::uuid;
+    $$;
+
+    create schema storage;
+    create table storage.buckets (
+      id text primary key,
+      name text not null,
+      public boolean not null default false,
+      file_size_limit bigint,
+      allowed_mime_types text[]
+    );
+    create table storage.objects (
+      id uuid primary key,
+      bucket_id text not null references storage.buckets (id),
+      name text not null,
+      unique (bucket_id, name)
+    );
+    alter table storage.objects enable row level security;
+    grant usage on schema storage to authenticated;
+    grant select, insert, update, delete on storage.objects to authenticated;
+  `);
+
   for (const migration of migrations) {
     await database.exec(migration);
   }
@@ -34,7 +85,7 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  assert.equal(relations.rows[0].count, 39);
+  assert.equal(relations.rows[0].count, 40);
 
   const originColumns = await database.query(`
     select count(*)::integer as count
@@ -60,6 +111,42 @@ try {
   `);
   assert.equal(immutableTriggers.rows[0].count, 5);
 
+  const extensionSchema = await database.query(`
+    select namespace.nspname as schema_name
+    from pg_catalog.pg_extension as extension_record
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = extension_record.extnamespace
+    where extension_record.extname = 'pg_trgm'
+  `);
+  assert.equal(extensionSchema.rows[0].schema_name, "extensions");
+
+  const unindexedForeignKeys = await database.query(`
+    select count(*)::integer as count
+    from pg_catalog.pg_constraint as constraint_record
+    join pg_catalog.pg_class as relation
+      on relation.oid = constraint_record.conrelid
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = relation.relnamespace
+    where constraint_record.contype = 'f'
+      and namespace.nspname in (
+        'source', 'raw', 'org', 'hr', 'procurement', 'finance',
+        'evidence', 'analysis', 'editorial', 'audit'
+      )
+      and not exists (
+        select 1
+        from pg_catalog.pg_index as index_record
+        where index_record.indrelid = constraint_record.conrelid
+          and index_record.indisvalid
+          and index_record.indisready
+          and index_record.indpred is null
+          and (
+            index_record.indkey::smallint[]
+          )[0:cardinality(constraint_record.conkey) - 1]
+            = constraint_record.conkey
+      )
+  `);
+  assert.equal(unindexedForeignKeys.rows[0].count, 0);
+
   const collectorPrivileges = await database.query(`
     select
       has_column_privilege(
@@ -79,18 +166,122 @@ try {
     can_delete: false,
   });
 
+  const workloadRole = await database.query(`
+    select
+      role_record.rolcanlogin as can_login,
+      role_record.rolinherit as inherits,
+      role_record.rolsuper as superuser,
+      role_record.rolbypassrls as bypasses_rls,
+      role_record.rolconnlimit as connection_limit,
+      pg_has_role(
+        'collector_querido_diario',
+        'collector_worker',
+        'MEMBER'
+      ) as is_worker_member
+    from pg_catalog.pg_roles as role_record
+    where role_record.rolname = 'collector_querido_diario'
+  `);
+  assert.deepEqual(workloadRole.rows[0], {
+    can_login: false,
+    inherits: true,
+    superuser: false,
+    bypasses_rls: false,
+    connection_limit: 2,
+    is_worker_member: true,
+  });
+
+  await database.exec(seed);
+  await database.exec(seed);
+
+  const workloadUserId = "00000000-0000-4000-8000-000000000301";
   await database.exec(`
-    create schema storage;
-    create table storage.buckets (
-      id text primary key,
-      name text not null,
-      public boolean not null default false,
-      file_size_limit bigint,
-      allowed_mime_types text[]
+    insert into auth.users (id) values ('${workloadUserId}');
+    insert into audit.storage_workload_identities (
+      slug,
+      auth_user_id,
+      bucket_id,
+      object_prefix,
+      status,
+      activated_at
+    ) values (
+      'querido-diario-collector',
+      '${workloadUserId}',
+      'raw-artifacts',
+      'querido-diario/gazettes/',
+      'active',
+      statement_timestamp()
+    );
+    select set_config(
+      'request.jwt.claim.sub',
+      '${workloadUserId}',
+      false
     );
   `);
-  await database.exec(seed);
-  await database.exec(seed);
+
+  const storageAuthorization = await database.query(`
+    select
+      api.can_access_raw_artifact(
+        'insert',
+        'raw-artifacts',
+        'querido-diario/gazettes/sha256/aa/file.json'
+      ) as can_insert,
+      api.can_access_raw_artifact(
+        'select',
+        'raw-artifacts',
+        'querido-diario/gazettes/sha256/aa/file.json'
+      ) as can_select,
+      api.can_access_raw_artifact(
+        'update',
+        'raw-artifacts',
+        'querido-diario/gazettes/sha256/aa/file.json'
+      ) as can_update,
+      api.can_access_raw_artifact(
+        'insert',
+        'raw-artifacts',
+        'pncp/file.json'
+      ) as can_escape_prefix
+  `);
+  assert.deepEqual(storageAuthorization.rows[0], {
+    can_insert: true,
+    can_select: true,
+    can_update: false,
+    can_escape_prefix: false,
+  });
+
+  const allowedStorageObjectId = "00000000-0000-4000-8000-000000000302";
+  await database.exec(`
+    set role authenticated;
+    insert into storage.objects (id, bucket_id, name) values (
+      '${allowedStorageObjectId}',
+      'raw-artifacts',
+      'querido-diario/gazettes/sha256/aa/file.json'
+    );
+    reset role;
+  `);
+  await assert.rejects(
+    database.exec(`
+      set role authenticated;
+      insert into storage.objects (id, bucket_id, name) values (
+        '00000000-0000-4000-8000-000000000303',
+        'raw-artifacts',
+        'pncp/file.json'
+      );
+    `),
+    /row-level security/,
+  );
+  await database.exec("reset role;");
+
+  await database.exec(`
+    set role authenticated;
+    delete from storage.objects where id = '${allowedStorageObjectId}';
+    reset role;
+  `);
+  const immutableStorageObject = await database.query(`
+    select count(*)::integer as count
+    from storage.objects
+    where id = '${allowedStorageObjectId}'
+  `);
+  assert.equal(immutableStorageObject.rows[0].count, 1);
 
   const endpointId = "00000000-0000-4000-8000-000000000101";
   const runId = "00000000-0000-0000-0000-000000000401";
@@ -169,7 +360,7 @@ try {
   });
 
   console.log(
-    "Migration e seed executados em PostgreSQL embutido: 39 tabelas, origem obrigatória.",
+    "Migrations e seed executados: 40 tabelas, origem e acesso mínimos.",
   );
 } finally {
   await database.close();

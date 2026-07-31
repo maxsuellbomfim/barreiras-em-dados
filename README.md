@@ -4,14 +4,20 @@ Fundação de uma plataforma cívica municipal, apartidária e orientada a
 evidências para tornar dados públicos da Prefeitura e da Câmara Municipal de
 Barreiras (BA) mais verificáveis e compreensíveis.
 
+Portal de pré-lançamento:
+[barreiras-em-dados.vercel.app](https://barreiras-em-dados.vercel.app)
+
 ## Documentação essencial
 
 - [Visão do produto](docs/PRODUCT_VISION.md)
 - [Arquitetura](docs/ARCHITECTURE.md)
 - [Fontes de dados](docs/DATA_SOURCES.md)
+- [Perfis públicos documentados](docs/POLITICAL_PROFILES.md)
+- [Matriz de ETLs e fontes](docs/ETL_SOURCE_MATRIX.md)
 - [Inventários técnicos das fontes](docs/sources/README.md)
 - [Estratégia de funcionalidades](docs/FEATURE_STRATEGY.md)
 - [Sistema de design](docs/DESIGN_SYSTEM.md)
+- [Portal público de pré-lançamento](docs/PUBLIC_PORTAL.md)
 - [Guia de configuração](docs/SETUP_GUIDE.md)
 - [Estratégia de ferramentas](docs/TOOLING_STRATEGY.md)
 - [Portões de conformidade](docs/COMPLIANCE_GATES.md)
@@ -29,10 +35,28 @@ Este repositório está na etapa 1A. O escopo ativo é:
 - contratos de dados independentes de linguagem;
 - migrations fundamentais do PostgreSQL;
 - conector e persistência idempotente do Querido Diário;
+- acervo local append-only por SHA-256, sem dependência de nuvem;
+- portal público Next.js de pré-lançamento, sem dados cívicos não revisados;
 - fixtures e testes do conector.
 
 Não existe ainda conteúdo público de caráter reputacional, detecção de
-irregularidade, integração PNCP nem aplicação web funcional.
+irregularidade ou integração PNCP. O portal publicado apresenta apenas fontes,
+metodologia e o estado técnico real da construção.
+
+### Portal web local
+
+```powershell
+pnpm.cmd install
+pnpm.cmd --filter @barreiras-em-dados/web dev
+```
+
+O build de produção é validado com:
+
+```powershell
+pnpm.cmd --filter @barreiras-em-dados/web typecheck
+pnpm.cmd --filter @barreiras-em-dados/web build
+pnpm.cmd audit --prod
+```
 
 ## Comece por aqui
 

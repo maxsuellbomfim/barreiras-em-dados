@@ -72,6 +72,31 @@ Mensagem editorial sugerida:
 - sinais de anomalia aprovados editorialmente, acompanhados de contexto,
   limitações e linguagem explícita de que não são prova de irregularidade.
 
+### P3 — observatório territorial
+
+- **Barreiras hoje:** receita registrada por data contábil, composição,
+  atualização e revisões, sem confundir arrecadação com saldo disponível;
+- **De onde veio o dinheiro:** recursos municipais, estaduais e federais por
+  instrumento e estágio financeiro;
+- **Secretarias em evidência:** atos, entregas, metas oficiais, contratos,
+  despesas e obras verificáveis, sem score subjetivo de “utilidade”;
+- **Emendas para Barreiras:** autoria, finalidade, beneficiário e sequência
+  anunciado/autorizado/empenhado/pago/executado;
+- **Representantes acompanhados:** vínculo territorial documentado, mandato,
+  atividade legislativa, despesas e emendas.
+
+### P4 — relações e registros oficiais
+
+- sanções oficiais por identificador exato, com vigência e órgão sancionador;
+- declarações de bens eleitorais apresentadas como retrato de cada eleição;
+- rede de vínculos públicos em React Flow, com evidência em cada aresta;
+- exportação de recortes em PDF, DOCX e XLSX com metodologia, fontes e hash;
+- referências processuais somente após gate jurídico e confirmação das
+  condições de uso da fonte.
+
+Os nomes, limites e gates estão em
+[`TERRITORIAL_360_VISION.md`](TERRITORIAL_360_VISION.md).
+
 ## Experiência transversal obrigatória
 
 Toda página factual deve responder:
@@ -94,6 +119,9 @@ cursor. Datas, moeda e estados de revisão não podem depender apenas de cor.
 - mural aberto de acusações;
 - publicação automática de texto gerado por IA;
 - perfilamento político, reconhecimento facial ou exposição de CPF;
+- culpa por associação em rede societária ou contratual;
+- busca judicial por homônimo apresentada como correspondência confirmada;
+- score de patrimônio, enriquecimento ou produtividade política;
 - comparação de preços sem equivalência comprovada;
 - interpretação de silêncio administrativo como culpa.
 

@@ -17,11 +17,30 @@ estatísticos em acusações.
 
 ## Etapa ativa
 
-A etapa ativa é **1A — coleta preservada do Diário**. A persistência de páginas
-JSON está implementada localmente, mas o gate remoto continua aberto. Antes de
-PDF, parser de atos ou PNCP, aplique migrations em Supabase descartável, use
-login membro de `collector_worker`, restrinja Storage, execute uma janela de um
-dia, repita-a e restaure o objeto pelo SHA-256.
+A etapa ativa é **1A — coleta preservada do Diário**. Páginas JSON podem ser
+preservadas em modo local append-only e o replay de uma janela real já foi
+validado. Um projeto Supabase isolado chamado `Barreiras em Dados` está ativo em
+São Paulo. Cinco migrations, o seed e o bucket privado `raw-artifacts` já foram
+aplicados; o advisor não aponta falha de RLS ou exposição de dados, mas registra
+proteção contra senhas vazadas desativada no Auth. Todas as chaves estrangeiras
+estão indexadas. A role `collector_querido_diario` possui LOGIN, limite de duas
+conexões e continua sem privilégios administrativos. O UUID Auth
+`d3e7a733-6101-4c9e-8d7a-d0f88a243eee` está ativo exclusivamente no bucket
+`raw-artifacts`, prefixo `querido-diario/gazettes/`, para `SELECT` e `INSERT`.
+O cliente `psql 17.10` está instalado sem servidor ou serviço local. A senha
+PostgreSQL foi criada por prompt interativo, sem exposição. O login real da role
+foi aprovado com TLS `verify-full`: uma inserção autorizada foi exercitada dentro
+de transação, `DELETE`/`UPDATE` no bruto foram negados e o rollback deixou zero
+registros temporários. A identidade Auth real também foi aprovada com chave
+publicável: criou e restaurou uma página legítima do Querido Diário, confirmou
+seu SHA-256 e foi impedida de sobrescrever, apagar ou sair do prefixo autorizado.
+Há exatamente um objeto de 861 bytes no bucket e nenhum fora do prefixo. O
+próximo gate é executar uma coleta remota de um dia, vincular esse objeto ao
+PostgreSQL e repetir o replay sem duplicação, sem compartilhar senhas.
+
+Somente depois desse gate, baixe PDF/TXT como artefatos filhos. Parser de atos e
+PNCP continuam fora de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não
+apagado, para liberar a cota; não o reutilize nem altere os demais projetos.
 
 ## Regras inegociáveis
 

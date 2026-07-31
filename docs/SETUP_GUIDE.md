@@ -17,20 +17,24 @@ repositório contém apenas o nome da variável em `.env.example`.
 
 | Serviço | Estado | Uso planejado |
 |---|---|---|
-| Git local | instalado | histórico e commits |
-| GitHub CLI | não instalado | criar repositório e enviar commits |
+| Git local | instalado e sincronizado | histórico e commits |
+| GitHub CLI | instalado e autenticado | repositório e automações |
 | GitHub App | não autorizado | PRs, issues e revisão |
-| Supabase | conectado | PostgreSQL, Auth e Storage |
-| Vercel | conectado | somente `apps/web` e `apps/admin` |
-| Docker/Podman | não disponível | Supabase local ainda indisponível |
+| Supabase | `Barreiras em Dados` ativo | PostgreSQL, Auth e Storage |
+| Vercel | produção ativa | somente `apps/web`; `apps/admin` ainda não criado |
+| Docker/Podman | não disponível | PostgreSQL em contêiner indisponível |
+| PostgreSQL `psql` | cliente 17.10 instalado | acesso interativo seguro |
 | Python/Node/pnpm | disponíveis | collectors, testes e monorepo |
 
-Existem dois projetos Supabase conectados, mas pertencem a outros sites. Eles
-não serão reutilizados. A equipe Vercel conectada ainda não possui projetos.
+O projeto `Site Kelvin Vinicius` foi pausado, não apagado, para liberar a cota.
+O projeto `Maxsuell Bomfim | Defesa em Saúde` continua ativo e intocado. O novo
+`Barreiras em Dados` está `ACTIVE_HEALTHY` em São Paulo. O desenvolvimento local
+continua portável e não depende de credenciais do Supabase.
 
-## Etapa 1 — GitHub
+## Etapa 1 — GitHub concluído
 
-Objetivo: criar um repositório **privado** chamado `barreiras-em-dados`.
+O repositório privado é
+<https://github.com/maxsuellbomfim/barreiras-em-dados>, com branch `main`.
 
 Responsabilidade do usuário:
 
@@ -50,31 +54,92 @@ Responsabilidade do agente:
 Os ZIPs de inspiração, `.venv`, `node_modules`, `.env` e artefatos coletados
 ficam apenas no computador e estão ignorados.
 
-## Etapa 2 — novo projeto Supabase
+## Etapa 2 — persistência local e Supabase isolado
 
-Nome sugerido: `Barreiras em Dados`.
+O modo atual usa:
 
-Região sugerida: `sa-east-1` (São Paulo), pela proximidade dos usuários e das
-fontes brasileiras.
+```dotenv
+PERSISTENCE_MODE=filesystem
+LOCAL_DATA_DIRECTORY=data/local-evidence
+```
 
-Antes da criação:
+Ele não exige segredo, preserva objetos e manifestos por SHA-256 e é permitido
+somente em `development` e `test`. A pasta `data/` não entra no Git.
 
-1. o usuário confirma a organização Supabase;
-2. o agente consulta o custo atual;
-3. o agente informa o valor;
-4. o usuário confirma explicitamente o custo;
-5. somente então o projeto é criado.
+O domínio continua independente do provedor. Uma substituição futura deverá ser
+avaliada por:
 
-O projeto recebe:
+- compatibilidade real com PostgreSQL e migrations;
+- TLS, backups e exportação;
+- armazenamento privado compatível com S3 ou adaptável;
+- execução de workers fora da Vercel;
+- limites, suspensão por inatividade e custo previsível;
+- ausência de dependência proprietária no domínio.
 
-- migrations versionadas deste repositório;
-- bucket privado `raw-artifacts`;
-- schema público inicial vazio;
+### Projeto Supabase provisionado
+
+Nome: `Barreiras em Dados`.
+
+Project ref: `mpladsyzilmgiefejpkq`.
+
+Região: `sa-east-1` (São Paulo).
+
+Estado verificado: `ACTIVE_HEALTHY`.
+
+Configurações aplicadas em 30/07/2026:
+
+- 5 migrations versionadas e registradas no histórico remoto;
+- 40 tabelas internas e nenhuma tabela no schema `public`;
+- 3 fontes e 3 endpoints iniciais;
+- bucket `raw-artifacts` privado, limitado a 100 MB por objeto e com allowlist
+  de MIME;
+- role-base `collector_worker` sem login, sem `DELETE` ou `UPDATE` no bruto;
+- role `collector_querido_diario` com LOGIN, membro de `collector_worker` e
+  limitada a 2 conexões;
+- login real dessa role aprovado no Session pooler com TLS `verify-full`,
+  inserção autorizada revertida e operações destrutivas negadas;
+- políticas do Storage para `SELECT` e `INSERT` apenas no prefixo
+  `querido-diario/gazettes/`, vinculadas a UUID Auth autorizado;
+- sessão Auth real aprovada: upload/download de objeto legítimo, SHA-256
+  conferido, `upsert`, prefixo externo e remoção bloqueados;
+- exatamente um objeto de 861 bytes no bucket e nenhum fora do prefixo;
+- extensão `pg_trgm` isolada em `extensions`;
+- 123 chaves estrangeiras com índice de cobertura;
+- advisor sem alerta de RLS ou exposição de dados;
+- um aviso do Auth sobre proteção contra senhas vazadas desativada.
+
+Configurações ainda pendentes:
+
 - cadastro público desativado;
 - Auth somente por convite para administradores;
 - MFA TOTP obrigatório para o painel;
-- logs e auditoria;
-- login PostgreSQL dedicado para collectors.
+- proteção contra senhas vazadas no Auth não disponível no plano gratuito;
+- primeira coleta remota de um dia e replay idempotente;
+- política operacional de logs, backup e rotação.
+
+O procedimento sem compartilhamento de senhas está em
+[`COLLECTOR_CREDENTIALS.md`](COLLECTOR_CREDENTIALS.md).
+
+### Portal público na Vercel
+
+O projeto isolado `barreiras-em-dados` foi criado sem substituir nenhum projeto
+existente. A primeira versão pública está em:
+
+<https://barreiras-em-dados.vercel.app>
+
+Ela é uma página estática de pré-lançamento, sem segredos, Supabase, login,
+cookies, analytics ou dados municipais normalizados. O código validado está em
+`apps/web`; o health check público é `/api/health`. Detalhes, limitações e
+verificação estão em [`PUBLIC_PORTAL.md`](PUBLIC_PORTAL.md).
+
+O repositório fixa Node `22.x`. `vercel.json` executa o build filtrado do
+workspace e aponta a saída para `apps/web/.next`. A identidade Git local deste
+repositório usa a mesma conta autenticada no GitHub/Vercel; isso evita que a
+proteção de autoria bloqueie previews de branches e pull requests.
+Next e React aparecem também como ferramentas de desenvolvimento da raiz porque
+a detecção da Vercel ocorre antes do build filtrado do monorepo.
+O preview automático da branch foi aprovado; previews são protegidos pela
+Vercel e a produção permanece publicamente acessível.
 
 ## Etapa 3 — chaves e variáveis
 
@@ -90,12 +155,18 @@ dependendo de grants e RLS.
 
 - `DATABASE_URL`;
 - `SUPABASE_URL`;
-- `SUPABASE_SECRET_KEY`;
-- credencial restrita do Storage;
+- `SUPABASE_WORKLOAD_EMAIL`;
+- `SUPABASE_WORKLOAD_PASSWORD`;
 - chaves de provedores de IA;
 - segredos de e-mail ou alertas.
 
 Nenhuma variável server-side recebe prefixo `NEXT_PUBLIC_`.
+
+O coletor usa `SUPABASE_PUBLISHABLE_KEY` junto da sessão do usuário Auth
+técnico. Ele recusa `SUPABASE_SECRET_KEY` e `SUPABASE_SERVICE_ROLE_KEY`, pois
+essas chaves ignoram RLS. A chave publicável pode ser conhecida pelo cliente; a
+senha do workload e a senha PostgreSQL nunca são enviadas ao repositório ou ao
+chat.
 
 No Vercel, segredos de Preview e Production devem ser marcados como
 **Sensitive**. Collectors não usam segredos do Vercel; usam o ambiente do worker
@@ -156,7 +227,8 @@ gerenciador de segredos; não serão entregues ao agente por mensagem.
 |---|---|
 | Portal público Next.js | Vercel |
 | Painel admin Next.js | Vercel |
-| PostgreSQL/Auth/Storage | Supabase |
+| PostgreSQL/Auth/Storage | Supabase isolado |
+| Evidência de desenvolvimento | filesystem local append-only |
 | Collectors Python agendados | GitHub Actions, provisoriamente |
 | Filas | PostgreSQL |
 | Processamento de documentos | worker Python |
@@ -168,16 +240,19 @@ isolamento exigirem.
 
 ## Ordem de implantação
 
-1. GitHub privado e primeiro commit.
-2. Projeto Supabase separado e migrations.
-3. Teste remoto de uma coleta de um dia.
-4. Health interno de fontes.
-5. Esqueleto do admin com Auth, MFA e auditoria.
-6. Download de PDF/TXT e fila.
-7. Extração determinística inicial.
-8. Um provedor de IA para extração assistiva.
-9. Revisão humana.
-10. Primeira página pública aprovada.
+1. GitHub privado e primeiro commit — concluído.
+2. Acervo local imutável e replay de uma coleta de um dia — concluído.
+3. Aplicar migrations/seed e revisar advisors no Supabase — concluído.
+4. Provisionar a identidade do coletor e restringi-la ao banco e ao
+   bucket/prefixo — identidades e testes reais concluídos; replay remoto
+   pendente.
+5. Portal público de pré-lançamento na Vercel — concluído, sem dados cívicos.
+6. Download local de PDF/TXT e preservação como artefato filho.
+7. Health interno de fontes.
+8. Esqueleto do admin com Auth, MFA e auditoria.
+9. Extração determinística inicial.
+10. Um provedor de IA para extração assistiva.
+11. Revisão humana e primeira página de dados aprovada.
 
 PNCP, folha, anomalias e múltiplos provedores de IA não começam antes da
 estabilização desse primeiro fluxo.
