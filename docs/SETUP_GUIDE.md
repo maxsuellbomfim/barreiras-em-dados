@@ -132,6 +132,11 @@ cookies, analytics ou dados municipais normalizados. O código validado está em
 `apps/web`; o health check público é `/api/health`. Detalhes, limitações e
 verificação estão em [`PUBLIC_PORTAL.md`](PUBLIC_PORTAL.md).
 
+O repositório fixa Node `22.x`. `vercel.json` executa o build filtrado do
+workspace e aponta a saída para `apps/web/.next`. A identidade Git local deste
+repositório usa a mesma conta autenticada no GitHub/Vercel; isso evita que a
+proteção de autoria bloqueie previews de branches e pull requests.
+
 ## Etapa 3 — chaves e variáveis
 
 ### Podem chegar ao navegador

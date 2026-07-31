@@ -17,6 +17,12 @@ raiz respondia 404, apesar do health check saudável. Ela não permaneceu no ali
 de produção: um segundo pacote, limitado aos dez arquivos-fonte do aplicativo,
 foi compilado, verificado e promovido automaticamente pelo novo deploy.
 
+Um preview automático posterior foi bloqueado antes do build porque a identidade
+global do Git apontava para outra conta GitHub. A produção não foi afetada. A
+identidade foi alinhada, apenas neste repositório, com `maxsuellbomfim`, o Node
+foi fixado em `22.x` e o `vercel.json` da raiz passou a declarar explicitamente
+o build e a saída do `apps/web`.
+
 ## Objetivo desta versão
 
 O primeiro site público existe para tornar a construção observável sem antecipar

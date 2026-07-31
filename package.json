@@ -10,7 +10,7 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "scripts": {
     "check:contracts": "node packages/data-contracts/scripts/validate-schemas.mjs",
