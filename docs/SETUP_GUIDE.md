@@ -138,6 +138,8 @@ repositório usa a mesma conta autenticada no GitHub/Vercel; isso evita que a
 proteção de autoria bloqueie previews de branches e pull requests.
 Next e React aparecem também como ferramentas de desenvolvimento da raiz porque
 a detecção da Vercel ocorre antes do build filtrado do monorepo.
+O preview automático da branch foi aprovado; previews são protegidos pela
+Vercel e a produção permanece publicamente acessível.
 
 ## Etapa 3 — chaves e variáveis
 

@@ -25,6 +25,11 @@ o build e a saída do `apps/web`. As mesmas versões de Next e React também est
 nas `devDependencies` da raiz exclusivamente para a detecção inicial da Vercel;
 o aplicativo e seu código permanecem em `apps/web`.
 
+O preview Git seguinte (`dpl_5w9kKCsq2Po9W9xxdMRtDRfa1QpF`) clonou o commit
+`51a24f8`, compilou todas as seis páginas estáticas e terminou `READY`. Previews
+de branches permanecem protegidos pela autenticação da Vercel; somente o alias
+de produção é público.
+
 ## Objetivo desta versão
 
 O primeiro site público existe para tornar a construção observável sem antecipar
