@@ -109,6 +109,17 @@
 - mensagens de erro sem stack trace, SQL ou segredo;
 - cache apenas de projeções públicas.
 
+O portal de pré-lançamento é estático, não usa cookies, autenticação,
+analytics, segredos ou acesso direto ao Supabase. HSTS, proteção contra
+iframes, `nosniff`, política de referência e bloqueio de câmera/microfone/
+geolocalização já estão ativos. A CSP com nonce permanece um gate antes de
+qualquer script externo, login ou conteúdo gerado por usuário.
+
+O lockfile fixa as versões de produção. A primeira publicação usa overrides
+para `sharp 0.35.0` e `postcss 8.5.18`, versões corrigidas para advisories
+encontrados na auditoria das dependências transitivas do Next. Build e auditoria
+devem ser repetidos quando o Next incorporar versões compatíveis sem override.
+
 ### Supply chain e CI
 
 - versões fixadas e lockfiles commitidos;

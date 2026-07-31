@@ -6,6 +6,14 @@ Uma fase só termina quando testes, segurança, qualidade de dados, documentaç�
 limitações e recuperação de falhas estiverem estáveis. “Código escrito” não é
 critério de saída.
 
+### Portal público de pré-lançamento
+
+Uma página institucional pode permanecer no ar durante a etapa 1A para explicar
+fontes, método e andamento. Ela não antecipa o gate da etapa 1C: não contém
+registros municipais normalizados, alegações, anomalias ou métricas de gestão.
+Todo número exibido nessa página descreve a infraestrutura e recebe contexto
+explícito.
+
 ## Etapa 0 — Fundação
 
 Escopo:
