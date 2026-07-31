@@ -26,9 +26,10 @@ proteção contra senhas vazadas desativada no Auth. Todas as chaves estrangeira
 estão indexadas. A role `collector_querido_diario` existe sem LOGIN. O UUID Auth
 `d3e7a733-6101-4c9e-8d7a-d0f88a243eee` está ativo exclusivamente no bucket
 `raw-artifacts`, prefixo `querido-diario/gazettes/`, para `SELECT` e `INSERT`.
-O próximo gate depende do usuário: ativar a senha PostgreSQL por prompt
-interativo seguro e executar os testes com as duas identidades reais, sem
-compartilhar senhas.
+O cliente `psql 17.10` está instalado sem servidor ou serviço local. O próximo
+gate depende do usuário: escolher acesso administrativo seguro, ativar a senha
+PostgreSQL por prompt interativo e executar os testes com as duas identidades
+reais, sem compartilhar senhas.
 
 Somente depois desse gate, baixe PDF/TXT como artefatos filhos. Parser de atos e
 PNCP continuam fora de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não

@@ -299,3 +299,23 @@ real, mas não fizeram login HTTP nem upload real porque a senha permaneceu
 corretamente fora do chat. O próximo gate é ativar a role PostgreSQL por
 `psql` com prompt interativo e, depois, testar as duas sessões reais sem revelar
 segredos.
+
+## Adendo — cliente PostgreSQL instalado
+
+Data: 30/07/2026
+
+O cliente `psql 17.10` foi instalado no perfil do usuário a partir do arquivo
+ZIP Windows x64 indicado pela página oficial do PostgreSQL/EDB. Foram extraídos
+somente `psql.exe` e suas DLLs de runtime: `postgres.exe` não está presente e
+nenhum serviço PostgreSQL foi criado.
+
+O ZIP tinha 333.927.270 bytes e SHA-256
+`ef9b1e5e23d2e8a83914ba13d9dc536a72210fba53fd1808ff1f7e06bb22b106`.
+O arquivo temporário foi removido depois da instalação. O executável não possui
+assinatura Authenticode; origem HTTPS oficial e hash registrado são os controles
+de proveniência disponíveis para este pacote.
+
+Nenhuma conexão com o banco foi feita e nenhuma senha foi criada, consultada ou
+redefinida nesta ação. O próximo gate continua sendo obter acesso administrativo
+por um canal seguro e usar `\password collector_querido_diario` no prompt
+interativo.

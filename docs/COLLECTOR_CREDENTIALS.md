@@ -60,12 +60,12 @@ O aviso do Auth pode ser mitigado usando senha aleatória, exclusiva e longa,
 guardada no gerenciador de senhas. A ativação do recurso nativo deverá ser
 avaliada no painel, inclusive quanto à disponibilidade no plano gratuito.
 
-## Parte 3 — senha PostgreSQL por prompt interativo (próxima ação)
+## Parte 3 — senha PostgreSQL por prompt interativo (em andamento)
 
 A senha PostgreSQL não deve ser escrita no SQL Editor, porque pode aparecer no
 histórico. O caminho preferido é o cliente `psql`:
 
-1. instalar somente o cliente PostgreSQL;
+1. instalar somente o cliente PostgreSQL — concluído;
 2. no Dashboard, clicar em **Connect** e copiar a conexão de **Session pooler**;
 3. conectar como administrador usando a senha do banco guardada pelo
    responsável;
@@ -80,6 +80,22 @@ O comando `\password` solicita a nova senha sem exibi-la. Gere outra senha únic
 de pelo menos 24 caracteres e salve-a como
 `Barreiras em Dados — PostgreSQL — Querido Diário`.
 
+### Cliente local verificado
+
+- versão: `psql (PostgreSQL) 17.10`;
+- origem: ZIP Windows x64 apontado pela página oficial do PostgreSQL/EDB;
+- instalação: `%LOCALAPPDATA%\Programs\PostgreSQL\17-client`;
+- PATH do usuário: configurado;
+- `postgres.exe`: ausente;
+- serviço PostgreSQL local: ausente;
+- ZIP temporário: removido;
+- SHA-256 do ZIP:
+  `ef9b1e5e23d2e8a83914ba13d9dc536a72210fba53fd1808ff1f7e06bb22b106`.
+
+O `psql.exe` do arquivo ZIP não possui assinatura Authenticode. A proveniência
+foi limitada ao link HTTPS apresentado pela página oficial e ao hash registrado.
+Não reutilizar outro arquivo com o mesmo nome sem uma nova verificação.
+
 Na conexão pelo pooler, o usuário normalmente recebe o sufixo do projeto:
 
 ```text
@@ -92,6 +108,11 @@ Copie o formato exato mostrado pelo Dashboard e mantenha
 Se a senha administrativa do banco não estiver disponível, pare. A redefinição
 dessa senha exige autorização específica e deve ocorrer antes de existir
 qualquer integração dependente dela.
+
+Como alternativa à redefinição, o Supabase oferece acesso temporário usando a
+sessão do painel ou um token pessoal. Esse recurso fica desativado por padrão e
+só deve ser habilitado com validade curta, rede restrita e autorização
+específica; depois da ativação da role, deve ser desabilitado.
 
 ## Parte 4 — variáveis do worker
 

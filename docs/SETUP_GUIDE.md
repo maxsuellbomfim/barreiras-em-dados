@@ -23,6 +23,7 @@ repositório contém apenas o nome da variável em `.env.example`.
 | Supabase | `Barreiras em Dados` ativo | PostgreSQL, Auth e Storage |
 | Vercel | conectado | somente `apps/web` e `apps/admin` |
 | Docker/Podman | não disponível | PostgreSQL em contêiner indisponível |
+| PostgreSQL `psql` | cliente 17.10 instalado | acesso interativo seguro |
 | Python/Node/pnpm | disponíveis | collectors, testes e monorepo |
 
 O projeto `Site Kelvin Vinicius` foi pausado, não apagado, para liberar a cota.
