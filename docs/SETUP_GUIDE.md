@@ -94,7 +94,7 @@ Configurações aplicadas em 30/07/2026:
 - bucket `raw-artifacts` privado, limitado a 100 MB por objeto e com allowlist
   de MIME;
 - role-base `collector_worker` sem login, sem `DELETE` ou `UPDATE` no bruto;
-- role `collector_querido_diario` sem LOGIN, membro de `collector_worker` e
+- role `collector_querido_diario` com LOGIN, membro de `collector_worker` e
   limitada a 2 conexões;
 - políticas do Storage para `SELECT` e `INSERT` apenas no prefixo
   `querido-diario/gazettes/`, vinculadas a UUID Auth autorizado;
@@ -109,8 +109,7 @@ Configurações ainda pendentes:
 - Auth somente por convite para administradores;
 - MFA TOTP obrigatório para o painel;
 - proteção contra senhas vazadas no Auth, caso disponível no plano;
-- ativação de LOGIN e senha da role `collector_querido_diario` por canal
-  interativo seguro;
+- teste de login real da role `collector_querido_diario` com TLS verificado;
 - teste de sessão real do Storage com a credencial guardada pelo responsável;
 - política operacional de logs, backup e rotação.
 
@@ -220,7 +219,7 @@ isolamento exigirem.
 2. Acervo local imutável e replay de uma coleta de um dia — concluído.
 3. Aplicar migrations/seed e revisar advisors no Supabase — concluído.
 4. Provisionar a identidade do coletor e restringi-la ao banco e ao
-   bucket/prefixo — Storage ativado; login PostgreSQL e teste real pendentes.
+   bucket/prefixo — identidades ativadas; testes reais e replay pendentes.
 5. Download local de PDF/TXT e preservação como artefato filho.
 6. Health interno de fontes.
 7. Esqueleto do admin com Auth, MFA e auditoria.

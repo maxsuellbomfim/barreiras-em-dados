@@ -7,7 +7,7 @@ histórico de comandos. Ele se aplica somente ao projeto Supabase
 ## Estado em 30/07/2026
 
 - `collector_worker`: papel-base sem login;
-- `collector_querido_diario`: identidade PostgreSQL sem LOGIN;
+- `collector_querido_diario`: identidade PostgreSQL com LOGIN ativo;
 - limite da identidade PostgreSQL: 2 conexões;
 - bucket `raw-artifacts`: privado;
 - usuário Auth técnico: criado, confirmado e não anônimo;
@@ -18,8 +18,8 @@ histórico de comandos. Ele se aplica somente ao projeto Supabase
 - `UPDATE`, `DELETE`, outro bucket e outro prefixo: negados;
 - secret/service role: recusada pelo coletor.
 
-O acesso ao Storage está autorizado. O login PostgreSQL continua desativado, por
-isso nenhuma coleta remota completa deve ser executada ainda.
+As duas identidades estão ativadas. Nenhuma coleta remota completa deve ser
+executada antes dos testes com as credenciais reais e do replay idempotente.
 
 ## Parte 1 — ação do responsável no painel Supabase (concluída)
 
@@ -52,7 +52,8 @@ Resultado verificado:
 - `UPDATE`, `DELETE`, outro bucket e outro prefixo negados;
 - UUID não cadastrado sem acesso;
 - um evento append-only de ativação registrado em `audit.audit_events`;
-- role PostgreSQL `collector_querido_diario` ainda com `NOLOGIN`;
+- role PostgreSQL `collector_querido_diario` ainda estava com `NOLOGIN` nesta
+  parte do procedimento;
 - advisor sem alerta de RLS ou exposição de dados;
 - aviso do Auth: proteção contra senhas vazadas desativada.
 
@@ -60,7 +61,7 @@ O aviso do Auth pode ser mitigado usando senha aleatória, exclusiva e longa,
 guardada no gerenciador de senhas. A ativação do recurso nativo deverá ser
 avaliada no painel, inclusive quanto à disponibilidade no plano gratuito.
 
-## Parte 3 — senha PostgreSQL por prompt interativo (em andamento)
+## Parte 3 — senha PostgreSQL por prompt interativo (concluída)
 
 A senha PostgreSQL não deve ser escrita no SQL Editor, porque pode aparecer no
 histórico. O caminho preferido é o cliente `psql`:
@@ -68,12 +69,15 @@ histórico. O caminho preferido é o cliente `psql`:
 1. instalar somente o cliente PostgreSQL — concluído;
 2. no Dashboard, clicar em **Connect** e copiar a conexão de **Session pooler**;
 3. conectar como administrador usando a senha do banco guardada pelo
-   responsável;
-4. executar:
+   responsável — concluído;
+4. definir a senha enquanto a role ainda estava bloqueada e só depois ativar o
+   LOGIN — concluído:
 
 ```psql
-ALTER ROLE collector_querido_diario LOGIN;
+BEGIN;
 \password collector_querido_diario
+ALTER ROLE collector_querido_diario LOGIN CONNECTION LIMIT 2;
+COMMIT;
 ```
 
 O comando `\password` solicita a nova senha sem exibi-la. Gere outra senha única
@@ -91,6 +95,9 @@ de pelo menos 24 caracteres e salve-a como
 - ZIP temporário: removido;
 - SHA-256 do ZIP:
   `ef9b1e5e23d2e8a83914ba13d9dc536a72210fba53fd1808ff1f7e06bb22b106`.
+- certificado TLS: `Supabase Root 2021 CA`, válido até 26/04/2031;
+- SHA-256 do certificado:
+  `700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7`.
 
 O `psql.exe` do arquivo ZIP não possui assinatura Authenticode. A proveniência
 foi limitada ao link HTTPS apresentado pela página oficial e ao hash registrado.
@@ -109,10 +116,19 @@ Se a senha administrativa do banco não estiver disponível, pare. A redefiniç�
 dessa senha exige autorização específica e deve ocorrer antes de existir
 qualquer integração dependente dela.
 
-Como alternativa à redefinição, o Supabase oferece acesso temporário usando a
-sessão do painel ou um token pessoal. Esse recurso fica desativado por padrão e
-só deve ser habilitado com validade curta, rede restrita e autorização
-específica; depois da ativação da role, deve ser desabilitado.
+O acesso temporário documentado pelo Supabase não apareceu no painel deste
+projeto. Com autorização expressa, a senha administrativa foi redefinida antes
+de existir integração dependente dela e guardada fora do chat e do Git.
+
+### Resultado remoto
+
+- `collector_querido_diario`: `LOGIN`, limite de 2 conexões;
+- membro de `collector_worker`;
+- sem superusuário, criação de role/banco, replicação ou `BYPASSRLS`;
+- sem `DELETE` em `raw.raw_artifacts`;
+- sem `UPDATE` em `raw.raw_records`;
+- um evento append-only `database_workload_identity.activated`;
+- senha administrativa e senha do coletor não foram observadas pelo agente.
 
 ## Parte 4 — variáveis do worker
 

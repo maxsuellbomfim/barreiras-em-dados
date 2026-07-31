@@ -319,3 +319,38 @@ Nenhuma conexão com o banco foi feita e nenhuma senha foi criada, consultada ou
 redefinida nesta ação. O próximo gate continua sendo obter acesso administrativo
 por um canal seguro e usar `\password collector_querido_diario` no prompt
 interativo.
+
+## Adendo — identidade PostgreSQL ativada
+
+Data: 30/07/2026
+
+Com autorização expressa, a senha administrativa foi redefinida somente no
+projeto `Barreiras em Dados`, antes de existirem integrações dependentes dela. A
+senha foi gerada e guardada pelo responsável fora do chat e do Git.
+
+O acesso temporário descrito na documentação não estava disponível na tela de
+Database Settings. Nenhuma restrição de rede foi ampliada e nenhum outro projeto
+Supabase foi alterado.
+
+A conexão administrativa usou o Session pooler em `sa-east-1`,
+`sslmode=verify-full` e o certificado `Supabase Root 2021 CA`. Dentro de uma
+transação, a senha do coletor foi definida enquanto a role ainda estava com
+`NOLOGIN`; somente depois o LOGIN foi ativado com limite de duas conexões. O
+evento `database_workload_identity.activated` foi inserido na auditoria antes do
+commit.
+
+### Verificação remota
+
+- role com LOGIN e limite de 2 conexões;
+- membro de `collector_worker`;
+- sem superusuário, criação de role/banco, replicação ou `BYPASSRLS`;
+- sem `DELETE` em `raw.raw_artifacts`;
+- sem `UPDATE` em `raw.raw_records`;
+- exatamente um evento de ativação;
+- advisor sem falha de RLS ou exposição de dados;
+- permanece o aviso de proteção contra senhas vazadas desativada no Auth.
+
+O roteiro operacional temporário foi removido. As senhas administrativa e do
+coletor não foram observadas pelo agente. Ainda falta autenticar uma sessão real
+como `collector_querido_diario`, exercitar grants positivos/negativos e testar o
+Storage com a credencial Auth real.
