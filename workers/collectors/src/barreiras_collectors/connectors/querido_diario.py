@@ -116,6 +116,8 @@ class CollectedPage:
     cursor: Mapping[str, int]
     raw_body: bytes
     parsed: GazettePage
+    window_start: str | None = None
+    window_end: str | None = None
 
 
 @dataclass(frozen=True)
@@ -240,6 +242,12 @@ class QueridoDiarioClient:
                 cursor={"offset": offset, "size": page_size},
                 raw_body=result.response.body,
                 parsed=parsed,
+                window_start=(
+                    published_since.isoformat() if published_since else None
+                ),
+                window_end=(
+                    published_until.isoformat() if published_until else None
+                ),
             )
 
             if observed >= parsed.total_gazettes:

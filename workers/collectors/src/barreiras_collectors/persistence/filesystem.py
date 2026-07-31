@@ -309,6 +309,10 @@ class FilesystemCollectionRepository:
                 "status": page.collection_status,
                 "response_headers": dict(page.response_headers),
                 "cursor": dict(page.cursor),
+                "window": {
+                    "start": page.window_start,
+                    "end": page.window_end,
+                },
             },
             "records": [
                 {

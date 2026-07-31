@@ -388,6 +388,41 @@ try {
     /immutable relation/,
   );
 
+  const dailyCoverage = await database.query(`
+    select
+      day::text as day,
+      attempted_by_recorded_window,
+      preserved_editions::integer as preserved_editions,
+      preserved_documents::integer as preserved_documents
+    from source.querido_diario_daily_coverage
+  `);
+  assert.deepEqual(dailyCoverage.rows, [
+    {
+      day: "2026-06-10",
+      attempted_by_recorded_window: false,
+      preserved_editions: 1,
+      preserved_documents: 0,
+    },
+  ]);
+
+  const coveragePrivileges = await database.query(`
+    select
+      has_table_privilege(
+        'anon',
+        'source.querido_diario_daily_coverage',
+        'SELECT'
+      ) as anon_can_read,
+      has_table_privilege(
+        'authenticated',
+        'source.querido_diario_daily_coverage',
+        'SELECT'
+      ) as authenticated_can_read
+  `);
+  assert.deepEqual(coveragePrivileges.rows[0], {
+    anon_can_read: false,
+    authenticated_can_read: false,
+  });
+
   const seeded = await database.query(`
     select
       (select count(*)::integer from source.data_sources) as sources,
