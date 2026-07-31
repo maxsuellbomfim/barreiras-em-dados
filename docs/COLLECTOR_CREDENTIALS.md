@@ -4,23 +4,24 @@ Este procedimento ativa o primeiro workload sem enviar senha ao chat, Git ou
 histórico de comandos. Ele se aplica somente ao projeto Supabase
 `Barreiras em Dados` (`mpladsyzilmgiefejpkq`).
 
-## Estado seguro inicial
+## Estado em 30/07/2026
 
 - `collector_worker`: papel-base sem login;
 - `collector_querido_diario`: identidade PostgreSQL sem LOGIN;
 - limite da identidade PostgreSQL: 2 conexões;
 - bucket `raw-artifacts`: privado;
-- usuário Auth técnico: ainda não criado;
-- allowlist do Storage: vazia;
+- usuário Auth técnico: criado, confirmado e não anônimo;
+- User UID autorizado: `d3e7a733-6101-4c9e-8d7a-d0f88a243eee`;
+- allowlist do Storage: uma identidade ativa para o Querido Diário;
 - políticas: somente `SELECT` e `INSERT` para UUID ativo no prefixo
   `querido-diario/gazettes/`;
 - `UPDATE`, `DELETE`, outro bucket e outro prefixo: negados;
 - secret/service role: recusada pelo coletor.
 
-Enquanto as duas credenciais não forem ativadas, nenhuma coleta remota pode
-escrever.
+O acesso ao Storage está autorizado. O login PostgreSQL continua desativado, por
+isso nenhuma coleta remota completa deve ser executada ainda.
 
-## Parte 1 — ação do responsável no painel Supabase
+## Parte 1 — ação do responsável no painel Supabase (concluída)
 
 1. Abra o
    [projeto Barreiras em Dados](https://supabase.com/dashboard/project/mpladsyzilmgiefejpkq).
@@ -39,19 +40,27 @@ escrever.
 Envie ao agente **somente o User UID**. UUID não é senha. Não envie e-mail,
 senha, token, captura de tela com credenciais nem chave secreta.
 
-## Parte 2 — ação do agente depois de receber o UUID
+## Parte 2 — ativação do UUID pelo agente (concluída)
 
-O agente deverá:
+O UUID informado foi validado em `auth.users` sem expor e-mail ou senha e
+registrado de forma auditável em `audit.storage_workload_identities`.
 
-1. confirmar que o UUID existe em `auth.users`;
-2. cadastrar o UUID em `audit.storage_workload_identities`;
-3. limitar o registro a `raw-artifacts/querido-diario/gazettes/`;
-4. ativar somente `SELECT` e `INSERT`;
-5. testar usuário não cadastrado, outro bucket, outro prefixo, `UPDATE` e
-   `DELETE`;
-6. executar novamente os advisors de segurança.
+Resultado verificado:
 
-## Parte 3 — senha PostgreSQL por prompt interativo
+- `SELECT` e `INSERT` permitidos somente em
+  `raw-artifacts/querido-diario/gazettes/`;
+- `UPDATE`, `DELETE`, outro bucket e outro prefixo negados;
+- UUID não cadastrado sem acesso;
+- um evento append-only de ativação registrado em `audit.audit_events`;
+- role PostgreSQL `collector_querido_diario` ainda com `NOLOGIN`;
+- advisor sem alerta de RLS ou exposição de dados;
+- aviso do Auth: proteção contra senhas vazadas desativada.
+
+O aviso do Auth pode ser mitigado usando senha aleatória, exclusiva e longa,
+guardada no gerenciador de senhas. A ativação do recurso nativo deverá ser
+avaliada no painel, inclusive quanto à disponibilidade no plano gratuito.
+
+## Parte 3 — senha PostgreSQL por prompt interativo (próxima ação)
 
 A senha PostgreSQL não deve ser escrita no SQL Editor, porque pode aparecer no
 histórico. O caminho preferido é o cliente `psql`:

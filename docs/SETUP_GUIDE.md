@@ -99,17 +99,18 @@ Configurações aplicadas em 30/07/2026:
   `querido-diario/gazettes/`, vinculadas a UUID Auth autorizado;
 - extensão `pg_trgm` isolada em `extensions`;
 - 123 chaves estrangeiras com índice de cobertura;
-- advisors sem alerta de segurança.
+- advisor sem alerta de RLS ou exposição de dados;
+- um aviso do Auth sobre proteção contra senhas vazadas desativada.
 
 Configurações ainda pendentes:
 
 - cadastro público desativado;
 - Auth somente por convite para administradores;
 - MFA TOTP obrigatório para o painel;
-- criação do usuário Auth técnico e registro do seu UUID na allowlist;
+- proteção contra senhas vazadas no Auth, caso disponível no plano;
 - ativação de LOGIN e senha da role `collector_querido_diario` por canal
   interativo seguro;
-- teste negativo usando a identidade real do workload;
+- teste de sessão real do Storage com a credencial guardada pelo responsável;
 - política operacional de logs, backup e rotação.
 
 O procedimento sem compartilhamento de senhas está em
@@ -218,7 +219,7 @@ isolamento exigirem.
 2. Acervo local imutável e replay de uma coleta de um dia — concluído.
 3. Aplicar migrations/seed e revisar advisors no Supabase — concluído.
 4. Provisionar a identidade do coletor e restringi-la ao banco e ao
-   bucket/prefixo — limites aplicados; ativação segura pendente.
+   bucket/prefixo — Storage ativado; login PostgreSQL e teste real pendentes.
 5. Download local de PDF/TXT e preservação como artefato filho.
 6. Health interno de fontes.
 7. Esqueleto do admin com Auth, MFA e auditoria.

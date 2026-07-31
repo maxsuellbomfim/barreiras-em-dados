@@ -241,8 +241,9 @@ herda inserções por coluna e continua sem `DELETE` em `raw_artifacts` nem
 O Storage recebeu duas policies para `authenticated`: `SELECT` e `INSERT`.
 Ambas exigem UUID presente e ativo em
 `audit.storage_workload_identities`, bucket `raw-artifacts` e prefixo
-`querido-diario/gazettes/`. A allowlist está vazia; o projeto continua com zero
-usuários Auth. Acesso direto à allowlist possui política restritiva de negação.
+`querido-diario/gazettes/`. Naquele momento, a allowlist estava vazia e o
+projeto continuava com zero usuários Auth. Acesso direto à allowlist possui
+política restritiva de negação.
 
 ### Testes
 
@@ -262,3 +263,39 @@ Nenhuma senha, usuário Auth ou login PostgreSQL foi ativado. A próxima ação 
 manual e está descrita em `docs/COLLECTOR_CREDENTIALS.md`: o responsável cria o
 usuário técnico no painel, guarda sua senha fora do chat e informa somente o
 User UID.
+
+## Adendo — identidade Auth do Storage ativada
+
+Data: 30/07/2026
+
+O User UID `d3e7a733-6101-4c9e-8d7a-d0f88a243eee`, informado expressamente
+pelo responsável, foi validado sem consultar ou expor e-mail e senha. O usuário
+está confirmado, não é anônimo, não está banido nem marcado como excluído e
+possui identidade de senha.
+
+A identidade foi registrada na allowlist com slug
+`querido-diario-collector`, bucket `raw-artifacts`, prefixo
+`querido-diario/gazettes/`, `SELECT` e `INSERT`. A ativação gerou um evento
+append-only em `audit.audit_events`.
+
+### Testes remotos de autorização
+
+- UUID autorizado no bucket e prefixo corretos: `SELECT` e `INSERT` permitidos;
+- `UPDATE` e `DELETE`: negados;
+- outro prefixo e outro bucket: negados;
+- UUID aleatório não cadastrado: `SELECT` e `INSERT` negados;
+- uma identidade ativa e um evento de ativação registrados;
+- role `collector_querido_diario`: permanece com `NOLOGIN`.
+
+O advisor de segurança não encontrou falha de RLS ou exposição de dados. Há um
+aviso de que a proteção do Auth contra senhas vazadas está desativada. Enquanto
+esse recurso não for habilitado, a mitigação obrigatória é uma senha aleatória,
+exclusiva e longa no gerenciador de senhas.
+
+### Limitação e próximo gate
+
+Os testes exercitaram as mesmas funções e condições das policies com o UUID
+real, mas não fizeram login HTTP nem upload real porque a senha permaneceu
+corretamente fora do chat. O próximo gate é ativar a role PostgreSQL por
+`psql` com prompt interativo e, depois, testar as duas sessões reais sem revelar
+segredos.
