@@ -4,23 +4,25 @@ Este procedimento ativa o primeiro workload sem enviar senha ao chat, Git ou
 histórico de comandos. Ele se aplica somente ao projeto Supabase
 `Barreiras em Dados` (`mpladsyzilmgiefejpkq`).
 
-## Estado em 30/07/2026
+## Estado em 31/07/2026
 
 - `collector_worker`: papel-base sem login;
 - `collector_querido_diario`: identidade PostgreSQL com LOGIN ativo;
 - limite da identidade PostgreSQL: 2 conexões;
 - bucket `raw-artifacts`: privado;
 - usuário Auth técnico: criado, confirmado e não anônimo;
-- User UID autorizado: `d3e7a733-6101-4c9e-8d7a-d0f88a243eee`;
+- User UID técnico autorizado:
+  `7d6b46e6-9f0d-4dbe-b319-0576d3df8ceb`;
 - allowlist do Storage: uma identidade ativa para o Querido Diário;
 - políticas: somente `SELECT` e `INSERT` para UUID ativo no prefixo
   `querido-diario/gazettes/`;
 - `UPDATE`, `DELETE`, outro bucket e outro prefixo: negados;
 - secret/service role: recusada pelo coletor.
 
-As duas identidades estão ativadas e foram testadas com sessões reais. Um objeto
-legítimo do Querido Diário foi preservado no Storage; a coleta remota só estará
-completa depois de vinculá-lo ao PostgreSQL e repetir o replay idempotente.
+As duas identidades estão ativadas e foram testadas com sessões reais. O primeiro
+recorte do Querido Diário foi preservado no Storage, vinculado ao PostgreSQL e
+repetido sem duplicação. A rotação de 31/07/2026 preservou o usuário Auth
+anterior, removeu-o da allowlist do coletor e registrou a troca em auditoria.
 
 ## Parte 1 — ação do responsável no painel Supabase (concluída)
 
@@ -110,8 +112,10 @@ Na conexão pelo pooler, o usuário normalmente recebe o sufixo do projeto:
 collector_querido_diario.mpladsyzilmgiefejpkq
 ```
 
-Copie o formato exato mostrado pelo Dashboard e mantenha
-`sslmode=require` ou `verify-full`.
+Copie o formato exato mostrado pelo Dashboard. O coletor usa `verify-full` e a
+CA oficial versionada em
+`config/certificates/supabase-prod-ca-2021.crt`; não reduza para um modo sem
+verificação de CA e hostname.
 
 Se a senha administrativa do banco não estiver disponível, pare. A redefinição
 dessa senha exige autorização específica e deve ocorrer antes de existir
@@ -181,9 +185,9 @@ SUPABASE_RAW_ARTIFACTS_BUCKET=raw-artifacts
 5. [concluído para prefixo; validado por policy para bucket] usuário Auth não
    pode escrever em `pncp/` ou outro bucket;
 6. [concluído] usuário Auth não pode atualizar nem apagar objeto;
-7. uma janela de um dia é coletada;
-8. o mesmo comando é repetido sem duplicação;
-9. o objeto é restaurado e o SHA-256 é comparado.
+7. [concluído] uma janela de um dia é coletada;
+8. [concluído] o mesmo comando é repetido sem duplicação;
+9. [concluído] o objeto é restaurado e o SHA-256 é comparado.
 
 ### Execução assistida sem salvar segredos
 
@@ -194,11 +198,12 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File scripts/run-first-remote-replay.ps1
 ```
 
-O script solicita interativamente a URI do **Session pooler**, as duas senhas,
-a publishable key e o e-mail técnico. Senhas usam entrada oculta, permanecem
-somente na memória do processo e são removidas das variáveis de ambiente ao
-final. A URI copiada do Dashboard deve manter `[YOUR-PASSWORD]`; o script monta
-a conexão da role restrita e codifica a senha separadamente.
+O arquivo local ignorado `.env.collector.local` pode manter somente host do
+pooler, publishable key e e-mail técnico. Por padrão, o script solicita as duas
+senhas em entrada oculta, mantém os valores somente na memória e limpa as
+variáveis de ambiente ao final. Em uma rotação assistida, senhas temporárias
+podem ser carregadas desse arquivo apenas durante o replay e devem ser removidas
+imediatamente depois.
 
 Ele executa 10/06/2026 duas vezes. O gate exige dois registros na primeira
 leitura lógica e, no replay, zero inseridos e dois existentes. Cada execução
@@ -214,3 +219,37 @@ Em incidente ou troca de responsável, nesta ordem:
 4. rotacionar as duas senhas;
 5. registrar o evento em auditoria;
 6. só então reativar e repetir os testes negativos.
+
+## Adendo — rotação e primeiro replay remoto aprovados
+
+Data: 31/07/2026
+
+Com autorização expressa, foram redefinidas somente as duas credenciais do
+coletor. Nenhuma senha administrativa, conta pessoal ou outro projeto foi
+alterado. A identidade técnica do Storage passou a usar um novo usuário Auth
+auto-confirmado; o usuário anterior foi preservado, mas deixou de constar na
+allowlist. A troca gerou o evento append-only
+`rotate_collector_credentials`, sem registrar valores secretos.
+
+O replay de 10/06/2026 concluiu com:
+
+- autenticação Auth HTTP 200 usando publishable key;
+- conexão PostgreSQL pelo Session pooler com `sslmode=verify-full`;
+- 1 `collection_run`;
+- 1 `raw_artifact`, 861 bytes e SHA-256
+  `cf1d9d70d022ff178eb4632dc448245d246503b2bf1825f5867a0772b2ddb0f1`;
+- 2 `raw_records` na primeira execução;
+- 0 novos registros e 2 existentes na segunda execução;
+- 1 objeto privado no prefixo autorizado do Storage;
+- hash do banco, objeto e resposta coletada coerentes;
+- uma identidade técnica ativa e um evento de rotação auditável.
+
+As dependências opcionais fixadas `postgres` e `storage` foram instaladas no
+Python local. O cliente libpq não conseguiu abrir a CA dentro de um caminho com
+caractere acentuado; o roteiro passou a copiar a CA pública para um nome
+temporário ASCII, usá-lo durante a conexão e apagá-lo no `finally`.
+
+As senhas temporárias foram apagadas de `.env.collector.local` após o sucesso.
+O próximo gate é transformar a execução aprovada em job automatizado com
+segredos no gerenciador do runtime, monitoramento e dead-letter queue, sem
+credenciais no Git ou na Vercel.

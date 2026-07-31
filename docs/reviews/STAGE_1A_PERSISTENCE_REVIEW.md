@@ -403,6 +403,29 @@ O resultado foi registrado no evento append-only
 `storage_workload_identity.verified`. O roteiro temporário foi removido. A senha,
 o access token e o refresh token não foram observados pelo agente.
 
-O próximo gate é executar a primeira coleta remota de um dia, associar o objeto
-às tabelas `collection_runs`, `raw_artifacts` e `raw_records`, repetir o mesmo
-comando sem duplicação e restaurar o SHA-256 pelo fluxo completo.
+## Adendo — gate de replay remoto aprovado
+
+Data: 31/07/2026
+
+Depois da rotação autorizada das duas credenciais técnicas, o fluxo completo
+executou duas vezes para a janela de 10/06/2026. A primeira execução inseriu
+dois registros e a segunda encontrou os mesmos dois, sem nova inserção.
+
+Verificação remota independente:
+
+- 1 `source.collection_runs`;
+- 1 `raw.raw_artifacts`;
+- 2 `raw.raw_records`;
+- 1 objeto em `storage.objects`;
+- 1 correspondência para o SHA-256 esperado;
+- 1 identidade técnica ativa na allowlist;
+- 1 evento append-only de rotação.
+
+O Storage autenticou com publishable key e usuário técnico restrito. O
+PostgreSQL autenticou pela role `collector_querido_diario`, Session pooler e
+`sslmode=verify-full`, usando a CA oficial do Supabase. O objeto preexistente
+foi restaurado e comparado antes da persistência; nenhuma sobrescrita ocorreu.
+
+O gate de persistência remota e idempotência está aprovado. Permanecem fora
+desta etapa o agendamento contínuo, alarmes operacionais, dead-letter queue e
+armazenamento das credenciais no gerenciador de segredos do runtime.

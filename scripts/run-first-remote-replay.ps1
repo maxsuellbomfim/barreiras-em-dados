@@ -8,6 +8,20 @@ $ErrorActionPreference = "Stop"
 $projectRef = "mpladsyzilmgiefejpkq"
 $collectorUser = "collector_querido_diario.$projectRef"
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$localConfigPath = Join-Path $projectRoot ".env.collector.local"
+
+function Read-LocalCollectorConfig {
+    if (-not (Test-Path -LiteralPath $localConfigPath)) {
+        return $null
+    }
+
+    $lines = Get-Content -LiteralPath $localConfigPath -Encoding UTF8 |
+        Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_) -and
+            -not $_.TrimStart().StartsWith("#")
+        }
+    return ConvertFrom-StringData ($lines -join [Environment]::NewLine)
+}
 
 function Convert-SecureValueToPlainText {
     param([Security.SecureString]$Value)
@@ -69,57 +83,96 @@ function Invoke-Collector {
 
     Write-Host ""
     Write-Host $Label -ForegroundColor Cyan
-    $output = @(
-        & $Python -B -m `
-            barreiras_collectors.commands.collect_querido_diario `
-            --since $Since `
-            --until $Until `
-            --page-size 100 2>&1
-    )
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # Windows PowerShell 5.1 converte stderr de processos nativos em
+        # NativeCommandError quando Stop está ativo. Preserve o diagnóstico e
+        # decida o sucesso exclusivamente pelo código de saída do Python.
+        $ErrorActionPreference = "Continue"
+        $output = @(
+            & $Python -B -m `
+                barreiras_collectors.commands.collect_querido_diario `
+                --since $Since `
+                --until $Until `
+                --page-size 100 2>&1
+        )
+        $nativeExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     $output | ForEach-Object { Write-Host $_ }
-    if ($LASTEXITCODE -ne 0) {
-        throw "O coletor terminou com código $LASTEXITCODE."
+    if ($nativeExitCode -ne 0) {
+        throw "O coletor terminou com código $nativeExitCode."
     }
     return Read-CompletedEvent -Output $output
 }
 
 Write-Host "Replay remoto seguro do Querido Diário" -ForegroundColor Green
-Write-Host "As senhas serão usadas apenas na memória deste PowerShell."
-Write-Host "Nada será gravado no chat, no Git ou em arquivo .env."
+Write-Host "Nenhuma senha será enviada ao chat ou ao Git."
 Write-Host ""
-Write-Host "No Supabase, abra Connect > Session pooler e copie a URI."
-Write-Host "Mantenha o trecho [YOUR-PASSWORD]; a senha será pedida separadamente."
+$localConfig = Read-LocalCollectorConfig
+if ($localConfig) {
+    Write-Host "Configuração local encontrada." -ForegroundColor Cyan
+    $poolerHost = $localConfig.COLLECTOR_POOLER_HOST
+    $poolerPort = "5432"
+    $databaseName = "postgres"
+    $publishableKey = $localConfig.SUPABASE_PUBLISHABLE_KEY
+    $workloadEmail = $localConfig.SUPABASE_WORKLOAD_EMAIL
+}
+else {
+    Write-Host "No Supabase, abra Connect > Session pooler e copie a URI."
+    Write-Host "Mantenha [YOUR-PASSWORD]; a senha será pedida separadamente."
 
-$connectionTemplate = (Read-Host "URI do Session pooler").Trim()
-$connectionMatch = [regex]::Match(
-    $connectionTemplate,
-    "^postgres(?:ql)?://[^@]+@(?<host>[^:/?#]+):(?<port>\d+)/(?<database>[^?]+)"
-)
-if (-not $connectionMatch.Success) {
-    throw "A URI do Session pooler não possui o formato esperado."
+    $connectionTemplate = (Read-Host "URI do Session pooler").Trim()
+    $connectionMatch = [regex]::Match(
+        $connectionTemplate,
+        "^postgres(?:ql)?://[^@]+@(?<host>[^:/?#]+):(?<port>\d+)/(?<database>[^?]+)"
+    )
+    if (-not $connectionMatch.Success) {
+        throw "A URI do Session pooler não possui o formato esperado."
+    }
+
+    $poolerHost = $connectionMatch.Groups["host"].Value
+    $poolerPort = $connectionMatch.Groups["port"].Value
+    $databaseName = $connectionMatch.Groups["database"].Value
+    if (-not $connectionTemplate.Contains($projectRef)) {
+        throw "A URI não pertence ao projeto Barreiras em Dados."
+    }
+
+    $publishableKey = (
+        Read-Host "Supabase publishable key (sb_publishable_...)"
+    ).Trim()
+    $workloadEmail = (
+        Read-Host "E-mail técnico do coletor no Supabase Auth"
+    ).Trim()
 }
 
-$poolerHost = $connectionMatch.Groups["host"].Value
-$poolerPort = $connectionMatch.Groups["port"].Value
-$databaseName = $connectionMatch.Groups["database"].Value
 if (
     -not $poolerHost.EndsWith(".pooler.supabase.com") -or
     $poolerPort -ne "5432" -or
-    $databaseName -ne "postgres" -or
-    -not $connectionTemplate.Contains($projectRef)
+    $databaseName -ne "postgres"
 ) {
-    throw "Use o Session pooler do projeto Barreiras em Dados, na porta 5432."
+    throw "A configuração do Session pooler é inválida."
 }
 
-$databasePasswordSecure = Read-Host `
-    "Senha PostgreSQL da role collector_querido_diario" -AsSecureString
-$publishableKey = (Read-Host "Supabase publishable key (sb_publishable_...)").Trim()
-$workloadEmail = (Read-Host "E-mail técnico do coletor no Supabase Auth").Trim()
-$workloadPasswordSecure = Read-Host `
-    "Senha do usuário técnico do Supabase Auth" -AsSecureString
-
-$databasePassword = Convert-SecureValueToPlainText $databasePasswordSecure
-$workloadPassword = Convert-SecureValueToPlainText $workloadPasswordSecure
+$databasePassword = $localConfig.COLLECTOR_DATABASE_PASSWORD
+$workloadPassword = $localConfig.SUPABASE_WORKLOAD_PASSWORD
+if (
+    [string]::IsNullOrWhiteSpace($databasePassword) -or
+    [string]::IsNullOrWhiteSpace($workloadPassword)
+) {
+    Write-Host "Digite as duas senhas do coletor."
+    $databasePasswordSecure = Read-Host `
+        "1/2 Senha PostgreSQL — Querido Diário" -AsSecureString
+    $workloadPasswordSecure = Read-Host `
+        "2/2 Senha Storage — Querido Diário" -AsSecureString
+    $databasePassword = Convert-SecureValueToPlainText $databasePasswordSecure
+    $workloadPassword = Convert-SecureValueToPlainText $workloadPasswordSecure
+}
+else {
+    Write-Host "Credenciais temporárias locais carregadas." -ForegroundColor Cyan
+}
 try {
     if ($databasePassword.Length -lt 24) {
         throw "A senha PostgreSQL deve ter ao menos 24 caracteres."
@@ -141,9 +194,29 @@ try {
     }
 
     $encodedDatabasePassword = [Uri]::EscapeDataString($databasePassword)
+    $bundledSslRootCertificatePath = Join-Path $projectRoot `
+        "config\certificates\supabase-prod-ca-2021.crt"
+    if (-not (Test-Path -LiteralPath $bundledSslRootCertificatePath)) {
+        throw "O certificado CA oficial do Supabase não foi localizado."
+    }
+    # libpq no Windows pode interpretar caminhos de conexão pela página de
+    # código legada. Use um nome temporário ASCII para suportar workspaces com
+    # caracteres acentuados sem enfraquecer sslmode=verify-full.
+    $sslRootCertificatePath = Join-Path (
+        [IO.Path]::GetTempPath()
+    ) (
+        "barreiras-" + [IO.Path]::GetRandomFileName() + ".crt"
+    )
+    Copy-Item -LiteralPath $bundledSslRootCertificatePath `
+        -Destination $sslRootCertificatePath
+    $encodedSslRootCertificatePath = [Uri]::EscapeDataString(
+        $sslRootCertificatePath
+    )
     $databaseUrl = (
         "postgresql://${collectorUser}:${encodedDatabasePassword}" +
-        "@${poolerHost}:${poolerPort}/${databaseName}?sslmode=verify-full"
+        "@${poolerHost}:${poolerPort}/${databaseName}" +
+        "?sslmode=verify-full" +
+        "&sslrootcert=${encodedSslRootCertificatePath}"
     )
 
     $env:APP_ENV = "development"
@@ -195,4 +268,16 @@ finally {
     $databasePassword = $null
     $workloadPassword = $null
     $databaseUrl = $null
+    if (
+        -not [string]::IsNullOrWhiteSpace($sslRootCertificatePath) -and
+        (Test-Path -LiteralPath $sslRootCertificatePath)
+    ) {
+        Remove-Item -LiteralPath $sslRootCertificatePath -Force
+    }
+    $bundledSslRootCertificatePath = $null
+    $sslRootCertificatePath = $null
+    $encodedSslRootCertificatePath = $null
+    $localConfig = $null
+    $publishableKey = $null
+    $workloadEmail = $null
 }

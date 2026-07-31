@@ -54,6 +54,13 @@ Gate:
 - restauração de um artefato por hash comprovada;
 - antes de staging, bucket privado, grants e backup do provedor são revisados.
 
+Estado em 31/07/2026:
+
+- concluídos: seed, janela JSON pequena, Storage privado, hash, restauração,
+  persistência PostgreSQL e replay remoto idempotente;
+- pendentes para encerrar 1A: PDFs/textos com limites, status interno de
+  coleta, exercício integrado de DLQ/circuit breaker e revisão de backup.
+
 ## Etapa 1B — Documento e extração candidata
 
 - páginas e texto canônico;
