@@ -268,6 +268,8 @@ class PostgresCollectionRepository:
               idempotency_key,
               collector_version,
               parser_version,
+              collection_window_start,
+              collection_window_end,
               cursor_before,
               cursor_after,
               status,
@@ -278,7 +280,8 @@ class PostgresCollectionRepository:
               metrics
             )
             values (
-              %s::uuid, %s, %s, %s, %s::jsonb, %s::jsonb, 'succeeded',
+              %s::uuid, %s, %s, %s, %s::timestamptz, %s::timestamptz,
+              %s::jsonb, %s::jsonb, 'succeeded',
               %s, %s::timestamptz, %s::timestamptz, %s::timestamptz, %s::jsonb
             )
             on conflict (idempotency_key) do nothing
@@ -289,6 +292,8 @@ class PostgresCollectionRepository:
                 batch.page.idempotency_key,
                 batch.collector_version,
                 batch.parser_version,
+                batch.page.window_start,
+                batch.page.window_end,
                 cls._json(batch.page.cursor),
                 cls._json(cursor_after),
                 batch.page.attempts,

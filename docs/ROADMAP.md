@@ -54,19 +54,19 @@ Gate:
 - restauração de um artefato por hash comprovada;
 - antes de staging, bucket privado, grants e backup do provedor são revisados.
 
-Estado em 31/07/2026:
+Estado em 31/07/2026 — **etapa encerrada**:
 
-- concluídos: seed, janela JSON pequena, Storage privado, hash, restauração,
-  persistência PostgreSQL, replay remoto idempotente, credenciais técnicas no
-  cofre do GitHub, workflow diário com backfill curto e DLQ sanitizada, status
-  público agregado com acesso mínimo e validação manual/agendada do workflow
-  publicado;
-- implementado aguardando validação remota: PDF/texto de cada edição como
-  artefatos filhos verificados por hash, com limites de tamanho e de
-  quantidade por execução;
-- pendentes para encerrar 1A: validação remota da coleta de documentos, visão
-  interna de lacunas, exercício integrado de DLQ/circuit breaker e revisão de
-  backup.
+- gate integralmente cumprido: replay idempotente validado em produção,
+  PDF/texto como artefatos filhos verificados por hash (execução nº 5),
+  caminho de falha exercitado de verdade com DLQ sanitizada (execução nº 4),
+  status público agregado no ar, visão interna de lacunas
+  (`source.querido_diario_daily_coverage`) sem acesso anônimo e revisão de
+  bucket, grants e backup registrada;
+- limitação aceita: o plano gratuito do provedor não oferece backup
+  automático; mitigação registrada na revisão de encerramento;
+- revisões: `docs/reviews/STAGE_1A_PUBLIC_STATUS_REVIEW.md`,
+  `docs/reviews/STAGE_1A_DOCUMENT_ARTIFACTS_REVIEW.md` e
+  `docs/reviews/STAGE_1A_CLOSURE_REVIEW.md`.
 
 ## Etapa 1B — Documento e extração candidata
 

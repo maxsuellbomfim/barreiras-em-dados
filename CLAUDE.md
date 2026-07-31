@@ -17,34 +17,32 @@ estatísticos em acusações.
 
 ## Etapa ativa
 
-A etapa ativa é **1A — coleta preservada do Diário**. Páginas JSON podem ser
-preservadas em modo local append-only e o replay de uma janela real já foi
-validado. Um projeto Supabase isolado chamado `Barreiras em Dados` está ativo em
-São Paulo. Cinco migrations, o seed e o bucket privado `raw-artifacts` já foram
-aplicados; o advisor não aponta falha de RLS ou exposição de dados, mas registra
-proteção contra senhas vazadas desativada no Auth. Todas as chaves estrangeiras
-estão indexadas. A role `collector_querido_diario` possui LOGIN, limite de duas
-conexões e continua sem privilégios administrativos. O UUID Auth técnico ativo
-é `1575c740-fcff-4b1a-89a9-e8e5a314880a`, autorizado exclusivamente no bucket
-`raw-artifacts`, prefixo `querido-diario/gazettes/`, para `SELECT` e `INSERT`.
-O cliente `psql 17.10` está instalado sem servidor ou serviço local. A senha
-PostgreSQL foi criada por prompt interativo, sem exposição. O login real da role
-foi aprovado com TLS `verify-full`: uma inserção autorizada foi exercitada dentro
-de transação, `DELETE`/`UPDATE` no bruto foram negados e o rollback deixou zero
-registros temporários. A identidade Auth real também foi aprovada com chave
-publicável: criou e restaurou uma página legítima do Querido Diário, confirmou
-seu SHA-256 e foi impedida de sobrescrever, apagar ou sair do prefixo autorizado.
-Há exatamente um objeto de 861 bytes no bucket e nenhum fora do prefixo. A
-coleta remota de um dia e o replay foram concluídos sem duplicação. As duas
-credenciais técnicas foram rotacionadas, validadas e guardadas somente no
-GitHub Actions. O workflow diário usa privilégio mínimo, backfill de até sete
-dias e DLQ sanitizada.
+A etapa ativa é **1B — documento e extração candidata**. A etapa 1A foi
+encerrada em 31/07/2026 com validação em produção: o workflow diário coleta as
+páginas JSON e preserva PDF/texto de cada edição como artefatos filhos
+verificados por SHA-256, com limites de tamanho e quantidade, content-type
+normalizado por papel e validação de corpo (`%PDF-`). O replay é idempotente e
+o caminho de falha foi exercitado de verdade (execução nº 4 falhou explícita e
+sanitizada; a nº 5 replayou completa). O status público agregado está no ar em
+`barreiras-em-dados.vercel.app` sem expor o esquema interno, e a visão interna
+`source.querido_diario_daily_coverage` mostra lacunas por dia sem acesso
+anônimo. Revisões em `docs/reviews/STAGE_1A_*.md`.
 
-O próximo gate é validar a execução manual do workflow publicado e implementar
-status de coleta sem expor o esquema interno. Depois, baixe PDF/TXT como
-artefatos filhos. Parser de atos e PNCP continuam fora de escopo. O projeto
-`Site Kelvin Vinicius` foi pausado, não apagado, para liberar a cota; não o
-reutilize nem altere os demais projetos.
+O projeto Supabase isolado `Barreiras em Dados` segue em São Paulo com advisor
+limpo, exceto o aviso conhecido de proteção contra senhas vazadas do plano
+gratuito — que também não oferece backup automático; a mitigação registrada é
+o bruto re-coletável endereçado por hash e migrations/seed reproduzíveis. A
+role `collector_querido_diario` mantém LOGIN, duas conexões e nenhum privilégio
+administrativo. O UUID Auth técnico ativo é
+`1575c740-fcff-4b1a-89a9-e8e5a314880a`, autorizado exclusivamente no bucket
+`raw-artifacts`, prefixo `querido-diario/gazettes/`, para `SELECT` e `INSERT`.
+As credenciais técnicas vivem somente no GitHub Actions.
+
+O próximo gate é a menor fatia de 1B: derivar texto canônico das edições já
+preservadas e identificar candidatos determinísticos de nomeação/exoneração em
+fila interna, sem publicação e sem LLM. Parser além disso e PNCP continuam fora
+de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não apagado, para
+liberar a cota; não o reutilize nem altere os demais projetos.
 
 ## Regras inegociáveis
 
