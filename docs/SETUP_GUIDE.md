@@ -100,6 +100,9 @@ Configurações aplicadas em 30/07/2026:
   inserção autorizada revertida e operações destrutivas negadas;
 - políticas do Storage para `SELECT` e `INSERT` apenas no prefixo
   `querido-diario/gazettes/`, vinculadas a UUID Auth autorizado;
+- sessão Auth real aprovada: upload/download de objeto legítimo, SHA-256
+  conferido, `upsert`, prefixo externo e remoção bloqueados;
+- exatamente um objeto de 861 bytes no bucket e nenhum fora do prefixo;
 - extensão `pg_trgm` isolada em `extensions`;
 - 123 chaves estrangeiras com índice de cobertura;
 - advisor sem alerta de RLS ou exposição de dados;
@@ -111,7 +114,7 @@ Configurações ainda pendentes:
 - Auth somente por convite para administradores;
 - MFA TOTP obrigatório para o painel;
 - proteção contra senhas vazadas no Auth, caso disponível no plano;
-- teste de sessão real do Storage com a credencial guardada pelo responsável;
+- primeira coleta remota de um dia e replay idempotente;
 - política operacional de logs, backup e rotação.
 
 O procedimento sem compartilhamento de senhas está em

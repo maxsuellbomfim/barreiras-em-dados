@@ -18,9 +18,9 @@ histórico de comandos. Ele se aplica somente ao projeto Supabase
 - `UPDATE`, `DELETE`, outro bucket e outro prefixo: negados;
 - secret/service role: recusada pelo coletor.
 
-As duas identidades estão ativadas. A identidade PostgreSQL real já foi testada.
-Nenhuma coleta remota completa deve ser executada antes do teste da identidade
-Auth real no Storage e do replay idempotente.
+As duas identidades estão ativadas e foram testadas com sessões reais. Um objeto
+legítimo do Querido Diário foi preservado no Storage; a coleta remota só estará
+completa depois de vinculá-lo ao PostgreSQL e repetir o replay idempotente.
 
 ## Parte 1 — ação do responsável no painel Supabase (concluída)
 
@@ -137,6 +137,22 @@ de existir integração dependente dela e guardada fora do chat e do Git.
 - um evento append-only `database_workload_identity.activated`;
 - senha administrativa e senha do coletor não foram observadas pelo agente.
 
+### Resultado remoto do Storage
+
+- sessão Auth real aprovada com chave publicável, sem secret/service role;
+- UUID autenticado igual ao UUID ativo na allowlist;
+- upload sem `upsert` de página real do Querido Diário;
+- download privado idêntico ao arquivo local;
+- SHA-256 confirmado:
+  `cf1d9d70d022ff178eb4632dc448245d246503b2bf1825f5867a0772b2ddb0f1`;
+- 861 bytes, `application/json`, sem atualização posterior;
+- `upsert` negado;
+- URL de upload no prefixo `pncp/` negada;
+- remoção não afetou nenhum objeto;
+- exatamente um objeto no bucket e zero fora do prefixo autorizado;
+- evento append-only `storage_workload_identity.verified`;
+- senha Auth e tokens não foram observados pelo agente.
+
 ## Parte 4 — variáveis do worker
 
 Somente em ambiente local ignorado pelo Git ou no gerenciador de segredos do
@@ -161,9 +177,10 @@ SUPABASE_RAW_ARTIFACTS_BUCKET=raw-artifacts
 2. [concluído] login pode inserir as colunas autorizadas;
 3. [concluído] login não pode alterar nem apagar
    `raw_artifacts`/`raw_records`;
-4. usuário Auth pode criar e restaurar objeto no prefixo permitido;
-5. usuário Auth não pode escrever em `pncp/` ou outro bucket;
-6. usuário Auth não pode atualizar nem apagar objeto;
+4. [concluído] usuário Auth pode criar e restaurar objeto no prefixo permitido;
+5. [concluído para prefixo; validado por policy para bucket] usuário Auth não
+   pode escrever em `pncp/` ou outro bucket;
+6. [concluído] usuário Auth não pode atualizar nem apagar objeto;
 7. uma janela de um dia é coletada;
 8. o mesmo comando é repetido sem duplicação;
 9. o objeto é restaurado e o SHA-256 é comparado.

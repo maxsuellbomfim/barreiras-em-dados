@@ -4,16 +4,17 @@ Data: 30/07/2026
 
 ## Resultado
 
-**Implementação local, fundação Supabase e identidade PostgreSQL do coletor
-aprovadas; sessão real do Storage e replay remoto ainda pendentes.**
+**Implementação local, fundação Supabase e identidades PostgreSQL/Auth do
+coletor aprovadas; coleta e replay remotos ainda pendentes.**
 
 Uma página de metadados do Querido Diário agora pode ser preservada no Storage,
 restaurada e verificada por SHA-256 antes de receber referências no PostgreSQL.
 O replay é idempotente e versões diferentes do parser podem coexistir.
 
 Nenhuma coleta completa foi gravada no Supabase remoto. O login PostgreSQL
-dedicado foi provisionado e testado; a credencial restrita de Storage está
-provisionada, mas sua sessão real ainda não foi exercitada.
+dedicado e a credencial restrita de Storage foram provisionados e testados. Um
+objeto legítimo já está preservado no bucket, mas ainda não foi vinculado às
+tabelas de proveniência do PostgreSQL.
 
 ## O que foi implementado
 
@@ -373,5 +374,35 @@ determinístico confirmou:
 - rollback da inserção temporária;
 - zero registros com prefixo `credential-smoke-test` após a sessão.
 
-Ainda falta testar uma sessão real do Storage com a identidade Auth restrita e,
-em seguida, executar a primeira coleta remota de um dia com replay idempotente.
+## Adendo — sessão real do Storage aprovada
+
+Data: 30/07/2026
+
+O teste utilizou a chave publicável moderna e solicitou a senha Auth apenas em
+prompt oculto. A sessão não foi persistida e foi encerrada localmente. Uma
+primeira tentativa com credencial inválida terminou antes de qualquer operação
+no Storage.
+
+Após autenticar o UUID autorizado, o teste preservou a página real do Querido
+Diário de 10/06/2026 já existente no acervo local:
+
+- bucket privado `raw-artifacts`;
+- chave endereçada por conteúdo em
+  `querido-diario/gazettes/sha256/cf/`;
+- 861 bytes em `application/json`;
+- SHA-256
+  `cf1d9d70d022ff178eb4632dc448245d246503b2bf1825f5867a0772b2ddb0f1`;
+- download com bytes idênticos ao arquivo local;
+- `upsert` negado com HTTP 400;
+- geração de URL de upload em `pncp/` negada com HTTP 400;
+- remoção retornou zero objetos afetados e o artefato permaneceu;
+- `created_at = updated_at`, confirmando ausência de sobrescrita;
+- um objeto no bucket e zero objetos fora do prefixo autorizado.
+
+O resultado foi registrado no evento append-only
+`storage_workload_identity.verified`. O roteiro temporário foi removido. A senha,
+o access token e o refresh token não foram observados pelo agente.
+
+O próximo gate é executar a primeira coleta remota de um dia, associar o objeto
+às tabelas `collection_runs`, `raw_artifacts` e `raw_records`, repetir o mesmo
+comando sem duplicação e restaurar o SHA-256 pelo fluxo completo.
