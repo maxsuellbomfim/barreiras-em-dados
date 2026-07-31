@@ -33,6 +33,22 @@ público não muda; nenhum LLM participa.
   tabelas (migration aditiva aplicada ao projeto); UPDATE/DELETE continuam
   negados.
 
+## Fatia 2 — campos determinísticos por candidato (31/07/2026)
+
+Cada candidato passou a carregar `fields` no payload
+(`schema_version 1.1.0`, `gazette-act-fields/1.0.0`): nome da pessoa, cargo,
+símbolo e secretaria, extraídos por regras regex fixas na janela de 400
+caracteres após o verbo do ato. Cada campo tem estado explícito —
+`matched` com a regra que o encontrou ou `not_found` — e valor nulo quando
+não encontrado: a incerteza é declarada por campo, nunca preenchida por
+palpite. O nome exige sequência de palavras maiúsculas após o verbo
+(tolerando ", a pedido," e quebras de linha); atos coletivos ("conforme
+anexo") resultam em `not_found` e seguem para revisão humana do trecho.
+Nomes em documentos totalmente em caixa alta podem capturar além do
+esperado; o revisor humano vê o trecho completo ao lado dos campos, e a
+régua (`gazette-act-fields`) é versionada para evoluir sem apagar
+resultados anteriores.
+
 ## Fora de escopo (próximas fatias)
 
 - extração de pessoa, cargo, órgão, data e vigência com incerteza por campo;

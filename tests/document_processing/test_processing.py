@@ -98,6 +98,11 @@ class GazetteActExtractionServiceTests(unittest.TestCase):
         )
         self.assertEqual(payload["schema_name"], "gazette-act-candidate")
         self.assertEqual(payload["act_type"], "nomeacao")
+        fields = payload["fields"]
+        assert isinstance(fields, dict)
+        person = fields["person_name"]
+        assert isinstance(person, dict)
+        self.assertEqual(person["value"], "FULANO DE TAL EXEMPLO")
         self.assertEqual(
             payload["canonical_text_sha256"],
             batch.canonical.sha256,
