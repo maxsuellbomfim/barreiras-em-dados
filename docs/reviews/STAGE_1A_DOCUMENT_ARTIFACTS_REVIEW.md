@@ -52,6 +52,19 @@ público não muda.
 - contratos, catálogo de fontes e migration em banco descartável seguem
   passando.
 
+## Incidente da primeira validação remota (31/07/2026)
+
+A execução manual nº 4 do workflow falhou no primeiro documento: o CDN do
+Querido Diário anuncia `Content-Type: binary/octet-stream`, tipo ausente da
+lista de MIME permitidos do bucket, e o Storage recusou o upload. Nenhum
+objeto ou linha parcial foi gravado — a falha foi explícita, como desenhado.
+Correção: o coletor passou a classificar o content-type pelo papel anunciado
+(`txt` → `text/plain`, `pdf` → `application/pdf`), preservando o header
+observado em `response_headers`, e a validar o corpo baixado (PDF deve começar
+com `%PDF-`; documento vazio é recusado), o que também detecta páginas de erro
+servidas como HTTP 200. Reproduzido e verificado localmente contra a API real
+antes do replay remoto.
+
 ## Limitações e próxima validação
 
 - a validação remota ainda não ocorreu: requer um disparo manual do workflow
