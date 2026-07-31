@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Protocol
 
 from .models import (
+    DocumentBatch,
     PersistenceBatch,
+    RepositoryDocumentResult,
     RepositoryPersistResult,
     StoredObject,
 )
@@ -26,3 +28,8 @@ class ArtifactObjectStore(Protocol):
 
 class CollectionRepository(Protocol):
     def persist(self, batch: PersistenceBatch) -> RepositoryPersistResult: ...
+
+    def persist_document(
+        self,
+        batch: DocumentBatch,
+    ) -> RepositoryDocumentResult: ...

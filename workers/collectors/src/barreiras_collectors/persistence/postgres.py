@@ -7,8 +7,10 @@ from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
 from .models import (
+    DocumentBatch,
     PersistenceBatch,
     PersistenceContractError,
+    RepositoryDocumentResult,
     RepositoryPersistResult,
 )
 
@@ -73,7 +75,11 @@ class PostgresCollectionRepository:
             with connection.transaction():
                 connection.execute("set local statement_timeout = '15s'")
                 connection.execute("set local lock_timeout = '5s'")
-                endpoint_id = self._endpoint_id(connection, batch)
+                endpoint_id = self._endpoint_id(
+                    connection,
+                    batch.page.source_code,
+                    batch.page.endpoint_code,
+                )
                 run_id = self._collection_run_id(connection, batch, endpoint_id)
                 artifact_id = self._artifact_id(
                     connection,
@@ -95,10 +101,128 @@ class PostgresCollectionRepository:
         finally:
             connection.close()
 
+    def persist_document(self, batch: DocumentBatch) -> RepositoryDocumentResult:
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                endpoint_id = self._endpoint_id(
+                    connection,
+                    batch.source_code,
+                    batch.endpoint_code,
+                )
+                return self._document_artifact(connection, batch, endpoint_id)
+        finally:
+            connection.close()
+
+    @classmethod
+    def _document_artifact(
+        cls,
+        connection: DatabaseConnection,
+        batch: DocumentBatch,
+        endpoint_id: str,
+    ) -> RepositoryDocumentResult:
+        document = batch.document
+        metadata = {
+            "schema_name": "gazette-document",
+            "schema_version": "1.0.0",
+            "source_record_key": batch.source_record_key,
+            "document_role": document.role,
+            "final_url": document.final_url,
+        }
+        row = connection.execute(
+            """
+            insert into raw.raw_artifacts (
+              collection_run_id,
+              source_endpoint_id,
+              parent_artifact_id,
+              idempotency_key,
+              artifact_kind,
+              source_url,
+              retrieved_at,
+              source_etag,
+              http_status,
+              content_type,
+              byte_size,
+              sha256,
+              object_key,
+              collector_version,
+              response_headers,
+              metadata
+            )
+            values (
+              %s::uuid, %s::uuid,
+              %s::uuid, %s, 'document', %s, %s::timestamptz,
+              %s, %s, %s, %s, %s, %s, %s,
+              %s::jsonb, %s::jsonb
+            )
+            on conflict (idempotency_key) do nothing
+            returning id::text as id
+            """,
+            (
+                batch.collection_run_id,
+                endpoint_id,
+                batch.parent_artifact_id,
+                batch.idempotency_key,
+                document.source_url,
+                document.received_at,
+                dict(document.response_headers).get("etag"),
+                document.http_status,
+                document.media_type,
+                document.body_size_bytes,
+                document.body_sha256,
+                batch.object_key,
+                batch.collector_version,
+                cls._json(dict(document.response_headers)),
+                cls._json(metadata),
+            ),
+        ).fetchone()
+        if row is not None:
+            return RepositoryDocumentResult(
+                raw_artifact_id=str(row["id"]),
+                created=True,
+            )
+
+        existing = connection.execute(
+            """
+            select
+              id::text as id,
+              parent_artifact_id::text as parent_artifact_id,
+              sha256,
+              byte_size,
+              object_key
+            from raw.raw_artifacts
+            where idempotency_key = %s
+            """,
+            (batch.idempotency_key,),
+        ).fetchone()
+        expected = (
+            batch.parent_artifact_id,
+            document.body_sha256,
+            document.body_size_bytes,
+            batch.object_key,
+        )
+        actual = (
+            str(existing["parent_artifact_id"]) if existing else None,
+            str(existing["sha256"]) if existing else None,
+            int(existing["byte_size"]) if existing else None,
+            str(existing["object_key"]) if existing else None,
+        )
+        if existing is None or actual != expected:
+            raise PersistenceContractError(
+                "Conflito de idempotência no artefato de documento."
+            )
+        return RepositoryDocumentResult(
+            raw_artifact_id=str(existing["id"]),
+            created=False,
+        )
+
     @staticmethod
     def _endpoint_id(
         connection: DatabaseConnection,
-        batch: PersistenceBatch,
+        source_code: str,
+        endpoint_code: str,
     ) -> str:
         row = connection.execute(
             """
@@ -111,7 +235,7 @@ class PostgresCollectionRepository:
               and source.status = 'active'
               and endpoint.enabled
             """,
-            (batch.page.source_code, batch.page.endpoint_code),
+            (source_code, endpoint_code),
         ).fetchone()
         if row is None:
             raise PersistenceContractError(
