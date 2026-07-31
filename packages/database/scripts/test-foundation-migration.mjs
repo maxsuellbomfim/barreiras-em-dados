@@ -90,7 +90,7 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  assert.equal(relations.rows[0].count, 40);
+  assert.equal(relations.rows[0].count, 41);
 
   const originColumns = await database.query(`
     select count(*)::integer as count
@@ -388,6 +388,63 @@ try {
     /immutable relation/,
   );
 
+  await database.exec(`
+    insert into raw.extraction_jobs (
+      id, raw_artifact_id, job_type, idempotency_key, status, attempt_count
+    ) values (
+      '00000000-0000-0000-0000-000000000601', '${artifactId}',
+      'gazette_act_candidates', '${"8".repeat(64)}', 'succeeded', 1
+    );
+    insert into raw.extraction_results (
+      id, extraction_job_id, candidate_type, extractor_version,
+      validator_version, result_payload, validation_status
+    ) values (
+      '00000000-0000-0000-0000-000000000602',
+      '00000000-0000-0000-0000-000000000601',
+      'nomeacao', 'gazette-act-candidates/1.0.0',
+      'human-review-pending/1.0.0',
+      '{"excerpt":"NOMEAR FULANO DE TAL"}', 'needs_review'
+    );
+  `);
+
+  const reviewerUserId = "00000000-0000-4000-8000-000000000701";
+  await database.exec(`
+    insert into auth.users (id) values ('${reviewerUserId}');
+    select set_config('request.jwt.claim.sub', '${workloadUserId}', false);
+  `);
+  await assert.rejects(
+    database.query("select * from api.get_extraction_review_queue(20)"),
+    /acesso restrito a revisores ativos/,
+  );
+
+  await database.exec(`
+    insert into audit.reviewer_identities (
+      auth_user_id, display_name, status, activated_at
+    ) values (
+      '${reviewerUserId}', 'Revisor de Teste', 'active', statement_timestamp()
+    );
+    select set_config('request.jwt.claim.sub', '${reviewerUserId}', false);
+  `);
+  const reviewQueue = await database.query(`
+    select
+      candidate_type,
+      validation_status,
+      result_payload ->> 'excerpt' as excerpt,
+      methodology_version
+    from api.get_extraction_review_queue(20)
+  `);
+  assert.deepEqual(reviewQueue.rows, [
+    {
+      candidate_type: "nomeacao",
+      validation_status: "needs_review",
+      excerpt: "NOMEAR FULANO DE TAL",
+      methodology_version: "extraction-review-queue/1.0.0",
+    },
+  ]);
+  await database.exec(`
+    select set_config('request.jwt.claim.sub', '${workloadUserId}', false);
+  `);
+
   const dailyCoverage = await database.query(`
     select
       day::text as day,
@@ -466,7 +523,7 @@ try {
   });
 
   console.log(
-    "Migrations e seed executados: 40 tabelas, origem e acesso mínimos.",
+    "Migrations e seed executados: 41 tabelas, origem e acesso mínimos.",
   );
 } finally {
   await database.close();

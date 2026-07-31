@@ -97,6 +97,10 @@ Gate:
 
 ## Etapa 1C — Revisão e publicação
 
+Estado em 31/07/2026: fatia 1 implementada — fila de revisão autenticada e
+somente leitura em `apps/admin`, com identidades de revisor auditáveis e
+negação explícita (`docs/reviews/STAGE_1C_ADMIN_QUEUE_REVIEW.md`).
+
 - admin com MFA e estados editoriais;
 - aprovação/rejeição auditada;
 - projeção pública somente de aprovados;
