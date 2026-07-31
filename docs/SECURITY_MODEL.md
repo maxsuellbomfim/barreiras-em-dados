@@ -133,11 +133,16 @@
   ou `@` é neutralizado para prevenir formula injection; células numéricas
   tipadas não são convertidas em texto.
 
-O portal de pré-lançamento é estático, não usa cookies, autenticação,
-analytics, segredos ou acesso direto ao Supabase. HSTS, proteção contra
-iframes, `nosniff`, política de referência e bloqueio de câmera/microfone/
-geolocalização já estão ativos. A CSP com nonce permanece um gate antes de
-qualquer script externo, login ou conteúdo gerado por usuário.
+O portal de pré-lançamento não usa cookies, autenticação, analytics ou
+credenciais privilegiadas. O servidor consulta uma projeção agregada pelo
+schema exposto `api`, usando URL e chave publicável em variáveis sem prefixo
+`NEXT_PUBLIC_`. A role anônima pode executar somente a RPC versionada e não
+possui leitura nas tabelas brutas. Timeout, erro ou resposta inválida são
+exibidos como indisponibilidade, nunca como zero dados.
+
+HSTS, proteção contra iframes, `nosniff`, política de referência e bloqueio de
+câmera/microfone/geolocalização já estão ativos. A CSP com nonce permanece um
+gate antes de qualquer script externo, login ou conteúdo gerado por usuário.
 
 O lockfile fixa as versões de produção. A primeira publicação usa overrides
 para `sharp 0.35.0` e `postcss 8.5.18`, versões corrigidas para advisories

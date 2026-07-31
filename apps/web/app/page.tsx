@@ -1,3 +1,10 @@
+import {
+  getQueridoDiarioCollectionStatus,
+  type QueridoDiarioCollectionStatus,
+} from "../lib/collection-status";
+
+export const revalidate = 300;
+
 const officialSources = [
   {
     name: "Diário Oficial",
@@ -133,7 +140,142 @@ function ShieldCheck() {
   );
 }
 
-export default function HomePage() {
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  timeZone: "America/Bahia",
+});
+
+const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "America/Bahia",
+  timeZoneName: "short",
+});
+
+function formatDate(value: string) {
+  return dateFormatter.format(new Date(`${value}T12:00:00-03:00`));
+}
+
+function formatCoverage(status: QueridoDiarioCollectionStatus) {
+  if (status.coverageStart === status.coverageEnd) {
+    return formatDate(status.coverageStart);
+  }
+
+  return `${formatDate(status.coverageStart)} a ${formatDate(
+    status.coverageEnd,
+  )}`;
+}
+
+function CollectionStatus({
+  status,
+}: Readonly<{ status: Awaited<ReturnType<typeof getQueridoDiarioCollectionStatus>> }>) {
+  return (
+    <section
+      className="section section-collection"
+      id="coleta"
+      aria-labelledby="collection-title"
+    >
+      <div className="collection-shell">
+        <div className="collection-heading">
+          <div>
+            <span className="eyebrow">Primeiro dado público</span>
+            <h2 id="collection-title">A coleta já começou.</h2>
+          </div>
+          <p>
+            Este painel mostra somente o estado técnico do acervo. Nomes e atos
+            só serão publicados depois da extração, validação e revisão humana.
+          </p>
+        </div>
+
+        {status.state === "available" ? (
+          <>
+            <div className="collection-status-row">
+              <div className="collection-source">
+                <span className="collection-signal" aria-hidden="true">
+                  <span />
+                </span>
+                <div>
+                  <span>Fonte em coleta</span>
+                  <strong>{status.data.sourceName}</strong>
+                </div>
+              </div>
+              <span className="collection-state">Última coleta preservada</span>
+            </div>
+
+            <dl className="collection-metrics">
+              <div>
+                <dt>Edições preservadas</dt>
+                <dd>{status.data.preservedEditionCount.toLocaleString("pt-BR")}</dd>
+                <span>Contagem distinta, sem duplicar replays</span>
+              </div>
+              <div>
+                <dt>Cobertura atual</dt>
+                <dd className="metric-date">
+                  {formatCoverage(status.data)}
+                </dd>
+                <span>Amostra-piloto do primeiro fluxo</span>
+              </div>
+              <div>
+                <dt>Respostas brutas</dt>
+                <dd>
+                  {status.data.preservedResponseCount.toLocaleString("pt-BR")}
+                </dd>
+                <span>Bytes preservados por hash SHA-256</span>
+              </div>
+              <div>
+                <dt>Registrada em</dt>
+                <dd className="metric-date">
+                  <time dateTime={status.data.lastSuccessfulAt}>
+                    {dateTimeFormatter.format(
+                      new Date(status.data.lastSuccessfulAt),
+                    )}
+                  </time>
+                </dd>
+                <span>Horário local de Barreiras</span>
+              </div>
+            </dl>
+
+            <div className="collection-foot">
+              <p>
+                Estado: <strong>coleta técnica validada</strong>. Isto não
+                significa que todos os atos do período já foram extraídos ou
+                revisados.
+              </p>
+              <a
+                href="https://queridodiario.ok.org.br/cidades/ba-barreiras"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Conferir a fonte
+                <ExternalArrow />
+              </a>
+            </div>
+          </>
+        ) : (
+          <div className="collection-unavailable" role="status">
+            <span className="collection-signal collection-signal-muted" />
+            <div>
+              <strong>Status temporariamente indisponível</strong>
+              <p>
+                Isso representa uma falha de consulta, não ausência de dados.
+                Tente novamente em alguns minutos.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export default async function HomePage() {
+  const collectionStatus = await getQueridoDiarioCollectionStatus();
+
   return (
     <main>
       <header className="site-header">
@@ -144,6 +286,7 @@ export default function HomePage() {
           </a>
 
           <nav className="nav-links" aria-label="Navegação principal">
+            <a href="#coleta">Coleta</a>
             <a href="#como-funciona">Como funciona</a>
             <a href="#fontes">Fontes</a>
             <a href="#construcao">Construção</a>
@@ -240,6 +383,8 @@ export default function HomePage() {
           </p>
         </div>
       </section>
+
+      <CollectionStatus status={collectionStatus} />
 
       <section
         className="section section-evidence"
@@ -382,7 +527,7 @@ export default function HomePage() {
 
           <div className="footer-status">
             <span className="status-dot" />
-            Pré-lançamento — dados cívicos ainda não publicados
+            Pré-lançamento — coleta ativa, registros ainda em revisão
           </div>
         </div>
       </footer>

@@ -2,122 +2,117 @@
 
 Produção: [https://barreiras-em-dados.vercel.app](https://barreiras-em-dados.vercel.app)
 
-Estado em 30/07/2026:
+Estado verificado em 31/07/2026:
 
-- projeto Vercel `barreiras-em-dados`;
+- projeto Vercel isolado `barreiras-em-dados`;
 - ambiente `production`;
-- framework detectado: Next.js;
-- deployment de produção atual: `dpl_AtvSxMFh9uqf1MYoZHjFHpKheWUr`;
-- estado `READY`, sem erro de alias;
+- deployment estável `dpl_AGkA5AY7AEqYRqn6RQAKVSUwYxS7`;
 - página inicial e `/api/health` respondendo HTTP 200;
-- nenhum erro de runtime encontrado após a publicação.
-
-Uma primeira tentativa de pacote foi reprovada pelo teste pós-deploy porque a
-raiz respondia 404, apesar do health check saudável. Ela não permaneceu no alias
-de produção: um segundo pacote, limitado aos dez arquivos-fonte do aplicativo,
-foi compilado, verificado e promovido automaticamente pelo novo deploy.
-
-Um preview automático posterior foi bloqueado antes do build porque a identidade
-global do Git apontava para outra conta GitHub. A produção não foi afetada. A
-identidade foi alinhada, apenas neste repositório, com `maxsuellbomfim`, o Node
-foi fixado em `22.x` e o `vercel.json` da raiz passou a declarar explicitamente
-o build e a saída do `apps/web`. As mesmas versões de Next e React também estão
-nas `devDependencies` da raiz exclusivamente para a detecção inicial da Vercel;
-o aplicativo e seu código permanecem em `apps/web`.
-
-O preview Git seguinte (`dpl_5w9kKCsq2Po9W9xxdMRtDRfa1QpF`) clonou o commit
-`51a24f8`, compilou todas as seis páginas estáticas e terminou `READY`. Previews
-de branches permanecem protegidos pela autenticação da Vercel; somente o alias
-de produção é público.
+- coleta diária do Querido Diário ativa no GitHub Actions;
+- projeção pública agregada criada no Supabase;
+- novo painel de coleta pronto para publicação após configurar duas variáveis
+  públicas na Vercel.
 
 ## Objetivo desta versão
 
-O primeiro site público existe para tornar a construção observável sem antecipar
-a publicação dos registros municipais. Ele apresenta:
+O portal torna a construção observável sem antecipar a publicação de registros
+municipais ainda não revisados. Ele apresenta:
 
 - propósito e limites editoriais;
 - cadeia de evidências em linguagem comum;
 - links diretos para fontes oficiais;
 - ordem das primeiras áreas de dados;
-- estado técnico verificável da infraestrutura.
+- estado técnico verificável da coleta do Querido Diário.
 
 Esta versão **não é o lançamento da base cívica** definido no roadmap. Nenhuma
 nomeação, exoneração, despesa, contratação, pessoa ou fornecedor aparece antes
-do fluxo de coleta, extração, revisão humana e publicação estar completo.
+do fluxo de coleta, extração, validação, revisão humana e aprovação.
 
 ## Indicadores exibidos
 
-Os números da página inicial descrevem somente a infraestrutura:
+A seção **A coleta já começou** consulta uma projeção pública somente leitura e
+mostra:
 
-- 79 recursos oficiais catalogados nas APIs da Prefeitura e da Câmara;
-- 40 tabelas internas da fundação de dados;
-- um artefato remoto legítimo com SHA-256 verificado.
+- quantidade distinta de edições preservadas;
+- intervalo de datas efetivamente coberto;
+- quantidade distinta de respostas brutas preservadas;
+- horário da última coleta bem-sucedida;
+- link para a fonte oficial agregadora.
 
-A interface declara expressamente que esses números não são indicadores da
-gestão municipal. Eles devem ser atualizados por código ou por mudança revisada
-enquanto não houver uma projeção pública automatizada.
+Os números descrevem somente o acervo técnico. Eles não medem desempenho,
+regularidade ou qualidade da gestão municipal. Replays idempotentes não aumentam
+as contagens. Falha de consulta é apresentada como indisponibilidade, nunca como
+zero dados.
 
-## Implementação
+## Fluxo da consulta pública
 
-- Next.js App Router e TypeScript estrito;
-- renderização estática da página inicial;
-- CSS responsivo com fontes do sistema, sem rastreamento ou fontes externas;
-- metadata social, ícone e `robots.txt`;
-- health check estático em `/api/health`;
-- Vercel somente para o aplicativo web;
-- sem conexão do navegador ao PostgreSQL ou ao Storage nesta etapa;
-- sem variáveis de ambiente, cookies, login, analytics ou formulários.
+1. o servidor Next.js chama
+   `api.get_querido_diario_collection_status()` pela Data API;
+2. o PostgREST expõe o schema dedicado `api`;
+3. a função retorna apenas agregados não reputacionais;
+4. a resposta é validada por tipo, formato e versão metodológica;
+5. a página usa cache revalidado a cada cinco minutos;
+6. erro, timeout ou resposta inesperada produzem um estado seguro de
+   indisponibilidade.
 
-O desenho segue os princípios Apple já escolhidos para o projeto: hierarquia
-tipográfica, materiais translúcidos com alternativa sólida, feedback imediato e
-movimento reduzido. A linguagem e o contraste permanecem orientados a um portal
-cívico, não a uma peça promocional.
+O navegador não recebe acesso direto às tabelas internas. As variáveis
+`PUBLIC_DATA_SUPABASE_URL` e `PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY` são lidas
+somente no servidor web. A chave publicável não concede acesso por si só; os
+grants do banco continuam sendo o controle efetivo.
 
-## Segurança
+## Segurança e privacidade
 
-Controles ativos:
+- `anon` pode executar apenas a função agregada;
+- `anon` não pode consultar `raw.raw_records` nem `raw.raw_artifacts`;
+- nenhuma service role, secret key ou senha é usada pelo portal;
+- a função é `SECURITY DEFINER`, tem `search_path` vazio e referências
+  qualificadas;
+- nenhuma informação pessoal ou conteúdo reputacional é retornado;
+- HSTS, `nosniff`, proteção contra iframe, política de referência e bloqueio de
+  câmera, microfone e geolocalização permanecem ativos;
+- não há cookies, login, analytics ou formulários.
 
-- HSTS;
-- `X-Content-Type-Options: nosniff`;
-- `X-Frame-Options: DENY`;
-- `Referrer-Policy: strict-origin-when-cross-origin`;
-- `Permissions-Policy` bloqueando câmera, microfone e geolocalização;
-- `poweredByHeader` desativado;
-- versões de produção fixadas no lockfile;
-- auditoria de dependências sem vulnerabilidade conhecida no momento do deploy;
-- overrides temporários para `sharp 0.35.0` e `postcss 8.5.18`, porque as
-  versões transitivas do Next apresentavam advisories conhecidos.
+Uma CSP com nonce continua pendente e será obrigatória antes de scripts
+externos, autenticação ou conteúdo gerado pelo usuário.
 
-Uma CSP com nonce continua pendente. A página atual não aceita entrada, não
-executa conteúdo de terceiros e não possui scripts de analytics; a CSP deve ser
-implementada antes de adicionar scripts externos, autenticação ou conteúdo
-gerado pelo usuário.
+## Qualidade dos dados
+
+Uma revisão visual encontrou texto UTF-8 corrompido no catálogo de três fontes.
+A correção foi aplicada por migration append-only e gerou eventos de auditoria
+com estado anterior, estado novo e motivo. Nenhum histórico foi apagado.
+
+O painel diferencia explicitamente:
+
+- coleta preservada;
+- cobertura da amostra-piloto;
+- atos ainda não extraídos;
+- registros ainda não revisados ou publicados.
 
 ## Verificação
 
-Antes da primeira publicação foram verificados:
+Foram verificados:
 
-- build de produção e tipagem;
-- carregamento HTTP 200;
-- ausência de erro no console e de overlay do Next;
+- build de produção e TypeScript estrito;
+- resposta real da função pela chave publicável;
+- negação de leitura anônima das tabelas brutas;
+- migration fundamental e teste de autorização negativo;
 - renderização desktop em 1440 px;
 - renderização móvel em 390 px, sem overflow horizontal;
-- health check HTTP 200;
-- presença dos cabeçalhos de segurança;
-- links externos com `rel="noreferrer"`;
-- comportamento para `prefers-reduced-motion`,
-  `prefers-reduced-transparency` e `prefers-contrast`.
+- comportamento de indisponibilidade sem mostrar contagens falsas;
+- `prefers-reduced-motion`, `prefers-reduced-transparency` e
+  `prefers-contrast`;
+- ausência de segredos e vulnerabilidades conhecidas nas dependências de
+  produção.
 
-O navegador automatizado local confirmou o layout completo sem erros em desktop
-e mobile. A verificação remota usou a própria integração autenticada da Vercel,
-pois o Chrome automatizado do ambiente local bloqueia navegação externa; ela
-confirmou HTML completo, metadata, cabeçalhos, health e ausência de erro de
-runtime.
+## Limitações e próxima menor evolução
 
-## Próxima menor evolução
+- a cobertura atual é uma amostra pequena, não o histórico completo;
+- PDFs e textos das edições ainda precisam ser preservados como artefatos
+  filhos;
+- nomeações e exonerações ainda não foram extraídas nem revisadas;
+- o plano gratuito do Supabase não oferece proteção contra senhas vazadas;
+- backup e exercício integrado de DLQ/circuit breaker continuam pendentes.
 
-1. ligar o status de fontes a uma projeção pública somente leitura;
-2. adicionar página pública de metodologia e changelog;
-3. criar canal de correção/contato com minimização de dados;
-4. publicar a linha do tempo apenas depois do gate editorial da etapa 1C;
-5. adicionar domínio próprio, monitoramento e CSP com nonce.
+Depois da publicação do painel, a próxima menor etapa vertical será baixar e
+preservar PDF/texto de uma edição, produzir candidatos determinísticos de
+nomeação/exoneração e encaminhá-los à revisão humana sem publicação automática.
