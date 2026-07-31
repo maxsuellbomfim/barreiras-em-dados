@@ -60,6 +60,42 @@ try {
   `);
   assert.equal(immutableTriggers.rows[0].count, 5);
 
+  const extensionSchema = await database.query(`
+    select namespace.nspname as schema_name
+    from pg_catalog.pg_extension as extension_record
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = extension_record.extnamespace
+    where extension_record.extname = 'pg_trgm'
+  `);
+  assert.equal(extensionSchema.rows[0].schema_name, "extensions");
+
+  const unindexedForeignKeys = await database.query(`
+    select count(*)::integer as count
+    from pg_catalog.pg_constraint as constraint_record
+    join pg_catalog.pg_class as relation
+      on relation.oid = constraint_record.conrelid
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = relation.relnamespace
+    where constraint_record.contype = 'f'
+      and namespace.nspname in (
+        'source', 'raw', 'org', 'hr', 'procurement', 'finance',
+        'evidence', 'analysis', 'editorial', 'audit'
+      )
+      and not exists (
+        select 1
+        from pg_catalog.pg_index as index_record
+        where index_record.indrelid = constraint_record.conrelid
+          and index_record.indisvalid
+          and index_record.indisready
+          and index_record.indpred is null
+          and (
+            index_record.indkey::smallint[]
+          )[0:cardinality(constraint_record.conkey) - 1]
+            = constraint_record.conkey
+      )
+  `);
+  assert.equal(unindexedForeignKeys.rows[0].count, 0);
+
   const collectorPrivileges = await database.query(`
     select
       has_column_privilege(

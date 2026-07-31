@@ -20,8 +20,11 @@ estatísticos em acusações.
 A etapa ativa é **1A — coleta preservada do Diário**. Páginas JSON podem ser
 preservadas em modo local append-only e o replay de uma janela real já foi
 validado. Um projeto Supabase isolado chamado `Barreiras em Dados` está ativo em
-São Paulo. O próximo gate é aplicar migrations e seed, executar advisors,
-provisionar login membro de `collector_worker` e restringir o bucket privado.
+São Paulo. Três migrations, o seed e o bucket privado `raw-artifacts` já foram
+aplicados; os advisors não possuem alerta de segurança e todas as chaves
+estrangeiras estão indexadas. O próximo gate é provisionar um login dedicado
+membro de `collector_worker`, restringir o acesso ao bucket/prefixo e exercitar
+os testes negativos com a identidade real do workload.
 
 Somente depois desse gate, baixe PDF/TXT como artefatos filhos. Parser de atos e
 PNCP continuam fora de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não

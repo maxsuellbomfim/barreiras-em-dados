@@ -4,14 +4,15 @@ Data: 30/07/2026
 
 ## Resultado
 
-**Implementação local aprovada; gate operacional ainda aberto.**
+**Implementação local e fundação Supabase aprovadas; credencial operacional
+ainda pendente.**
 
 Uma página de metadados do Querido Diário agora pode ser preservada no Storage,
 restaurada e verificada por SHA-256 antes de receber referências no PostgreSQL.
 O replay é idempotente e versões diferentes do parser podem coexistir.
 
-Nenhuma coleta foi gravada em Supabase remoto porque não há projeto descartável,
-login dedicado e credenciais de Storage configurados neste ambiente.
+Nenhuma coleta foi gravada em Supabase remoto porque o login dedicado e a
+credencial restrita de Storage ainda não foram provisionados.
 
 ## O que foi implementado
 
@@ -167,9 +168,57 @@ recuperável para liberar a cota gratuita. `Maxsuell Bomfim | Defesa em Saúde`
 permaneceu ativo e intocado.
 
 O projeto `Barreiras em Dados` foi criado em `sa-east-1`, com custo confirmado
-de US$ 0/mês, e verificado como `ACTIVE_HEALTHY`. Nenhuma migration, seed, chave,
-bucket ou configuração de Auth foi aplicada nesta operação.
+de US$ 0/mês, e verificado como `ACTIVE_HEALTHY`.
 
-O próximo gate passa a ser: aplicar migrations e seed versionados, executar
-advisors de segurança/desempenho, verificar schemas internos, provisionar
-identidade dedicada do coletor e criar o bucket privado sem acesso público.
+## Adendo — migrations, seed e hardening remoto
+
+Data: 30/07/2026
+
+Com autorização expressa, somente o projeto `Barreiras em Dados`
+(`mpladsyzilmgiefejpkq`) recebeu as alterações. Os demais projetos Supabase não
+foram modificados.
+
+Foram aplicadas, em ordem:
+
+1. `initial_public_data_foundation`;
+2. `collector_persistence_boundaries`;
+3. `harden_extensions_and_foreign_keys`.
+
+O seed foi executado de forma idempotente e cadastrou três fontes, três
+endpoints e o bucket privado `raw-artifacts`. O bucket aceita JSON, PDF, bytes,
+HTML e texto, com limite de 100 MB por objeto.
+
+### Verificação remota
+
+- projeto: `ACTIVE_HEALTHY`, PostgreSQL 17, `sa-east-1`;
+- 39 tabelas nos schemas internos e 0 tabelas no schema `public`;
+- `anon` sem `USAGE` em `source`, `raw`, `hr` e `procurement`;
+- 5 triggers append-only sobre evidência e auditoria;
+- `collector_worker` sem login, superusuário, criação de banco/role,
+  replicação ou `BYPASSRLS`;
+- grants de inserção do coletor limitados por coluna;
+- coletor sem `DELETE` em `raw_artifacts` e sem `UPDATE` em `raw_records`;
+- `pg_trgm` movida de `public` para `extensions`;
+- 123 chaves estrangeiras, nenhuma sem índice de cobertura;
+- advisor de segurança: 0 alertas;
+- advisor de desempenho: somente índices ainda não utilizados, condição
+  esperada antes da primeira carga.
+- replay remoto do seed: 3 fontes, 3 endpoints e 1 bucket, sem duplicação.
+
+O teste PostgreSQL embutido foi ampliado para impedir regressão do schema da
+extensão e da cobertura de índices e permanece aprovado. O bucket privado não
+equivale a uma credencial de workload restrita: políticas, login real e testes
+negativos continuam sendo o gate antes da primeira escrita remota.
+
+### Próxima menor etapa
+
+1. provisionar login dedicado membro de `collector_worker`;
+2. restringir a identidade de Storage a `raw-artifacts` e ao prefixo do
+   coletor;
+3. testar que a identidade consegue inserir somente as colunas previstas;
+4. testar que não consegue apagar nem alterar evidência bruta;
+5. executar e repetir uma única janela de um dia;
+6. restaurar o objeto remoto e comparar SHA-256.
+
+Somente depois desse gate: baixar PDF/TXT como artefatos filhos. Parser de atos,
+admin e PNCP permanecem fora desta etapa.

@@ -85,16 +85,27 @@ Região: `sa-east-1` (São Paulo).
 
 Estado verificado: `ACTIVE_HEALTHY`.
 
-Próximas configurações, ainda não aplicadas:
+Configurações aplicadas em 30/07/2026:
 
-- migrations versionadas deste repositório;
-- bucket privado `raw-artifacts`;
-- schema público inicial vazio;
+- 3 migrations versionadas e registradas no histórico remoto;
+- 39 tabelas internas e nenhuma tabela no schema `public`;
+- 3 fontes e 3 endpoints iniciais;
+- bucket `raw-artifacts` privado, limitado a 100 MB por objeto e com allowlist
+  de MIME;
+- role-base `collector_worker` sem login, sem `DELETE` ou `UPDATE` no bruto;
+- extensão `pg_trgm` isolada em `extensions`;
+- 123 chaves estrangeiras com índice de cobertura;
+- advisors sem alerta de segurança.
+
+Configurações ainda pendentes:
+
 - cadastro público desativado;
 - Auth somente por convite para administradores;
 - MFA TOTP obrigatório para o painel;
-- logs e auditoria;
-- login PostgreSQL dedicado para collectors.
+- política restrita do Storage para o bucket e o prefixo do coletor;
+- login PostgreSQL dedicado membro de `collector_worker`;
+- teste negativo usando a identidade real do workload;
+- política operacional de logs, backup e rotação.
 
 ## Etapa 3 — chaves e variáveis
 
@@ -191,8 +202,9 @@ isolamento exigirem.
 
 1. GitHub privado e primeiro commit — concluído.
 2. Acervo local imutável e replay de uma coleta de um dia — concluído.
-3. Aplicar migrations/seed e revisar advisors no Supabase.
-4. Provisionar login do coletor e bucket privado restrito.
+3. Aplicar migrations/seed e revisar advisors no Supabase — concluído.
+4. Provisionar login do coletor e restringir sua identidade ao banco e ao
+   bucket/prefixo — etapa ativa.
 5. Download local de PDF/TXT e preservação como artefato filho.
 6. Health interno de fontes.
 7. Esqueleto do admin com Auth, MFA e auditoria.
