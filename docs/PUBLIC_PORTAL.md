@@ -7,7 +7,7 @@ Estado em 30/07/2026:
 - projeto Vercel `barreiras-em-dados`;
 - ambiente `production`;
 - framework detectado: Next.js;
-- deployment aprovado: `dpl_6U24rq87y9Kp48K7iSPt1qP4L41U`;
+- deployment de produção atual: `dpl_AtvSxMFh9uqf1MYoZHjFHpKheWUr`;
 - estado `READY`, sem erro de alias;
 - página inicial e `/api/health` respondendo HTTP 200;
 - nenhum erro de runtime encontrado após a publicação.
