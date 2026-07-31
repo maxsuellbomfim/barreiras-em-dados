@@ -4,15 +4,16 @@ Data: 30/07/2026
 
 ## Resultado
 
-**Implementação local e fundação Supabase aprovadas; credencial operacional
-ainda pendente.**
+**Implementação local, fundação Supabase e identidade PostgreSQL do coletor
+aprovadas; sessão real do Storage e replay remoto ainda pendentes.**
 
 Uma página de metadados do Querido Diário agora pode ser preservada no Storage,
 restaurada e verificada por SHA-256 antes de receber referências no PostgreSQL.
 O replay é idempotente e versões diferentes do parser podem coexistir.
 
-Nenhuma coleta foi gravada em Supabase remoto porque o login dedicado e a
-credencial restrita de Storage ainda não foram provisionados.
+Nenhuma coleta completa foi gravada no Supabase remoto. O login PostgreSQL
+dedicado foi provisionado e testado; a credencial restrita de Storage está
+provisionada, mas sua sessão real ainda não foi exercitada.
 
 ## O que foi implementado
 
@@ -351,6 +352,26 @@ commit.
 - permanece o aviso de proteção contra senhas vazadas desativada no Auth.
 
 O roteiro operacional temporário foi removido. As senhas administrativa e do
-coletor não foram observadas pelo agente. Ainda falta autenticar uma sessão real
-como `collector_querido_diario`, exercitar grants positivos/negativos e testar o
-Storage com a credencial Auth real.
+coletor não foram observadas pelo agente.
+
+## Adendo — sessão real do coletor PostgreSQL aprovada
+
+Data: 30/07/2026
+
+O teste foi aberto em terminal interativo e solicitou somente a senha da role
+`collector_querido_diario`. A senha foi colada no prompt oculto do `psql` e não
+foi registrada em arquivo, chat ou Git.
+
+A conexão utilizou o Session pooler em `sa-east-1`, usuário com sufixo do projeto,
+`sslmode=verify-full` e o certificado `Supabase Root 2021 CA`. O teste
+determinístico confirmou:
+
+- `current_user = collector_querido_diario`;
+- inserção permitida em `source.collection_runs`;
+- negação real de `DELETE` em `raw.raw_artifacts`;
+- negação real de `UPDATE` em `raw.raw_records`;
+- rollback da inserção temporária;
+- zero registros com prefixo `credential-smoke-test` após a sessão.
+
+Ainda falta testar uma sessão real do Storage com a identidade Auth restrita e,
+em seguida, executar a primeira coleta remota de um dia com replay idempotente.

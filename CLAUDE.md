@@ -28,9 +28,11 @@ conexões e continua sem privilégios administrativos. O UUID Auth
 `d3e7a733-6101-4c9e-8d7a-d0f88a243eee` está ativo exclusivamente no bucket
 `raw-artifacts`, prefixo `querido-diario/gazettes/`, para `SELECT` e `INSERT`.
 O cliente `psql 17.10` está instalado sem servidor ou serviço local. A senha
-PostgreSQL foi criada por prompt interativo, sem exposição. O próximo gate é
-executar os testes com as duas identidades reais e um replay de um dia, sem
-compartilhar senhas.
+PostgreSQL foi criada por prompt interativo, sem exposição. O login real da role
+foi aprovado com TLS `verify-full`: uma inserção autorizada foi exercitada dentro
+de transação, `DELETE`/`UPDATE` no bruto foram negados e o rollback deixou zero
+registros temporários. O próximo gate é testar a identidade Auth real no Storage
+e executar um replay remoto de um dia, sem compartilhar senhas.
 
 Somente depois desse gate, baixe PDF/TXT como artefatos filhos. Parser de atos e
 PNCP continuam fora de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não

@@ -18,8 +18,9 @@ histórico de comandos. Ele se aplica somente ao projeto Supabase
 - `UPDATE`, `DELETE`, outro bucket e outro prefixo: negados;
 - secret/service role: recusada pelo coletor.
 
-As duas identidades estão ativadas. Nenhuma coleta remota completa deve ser
-executada antes dos testes com as credenciais reais e do replay idempotente.
+As duas identidades estão ativadas. A identidade PostgreSQL real já foi testada.
+Nenhuma coleta remota completa deve ser executada antes do teste da identidade
+Auth real no Storage e do replay idempotente.
 
 ## Parte 1 — ação do responsável no painel Supabase (concluída)
 
@@ -125,6 +126,12 @@ de existir integração dependente dela e guardada fora do chat e do Git.
 - `collector_querido_diario`: `LOGIN`, limite de 2 conexões;
 - membro de `collector_worker`;
 - sem superusuário, criação de role/banco, replicação ou `BYPASSRLS`;
+- login real aprovado pelo Session pooler com TLS `verify-full`;
+- `current_user` confirmado como `collector_querido_diario`;
+- inserção temporária em `source.collection_runs` aprovada e revertida;
+- tentativas reais de `DELETE` em `raw.raw_artifacts` e `UPDATE` em
+  `raw.raw_records` negadas;
+- zero registros `credential-smoke-test` permaneceram após o rollback;
 - sem `DELETE` em `raw.raw_artifacts`;
 - sem `UPDATE` em `raw.raw_records`;
 - um evento append-only `database_workload_identity.activated`;
@@ -150,9 +157,10 @@ SUPABASE_RAW_ARTIFACTS_BUCKET=raw-artifacts
 
 ## Parte 5 — testes antes da primeira coleta
 
-1. login PostgreSQL conecta com TLS;
-2. login pode inserir as colunas autorizadas;
-3. login não pode alterar nem apagar `raw_artifacts`/`raw_records`;
+1. [concluído] login PostgreSQL conecta com TLS `verify-full`;
+2. [concluído] login pode inserir as colunas autorizadas;
+3. [concluído] login não pode alterar nem apagar
+   `raw_artifacts`/`raw_records`;
 4. usuário Auth pode criar e restaurar objeto no prefixo permitido;
 5. usuário Auth não pode escrever em `pncp/` ou outro bucket;
 6. usuário Auth não pode atualizar nem apagar objeto;

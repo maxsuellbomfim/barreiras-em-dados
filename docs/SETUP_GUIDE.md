@@ -96,6 +96,8 @@ Configurações aplicadas em 30/07/2026:
 - role-base `collector_worker` sem login, sem `DELETE` ou `UPDATE` no bruto;
 - role `collector_querido_diario` com LOGIN, membro de `collector_worker` e
   limitada a 2 conexões;
+- login real dessa role aprovado no Session pooler com TLS `verify-full`,
+  inserção autorizada revertida e operações destrutivas negadas;
 - políticas do Storage para `SELECT` e `INSERT` apenas no prefixo
   `querido-diario/gazettes/`, vinculadas a UUID Auth autorizado;
 - extensão `pg_trgm` isolada em `extensions`;
@@ -109,7 +111,6 @@ Configurações ainda pendentes:
 - Auth somente por convite para administradores;
 - MFA TOTP obrigatório para o painel;
 - proteção contra senhas vazadas no Auth, caso disponível no plano;
-- teste de login real da role `collector_querido_diario` com TLS verificado;
 - teste de sessão real do Storage com a credencial guardada pelo responsável;
 - política operacional de logs, backup e rotação.
 
