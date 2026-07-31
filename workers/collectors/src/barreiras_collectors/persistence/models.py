@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from ..connectors.gazette_documents import CollectedDocument
 from ..connectors.querido_diario import CollectedPage
 
 
@@ -66,3 +67,31 @@ class PersistenceResult:
     object_created: bool
     inserted_records: int
     existing_records: int
+
+
+@dataclass(frozen=True)
+class DocumentBatch:
+    source_code: str
+    endpoint_code: str
+    collection_run_id: str
+    parent_artifact_id: str
+    source_record_key: str
+    document: CollectedDocument
+    object_key: str
+    idempotency_key: str
+    collector_version: str
+
+
+@dataclass(frozen=True)
+class RepositoryDocumentResult:
+    raw_artifact_id: str
+    created: bool
+
+
+@dataclass(frozen=True)
+class DocumentPersistResult:
+    raw_artifact_id: str
+    object_key: str
+    sha256: str
+    object_created: bool
+    artifact_created: bool

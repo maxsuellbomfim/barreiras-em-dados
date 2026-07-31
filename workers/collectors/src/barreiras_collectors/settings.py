@@ -25,6 +25,8 @@ class CollectorSettings:
     connect_timeout_seconds: float
     read_timeout_seconds: float
     max_attempts: int
+    max_document_bytes: int
+    max_documents_per_run: int
 
     @classmethod
     def from_env(
@@ -90,6 +92,20 @@ class CollectorSettings:
             minimum=1,
             maximum=10,
         )
+        max_document_bytes = _bounded_int(
+            values,
+            "QUERIDO_DIARIO_MAX_DOCUMENT_BYTES",
+            default=32 * 1024 * 1024,
+            minimum=1024,
+            maximum=64 * 1024 * 1024,
+        )
+        max_documents_per_run = _bounded_int(
+            values,
+            "QUERIDO_DIARIO_MAX_DOCUMENTS_PER_RUN",
+            default=40,
+            minimum=1,
+            maximum=500,
+        )
 
         for public_key in (
             "NEXT_PUBLIC_SUPABASE_SECRET_KEY",
@@ -109,6 +125,8 @@ class CollectorSettings:
             connect_timeout_seconds=connect_timeout,
             read_timeout_seconds=read_timeout,
             max_attempts=max_attempts,
+            max_document_bytes=max_document_bytes,
+            max_documents_per_run=max_documents_per_run,
         )
 
 

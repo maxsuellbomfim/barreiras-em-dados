@@ -58,10 +58,15 @@ Estado em 31/07/2026:
 
 - concluídos: seed, janela JSON pequena, Storage privado, hash, restauração,
   persistência PostgreSQL, replay remoto idempotente, credenciais técnicas no
-  cofre do GitHub, workflow diário com backfill curto e DLQ sanitizada e status
-  público agregado com acesso mínimo;
-- pendentes para encerrar 1A: PDFs/textos com limites, visão interna de lacunas,
-  exercício integrado de DLQ/circuit breaker e revisão de backup.
+  cofre do GitHub, workflow diário com backfill curto e DLQ sanitizada, status
+  público agregado com acesso mínimo e validação manual/agendada do workflow
+  publicado;
+- implementado aguardando validação remota: PDF/texto de cada edição como
+  artefatos filhos verificados por hash, com limites de tamanho e de
+  quantidade por execução;
+- pendentes para encerrar 1A: validação remota da coleta de documentos, visão
+  interna de lacunas, exercício integrado de DLQ/circuit breaker e revisão de
+  backup.
 
 ## Etapa 1B — Documento e extração candidata
 

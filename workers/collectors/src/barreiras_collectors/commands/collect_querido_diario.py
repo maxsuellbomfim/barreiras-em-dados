@@ -7,6 +7,7 @@ import logging
 from collections.abc import Sequence
 from datetime import date
 
+from ..connectors.gazette_documents import GazetteDocumentClient
 from ..connectors.querido_diario import QueridoDiarioClient
 from ..logging import log_event
 from ..persistence.filesystem import FilesystemCollectionRepository
@@ -60,10 +61,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         retry_policy=RetryPolicy(max_attempts=collector_settings.max_attempts),
     )
 
+    documents_client = GazetteDocumentClient(
+        max_document_bytes=collector_settings.max_document_bytes,
+        requests_per_minute=collector_settings.requests_per_minute,
+        timeout_seconds=(
+            collector_settings.connect_timeout_seconds
+            + collector_settings.read_timeout_seconds
+        ),
+        retry_policy=RetryPolicy(max_attempts=collector_settings.max_attempts),
+    )
+
     logger = logging.getLogger(__name__)
     pages = 0
     inserted_records = 0
     existing_records = 0
+    documents_persisted = 0
+    documents_skipped = 0
     for page in source.iter_gazette_pages(
         published_since=arguments.since,
         published_until=arguments.until,
@@ -85,6 +98,49 @@ def main(argv: Sequence[str] | None = None) -> int:
             existing_records=result.existing_records,
         )
 
+        for record in service.gazette_records(page):
+            for role, url in (
+                ("txt", record.payload.get("txt_url")),
+                ("pdf", record.payload.get("url")),
+            ):
+                if not isinstance(url, str) or not url:
+                    continue
+                if documents_persisted >= collector_settings.max_documents_per_run:
+                    documents_skipped += 1
+                    continue
+                document = documents_client.fetch(url, role=role)
+                persisted = service.persist_document(
+                    page_result=result,
+                    record=record,
+                    document=document,
+                    source_code=page.source_code,
+                    endpoint_code=page.endpoint_code,
+                )
+                documents_persisted += 1
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "collector_document_persisted",
+                    source=page.source_code,
+                    endpoint="gazette-documents",
+                    document_role=role,
+                    artifact_hash=persisted.sha256,
+                    object_created=persisted.object_created,
+                    artifact_created=persisted.artifact_created,
+                )
+
+    if documents_skipped:
+        # Nunca truncar em silêncio: o replay da mesma janela completa o resto.
+        log_event(
+            logger,
+            logging.WARNING,
+            "collector_documents_budget_exhausted",
+            source="querido-diario",
+            endpoint="gazette-documents",
+            skipped_documents=documents_skipped,
+            max_documents_per_run=collector_settings.max_documents_per_run,
+        )
+
     log_event(
         logger,
         logging.INFO,
@@ -96,6 +152,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         pages=pages,
         inserted_records=inserted_records,
         existing_records=existing_records,
+        documents_persisted=documents_persisted,
+        documents_skipped=documents_skipped,
         persistence_mode=persistence_settings.mode,
     )
     return 0

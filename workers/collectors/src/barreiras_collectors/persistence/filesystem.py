@@ -10,9 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from .models import (
+    DocumentBatch,
     PersistenceBatch,
     PersistenceContractError,
     PersistenceError,
+    RepositoryDocumentResult,
     RepositoryPersistResult,
 )
 
@@ -78,6 +80,109 @@ class FilesystemCollectionRepository:
             inserted_records=record_count if created else 0,
             existing_records=0 if created else record_count,
         )
+
+    def persist_document(self, batch: DocumentBatch) -> RepositoryDocumentResult:
+        idempotency = _require_digest(batch.idempotency_key, "idempotency_key")
+        raw_artifact_id = str(
+            uuid.uuid5(_LOCAL_ID_NAMESPACE, f"document-artifact:{idempotency}")
+        )
+        manifest = self._document_manifest(batch, raw_artifact_id=raw_artifact_id)
+        body = _canonical_json(manifest) + b"\n"
+        manifest_hash = hashlib.sha256(body).hexdigest()
+        directory = (
+            self.root
+            / "document-manifests"
+            / "sha256"
+            / idempotency[:2]
+            / idempotency
+        )
+        try:
+            directory.parent.resolve().relative_to(self.root)
+        except ValueError as error:
+            raise PersistenceError(
+                "O manifesto escaparia do diretório local permitido."
+            ) from error
+
+        existing = tuple(directory.glob("*.json")) if directory.exists() else ()
+        if existing:
+            if len(existing) != 1:
+                raise PersistenceContractError(
+                    "O documento local possui múltiplos manifestos."
+                )
+            prior = self._read_verified_manifest(existing[0])
+            if self._stable_document_manifest(
+                prior
+            ) != self._stable_document_manifest(manifest):
+                raise PersistenceContractError(
+                    "O documento local já possui uma identidade estável diferente."
+                )
+            return RepositoryDocumentResult(
+                raw_artifact_id=raw_artifact_id,
+                created=False,
+            )
+
+        directory.mkdir(parents=True, exist_ok=True)
+        created = self._write_exclusive(directory / f"{manifest_hash}.json", body)
+        restored = self._read_verified_manifest(directory / f"{manifest_hash}.json")
+        if restored != manifest:
+            raise PersistenceContractError(
+                "O manifesto restaurado diverge do conteúdo gravado."
+            )
+        return RepositoryDocumentResult(
+            raw_artifact_id=raw_artifact_id,
+            created=created,
+        )
+
+    @staticmethod
+    def _document_manifest(
+        batch: DocumentBatch,
+        *,
+        raw_artifact_id: str,
+    ) -> dict[str, Any]:
+        document = batch.document
+        return {
+            "schema_name": "local-document-manifest",
+            "schema_version": "1.0.0",
+            "raw_artifact_id": raw_artifact_id,
+            "idempotency_key": batch.idempotency_key,
+            "collection_run_id": batch.collection_run_id,
+            "parent_artifact_id": batch.parent_artifact_id,
+            "source_record_key": batch.source_record_key,
+            "collector_version": batch.collector_version,
+            "document": {
+                "role": document.role,
+                "source_url": document.source_url,
+                "final_url": document.final_url,
+                "requested_at": document.requested_at,
+                "received_at": document.received_at,
+                "http_status": document.http_status,
+                "sha256": document.body_sha256,
+                "byte_size": document.body_size_bytes,
+                "content_type": document.media_type,
+                "object_key": batch.object_key,
+            },
+        }
+
+    @staticmethod
+    def _stable_document_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
+        document = manifest.get("document")
+        if not isinstance(document, dict):
+            raise PersistenceContractError("O manifesto de documento está incompleto.")
+        return {
+            "schema_name": manifest.get("schema_name"),
+            "schema_version": manifest.get("schema_version"),
+            "raw_artifact_id": manifest.get("raw_artifact_id"),
+            "idempotency_key": manifest.get("idempotency_key"),
+            "parent_artifact_id": manifest.get("parent_artifact_id"),
+            "source_record_key": manifest.get("source_record_key"),
+            "document": {
+                "role": document.get("role"),
+                "source_url": document.get("source_url"),
+                "sha256": document.get("sha256"),
+                "byte_size": document.get("byte_size"),
+                "object_key": document.get("object_key"),
+            },
+        }
 
     def _manifest_directory(self, manifest_key: str) -> Path:
         directory = (

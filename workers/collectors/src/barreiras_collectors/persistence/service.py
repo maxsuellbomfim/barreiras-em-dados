@@ -6,9 +6,12 @@ import hashlib
 import json
 from typing import Any
 
+from ..connectors.gazette_documents import CollectedDocument
 from ..connectors.querido_diario import CollectedPage
 from .models import (
     ArtifactIntegrityError,
+    DocumentBatch,
+    DocumentPersistResult,
     PersistenceBatch,
     PersistenceContractError,
     PersistenceResult,
@@ -19,6 +22,7 @@ from .ports import ArtifactObjectStore, CollectionRepository
 COLLECTOR_VERSION = "querido-diario-collector/0.1.0"
 PARSER_VERSION = "querido-diario-gazette-page/1.0.0"
 RECORD_TYPE = "querido_diario_gazette"
+DOCUMENT_EXTENSIONS = {"pdf": "pdf", "txt": "txt"}
 
 
 class QueridoDiarioPersistenceService:
@@ -77,6 +81,92 @@ class QueridoDiarioPersistenceService:
             object_created=stored.created,
             inserted_records=persisted.inserted_records,
             existing_records=persisted.existing_records,
+        )
+
+    def gazette_records(self, page: CollectedPage) -> tuple[RawRecordInput, ...]:
+        """Expõe os registros validados da página para coleta de documentos."""
+        return self._raw_records(page)
+
+    def persist_document(
+        self,
+        *,
+        page_result: PersistenceResult,
+        record: RawRecordInput,
+        document: CollectedDocument,
+        source_code: str,
+        endpoint_code: str,
+    ) -> DocumentPersistResult:
+        extension = DOCUMENT_EXTENSIONS.get(document.role)
+        if extension is None:
+            raise PersistenceContractError(
+                f"Papel de documento desconhecido: {document.role}."
+            )
+        actual_hash = hashlib.sha256(document.raw_body).hexdigest()
+        if (
+            actual_hash != document.body_sha256
+            or len(document.raw_body) != document.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "O documento baixado não corresponde aos metadados informados."
+            )
+
+        object_key = (
+            "querido-diario/gazettes/documents/sha256/"
+            f"{document.body_sha256[:2]}/{document.body_sha256}.{extension}"
+        )
+        idempotency_key = self._digest(
+            ":".join(
+                (
+                    "gazette-document",
+                    record.source_record_key,
+                    document.role,
+                    document.body_sha256,
+                )
+            )
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=document.raw_body,
+            content_type=document.media_type,
+            expected_sha256=document.body_sha256,
+        )
+        if (
+            stored.sha256 != document.body_sha256
+            or stored.byte_size != document.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                f"Metadados do objeto {object_key} divergem do documento."
+            )
+
+        restored = self.object_store.read(object_key)
+        restored_hash = hashlib.sha256(restored).hexdigest()
+        if (
+            restored_hash != document.body_sha256
+            or len(restored) != document.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "O documento restaurado do Storage diverge do baixado."
+            )
+
+        persisted = self.repository.persist_document(
+            DocumentBatch(
+                source_code=source_code,
+                endpoint_code=endpoint_code,
+                collection_run_id=page_result.collection_run_id,
+                parent_artifact_id=page_result.raw_artifact_id,
+                source_record_key=record.source_record_key,
+                document=document,
+                object_key=object_key,
+                idempotency_key=idempotency_key,
+                collector_version=self.collector_version,
+            )
+        )
+        return DocumentPersistResult(
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=document.body_sha256,
+            object_created=stored.created,
+            artifact_created=persisted.created,
         )
 
     def _raw_records(self, page: CollectedPage) -> tuple[RawRecordInput, ...]:
