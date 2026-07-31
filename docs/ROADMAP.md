@@ -82,7 +82,11 @@ Estado em 31/07/2026:
 - fatia inicial implementada: texto canônico em `raw.document_pages`,
   candidatos determinísticos versionados em fila `needs_review` e passo diário
   no workflow, aguardando validação remota
-  (`docs/reviews/STAGE_1B_CANDIDATE_QUEUE_REVIEW.md`).
+  (`docs/reviews/STAGE_1B_CANDIDATE_QUEUE_REVIEW.md`);
+- backfill retroativo automático: um segundo agendamento diário resolve, a
+  partir do banco, a próxima janela curta anterior à cobertura existente e
+  avança até `QUERIDO_DIARIO_BACKFILL_HORIZON` (2026-01-01; ampliável para a
+  gestão anterior mudando a variável), com janelas vazias também progredindo.
 
 Gate:
 

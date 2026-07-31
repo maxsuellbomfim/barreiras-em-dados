@@ -78,6 +78,17 @@ class ScheduledWorkflowTests(unittest.TestCase):
         self.assertNotIn('--since "${{ inputs.since }}"', workflow)
         self.assertNotIn('--until "${{ inputs.until }}"', workflow)
 
+    def test_backfill_schedule_resolves_window_and_honors_skip(self) -> None:
+        repository_root = Path(__file__).parents[2]
+        workflow = (
+            repository_root / ".github" / "workflows" / "collect-querido-diario.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('- cron: "17 14 * * *"', workflow)
+        self.assertIn("resolve_backfill_window", workflow)
+        self.assertIn("if: steps.window.outputs.skip != 'true'", workflow)
+        self.assertIn("QUERIDO_DIARIO_BACKFILL_HORIZON", workflow)
+
 
 class FailureRecordTests(unittest.TestCase):
     def setUp(self) -> None:
