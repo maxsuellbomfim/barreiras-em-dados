@@ -86,6 +86,13 @@ jobs:
           --until "${COLLECTION_UNTIL}"
           --page-size 100
 
+      - name: Extrair candidatos determinísticos
+        env:
+          PYTHONPATH: workers/collectors/src:workers/document-processing/src
+        run: >-
+          python -B -m barreiras_docproc.commands.process_gazette_acts
+          --limit 20
+
       - name: Registrar falha sanitizada
         if: failure()
         env:

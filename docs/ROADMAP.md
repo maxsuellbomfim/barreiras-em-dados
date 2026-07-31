@@ -77,6 +77,13 @@ Estado em 31/07/2026 — **etapa encerrada**:
 - amostra anotada e métricas;
 - fila de revisão.
 
+Estado em 31/07/2026:
+
+- fatia inicial implementada: texto canônico em `raw.document_pages`,
+  candidatos determinísticos versionados em fila `needs_review` e passo diário
+  no workflow, aguardando validação remota
+  (`docs/reviews/STAGE_1B_CANDIDATE_QUEUE_REVIEW.md`).
+
 Gate:
 
 - precisão/revocação mínimas definidas com especialista;
