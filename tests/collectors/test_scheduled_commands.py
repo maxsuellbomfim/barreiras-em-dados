@@ -84,10 +84,12 @@ class ScheduledWorkflowTests(unittest.TestCase):
             repository_root / ".github" / "workflows" / "collect-querido-diario.yml"
         ).read_text(encoding="utf-8")
 
-        self.assertIn('- cron: "17 14 * * *"', workflow)
+        self.assertIn('- cron: "17 2,8,14,20 * * *"', workflow)
         self.assertIn("resolve_backfill_window", workflow)
         self.assertIn("if: steps.window.outputs.skip != 'true'", workflow)
-        self.assertIn("QUERIDO_DIARIO_BACKFILL_HORIZON", workflow)
+        self.assertIn('QUERIDO_DIARIO_BACKFILL_HORIZON: "2021-01-01"', workflow)
+        # Todo agendamento que não é a coleta da véspera é backfill.
+        self.assertIn('!= "17 11 * * *"', workflow)
 
 
 class FailureRecordTests(unittest.TestCase):

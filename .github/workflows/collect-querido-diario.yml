@@ -4,8 +4,8 @@ on:
   schedule:
     # Coleta diária da véspera.
     - cron: "17 11 * * *"
-    # Backfill retroativo: uma janela curta por dia, até o horizonte.
-    - cron: "17 14 * * *"
+    # Backfill retroativo: uma janela curta por execução, até o horizonte.
+    - cron: "17 2,8,14,20 * * *"
   workflow_dispatch:
     inputs:
       since:
@@ -45,7 +45,7 @@ jobs:
       QUERIDO_DIARIO_REQUESTS_PER_MINUTE: "30"
       QUERIDO_DIARIO_MAX_DOCUMENT_BYTES: "33554432"
       QUERIDO_DIARIO_MAX_DOCUMENTS_PER_RUN: "40"
-      QUERIDO_DIARIO_BACKFILL_HORIZON: "2026-01-01"
+      QUERIDO_DIARIO_BACKFILL_HORIZON: "2021-01-01"
       HTTP_CONNECT_TIMEOUT_SECONDS: "5"
       HTTP_READ_TIMEOUT_SECONDS: "30"
       HTTP_MAX_ATTEMPTS: "5"
@@ -75,7 +75,8 @@ jobs:
           REQUESTED_UNTIL: ${{ inputs.until }}
           SCHEDULE_EXPRESSION: ${{ github.event.schedule }}
         run: |
-          if [ "${SCHEDULE_EXPRESSION}" = "17 14 * * *" ]; then
+          if [ -n "${SCHEDULE_EXPRESSION}" ] \
+            && [ "${SCHEDULE_EXPRESSION}" != "17 11 * * *" ]; then
             python -B -m barreiras_collectors.commands.resolve_backfill_window
           else
             python -B -m \
