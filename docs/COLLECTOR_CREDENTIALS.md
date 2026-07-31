@@ -249,7 +249,13 @@ Python local. O cliente libpq não conseguiu abrir a CA dentro de um caminho com
 caractere acentuado; o roteiro passou a copiar a CA pública para um nome
 temporário ASCII, usá-lo durante a conexão e apagá-lo no `finally`.
 
-As senhas temporárias foram apagadas de `.env.collector.local` após o sucesso.
-O próximo gate é transformar a execução aprovada em job automatizado com
-segredos no gerenciador do runtime, monitoramento e dead-letter queue, sem
-credenciais no Git ou na Vercel.
+As novas credenciais foram validadas por replay idempotente e gravadas
+diretamente como segredos criptografados do GitHub Actions. Os arquivos
+temporários locais foram apagados depois da confirmação dos nomes no cofre.
+Nenhuma credencial foi enviada à Vercel.
+
+O workflow diário possui permissões somente de leitura do repositório, Actions
+fixadas por SHA, janela máxima de sete dias e artifact sanitizado de DLQ por 30
+dias. O procedimento operacional está em `docs/COLLECTOR_OPERATIONS.md`. O
+próximo gate é validar uma execução manual do workflow já publicado e, depois,
+expor no portal apenas um status de coleta curado, sem conteúdo reputacional.

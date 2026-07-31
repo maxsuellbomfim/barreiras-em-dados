@@ -18,6 +18,7 @@ Portal de pré-lançamento:
 - [Estratégia de funcionalidades](docs/FEATURE_STRATEGY.md)
 - [Sistema de design](docs/DESIGN_SYSTEM.md)
 - [Portal público de pré-lançamento](docs/PUBLIC_PORTAL.md)
+- [Operação do coletor diário](docs/COLLECTOR_OPERATIONS.md)
 - [Guia de configuração](docs/SETUP_GUIDE.md)
 - [Estratégia de ferramentas](docs/TOOLING_STRATEGY.md)
 - [Portões de conformidade](docs/COMPLIANCE_GATES.md)
@@ -35,6 +36,8 @@ Este repositório está na etapa 1A. O escopo ativo é:
 - contratos de dados independentes de linguagem;
 - migrations fundamentais do PostgreSQL;
 - conector e persistência idempotente do Querido Diário;
+- coleta diária automatizada fora da Vercel, com credenciais de privilégio
+  mínimo e replay manual;
 - acervo local append-only por SHA-256, sem dependência de nuvem;
 - portal público Next.js de pré-lançamento, sem dados cívicos não revisados;
 - fixtures e testes do conector.

@@ -61,3 +61,14 @@ em `querido-diario/gazettes/`. O coletor rejeita `SUPABASE_SECRET_KEY` e
 Não use `postgres` como login do worker em staging/produção. Provisione um login
 dedicado como membro de `collector_worker`; o papel não possui `DELETE` nem
 `UPDATE` nas tabelas brutas.
+
+## Coleta diária em produção
+
+O workflow `.github/workflows/collect-querido-diario.yml` executa diariamente,
+resolve a data anterior no fuso `America/Sao_Paulo` e aceita replay manual de
+até sete dias. As credenciais ficam somente no cofre do GitHub Actions; a
+Vercel não executa coletores e não recebe esses segredos.
+
+Falhas geram um artifact sanitizado de DLQ, retido por 30 dias, para replay
+manual. Consulte `docs/COLLECTOR_OPERATIONS.md` para agenda, variáveis,
+recuperação e limitações.

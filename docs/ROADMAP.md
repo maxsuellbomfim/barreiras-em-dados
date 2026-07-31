@@ -57,7 +57,8 @@ Gate:
 Estado em 31/07/2026:
 
 - concluídos: seed, janela JSON pequena, Storage privado, hash, restauração,
-  persistência PostgreSQL e replay remoto idempotente;
+  persistência PostgreSQL, replay remoto idempotente, credenciais técnicas no
+  cofre do GitHub e workflow diário com backfill curto e DLQ sanitizada;
 - pendentes para encerrar 1A: PDFs/textos com limites, status interno de
   coleta, exercício integrado de DLQ/circuit breaker e revisão de backup.
 

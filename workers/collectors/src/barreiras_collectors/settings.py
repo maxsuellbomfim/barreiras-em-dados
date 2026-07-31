@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+PRODUCTION_SSL_ROOT_CERTIFICATE = "config/certificates/supabase-prod-ca-2021.crt"
+
 
 class EnvironmentValidationError(ValueError):
     """Uma variável está ausente, insegura ou fora dos limites aceitos."""
@@ -189,14 +191,24 @@ class PersistenceSettings:
         local_database = parsed_database.hostname in {"127.0.0.1", "localhost"}
         database_query = parse_qs(parsed_database.query)
         ssl_mode = database_query.get("sslmode", [None])[0]
-        if not local_database and ssl_mode not in {
-            "require",
-            "verify-ca",
-            "verify-full",
-        }:
-            raise EnvironmentValidationError(
-                "DATABASE_URL remota deve exigir TLS por sslmode."
-            )
+        if not local_database:
+            if ssl_mode not in {"require", "verify-ca", "verify-full"}:
+                raise EnvironmentValidationError(
+                    "DATABASE_URL remota deve exigir TLS por sslmode."
+                )
+            if collector.app_env in {"staging", "production"}:
+                ssl_root_certificate = database_query.get(
+                    "sslrootcert",
+                    [None],
+                )[0]
+                if (
+                    ssl_mode != "verify-full"
+                    or ssl_root_certificate != PRODUCTION_SSL_ROOT_CERTIFICATE
+                ):
+                    raise EnvironmentValidationError(
+                        "DATABASE_URL de staging/produção deve usar "
+                        "sslmode=verify-full e a CA oficial versionada."
+                    )
         database_role = parsed_database.username.split(".", maxsplit=1)[0]
         if not local_database and database_role != "collector_querido_diario":
             raise EnvironmentValidationError(

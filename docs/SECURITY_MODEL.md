@@ -153,6 +153,12 @@ devem ser repetidos quando o Next incorporar versões compatíveis sem override.
 - builds de PR sem acesso a secrets de produção;
 - SBOM e procedimento de atualização documentado antes do lançamento.
 
+O coletor diário roda no GitHub Actions, separado da Vercel. Suas duas
+credenciais técnicas e a URL PostgreSQL permanecem no cofre de Actions; apenas
+URL Supabase e chave publicável ficam como variáveis do repositório. Entradas
+manuais são transportadas por variáveis de ambiente e validadas como datas
+antes de alcançar o shell. Falhas geram DLQ sanitizada sem copiar o ambiente.
+
 ## Auditoria
 
 Todo evento privilegiado inclui ator, ação, alvo, versão anterior/nova, horário,
