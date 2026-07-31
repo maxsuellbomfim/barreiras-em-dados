@@ -405,6 +405,36 @@ try {
     },
   ]);
 
+  const extractionPrivileges = await database.query(`
+    select
+      has_table_privilege(
+        'collector_worker',
+        'raw.document_pages',
+        'INSERT'
+      ) as pages_insert,
+      has_table_privilege(
+        'collector_worker',
+        'raw.extraction_results',
+        'INSERT'
+      ) as results_insert,
+      has_table_privilege(
+        'collector_worker',
+        'raw.extraction_results',
+        'UPDATE'
+      ) as results_update,
+      has_table_privilege(
+        'collector_worker',
+        'raw.extraction_jobs',
+        'DELETE'
+      ) as jobs_delete
+  `);
+  assert.deepEqual(extractionPrivileges.rows[0], {
+    pages_insert: true,
+    results_insert: true,
+    results_update: false,
+    jobs_delete: false,
+  });
+
   const coveragePrivileges = await database.query(`
     select
       has_table_privilege(

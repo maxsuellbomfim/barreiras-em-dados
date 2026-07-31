@@ -1,0 +1,34 @@
+ESTADO DA BAHIA
+
+MUNICÍPIO DE BARREIRAS
+
+Diário Oficial do Município — fixture sanitizada para testes; nomes fictícios.
+
+PORTARIA N° 901, DE 15 DE JUNHO DE 2026.
+
+O PREFEITO MUNICIPAL DE BARREIRAS, ESTADO DA BAHIA, no uso de suas
+atribuições legais,
+
+RESOLVE:
+
+Art. 1° - NOMEAR FULANO DE TAL EXEMPLO para o cargo em comissão de
+Assessor de Gabinete, símbolo NH-3, da Secretaria Municipal de Exemplo.
+
+Art. 2° - Esta Portaria entra em vigor na data de sua publicação.
+
+PORTARIA N° 902, DE 15 DE JUNHO DE 2026.
+
+RESOLVE:
+
+Art. 1° - Exonerar, a pedido, BELTRANA DE TAL MODELO do cargo em comissão
+de Coordenadora de Exemplo, símbolo NH-2, da Secretaria Municipal de Exemplo.
+
+PORTARIA N° 903, DE 15 DE JUNHO DE 2026.
+
+RESOLVE:
+
+Art. 1° - Tornar sem efeito a Portaria n° 900, de 14 de junho de 2026,
+publicada no Diário Oficial do Município.
+
+EXTRATO DE CONTRATO 123/2026 — locação de equipamentos para atender às
+demandas administrativas do Município.
