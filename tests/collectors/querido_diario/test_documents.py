@@ -8,6 +8,7 @@ from barreiras_collectors.connectors.gazette_documents import (
 )
 from barreiras_collectors.connectors.querido_diario import (
     PermanentHttpError,
+    SourceContractError,
     SourceUnavailableError,
 )
 from barreiras_collectors.http import HttpResponse
@@ -114,6 +115,37 @@ class GazetteDocumentClientTests(unittest.TestCase):
 
         with self.assertRaises(SourceUnavailableError):
             client.fetch(PDF_URL, role="pdf")
+
+    def test_normalizes_imprecise_cdn_media_type_by_role(self) -> None:
+        # O CDN real anuncia binary/octet-stream para .pdf e .txt.
+        cdn_response = HttpResponse(
+            status=200,
+            headers={"Content-Type": "binary/octet-stream"},
+            body=b"%PDF-1.7 conteudo",
+            final_url=PDF_URL,
+        )
+        client, _transport = make_client([cdn_response])
+
+        document = client.fetch(PDF_URL, role="pdf")
+
+        self.assertEqual(document.media_type, "application/pdf")
+
+    def test_rejects_pdf_without_magic_bytes(self) -> None:
+        client, _transport = make_client(
+            [response(200, b"<html>pagina de erro servida como 200</html>")]
+        )
+
+        with self.assertRaises(SourceContractError):
+            client.fetch(PDF_URL, role="pdf")
+
+    def test_rejects_empty_document(self) -> None:
+        client, _transport = make_client([response(200, b"")])
+
+        with self.assertRaises(SourceContractError):
+            client.fetch(
+                PDF_URL.replace(".pdf", ".txt"),
+                role="txt",
+            )
 
     def test_rejects_unknown_role_and_disallowed_host(self) -> None:
         client, transport = make_client([response(200)])

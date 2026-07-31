@@ -42,12 +42,14 @@ class DocumentTransport:
 
     def get(self, url, *, headers, timeout_seconds, max_body_bytes):
         del headers, timeout_seconds, max_body_bytes
-        suffix = "txt" if url.endswith(".txt") else "pdf"
-        body = f"conteudo-{suffix}-{url}".encode()
-        content_type = "text/plain" if suffix == "txt" else "application/pdf"
+        if url.endswith(".txt"):
+            body = f"conteudo-txt-{url}".encode()
+        else:
+            body = b"%PDF-1.7 " + url.encode()
+        # O CDN real devolve um tipo impreciso; o coletor deve normalizar.
         return HttpResponse(
             status=200,
-            headers={"Content-Type": content_type},
+            headers={"Content-Type": "binary/octet-stream"},
             body=body,
             final_url=url,
         )

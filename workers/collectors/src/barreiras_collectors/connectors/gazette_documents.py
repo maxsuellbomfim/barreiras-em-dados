@@ -24,10 +24,14 @@ from .querido_diario import (
     RETRYABLE_STATUSES,
     PermanentHttpError,
     QueridoDiarioClient,
+    SourceContractError,
     SourceUnavailableError,
 )
 
 DOCUMENT_ROLES = frozenset({"pdf", "txt"})
+# O CDN devolve tipos imprecisos (ex.: binary/octet-stream); classificamos o
+# artefato pelo papel anunciado e preservamos o header observado nos metadados.
+DOCUMENT_MEDIA_TYPES = {"pdf": "application/pdf", "txt": "text/plain"}
 
 
 @dataclass(frozen=True)
@@ -128,6 +132,7 @@ class GazetteDocumentClient:
 
             if response.status == 200:
                 self.circuit_breaker.record_success()
+                self._validate_body(response.body, role=role, url=url)
                 return CollectedDocument(
                     role=role,
                     source_url=url,
@@ -138,7 +143,7 @@ class GazetteDocumentClient:
                     http_status=response.status,
                     body_sha256=hashlib.sha256(response.body).hexdigest(),
                     body_size_bytes=len(response.body),
-                    media_type=QueridoDiarioClient._media_type(response.headers),
+                    media_type=DOCUMENT_MEDIA_TYPES[role],
                     response_headers=QueridoDiarioClient._safe_response_headers(
                         response.headers
                     ),
@@ -171,6 +176,15 @@ class GazetteDocumentClient:
             "Documento indisponível após "
             f"{self.retry_policy.max_attempts} tentativas."
         ) from last_error
+
+    @staticmethod
+    def _validate_body(body: bytes, *, role: str, url: str) -> None:
+        if not body:
+            raise SourceContractError(f"Documento vazio em {url}.")
+        if role == "pdf" and not body.startswith(b"%PDF-"):
+            raise SourceContractError(
+                f"O corpo baixado de {url} não é um PDF válido."
+            )
 
     def _backoff(self, attempt: int) -> None:
         self.sleep(self.retry_policy.delay(attempt, self.random_value()))
