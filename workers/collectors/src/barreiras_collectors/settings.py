@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -27,6 +28,7 @@ class CollectorSettings:
     max_attempts: int
     max_document_bytes: int
     max_documents_per_run: int
+    backfill_horizon: date
 
     @classmethod
     def from_env(
@@ -107,6 +109,21 @@ class CollectorSettings:
             maximum=500,
         )
 
+        raw_horizon = values.get(
+            "QUERIDO_DIARIO_BACKFILL_HORIZON",
+            "2026-01-01",
+        ).strip()
+        try:
+            backfill_horizon = date.fromisoformat(raw_horizon)
+        except ValueError as error:
+            raise EnvironmentValidationError(
+                "QUERIDO_DIARIO_BACKFILL_HORIZON deve usar YYYY-MM-DD."
+            ) from error
+        if not date(2000, 1, 1) <= backfill_horizon <= date(2100, 1, 1):
+            raise EnvironmentValidationError(
+                "QUERIDO_DIARIO_BACKFILL_HORIZON está fora do intervalo aceito."
+            )
+
         for public_key in (
             "NEXT_PUBLIC_SUPABASE_SECRET_KEY",
             "NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY",
@@ -127,6 +144,7 @@ class CollectorSettings:
             max_attempts=max_attempts,
             max_document_bytes=max_document_bytes,
             max_documents_per_run=max_documents_per_run,
+            backfill_horizon=backfill_horizon,
         )
 
 

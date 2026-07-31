@@ -38,10 +38,14 @@ administrativo. O UUID Auth técnico ativo é
 `raw-artifacts`, prefixo `querido-diario/gazettes/`, para `SELECT` e `INSERT`.
 As credenciais técnicas vivem somente no GitHub Actions.
 
-O próximo gate é a menor fatia de 1B: derivar texto canônico das edições já
-preservadas e identificar candidatos determinísticos de nomeação/exoneração em
-fila interna, sem publicação e sem LLM. Parser além disso e PNCP continuam fora
-de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não apagado, para
+A menor fatia de 1B está implementada: texto canônico das edições preservadas
+e candidatos determinísticos de nomeação/exoneração em fila `needs_review`,
+sem publicação e sem LLM, como passo do workflow diário. Um segundo
+agendamento faz backfill retroativo automático de uma janela curta por dia,
+derivado do banco, até `QUERIDO_DIARIO_BACKFILL_HORIZON` (2026-01-01). O gate
+atual é validar remotamente a extração e o backfill; depois, extração de
+campos (pessoa, cargo, datas) com incerteza por campo. Parser além disso e
+PNCP continuam fora de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não apagado, para
 liberar a cota; não o reutilize nem altere os demais projetos.
 
 ## Regras inegociáveis
