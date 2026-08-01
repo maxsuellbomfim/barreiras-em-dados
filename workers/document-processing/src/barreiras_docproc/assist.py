@@ -95,6 +95,7 @@ def discover_models(
     provider: Provider,
     api_key: str,
     logger: logging.Logger,
+    attempts: list[AttemptRecord] | None = None,
 ) -> tuple[str, ...]:
     """Modelos vivos do provedor, em ordem de preferência.
 
@@ -104,13 +105,19 @@ def discover_models(
     """
     if not provider.catalog_url or not hasattr(caller, "get"):
         return provider.models
+    catalog_status: int | None = None
     try:
-        status, body = caller.get(
+        catalog_status, body = caller.get(
             provider.catalog_url,
             {"Authorization": f"Bearer {api_key}"},
         )
-        if status != 200:
-            raise ValueError(f"HTTP {status}")
+        if catalog_status != 200:
+            # 401/403 aqui significa credencial inválida — diagnóstico que
+            # separa "chave errada" de "modelo descontinuado".
+            raise ValueError(
+                f"HTTP {catalog_status}: "
+                f"{body[:200].decode('utf-8', errors='replace')}"
+            )
         payload = json.loads(body)
         identifiers = [
             str(entry["id"])
@@ -118,11 +125,22 @@ def discover_models(
             if isinstance(entry, dict) and entry.get("id")
         ]
     except (OSError, ValueError, KeyError, TypeError) as error:
+        if attempts is not None:
+            attempts.append(
+                AttemptRecord(
+                    provider.name,
+                    "(catálogo)",
+                    "transient",
+                    catalog_status,
+                    f"catálogo indisponível: {error}"[:500],
+                )
+            )
         log_event(
             logger,
             logging.WARNING,
             "assist_catalog_unavailable",
             provider=provider.name,
+            status=catalog_status,
             detail=str(error)[:200],
         )
         return provider.models
@@ -417,7 +435,13 @@ def _walk_cascade(
                 reason="missing_key",
             )
             continue
-        for model in discover_models(caller, provider, api_key, logger):
+        for model in discover_models(
+            caller,
+            provider,
+            api_key,
+            logger,
+            attempts,
+        ):
             try:
                 result = invoke(provider, api_key, model)
             except QuotaExhaustedError as error:

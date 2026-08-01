@@ -162,6 +162,28 @@ class CascadeTests(unittest.TestCase):
             ("vendor/gemma-5-it:free", "vendor/qwen-9b:free"),
         )
 
+    def test_invalid_key_is_visible_in_diagnostics(self) -> None:
+        """401 no catálogo distingue chave inválida de modelo morto."""
+        from barreiras_docproc.assist import (
+            PROVIDERS,
+            AttemptRecord,
+            discover_models,
+        )
+
+        class UnauthorizedCaller(ScriptedCaller):
+            def get(self, url, headers):
+                return 401, b'{"error":{"message":"Invalid API Key"}}'
+
+        provider = next(p for p in PROVIDERS if p.name == "groq")
+        attempts: list[AttemptRecord] = []
+
+        discover_models(
+            UnauthorizedCaller({}), provider, "chave-ruim", LOGGER, attempts
+        )
+
+        self.assertEqual(attempts[0].http_status, 401)
+        self.assertIn("Invalid API Key", attempts[0].detail or "")
+
     def test_discovery_falls_back_when_catalog_is_down(self) -> None:
         from barreiras_docproc.assist import PROVIDERS, discover_models
 
