@@ -68,6 +68,7 @@ class FakeRepository:
     def __init__(self) -> None:
         self.batches: list[ExtractionBatch] = []
         self.failures: list[str] = []
+        self.deferred_pages: list[tuple] = []
 
     def persist_extraction(
         self,
@@ -81,6 +82,9 @@ class FakeRepository:
 
     def persist_extraction_failure(self, artifact, **kwargs) -> None:
         self.failures.append(kwargs["error_code"])
+
+    def persist_pages(self, artifact, pages) -> None:
+        self.deferred_pages.append((artifact.raw_artifact_id, pages))
 
 
 def make_service(body: bytes) -> tuple[GazetteActExtractionService, ...]:
@@ -130,19 +134,22 @@ class PdfTextTests(unittest.TestCase):
 
 
 class PdfExtractionServiceTests(unittest.TestCase):
-    def test_processes_pdf_into_pages_and_candidates(self) -> None:
+    def test_processes_fully_texted_pdf_into_candidates(self) -> None:
         body = build_pdf(
-            ["NOMEAR FULANO DE TAL para o cargo de Assessor,", None]
+            [
+                "NOMEAR FULANO DE TAL para o cargo de Assessor,",
+                "EXTRATO DE CONTRATO 9/2026 sem ato de pessoal.",
+            ]
         )
         service, artifact, repository = make_service(body)
 
         result = service.process(artifact)
 
         self.assertTrue(result.job_created)
+        self.assertFalse(result.deferred_awaiting_ocr)
         self.assertEqual(result.results_inserted, 1)
         batch = repository.batches[0]
         self.assertEqual(len(batch.pages), 2)
-        self.assertIsNone(batch.pages[1].text)
         candidate = batch.candidates[0]
         self.assertEqual(
             batch.canonical.text[
@@ -151,14 +158,31 @@ class PdfExtractionServiceTests(unittest.TestCase):
             candidate.match_text,
         )
 
-    def test_fully_scanned_pdf_yields_job_with_zero_candidates(self) -> None:
+    def test_pdf_with_scanned_pages_is_deferred_awaiting_ocr(self) -> None:
+        body = build_pdf(
+            ["NOMEAR FULANO DE TAL para o cargo de Assessor,", None]
+        )
+        service, artifact, repository = make_service(body)
+
+        result = service.process(artifact)
+
+        self.assertFalse(result.job_created)
+        self.assertTrue(result.deferred_awaiting_ocr)
+        self.assertEqual(result.results_inserted, 0)
+        self.assertEqual(repository.batches, [])
+        artifact_id, pages = repository.deferred_pages[0]
+        self.assertEqual(artifact_id, artifact.raw_artifact_id)
+        self.assertEqual(len(pages), 2)
+        self.assertIsNone(pages[1].text)
+
+    def test_fully_scanned_pdf_is_deferred_not_half_processed(self) -> None:
         service, artifact, repository = make_service(build_pdf([None]))
 
         result = service.process(artifact)
 
-        self.assertTrue(result.job_created)
-        self.assertEqual(result.results_inserted, 0)
-        self.assertEqual(repository.batches[0].canonical.text, "")
+        self.assertTrue(result.deferred_awaiting_ocr)
+        self.assertEqual(repository.batches, [])
+        self.assertEqual(len(repository.deferred_pages), 1)
 
 
 if __name__ == "__main__":

@@ -96,6 +96,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     jobs_created = 0
     candidates_queued = 0
     failed = 0
+    deferred = 0
     for artifact in pending:
         try:
             result = service.process(artifact)
@@ -121,6 +122,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 error_code="unreadable_document",
             )
             continue
+        if result.deferred_awaiting_ocr:
+            deferred += 1
+            log_event(
+                logger,
+                logging.INFO,
+                "docproc_artifact_deferred",
+                source="querido-diario",
+                artifact_hash=artifact.sha256,
+                reason="awaiting_ocr",
+            )
+            continue
         processed += 1
         jobs_created += int(result.job_created)
         candidates_queued += result.results_inserted
@@ -142,6 +154,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         pending_found=len(pending),
         processed=processed,
         failed=failed,
+        deferred_awaiting_ocr=deferred,
         jobs_created=jobs_created,
         candidates_queued=candidates_queued,
     )

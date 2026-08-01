@@ -51,6 +51,7 @@ class ExtractionBatch:
 class ExtractionPersistResult:
     job_created: bool
     results_inserted: int
+    deferred_awaiting_ocr: bool = False
 
 
 class ObjectReader(Protocol):
@@ -71,6 +72,12 @@ class ExtractionRepository(Protocol):
         job_idempotency_key: str,
         error_code: str,
         error_detail: str,
+    ) -> None: ...
+
+    def persist_pages(
+        self,
+        artifact: TextArtifact,
+        pages: tuple[PageInput, ...],
     ) -> None: ...
 
 
@@ -133,11 +140,6 @@ class GazetteActExtractionService:
 
         if artifact.object_key.endswith(".pdf"):
             pdf = derive_pdf_text(raw_body)
-            canonical = CanonicalText(
-                text=pdf.text,
-                sha256=pdf.sha256,
-                parser_version=pdf.parser_version,
-            )
             pages = tuple(
                 PageInput(
                     page_number=page.page_number,
@@ -146,6 +148,20 @@ class GazetteActExtractionService:
                     sha256=page.sha256,
                 )
                 for page in pdf.pages
+            )
+            if pdf.pages_with_text < len(pdf.pages):
+                # Não extrair de texto parcial: registra as páginas (o OCR
+                # saberá quais faltam) e adia o job até o texto completo.
+                self.repository.persist_pages(artifact, pages)
+                return ExtractionPersistResult(
+                    job_created=False,
+                    results_inserted=0,
+                    deferred_awaiting_ocr=True,
+                )
+            canonical = CanonicalText(
+                text=pdf.text,
+                sha256=pdf.sha256,
+                parser_version=pdf.parser_version,
             )
         else:
             canonical = derive_canonical_text(raw_body)
