@@ -43,7 +43,9 @@ jobs:
       SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
       QUERIDO_DIARIO_TERRITORY_ID: "2903201"
       QUERIDO_DIARIO_REQUESTS_PER_MINUTE: "30"
-      QUERIDO_DIARIO_MAX_DOCUMENT_BYTES: "33554432"
+      # 64 MiB: a edição direta nº 4688 tem 38,4 MB e travava o cursor no
+      # limite anterior de 32 MiB (toda execução falhava na mesma edição).
+      QUERIDO_DIARIO_MAX_DOCUMENT_BYTES: "67108864"
       QUERIDO_DIARIO_MAX_DOCUMENTS_PER_RUN: "40"
       QUERIDO_DIARIO_BACKFILL_HORIZON: "2021-01-01"
       HTTP_CONNECT_TIMEOUT_SECONDS: "5"
