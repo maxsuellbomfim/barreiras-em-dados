@@ -42,7 +42,11 @@ class PostgresExtractionRepository:
                   artifact.object_key
                 from raw.raw_artifacts as artifact
                 where artifact.artifact_kind = 'document'
-                  and artifact.metadata ->> 'document_role' = 'txt'
+                  and (
+                    artifact.metadata ->> 'document_role' = 'txt'
+                    or artifact.metadata ->> 'schema_name'
+                        = 'gazette-direct-edition'
+                  )
                   and not exists (
                     select 1
                     from raw.extraction_jobs as job
@@ -106,53 +110,100 @@ class PostgresExtractionRepository:
 
         return RULESET_VERSION
 
+    def persist_extraction_failure(
+        self,
+        artifact,
+        *,
+        job_type: str,
+        job_idempotency_key: str,
+        error_code: str,
+        error_detail: str,
+    ) -> None:
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                connection.execute(
+                    """
+                    insert into raw.extraction_jobs (
+                      raw_artifact_id,
+                      job_type,
+                      idempotency_key,
+                      status,
+                      attempt_count,
+                      last_error_code,
+                      last_error_detail
+                    )
+                    values (%s::uuid, %s, %s, 'failed', 1, %s, %s)
+                    on conflict (idempotency_key) do nothing
+                    """,
+                    (
+                        artifact.raw_artifact_id,
+                        job_type,
+                        job_idempotency_key,
+                        error_code[:64],
+                        error_detail[:500],
+                    ),
+                )
+        finally:
+            connection.close()
+
     @staticmethod
     def _document_page(
         connection: DatabaseConnection,
         batch: ExtractionBatch,
     ) -> None:
-        row = connection.execute(
-            """
-            insert into raw.document_pages (
-              raw_artifact_id,
-              page_number,
-              parser_version,
-              extraction_method,
-              text_content,
-              text_sha256
-            )
-            values (%s::uuid, 1, %s, 'embedded_text', %s, %s)
-            on conflict (raw_artifact_id, page_number, parser_version)
-              do nothing
-            returning id::text as id
-            """,
-            (
-                batch.artifact.raw_artifact_id,
-                batch.canonical.parser_version,
-                batch.canonical.text,
-                batch.canonical.sha256,
-            ),
-        ).fetchone()
-        if row is not None:
-            return
+        for page in batch.pages:
+            row = connection.execute(
+                """
+                insert into raw.document_pages (
+                  raw_artifact_id,
+                  page_number,
+                  parser_version,
+                  extraction_method,
+                  text_content,
+                  text_sha256
+                )
+                values (%s::uuid, %s, %s, 'embedded_text', %s, %s)
+                on conflict (raw_artifact_id, page_number, parser_version)
+                  do nothing
+                returning id::text as id
+                """,
+                (
+                    batch.artifact.raw_artifact_id,
+                    page.page_number,
+                    page.parser_version,
+                    page.text,
+                    page.sha256,
+                ),
+            ).fetchone()
+            if row is not None:
+                continue
 
-        existing = connection.execute(
-            """
-            select text_sha256
-            from raw.document_pages
-            where raw_artifact_id = %s::uuid
-              and page_number = 1
-              and parser_version = %s
-            """,
-            (
-                batch.artifact.raw_artifact_id,
-                batch.canonical.parser_version,
-            ),
-        ).fetchone()
-        if existing is None or str(existing["text_sha256"]) != batch.canonical.sha256:
-            raise ProcessingError(
-                "A página canônica existente diverge do texto derivado."
+            existing = connection.execute(
+                """
+                select text_sha256
+                from raw.document_pages
+                where raw_artifact_id = %s::uuid
+                  and page_number = %s
+                  and parser_version = %s
+                """,
+                (
+                    batch.artifact.raw_artifact_id,
+                    page.page_number,
+                    page.parser_version,
+                ),
+            ).fetchone()
+            existing_sha = (
+                str(existing["text_sha256"])
+                if existing and existing["text_sha256"] is not None
+                else None
             )
+            if existing is None or existing_sha != page.sha256:
+                raise ProcessingError(
+                    "A página canônica existente diverge do texto derivado."
+                )
 
     @staticmethod
     def _extraction_job(

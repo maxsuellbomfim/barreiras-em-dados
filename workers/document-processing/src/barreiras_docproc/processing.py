@@ -10,6 +10,7 @@ from typing import Protocol
 from .candidates import RULESET_VERSION, ActCandidate, find_candidates
 from .canonical import CanonicalText, derive_canonical_text
 from .fields import extract_act_fields, fields_payload
+from .pdf_text import derive_pdf_text
 
 
 class ProcessingError(RuntimeError):
@@ -28,9 +29,18 @@ class TextArtifact:
 
 
 @dataclass(frozen=True)
+class PageInput:
+    page_number: int
+    parser_version: str
+    text: str | None
+    sha256: str | None
+
+
+@dataclass(frozen=True)
 class ExtractionBatch:
     artifact: TextArtifact
     canonical: CanonicalText
+    pages: tuple[PageInput, ...]
     job_type: str
     job_idempotency_key: str
     ruleset_version: str
@@ -52,6 +62,16 @@ class ExtractionRepository(Protocol):
         self,
         batch: ExtractionBatch,
     ) -> ExtractionPersistResult: ...
+
+    def persist_extraction_failure(
+        self,
+        artifact: TextArtifact,
+        *,
+        job_type: str,
+        job_idempotency_key: str,
+        error_code: str,
+        error_detail: str,
+    ) -> None: ...
 
 
 JOB_TYPE = "gazette_act_candidates"
@@ -111,11 +131,38 @@ class GazetteActExtractionService:
                 "O texto restaurado diverge do hash registrado do artefato."
             )
 
-        canonical = derive_canonical_text(raw_body)
+        if artifact.object_key.endswith(".pdf"):
+            pdf = derive_pdf_text(raw_body)
+            canonical = CanonicalText(
+                text=pdf.text,
+                sha256=pdf.sha256,
+                parser_version=pdf.parser_version,
+            )
+            pages = tuple(
+                PageInput(
+                    page_number=page.page_number,
+                    parser_version=pdf.parser_version,
+                    text=page.text,
+                    sha256=page.sha256,
+                )
+                for page in pdf.pages
+            )
+        else:
+            canonical = derive_canonical_text(raw_body)
+            pages = (
+                PageInput(
+                    page_number=1,
+                    parser_version=canonical.parser_version,
+                    text=canonical.text,
+                    sha256=canonical.sha256,
+                ),
+            )
+
         candidates = find_candidates(canonical.text)
         batch = ExtractionBatch(
             artifact=artifact,
             canonical=canonical,
+            pages=pages,
             job_type=JOB_TYPE,
             job_idempotency_key=job_idempotency_key(
                 artifact.sha256,

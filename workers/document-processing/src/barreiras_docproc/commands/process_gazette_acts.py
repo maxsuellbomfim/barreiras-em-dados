@@ -10,8 +10,14 @@ from barreiras_collectors.logging import log_event
 from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
+from ..candidates import RULESET_VERSION
+from ..canonical import CanonicalTextError
 from ..postgres import PostgresExtractionRepository
-from ..processing import GazetteActExtractionService
+from ..processing import (
+    JOB_TYPE,
+    GazetteActExtractionService,
+    job_idempotency_key,
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -89,8 +95,32 @@ def main(argv: Sequence[str] | None = None) -> int:
     processed = 0
     jobs_created = 0
     candidates_queued = 0
+    failed = 0
     for artifact in pending:
-        result = service.process(artifact)
+        try:
+            result = service.process(artifact)
+        except CanonicalTextError as error:
+            # PDF ilegível não derruba o lote: vira job failed auditável.
+            failed += 1
+            repository.persist_extraction_failure(
+                artifact,
+                job_type=JOB_TYPE,
+                job_idempotency_key=job_idempotency_key(
+                    artifact.sha256,
+                    RULESET_VERSION,
+                ),
+                error_code="unreadable_document",
+                error_detail=str(error),
+            )
+            log_event(
+                logger,
+                logging.WARNING,
+                "docproc_artifact_failed",
+                source="querido-diario",
+                artifact_hash=artifact.sha256,
+                error_code="unreadable_document",
+            )
+            continue
         processed += 1
         jobs_created += int(result.job_created)
         candidates_queued += result.results_inserted
@@ -111,6 +141,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         source="querido-diario",
         pending_found=len(pending),
         processed=processed,
+        failed=failed,
         jobs_created=jobs_created,
         candidates_queued=candidates_queued,
     )
