@@ -30,6 +30,8 @@ DIRECT_COLLECTOR_VERSION = "barreiras-diario-collector/0.1.0"
 PNCP_COLLECTOR_VERSION = "pncp-registry-collector/0.1.0"
 PNCP_CONTRATACAO_PARSER_VERSION = "pncp-contratacao-page/1.0.0"
 CAMARA_COLLECTOR_VERSION = "camara-federal-collector/0.1.0"
+TSE_COLLECTOR_VERSION = "tse-collector/0.1.0"
+TSE_PARSER_VERSION = "tse-votacao-munzona/1.0.0"
 VEREADORES_COLLECTOR_VERSION = "cm-barreiras-collector/0.1.0"
 VEREADORES_PARSER_VERSION = "cm-barreiras-vereadores/1.0.0"
 PNCP_ITEM_PARSER_VERSION = "pncp-item-page/1.0.0"
@@ -269,6 +271,103 @@ class PncpComprasPersistenceService:
                 artifact_idempotency_key=artifact_key,
                 collector_version=PNCP_COLLECTOR_VERSION,
                 parser_version=parser_version,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=page.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+
+class TseVotesPersistenceService:
+    """Preserva o recorte municipal da votação nominal (ADR 0014)."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, page) -> PersistenceResult:
+        actual = hashlib.sha256(page.raw_body).hexdigest()
+        if actual != page.body_sha256:
+            raise ArtifactIntegrityError(
+                "O recorte do TSE não corresponde ao hash informado."
+            )
+        year = page.cursor.get("ano")
+        object_key = (
+            "tse/votacao/sha256/"
+            f"{page.body_sha256[:2]}/{page.body_sha256}.json"
+        )
+        records = []
+        for index, item in enumerate(page.items):
+            sequential = item.get("sq_candidato")
+            turn = item.get("turno")
+            if not isinstance(sequential, str) or not sequential:
+                raise PersistenceContractError(
+                    f"Candidatura {index} sem sequencial do TSE."
+                )
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            records.append(
+                RawRecordInput(
+                    # Identificador oficial do TSE: nunca o nome (ADR 0014).
+                    source_record_key=(
+                        f"tse:votacao:{year}:{sequential}:{turn}"
+                    ),
+                    record_type="tse_votacao_barreiras",
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=TSE_PARSER_VERSION,
+                    idempotency_key=hashlib.sha256(
+                        ":".join(
+                            (
+                                "tse-votacao",
+                                page.idempotency_key,
+                                TSE_PARSER_VERSION,
+                                str(index),
+                                payload_sha256,
+                            )
+                        ).encode("utf-8")
+                    ).hexdigest(),
+                )
+            )
+
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=page.raw_body,
+            content_type=page.media_type,
+            expected_sha256=page.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "O recorte restaurado do Storage diverge do coletado."
+            )
+
+        artifact_key = hashlib.sha256(
+            f"raw-artifact:{page.idempotency_key}".encode()
+        ).hexdigest()
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,
+                object_key=object_key,
+                artifact_idempotency_key=artifact_key,
+                collector_version=TSE_COLLECTOR_VERSION,
+                parser_version=TSE_PARSER_VERSION,
                 records=tuple(records),
             )
         )

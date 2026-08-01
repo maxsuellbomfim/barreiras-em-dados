@@ -58,3 +58,8 @@ jobs:
         continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_vereadores
+
+      - name: Preservar votação recebida em Barreiras (vínculo territorial)
+        continue-on-error: true
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_tse_votes
