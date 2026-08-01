@@ -60,7 +60,8 @@ label {
   margin-bottom: 0.25rem;
 }
 
-input {
+input,
+textarea {
   width: 100%;
   padding: 0.55rem 0.75rem;
   margin-bottom: 1rem;
@@ -69,6 +70,12 @@ input {
   background: var(--surface);
   color: var(--text);
   font-size: 1rem;
+  font-family: inherit;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 button {

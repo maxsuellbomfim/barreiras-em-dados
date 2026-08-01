@@ -44,12 +44,36 @@ aprovação existe ainda; nada é publicado; o portal público não muda.
 - typecheck e build de produção do `apps/admin`;
 - migration aplicada ao projeto isolado.
 
+## Fatia 2 — decisão humana com auditoria (01/08/2026)
+
+- RPC `api.review_extraction_candidate(result_id, decision, rationale)`:
+  exige revisor ativo, decisão `approved`/`rejected` e justificativa com no
+  mínimo 5 caracteres; grava a decisão em `editorial.editorial_reviews`
+  (`target_type='raw.extraction_results'`) e um evento
+  `extraction_candidate_reviewed` em `audit.audit_events`;
+- o dado bruto permanece intacto: `raw.extraction_results.validation_status`
+  não é alterado — a decisão vive na camada editorial, e a fila
+  (`extraction-review-queue/1.1.0`) passa a excluir candidatos com decisão
+  final;
+- segunda decisão sobre o mesmo candidato é recusada com erro explícito
+  (regra de revisor único; dupla revisão substituirá essa checagem);
+- **aprovar não publica**: a projeção pública dos aprovados é uma fatia
+  futura e separada;
+- portal: cada cartão ganhou justificativa obrigatória e botões
+  Aprovar/Rejeitar (desabilitados até a justificativa mínima), com aviso
+  explícito de que a publicação é etapa separada;
+- primeiro revisor real cadastrado e ativado em 01/08/2026 com evento de
+  auditoria (`reviewer_identity_activated`); acesso validado por simulação
+  da identidade na RPC;
+- verificação: teste de migrations cobre justificativa obrigatória, decisão
+  inválida, aprovação, fila esvaziada, dupla decisão negada, contagem de
+  auditoria, bruto intocado e negação a não revisor; typecheck e build do
+  admin.
+
 ## Pendências para as próximas fatias
 
-- ações de aprovar/rejeitar gravando em `editorial.editorial_reviews` com
-  auditoria e dupla revisão;
-- exigência de MFA (enrolamento TOTP e verificação `aal2` na RPC);
-- cadastro do primeiro revisor real (exige conta criada pelo titular e
-  ativação registrada);
-- deploy do admin como projeto separado na Vercel;
-- paginação/filtros e testes negativos de autorização em produção.
+- exigência de MFA (enrolamento TOTP e verificação `aal2` nas RPCs);
+- projeção pública somente de aprovados (`editorial.published_insights` e
+  páginas no portal);
+- paginação/filtros e testes negativos de autorização em produção;
+- dupla revisão de amostra antes do gate da etapa.

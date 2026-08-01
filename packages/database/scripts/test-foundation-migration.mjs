@@ -438,12 +438,78 @@ try {
       candidate_type: "nomeacao",
       validation_status: "needs_review",
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "extraction-review-queue/1.0.0",
+      methodology_version: "extraction-review-queue/1.1.0",
     },
   ]);
+  await assert.rejects(
+    database.query(`
+      select api.review_extraction_candidate(
+        '00000000-0000-0000-0000-000000000602', 'approved', 'ok'
+      )
+    `),
+    /justificativa é obrigatória/,
+  );
+  await assert.rejects(
+    database.query(`
+      select api.review_extraction_candidate(
+        '00000000-0000-0000-0000-000000000602', 'maybe',
+        'decisão inválida de teste'
+      )
+    `),
+    /decisão deve ser approved ou rejected/,
+  );
+  const reviewDecision = await database.query(`
+    select api.review_extraction_candidate(
+      '00000000-0000-0000-0000-000000000602',
+      'approved',
+      'Confere com o trecho oficial; nomeação legítima de teste.'
+    ) as review_id
+  `);
+  assert.match(String(reviewDecision.rows[0].review_id), /^[0-9a-f-]{36}$/);
+
+  const queueAfterDecision = await database.query(`
+    select count(*)::integer as count
+    from api.get_extraction_review_queue(20)
+  `);
+  assert.equal(queueAfterDecision.rows[0].count, 0);
+
+  await assert.rejects(
+    database.query(`
+      select api.review_extraction_candidate(
+        '00000000-0000-0000-0000-000000000602', 'rejected',
+        'tentativa de segunda decisão'
+      )
+    `),
+    /já recebeu uma decisão final/,
+  );
+
+  const reviewAudit = await database.query(`
+    select
+      (select count(*)::integer from editorial.editorial_reviews
+       where target_type = 'raw.extraction_results') as reviews,
+      (select count(*)::integer from audit.audit_events
+       where action = 'extraction_candidate_reviewed') as audit_rows,
+      (select validation_status from raw.extraction_results
+       where id = '00000000-0000-0000-0000-000000000602') as raw_status
+  `);
+  assert.deepEqual(reviewAudit.rows[0], {
+    reviews: 1,
+    audit_rows: 1,
+    raw_status: "needs_review",
+  });
+
   await database.exec(`
     select set_config('request.jwt.claim.sub', '${workloadUserId}', false);
   `);
+  await assert.rejects(
+    database.query(`
+      select api.review_extraction_candidate(
+        '00000000-0000-0000-0000-000000000602', 'approved',
+        'não sou revisor e não deveria conseguir'
+      )
+    `),
+    /acesso restrito a revisores ativos/,
+  );
 
   const dailyCoverage = await database.query(`
     select

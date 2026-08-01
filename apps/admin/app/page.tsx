@@ -37,6 +37,104 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   organization: "Órgão",
 };
 
+function ReviewCard({
+  item,
+  onDecide,
+  busy,
+}: {
+  item: QueueItem;
+  onDecide: (
+    item: QueueItem,
+    decision: "approved" | "rejected",
+    rationale: string,
+  ) => Promise<string | null>;
+  busy: boolean;
+}) {
+  const [rationale, setRationale] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const fields = item.result_payload.fields ?? {};
+
+  async function decide(decision: "approved" | "rejected") {
+    setError(null);
+    const failure = await onDecide(item, decision, rationale);
+    if (failure) {
+      setError(failure);
+    }
+  }
+
+  return (
+    <article aria-label="Candidato de ato">
+      <h2>
+        {item.candidate_type === "nomeacao"
+          ? "Nomeação"
+          : item.candidate_type === "exoneracao"
+            ? "Exoneração"
+            : item.candidate_type}
+      </h2>
+      <dl>
+        {Object.entries(FIELD_LABELS).map(([key, label]) => {
+          const entry = fields[key];
+          const isEntry = typeof entry === "object" && entry !== null;
+          return (
+            <div key={key} style={{ display: "contents" }}>
+              <dt>{label}</dt>
+              <dd>
+                {isEntry && entry.value
+                  ? entry.value
+                  : "não encontrado — confira o trecho"}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+      <details>
+        <summary>Trecho do documento oficial</summary>
+        <pre>{item.result_payload.excerpt ?? "sem trecho"}</pre>
+      </details>
+      <label htmlFor={`rationale-${item.result_id}`}>
+        Justificativa da decisão (obrigatória)
+      </label>
+      <textarea
+        id={`rationale-${item.result_id}`}
+        rows={2}
+        minLength={5}
+        required
+        value={rationale}
+        onChange={(event) => setRationale(event.target.value)}
+        placeholder="Ex.: confere com o trecho oficial da edição."
+      />
+      {error ? (
+        <p className="status-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <p>
+        <button
+          type="button"
+          disabled={busy || rationale.trim().length < 5}
+          onClick={() => void decide("approved")}
+        >
+          Aprovar
+        </button>{" "}
+        <button
+          type="button"
+          className="secondary"
+          disabled={busy || rationale.trim().length < 5}
+          onClick={() => void decide("rejected")}
+        >
+          Rejeitar
+        </button>
+      </p>
+      <p className="meta">
+        Aprovar registra sua decisão com auditoria; a publicação no site é uma
+        etapa separada. Extraído por {item.extractor_version} em{" "}
+        {new Date(item.result_created_at).toLocaleString("pt-BR")} · artefato{" "}
+        {item.artifact_sha256.slice(0, 12)}… · {item.methodology_version}
+      </p>
+    </article>
+  );
+}
+
 function requiredEnv(value: string | undefined, name: string): string {
   if (!value || value.trim().length === 0) {
     throw new Error(`Variável ${name} ausente no ambiente do admin.`);
@@ -64,6 +162,7 @@ export default function ReviewQueuePage() {
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueState>({ kind: "loading" });
+  const [deciding, setDeciding] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -100,6 +199,31 @@ export default function ReviewQueuePage() {
       void loadQueue();
     }
   }, [session, loadQueue]);
+
+  const decideCandidate = useCallback(
+    async (
+      item: QueueItem,
+      decision: "approved" | "rejected",
+      rationale: string,
+    ): Promise<string | null> => {
+      setDeciding(true);
+      try {
+        const { error } = await supabase.rpc("review_extraction_candidate", {
+          candidate_result_id: item.result_id,
+          review_decision: decision,
+          review_rationale: rationale,
+        });
+        if (error) {
+          return `A decisão não foi registrada: ${error.message}`;
+        }
+        await loadQueue();
+        return null;
+      } finally {
+        setDeciding(false);
+      }
+    },
+    [supabase, loadQueue],
+  );
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -200,47 +324,14 @@ export default function ReviewQueuePage() {
       ) : null}
 
       {queue.kind === "ready"
-        ? queue.items.map((item) => {
-            const fields = item.result_payload.fields ?? {};
-            return (
-              <article key={item.result_id} aria-label="Candidato de ato">
-                <h2>
-                  {item.candidate_type === "nomeacao"
-                    ? "Nomeação"
-                    : item.candidate_type === "exoneracao"
-                      ? "Exoneração"
-                      : item.candidate_type}
-                </h2>
-                <dl>
-                  {Object.entries(FIELD_LABELS).map(([key, label]) => {
-                    const entry = fields[key];
-                    const isEntry =
-                      typeof entry === "object" && entry !== null;
-                    return (
-                      <div key={key} style={{ display: "contents" }}>
-                        <dt>{label}</dt>
-                        <dd>
-                          {isEntry && entry.value
-                            ? entry.value
-                            : "não encontrado — confira o trecho"}
-                        </dd>
-                      </div>
-                    );
-                  })}
-                </dl>
-                <details>
-                  <summary>Trecho do documento oficial</summary>
-                  <pre>{item.result_payload.excerpt ?? "sem trecho"}</pre>
-                </details>
-                <p className="meta">
-                  Extraído por {item.extractor_version} em{" "}
-                  {new Date(item.result_created_at).toLocaleString("pt-BR")} ·
-                  artefato {item.artifact_sha256.slice(0, 12)}… ·{" "}
-                  {item.methodology_version}
-                </p>
-              </article>
-            );
-          })
+        ? queue.items.map((item) => (
+            <ReviewCard
+              key={item.result_id}
+              item={item}
+              onDecide={decideCandidate}
+              busy={deciding}
+            />
+          ))
         : null}
     </main>
   );
