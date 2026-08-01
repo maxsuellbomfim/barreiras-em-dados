@@ -303,13 +303,13 @@ try {
     insert into raw.raw_artifacts (
       id, collection_run_id, source_endpoint_id, idempotency_key,
       artifact_kind, source_url, retrieved_at, http_status, content_type,
-      byte_size, sha256, object_key, collector_version
+      byte_size, sha256, object_key, collector_version, metadata
     ) values (
       '${artifactId}', '${runId}', '${endpointId}', '${"2".repeat(64)}',
       'http_response', 'https://api.queridodiario.ok.org.br/gazettes',
       now(), 200, 'application/json', 2, '${"3".repeat(64)}',
       'querido-diario/gazettes/sha256/33/${"3".repeat(64)}.json',
-      'test/1'
+      'test/1', '{"source_record_key":"gazette:1"}'
     );
 
     insert into raw.raw_records (
@@ -510,6 +510,29 @@ try {
     `),
     /acesso restrito a revisores ativos/,
   );
+
+  await database.exec("set role anon;");
+  const approvedActs = await database.query(`
+    select
+      act_type,
+      person_name,
+      gazette_date::text as gazette_date,
+      gazette_url,
+      excerpt,
+      methodology_version
+    from api.get_approved_gazette_acts(50)
+  `);
+  await database.exec("reset role;");
+  assert.deepEqual(approvedActs.rows, [
+    {
+      act_type: "nomeacao",
+      person_name: null,
+      gazette_date: "2026-06-10",
+      gazette_url: null,
+      excerpt: "NOMEAR FULANO DE TAL",
+      methodology_version: "approved-gazette-acts/1.0.0",
+    },
+  ]);
 
   const dailyCoverage = await database.query(`
     select
