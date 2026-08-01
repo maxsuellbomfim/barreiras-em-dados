@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import logging
 import os
 from collections.abc import Sequence
@@ -24,6 +25,29 @@ from ..postgres import PostgresExtractionRepository
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Nunca derruba o workflow: falha aqui é estado explícito e logado.
+
+    Antes, qualquer exceção neste passo abortava também a publicação
+    verificada e o resumo por edição, que vinham depois — a plataforma
+    inteira parava por causa de um provedor de IA instável.
+    """
+    try:
+        return _run(argv)
+    except Exception as error:  # noqa: BLE001 - fronteira de processo
+        logging.getLogger(__name__).warning(
+            json.dumps(
+                {
+                    "event": "assist_step_failed_gracefully",
+                    "error_type": type(error).__name__,
+                    "detail": str(error)[:300],
+                },
+                ensure_ascii=False,
+            )
+        )
+        return 0
+
+
+def _run(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Para candidatos pendentes, sugere campos ausentes e um resumo "
@@ -118,7 +142,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             extractor_version=PROMPT_VERSION,
             payload={
                 "schema_name": "assisted-enrichment",
-                "schema_version": "1.0.0",
+                "schema_version": "2.0.0",
                 "prompt_version": PROMPT_VERSION,
                 "provider": outcome.provider,
                 "model": outcome.model,
@@ -128,6 +152,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ).hexdigest(),
                 "suggestions": outcome.suggestions,
                 "summary": outcome.summary,
+                "clean_text": outcome.clean_text,
                 "raw_response": outcome.raw_response,
             },
         )

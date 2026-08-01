@@ -110,6 +110,22 @@ class ActCandidateTests(unittest.TestCase):
         self.assertNotIn("Foxit", candidate.excerpt)
         self.assertTrue(candidate.excerpt.startswith("PORTARIA"))
 
+    def test_defragments_words_split_by_pdf_extraction(self) -> None:
+        """Caso real do portal: o PDF parte a palavra entre linhas."""
+        raw = (
+            "ESTAD\nO DA BAHIA\nMUN\nICÍPIO DE BA\nRREIRAS\nPORT\n"
+            "ARIA Nº 213, DE 16 DE JUNHO DE 2026\nDispõe\n"
+            "sobre exoneração de servidor."
+        )
+
+        cleaned = clean_excerpt(raw)
+
+        self.assertIn("ESTADO DA BAHIA", cleaned)
+        self.assertIn("MUNICÍPIO DE BARREIRAS", cleaned)
+        self.assertIn("PORTARIA Nº 213", cleaned)
+        # Palavra inteira seguida de minúscula continua separada por espaço.
+        self.assertIn("Dispõe sobre exoneração", cleaned)
+
     def test_ordering_is_deterministic_by_position(self) -> None:
         text = "EXONERAR PRIMEIRO. Depois, NOMEAR SEGUNDO."
 

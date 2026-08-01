@@ -580,6 +580,47 @@ details summary:hover {
   background: var(--glass);
 }
 
+/* ---------- Ato reescrito para leitura (ADR 0011/0012) ---------- */
+.act-reading {
+  margin-block: 0.9rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(23, 105, 224, 0.22);
+  border-radius: 1rem;
+  background: var(--blue-soft);
+}
+
+.act-reading-pending {
+  border-color: var(--line);
+  background: var(--inset);
+}
+
+.act-reading-head {
+  margin: 0 0 0.55rem;
+  color: var(--blue);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.act-reading-pending .act-reading-head {
+  color: var(--faint);
+}
+
+.act-reading-head span {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--faint);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.act-reading-body {
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
 /* ---------- Sugestões assistidas (ADR 0011) ---------- */
 .assisted {
   margin-block: 0.85rem;
