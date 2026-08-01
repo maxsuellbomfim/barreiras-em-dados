@@ -598,7 +598,9 @@ class PostgresExtractionRepository:
                 join raw.extraction_results as result
                   on result.id = review.target_id
                 where review.decision = 'approved'
-                  and review.reviewer_subject like 'automated:%'
+                  -- %% escapa o curinga: a query leva parâmetros e o
+                  -- driver trataria um % solto como marcador.
+                  and review.reviewer_subject like 'automated:%%'
                   and result.candidate_type = %s
                   and review.checklist #>> '{verification,fields,act_number,value}' = %s
                   and review.checklist #>> '{verification,fields,act_date,value}' = %s
