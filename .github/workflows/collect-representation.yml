@@ -52,3 +52,9 @@ jobs:
       - name: Preservar deputados federais da Bahia
         run: >-
           python -B -m barreiras_collectors.commands.collect_camara_deputies
+
+      - name: Preservar vereadores de Barreiras
+        # Falha aqui não pode apagar a coleta federal já preservada.
+        continue-on-error: true
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_vereadores
