@@ -38,17 +38,20 @@ administrativo. O UUID Auth técnico ativo é
 `raw-artifacts`, prefixo `querido-diario/gazettes/`, para `SELECT` e `INSERT`.
 As credenciais técnicas vivem somente no GitHub Actions.
 
-A menor fatia de 1B está implementada: texto canônico das edições preservadas
-e candidatos determinísticos de nomeação/exoneração em fila `needs_review`,
-sem publicação e sem LLM, como passo do workflow diário. Um segundo
-agendamento faz backfill retroativo automático, quatro vezes ao dia, de uma
-janela curta por execução derivada do banco, até
-`QUERIDO_DIARIO_BACKFILL_HORIZON` (2021-01-01, gestão anterior incluída). O
-gate atual é validar remotamente a extração e o backfill; depois, extração de
-campos (pessoa, cargo, datas) com incerteza por campo. Parser além disso e
-PNCP continuam fora de escopo. O projeto `Site Kelvin Vinicius` foi pausado,
-não apagado, para liberar a cota; não o reutilize nem altere os demais
-projetos.
+A 1B tem texto canônico, candidatos determinísticos e campos com estado
+explícito (pessoa, cargo, símbolo, órgão, número e data da Portaria) rodando
+como passo do workflow diário, e um backfill retroativo automático quatro
+vezes ao dia até `QUERIDO_DIARIO_BACKFILL_HORIZON` (2021-01-01). A 1C tem
+fila de revisão autenticada em `apps/admin` (revisores em
+`audit.reviewer_identities`; primeiro revisor ativo em 01/08/2026), decisão
+aprovar/rejeitar com justificativa e auditoria em
+`editorial.editorial_reviews`, projeção pública somente de aprovados em
+`/atos` e canal de correção por issues. MFA foi adiado por decisão do
+titular e é obrigatório antes do lançamento. O gate atual é validar
+remotamente extração e backfill nos agendamentos e revisar os primeiros
+candidatos reais. Amostra anotada com especialista, PNCP e OCR continuam
+fora de escopo. O projeto `Site Kelvin Vinicius` foi pausado, não apagado,
+para liberar a cota; não o reutilize nem altere os demais projetos.
 
 ## Regras inegociáveis
 

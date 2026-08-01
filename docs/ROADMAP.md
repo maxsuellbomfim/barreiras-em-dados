@@ -97,9 +97,15 @@ Gate:
 
 ## Etapa 1C — Revisão e publicação
 
-Estado em 31/07/2026: fatia 1 implementada — fila de revisão autenticada e
-somente leitura em `apps/admin`, com identidades de revisor auditáveis e
-negação explícita (`docs/reviews/STAGE_1C_ADMIN_QUEUE_REVIEW.md`).
+Estado em 01/08/2026: fatias 1 a 3 implementadas — fila de revisão
+autenticada em `apps/admin` com identidades de revisor auditáveis e negação
+explícita; decisão humana (aprovar/rejeitar) com justificativa obrigatória
+gravada em `editorial.editorial_reviews` + auditoria, sem tocar no bruto;
+projeção pública somente de aprovados em `/atos`, com trecho, documento
+oficial e hash; canal público de correção via issues do repositório
+(`docs/reviews/STAGE_1C_ADMIN_QUEUE_REVIEW.md`). Pendentes: MFA (adiado por
+decisão do titular; obrigatório antes do lançamento), dupla revisão de
+amostra e testes negativos de autorização em produção.
 
 - admin com MFA e estados editoriais;
 - aprovação/rejeição auditada;
