@@ -11,7 +11,7 @@ import hashlib
 import io
 from dataclasses import dataclass
 
-from .canonical import CanonicalTextError
+from .canonical import CanonicalTextError, sanitize_text
 
 PDF_PARSER_VERSION = "gazette-pdf-embedded-text/1.0.0"
 
@@ -54,9 +54,9 @@ def derive_pdf_text(raw_body: bytes) -> PdfCanonicalText:
     pages: list[PdfPageText] = []
     parts: list[str] = []
     for index, extracted in enumerate(page_texts, start=1):
-        normalized = (
-            (extracted or "").replace("\r\n", "\n").replace("\r", "\n").strip()
-        )
+        normalized = sanitize_text(
+            (extracted or "").replace("\r\n", "\n").replace("\r", "\n")
+        ).strip()
         if normalized:
             pages.append(
                 PdfPageText(
