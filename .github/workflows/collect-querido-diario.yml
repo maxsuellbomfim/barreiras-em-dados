@@ -61,7 +61,7 @@ jobs:
           cache: pip
 
       - name: Instalar dependências fixadas
-        run: python -m pip install --disable-pip-version-check ".[postgres,storage]"
+        run: python -m pip install --disable-pip-version-check ".[postgres,storage,pdf]"
 
       - name: Verificar CA oficial do Supabase
         run: >-
