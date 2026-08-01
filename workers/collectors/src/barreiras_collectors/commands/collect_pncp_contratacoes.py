@@ -22,6 +22,23 @@ from ..settings import CollectorSettings, PersistenceSettings
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 MAX_WINDOW_DAYS = 31
 MAX_PAGES_PER_MODALIDADE = 30
+# Barreiras foi validada no PNCP em 2021-07-28; nada existe antes.
+BACKFILL_HORIZON = date(2021, 7, 1)
+
+
+def resolve_backfill_window(
+    *,
+    anchor: date | None,
+    today: date,
+    horizon: date = BACKFILL_HORIZON,
+) -> tuple[str, str] | None:
+    """Janela retroativa de até 30 dias; None quando o horizonte chegou."""
+    effective_anchor = anchor or (today + timedelta(days=1))
+    until = effective_anchor - timedelta(days=1)
+    if until < horizon:
+        return None
+    start = max(horizon, until - timedelta(days=MAX_WINDOW_DAYS - 2))
+    return start.strftime("%Y%m%d"), until.strftime("%Y%m%d")
 
 
 def resolve_window(since: str, until: str) -> tuple[str, str]:
@@ -49,11 +66,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--since", default="")
     parser.add_argument("--until", default="")
+    parser.add_argument(
+        "--backfill",
+        action="store_true",
+        help="Deriva do banco a próxima janela retroativa até o horizonte.",
+    )
     arguments = parser.parse_args(argv)
-    try:
-        since, until = resolve_window(arguments.since, arguments.until)
-    except ValueError as error:
-        parser.error(str(error))
+    if arguments.backfill and (arguments.since or arguments.until):
+        parser.error("--backfill não aceita --since/--until.")
+    since = until = ""
+    if not arguments.backfill:
+        try:
+            since, until = resolve_window(arguments.since, arguments.until)
+        except ValueError as error:
+            parser.error(str(error))
 
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
@@ -100,18 +126,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     if authentication.session is None or authentication.user is None:
         raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
 
+    repository = PostgresCollectionRepository.from_dsn(
+        persistence_settings.database_url
+    )
     service = PncpContratacoesPersistenceService(
         object_store=SupabaseStorageObjectStore(
             supabase_client.storage.from_(
                 persistence_settings.raw_artifacts_bucket
             )
         ),
-        repository=PostgresCollectionRepository.from_dsn(
-            persistence_settings.database_url
-        ),
+        repository=repository,
     )
 
     logger = logging.getLogger(__name__)
+    if arguments.backfill:
+        window = resolve_backfill_window(
+            anchor=repository.pncp_backfill_anchor(),
+            today=datetime.now(MUNICIPAL_TIMEZONE).date(),
+        )
+        if window is None:
+            log_event(
+                logger,
+                logging.INFO,
+                "collector_pncp_backfill_complete",
+                source=SOURCE_CODE,
+                horizon=BACKFILL_HORIZON.isoformat(),
+            )
+            return 0
+        since, until = window
     pages_persisted = 0
     records_inserted = 0
     records_existing = 0
