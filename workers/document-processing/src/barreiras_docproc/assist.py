@@ -21,6 +21,8 @@ from barreiras_collectors.logging import log_event
 PROMPT_VERSION = "assisted-inference/2.0.0"
 # Limite do texto reescrito: um ato de pessoal cabe folgado.
 MAX_CLEAN_TEXT_CHARS = 1200
+# Teto de modelos testados por provedor numa execução.
+MAX_MODELS_PER_PROVIDER = 4
 SUGGESTION_FIELDS = (
     "person_name",
     "position",
@@ -37,10 +39,15 @@ class Provider:
     env_key: str
     url: str
     model: str
-    # Modelos gratuitos são descontinuados sem aviso: um nome morto não
-    # pode aposentar o provedor inteiro. A cascata tenta os alternativos
-    # antes de promover o próximo nível.
+    # Modelos gratuitos são descontinuados sem aviso: um nome fixo morre em
+    # silêncio. A cascata consulta o catálogo do provedor e só cai para
+    # estes nomes se o catálogo estiver indisponível.
     fallback_models: tuple[str, ...] = ()
+    catalog_url: str = ""
+    # Preferência por substring, em ordem: modelos de instrução baratos e
+    # bons em português vêm primeiro.
+    preferred: tuple[str, ...] = ()
+    require: str = ""
 
     @property
     def models(self) -> tuple[str, ...]:
@@ -53,32 +60,115 @@ PROVIDERS: tuple[Provider, ...] = (
         "GROQ_API_KEY",
         "https://api.groq.com/openai/v1/chat/completions",
         "llama-3.3-70b-versatile",
-        (
-            "llama-3.1-8b-instant",
-            "openai/gpt-oss-120b",
-            "meta-llama/llama-4-scout-17b-16e-instruct",
-        ),
+        ("llama-3.1-8b-instant", "openai/gpt-oss-120b"),
+        catalog_url="https://api.groq.com/openai/v1/models",
+        preferred=("llama", "gpt-oss", "gemma", "qwen"),
     ),
     Provider(
         "openrouter",
         "OPENROUTER_API_KEY",
         "https://openrouter.ai/api/v1/chat/completions",
-        "meta-llama/llama-3.3-70b-instruct:free",
-        (
-            "google/gemma-3-27b-it:free",
-            "mistralai/mistral-small-3.2-24b-instruct:free",
-            "deepseek/deepseek-chat-v3.1:free",
-        ),
+        "google/gemma-4-26b-a4b-it:free",
+        ("inclusionai/ling-3.0-flash:free",),
+        catalog_url="https://openrouter.ai/api/v1/models",
+        preferred=("gemma", "llama", "qwen", "mistral", "ling"),
+        # Só modelos gratuitos: a plataforma não pode gerar custo silencioso.
+        require=":free",
     ),
     Provider(
         "gemini",
         "GEMINI_API_KEY",
         "https://generativelanguage.googleapis.com/v1beta/openai/"
         "chat/completions",
-        "gemini-2.0-flash",
-        ("gemini-flash-latest", "gemini-2.5-flash"),
+        "gemini-flash-latest",
+        ("gemini-2.5-flash", "gemini-2.0-flash"),
+        catalog_url=(
+            "https://generativelanguage.googleapis.com/v1beta/openai/models"
+        ),
+        preferred=("flash-latest", "flash"),
     ),
 )
+
+
+def discover_models(
+    caller: JsonCaller,
+    provider: Provider,
+    api_key: str,
+    logger: logging.Logger,
+    attempts: list[AttemptRecord] | None = None,
+) -> tuple[str, ...]:
+    """Modelos vivos do provedor, em ordem de preferência.
+
+    Nomes de modelo gratuito somem sem aviso — em 01/08/2026 os quatro
+    modelos fixos do OpenRouter já não existiam. Perguntar ao catálogo
+    evita que a plataforma emudeça por causa disso.
+    """
+    if not provider.catalog_url or not hasattr(caller, "get"):
+        return provider.models
+    catalog_status: int | None = None
+    try:
+        catalog_status, body = caller.get(
+            provider.catalog_url,
+            {"Authorization": f"Bearer {api_key}"},
+        )
+        if catalog_status != 200:
+            # 401/403 aqui significa credencial inválida — diagnóstico que
+            # separa "chave errada" de "modelo descontinuado".
+            raise ValueError(
+                f"HTTP {catalog_status}: "
+                f"{body[:200].decode('utf-8', errors='replace')}"
+            )
+        payload = json.loads(body)
+        identifiers = [
+            str(entry["id"])
+            for entry in payload.get("data", [])
+            if isinstance(entry, dict) and entry.get("id")
+        ]
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        if attempts is not None:
+            attempts.append(
+                AttemptRecord(
+                    provider.name,
+                    "(catálogo)",
+                    "transient",
+                    catalog_status,
+                    f"catálogo indisponível: {error}"[:500],
+                )
+            )
+        log_event(
+            logger,
+            logging.WARNING,
+            "assist_catalog_unavailable",
+            provider=provider.name,
+            status=catalog_status,
+            detail=str(error)[:200],
+        )
+        return provider.models
+
+    available = [
+        identifier
+        for identifier in identifiers
+        if not provider.require or provider.require in identifier
+    ]
+    if not available:
+        return provider.models
+
+    ordered: list[str] = []
+    for hint in provider.preferred:
+        for identifier in available:
+            if hint in identifier.lower() and identifier not in ordered:
+                ordered.append(identifier)
+    # Preferido configurado primeiro, se ainda existir no catálogo.
+    for configured in provider.models:
+        if configured in available:
+            if configured in ordered:
+                ordered.remove(configured)
+            ordered.insert(0, configured)
+            break
+    for identifier in available:
+        if identifier not in ordered:
+            ordered.append(identifier)
+    return tuple(ordered[:MAX_MODELS_PER_PROVIDER])
 
 
 @dataclass(frozen=True)
@@ -140,6 +230,25 @@ class JsonCaller(Protocol):
 class UrllibJsonCaller:
     def __init__(self, timeout_seconds: float = 60.0) -> None:
         self.timeout_seconds = timeout_seconds
+
+    def get(
+        self,
+        url: str,
+        headers: Mapping[str, str],
+    ) -> tuple[int, bytes]:
+        request = urllib.request.Request(  # noqa: S310 - HTTPS fixo.
+            url,
+            headers={**headers, "Accept": "application/json"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(  # noqa: S310
+                request,
+                timeout=self.timeout_seconds,
+            ) as response:
+                return response.status, response.read(4_194_304)
+        except urllib.error.HTTPError as error:
+            return error.code, error.read(4_194_304)
 
     def post(
         self,
@@ -326,7 +435,13 @@ def _walk_cascade(
                 reason="missing_key",
             )
             continue
-        for model in provider.models:
+        for model in discover_models(
+            caller,
+            provider,
+            api_key,
+            logger,
+            attempts,
+        ):
             try:
                 result = invoke(provider, api_key, model)
             except QuotaExhaustedError as error:

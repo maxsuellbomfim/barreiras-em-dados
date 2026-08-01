@@ -135,6 +135,67 @@ class CascadeTests(unittest.TestCase):
         self.assertGreater(caller.calls.count(GROQ), 1)
         self.assertEqual(caller.calls[-1], OPENROUTER)
 
+    def test_discovery_prefers_live_models_and_drops_dead_names(self) -> None:
+        from barreiras_docproc.assist import PROVIDERS, discover_models
+
+        catalog = json.dumps(
+            {
+                "data": [
+                    {"id": "vendor/qwen-9b:free"},
+                    {"id": "vendor/gemma-5-it:free"},
+                    {"id": "vendor/pago-caro"},
+                ]
+            }
+        ).encode()
+
+        class CatalogCaller(ScriptedCaller):
+            def get(self, url, headers):
+                assert headers["Authorization"].startswith("Bearer ")
+                return 200, catalog
+
+        provider = next(p for p in PROVIDERS if p.name == "openrouter")
+        models = discover_models(CatalogCaller({}), provider, "k", LOGGER)
+
+        # Só gratuitos, na ordem de preferência, e sem o nome morto fixo.
+        self.assertEqual(
+            models,
+            ("vendor/gemma-5-it:free", "vendor/qwen-9b:free"),
+        )
+
+    def test_invalid_key_is_visible_in_diagnostics(self) -> None:
+        """401 no catálogo distingue chave inválida de modelo morto."""
+        from barreiras_docproc.assist import (
+            PROVIDERS,
+            AttemptRecord,
+            discover_models,
+        )
+
+        class UnauthorizedCaller(ScriptedCaller):
+            def get(self, url, headers):
+                return 401, b'{"error":{"message":"Invalid API Key"}}'
+
+        provider = next(p for p in PROVIDERS if p.name == "groq")
+        attempts: list[AttemptRecord] = []
+
+        discover_models(
+            UnauthorizedCaller({}), provider, "chave-ruim", LOGGER, attempts
+        )
+
+        self.assertEqual(attempts[0].http_status, 401)
+        self.assertIn("Invalid API Key", attempts[0].detail or "")
+
+    def test_discovery_falls_back_when_catalog_is_down(self) -> None:
+        from barreiras_docproc.assist import PROVIDERS, discover_models
+
+        class BrokenCatalogCaller(ScriptedCaller):
+            def get(self, url, headers):
+                return 503, b""
+
+        provider = next(p for p in PROVIDERS if p.name == "groq")
+        models = discover_models(BrokenCatalogCaller({}), provider, "k", LOGGER)
+
+        self.assertEqual(models, provider.models)
+
     def test_attempts_are_recorded_for_diagnostics(self) -> None:
         from barreiras_docproc.assist import AttemptRecord
 
