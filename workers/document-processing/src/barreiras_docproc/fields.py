@@ -13,8 +13,10 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date
 
-FIELDSET_VERSION = "gazette-act-fields/1.2.0"
-FIELD_WINDOW = 400
+FIELDSET_VERSION = "gazette-act-fields/1.3.0"
+# O ato inteiro cabe na janela: os diários quebram a frase em várias linhas
+# e o nome costuma vir depois de apostos ("a servidora ...", "o (a) ...").
+FIELD_WINDOW = 1200
 HEADING_WINDOW = 600
 
 # Palavras institucionais que nunca são nome de pessoa (comparação sem
@@ -63,10 +65,33 @@ _PERSON_ANYWHERE_PATTERN = re.compile(
     rf"\b((?:[{_UPPER}][{_UPPER}'’-]+)"  # noqa: RUF001
     rf"(?:\s+(?:D[AEO]S?\s+|E\s+)?[{_UPPER}][{_UPPER}'’-]+)+)"  # noqa: RUF001
 )
+# 1.3.0: os diários escrevem tanto "MARIA DAS DORES" quanto "Maria Amélia
+# Gonçalves Mariano". Uma palavra de nome começa em maiúscula; conectores
+# minúsculos (da, de, dos, e) ligam as partes.
+_NAME_WORD = rf"[{_UPPER}][{_UPPER}a-zà-üç'’-]+"  # noqa: RUF001
+_NAME = (
+    rf"{_NAME_WORD}"
+    rf"(?:\s+(?:d[aeo]s?|e|D[AEO]S?|E)\s+{_NAME_WORD}|\s+{_NAME_WORD})+"
+)
+# Marcador explícito de pessoa: a forma que aparece nos atos reais
+# ("a servidora X", "o (a) servidor (a) Y", "a candidata Z").
+# A flag de caixa vale só para o marcador: o nome PRECISA começar em
+# maiúscula, senão "o servidor conforme documento" viraria nome.
+_PERSON_MARKED_PATTERN = re.compile(
+    r"(?i:servidor|servidora|candidato|candidata|senhor|senhora|"
+    r"sr|sra|srª)\s*\(?\s*(?i:a)?\s*\)?\s*[,:]?\s+"
+    rf"({_NAME})",
+)
 _POSITION_PATTERN = re.compile(
-    r"(?:para|do|da)\s+o?\s*cargo(?:\s+em\s+comiss[ãa]o)?\s+de\s+"
-    r"([^,\n]{3,120}?)"
-    r"(?=,|\s+s[íi]mbolo|\s+d[ao]\s+Secretaria|\.|\n)",
+    r"(?:para|d[oa]|n[oa])\s+o?\s*cargo(?:\s+em\s+comiss[ãa]o)?\s+de\s+"
+    r"([^,\n]{3,160}?)"
+    r"(?=,|\s+s[íi]mbolo|\s+d[ao]\s+Secretaria|\s+matr[íi]cula|\.|\n)",
+    re.IGNORECASE,
+)
+# "do cargo de provimento efetivo de Professor V" → o cargo é o que vem
+# depois da fórmula de provimento.
+_PROVISION_PREFIX = re.compile(
+    r"^provimento\s+(?:efetivo|em\s+comiss[ãa]o)\s+d[eo]\s+",
     re.IGNORECASE,
 )
 _SYMBOL_PATTERN = re.compile(
@@ -153,6 +178,11 @@ def _heading_fields(
     )
 
 
+def _flatten(value: str) -> str:
+    """Junta as quebras de linha do PDF para a frase voltar a ser uma só."""
+    return re.sub(r"\s+", " ", value)
+
+
 def _plausible_person(candidate: str) -> bool:
     words = [
         _strip_accents(word.strip("'’-")).upper()  # noqa: RUF001
@@ -183,8 +213,12 @@ def extract_act_fields(
     match_end: int,
 ) -> ActFields:
     """Extrai campos ao redor do verbo do ato, com offsets absolutos."""
-    window = text[match_end : match_end + FIELD_WINDOW]
-    heading_window = text[max(0, match_start - HEADING_WINDOW) : match_start]
+    # O PDF quebra a mesma frase em várias linhas; sem normalizar, o cargo
+    # sai cortado ("provimento efetivo de") e o nome se perde na quebra.
+    window = _flatten(text[match_end : match_end + FIELD_WINDOW])
+    heading_window = _flatten(
+        text[max(0, match_start - HEADING_WINDOW) : match_start]
+    )
 
     person = _PERSON_PATTERN.search(window)
     position = _POSITION_PATTERN.search(window)
@@ -195,11 +229,7 @@ def extract_act_fields(
     return ActFields(
         fieldset_version=FIELDSET_VERSION,
         person_name=_extract_person(person, window),
-        position=(
-            _matched("position-after-cargo-de", position.group(1))
-            if position
-            else _not_found("position-after-cargo-de")
-        ),
+        position=_extract_position(position),
         position_symbol=(
             _matched("symbol-after-simbolo", symbol.group(1))
             if symbol
@@ -219,12 +249,29 @@ def _extract_person(
     anchored: re.Match[str] | None,
     window: str,
 ) -> FieldExtraction:
+    # 1) Marcador explícito ("a servidora X"): aceita caixa mista e é a
+    # forma dominante nos atos reais.
+    for match in _PERSON_MARKED_PATTERN.finditer(window):
+        candidate = match.group(1).strip()
+        if _plausible_person(candidate):
+            return _matched("person-after-role-marker", candidate)
+    # 2) Nome em maiúsculas logo após o verbo.
     if anchored and _plausible_person(anchored.group(1)):
         return _matched("person-uppercase-after-verb", anchored.group(1))
+    # 3) Qualquer nome em maiúsculas na janela, filtrado por stoplist.
     fallback = _person_in_window(window)
     if fallback:
         return _matched("person-uppercase-in-window", fallback)
     return _not_found("person-uppercase-in-window")
+
+
+def _extract_position(match: re.Match[str] | None) -> FieldExtraction:
+    if match is None:
+        return _not_found("position-after-cargo-de")
+    value = _PROVISION_PREFIX.sub("", match.group(1).strip())
+    if len(value.strip(" ,;:-")) < 3:
+        return _not_found("position-after-cargo-de")
+    return _matched("position-after-cargo-de", value)
 
 
 def fields_payload(fields: ActFields) -> dict[str, object]:

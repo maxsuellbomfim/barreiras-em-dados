@@ -71,9 +71,8 @@ class ActFieldExtractionTests(unittest.TestCase):
 
     def test_institutional_uppercase_is_not_a_person(self) -> None:
         text = (
-            "prevê cargos de livre nomeação e exoneração conforme a "
-            "PREFEITURA MUNICIPAL DE BARREIRAS e o ESTADO DA BAHIA, "
-            "NA PROVA OBJETIVA do certame."
+            "Art. 1º Nomear conforme decisão da PREFEITURA MUNICIPAL DE "
+            "BARREIRAS e do ESTADO DA BAHIA, NA PROVA OBJETIVA do certame."
         )
         fields = fields_for(text)
 
@@ -82,13 +81,48 @@ class ActFieldExtractionTests(unittest.TestCase):
 
     def test_digital_signature_block_is_not_a_person(self) -> None:
         text = (
-            "Dispõe sobre exoneração de servidor.\n"
+            "Art. 1º Exonerar o servidor conforme documento assinado.\n"
             "OTONIEL NASCIMENTO TEIXEIRA:92731767553\n"
             "Foxit PDF Reader"
         )
         fields = fields_for(text)
 
         self.assertIsNone(fields.person_name.value)
+
+    def test_mixed_case_name_after_role_marker(self) -> None:
+        """Caso real do portal: nome em caixa mista depois de aposto."""
+        text = (
+            "PORTARIA Nº 205, DE 03 DE JUNHO DE 2026\n\n"
+            "Art. 1º Exonerar a pedido, por motivo de aposentadoria, a "
+            "servidora Maria\n\nAmélia Gonçalves Mariano, matrícula nº "
+            "2250, do cargo de provimento efetivo de\n\nProfessor V, da "
+            "Secretaria Municipal de Educação.\n"
+        )
+        fields = fields_for(text)
+
+        self.assertEqual(
+            fields.person_name.value,
+            "Maria Amélia Gonçalves Mariano",
+        )
+        self.assertEqual(fields.person_name.rule_id, "person-after-role-marker")
+        # "provimento efetivo de" é fórmula, não cargo.
+        self.assertEqual(fields.position.value, "Professor V")
+        self.assertEqual(
+            fields.organization.value,
+            "Secretaria Municipal de Educação",
+        )
+
+    def test_name_after_parenthetical_role_marker(self) -> None:
+        text = (
+            "PORTARIA Nº 207, DE 09 DE JUNHO DE 2026\n\n"
+            "Art. 1º Exonerar a pedido o (a) servidor (a) Cleiton Xavier "
+            "da Silva, do cargo\n\nde Assistente de Setor da Secretaria "
+            "Municipal de Infraestrutura.\n"
+        )
+        fields = fields_for(text)
+
+        self.assertEqual(fields.person_name.value, "Cleiton Xavier da Silva")
+        self.assertEqual(fields.position.value, "Assistente de Setor")
 
     def test_act_heading_missing_or_invalid_is_explicit(self) -> None:
         no_heading = fields_for("RESOLVE: NOMEAR FULANO DE TAL para o cargo,")
