@@ -72,9 +72,13 @@ reutilize nem altere os demais projetos.
 - Falha de fonte não é “zero resultados”; use estados explícitos de execução.
 - Valores monetários usam decimal exato (`numeric` no PostgreSQL), nunca float.
 - Cálculos financeiros e regras de anomalia são determinísticos e versionados.
-- LLMs não calculam totais e não publicam conteúdo automaticamente.
+- LLMs não calculam totais e não decidem publicação; publicação automática
+  só existe para conteúdo verificado literalmente por código contra o
+  documento oficial, com rótulo explícito e reversão auditada (ADR 0012).
 - Fato, inferência, anomalia e hipótese devem ser campos/estados distintos.
-- Nenhum achado reputacional é publicado sem revisão humana registrada.
+- Achados de anomalia e conteúdo interpretativo além do registro oficial
+  não são publicados sem revisão humana registrada; registros fiéis de
+  atos oficiais seguem o ADR 0012 com revisão humana por exceção.
 - Não publicar CPF completo, descontos pessoais ou dados sensíveis
   desnecessários.
 - Correções criam novas versões; histórico não é alterado ou apagado em

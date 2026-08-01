@@ -1307,6 +1307,16 @@ footer {
   box-shadow: 0 4px 18px rgba(35, 64, 112, 0.06);
 }
 
+/* Modo de revisão do ato (ADR 0012) */
+.act-review-mode {
+  margin: 0.55rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+  color: #7b8596;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
 /* Resumo assistido nos atos publicados */
 .act-summary {
   margin: 0.6rem 0;

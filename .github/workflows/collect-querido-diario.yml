@@ -135,6 +135,13 @@ jobs:
           python -B -m barreiras_docproc.commands.assist_extraction_candidates
           --limit 10
 
+      - name: Publicar candidatos verificados por código (ADR 0012)
+        env:
+          PYTHONPATH: workers/collectors/src:workers/document-processing/src
+        run: >-
+          python -B -m barreiras_docproc.commands.publish_verified_candidates
+          --limit 20
+
       - name: Registrar falha sanitizada
         if: failure()
         env:

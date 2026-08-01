@@ -13,9 +13,26 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date
 
-FIELDSET_VERSION = "gazette-act-fields/1.1.0"
+FIELDSET_VERSION = "gazette-act-fields/1.2.0"
 FIELD_WINDOW = 400
 HEADING_WINDOW = 600
+
+# Palavras institucionais que nunca são nome de pessoa (comparação sem
+# acentos). Conectores DA/DE/DO/E não contam como palavra significativa.
+_PERSON_STOPWORDS = frozenset(
+    {
+        "ESTADO", "BAHIA", "MUNICIPIO", "BARREIRAS", "PREFEITO", "PREFEITA",
+        "PREFEITURA", "MUNICIPAL", "SECRETARIA", "SECRETARIO", "PORTARIA",
+        "DECRETO", "GABINETE", "RESOLVE", "CONSIDERANDO", "DIARIO", "OFICIAL",
+        "LEI", "ART", "ARTIGO", "PARAGRAFO", "UNICO", "PROVA", "OBJETIVA",
+        "ADMINISTRACAO", "DIRETA", "AUTARQUIAS", "FUNDACOES", "PUBLICAS",
+        "PUBLICA", "PUBLICO", "SERVIDOR", "SERVIDORA", "SERVIDORES", "CIVIS",
+        "CARGO", "COMISSAO", "SIMBOLO", "FUNCAO", "CONCURSO", "EDITAL",
+        "CN", "PDF", "READER", "FOXIT", "VERSAO", "CERTIFICADO", "DIGITAL",
+        "VIDEOCONFERENCIA", "SYNGULARID", "MULTIPLA", "AC", "PF", "CPF",
+    }
+)
+_CONNECTORS = frozenset({"DA", "DE", "DO", "DAS", "DOS", "E"})
 
 _MONTHS = {
     "janeiro": 1,
@@ -37,6 +54,13 @@ _UPPER = "A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÜÇ"
 _PERSON_PATTERN = re.compile(
     rf"^[\s,:–-]*(?:a\s+pedido\s*,?\s*)?"  # noqa: RUF001
     rf"((?:[{_UPPER}][{_UPPER}'’-]+)"  # noqa: RUF001
+    rf"(?:\s+(?:D[AEO]S?\s+|E\s+)?[{_UPPER}][{_UPPER}'’-]+)+)"  # noqa: RUF001
+)
+# Fallback 1.2.0: nos textos reais há preposições e apostos entre o verbo e
+# o nome ("Nomear a candidata habilitada ..., FULANA DE TAL, ..."), então o
+# nome é buscado em qualquer ponto da janela, filtrado por stoplist.
+_PERSON_ANYWHERE_PATTERN = re.compile(
+    rf"\b((?:[{_UPPER}][{_UPPER}'’-]+)"  # noqa: RUF001
     rf"(?:\s+(?:D[AEO]S?\s+|E\s+)?[{_UPPER}][{_UPPER}'’-]+)+)"  # noqa: RUF001
 )
 _POSITION_PATTERN = re.compile(
@@ -129,6 +153,29 @@ def _heading_fields(
     )
 
 
+def _plausible_person(candidate: str) -> bool:
+    words = [
+        _strip_accents(word.strip("'’-")).upper()  # noqa: RUF001
+        for word in candidate.split()
+    ]
+    significant = [word for word in words if word not in _CONNECTORS]
+    if len(significant) < 2:
+        return False
+    return not any(word in _PERSON_STOPWORDS for word in significant)
+
+
+def _person_in_window(window: str) -> str | None:
+    """Primeiro nome próprio plausível na janela, ignorando institucionais."""
+    for match in _PERSON_ANYWHERE_PATTERN.finditer(window):
+        tail = window[match.end() : match.end() + 2]
+        if tail.startswith(":"):
+            # Bloco de assinatura digital: "NOME COMPLETO:92731767553".
+            continue
+        if _plausible_person(match.group(1)):
+            return match.group(1)
+    return None
+
+
 def extract_act_fields(
     text: str,
     *,
@@ -147,11 +194,7 @@ def extract_act_fields(
 
     return ActFields(
         fieldset_version=FIELDSET_VERSION,
-        person_name=(
-            _matched("person-uppercase-after-verb", person.group(1))
-            if person
-            else _not_found("person-uppercase-after-verb")
-        ),
+        person_name=_extract_person(person, window),
         position=(
             _matched("position-after-cargo-de", position.group(1))
             if position
@@ -170,6 +213,18 @@ def extract_act_fields(
         act_number=act_number,
         act_date=act_date,
     )
+
+
+def _extract_person(
+    anchored: re.Match[str] | None,
+    window: str,
+) -> FieldExtraction:
+    if anchored and _plausible_person(anchored.group(1)):
+        return _matched("person-uppercase-after-verb", anchored.group(1))
+    fallback = _person_in_window(window)
+    if fallback:
+        return _matched("person-uppercase-in-window", fallback)
+    return _not_found("person-uppercase-in-window")
 
 
 def fields_payload(fields: ActFields) -> dict[str, object]:

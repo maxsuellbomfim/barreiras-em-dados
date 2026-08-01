@@ -12,6 +12,7 @@ export type ApprovedGazetteAct = Readonly<{
   assistedProvider: string | null;
   approvedAt: string;
   artifactSha256: string;
+  reviewMode: "human" | "automated";
   methodologyVersion: string;
 }>;
 
@@ -33,6 +34,7 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
   const actType = row.act_type;
   const approvedAt = row.approved_at;
   const artifactSha256 = row.artifact_sha256;
+  const reviewMode = row.review_mode;
   const gazetteDate = optionalString(row.gazette_date);
   const gazetteUrl = optionalString(row.gazette_url);
   if (
@@ -42,9 +44,10 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     Number.isNaN(Date.parse(approvedAt)) ||
     typeof artifactSha256 !== "string" ||
     !SHA256.test(artifactSha256) ||
+    (reviewMode !== "human" && reviewMode !== "automated") ||
     (gazetteDate !== null && !ISO_DATE.test(gazetteDate)) ||
     (gazetteUrl !== null && !gazetteUrl.startsWith("https://")) ||
-    row.methodology_version !== "approved-gazette-acts/1.2.0"
+    row.methodology_version !== "approved-gazette-acts/1.3.0"
   ) {
     return null;
   }
@@ -63,7 +66,8 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     assistedProvider: optionalString(row.assisted_provider),
     approvedAt,
     artifactSha256,
-    methodologyVersion: "approved-gazette-acts/1.2.0",
+    reviewMode,
+    methodologyVersion: "approved-gazette-acts/1.3.0",
   };
 }
 
