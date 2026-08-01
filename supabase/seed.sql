@@ -173,6 +173,73 @@ set
   enabled = excluded.enabled,
   config = excluded.config;
 
+insert into source.data_sources (
+  id,
+  slug,
+  name,
+  description,
+  authority_level,
+  is_official,
+  homepage_url,
+  documentation_url,
+  status
+)
+values (
+  '00000000-0000-4000-8000-000000000004',
+  'barreiras-diario-oficial',
+  'Diário Oficial do Município de Barreiras',
+  'Edições oficiais em PDF publicadas pela Prefeitura, coletadas direto da origem.',
+  'official',
+  true,
+  'https://barreiras.ba.gov.br/diario-oficial/',
+  'https://pmbarreiras.diariomtransparente.com.br/publicacoes',
+  'active'
+)
+on conflict (slug) do update
+set
+  name = excluded.name,
+  description = excluded.description,
+  documentation_url = excluded.documentation_url,
+  status = excluded.status;
+
+insert into source.source_endpoints (
+  id,
+  data_source_id,
+  slug,
+  endpoint_kind,
+  base_url,
+  http_method,
+  rate_limit_per_minute,
+  request_timeout_seconds,
+  enabled,
+  config
+)
+values (
+  '00000000-0000-4000-8000-000000000104',
+  '00000000-0000-4000-8000-000000000004',
+  'pdf-direto',
+  'file',
+  'https://barreiras.ba.gov.br/diario/pdf/',
+  'GET',
+  10,
+  60,
+  true,
+  '{
+    "territory_id": "2903201",
+    "url_pattern": "https://barreiras.ba.gov.br/diario/pdf/{ano}/diario{edicao}.pdf",
+    "edition_numbering": "sequential",
+    "observed_at": "2026-08-01",
+    "discovery": "docs/reviews/STAGE_1B_DIRECT_DIARY_DISCOVERY.md"
+  }'::jsonb
+)
+on conflict (data_source_id, slug) do update
+set
+  base_url = excluded.base_url,
+  rate_limit_per_minute = excluded.rate_limit_per_minute,
+  request_timeout_seconds = excluded.request_timeout_seconds,
+  enabled = excluded.enabled,
+  config = excluded.config;
+
 insert into storage.buckets (
   id,
   name,
