@@ -42,7 +42,7 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     !SHA256.test(artifactSha256) ||
     (gazetteDate !== null && !ISO_DATE.test(gazetteDate)) ||
     (gazetteUrl !== null && !gazetteUrl.startsWith("https://")) ||
-    row.methodology_version !== "approved-gazette-acts/1.0.0"
+    row.methodology_version !== "approved-gazette-acts/1.1.0"
   ) {
     return null;
   }
@@ -59,7 +59,7 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     excerpt: optionalString(row.excerpt),
     approvedAt,
     artifactSha256,
-    methodologyVersion: "approved-gazette-acts/1.0.0",
+    methodologyVersion: "approved-gazette-acts/1.1.0",
   };
 }
 

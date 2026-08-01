@@ -438,7 +438,7 @@ try {
       candidate_type: "nomeacao",
       validation_status: "needs_review",
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "extraction-review-queue/1.1.0",
+      methodology_version: "extraction-review-queue/1.2.0",
     },
   ]);
   await assert.rejects(
@@ -480,7 +480,7 @@ try {
         'tentativa de segunda decisão'
       )
     `),
-    /já recebeu uma decisão final/,
+    /já tem decisão vigente/,
   );
 
   const reviewAudit = await database.query(`
@@ -530,9 +530,79 @@ try {
       gazette_date: "2026-06-10",
       gazette_url: null,
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "approved-gazette-acts/1.0.0",
+      methodology_version: "approved-gazette-acts/1.1.0",
     },
   ]);
+
+  // Reversão: a decisão vigente muda, o candidato volta à fila e some do
+  // público; o histórico acompanha a decisão vigente.
+  await database.exec(`
+    select set_config('request.jwt.claim.sub', '${reviewerUserId}', false);
+  `);
+  const historyBefore = await database.query(`
+    select decision from api.get_extraction_review_history(50)
+  `);
+  assert.deepEqual(historyBefore.rows, [{ decision: "approved" }]);
+
+  await database.query(`
+    select api.withdraw_extraction_review(
+      '00000000-0000-0000-0000-000000000602',
+      'Aprovei por engano durante o teste; revertendo com rastro.'
+    )
+  `);
+
+  const afterWithdrawal = await database.query(`
+    select
+      (select count(*)::integer from api.get_extraction_review_queue(20))
+        as queue,
+      (select count(*)::integer from api.get_extraction_review_history(50))
+        as history,
+      (select count(*)::integer from api.get_approved_gazette_acts(50))
+        as public_acts
+  `);
+  assert.deepEqual(afterWithdrawal.rows[0], {
+    queue: 1,
+    history: 0,
+    public_acts: 0,
+  });
+
+  await assert.rejects(
+    database.query(`
+      select api.withdraw_extraction_review(
+        '00000000-0000-0000-0000-000000000602',
+        'não há mais decisão vigente para reverter'
+      )
+    `),
+    /não há decisão vigente para reverter/,
+  );
+
+  await database.query(`
+    select api.review_extraction_candidate(
+      '00000000-0000-0000-0000-000000000602',
+      'rejected',
+      'Segunda análise: é menção, não ato de nomeação.'
+    )
+  `);
+  const afterSecondDecision = await database.query(`
+    select
+      (select count(*)::integer from api.get_extraction_review_queue(20))
+        as queue,
+      (select decision from api.get_extraction_review_history(50))
+        as history_decision,
+      (select count(*)::integer from api.get_approved_gazette_acts(50))
+        as public_acts,
+      (select count(*)::integer from editorial.editorial_reviews)
+        as review_rows
+  `);
+  assert.deepEqual(afterSecondDecision.rows[0], {
+    queue: 0,
+    history_decision: "rejected",
+    public_acts: 0,
+    review_rows: 3,
+  });
+  await database.exec(`
+    select set_config('request.jwt.claim.sub', '${workloadUserId}', false);
+  `);
 
   const dailyCoverage = await database.query(`
     select
