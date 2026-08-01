@@ -175,15 +175,22 @@ def call_provider(
     api_key: str,
     messages: list[dict[str, str]],
 ) -> AssistOutcome:
-    status, body = caller.post(
-        provider.url,
-        {"Authorization": f"Bearer {api_key}"},
-        {
-            "model": provider.model,
-            "messages": messages,
-            "temperature": 0,
-        },
-    )
+    try:
+        status, body = caller.post(
+            provider.url,
+            {"Authorization": f"Bearer {api_key}"},
+            {
+                "model": provider.model,
+                "messages": messages,
+                "temperature": 0,
+            },
+        )
+    except OSError as error:
+        # URLError/timeout de rede não podem derrubar o passo: o próximo
+        # nível da cascata assume, como qualquer falha transitória.
+        raise ProviderTransientError(
+            f"{provider.name} indisponível na rede: {error}"
+        ) from error
     if status in (402, 429):
         raise QuotaExhaustedError(f"{provider.name} respondeu HTTP {status}.")
     if status != 200:

@@ -99,6 +99,23 @@ class CascadeTests(unittest.TestCase):
         self.assertEqual(outcome.provider, "gemini")
         self.assertEqual(caller.calls, [GEMINI])
 
+    def test_network_error_promotes_next_level(self) -> None:
+        import urllib.error
+
+        class NetworkFlakyCaller(ScriptedCaller):
+            def post(self, url, headers, payload):
+                if url == GROQ:
+                    self.calls.append(url)
+                    raise urllib.error.URLError("timed out")
+                return super().post(url, headers, payload)
+
+        caller = NetworkFlakyCaller({OPENROUTER: (200, VALID)})
+
+        outcome = run_cascade(caller, ENV, MESSAGES, LOGGER)
+
+        self.assertEqual(outcome.provider, "openrouter")
+        self.assertEqual(caller.calls, [GROQ, OPENROUTER])
+
     def test_all_levels_exhausted_is_explicit(self) -> None:
         caller = ScriptedCaller(
             {GROQ: (429, b"{}"), OPENROUTER: (402, b"{}"), GEMINI: (500, b"")}
