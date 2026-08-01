@@ -34,7 +34,7 @@ function ActCard({ act }: Readonly<{ act: ApprovedGazetteAct }>) {
           {act.gazetteDate ? formatDate(act.gazetteDate) : "data no documento"}
         </span>
       </div>
-      <h3>{act.personName ?? "Pessoa indicada no trecho do documento"}</h3>
+      <h2>{act.personName ?? "Pessoa indicada no trecho do documento"}</h2>
       <p>
         {[
           act.positionTitle,
@@ -81,7 +81,7 @@ export default async function ApprovedActsPage() {
       <section className="section" aria-labelledby="acts-title">
         <div className="section-heading">
           <span className="eyebrow">Revisado por gente, ligado à fonte</span>
-          <h2 id="acts-title">Nomeações e exonerações</h2>
+          <h1 id="acts-title">Nomeações e exonerações</h1>
           <p>
             Cada registro abaixo foi identificado automaticamente no Diário
             Oficial, conferido por uma pessoa e publicado com o trecho e o
@@ -137,6 +137,24 @@ export default async function ApprovedActsPage() {
           . Todo relato e toda resposta ficam registrados publicamente.
         </p>
       </section>
+
+      <footer>
+        <div className="footer-inner">
+          <div>
+            <a className="brand brand-footer" href="/">
+              <span>Barreiras em Dados</span>
+            </a>
+            <p>
+              Civic tech independente para tornar a informação pública de
+              Barreiras mais acessível e verificável.
+            </p>
+          </div>
+          <div className="footer-status">
+            <span className="status-dot" />
+            Atos publicados somente após revisão humana registrada
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }

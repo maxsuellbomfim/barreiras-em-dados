@@ -369,12 +369,18 @@ export default async function HomePage() {
               <span>recursos oficiais catalogados</span>
             </div>
             <div>
-              <strong>40</strong>
-              <span>entidades na fundação de dados</span>
+              <strong>10</strong>
+              <span>domínios de dados na fundação</span>
             </div>
             <div>
-              <strong>1</strong>
-              <span>artefato remoto verificado</span>
+              <strong>
+                {collectionStatus.state === "available"
+                  ? collectionStatus.data.preservedEditionCount.toLocaleString(
+                      "pt-BR",
+                    )
+                  : "—"}
+              </strong>
+              <span>edições preservadas por hash</span>
             </div>
           </div>
 

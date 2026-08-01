@@ -436,6 +436,7 @@ export default function ReviewQueuePage() {
           <label htmlFor="email">E-mail</label>
           <input
             id="email"
+            autoFocus
             name="email"
             type="email"
             autoComplete="username"

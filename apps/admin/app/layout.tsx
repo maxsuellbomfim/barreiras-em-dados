@@ -13,7 +13,27 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <header className="topbar">
+          <span className="topbar-brand">
+            <span className="topbar-dot" aria-hidden="true" />
+            Barreiras em Dados · Revisão
+          </span>
+          <a
+            className="topbar-link"
+            href="https://barreiras-em-dados.vercel.app/atos"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Ver site público ↗
+          </a>
+        </header>
+        {children}
+        <footer className="page-foot">
+          Área interna de revisão humana — cada decisão fica registrada com
+          autoria, justificativa e data.
+        </footer>
+      </body>
     </html>
   );
 }
