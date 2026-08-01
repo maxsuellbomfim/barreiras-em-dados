@@ -124,6 +124,18 @@ export default async function ApprovedActsPage() {
           humana registrada e evidência por hash SHA-256. Correções criam
           novas versões, sem apagar o histórico.
         </p>
+
+        <p className="hero-note">
+          Encontrou um erro ou uma informação desatualizada?{" "}
+          <a
+            href="https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/atos&labels=correcao"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Abra um pedido público de correção
+          </a>
+          . Todo relato e toda resposta ficam registrados publicamente.
+        </p>
       </section>
     </main>
   );
