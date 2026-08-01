@@ -530,7 +530,7 @@ try {
       gazette_date: "2026-06-10",
       gazette_url: null,
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "approved-gazette-acts/1.1.0",
+      methodology_version: "approved-gazette-acts/1.2.0",
     },
   ]);
 
