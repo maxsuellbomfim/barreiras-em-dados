@@ -1289,3 +1289,16 @@ footer {
   font-size: 1.15rem;
   margin: 0.6rem 0 0.4rem;
 }
+
+/* Resumo assistido nos atos publicados */
+.act-summary {
+  margin: 0.6rem 0;
+  line-height: 1.55;
+}
+
+.act-summary-label {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  opacity: 0.65;
+}

@@ -45,6 +45,14 @@ function ActCard({ act }: Readonly<{ act: ApprovedGazetteAct }>) {
           .join(" · ") ||
           "Detalhes do cargo disponíveis no trecho do documento oficial."}
       </p>
+      {act.assistedSummary ? (
+        <p className="act-summary">
+          <strong>Em palavras simples:</strong> {act.assistedSummary}
+          <span className="act-summary-label">
+            Resumo gerado com IA e conferido na revisão humana.
+          </span>
+        </p>
+      ) : null}
       {act.excerpt ? (
         <details>
           <summary>Trecho do documento oficial</summary>

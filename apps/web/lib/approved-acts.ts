@@ -8,6 +8,8 @@ export type ApprovedGazetteAct = Readonly<{
   gazetteDate: string | null;
   gazetteUrl: string | null;
   excerpt: string | null;
+  assistedSummary: string | null;
+  assistedProvider: string | null;
   approvedAt: string;
   artifactSha256: string;
   methodologyVersion: string;
@@ -42,7 +44,7 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     !SHA256.test(artifactSha256) ||
     (gazetteDate !== null && !ISO_DATE.test(gazetteDate)) ||
     (gazetteUrl !== null && !gazetteUrl.startsWith("https://")) ||
-    row.methodology_version !== "approved-gazette-acts/1.1.0"
+    row.methodology_version !== "approved-gazette-acts/1.2.0"
   ) {
     return null;
   }
@@ -57,9 +59,11 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     gazetteDate,
     gazetteUrl,
     excerpt: optionalString(row.excerpt),
+    assistedSummary: optionalString(row.assisted_summary),
+    assistedProvider: optionalString(row.assisted_provider),
     approvedAt,
     artifactSha256,
-    methodologyVersion: "approved-gazette-acts/1.1.0",
+    methodologyVersion: "approved-gazette-acts/1.2.0",
   };
 }
 
