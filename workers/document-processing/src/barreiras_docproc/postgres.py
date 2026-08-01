@@ -515,6 +515,39 @@ class PostgresExtractionRepository:
         finally:
             connection.close()
 
+    def record_assist_attempts(self, command: str, attempts) -> None:
+        """Registra o desfecho de cada tentativa da cascata assistida.
+
+        Sem isto, "nenhuma sugestão gerada" era indistinguível de "tudo
+        certo" sem abrir o log do Actions.
+        """
+        if not attempts:
+            return
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                for attempt in attempts:
+                    connection.execute(
+                        """
+                        insert into audit.assist_diagnostics (
+                          command, provider, model, outcome,
+                          http_status, detail
+                        )
+                        values (%s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            command[:120],
+                            attempt.provider[:60],
+                            attempt.model,
+                            attempt.outcome,
+                            attempt.http_status,
+                            (attempt.detail or None),
+                        ),
+                    )
+        finally:
+            connection.close()
+
     def automated_review_available(self) -> bool:
         """A migration da publicação automática já foi aplicada?"""
         connection = self.connection_factory()
