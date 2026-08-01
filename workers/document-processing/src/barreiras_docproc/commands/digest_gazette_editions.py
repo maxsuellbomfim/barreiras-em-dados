@@ -18,6 +18,7 @@ from ..assist import (
     UrllibJsonCaller,
     run_cascade_content,
 )
+from ..candidates import defragment
 from ..digest import (
     ANCHOR_VERIFIER_VERSION,
     DIGEST_PROMPT_VERSION,
@@ -115,11 +116,15 @@ def _run(argv: Sequence[str] | None = None) -> int:
     caller = UrllibJsonCaller()
 
     digested = 0
+    attempts: list = []
     for artifact in repository.pending_digest_artifacts(
         arguments.limit,
         job_idempotency_key,
     ):
-        text = repository.edition_pages_text(artifact["artifact_id"])
+        # A IA recebe o texto já reconstituído: pedir citação literal sobre
+        # texto fragmentado ("MUN ICÍPIO") fazia a âncora nunca bater e
+        # todos os itens serem descartados em silêncio.
+        text = defragment(repository.edition_pages_text(artifact["artifact_id"]))
         if not text.strip():
             continue
         chunks = chunk_text(text)
@@ -138,6 +143,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
                     os.environ,
                     build_digest_messages(chunk),
                     logger,
+                    attempts,
                 )
             except CascadeUnavailableError:
                 cascade_exhausted = True
@@ -220,11 +226,25 @@ def _run(argv: Sequence[str] | None = None) -> int:
             partial=payload["stats"]["partial"],
         )
 
+    try:
+        repository.record_assist_attempts(
+            "digest_gazette_editions",
+            attempts,
+        )
+    except Exception as error:  # noqa: BLE001 - diagnóstico é best effort
+        log_event(
+            logger,
+            logging.WARNING,
+            "digest_diagnostics_unavailable",
+            detail=str(error)[:200],
+        )
+
     log_event(
         logger,
         logging.INFO,
         "digest_batch_completed",
         digested=digested,
+        attempts=len(attempts),
         prompt_version=DIGEST_PROMPT_VERSION,
     )
     return 0

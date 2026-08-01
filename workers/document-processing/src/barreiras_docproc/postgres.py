@@ -182,6 +182,8 @@ class PostgresExtractionRepository:
                 from raw.extraction_results as result
                 where result.validation_status = 'needs_review'
                   and result.candidate_type in ('nomeacao', 'exoneracao')
+                  -- Não gastar IA com candidato de régua aposentada.
+                  and result.extractor_version = %s
                   and not exists (
                     select 1
                     from editorial.editorial_reviews as review
@@ -198,7 +200,7 @@ class PostgresExtractionRepository:
                 order by result.created_at
                 limit %s
                 """,
-                (limit,),
+                (self._ruleset_version(), limit),
             )
             found = []
             while True:
@@ -288,6 +290,9 @@ class PostgresExtractionRepository:
                 ) as enrichment on true
                 where result.validation_status = 'needs_review'
                   and result.candidate_type in ('nomeacao', 'exoneracao')
+                  -- Só a régua vigente publica: candidato de versão antiga
+                  -- carrega os defeitos que a versão nova corrigiu.
+                  and result.extractor_version = %s
                   and not exists (
                     select 1
                     from editorial.editorial_reviews as review
@@ -298,7 +303,7 @@ class PostgresExtractionRepository:
                 order by result.created_at
                 limit %s
                 """,
-                (limit,),
+                (self._ruleset_version(), limit),
             )
             found = []
             while True:
