@@ -295,6 +295,145 @@ class PostgresCollectionRepository:
         finally:
             connection.close()
 
+    def persist_registry_snapshot(
+        self,
+        snapshot,
+        *,
+        object_key: str,
+        artifact_idempotency_key: str,
+        run_idempotency_key: str,
+        collector_version: str,
+    ) -> RepositoryDirectEditionResult:
+        from ..connectors.pncp import ENDPOINT_CODE, SOURCE_CODE
+
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                endpoint_id = self._endpoint_id(
+                    connection,
+                    SOURCE_CODE,
+                    ENDPOINT_CODE,
+                )
+                run_row = connection.execute(
+                    """
+                    insert into source.collection_runs (
+                      source_endpoint_id, idempotency_key,
+                      collector_version, parser_version,
+                      cursor_before, cursor_after, status, attempt_count,
+                      started_at, completed_at, heartbeat_at, metrics
+                    )
+                    values (
+                      %s::uuid, %s, %s, 'not-applicable',
+                      %s::jsonb, %s::jsonb, 'succeeded', 1,
+                      %s::timestamptz, %s::timestamptz, %s::timestamptz,
+                      %s::jsonb
+                    )
+                    on conflict (idempotency_key) do nothing
+                    returning id::text as id
+                    """,
+                    (
+                        endpoint_id,
+                        run_idempotency_key,
+                        collector_version,
+                        self._json({"resource": snapshot.resource}),
+                        self._json({"resource": snapshot.resource}),
+                        snapshot.fetched_at,
+                        snapshot.fetched_at,
+                        snapshot.fetched_at,
+                        self._json(
+                            {
+                                "resource": snapshot.resource,
+                                "body_size_bytes": len(snapshot.body),
+                            }
+                        ),
+                    ),
+                ).fetchone()
+                if run_row is not None:
+                    run_id = str(run_row["id"])
+                else:
+                    existing_run = connection.execute(
+                        """
+                        select id::text as id from source.collection_runs
+                        where idempotency_key = %s
+                        """,
+                        (run_idempotency_key,),
+                    ).fetchone()
+                    if existing_run is None:
+                        raise PersistenceContractError(
+                            "Conflito de idempotência no snapshot PNCP."
+                        )
+                    run_id = str(existing_run["id"])
+
+                artifact_row = connection.execute(
+                    """
+                    insert into raw.raw_artifacts (
+                      collection_run_id, source_endpoint_id,
+                      idempotency_key, artifact_kind, source_url,
+                      retrieved_at, http_status, content_type, byte_size,
+                      sha256, object_key, collector_version, metadata
+                    )
+                    values (
+                      %s::uuid, %s::uuid, %s, 'http_response', %s,
+                      %s::timestamptz, %s, %s, %s, %s, %s, %s, %s::jsonb
+                    )
+                    on conflict (idempotency_key) do nothing
+                    returning id::text as id
+                    """,
+                    (
+                        run_id,
+                        endpoint_id,
+                        artifact_idempotency_key,
+                        snapshot.url,
+                        snapshot.fetched_at,
+                        snapshot.http_status,
+                        snapshot.media_type,
+                        len(snapshot.body),
+                        snapshot.body_sha256,
+                        object_key,
+                        collector_version,
+                        self._json(
+                            {
+                                "schema_name": "pncp-registry-snapshot",
+                                "schema_version": "1.0.0",
+                                "resource": snapshot.resource,
+                                "cnpj": "13654405000195",
+                                "final_url": snapshot.final_url,
+                            }
+                        ),
+                    ),
+                ).fetchone()
+                if artifact_row is not None:
+                    return RepositoryDirectEditionResult(
+                        collection_run_id=run_id,
+                        raw_artifact_id=str(artifact_row["id"]),
+                        created=True,
+                    )
+                existing = connection.execute(
+                    """
+                    select id::text as id, sha256, object_key
+                    from raw.raw_artifacts
+                    where idempotency_key = %s
+                    """,
+                    (artifact_idempotency_key,),
+                ).fetchone()
+                if (
+                    existing is None
+                    or str(existing["sha256"]) != snapshot.body_sha256
+                    or str(existing["object_key"]) != object_key
+                ):
+                    raise PersistenceContractError(
+                        "Conflito de idempotência no artefato PNCP."
+                    )
+                return RepositoryDirectEditionResult(
+                    collection_run_id=run_id,
+                    raw_artifact_id=str(existing["id"]),
+                    created=False,
+                )
+        finally:
+            connection.close()
+
     def persist_document(self, batch: DocumentBatch) -> RepositoryDocumentResult:
         connection = self.connection_factory()
         try:

@@ -27,6 +27,61 @@ PARSER_VERSION = "querido-diario-gazette-page/1.0.0"
 RECORD_TYPE = "querido_diario_gazette"
 DOCUMENT_EXTENSIONS = {"pdf": "pdf", "txt": "txt"}
 DIRECT_COLLECTOR_VERSION = "barreiras-diario-collector/0.1.0"
+PNCP_COLLECTOR_VERSION = "pncp-registry-collector/0.1.0"
+
+
+class PncpRegistryPersistenceService:
+    """Preserva um snapshot do cadastro PNCP como artefato raiz por hash."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, snapshot) -> RepositoryDirectEditionResult:
+        actual = hashlib.sha256(snapshot.body).hexdigest()
+        if actual != snapshot.body_sha256:
+            raise ArtifactIntegrityError(
+                "O snapshot baixado não corresponde ao hash informado."
+            )
+        object_key = (
+            "pncp/procurement/registry/sha256/"
+            f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.json"
+        )
+        artifact_key = hashlib.sha256(
+            ":".join(
+                (
+                    "pncp-registry",
+                    snapshot.resource,
+                    snapshot.body_sha256,
+                )
+            ).encode("utf-8")
+        ).hexdigest()
+        run_key = hashlib.sha256(
+            f"pncp-registry-run:{artifact_key}".encode()
+        ).hexdigest()
+
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=snapshot.body,
+            content_type=snapshot.media_type,
+            expected_sha256=snapshot.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != snapshot.body_sha256
+            or stored.sha256 != snapshot.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "O snapshot restaurado do Storage diverge do baixado."
+            )
+
+        return self.repository.persist_registry_snapshot(
+            snapshot,
+            object_key=object_key,
+            artifact_idempotency_key=artifact_key,
+            run_idempotency_key=run_key,
+            collector_version=PNCP_COLLECTOR_VERSION,
+        )
 
 
 class DirectDiaryPersistenceService:

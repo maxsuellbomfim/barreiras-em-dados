@@ -240,6 +240,72 @@ set
   enabled = excluded.enabled,
   config = excluded.config;
 
+insert into source.data_sources (
+  id,
+  slug,
+  name,
+  description,
+  authority_level,
+  is_official,
+  homepage_url,
+  documentation_url,
+  status
+)
+values (
+  '00000000-0000-4000-8000-000000000005',
+  'pncp',
+  'Portal Nacional de Contratações Públicas',
+  'Cadastro, contratações e contratos publicados por força da Lei 14.133/2021.',
+  'official',
+  true,
+  'https://pncp.gov.br/',
+  'https://www.gov.br/pncp/pt-br/acesso-a-informacao/dados-abertos',
+  'active'
+)
+on conflict (slug) do update
+set
+  name = excluded.name,
+  description = excluded.description,
+  documentation_url = excluded.documentation_url,
+  status = excluded.status;
+
+insert into source.source_endpoints (
+  id,
+  data_source_id,
+  slug,
+  endpoint_kind,
+  base_url,
+  http_method,
+  rate_limit_per_minute,
+  request_timeout_seconds,
+  enabled,
+  config
+)
+values (
+  '00000000-0000-4000-8000-000000000105',
+  '00000000-0000-4000-8000-000000000005',
+  'registry-api',
+  'api',
+  'https://pncp.gov.br/api/pncp/v1/orgaos/',
+  'GET',
+  10,
+  35,
+  true,
+  '{
+    "cnpj": "13654405000195",
+    "resources": ["orgao", "unidades"],
+    "observed_at": "2026-08-01",
+    "discovery": "docs/reviews/STAGE_2_PNCP_DISCOVERY.md"
+  }'::jsonb
+)
+on conflict (data_source_id, slug) do update
+set
+  base_url = excluded.base_url,
+  rate_limit_per_minute = excluded.rate_limit_per_minute,
+  request_timeout_seconds = excluded.request_timeout_seconds,
+  enabled = excluded.enabled,
+  config = excluded.config;
+
 insert into storage.buckets (
   id,
   name,
