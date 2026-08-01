@@ -153,7 +153,8 @@ class GazetteDocumentClient:
             if response.status not in RETRYABLE_STATUSES:
                 self.circuit_breaker.record_success()
                 raise PermanentHttpError(
-                    f"Documento respondeu HTTP {response.status}."
+                    f"Documento respondeu HTTP {response.status}.",
+                    status_code=response.status,
                 )
 
             last_error = SourceUnavailableError(

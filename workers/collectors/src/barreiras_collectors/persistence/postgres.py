@@ -7,9 +7,11 @@ from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
 from .models import (
+    DirectEditionBatch,
     DocumentBatch,
     PersistenceBatch,
     PersistenceContractError,
+    RepositoryDirectEditionResult,
     RepositoryDocumentResult,
     RepositoryPersistResult,
 )
@@ -98,6 +100,198 @@ class PostgresCollectionRepository:
                 inserted_records=inserted,
                 existing_records=existing,
             )
+        finally:
+            connection.close()
+
+    def next_direct_edition_number(self, first_edition: int) -> int:
+        """Próxima edição a sondar, derivada do que já está preservado."""
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select greatest(
+                  coalesce((
+                    select max((artifact.metadata ->> 'edition')::integer)
+                    from raw.raw_artifacts as artifact
+                    where artifact.metadata ->> 'schema_name'
+                        = 'gazette-direct-edition'
+                  ), 0),
+                  coalesce((
+                    select max((record.payload ->> 'edition')::integer)
+                    from raw.raw_records as record
+                    where record.record_type = 'querido_diario_gazette'
+                      and record.payload ->> 'edition' ~ '^[0-9]+$'
+                  ), 0),
+                  %s - 1
+                ) + 1 as next_edition
+                """,
+                (first_edition,),
+            ).fetchone()
+        finally:
+            connection.close()
+        if row is None:
+            raise PersistenceContractError(
+                "Não foi possível derivar o cursor de edições."
+            )
+        return int(row["next_edition"])
+
+    def persist_direct_edition(
+        self,
+        batch: DirectEditionBatch,
+    ) -> RepositoryDirectEditionResult:
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                endpoint_id = self._endpoint_id(
+                    connection,
+                    batch.source_code,
+                    batch.endpoint_code,
+                )
+                document = batch.document
+                run_row = connection.execute(
+                    """
+                    insert into source.collection_runs (
+                      source_endpoint_id,
+                      idempotency_key,
+                      collector_version,
+                      parser_version,
+                      cursor_before,
+                      cursor_after,
+                      status,
+                      attempt_count,
+                      started_at,
+                      completed_at,
+                      heartbeat_at,
+                      metrics
+                    )
+                    values (
+                      %s::uuid, %s, %s, 'not-applicable',
+                      %s::jsonb, %s::jsonb, 'succeeded', %s,
+                      %s::timestamptz, %s::timestamptz, %s::timestamptz,
+                      %s::jsonb
+                    )
+                    on conflict (idempotency_key) do nothing
+                    returning id::text as id
+                    """,
+                    (
+                        endpoint_id,
+                        batch.run_idempotency_key,
+                        batch.collector_version,
+                        self._json({"edition": batch.edition_number - 1}),
+                        self._json({"edition": batch.edition_number}),
+                        document.attempts,
+                        document.requested_at,
+                        document.received_at,
+                        document.received_at,
+                        self._json(
+                            {
+                                "edition": batch.edition_number,
+                                "year": batch.edition_year,
+                                "body_size_bytes": document.body_size_bytes,
+                            }
+                        ),
+                    ),
+                ).fetchone()
+                if run_row is not None:
+                    run_id = str(run_row["id"])
+                else:
+                    existing_run = connection.execute(
+                        """
+                        select id::text as id
+                        from source.collection_runs
+                        where idempotency_key = %s
+                        """,
+                        (batch.run_idempotency_key,),
+                    ).fetchone()
+                    if existing_run is None:
+                        raise PersistenceContractError(
+                            "Conflito de idempotência na execução direta."
+                        )
+                    run_id = str(existing_run["id"])
+
+                metadata = {
+                    "schema_name": "gazette-direct-edition",
+                    "schema_version": "1.0.0",
+                    "edition": batch.edition_number,
+                    "year": batch.edition_year,
+                    "document_role": "pdf",
+                    "final_url": document.final_url,
+                }
+                artifact_row = connection.execute(
+                    """
+                    insert into raw.raw_artifacts (
+                      collection_run_id,
+                      source_endpoint_id,
+                      idempotency_key,
+                      artifact_kind,
+                      source_url,
+                      retrieved_at,
+                      source_etag,
+                      http_status,
+                      content_type,
+                      byte_size,
+                      sha256,
+                      object_key,
+                      collector_version,
+                      response_headers,
+                      metadata
+                    )
+                    values (
+                      %s::uuid, %s::uuid, %s, 'document', %s,
+                      %s::timestamptz, %s, %s, %s, %s, %s, %s, %s,
+                      %s::jsonb, %s::jsonb
+                    )
+                    on conflict (idempotency_key) do nothing
+                    returning id::text as id
+                    """,
+                    (
+                        run_id,
+                        endpoint_id,
+                        batch.artifact_idempotency_key,
+                        document.source_url,
+                        document.received_at,
+                        dict(document.response_headers).get("etag"),
+                        document.http_status,
+                        document.media_type,
+                        document.body_size_bytes,
+                        document.body_sha256,
+                        batch.object_key,
+                        batch.collector_version,
+                        self._json(dict(document.response_headers)),
+                        self._json(metadata),
+                    ),
+                ).fetchone()
+                if artifact_row is not None:
+                    return RepositoryDirectEditionResult(
+                        collection_run_id=run_id,
+                        raw_artifact_id=str(artifact_row["id"]),
+                        created=True,
+                    )
+
+                existing = connection.execute(
+                    """
+                    select id::text as id, sha256, byte_size, object_key
+                    from raw.raw_artifacts
+                    where idempotency_key = %s
+                    """,
+                    (batch.artifact_idempotency_key,),
+                ).fetchone()
+                if (
+                    existing is None
+                    or str(existing["sha256"]) != document.body_sha256
+                    or int(existing["byte_size"]) != document.body_size_bytes
+                    or str(existing["object_key"]) != batch.object_key
+                ):
+                    raise PersistenceContractError(
+                        "Conflito de idempotência na edição direta."
+                    )
+                return RepositoryDirectEditionResult(
+                    collection_run_id=run_id,
+                    raw_artifact_id=str(existing["id"]),
+                    created=False,
+                )
         finally:
             connection.close()
 
