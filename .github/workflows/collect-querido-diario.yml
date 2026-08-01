@@ -125,6 +125,9 @@ jobs:
           --limit 20
 
       - name: Sugerir campos e resumos com IA assistida
+        # Defesa em profundidade: o comando já degrada sozinho, mas um
+        # provedor instável nunca pode derrubar a coleta nem a publicação.
+        continue-on-error: true
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}

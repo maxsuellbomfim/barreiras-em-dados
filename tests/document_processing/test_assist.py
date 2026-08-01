@@ -50,6 +50,7 @@ VALID = envelope(
             "act_number": "901",
             "act_date": "2026-06-15",
             "summary": "A prefeitura nomeou Fulano de Tal.",
+            "texto_limpo": "PORTARIA 901. Nomear FULANO DE TAL.",
         }
     )
 )
@@ -79,6 +80,21 @@ class CascadeTests(unittest.TestCase):
         self.assertEqual(outcome.suggestions["act_date"], "2026-06-15")
         self.assertIn("nomeou", outcome.summary or "")
         self.assertEqual(caller.calls, [GROQ])
+
+    def test_clean_text_is_captured_for_readable_display(self) -> None:
+        caller = ScriptedCaller({GROQ: (200, VALID)})
+
+        outcome = run_cascade(caller, ENV, MESSAGES, LOGGER)
+
+        self.assertIn("PORTARIA 901", outcome.clean_text or "")
+
+    def test_prompt_asks_for_reconstructed_text(self) -> None:
+        system = MESSAGES[0]["content"]
+        user = MESSAGES[1]["content"]
+
+        self.assertIn("partidas", system)
+        self.assertIn("texto_limpo", user)
+        self.assertIn("não resuma nem interprete", user)
 
     def test_quota_exhaustion_promotes_next_level(self) -> None:
         caller = ScriptedCaller(

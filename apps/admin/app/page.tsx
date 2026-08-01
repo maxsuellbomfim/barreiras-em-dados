@@ -24,6 +24,7 @@ type QueueItem = Readonly<{
     provider?: string;
     model?: string;
     summary?: string | null;
+    clean_text?: string | null;
     suggestions?: Record<string, string | null>;
   } | null;
   artifact_sha256: string;
@@ -126,18 +127,40 @@ function ReviewCard({
           {new Date(item.result_created_at).toLocaleDateString("pt-BR")}
         </span>
       </div>
-      <FieldList payload={item.result_payload} />
-      {item.assisted_payload ? (
-        <div className="assisted" aria-label="Sugestões de IA">
-          <p className="assisted-head">
-            Sugestões assistidas (IA · {item.assisted_payload.provider}) —
-            confira no trecho antes de usar
+      {item.assisted_payload?.clean_text ? (
+        <div className="act-reading" aria-label="Ato reescrito para leitura">
+          <p className="act-reading-head">
+            O que está escrito no ato
+            <span>
+              recomposto por IA ({item.assisted_payload.provider}) a partir do
+              texto oficial — confira no original antes de decidir
+            </span>
           </p>
-          {item.assisted_payload.summary ? (
-            <p className="assisted-summary">
-              “{item.assisted_payload.summary}”
-            </p>
-          ) : null}
+          <p className="act-reading-body">
+            {item.assisted_payload.clean_text}
+          </p>
+        </div>
+      ) : (
+        <div className="act-reading act-reading-pending" role="status">
+          <p className="act-reading-head">
+            Leitura assistida indisponível
+            <span>
+              A IA ainda não recompôs este ato. O texto abaixo é o extraído do
+              PDF e pode vir fragmentado.
+            </span>
+          </p>
+        </div>
+      )}
+      {item.assisted_payload?.summary ? (
+        <p className="assisted-summary">
+          <strong>Em palavras simples:</strong>{" "}
+          {item.assisted_payload.summary}
+        </p>
+      ) : null}
+      <FieldList payload={item.result_payload} />
+      {item.assisted_payload?.suggestions ? (
+        <details className="assisted">
+          <summary>Sugestões de campo pela IA (confira antes de usar)</summary>
           <dl>
             {Object.entries(FIELD_LABELS).map(([key, label]) => {
               const value = item.assisted_payload?.suggestions?.[key];
@@ -152,10 +175,10 @@ function ReviewCard({
               );
             })}
           </dl>
-        </div>
+        </details>
       ) : null}
       <details>
-        <summary>Trecho do documento oficial</summary>
+        <summary>Texto original extraído do PDF (pode vir fragmentado)</summary>
         <pre>{item.result_payload.excerpt ?? "sem trecho"}</pre>
       </details>
       <label htmlFor={`rationale-${item.result_id}`}>

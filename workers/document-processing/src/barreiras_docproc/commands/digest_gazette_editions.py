@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 from collections.abc import Sequence
@@ -37,6 +38,24 @@ RATIONALE = (
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Falha aqui é estado explícito: não derruba os passos anteriores."""
+    try:
+        return _run(argv)
+    except Exception as error:  # noqa: BLE001 - fronteira de processo
+        logging.getLogger(__name__).warning(
+            json.dumps(
+                {
+                    "event": "digest_step_failed_gracefully",
+                    "error_type": type(error).__name__,
+                    "detail": str(error)[:300],
+                },
+                ensure_ascii=False,
+            )
+        )
+        return 0
+
+
+def _run(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Para cada edição direta com texto, pede à cascata de IA a "

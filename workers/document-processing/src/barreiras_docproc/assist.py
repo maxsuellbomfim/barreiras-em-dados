@@ -18,7 +18,9 @@ from typing import Any, Protocol
 
 from barreiras_collectors.logging import log_event
 
-PROMPT_VERSION = "assisted-inference/1.0.0"
+PROMPT_VERSION = "assisted-inference/2.0.0"
+# Limite do texto reescrito: um ato de pessoal cabe folgado.
+MAX_CLEAN_TEXT_CHARS = 1200
 SUGGESTION_FIELDS = (
     "person_name",
     "position",
@@ -82,6 +84,9 @@ class AssistOutcome:
     model: str
     suggestions: dict[str, str | None]
     summary: str | None
+    # Reescrita legível do ato: o texto extraído do PDF vem fragmentado e
+    # fora de ordem; a IA recompõe a redação oficial sem inventar conteúdo.
+    clean_text: str | None
     raw_response: str
 
 
@@ -134,16 +139,26 @@ def build_messages(
         )
     ]
     system = (
-        "Você lê trechos do Diário Oficial de Barreiras-BA. Responda "
-        "SOMENTE um objeto JSON, sem comentários. Regra absoluta: se a "
-        "informação não estiver literalmente no trecho, use null. Nunca "
-        "deduza, nunca invente, nunca complete de memória."
+        "Você lê trechos do Diário Oficial de Barreiras-BA extraídos de "
+        "PDF. O texto chega SUJO: palavras partidas no meio "
+        "('MUN ICÍPIO DE BA RREIRAS'), linhas fora de ordem e ruído de "
+        "assinatura digital. Sua tarefa é reconstituir o que está escrito, "
+        "sem acrescentar nada. Responda SOMENTE um objeto JSON, sem "
+        "comentários. Regra absoluta: se a informação não estiver no "
+        "trecho, use null. Nunca deduza, nunca invente, nunca complete de "
+        "memória."
     )
     user = (
         f"Ato do tipo: {act_type}.\n"
         f"Campos a sugerir (null se ausentes): {', '.join(missing)}.\n"
-        'Inclua também "summary": uma frase simples e neutra explicando o '
-        "ato para qualquer cidadão, sem opinião.\n"
+        'Inclua "texto_limpo": a redação do ato reconstituída em português '
+        "correto — junte as palavras partidas, ponha as frases na ordem, "
+        "remova cabeçalho de assinatura digital e rodapé. Mantenha os "
+        "termos oficiais (número da portaria, nomes, cargos) exatamente "
+        "como aparecem depois de recompostos; não resuma nem interprete "
+        "aqui.\n"
+        'Inclua "summary": uma frase simples e neutra explicando o ato '
+        "para qualquer cidadão, sem opinião.\n"
         "Datas no formato AAAA-MM-DD.\n"
         f"Trecho oficial:\n---\n{excerpt}\n---"
     )
@@ -223,6 +238,7 @@ def call_provider(
             value.strip() if isinstance(value, str) and value.strip() else None
         )
     summary = parsed.get("summary")
+    clean_text = parsed.get("texto_limpo")
     return AssistOutcome(
         provider=provider.name,
         model=provider.model,
@@ -230,6 +246,11 @@ def call_provider(
         summary=(
             summary.strip()
             if isinstance(summary, str) and summary.strip()
+            else None
+        ),
+        clean_text=(
+            clean_text.strip()[:MAX_CLEAN_TEXT_CHARS]
+            if isinstance(clean_text, str) and clean_text.strip()
             else None
         ),
         raw_response=str(content),
