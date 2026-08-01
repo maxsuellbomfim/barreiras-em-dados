@@ -14,6 +14,8 @@ import subprocess
 from dataclasses import dataclass
 from typing import Protocol
 
+from .canonical import sanitize_text
+
 OCR_PARSER_VERSION = "gazette-ocr-text/1.0.0"
 # 300 DPI é o ponto doce do Tesseract; PDFs usam 72 pontos por polegada.
 RENDER_SCALE = 300 / 72
@@ -100,9 +102,9 @@ def ocr_page(
 ) -> OcrPageResult:
     """OCR de uma página; página em branco vira texto vazio explícito."""
     recognized = engine.image_to_text(rasterize_page(pdf_bytes, page_number))
-    normalized = (
-        recognized.replace("\r\n", "\n").replace("\r", "\n").strip()
-    )
+    normalized = sanitize_text(
+        recognized.replace("\r\n", "\n").replace("\r", "\n")
+    ).strip()
     return OcrPageResult(
         page_number=page_number,
         text=normalized,

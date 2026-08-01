@@ -7,6 +7,21 @@ from dataclasses import dataclass
 
 PARSER_VERSION = "gazette-canonical-text/1.0.0"
 
+# Alguns PDFs do Diário trazem NUL e outros controles vazados da camada
+# binária. Não são conteúdo: são ruído de extração, e o PostgreSQL recusa
+# NUL em campo `text`. Remover é parte da normalização — nunca houve texto
+# com NUL persistido para divergir, porque a gravação falhava.
+_ALLOWED_CONTROLS = {"\n", "\t"}
+
+
+def sanitize_text(value: str) -> str:
+    """Remove NUL e controles inválidos, preservando quebra e tabulação."""
+    return "".join(
+        character
+        for character in value
+        if character in _ALLOWED_CONTROLS or character.isprintable()
+    )
+
 
 class CanonicalTextError(RuntimeError):
     """O artefato de texto não pôde ser canonizado de forma determinística."""
@@ -30,7 +45,9 @@ def derive_canonical_text(raw_body: bytes) -> CanonicalText:
             "O artefato de texto não é UTF-8 válido."
         ) from error
 
-    normalized = decoded.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = sanitize_text(
+        decoded.replace("\r\n", "\n").replace("\r", "\n")
+    )
     return CanonicalText(
         text=normalized,
         sha256=hashlib.sha256(normalized.encode("utf-8")).hexdigest(),

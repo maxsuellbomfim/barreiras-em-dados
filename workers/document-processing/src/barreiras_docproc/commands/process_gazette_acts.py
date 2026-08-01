@@ -122,6 +122,33 @@ def main(argv: Sequence[str] | None = None) -> int:
                 error_code="unreadable_document",
             )
             continue
+        except Exception as error:  # noqa: BLE001 - fronteira de lote
+            # Um documento hostil (ex.: byte NUL vazado da camada binária)
+            # não pode custar as outras edições da execução.
+            failed += 1
+            try:
+                repository.persist_extraction_failure(
+                    artifact,
+                    job_type=JOB_TYPE,
+                    job_idempotency_key=job_idempotency_key(
+                        artifact.sha256,
+                        RULESET_VERSION,
+                    ),
+                    error_code="processing_error",
+                    error_detail=f"{type(error).__name__}: {error}",
+                )
+            except Exception:  # noqa: BLE001 - registro é best effort
+                pass
+            log_event(
+                logger,
+                logging.WARNING,
+                "docproc_artifact_failed",
+                source="querido-diario",
+                artifact_hash=artifact.sha256,
+                error_code="processing_error",
+                error_type=type(error).__name__,
+            )
+            continue
         if result.deferred_awaiting_ocr:
             deferred += 1
             log_event(

@@ -9,6 +9,28 @@ from barreiras_docproc.canonical import (
 )
 
 
+class SanitizeTests(unittest.TestCase):
+    def test_removes_nul_bytes_postgres_rejects(self) -> None:
+        from barreiras_docproc.canonical import sanitize_text
+
+        self.assertEqual(sanitize_text("PORTA\x00RIA"), "PORTARIA")
+
+    def test_keeps_newlines_tabs_and_accents(self) -> None:
+        from barreiras_docproc.canonical import sanitize_text
+
+        self.assertEqual(
+            sanitize_text("Exoneração\n\tSaúde"),
+            "Exoneração\n\tSaúde",
+        )
+
+    def test_canonical_text_is_sanitized(self) -> None:
+        from barreiras_docproc.canonical import derive_canonical_text
+
+        canonical = derive_canonical_text("A\x00B".encode())
+
+        self.assertEqual(canonical.text, "AB")
+
+
 class CanonicalTextTests(unittest.TestCase):
     def test_normalizes_line_endings_and_hashes_normalized_text(self) -> None:
         raw = "PORTARIA N° 1\r\nRESOLVE:\rArt. 1°\n".encode()
