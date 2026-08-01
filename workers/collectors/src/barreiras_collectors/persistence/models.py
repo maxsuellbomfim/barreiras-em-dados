@@ -95,3 +95,23 @@ class DocumentPersistResult:
     sha256: str
     object_created: bool
     artifact_created: bool
+
+
+@dataclass(frozen=True)
+class DirectEditionBatch:
+    source_code: str
+    endpoint_code: str
+    edition_number: int
+    edition_year: int
+    document: CollectedDocument
+    object_key: str
+    artifact_idempotency_key: str
+    run_idempotency_key: str
+    collector_version: str
+
+
+@dataclass(frozen=True)
+class RepositoryDirectEditionResult:
+    collection_run_id: str
+    raw_artifact_id: str
+    created: bool

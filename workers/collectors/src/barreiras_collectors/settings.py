@@ -29,6 +29,8 @@ class CollectorSettings:
     max_document_bytes: int
     max_documents_per_run: int
     backfill_horizon: date
+    direct_diary_first_edition: int
+    direct_diary_max_editions_per_run: int
 
     @classmethod
     def from_env(
@@ -133,6 +135,21 @@ class CollectorSettings:
                     f"{public_key} nunca pode ser exposta ao frontend."
                 )
 
+        direct_first_edition = _bounded_int(
+            values,
+            "BARREIRAS_DIARIO_FIRST_EDITION",
+            default=4671,
+            minimum=1,
+            maximum=1_000_000,
+        )
+        direct_max_editions = _bounded_int(
+            values,
+            "BARREIRAS_DIARIO_MAX_EDITIONS_PER_RUN",
+            default=10,
+            minimum=1,
+            maximum=50,
+        )
+
         return cls(
             app_env=app_env,
             log_level=log_level,
@@ -145,6 +162,8 @@ class CollectorSettings:
             max_document_bytes=max_document_bytes,
             max_documents_per_run=max_documents_per_run,
             backfill_horizon=backfill_horizon,
+            direct_diary_first_edition=direct_first_edition,
+            direct_diary_max_editions_per_run=direct_max_editions,
         )
 
 

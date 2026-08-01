@@ -64,6 +64,10 @@ class SourceUnavailableError(QueridoDiarioError):
 class PermanentHttpError(QueridoDiarioError):
     """A requisição foi recusada de forma não elegível a retry."""
 
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
 
 class SourceContractError(QueridoDiarioError):
     """A resposta não cumpre o contrato mínimo observado."""
@@ -337,7 +341,8 @@ class QueridoDiarioClient:
             if response.status not in RETRYABLE_STATUSES:
                 self.circuit_breaker.record_success()
                 raise PermanentHttpError(
-                    f"Querido Diário respondeu HTTP {response.status}."
+                    f"Querido Diário respondeu HTTP {response.status}.",
+                    status_code=response.status,
                 )
 
             last_error = SourceUnavailableError(

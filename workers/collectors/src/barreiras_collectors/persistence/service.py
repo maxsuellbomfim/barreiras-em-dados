@@ -6,16 +6,19 @@ import hashlib
 import json
 from typing import Any
 
+from ..connectors.direct_diary import ENDPOINT_CODE, SOURCE_CODE, DirectEdition
 from ..connectors.gazette_documents import CollectedDocument
 from ..connectors.querido_diario import CollectedPage
 from .models import (
     ArtifactIntegrityError,
+    DirectEditionBatch,
     DocumentBatch,
     DocumentPersistResult,
     PersistenceBatch,
     PersistenceContractError,
     PersistenceResult,
     RawRecordInput,
+    RepositoryDirectEditionResult,
 )
 from .ports import ArtifactObjectStore, CollectionRepository
 
@@ -23,6 +26,74 @@ COLLECTOR_VERSION = "querido-diario-collector/0.1.0"
 PARSER_VERSION = "querido-diario-gazette-page/1.0.0"
 RECORD_TYPE = "querido_diario_gazette"
 DOCUMENT_EXTENSIONS = {"pdf": "pdf", "txt": "txt"}
+DIRECT_COLLECTOR_VERSION = "barreiras-diario-collector/0.1.0"
+
+
+class DirectDiaryPersistenceService:
+    """Preserva uma edição direta como artefato raiz verificado por hash."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, edition: DirectEdition) -> RepositoryDirectEditionResult:
+        document = edition.document
+        actual_hash = hashlib.sha256(document.raw_body).hexdigest()
+        if (
+            actual_hash != document.body_sha256
+            or len(document.raw_body) != document.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "A edição baixada não corresponde aos metadados informados."
+            )
+
+        object_key = (
+            "barreiras-diario/gazettes/documents/sha256/"
+            f"{document.body_sha256[:2]}/{document.body_sha256}.pdf"
+        )
+        artifact_key = hashlib.sha256(
+            ":".join(
+                (
+                    "direct-gazette",
+                    str(edition.edition_number),
+                    str(edition.year),
+                    document.body_sha256,
+                )
+            ).encode("utf-8")
+        ).hexdigest()
+        run_key = hashlib.sha256(
+            f"direct-diary-run:{artifact_key}".encode()
+        ).hexdigest()
+
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=document.raw_body,
+            content_type=document.media_type,
+            expected_sha256=document.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != document.body_sha256
+            or len(restored) != document.body_size_bytes
+            or stored.sha256 != document.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "A edição restaurada do Storage diverge da baixada."
+            )
+
+        return self.repository.persist_direct_edition(
+            DirectEditionBatch(
+                source_code=SOURCE_CODE,
+                endpoint_code=ENDPOINT_CODE,
+                edition_number=edition.edition_number,
+                edition_year=edition.year,
+                document=document,
+                object_key=object_key,
+                artifact_idempotency_key=artifact_key,
+                run_idempotency_key=run_key,
+                collector_version=DIRECT_COLLECTOR_VERSION,
+            )
+        )
 
 
 class QueridoDiarioPersistenceService:

@@ -97,6 +97,10 @@ jobs:
           --until "${COLLECTION_UNTIL}"
           --page-size 100
 
+      - name: Coletar edições diretas do Diário
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_direct_diary
+
       - name: Extrair candidatos determinísticos
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
