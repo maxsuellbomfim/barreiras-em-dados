@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 
 from barreiras_collectors.persistence.postgres import DatabaseConnection
@@ -159,6 +160,104 @@ class PostgresExtractionRepository:
                         job_idempotency_key,
                         error_code[:64],
                         error_detail[:500],
+                    ),
+                )
+        finally:
+            connection.close()
+
+    def pending_enrichment_candidates(
+        self,
+        limit: int,
+    ) -> tuple[dict, ...]:
+        """Candidatos pendentes sem decisão e ainda sem sugestão assistida."""
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select
+                  result.id::text as result_id,
+                  result.extraction_job_id::text as job_id,
+                  result.candidate_type,
+                  result.result_payload
+                from raw.extraction_results as result
+                where result.validation_status = 'needs_review'
+                  and result.candidate_type in ('nomeacao', 'exoneracao')
+                  and not exists (
+                    select 1
+                    from editorial.editorial_reviews as review
+                    where review.target_type = 'raw.extraction_results'
+                      and review.target_id = result.id
+                      and review.decision in ('approved', 'rejected')
+                  )
+                  and not exists (
+                    select 1
+                    from raw.extraction_results as enrichment
+                    where enrichment.supersedes_id = result.id
+                      and enrichment.candidate_type = 'assisted_enrichment'
+                  )
+                order by result.created_at
+                limit %s
+                """,
+                (limit,),
+            )
+            found = []
+            while True:
+                row = rows.fetchone()
+                if row is None:
+                    break
+                payload = row["result_payload"]
+                found.append(
+                    {
+                        "result_id": str(row["result_id"]),
+                        "job_id": str(row["job_id"]),
+                        "candidate_type": str(row["candidate_type"]),
+                        "payload": (
+                            payload
+                            if isinstance(payload, dict)
+                            else json.loads(str(payload))
+                        ),
+                    }
+                )
+            return tuple(found)
+        finally:
+            connection.close()
+
+    def persist_enrichment(
+        self,
+        *,
+        source_result_id: str,
+        extraction_job_id: str,
+        extractor_version: str,
+        payload: dict,
+    ) -> None:
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                connection.execute(
+                    """
+                    insert into raw.extraction_results (
+                      extraction_job_id,
+                      supersedes_id,
+                      candidate_type,
+                      extractor_version,
+                      validator_version,
+                      result_payload,
+                      confidence,
+                      validation_status
+                    )
+                    values (
+                      %s::uuid, %s::uuid, 'assisted_enrichment', %s,
+                      'human-review-pending/1.0.0', %s::jsonb, null,
+                      'needs_review'
+                    )
+                    """,
+                    (
+                        extraction_job_id,
+                        source_result_id,
+                        extractor_version,
+                        canonical_json(payload),
                     ),
                 )
         finally:

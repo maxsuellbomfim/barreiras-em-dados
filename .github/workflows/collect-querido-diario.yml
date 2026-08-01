@@ -115,11 +115,23 @@ jobs:
           --limit-pages 30
 
       - name: Extrair candidatos determinísticos
+        id: extract
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
         run: >-
           python -B -m barreiras_docproc.commands.process_gazette_acts
           --limit 20
+
+      - name: Sugerir campos e resumos com IA assistida
+        env:
+          PYTHONPATH: workers/collectors/src:workers/document-processing/src
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: >-
+          python -B -m barreiras_docproc.commands.assist_extraction_candidates
+          --limit 10
 
       - name: Registrar falha sanitizada
         if: failure()
