@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
+from datetime import date
 from typing import Any, Protocol
 
 from .models import (
@@ -294,6 +295,33 @@ class PostgresCollectionRepository:
                 )
         finally:
             connection.close()
+
+    def pncp_backfill_anchor(self) -> date | None:
+        """Data mais antiga já coberta pela consulta de contratações."""
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select min(run.collection_window_start)::date as anchor
+                from source.collection_runs as run
+                join source.source_endpoints as endpoint
+                  on endpoint.id = run.source_endpoint_id
+                join source.data_sources as data_source
+                  on data_source.id = endpoint.data_source_id
+                where data_source.slug = 'pncp'
+                  and endpoint.slug = 'consulta-contratacoes'
+                  and run.status = 'succeeded'
+                  and run.collection_window_start is not null
+                """
+            ).fetchone()
+        finally:
+            connection.close()
+        if row is None or row["anchor"] is None:
+            return None
+        value = row["anchor"]
+        if isinstance(value, date):
+            return value
+        return date.fromisoformat(str(value))
 
     def persist_registry_snapshot(
         self,

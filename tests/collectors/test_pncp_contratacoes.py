@@ -104,3 +104,62 @@ class WindowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BackfillWindowTests(unittest.TestCase):
+    def test_walks_back_thirty_days_from_anchor(self) -> None:
+        from datetime import date
+
+        from barreiras_collectors.commands.collect_pncp_contratacoes import (
+            resolve_backfill_window,
+        )
+
+        window = resolve_backfill_window(
+            anchor=date(2026, 7, 1),
+            today=date(2026, 8, 1),
+        )
+
+        self.assertEqual(window, ("20260601", "20260630"))
+
+    def test_first_run_starts_from_today(self) -> None:
+        from datetime import date
+
+        from barreiras_collectors.commands.collect_pncp_contratacoes import (
+            resolve_backfill_window,
+        )
+
+        window = resolve_backfill_window(
+            anchor=None,
+            today=date(2026, 8, 1),
+        )
+
+        assert window is not None
+        self.assertEqual(window[1], "20260801")
+
+    def test_horizon_reached_is_explicit_none(self) -> None:
+        from datetime import date
+
+        from barreiras_collectors.commands.collect_pncp_contratacoes import (
+            resolve_backfill_window,
+        )
+
+        self.assertIsNone(
+            resolve_backfill_window(
+                anchor=date(2021, 7, 1),
+                today=date(2026, 8, 1),
+            )
+        )
+
+    def test_last_window_clamps_at_horizon(self) -> None:
+        from datetime import date
+
+        from barreiras_collectors.commands.collect_pncp_contratacoes import (
+            resolve_backfill_window,
+        )
+
+        window = resolve_backfill_window(
+            anchor=date(2021, 7, 10),
+            today=date(2026, 8, 1),
+        )
+
+        self.assertEqual(window, ("20210701", "20210709"))

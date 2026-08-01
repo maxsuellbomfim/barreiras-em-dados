@@ -2,8 +2,10 @@ name: Coletar cadastro PNCP
 
 on:
   schedule:
-    # Semanal: o cadastro de órgão/unidades muda raramente.
+    # Semanal: cadastro e contratações da última semana.
     - cron: "13 9 * * 1"
+    # Diário: uma janela retroativa de contratações até jul/2021.
+    - cron: "43 5 * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -50,9 +52,17 @@ jobs:
           | sha256sum --check --strict
 
       - name: Preservar cadastro
+        if: github.event.schedule != '43 5 * * *'
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_registry
 
       - name: Preservar contratações da última semana
+        if: github.event.schedule != '43 5 * * *'
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratacoes
+
+      - name: Backfill retroativo de contratações
+        if: github.event.schedule == '43 5 * * *' || github.event_name == 'workflow_dispatch'
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_pncp_contratacoes
+          --backfill
