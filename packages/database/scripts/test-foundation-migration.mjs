@@ -676,8 +676,8 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 4,
-    endpoints: 4,
+    sources: 5,
+    endpoints: 5,
     private_buckets: 1,
   });
 
