@@ -332,26 +332,54 @@ class PostgresExtractionRepository:
         limit: int,
         prompt_idempotency: Callable[[str], str],
     ) -> tuple[dict, ...]:
-        """Edições diretas com texto e ainda sem resumo desta versão."""
+        """Edições com texto (diretas e do QD) ainda sem resumo desta
+        versão."""
         connection = self.connection_factory()
         try:
             rows = connection.execute(
                 """
                 select
-                  artifact.id::text as id,
-                  artifact.sha256,
-                  (artifact.metadata ->> 'edition')::int as edition,
-                  (artifact.metadata ->> 'year')::int as year
-                from raw.raw_artifacts as artifact
-                where artifact.metadata ->> 'schema_name'
-                    = 'gazette-direct-edition'
-                  and exists (
-                    select 1
-                    from raw.document_pages as page
-                    where page.raw_artifact_id = artifact.id
-                      and page.text_content is not null
-                  )
-                order by artifact.created_at
+                  editions.id::text as id,
+                  editions.sha256,
+                  editions.edition,
+                  editions.year
+                from (
+                  select
+                    artifact.id,
+                    artifact.sha256,
+                    artifact.created_at,
+                    (artifact.metadata ->> 'edition')::int as edition,
+                    (artifact.metadata ->> 'year')::int as year
+                  from raw.raw_artifacts as artifact
+                  where artifact.metadata ->> 'schema_name'
+                      = 'gazette-direct-edition'
+                  union all
+                  select distinct on (artifact.id)
+                    artifact.id,
+                    artifact.sha256,
+                    artifact.created_at,
+                    (record.payload ->> 'edition')::int,
+                    extract(
+                      year from (record.payload ->> 'date')::date
+                    )::int
+                  from raw.raw_artifacts as artifact
+                  join raw.raw_records as record
+                    on record.record_type = 'querido_diario_gazette'
+                   and record.source_record_key
+                       = artifact.metadata ->> 'source_record_key'
+                  where artifact.metadata ->> 'document_role' = 'txt'
+                    and record.payload ->> 'edition' ~ '^[0-9]+$'
+                    and record.payload ->> 'date'
+                        ~ '^\\d{4}-\\d{2}-\\d{2}'
+                  order by artifact.id, record.collected_at desc
+                ) as editions
+                where exists (
+                  select 1
+                  from raw.document_pages as page
+                  where page.raw_artifact_id = editions.id
+                    and page.text_content is not null
+                )
+                order by editions.created_at
                 limit %s
                 """,
                 (limit * 4,),
