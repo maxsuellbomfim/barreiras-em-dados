@@ -70,10 +70,32 @@ aprovação existe ainda; nada é publicado; o portal público não muda.
   auditoria, bruto intocado e negação a não revisor; typecheck e build do
   admin.
 
+## Testes negativos de autorização em produção (01/08/2026)
+
+Executados contra o projeto real, com a chave publicável e sem sessão
+autenticada (perfil anônimo):
+
+- `api.get_extraction_review_queue` → HTTP 401, `42501 permission denied`
+  (fila interna negada a anônimos);
+- `api.review_extraction_candidate` → HTTP 401, `42501 permission denied`
+  (decisão negada a anônimos);
+- `api.get_approved_gazette_acts` → HTTP 200 com lista vazia (público por
+  design; vazio honesto);
+- `api.get_querido_diario_collection_status` → HTTP 200 (público por design);
+- leitura direta de `raw.extraction_results`, `audit.reviewer_identities` e
+  `raw.raw_artifacts` pela Data API → HTTP 406/404 em todos os schemas
+  testados (`raw`, `audit`, `api`, `public`): os schemas internos não são
+  expostos.
+
+O caminho "autenticado sem cadastro de revisor" é coberto pelo teste de
+migrations (negação com erro explícito) e pela própria RPC em produção, que
+compartilha a mesma checagem. A criação de uma conta-isca em produção ficou
+de fora por decisão: contas só são criadas pelo titular.
+
 ## Pendências para as próximas fatias
 
 - exigência de MFA (enrolamento TOTP e verificação `aal2` nas RPCs);
 - projeção pública somente de aprovados (`editorial.published_insights` e
   páginas no portal);
-- paginação/filtros e testes negativos de autorização em produção;
+- paginação/filtros conforme o volume crescer;
 - dupla revisão de amostra antes do gate da etapa.
