@@ -169,12 +169,13 @@ def _parse_content(content: str) -> dict[str, Any]:
     return parsed
 
 
-def call_provider(
+def provider_content(
     caller: JsonCaller,
     provider: Provider,
     api_key: str,
     messages: list[dict[str, str]],
-) -> AssistOutcome:
+) -> str:
+    """Conteúdo textual de um provedor, com falhas mapeadas por classe."""
     try:
         status, body = caller.post(
             provider.url,
@@ -204,7 +205,16 @@ def call_provider(
         raise ContractViolationError(
             f"{provider.name} devolveu envelope inesperado."
         ) from error
+    return str(content)
 
+
+def call_provider(
+    caller: JsonCaller,
+    provider: Provider,
+    api_key: str,
+    messages: list[dict[str, str]],
+) -> AssistOutcome:
+    content = provider_content(caller, provider, api_key, messages)
     parsed = _parse_content(str(content))
     suggestions: dict[str, str | None] = {}
     for field in SUGGESTION_FIELDS:
@@ -245,6 +255,54 @@ def run_cascade(
             continue
         try:
             return call_provider(caller, provider, api_key, messages)
+        except QuotaExhaustedError:
+            log_event(
+                logger,
+                logging.WARNING,
+                "assist_level_promoted",
+                provider=provider.name,
+                reason="quota_exhausted",
+            )
+            continue
+        except ProviderTransientError as error:
+            log_event(
+                logger,
+                logging.WARNING,
+                "assist_level_promoted",
+                provider=provider.name,
+                reason=f"transient: {error}",
+            )
+            continue
+    raise CascadeUnavailableError(
+        "Nenhum provedor de inferência assistida disponível."
+    )
+
+
+def run_cascade_content(
+    caller: JsonCaller,
+    environment: Mapping[str, str],
+    messages: list[dict[str, str]],
+    logger: logging.Logger,
+) -> tuple[str, str, str]:
+    """Cascata em nível de conteúdo: (provedor, modelo, texto da resposta).
+
+    Para contratos JSON diferentes do de campos de ato (ex.: resumo por
+    edição), o chamador faz o próprio parse e validação do conteúdo.
+    """
+    for provider in PROVIDERS:
+        api_key = (environment.get(provider.env_key) or "").strip()
+        if not api_key:
+            log_event(
+                logger,
+                logging.INFO,
+                "assist_level_skipped",
+                provider=provider.name,
+                reason="missing_key",
+            )
+            continue
+        try:
+            content = provider_content(caller, provider, api_key, messages)
+            return provider.name, provider.model, content
         except QuotaExhaustedError:
             log_event(
                 logger,

@@ -1307,6 +1307,77 @@ footer {
   box-shadow: 0 4px 18px rgba(35, 64, 112, 0.06);
 }
 
+/* Diário traduzido (/diario, ADR 0013) */
+.digest-grid {
+  margin-top: 3rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.digest-card {
+  padding: 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: 1.55rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(242, 246, 252, 0.78)),
+    #fbfcfe;
+}
+
+.digest-items {
+  margin: 1.1rem 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.digest-item {
+  display: grid;
+  grid-template-columns: 6.4rem 1fr;
+  gap: 0.9rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.digest-item-type {
+  width: fit-content;
+  height: fit-content;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: #edf2f9;
+  color: #637087;
+  font-size: 0.68rem;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.digest-item h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.98rem;
+  letter-spacing: -0.02em;
+}
+
+.digest-item p {
+  margin: 0;
+  color: #58657b;
+  font-size: 0.87rem;
+  line-height: 1.55;
+}
+
+.digest-item details summary {
+  margin-top: 0.35rem;
+  color: #7b8596;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .digest-item {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+}
+
 /* Modo de revisão do ato (ADR 0012) */
 .act-review-mode {
   margin: 0.55rem 0 0;
