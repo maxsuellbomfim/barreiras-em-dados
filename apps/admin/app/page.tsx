@@ -156,6 +156,8 @@ export default function ReviewQueuePage() {
           process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
           "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
         ),
+        // As RPCs curadas vivem no schema `api`, não no `public`.
+        { db: { schema: "api" } },
       ),
     [],
   );
