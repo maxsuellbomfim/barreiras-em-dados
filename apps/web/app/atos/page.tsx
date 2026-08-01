@@ -21,6 +21,15 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Bahia",
 });
 
+const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "America/Bahia",
+});
+
 function formatDate(value: string) {
   return dateFormatter.format(new Date(`${value}T12:00:00-03:00`));
 }
@@ -67,7 +76,8 @@ function ActCard({ act }: Readonly<{ act: ApprovedGazetteAct }>) {
         ) : (
           <span>Documento preservado no acervo verificável</span>
         )}{" "}
-        · hash {act.artifactSha256.slice(0, 12)}…
+        · hash {act.artifactSha256.slice(0, 12)}… · revisado e publicado em{" "}
+        {dateTimeFormatter.format(new Date(act.approvedAt))}
       </p>
     </article>
   );
@@ -96,6 +106,21 @@ export default async function ApprovedActsPage() {
             documento que o sustentam. Isto é um registro de atos oficiais —
             não é avaliação sobre pessoas.
           </p>
+          {result.state === "available" && result.acts.length > 0 ? (
+            <p className="acts-count" role="status">
+              {result.acts.length.toLocaleString("pt-BR")}{" "}
+              {result.acts.length === 1 ? "ato publicado" : "atos publicados"}{" "}
+              · última publicação em{" "}
+              {dateTimeFormatter.format(
+                new Date(
+                  result.acts
+                    .map((act) => act.approvedAt)
+                    .sort()
+                    .at(-1) as string,
+                ),
+              )}
+            </p>
+          ) : null}
         </div>
 
         {result.state === "unavailable" ? (
