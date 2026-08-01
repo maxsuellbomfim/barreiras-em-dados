@@ -1,3 +1,4 @@
+import { getApprovedGazetteActs } from "../lib/approved-acts";
 import {
   getQueridoDiarioCollectionStatus,
   type QueridoDiarioCollectionStatus,
@@ -8,8 +9,8 @@ export const revalidate = 300;
 const officialSources = [
   {
     name: "Diário Oficial",
-    detail: "Atos publicados pela Prefeitura",
-    href: "https://queridodiario.ok.org.br/cidades/ba-barreiras",
+    detail: "Edições oficiais publicadas pela Prefeitura — coletadas direto da fonte",
+    href: "https://pmbarreiras.diariomtransparente.com.br/",
     tone: "blue",
   },
   {
@@ -46,7 +47,7 @@ const publicTracks = [
     title: "Licitações e contratos",
     description:
       "Do processo ao fornecedor: itens, resultados, contratos, documentos e histórico de alterações.",
-    status: "Mapeado",
+    status: "Coleta iniciada no PNCP",
   },
   {
     eyebrow: "Na sequência",
@@ -188,8 +189,9 @@ function CollectionStatus({
             <h2 id="collection-title">A coleta já começou.</h2>
           </div>
           <p>
-            Este painel mostra somente o estado técnico do acervo. Nomes e atos
-            só serão publicados depois da extração, validação e revisão humana.
+            Este painel mostra somente o estado técnico do acervo — o que já
+            foi preservado, de onde e quando. Nomes e atos só aparecem na
+            página pública depois da extração, validação e revisão humana.
           </p>
         </div>
 
@@ -215,11 +217,11 @@ function CollectionStatus({
                 <span>Contagem distinta, sem duplicar replays</span>
               </div>
               <div>
-                <dt>Cobertura atual</dt>
+                <dt>Cobertura desta fonte</dt>
                 <dd className="metric-date">
                   {formatCoverage(status.data)}
                 </dd>
-                <span>Amostra-piloto do primeiro fluxo</span>
+                <span>Janela já preservada via Querido Diário</span>
               </div>
               <div>
                 <dt>Respostas brutas</dt>
@@ -243,7 +245,10 @@ function CollectionStatus({
 
             <div className="collection-foot">
               <p>
-                Estado: <strong>coleta técnica validada</strong>. Isto não
+                Estado: <strong>coleta técnica validada</strong>. Os números
+                acima cobrem a fonte Querido Diário; a coleta direta no site
+                oficial da Prefeitura e o backfill retroativo até janeiro de
+                2021 rodam automaticamente e ampliam o acervo. Isto não
                 significa que todos os atos do período já foram extraídos ou
                 revisados.
               </p>
@@ -275,7 +280,12 @@ function CollectionStatus({
 }
 
 export default async function HomePage() {
-  const collectionStatus = await getQueridoDiarioCollectionStatus();
+  const [collectionStatus, approvedActs] = await Promise.all([
+    getQueridoDiarioCollectionStatus(),
+    getApprovedGazetteActs(),
+  ]);
+  const approvedCount =
+    approvedActs.state === "available" ? approvedActs.acts.length : null;
 
   return (
     <main>
@@ -290,11 +300,11 @@ export default async function HomePage() {
             <a href="#coleta">Coleta</a>
             <a href="#como-funciona">Como funciona</a>
             <a href="#fontes">Fontes</a>
-            <a href="#construcao">Construção</a>
+            <a href="#metodologia">Metodologia</a>
           </nav>
 
-          <a className="nav-cta" href="#metodologia">
-            Metodologia
+          <a className="nav-cta" href="/atos">
+            Atos publicados
           </a>
         </div>
       </header>
@@ -477,13 +487,23 @@ export default async function HomePage() {
             <article className="track-card" key={track.title}>
               <div className="track-top">
                 <span>{track.eyebrow}</span>
-                <span className="track-status">{track.status}</span>
+                <span className="track-status">
+                  {"href" in track && track.href && approvedCount !== null
+                    ? approvedCount === 0
+                      ? "Primeiros atos em revisão"
+                      : `${approvedCount.toLocaleString("pt-BR")} ${
+                          approvedCount === 1
+                            ? "ato publicado"
+                            : "atos publicados"
+                        }`
+                    : track.status}
+                </span>
               </div>
               <h3>{track.title}</h3>
               <p>{track.description}</p>
               {"href" in track && track.href ? (
                 <p>
-                  <a href={track.href}>Ver os primeiros atos →</a>
+                  <a href={track.href}>Ver a página de atos →</a>
                 </p>
               ) : null}
             </article>
