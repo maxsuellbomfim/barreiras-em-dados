@@ -35,6 +35,8 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   position: "Cargo",
   position_symbol: "Símbolo",
   organization: "Órgão",
+  act_number: "Portaria nº",
+  act_date: "Data do ato",
 };
 
 function ReviewCard({

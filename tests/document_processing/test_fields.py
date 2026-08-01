@@ -40,6 +40,8 @@ class ActFieldExtractionTests(unittest.TestCase):
             fields.organization.value,
             "Secretaria Municipal de Exemplo",
         )
+        self.assertEqual(fields.act_number.value, "901")
+        self.assertEqual(fields.act_date.value, "2026-06-15")
         self.assertEqual(fields.fieldset_version, FIELDSET_VERSION)
 
     def test_extracts_exoneration_with_a_pedido_clause(self) -> None:
@@ -48,6 +50,22 @@ class ActFieldExtractionTests(unittest.TestCase):
         self.assertEqual(fields.person_name.value, "BELTRANA DE TAL MODELO")
         self.assertEqual(fields.position.value, "Coordenadora de Exemplo")
         self.assertEqual(fields.position_symbol.value, "NH-2")
+        # O cabeçalho mais próximo antes do verbo é a Portaria 902.
+        self.assertEqual(fields.act_number.value, "902")
+        self.assertEqual(fields.act_date.value, "2026-06-15")
+
+    def test_act_heading_missing_or_invalid_is_explicit(self) -> None:
+        no_heading = fields_for("RESOLVE: NOMEAR FULANO DE TAL para o cargo,")
+        self.assertEqual(no_heading.act_number.status, "not_found")
+        self.assertEqual(no_heading.act_date.status, "not_found")
+
+        invalid_date = fields_for(
+            "PORTARIA N° 77, DE 31 DE FEVEREIRO DE 2026.\n"
+            "RESOLVE: NOMEAR FULANO DE TAL para o cargo,"
+        )
+        self.assertEqual(invalid_date.act_number.value, "77")
+        self.assertEqual(invalid_date.act_date.status, "not_found")
+        self.assertIsNone(invalid_date.act_date.value)
 
     def test_person_name_survives_line_breaks(self) -> None:
         text = "RESOLVE: NOMEAR FULANO DE\nTAL QUEBRADO para o cargo de Chefe,"
