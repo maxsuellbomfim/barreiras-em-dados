@@ -326,13 +326,52 @@ values (
   'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao',
   'GET',
   10,
-  35,
+  60,
   true,
   '{
     "cnpj": "13654405000195",
     "pagination": {"tamanhoPagina": 50, "total_fields": ["totalRegistros", "totalPaginas"]},
     "modalidades": "1-13",
-    "observed_at": "2026-08-01"
+    "observed_at": "2026-08-01",
+    "timeout_note": "API degradada respondeu 200 em 31,5s em 01/08/2026"
+  }'::jsonb
+)
+on conflict (data_source_id, slug) do update
+set
+  base_url = excluded.base_url,
+  rate_limit_per_minute = excluded.rate_limit_per_minute,
+  request_timeout_seconds = excluded.request_timeout_seconds,
+  enabled = excluded.enabled,
+  config = excluded.config;
+
+insert into source.source_endpoints (
+  id,
+  data_source_id,
+  slug,
+  endpoint_kind,
+  base_url,
+  http_method,
+  rate_limit_per_minute,
+  request_timeout_seconds,
+  enabled,
+  config
+)
+values (
+  '00000000-0000-4000-8000-000000000107',
+  '00000000-0000-4000-8000-000000000005',
+  'compras-api',
+  'api',
+  'https://pncp.gov.br/api/pncp/v1/orgaos/13654405000195/compras/',
+  'GET',
+  30,
+  60,
+  true,
+  '{
+    "cnpj": "13654405000195",
+    "resources": ["itens", "resultados"],
+    "pagination": {"tamanhoPagina": 50, "raiz": "lista JSON"},
+    "observed_at": "2026-08-01",
+    "discovery": "docs/reviews/STAGE_2_PNCP_DISCOVERY.md"
   }'::jsonb
 )
 on conflict (data_source_id, slug) do update

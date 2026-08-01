@@ -19,7 +19,9 @@ jobs:
   collect:
     name: Preservar cadastro do PNCP
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # A API de consulta degradada chega a 60s por resposta; 13 modalidades
+    # com retentativas não cabem mais em 10 minutos.
+    timeout-minutes: 20
     env:
       APP_ENV: production
       LOG_LEVEL: INFO
@@ -66,3 +68,7 @@ jobs:
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratacoes
           --backfill
+
+      - name: Preservar itens e resultados das contratações
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_pncp_itens

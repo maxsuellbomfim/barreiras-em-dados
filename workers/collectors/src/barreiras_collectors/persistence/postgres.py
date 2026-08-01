@@ -21,6 +21,8 @@ from .models import (
 class QueryResult(Protocol):
     def fetchone(self) -> Mapping[str, Any] | None: ...
 
+    def fetchall(self) -> list[Mapping[str, Any]]: ...
+
 
 class TransactionContext(Protocol):
     def __enter__(self) -> object: ...
@@ -322,6 +324,85 @@ class PostgresCollectionRepository:
         if isinstance(value, date):
             return value
         return date.fromisoformat(str(value))
+
+    def pncp_pending_itens(
+        self,
+        *,
+        refresh_days: int,
+        limit: int,
+    ) -> list[tuple[str, int, int]]:
+        """Contratações sem itens preservados ou recentes o bastante para
+        revisitar (homologação chega semanas após a publicação)."""
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                with contratacao as (
+                  select distinct on (record.payload ->> 'numeroControlePNCP')
+                    record.payload ->> 'numeroControlePNCP' as control,
+                    (record.payload ->> 'anoCompra')::int as ano,
+                    (record.payload ->> 'sequencialCompra')::int as sequencial,
+                    case
+                      when record.payload ->> 'dataPublicacaoPncp'
+                          ~ '^\\d{4}-\\d{2}-\\d{2}'
+                      then left(
+                        record.payload ->> 'dataPublicacaoPncp', 10
+                      )::date
+                    end as published_on
+                  from raw.raw_records as record
+                  where record.record_type = 'pncp_contratacao'
+                    and record.payload ->> 'anoCompra' ~ '^[0-9]+$'
+                    and record.payload ->> 'sequencialCompra' ~ '^[0-9]+$'
+                  order by
+                    record.payload ->> 'numeroControlePNCP',
+                    record.created_at desc
+                )
+                select control, ano, sequencial
+                from contratacao
+                where coalesce(
+                    published_on >= current_date - %s::int, false
+                  )
+                  or not exists (
+                    select 1
+                    from raw.raw_artifacts as artifact
+                    where artifact.metadata ->> 'schema_name'
+                        = 'pncp-itens-page'
+                      and (artifact.metadata -> 'cursor' ->> 'ano')::int
+                        = contratacao.ano
+                      and (
+                        artifact.metadata -> 'cursor' ->> 'sequencial'
+                      )::int = contratacao.sequencial
+                  )
+                order by published_on desc nulls last, control
+                limit %s
+                """,
+                (refresh_days, limit),
+            ).fetchall()
+        finally:
+            connection.close()
+        return [
+            (str(row["control"]), int(row["ano"]), int(row["sequencial"]))
+            for row in rows
+        ]
+
+    def pncp_itens_com_resultado(self, control: str) -> set[int]:
+        """Itens da contratação que já têm algum resultado preservado."""
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select distinct (record.payload ->> 'numeroItem')::bigint
+                  as numero_item
+                from raw.raw_records as record
+                where record.record_type = 'pncp_resultado'
+                  and record.payload ->> 'numeroControlePNCPCompra' = %s
+                  and record.payload ->> 'numeroItem' ~ '^[0-9]+$'
+                """,
+                (control,),
+            ).fetchall()
+        finally:
+            connection.close()
+        return {int(row["numero_item"]) for row in rows}
 
     def persist_registry_snapshot(
         self,
