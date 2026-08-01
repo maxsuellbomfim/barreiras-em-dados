@@ -1378,6 +1378,67 @@ footer {
   }
 }
 
+/* Licitações (/licitacoes) */
+.procurement-object {
+  margin: 0.75rem 0 0.5rem;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  letter-spacing: -0.015em;
+}
+
+.procurement-values {
+  margin: 0.75rem 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.65rem;
+}
+
+.procurement-values > div {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.procurement-values dt {
+  color: #758094;
+  font-size: 0.66rem;
+  font-weight: 680;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.procurement-values dd {
+  margin: 0.2rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.procurement-results summary {
+  color: #4e5a6f;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+  margin-block: 0.5rem;
+}
+
+.procurement-results ul {
+  margin: 0.4rem 0 0.6rem;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.4rem;
+  color: #4e5a6f;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.meta-note {
+  margin: 0.6rem 0;
+  color: #7b8596;
+  font-size: 0.82rem;
+}
+
 /* Modo de revisão do ato (ADR 0012) */
 .act-review-mode {
   margin: 0.55rem 0 0;
