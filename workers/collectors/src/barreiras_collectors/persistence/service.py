@@ -29,6 +29,8 @@ DOCUMENT_EXTENSIONS = {"pdf": "pdf", "txt": "txt"}
 DIRECT_COLLECTOR_VERSION = "barreiras-diario-collector/0.1.0"
 PNCP_COLLECTOR_VERSION = "pncp-registry-collector/0.1.0"
 PNCP_CONTRATACAO_PARSER_VERSION = "pncp-contratacao-page/1.0.0"
+PNCP_ITEM_PARSER_VERSION = "pncp-item-page/1.0.0"
+PNCP_RESULTADO_PARSER_VERSION = "pncp-resultado-page/1.0.0"
 
 
 class PncpContratacoesPersistenceService:
@@ -109,6 +111,161 @@ class PncpContratacoesPersistenceService:
                 artifact_idempotency_key=artifact_key,
                 collector_version=PNCP_COLLECTOR_VERSION,
                 parser_version=PNCP_CONTRATACAO_PARSER_VERSION,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=page.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+
+class PncpComprasPersistenceService:
+    """Preserva itens e resultados de contratações no repositório padrão."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist_itens(self, page, *, control: str) -> PersistenceResult:
+        records = []
+        for index, item in enumerate(page.items):
+            numero_item = item.get("numeroItem")
+            if not isinstance(numero_item, int):
+                raise PersistenceContractError(
+                    f"Item {index} da contratação {control} sem numeroItem."
+                )
+            records.append(
+                self._record(
+                    page,
+                    item,
+                    index=index,
+                    source_record_key=f"pncp:item:{control}:{numero_item}",
+                    record_type="pncp_item",
+                    parser_version=PNCP_ITEM_PARSER_VERSION,
+                )
+            )
+        return self._persist(
+            page,
+            kind="itens",
+            parser_version=PNCP_ITEM_PARSER_VERSION,
+            records=records,
+        )
+
+    def persist_resultados(
+        self, page, *, control: str, numero_item: int
+    ) -> PersistenceResult:
+        records = []
+        for index, item in enumerate(page.items):
+            sequencial = item.get("sequencialResultado")
+            if not isinstance(sequencial, int):
+                raise PersistenceContractError(
+                    f"Resultado {index} do item {numero_item} da contratação "
+                    f"{control} sem sequencialResultado."
+                )
+            records.append(
+                self._record(
+                    page,
+                    item,
+                    index=index,
+                    source_record_key=(
+                        f"pncp:resultado:{control}:{numero_item}:{sequencial}"
+                    ),
+                    record_type="pncp_resultado",
+                    parser_version=PNCP_RESULTADO_PARSER_VERSION,
+                )
+            )
+        return self._persist(
+            page,
+            kind="resultados",
+            parser_version=PNCP_RESULTADO_PARSER_VERSION,
+            records=records,
+        )
+
+    @staticmethod
+    def _record(
+        page,
+        item,
+        *,
+        index: int,
+        source_record_key: str,
+        record_type: str,
+        parser_version: str,
+    ) -> RawRecordInput:
+        canonical = json.dumps(
+            item,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        payload_sha256 = hashlib.sha256(canonical).hexdigest()
+        return RawRecordInput(
+            source_record_key=source_record_key,
+            record_type=record_type,
+            record_index=index,
+            payload=item,
+            payload_sha256=payload_sha256,
+            parser_version=parser_version,
+            idempotency_key=hashlib.sha256(
+                ":".join(
+                    (
+                        record_type,
+                        page.idempotency_key,
+                        parser_version,
+                        str(index),
+                        payload_sha256,
+                    )
+                ).encode("utf-8")
+            ).hexdigest(),
+        )
+
+    def _persist(
+        self,
+        page,
+        *,
+        kind: str,
+        parser_version: str,
+        records: list,
+    ) -> PersistenceResult:
+        actual = hashlib.sha256(page.raw_body).hexdigest()
+        if actual != page.body_sha256:
+            raise ArtifactIntegrityError(
+                f"A página de {kind} não corresponde ao hash informado."
+            )
+        object_key = (
+            f"pncp/procurement/{kind}/sha256/"
+            f"{page.body_sha256[:2]}/{page.body_sha256}.json"
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=page.raw_body,
+            content_type=page.media_type,
+            expected_sha256=page.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                f"A página de {kind} restaurada do Storage diverge da coletada."
+            )
+
+        artifact_key = hashlib.sha256(
+            f"raw-artifact:{page.idempotency_key}".encode()
+        ).hexdigest()
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,
+                object_key=object_key,
+                artifact_idempotency_key=artifact_key,
+                collector_version=PNCP_COLLECTOR_VERSION,
+                parser_version=parser_version,
                 records=tuple(records),
             )
         )

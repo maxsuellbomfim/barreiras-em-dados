@@ -45,6 +45,15 @@ CONTRATACOES_ENDPOINT_CODE = "consulta-contratacoes"
 # Modalidades da Lei 14.133/2021 aceitas pela API de consulta.
 CONTRATACAO_MODALIDADES: tuple[int, ...] = tuple(range(1, 14))
 CONTRATACOES_PAGE_SIZE = 50
+# API de consulta degradada respondeu 200 em 31,5s em 01/08/2026; 35s
+# derrubava coleta válida. A API pncp/v1 responde em <1s e usa o mesmo teto.
+CONTRATACOES_TIMEOUT_SECONDS = 60.0
+
+COMPRAS_ENDPOINT_CODE = "compras-api"
+COMPRAS_PAGE_SIZE = 50
+COMPRAS_BASE_URL = (
+    f"https://pncp.gov.br/api/pncp/v1/orgaos/{BARREIRAS_CNPJ}/compras"
+)
 
 
 @dataclass(frozen=True)
@@ -107,7 +116,7 @@ def fetch_contratacoes_page(
                 "Accept": "application/json",
                 "User-Agent": "BarreirasEmDados-Collector/0.1",
             },
-            timeout_seconds=35.0,
+            timeout_seconds=CONTRATACOES_TIMEOUT_SECONDS,
             max_body_bytes=8 * 1024 * 1024,
         )
         received_at = datetime.now(UTC).isoformat()
@@ -196,6 +205,169 @@ def fetch_contratacoes_page(
             sleep(policy.delay(attempt, 0.5))
 
     raise PncpError("O PNCP ficou indisponível para contratações.")
+
+
+def fetch_itens_page(
+    *,
+    ano: int,
+    sequencial: int,
+    pagina: int,
+    transport: HttpTransport | None = None,
+    retry_policy: RetryPolicy | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    logger: logging.Logger | None = None,
+) -> PncpPage | None:
+    """Uma página de itens de uma contratação; None quando não há conteúdo."""
+    url = (
+        f"{COMPRAS_BASE_URL}/{ano}/{sequencial}/itens"
+        f"?pagina={pagina}&tamanhoPagina={COMPRAS_PAGE_SIZE}"
+    )
+    return _fetch_compras_array(
+        url,
+        schema_name="pncp-itens-page",
+        cursor={
+            "offset": (pagina - 1) * COMPRAS_PAGE_SIZE,
+            "size": COMPRAS_PAGE_SIZE,
+            "ano": ano,
+            "sequencial": sequencial,
+            "pagina": pagina,
+        },
+        transport=transport,
+        retry_policy=retry_policy,
+        sleep=sleep,
+        logger=logger,
+    )
+
+
+def fetch_resultados_page(
+    *,
+    ano: int,
+    sequencial: int,
+    numero_item: int,
+    transport: HttpTransport | None = None,
+    retry_policy: RetryPolicy | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    logger: logging.Logger | None = None,
+) -> PncpPage | None:
+    """Resultados homologados de um item; None quando ainda não há resultado."""
+    url = f"{COMPRAS_BASE_URL}/{ano}/{sequencial}/itens/{numero_item}/resultados"
+    return _fetch_compras_array(
+        url,
+        schema_name="pncp-resultados-page",
+        cursor={
+            "offset": 0,
+            "size": COMPRAS_PAGE_SIZE,
+            "ano": ano,
+            "sequencial": sequencial,
+            "item": numero_item,
+            "pagina": 1,
+        },
+        transport=transport,
+        retry_policy=retry_policy,
+        sleep=sleep,
+        logger=logger,
+    )
+
+
+def _fetch_compras_array(
+    url: str,
+    *,
+    schema_name: str,
+    cursor: dict[str, int],
+    transport: HttpTransport | None,
+    retry_policy: RetryPolicy | None,
+    sleep: Callable[[float], None],
+    logger: logging.Logger | None,
+) -> PncpPage | None:
+    """Recurso da API pncp/v1 cuja raiz é uma lista JSON de objetos."""
+    active_transport = transport or UrllibTransport(ALLOWED_HOSTS)
+    policy = retry_policy or RetryPolicy(max_attempts=4)
+    log = logger or logging.getLogger(__name__)
+
+    for attempt in range(1, policy.max_attempts + 1):
+        requested_at = datetime.now(UTC).isoformat()
+        response = active_transport.get(
+            url,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "BarreirasEmDados-Collector/0.1",
+            },
+            timeout_seconds=CONTRATACOES_TIMEOUT_SECONDS,
+            max_body_bytes=8 * 1024 * 1024,
+        )
+        received_at = datetime.now(UTC).isoformat()
+        log_event(
+            log,
+            logging.INFO,
+            "collector_http_response",
+            source=SOURCE_CODE,
+            endpoint=COMPRAS_ENDPOINT_CODE,
+            status=response.status,
+            attempt=attempt,
+            body_size_bytes=len(response.body),
+        )
+        if response.status in (204, 404):
+            # 404 aqui é ausência do recurso na API pncp/v1, não falha.
+            return None
+        if response.status == 200:
+            try:
+                payload = json.loads(response.body)
+            except (json.JSONDecodeError, UnicodeDecodeError) as error:
+                raise PncpError(
+                    f"O recurso {schema_name} não devolveu JSON válido."
+                ) from error
+            if not isinstance(payload, list):
+                raise PncpError(
+                    f"A raiz de {schema_name} deve ser uma lista JSON."
+                )
+            if not payload:
+                return None
+            return PncpPage(
+                schema_name=schema_name,
+                schema_version="1.0.0",
+                source_code=SOURCE_CODE,
+                endpoint_code=COMPRAS_ENDPOINT_CODE,
+                idempotency_key=hashlib.sha256(
+                    json.dumps(
+                        {
+                            "url": url,
+                            "body_sha256": hashlib.sha256(
+                                response.body
+                            ).hexdigest(),
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode()
+                ).hexdigest(),
+                request_url=url,
+                final_url=response.final_url,
+                requested_at=requested_at,
+                received_at=received_at,
+                attempts=attempt,
+                http_status=response.status,
+                collection_status="success",
+                body_sha256=hashlib.sha256(response.body).hexdigest(),
+                body_size_bytes=len(response.body),
+                media_type="application/json",
+                response_headers={},
+                cursor=cursor,
+                raw_body=response.body,
+                window_start=None,
+                window_end=None,
+                items=tuple(
+                    item for item in payload if isinstance(item, dict)
+                ),
+                total_paginas=1,
+                total_registros=len(payload),
+            )
+        if response.status not in RETRYABLE:
+            raise PncpError(
+                f"O PNCP respondeu HTTP {response.status} em {schema_name}."
+            )
+        if attempt < policy.max_attempts:
+            sleep(policy.delay(attempt, 0.5))
+
+    raise PncpError(f"O PNCP ficou indisponível para {schema_name}.")
 
 
 @dataclass(frozen=True)
