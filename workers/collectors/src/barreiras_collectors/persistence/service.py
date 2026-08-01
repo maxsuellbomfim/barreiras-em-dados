@@ -30,6 +30,8 @@ DIRECT_COLLECTOR_VERSION = "barreiras-diario-collector/0.1.0"
 PNCP_COLLECTOR_VERSION = "pncp-registry-collector/0.1.0"
 PNCP_CONTRATACAO_PARSER_VERSION = "pncp-contratacao-page/1.0.0"
 CAMARA_COLLECTOR_VERSION = "camara-federal-collector/0.1.0"
+VEREADORES_COLLECTOR_VERSION = "cm-barreiras-collector/0.1.0"
+VEREADORES_PARSER_VERSION = "cm-barreiras-vereadores/1.0.0"
 PNCP_ITEM_PARSER_VERSION = "pncp-item-page/1.0.0"
 PNCP_RESULTADO_PARSER_VERSION = "pncp-resultado-page/1.0.0"
 
@@ -266,6 +268,105 @@ class PncpComprasPersistenceService:
                 object_key=object_key,
                 artifact_idempotency_key=artifact_key,
                 collector_version=PNCP_COLLECTOR_VERSION,
+                parser_version=parser_version,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=page.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+
+class VereadoresPersistenceService:
+    """Preserva a lista de vereadores como bruto verificável por hash."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, page) -> PersistenceResult:
+        actual = hashlib.sha256(page.raw_body).hexdigest()
+        if actual != page.body_sha256:
+            raise ArtifactIntegrityError(
+                "A página de vereadores não corresponde ao hash informado."
+            )
+        object_key = (
+            "camara-municipal/vereadores/sha256/"
+            f"{page.body_sha256[:2]}/{page.body_sha256}.html"
+        )
+        parser_version = VEREADORES_PARSER_VERSION
+        records = []
+        for index, item in enumerate(page.items):
+            name = item.get("nome")
+            if not isinstance(name, str) or not name.strip():
+                raise PersistenceContractError(
+                    f"Vereador {index} sem nome."
+                )
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            # A fonte não publica identificador: a chave é o nome
+            # normalizado dentro desta fonte, nunca cruzado com outra
+            # (ADR 0014 — homônimo não vira a mesma pessoa).
+            slug = hashlib.sha256(
+                name.strip().casefold().encode("utf-8")
+            ).hexdigest()[:16]
+            records.append(
+                RawRecordInput(
+                    source_record_key=f"cm-barreiras:vereador:{slug}",
+                    record_type="cm_barreiras_vereador",
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=parser_version,
+                    idempotency_key=hashlib.sha256(
+                        ":".join(
+                            (
+                                "cm-barreiras-vereador",
+                                page.idempotency_key,
+                                parser_version,
+                                str(index),
+                                payload_sha256,
+                            )
+                        ).encode("utf-8")
+                    ).hexdigest(),
+                )
+            )
+
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=page.raw_body,
+            content_type=page.media_type,
+            expected_sha256=page.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "A página restaurada do Storage diverge da coletada."
+            )
+
+        artifact_key = hashlib.sha256(
+            f"raw-artifact:{page.idempotency_key}".encode()
+        ).hexdigest()
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,
+                object_key=object_key,
+                artifact_idempotency_key=artifact_key,
+                collector_version=VEREADORES_COLLECTOR_VERSION,
                 parser_version=parser_version,
                 records=tuple(records),
             )

@@ -1492,6 +1492,13 @@ footer {
   font-size: 0.83rem;
 }
 
+.person-bio {
+  margin: 0.5rem 0 0;
+  color: #58657b;
+  font-size: 0.83rem;
+  line-height: 1.6;
+}
+
 .person-link-note {
   margin: 0.75rem 0;
   padding: 0.7rem 0.85rem;
