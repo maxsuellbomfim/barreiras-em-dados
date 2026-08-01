@@ -59,6 +59,21 @@ class PostgresExtractionRepository:
                         'hex'
                       )
                   )
+                  -- Adiado aguardando OCR: alguma página sem texto e ainda
+                  -- sem linha OCR equivalente para o mesmo número de página.
+                  and not exists (
+                    select 1
+                    from raw.document_pages as page
+                    where page.raw_artifact_id = artifact.id
+                      and page.text_content is null
+                      and not exists (
+                        select 1
+                        from raw.document_pages as supplemental
+                        where supplemental.raw_artifact_id = artifact.id
+                          and supplemental.page_number = page.page_number
+                          and supplemental.text_content is not null
+                      )
+                  )
                 order by artifact.created_at
                 limit %s
                 """,
@@ -149,12 +164,40 @@ class PostgresExtractionRepository:
         finally:
             connection.close()
 
-    @staticmethod
+    def persist_pages(self, artifact, pages) -> None:
+        """Registra páginas canônicas sem criar job (adiado para OCR)."""
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                self._insert_pages(
+                    connection,
+                    artifact.raw_artifact_id,
+                    pages,
+                )
+        finally:
+            connection.close()
+
+    @classmethod
     def _document_page(
+        cls,
         connection: DatabaseConnection,
         batch: ExtractionBatch,
     ) -> None:
-        for page in batch.pages:
+        cls._insert_pages(
+            connection,
+            batch.artifact.raw_artifact_id,
+            batch.pages,
+        )
+
+    @staticmethod
+    def _insert_pages(
+        connection: DatabaseConnection,
+        raw_artifact_id: str,
+        pages,
+    ) -> None:
+        for page in pages:
             row = connection.execute(
                 """
                 insert into raw.document_pages (
@@ -171,7 +214,7 @@ class PostgresExtractionRepository:
                 returning id::text as id
                 """,
                 (
-                    batch.artifact.raw_artifact_id,
+                    raw_artifact_id,
                     page.page_number,
                     page.parser_version,
                     page.text,
@@ -190,7 +233,7 @@ class PostgresExtractionRepository:
                   and parser_version = %s
                 """,
                 (
-                    batch.artifact.raw_artifact_id,
+                    raw_artifact_id,
                     page.page_number,
                     page.parser_version,
                 ),
