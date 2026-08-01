@@ -59,6 +59,11 @@ jobs:
         run: >-
           python -B -m barreiras_collectors.commands.collect_vereadores
 
+      - name: Preservar deputados estaduais da Bahia
+        continue-on-error: true
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_alba_deputies
+
       - name: Preservar votação recebida em Barreiras (vínculo territorial)
         continue-on-error: true
         run: >-

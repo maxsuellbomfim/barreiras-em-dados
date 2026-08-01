@@ -30,6 +30,8 @@ DIRECT_COLLECTOR_VERSION = "barreiras-diario-collector/0.1.0"
 PNCP_COLLECTOR_VERSION = "pncp-registry-collector/0.1.0"
 PNCP_CONTRATACAO_PARSER_VERSION = "pncp-contratacao-page/1.0.0"
 CAMARA_COLLECTOR_VERSION = "camara-federal-collector/0.1.0"
+ALBA_COLLECTOR_VERSION = "alba-collector/0.1.0"
+ALBA_PARSER_VERSION = "alba-deputados/1.0.0"
 TSE_COLLECTOR_VERSION = "tse-collector/0.1.0"
 TSE_PARSER_VERSION = "tse-votacao-munzona/1.0.0"
 VEREADORES_COLLECTOR_VERSION = "cm-barreiras-collector/0.1.0"
@@ -271,6 +273,98 @@ class PncpComprasPersistenceService:
                 artifact_idempotency_key=artifact_key,
                 collector_version=PNCP_COLLECTOR_VERSION,
                 parser_version=parser_version,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=page.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+
+class AlbaPersistenceService:
+    """Preserva a composição da Assembleia Legislativa da Bahia."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, page) -> PersistenceResult:
+        actual = hashlib.sha256(page.raw_body).hexdigest()
+        if actual != page.body_sha256:
+            raise ArtifactIntegrityError(
+                "A listagem da Assembleia não corresponde ao hash informado."
+            )
+        object_key = (
+            "alba/deputados/sha256/"
+            f"{page.body_sha256[:2]}/{page.body_sha256}.html"
+        )
+        records = []
+        for index, item in enumerate(page.items):
+            identifier = item.get("id_alba")
+            if not isinstance(identifier, str) or not identifier.isdigit():
+                raise PersistenceContractError(
+                    f"Deputado {index} sem identificador da Assembleia."
+                )
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            records.append(
+                RawRecordInput(
+                    source_record_key=f"alba:deputado:{identifier}",
+                    record_type="alba_deputado_estadual",
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=ALBA_PARSER_VERSION,
+                    idempotency_key=hashlib.sha256(
+                        ":".join(
+                            (
+                                "alba-deputado",
+                                page.idempotency_key,
+                                ALBA_PARSER_VERSION,
+                                str(index),
+                                payload_sha256,
+                            )
+                        ).encode("utf-8")
+                    ).hexdigest(),
+                )
+            )
+
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=page.raw_body,
+            content_type=page.media_type,
+            expected_sha256=page.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "A listagem restaurada do Storage diverge da coletada."
+            )
+
+        artifact_key = hashlib.sha256(
+            f"raw-artifact:{page.idempotency_key}".encode()
+        ).hexdigest()
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,
+                object_key=object_key,
+                artifact_idempotency_key=artifact_key,
+                collector_version=ALBA_COLLECTOR_VERSION,
+                parser_version=ALBA_PARSER_VERSION,
                 records=tuple(records),
             )
         )
