@@ -263,6 +263,113 @@ class PostgresExtractionRepository:
         finally:
             connection.close()
 
+    def publishable_candidates(self, limit: int) -> tuple[dict, ...]:
+        """Candidatos pendentes com sua sugestão assistida mais recente."""
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select
+                  result.id::text as result_id,
+                  result.candidate_type,
+                  result.result_payload,
+                  enrichment.result_payload as assisted_payload
+                from raw.extraction_results as result
+                left join lateral (
+                  select inner_enrichment.result_payload
+                  from raw.extraction_results as inner_enrichment
+                  where inner_enrichment.supersedes_id = result.id
+                    and inner_enrichment.candidate_type
+                        = 'assisted_enrichment'
+                  order by
+                    inner_enrichment.created_at desc,
+                    inner_enrichment.id desc
+                  limit 1
+                ) as enrichment on true
+                where result.validation_status = 'needs_review'
+                  and result.candidate_type in ('nomeacao', 'exoneracao')
+                  and not exists (
+                    select 1
+                    from editorial.editorial_reviews as review
+                    where review.target_type = 'raw.extraction_results'
+                      and review.target_id = result.id
+                      and review.decision in ('approved', 'rejected')
+                  )
+                order by result.created_at
+                limit %s
+                """,
+                (limit,),
+            )
+            found = []
+            while True:
+                row = rows.fetchone()
+                if row is None:
+                    break
+                payload = row["result_payload"]
+                assisted = row["assisted_payload"]
+                found.append(
+                    {
+                        "result_id": str(row["result_id"]),
+                        "candidate_type": str(row["candidate_type"]),
+                        "payload": (
+                            payload
+                            if isinstance(payload, dict)
+                            else json.loads(str(payload))
+                        ),
+                        "assisted": (
+                            assisted
+                            if isinstance(assisted, dict) or assisted is None
+                            else json.loads(str(assisted))
+                        ),
+                    }
+                )
+            return tuple(found)
+        finally:
+            connection.close()
+
+    def automated_review_available(self) -> bool:
+        """A migration da publicação automática já foi aplicada?"""
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select 1 as ok
+                from pg_proc as proc
+                join pg_namespace as namespace
+                  on namespace.oid = proc.pronamespace
+                where namespace.nspname = 'editorial'
+                  and proc.proname = 'record_automated_review'
+                """
+            ).fetchone()
+            return row is not None
+        finally:
+            connection.close()
+
+    def record_automated_review(
+        self,
+        *,
+        result_id: str,
+        rationale: str,
+        verification: dict,
+    ) -> str:
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select editorial.record_automated_review(
+                  %s::uuid, %s, %s::jsonb
+                )::text as review_id
+                """,
+                (result_id, rationale, canonical_json(verification)),
+            ).fetchone()
+            if row is None:
+                raise ProcessingError(
+                    "A publicação automática não devolveu identificador."
+                )
+            return str(row["review_id"])
+        finally:
+            connection.close()
+
     def supplemental_page_texts(self, raw_artifact_id: str) -> dict[int, str]:
         connection = self.connection_factory()
         try:

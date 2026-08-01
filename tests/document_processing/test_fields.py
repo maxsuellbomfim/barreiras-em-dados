@@ -54,6 +54,42 @@ class ActFieldExtractionTests(unittest.TestCase):
         self.assertEqual(fields.act_number.value, "902")
         self.assertEqual(fields.act_date.value, "2026-06-15")
 
+    def test_person_found_after_filler_text_between_verb_and_name(self) -> None:
+        # Forma real dos diários: preposições e apostos antes do nome.
+        text = (
+            "PORTARIA Nº 210, DE 10 DE JUNHO DE 2026\n"
+            "RESOLVE: Art. 1º Nomear a candidata habilitada no concurso "
+            "público, MARIA DAS DORES SILVA, para o cargo de Professora."
+        )
+        fields = fields_for(text)
+
+        self.assertEqual(fields.person_name.value, "MARIA DAS DORES SILVA")
+        self.assertEqual(
+            fields.person_name.rule_id,
+            "person-uppercase-in-window",
+        )
+
+    def test_institutional_uppercase_is_not_a_person(self) -> None:
+        text = (
+            "prevê cargos de livre nomeação e exoneração conforme a "
+            "PREFEITURA MUNICIPAL DE BARREIRAS e o ESTADO DA BAHIA, "
+            "NA PROVA OBJETIVA do certame."
+        )
+        fields = fields_for(text)
+
+        self.assertIsNone(fields.person_name.value)
+        self.assertEqual(fields.person_name.status, "not_found")
+
+    def test_digital_signature_block_is_not_a_person(self) -> None:
+        text = (
+            "Dispõe sobre exoneração de servidor.\n"
+            "OTONIEL NASCIMENTO TEIXEIRA:92731767553\n"
+            "Foxit PDF Reader"
+        )
+        fields = fields_for(text)
+
+        self.assertIsNone(fields.person_name.value)
+
     def test_act_heading_missing_or_invalid_is_explicit(self) -> None:
         no_heading = fields_for("RESOLVE: NOMEAR FULANO DE TAL para o cargo,")
         self.assertEqual(no_heading.act_number.status, "not_found")

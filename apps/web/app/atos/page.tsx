@@ -76,8 +76,15 @@ function ActCard({ act }: Readonly<{ act: ApprovedGazetteAct }>) {
         ) : (
           <span>Documento preservado no acervo verificável</span>
         )}{" "}
-        · hash {act.artifactSha256.slice(0, 12)}… · revisado e publicado em{" "}
+        · hash {act.artifactSha256.slice(0, 12)}… · publicado em{" "}
         {dateTimeFormatter.format(new Date(act.approvedAt))}
+      </p>
+      <p className="act-review-mode">
+        {act.reviewMode === "human"
+          ? "Revisado por uma pessoa antes de publicar."
+          : "Publicação automática: dados conferidos por código contra o " +
+            "documento oficial. Sujeita a correção — e toda correção fica " +
+            "registrada."}
       </p>
     </article>
   );
