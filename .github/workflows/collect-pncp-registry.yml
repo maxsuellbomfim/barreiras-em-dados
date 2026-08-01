@@ -52,3 +52,7 @@ jobs:
       - name: Preservar cadastro
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_registry
+
+      - name: Preservar contratações da última semana
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_pncp_contratacoes

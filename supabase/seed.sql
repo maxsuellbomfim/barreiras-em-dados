@@ -306,6 +306,43 @@ set
   enabled = excluded.enabled,
   config = excluded.config;
 
+insert into source.source_endpoints (
+  id,
+  data_source_id,
+  slug,
+  endpoint_kind,
+  base_url,
+  http_method,
+  rate_limit_per_minute,
+  request_timeout_seconds,
+  enabled,
+  config
+)
+values (
+  '00000000-0000-4000-8000-000000000106',
+  '00000000-0000-4000-8000-000000000005',
+  'consulta-contratacoes',
+  'api',
+  'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao',
+  'GET',
+  10,
+  35,
+  true,
+  '{
+    "cnpj": "13654405000195",
+    "pagination": {"tamanhoPagina": 50, "total_fields": ["totalRegistros", "totalPaginas"]},
+    "modalidades": "1-13",
+    "observed_at": "2026-08-01"
+  }'::jsonb
+)
+on conflict (data_source_id, slug) do update
+set
+  base_url = excluded.base_url,
+  rate_limit_per_minute = excluded.rate_limit_per_minute,
+  request_timeout_seconds = excluded.request_timeout_seconds,
+  enabled = excluded.enabled,
+  config = excluded.config;
+
 insert into storage.buckets (
   id,
   name,
