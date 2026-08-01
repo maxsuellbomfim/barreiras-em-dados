@@ -38,7 +38,8 @@ const publicTracks = [
     title: "Nomeações e exonerações",
     description:
       "Uma linha do tempo pesquisável, sempre ligada ao ato oficial e ao trecho que sustenta cada registro.",
-    status: "Em construção",
+    status: "Primeiros atos em revisão",
+    href: "/atos",
   },
   {
     eyebrow: "Depois",
@@ -474,6 +475,11 @@ export default async function HomePage() {
               </div>
               <h3>{track.title}</h3>
               <p>{track.description}</p>
+              {"href" in track && track.href ? (
+                <p>
+                  <a href={track.href}>Ver os primeiros atos →</a>
+                </p>
+              ) : null}
             </article>
           ))}
         </div>
