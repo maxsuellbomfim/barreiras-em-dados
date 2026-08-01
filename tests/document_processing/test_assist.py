@@ -129,8 +129,43 @@ class CascadeTests(unittest.TestCase):
 
         outcome = run_cascade(caller, ENV, MESSAGES, LOGGER)
 
+        # Falha transitória tenta os modelos alternativos do provedor antes
+        # de promover o próximo nível.
         self.assertEqual(outcome.provider, "openrouter")
-        self.assertEqual(caller.calls, [GROQ, OPENROUTER])
+        self.assertGreater(caller.calls.count(GROQ), 1)
+        self.assertEqual(caller.calls[-1], OPENROUTER)
+
+    def test_attempts_are_recorded_for_diagnostics(self) -> None:
+        from barreiras_docproc.assist import AttemptRecord
+
+        caller = ScriptedCaller(
+            {GROQ: (429, b"{}"), OPENROUTER: (200, VALID)}
+        )
+        attempts: list[AttemptRecord] = []
+
+        run_cascade(caller, ENV, MESSAGES, LOGGER, attempts)
+
+        outcomes = [attempt.outcome for attempt in attempts]
+        self.assertIn("quota_exhausted", outcomes)
+        self.assertEqual(outcomes[-1], "succeeded")
+        self.assertEqual(attempts[-1].provider, "openrouter")
+
+    def test_exhausted_cascade_is_recorded(self) -> None:
+        from barreiras_docproc.assist import AttemptRecord
+
+        caller = ScriptedCaller(
+            {GROQ: (500, b""), OPENROUTER: (500, b""), GEMINI: (500, b"")}
+        )
+        attempts: list[AttemptRecord] = []
+
+        with self.assertRaises(CascadeUnavailableError):
+            run_cascade(caller, ENV, MESSAGES, LOGGER, attempts)
+
+        self.assertEqual(attempts[-1].outcome, "exhausted")
+        # Cada modelo tentado deixa rastro com o status HTTP recebido.
+        self.assertTrue(
+            any(a.http_status == 500 for a in attempts),
+        )
 
     def test_all_levels_exhausted_is_explicit(self) -> None:
         caller = ScriptedCaller(

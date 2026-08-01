@@ -103,6 +103,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
     pending = repository.pending_enrichment_candidates(arguments.limit)
     suggested = 0
     contract_failures = 0
+    attempts: list = []
     for candidate in pending:
         payload = candidate["payload"]
         excerpt = str(payload.get("excerpt") or "")
@@ -115,7 +116,13 @@ def _run(argv: Sequence[str] | None = None) -> int:
             fields if isinstance(fields, dict) else {},
         )
         try:
-            outcome = run_cascade(caller, os.environ, messages, logger)
+            outcome = run_cascade(
+                caller,
+                os.environ,
+                messages,
+                logger,
+                attempts,
+            )
         except CascadeUnavailableError:
             log_event(
                 logger,
@@ -166,6 +173,21 @@ def _run(argv: Sequence[str] | None = None) -> int:
             model=outcome.model,
         )
 
+    # Diagnóstico persistido: a causa de "nada sugerido" fica legível no
+    # banco, sem depender do log do Actions.
+    try:
+        repository.record_assist_attempts(
+            "assist_extraction_candidates",
+            attempts,
+        )
+    except Exception as error:  # noqa: BLE001 - diagnóstico é best effort
+        log_event(
+            logger,
+            logging.WARNING,
+            "assist_diagnostics_unavailable",
+            detail=str(error)[:200],
+        )
+
     log_event(
         logger,
         logging.INFO,
@@ -173,6 +195,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
         pending_found=len(pending),
         suggested=suggested,
         contract_failures=contract_failures,
+        attempts=len(attempts),
         prompt_version=PROMPT_VERSION,
     )
     return 0

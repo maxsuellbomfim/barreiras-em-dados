@@ -37,6 +37,14 @@ class Provider:
     env_key: str
     url: str
     model: str
+    # Modelos gratuitos são descontinuados sem aviso: um nome morto não
+    # pode aposentar o provedor inteiro. A cascata tenta os alternativos
+    # antes de promover o próximo nível.
+    fallback_models: tuple[str, ...] = ()
+
+    @property
+    def models(self) -> tuple[str, ...]:
+        return (self.model, *self.fallback_models)
 
 
 PROVIDERS: tuple[Provider, ...] = (
@@ -45,12 +53,22 @@ PROVIDERS: tuple[Provider, ...] = (
         "GROQ_API_KEY",
         "https://api.groq.com/openai/v1/chat/completions",
         "llama-3.3-70b-versatile",
+        (
+            "llama-3.1-8b-instant",
+            "openai/gpt-oss-120b",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+        ),
     ),
     Provider(
         "openrouter",
         "OPENROUTER_API_KEY",
         "https://openrouter.ai/api/v1/chat/completions",
         "meta-llama/llama-3.3-70b-instruct:free",
+        (
+            "google/gemma-3-27b-it:free",
+            "mistralai/mistral-small-3.2-24b-instruct:free",
+            "deepseek/deepseek-chat-v3.1:free",
+        ),
     ),
     Provider(
         "gemini",
@@ -58,16 +76,36 @@ PROVIDERS: tuple[Provider, ...] = (
         "https://generativelanguage.googleapis.com/v1beta/openai/"
         "chat/completions",
         "gemini-2.0-flash",
+        ("gemini-flash-latest", "gemini-2.5-flash"),
     ),
 )
+
+
+@dataclass(frozen=True)
+class AttemptRecord:
+    """Uma tentativa da cascata, para diagnóstico persistido."""
+
+    provider: str
+    model: str | None
+    outcome: str
+    http_status: int | None
+    detail: str | None
 
 
 class QuotaExhaustedError(RuntimeError):
     """O provedor recusou por cota; o próximo nível assume."""
 
+    def __init__(self, message: str, http_status: int | None = None) -> None:
+        super().__init__(message)
+        self.http_status = http_status
+
 
 class ProviderTransientError(RuntimeError):
     """Falha transitória do provedor; o próximo nível assume."""
+
+    def __init__(self, message: str, http_status: int | None = None) -> None:
+        super().__init__(message)
+        self.http_status = http_status
 
 
 class ContractViolationError(RuntimeError):
@@ -189,14 +227,16 @@ def provider_content(
     provider: Provider,
     api_key: str,
     messages: list[dict[str, str]],
+    model: str | None = None,
 ) -> str:
     """Conteúdo textual de um provedor, com falhas mapeadas por classe."""
+    chosen = model or provider.model
     try:
         status, body = caller.post(
             provider.url,
             {"Authorization": f"Bearer {api_key}"},
             {
-                "model": provider.model,
+                "model": chosen,
                 "messages": messages,
                 "temperature": 0,
             },
@@ -208,10 +248,15 @@ def provider_content(
             f"{provider.name} indisponível na rede: {error}"
         ) from error
     if status in (402, 429):
-        raise QuotaExhaustedError(f"{provider.name} respondeu HTTP {status}.")
+        raise QuotaExhaustedError(
+            f"{provider.name} respondeu HTTP {status}.",
+            status,
+        )
     if status != 200:
+        detail = body[:200].decode("utf-8", errors="replace")
         raise ProviderTransientError(
-            f"{provider.name} respondeu HTTP {status}."
+            f"{provider.name}/{chosen} respondeu HTTP {status}: {detail}",
+            status,
         )
     try:
         envelope = json.loads(body)
@@ -228,8 +273,9 @@ def call_provider(
     provider: Provider,
     api_key: str,
     messages: list[dict[str, str]],
+    model: str | None = None,
 ) -> AssistOutcome:
-    content = provider_content(caller, provider, api_key, messages)
+    content = provider_content(caller, provider, api_key, messages, model)
     parsed = _parse_content(str(content))
     suggestions: dict[str, str | None] = {}
     for field in SUGGESTION_FIELDS:
@@ -241,7 +287,7 @@ def call_provider(
     clean_text = parsed.get("texto_limpo")
     return AssistOutcome(
         provider=provider.name,
-        model=provider.model,
+        model=model or provider.model,
         suggestions=suggestions,
         summary=(
             summary.strip()
@@ -257,15 +303,21 @@ def call_provider(
     )
 
 
-def run_cascade(
+def _walk_cascade(
     caller: JsonCaller,
     environment: Mapping[str, str],
     messages: list[dict[str, str]],
     logger: logging.Logger,
-) -> AssistOutcome:
+    attempts: list[AttemptRecord],
+    invoke,
+):
+    """Percorre provedores e, dentro de cada um, os modelos alternativos."""
     for provider in PROVIDERS:
         api_key = (environment.get(provider.env_key) or "").strip()
         if not api_key:
+            attempts.append(
+                AttemptRecord(provider.name, None, "missing_key", None, None)
+            )
             log_event(
                 logger,
                 logging.INFO,
@@ -274,28 +326,76 @@ def run_cascade(
                 reason="missing_key",
             )
             continue
-        try:
-            return call_provider(caller, provider, api_key, messages)
-        except QuotaExhaustedError:
-            log_event(
-                logger,
-                logging.WARNING,
-                "assist_level_promoted",
-                provider=provider.name,
-                reason="quota_exhausted",
+        for model in provider.models:
+            try:
+                result = invoke(provider, api_key, model)
+            except QuotaExhaustedError as error:
+                attempts.append(
+                    AttemptRecord(
+                        provider.name,
+                        model,
+                        "quota_exhausted",
+                        error.http_status,
+                        str(error)[:500],
+                    )
+                )
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "assist_level_promoted",
+                    provider=provider.name,
+                    model=model,
+                    reason="quota_exhausted",
+                )
+                # Cota é do provedor, não do modelo: promove o próximo nível.
+                break
+            except ProviderTransientError as error:
+                attempts.append(
+                    AttemptRecord(
+                        provider.name,
+                        model,
+                        "transient",
+                        error.http_status,
+                        str(error)[:500],
+                    )
+                )
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "assist_model_promoted",
+                    provider=provider.name,
+                    model=model,
+                    reason=f"transient: {error}",
+                )
+                continue
+            attempts.append(
+                AttemptRecord(provider.name, model, "succeeded", 200, None)
             )
-            continue
-        except ProviderTransientError as error:
-            log_event(
-                logger,
-                logging.WARNING,
-                "assist_level_promoted",
-                provider=provider.name,
-                reason=f"transient: {error}",
-            )
-            continue
+            return result
+    attempts.append(
+        AttemptRecord("cascade", None, "exhausted", None, None)
+    )
     raise CascadeUnavailableError(
         "Nenhum provedor de inferência assistida disponível."
+    )
+
+
+def run_cascade(
+    caller: JsonCaller,
+    environment: Mapping[str, str],
+    messages: list[dict[str, str]],
+    logger: logging.Logger,
+    attempts: list[AttemptRecord] | None = None,
+) -> AssistOutcome:
+    return _walk_cascade(
+        caller,
+        environment,
+        messages,
+        logger,
+        attempts if attempts is not None else [],
+        lambda provider, api_key, model: call_provider(
+            caller, provider, api_key, messages, model
+        ),
     )
 
 
@@ -304,44 +404,22 @@ def run_cascade_content(
     environment: Mapping[str, str],
     messages: list[dict[str, str]],
     logger: logging.Logger,
+    attempts: list[AttemptRecord] | None = None,
 ) -> tuple[str, str, str]:
     """Cascata em nível de conteúdo: (provedor, modelo, texto da resposta).
 
     Para contratos JSON diferentes do de campos de ato (ex.: resumo por
     edição), o chamador faz o próprio parse e validação do conteúdo.
     """
-    for provider in PROVIDERS:
-        api_key = (environment.get(provider.env_key) or "").strip()
-        if not api_key:
-            log_event(
-                logger,
-                logging.INFO,
-                "assist_level_skipped",
-                provider=provider.name,
-                reason="missing_key",
-            )
-            continue
-        try:
-            content = provider_content(caller, provider, api_key, messages)
-            return provider.name, provider.model, content
-        except QuotaExhaustedError:
-            log_event(
-                logger,
-                logging.WARNING,
-                "assist_level_promoted",
-                provider=provider.name,
-                reason="quota_exhausted",
-            )
-            continue
-        except ProviderTransientError as error:
-            log_event(
-                logger,
-                logging.WARNING,
-                "assist_level_promoted",
-                provider=provider.name,
-                reason=f"transient: {error}",
-            )
-            continue
-    raise CascadeUnavailableError(
-        "Nenhum provedor de inferência assistida disponível."
+    return _walk_cascade(
+        caller,
+        environment,
+        messages,
+        logger,
+        attempts if attempts is not None else [],
+        lambda provider, api_key, model: (
+            provider.name,
+            model,
+            provider_content(caller, provider, api_key, messages, model),
+        ),
     )
