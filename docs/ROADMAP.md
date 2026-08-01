@@ -77,7 +77,7 @@ Estado em 31/07/2026 — **etapa encerrada**:
 - amostra anotada e métricas;
 - fila de revisão.
 
-Estado em 31/07/2026:
+Estado em 01/08/2026:
 
 - fatia inicial implementada: texto canônico em `raw.document_pages`,
   candidatos determinísticos versionados em fila `needs_review` e passo diário
@@ -86,7 +86,18 @@ Estado em 31/07/2026:
 - backfill retroativo automático: um segundo agendamento diário resolve, a
   partir do banco, a próxima janela curta anterior à cobertura existente e
   avança até `QUERIDO_DIARIO_BACKFILL_HORIZON` (2021-01-01, cobrindo a gestão
-  anterior), com janelas vazias também progredindo.
+  anterior), com janelas vazias também progredindo;
+- fonte primária trocada: o Querido Diário parou em 10/06/2026 (a prefeitura
+  migrou o diário de plataforma) e um coletor direto por cursor de edição
+  preserva os PDFs oficiais de `barreiras.ba.gov.br`, com o QD como backfill
+  e verificação cruzada
+  (`docs/reviews/STAGE_1B_DIRECT_DIARY_DISCOVERY.md`);
+- OCR Tesseract (por) para páginas escaneadas, como passo do workflow;
+- resumos assistidos por cascata determinística de provedores de IA
+  (ADR 0011) anexados aos candidatos da fila — nunca publicados sem revisão;
+- primeiro candidato real revisado e rejeitado com justificativa
+  ("menção, não é ato"), exercitando aprovação por engano + retirada +
+  decisão final com histórico íntegro.
 
 Gate:
 
@@ -101,8 +112,10 @@ Estado em 01/08/2026: fatias 1 a 3 implementadas — fila de revisão
 autenticada em `apps/admin` com identidades de revisor auditáveis e negação
 explícita; decisão humana (aprovar/rejeitar) com justificativa obrigatória
 gravada em `editorial.editorial_reviews` + auditoria, sem tocar no bruto;
-projeção pública somente de aprovados em `/atos`, com trecho, documento
-oficial e hash; canal público de correção via issues do repositório
+retirada de decisão e histórico completo por candidato; projeção pública
+somente de aprovados em `/atos`, com trecho, documento oficial, hash e o
+resumo assistido revisado publicado junto (princípio: tudo publicado tem
+explicação simples); canal público de correção via issues do repositório
 (`docs/reviews/STAGE_1C_ADMIN_QUEUE_REVIEW.md`). Pendentes: MFA (adiado por
 decisão do titular; obrigatório antes do lançamento), dupla revisão de
 amostra e testes negativos de autorização em produção.
@@ -132,6 +145,18 @@ Sequência:
 5. documentos e fornecedores;
 6. coleta de `contratos`, `processos` e `licitacoes` das APIs locais;
 7. reconciliação sem fonte vencedora global e páginas públicas.
+
+Estado em 01/08/2026 — itens 1 a 3 implementados na camada bruta:
+
+- cadastro (órgão + unidades) preservado semanalmente por CNPJ;
+- contratações das 13 modalidades da Lei 14.133/2021 com paginação completa,
+  janela semanal e backfill diário até 2021-07-01 (validação do PNCP);
+- itens e resultados homologados derivados do banco: contratações sem itens
+  preservados ou publicadas nos últimos 120 dias são revisitadas (homologação
+  tardia), com teto explícito por execução e truncamento sempre logado;
+- limitação observada: a API `consulta/v1` do PNCP estava degradada na fonte
+  em 01/08/2026 (500/504); a primeira janela real de contratações ainda
+  aguarda validação remota nos agendamentos.
 
 Gate:
 
