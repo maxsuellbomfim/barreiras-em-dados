@@ -20,6 +20,12 @@ type QueueItem = Readonly<{
     act_type?: string;
     fields?: Record<string, FieldEntry | string>;
   };
+  assisted_payload?: {
+    provider?: string;
+    model?: string;
+    summary?: string | null;
+    suggestions?: Record<string, string | null>;
+  } | null;
   artifact_sha256: string;
   methodology_version: string;
 }>;
@@ -89,6 +95,33 @@ function ReviewCard({
             : item.candidate_type}
       </h2>
       <FieldList payload={item.result_payload} />
+      {item.assisted_payload ? (
+        <div className="assisted" aria-label="Sugestões de IA">
+          <p className="assisted-head">
+            Sugestões assistidas (IA · {item.assisted_payload.provider}) —
+            confira no trecho antes de usar
+          </p>
+          {item.assisted_payload.summary ? (
+            <p className="assisted-summary">
+              “{item.assisted_payload.summary}”
+            </p>
+          ) : null}
+          <dl>
+            {Object.entries(FIELD_LABELS).map(([key, label]) => {
+              const value = item.assisted_payload?.suggestions?.[key];
+              if (!value) {
+                return null;
+              }
+              return (
+                <div key={key} style={{ display: "contents" }}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </div>
+      ) : null}
       <details>
         <summary>Trecho do documento oficial</summary>
         <pre>{item.result_payload.excerpt ?? "sem trecho"}</pre>

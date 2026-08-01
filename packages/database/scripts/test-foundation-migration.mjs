@@ -438,7 +438,7 @@ try {
       candidate_type: "nomeacao",
       validation_status: "needs_review",
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "extraction-review-queue/1.2.0",
+      methodology_version: "extraction-review-queue/1.3.0",
     },
   ]);
   await assert.rejects(
