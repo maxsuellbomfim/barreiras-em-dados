@@ -15,10 +15,20 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-VERIFIER_VERSION = "gazette-act-verifier/1.0.0"
-# Sem estes três verificados, nada é publicado automaticamente.
-REQUIRED_FIELDS = ("person_name", "act_number", "act_date")
-OPTIONAL_FIELDS = ("position", "position_symbol", "organization")
+VERIFIER_VERSION = "gazette-act-verifier/2.0.0"
+# Sem estes verificados, nada é publicado automaticamente.
+REQUIRED_FIELDS = ("person_name", "act_number", "act_date", "position")
+OPTIONAL_FIELDS = ("position_symbol", "organization")
+# Publicação automática exige também a leitura recomposta pela IA: sem ela
+# o cidadão receberia o texto fragmentado do PDF.
+REQUIRE_CLEAN_TEXT = True
+
+# Palavras que só aparecem quando a captura passou para outro ato/bloco.
+_BLOCK_MARKER = re.compile(
+    r"\b(EXTRATO|PORTARIA|CONVOCA\w*|EDITAL|DECRETO|AVISO|JUSTIFICATIVA|"
+    r"Titular|Suplente|Lei\s+n)\b",
+    re.IGNORECASE,
+)
 
 _MONTHS_PT = {
     1: "janeiro",
@@ -83,7 +93,18 @@ def date_in_excerpt(iso_value: str, excerpt: str) -> bool:
 def _field_verified(field: str, value: str, excerpt: str) -> bool:
     if field == "act_date":
         return date_in_excerpt(value, excerpt)
-    return value_in_excerpt(value, excerpt)
+    if not value_in_excerpt(value, excerpt):
+        return False
+    if field == "person_name":
+        # "SMS JUSTIFICATIVA" chegou ao site por sugestão da IA: estar no
+        # texto não basta, precisa parecer nome de pessoa.
+        from .fields import _plausible_person
+
+        return _plausible_person(value)
+    if field == "organization":
+        # Órgão que invade o bloco seguinte da edição não é órgão.
+        return len(value) <= 90 and not _BLOCK_MARKER.search(value)
+    return True
 
 
 def _deterministic_value(fields: dict[str, Any], field: str) -> str | None:
@@ -99,6 +120,7 @@ def verify_candidate(
     payload: dict[str, Any],
     suggestions: dict[str, Any] | None,
     summary: str | None,
+    clean_text: str | None = None,
 ) -> VerificationOutcome:
     """Confere campo a campo; sugestão fora do texto é descartada, nunca
     publicada."""
@@ -132,9 +154,10 @@ def verify_candidate(
         if not accepted and field in REQUIRED_FIELDS:
             missing.append(field)
 
-    has_summary = bool(summary and summary.strip())
-    if not has_summary:
+    if not (summary and summary.strip()):
         missing.append("assisted_summary")
+    if REQUIRE_CLEAN_TEXT and not (clean_text and clean_text.strip()):
+        missing.append("clean_text")
 
     return VerificationOutcome(
         publishable=not missing,

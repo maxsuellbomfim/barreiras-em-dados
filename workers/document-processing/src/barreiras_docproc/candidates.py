@@ -16,7 +16,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-RULESET_VERSION = "gazette-act-candidates/2.0.0"
+# 2.1.0 força o reprocessamento limpo de todo o acervo: a chave de
+# idempotência do job inclui esta versão.
+RULESET_VERSION = "gazette-act-candidates/2.1.0"
 EXCERPT_RADIUS = 400
 # Um ato de pessoal cabe folgado nisto; o corte só age em bloco anômalo.
 MAX_EXCERPT_CHARS = 2600

@@ -32,6 +32,11 @@ _PERSON_STOPWORDS = frozenset(
         "CARGO", "COMISSAO", "SIMBOLO", "FUNCAO", "CONCURSO", "EDITAL",
         "CN", "PDF", "READER", "FOXIT", "VERSAO", "CERTIFICADO", "DIGITAL",
         "VIDEOCONFERENCIA", "SYNGULARID", "MULTIPLA", "AC", "PF", "CPF",
+        # Cabeçalhos e siglas que viraram "pessoa" em produção.
+        "JUSTIFICATIVA", "EXTRATO", "TERMO", "ADITIVO", "CONTRATO",
+        "HOMOLOGACAO", "RATIFICACAO", "INEXIGIBILIDADE", "DISPENSA",
+        "RESULTADO", "ANEXO", "TITULAR", "SUPLENTE", "OBJETO", "VALOR",
+        "SMS", "SEMED", "SEMMAS", "SEINFRA", "SEMAS", "SEFAZ", "SESAU",
     }
 )
 _CONNECTORS = frozenset({"DA", "DE", "DO", "DAS", "DOS", "E"})
