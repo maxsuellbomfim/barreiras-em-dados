@@ -48,6 +48,7 @@ const publicTracks = [
     description:
       "Do processo ao fornecedor: itens, resultados, contratos, documentos e histórico de alterações.",
     status: "Coleta iniciada no PNCP",
+    href: "/licitacoes",
   },
   {
     eyebrow: "Na sequência",
@@ -488,7 +489,9 @@ export default async function HomePage() {
               <div className="track-top">
                 <span>{track.eyebrow}</span>
                 <span className="track-status">
-                  {"href" in track && track.href && approvedCount !== null
+                  {"href" in track &&
+                  track.href === "/atos" &&
+                  approvedCount !== null
                     ? approvedCount === 0
                       ? "Primeiros atos em revisão"
                       : `${approvedCount.toLocaleString("pt-BR")} ${
@@ -503,7 +506,7 @@ export default async function HomePage() {
               <p>{track.description}</p>
               {"href" in track && track.href ? (
                 <p>
-                  <a href={track.href}>Ver a página de atos →</a>
+                  <a href={track.href}>Ver a página →</a>
                 </p>
               ) : null}
             </article>
