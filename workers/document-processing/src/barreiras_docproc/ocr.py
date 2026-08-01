@@ -1,0 +1,111 @@
+"""OCR das páginas escaneadas, com método declarado e versão fixada.
+
+O texto produzido aqui nunca se disfarça de texto embutido: as linhas de
+página levam `extraction_method='ocr'` e um parser_version próprio, para que
+qualquer leitor saiba a origem e o grau de confiança do conteúdo.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import io
+import shutil
+import subprocess
+from dataclasses import dataclass
+from typing import Protocol
+
+OCR_PARSER_VERSION = "gazette-ocr-text/1.0.0"
+# 300 DPI é o ponto doce do Tesseract; PDFs usam 72 pontos por polegada.
+RENDER_SCALE = 300 / 72
+OCR_LANGUAGE = "por"
+
+
+class OcrError(RuntimeError):
+    """Falha explícita ao renderizar ou reconhecer uma página."""
+
+
+@dataclass(frozen=True)
+class OcrPageResult:
+    page_number: int
+    text: str
+    sha256: str
+    parser_version: str
+
+
+class OcrEngine(Protocol):
+    def image_to_text(self, png_bytes: bytes) -> str: ...
+
+
+class TesseractEngine:
+    """Chama o binário tesseract com idioma português via stdin/stdout."""
+
+    def __init__(self, language: str = OCR_LANGUAGE) -> None:
+        binary = shutil.which("tesseract")
+        if binary is None:
+            raise OcrError(
+                "Binário tesseract não encontrado; instale tesseract-ocr e "
+                "tesseract-ocr-por."
+            )
+        self.binary = binary
+        self.language = language
+
+    def image_to_text(self, png_bytes: bytes) -> str:
+        completed = subprocess.run(  # noqa: S603 - argumentos fixos.
+            [self.binary, "stdin", "stdout", "-l", self.language],
+            input=png_bytes,
+            capture_output=True,
+            timeout=120,
+            check=False,
+        )
+        if completed.returncode != 0:
+            raise OcrError(
+                "Tesseract falhou: "
+                f"{completed.stderr.decode('utf-8', 'replace')[:200]}"
+            )
+        return completed.stdout.decode("utf-8", "replace")
+
+
+def rasterize_page(pdf_bytes: bytes, page_number: int) -> bytes:
+    """Renderiza uma página (1-indexada) do PDF em PNG a ~300 DPI."""
+    try:
+        import pypdfium2
+    except ImportError as error:
+        raise OcrError(
+            "Instale a dependência opcional 'ocr' para renderizar PDFs."
+        ) from error
+
+    try:
+        document = pypdfium2.PdfDocument(pdf_bytes)
+        try:
+            page = document[page_number - 1]
+            bitmap = page.render(scale=RENDER_SCALE)
+            image = bitmap.to_pil()
+        finally:
+            document.close()
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        return buffer.getvalue()
+    except OcrError:
+        raise
+    except Exception as error:
+        raise OcrError(
+            f"A página {page_number} não pôde ser renderizada."
+        ) from error
+
+
+def ocr_page(
+    engine: OcrEngine,
+    pdf_bytes: bytes,
+    page_number: int,
+) -> OcrPageResult:
+    """OCR de uma página; página em branco vira texto vazio explícito."""
+    recognized = engine.image_to_text(rasterize_page(pdf_bytes, page_number))
+    normalized = (
+        recognized.replace("\r\n", "\n").replace("\r", "\n").strip()
+    )
+    return OcrPageResult(
+        page_number=page_number,
+        text=normalized,
+        sha256=hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
+        parser_version=OCR_PARSER_VERSION,
+    )

@@ -164,6 +164,83 @@ class PostgresExtractionRepository:
         finally:
             connection.close()
 
+    def supplemental_page_texts(self, raw_artifact_id: str) -> dict[int, str]:
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select page.page_number, page.text_content
+                from raw.document_pages as page
+                where page.raw_artifact_id = %s::uuid
+                  and page.extraction_method = 'ocr'
+                  and page.text_content is not null
+                """,
+                (raw_artifact_id,),
+            )
+            texts: dict[int, str] = {}
+            while True:
+                row = rows.fetchone()
+                if row is None:
+                    break
+                texts[int(row["page_number"])] = str(row["text_content"])
+            return texts
+        finally:
+            connection.close()
+
+    def pending_ocr_pages(
+        self,
+        limit_pages: int,
+    ) -> tuple[tuple[TextArtifact, tuple[int, ...]], ...]:
+        """Páginas nulas ainda sem linha OCR, agrupadas por artefato."""
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select
+                  artifact.id::text as id,
+                  artifact.sha256,
+                  artifact.object_key,
+                  page.page_number
+                from raw.document_pages as page
+                join raw.raw_artifacts as artifact
+                  on artifact.id = page.raw_artifact_id
+                where page.text_content is null
+                  and not exists (
+                    select 1
+                    from raw.document_pages as supplemental
+                    where supplemental.raw_artifact_id
+                        = page.raw_artifact_id
+                      and supplemental.page_number = page.page_number
+                      and supplemental.text_content is not null
+                  )
+                order by artifact.created_at, artifact.id, page.page_number
+                limit %s
+                """,
+                (limit_pages,),
+            )
+            grouped: dict[str, tuple[TextArtifact, list[int]]] = {}
+            while True:
+                row = rows.fetchone()
+                if row is None:
+                    break
+                artifact_id = str(row["id"])
+                if artifact_id not in grouped:
+                    grouped[artifact_id] = (
+                        TextArtifact(
+                            raw_artifact_id=artifact_id,
+                            sha256=str(row["sha256"]),
+                            object_key=str(row["object_key"]),
+                        ),
+                        [],
+                    )
+                grouped[artifact_id][1].append(int(row["page_number"]))
+            return tuple(
+                (artifact, tuple(pages))
+                for artifact, pages in grouped.values()
+            )
+        finally:
+            connection.close()
+
     def persist_pages(self, artifact, pages) -> None:
         """Registra páginas canônicas sem criar job (adiado para OCR)."""
         connection = self.connection_factory()
@@ -208,7 +285,7 @@ class PostgresExtractionRepository:
                   text_content,
                   text_sha256
                 )
-                values (%s::uuid, %s, %s, 'embedded_text', %s, %s)
+                values (%s::uuid, %s, %s, %s, %s, %s)
                 on conflict (raw_artifact_id, page_number, parser_version)
                   do nothing
                 returning id::text as id
@@ -217,6 +294,7 @@ class PostgresExtractionRepository:
                     raw_artifact_id,
                     page.page_number,
                     page.parser_version,
+                    page.extraction_method,
                     page.text,
                     page.sha256,
                 ),

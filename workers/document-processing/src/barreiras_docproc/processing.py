@@ -34,6 +34,7 @@ class PageInput:
     parser_version: str
     text: str | None
     sha256: str | None
+    extraction_method: str = "embedded_text"
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,11 @@ class ExtractionRepository(Protocol):
         artifact: TextArtifact,
         pages: tuple[PageInput, ...],
     ) -> None: ...
+
+    def supplemental_page_texts(
+        self,
+        raw_artifact_id: str,
+    ) -> dict[int, str]: ...
 
 
 JOB_TYPE = "gazette_act_candidates"
@@ -150,19 +156,46 @@ class GazetteActExtractionService:
                 for page in pdf.pages
             )
             if pdf.pages_with_text < len(pdf.pages):
-                # Não extrair de texto parcial: registra as páginas (o OCR
-                # saberá quais faltam) e adia o job até o texto completo.
-                self.repository.persist_pages(artifact, pages)
-                return ExtractionPersistResult(
-                    job_created=False,
-                    results_inserted=0,
-                    deferred_awaiting_ocr=True,
+                supplemental = self.repository.supplemental_page_texts(
+                    artifact.raw_artifact_id
                 )
-            canonical = CanonicalText(
-                text=pdf.text,
-                sha256=pdf.sha256,
-                parser_version=pdf.parser_version,
-            )
+                missing = [
+                    page.page_number
+                    for page in pdf.pages
+                    if page.text is None
+                    and page.page_number not in supplemental
+                ]
+                if missing:
+                    # Não extrair de texto parcial: registra as páginas (o
+                    # OCR saberá quais faltam) e adia até o texto completo.
+                    self.repository.persist_pages(artifact, pages)
+                    return ExtractionPersistResult(
+                        job_created=False,
+                        results_inserted=0,
+                        deferred_awaiting_ocr=True,
+                    )
+                merged_parts = [
+                    page.text
+                    if page.text is not None
+                    else supplemental[page.page_number]
+                    for page in pdf.pages
+                ]
+                merged_text = "\n\n".join(
+                    part for part in merged_parts if part
+                )
+                canonical = CanonicalText(
+                    text=merged_text,
+                    sha256=hashlib.sha256(
+                        merged_text.encode("utf-8")
+                    ).hexdigest(),
+                    parser_version="gazette-merged-text/1.0.0",
+                )
+            else:
+                canonical = CanonicalText(
+                    text=pdf.text,
+                    sha256=pdf.sha256,
+                    parser_version=pdf.parser_version,
+                )
         else:
             canonical = derive_canonical_text(raw_body)
             pages = (

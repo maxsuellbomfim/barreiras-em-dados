@@ -61,7 +61,13 @@ jobs:
           cache: pip
 
       - name: Instalar dependências fixadas
-        run: python -m pip install --disable-pip-version-check ".[postgres,storage,pdf]"
+        run: python -m pip install --disable-pip-version-check ".[postgres,storage,pdf,ocr]"
+
+      - name: Instalar Tesseract em português
+        run: >-
+          sudo apt-get update -q
+          && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-por
+          && tesseract --version | head -1
 
       - name: Verificar CA oficial do Supabase
         run: >-
@@ -100,6 +106,13 @@ jobs:
       - name: Coletar edições diretas do Diário
         run: >-
           python -B -m barreiras_collectors.commands.collect_direct_diary
+
+      - name: OCR das páginas escaneadas
+        env:
+          PYTHONPATH: workers/collectors/src:workers/document-processing/src
+        run: >-
+          python -B -m barreiras_docproc.commands.ocr_gazette_pages
+          --limit-pages 30
 
       - name: Extrair candidatos determinísticos
         env:
