@@ -23,6 +23,17 @@ PROMPT_VERSION = "assisted-inference/2.0.0"
 MAX_CLEAN_TEXT_CHARS = 1200
 # Teto de modelos testados por provedor numa execução.
 MAX_MODELS_PER_PROVIDER = 4
+# A Groq fica atrás do Cloudflare, que respondia 403 (Error 1010) ao
+# User-Agent de coletor — as chamadas nem chegavam ao provedor. Um
+# cabeçalho de cliente comum, ainda identificando o projeto, passa.
+_CLIENT_HEADERS = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "User-Agent": (
+        "Mozilla/5.0 (compatible; BarreirasEmDados/0.1; "
+        "+https://barreiras-em-dados.vercel.app)"
+    ),
+}
 SUGGESTION_FIELDS = (
     "person_name",
     "position",
@@ -238,7 +249,7 @@ class UrllibJsonCaller:
     ) -> tuple[int, bytes]:
         request = urllib.request.Request(  # noqa: S310 - HTTPS fixo.
             url,
-            headers={**headers, "Accept": "application/json"},
+            headers={**headers, **_CLIENT_HEADERS},
             method="GET",
         )
         try:
@@ -259,7 +270,7 @@ class UrllibJsonCaller:
         request = urllib.request.Request(  # noqa: S310 - HTTPS fixo por provedor.
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={**headers, "Content-Type": "application/json"},
+            headers={**headers, **_CLIENT_HEADERS},
             method="POST",
         )
         try:

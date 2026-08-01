@@ -124,6 +124,24 @@ class ActFieldExtractionTests(unittest.TestCase):
         self.assertEqual(fields.person_name.value, "Cleiton Xavier da Silva")
         self.assertEqual(fields.position.value, "Assistente de Setor")
 
+    def test_organization_stops_before_next_gazette_block(self) -> None:
+        """Caso real: a captura invadia o ato seguinte da edição."""
+        from barreiras_docproc.fields import (
+            _ORGANIZATION_PATTERN,
+            _extract_organization,
+        )
+
+        poluido = (
+            "da Secretaria Municipal de Assistência Social e Trabalho "
+            "BARREIRAS BAHIA CONVOCAÇÃO 003/2026 A Secretária"
+        )
+        limpo = _extract_organization(_ORGANIZATION_PATTERN.search(poluido))
+
+        self.assertEqual(
+            limpo.value,
+            "Secretaria Municipal de Assistência Social e Trabalho",
+        )
+
     def test_act_heading_missing_or_invalid_is_explicit(self) -> None:
         no_heading = fields_for("RESOLVE: NOMEAR FULANO DE TAL para o cargo,")
         self.assertEqual(no_heading.act_number.status, "not_found")

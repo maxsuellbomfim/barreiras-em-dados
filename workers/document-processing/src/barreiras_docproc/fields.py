@@ -99,7 +99,14 @@ _SYMBOL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _ORGANIZATION_PATTERN = re.compile(
-    r"(Secretaria(?:\s+Municipal)?\s+de\s+[^,.\n]{3,120})",
+    r"(Secretaria(?:\s+Municipal)?\s+d[eao]\s+[^,.\n\d]{3,90})",
+    re.IGNORECASE,
+)
+# Sem este corte a captura invadia o ato seguinte do diário
+# ("... e Trabalho BARREIRAS – BAHIA CONVOCAÇÃO 003/2026 ...").
+_ORGANIZATION_STOP = re.compile(
+    r"\s+(?:EXTRATO|PORTARIA|CONVOCA\w*|EDITAL|DECRETO|AVISO|RESOLVE|"
+    r"BARREIRAS|BAHIA|ESTADO|MUNIC[ÍI]PIO|Lei)\b.*",
     re.IGNORECASE,
 )
 _HEADING_PATTERN = re.compile(
@@ -235,11 +242,7 @@ def extract_act_fields(
             if symbol
             else _not_found("symbol-after-simbolo")
         ),
-        organization=(
-            _matched("organization-secretaria", organization.group(1))
-            if organization
-            else _not_found("organization-secretaria")
-        ),
+        organization=_extract_organization(organization),
         act_number=act_number,
         act_date=act_date,
     )
@@ -263,6 +266,15 @@ def _extract_person(
     if fallback:
         return _matched("person-uppercase-in-window", fallback)
     return _not_found("person-uppercase-in-window")
+
+
+def _extract_organization(match: re.Match[str] | None) -> FieldExtraction:
+    if match is None:
+        return _not_found("organization-secretaria")
+    value = _ORGANIZATION_STOP.sub("", match.group(1)).strip(" ,;:-")
+    if len(value) < 12:
+        return _not_found("organization-secretaria")
+    return _matched("organization-secretaria", value)
 
 
 def _extract_position(match: re.Match[str] | None) -> FieldExtraction:
