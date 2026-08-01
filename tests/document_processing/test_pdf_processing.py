@@ -69,6 +69,7 @@ class FakeRepository:
         self.batches: list[ExtractionBatch] = []
         self.failures: list[str] = []
         self.deferred_pages: list[tuple] = []
+        self.supplemental: dict[int, str] = {}
 
     def persist_extraction(
         self,
@@ -85,6 +86,9 @@ class FakeRepository:
 
     def persist_pages(self, artifact, pages) -> None:
         self.deferred_pages.append((artifact.raw_artifact_id, pages))
+
+    def supplemental_page_texts(self, raw_artifact_id: str) -> dict[int, str]:
+        return dict(self.supplemental)
 
 
 def make_service(body: bytes) -> tuple[GazetteActExtractionService, ...]:
@@ -174,6 +178,37 @@ class PdfExtractionServiceTests(unittest.TestCase):
         self.assertEqual(artifact_id, artifact.raw_artifact_id)
         self.assertEqual(len(pages), 2)
         self.assertIsNone(pages[1].text)
+
+    def test_ocr_supplement_completes_pdf_and_extracts_candidates(
+        self,
+    ) -> None:
+        body = build_pdf(
+            ["PORTARIA N 10. RESOLVE: nada de pessoal aqui.", None]
+        )
+        service, artifact, repository = make_service(body)
+        repository.supplemental = {
+            2: "Art. 1° - EXONERAR BELTRANA DE TAL do cargo de Chefe,"
+        }
+
+        result = service.process(artifact)
+
+        self.assertTrue(result.job_created)
+        self.assertFalse(result.deferred_awaiting_ocr)
+        self.assertEqual(result.results_inserted, 1)
+        batch = repository.batches[0]
+        self.assertEqual(
+            batch.canonical.parser_version,
+            "gazette-merged-text/1.0.0",
+        )
+        self.assertIn("EXONERAR BELTRANA", batch.canonical.text)
+        candidate = batch.candidates[0]
+        self.assertEqual(candidate.act_type, "exoneracao")
+        self.assertEqual(
+            batch.canonical.text[
+                candidate.match_start : candidate.match_end
+            ],
+            candidate.match_text,
+        )
 
     def test_fully_scanned_pdf_is_deferred_not_half_processed(self) -> None:
         service, artifact, repository = make_service(build_pdf([None]))
