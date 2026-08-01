@@ -327,6 +327,166 @@ class PostgresExtractionRepository:
         finally:
             connection.close()
 
+    def pending_digest_artifacts(
+        self,
+        limit: int,
+        prompt_idempotency: Callable[[str], str],
+    ) -> tuple[dict, ...]:
+        """Edições diretas com texto e ainda sem resumo desta versão."""
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select
+                  artifact.id::text as id,
+                  artifact.sha256,
+                  (artifact.metadata ->> 'edition')::int as edition,
+                  (artifact.metadata ->> 'year')::int as year
+                from raw.raw_artifacts as artifact
+                where artifact.metadata ->> 'schema_name'
+                    = 'gazette-direct-edition'
+                  and exists (
+                    select 1
+                    from raw.document_pages as page
+                    where page.raw_artifact_id = artifact.id
+                      and page.text_content is not null
+                  )
+                order by artifact.created_at
+                limit %s
+                """,
+                (limit * 4,),
+            )
+            found = []
+            while True:
+                row = rows.fetchone()
+                if row is None:
+                    break
+                found.append(
+                    {
+                        "artifact_id": str(row["id"]),
+                        "sha256": str(row["sha256"]),
+                        "edition": int(row["edition"]),
+                        "year": int(row["year"]),
+                    }
+                )
+        finally:
+            connection.close()
+
+        # Filtra pelo job idempotente fora do SQL para reusar o mesmo hash
+        # do código (uma consulta curta por artefato; volume municipal).
+        pending = []
+        for artifact in found:
+            if len(pending) >= limit:
+                break
+            if not self._digest_job_exists(
+                prompt_idempotency(artifact["sha256"])
+            ):
+                pending.append(artifact)
+        return tuple(pending)
+
+    def _digest_job_exists(self, idempotency_key: str) -> bool:
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select 1 as ok
+                from raw.extraction_jobs as job
+                where job.idempotency_key = %s
+                """,
+                (idempotency_key,),
+            ).fetchone()
+            return row is not None
+        finally:
+            connection.close()
+
+    def edition_pages_text(self, artifact_id: str) -> str:
+        """Texto canônico da edição na ordem das páginas (OCR incluído)."""
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select distinct on (page.page_number)
+                  page.page_number,
+                  page.text_content
+                from raw.document_pages as page
+                where page.raw_artifact_id = %s::uuid
+                  and page.text_content is not null
+                order by page.page_number, page.created_at desc
+                """,
+                (artifact_id,),
+            )
+            pages = []
+            while True:
+                row = rows.fetchone()
+                if row is None:
+                    break
+                pages.append(str(row["text_content"]))
+            return "\n\n".join(pages)
+        finally:
+            connection.close()
+
+    def persist_digest(
+        self,
+        *,
+        artifact_id: str,
+        job_idempotency_key: str,
+        extractor_version: str,
+        payload: dict,
+    ) -> str | None:
+        """Job + resultado do resumo em uma transação; None se já existia."""
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                job = connection.execute(
+                    """
+                    insert into raw.extraction_jobs (
+                      raw_artifact_id,
+                      job_type,
+                      idempotency_key,
+                      status,
+                      attempt_count
+                    )
+                    values (%s::uuid, 'edition_digest', %s, 'succeeded', 1)
+                    on conflict (idempotency_key) do nothing
+                    returning id::text as id
+                    """,
+                    (artifact_id, job_idempotency_key),
+                ).fetchone()
+                if job is None:
+                    return None
+                result = connection.execute(
+                    """
+                    insert into raw.extraction_results (
+                      extraction_job_id,
+                      candidate_type,
+                      extractor_version,
+                      validator_version,
+                      result_payload,
+                      confidence,
+                      validation_status
+                    )
+                    values (
+                      %s::uuid, 'edition_digest', %s,
+                      'anchor-verified/1.0.0', %s::jsonb, null, 'needs_review'
+                    )
+                    returning id::text as id
+                    """,
+                    (
+                        str(job["id"]),
+                        extractor_version,
+                        canonical_json(payload),
+                    ),
+                ).fetchone()
+                if result is None:
+                    raise ProcessingError(
+                        "O resumo da edição não recebeu identificador."
+                    )
+                return str(result["id"])
+        finally:
+            connection.close()
+
     def automated_review_available(self) -> bool:
         """A migration da publicação automática já foi aplicada?"""
         connection = self.connection_factory()

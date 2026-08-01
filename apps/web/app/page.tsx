@@ -297,14 +297,14 @@ export default async function HomePage() {
           </a>
 
           <nav className="nav-links" aria-label="Navegação principal">
-            <a href="#coleta">Coleta</a>
+            <a href="/atos">Atos</a>
             <a href="#como-funciona">Como funciona</a>
             <a href="#fontes">Fontes</a>
             <a href="#metodologia">Metodologia</a>
           </nav>
 
-          <a className="nav-cta" href="/atos">
-            Atos publicados
+          <a className="nav-cta" href="/diario">
+            Diário traduzido
           </a>
         </div>
       </header>
