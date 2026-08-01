@@ -124,6 +124,43 @@ class ActFieldExtractionTests(unittest.TestCase):
         self.assertEqual(fields.person_name.value, "Cleiton Xavier da Silva")
         self.assertEqual(fields.position.value, "Assistente de Setor")
 
+    def test_document_heading_is_not_a_person(self) -> None:
+        """'DE NÃO CONTRATAÇÃO' saiu como pessoa na auditoria."""
+        from barreiras_docproc.fields import _plausible_person
+
+        self.assertFalse(_plausible_person("DE NÃO CONTRATAÇÃO"))
+        self.assertFalse(_plausible_person("SMS JUSTIFICATIVA"))
+        self.assertTrue(_plausible_person("Maria Amélia Gonçalves Mariano"))
+
+    def test_position_keeps_abbreviation_in_school_name(self) -> None:
+        from barreiras_docproc.fields import (
+            _POSITION_PATTERN,
+            _extract_position,
+        )
+
+        texto = (
+            "para o cargo de Diretor da Escola Municipal Dr. Antônio "
+            "Balbino, símbolo NH-2"
+        )
+        cargo = _extract_position(_POSITION_PATTERN.search(texto))
+
+        self.assertEqual(
+            cargo.value,
+            "Diretor da Escola Municipal Dr. Antônio Balbino",
+        )
+
+    def test_position_still_stops_at_sentence_end(self) -> None:
+        from barreiras_docproc.fields import (
+            _POSITION_PATTERN,
+            _extract_position,
+        )
+
+        cargo = _extract_position(
+            _POSITION_PATTERN.search("para o cargo de Coordenador. Art. 2º")
+        )
+
+        self.assertEqual(cargo.value, "Coordenador")
+
     def test_organization_stops_before_next_gazette_block(self) -> None:
         """Caso real: a captura invadia o ato seguinte da edição."""
         from barreiras_docproc.fields import (

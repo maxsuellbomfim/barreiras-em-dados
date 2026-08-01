@@ -34,6 +34,7 @@ _PERSON_STOPWORDS = frozenset(
         "VIDEOCONFERENCIA", "SYNGULARID", "MULTIPLA", "AC", "PF", "CPF",
         # Cabeçalhos e siglas que viraram "pessoa" em produção.
         "JUSTIFICATIVA", "EXTRATO", "TERMO", "ADITIVO", "CONTRATO",
+        "CONTRATACAO", "CONTRATACOES", "NAO", "SIM",
         "HOMOLOGACAO", "RATIFICACAO", "INEXIGIBILIDADE", "DISPENSA",
         "RESULTADO", "ANEXO", "TITULAR", "SUPLENTE", "OBJETO", "VALOR",
         "SMS", "SEMED", "SEMMAS", "SEINFRA", "SEMAS", "SEFAZ", "SESAU",
@@ -87,10 +88,13 @@ _PERSON_MARKED_PATTERN = re.compile(
     r"sr|sra|srª)\s*\(?\s*(?i:a)?\s*\)?\s*[,:]?\s+"
     rf"({_NAME})",
 )
+# O ponto de abreviação ("Escola Municipal Dr. Fulano") não encerra o
+# cargo; só o ponto que fecha a frase encerra.
 _POSITION_PATTERN = re.compile(
     r"(?:para|d[oa]|n[oa])\s+o?\s*cargo(?:\s+em\s+comiss[ãa]o)?\s+de\s+"
     r"([^,\n]{3,160}?)"
-    r"(?=,|\s+s[íi]mbolo|\s+d[ao]\s+Secretaria|\s+matr[íi]cula|\.|\n)",
+    r"(?=,|\s+s[íi]mbolo|\s+d[ao]\s+Secretaria|\s+matr[íi]cula"
+    r"|(?<!\bDr)(?<!\bDra)(?<!\bSr)(?<!\bSra)(?<!\bProf)(?<!\bProfa)\.|\n)",
     re.IGNORECASE,
 )
 # "do cargo de provimento efetivo de Professor V" → o cargo é o que vem
