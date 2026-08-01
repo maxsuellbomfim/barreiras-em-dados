@@ -75,7 +75,7 @@ def candidate_payload(
     )
     return {
         "schema_name": "gazette-act-candidate",
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0",
         "act_type": candidate.act_type,
         "fields": fields_payload(fields),
         "rule_id": candidate.rule_id,
