@@ -1378,6 +1378,137 @@ footer {
   }
 }
 
+/* Representantes (/representantes) */
+.coverage-note {
+  margin-top: 2.5rem;
+  padding: 1.2rem 1.4rem;
+  border: 1px solid rgba(23, 105, 224, 0.16);
+  border-radius: 1.2rem;
+  background: rgba(237, 243, 255, 0.7);
+}
+
+.coverage-note strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  letter-spacing: -0.01em;
+}
+
+.coverage-note ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+  color: #4e5a6f;
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+
+.person-grid {
+  margin-top: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 1rem;
+}
+
+.person-card {
+  padding: 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(242, 246, 252, 0.7)),
+    #fbfcfe;
+}
+
+.person-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.person-photo {
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 6rem;
+  object-fit: cover;
+  border-radius: 0.85rem;
+  background: #e7ebf1;
+  box-shadow: 0 4px 14px rgba(28, 37, 62, 0.1);
+}
+
+.person-photo-empty {
+  display: block;
+}
+
+.person-head h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.1rem;
+  letter-spacing: -0.025em;
+}
+
+.person-role {
+  margin: 0 0 0.5rem;
+  color: #6b7688;
+  font-size: 0.82rem;
+}
+
+.person-badge {
+  display: inline-block;
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  background: #eef1f6;
+  color: #637087;
+  font-size: 0.7rem;
+  font-weight: 660;
+}
+
+.person-badge-active {
+  background: rgba(27, 169, 108, 0.12);
+  color: #158154;
+}
+
+.person-facts {
+  margin: 1rem 0 0.75rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.person-facts > div {
+  display: grid;
+  grid-template-columns: 9.5rem 1fr;
+  gap: 0.6rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.person-facts dt {
+  color: #7b8596;
+  font-size: 0.74rem;
+  font-weight: 640;
+}
+
+.person-facts dd {
+  margin: 0;
+  font-size: 0.83rem;
+}
+
+.person-link-note {
+  margin: 0.75rem 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.8rem;
+  background: rgba(237, 243, 255, 0.75);
+  color: #4e5a6f;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .person-facts > div {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+}
+
 /* Licitações (/licitacoes) */
 .procurement-object {
   margin: 0.75rem 0 0.5rem;

@@ -29,6 +29,7 @@ DOCUMENT_EXTENSIONS = {"pdf": "pdf", "txt": "txt"}
 DIRECT_COLLECTOR_VERSION = "barreiras-diario-collector/0.1.0"
 PNCP_COLLECTOR_VERSION = "pncp-registry-collector/0.1.0"
 PNCP_CONTRATACAO_PARSER_VERSION = "pncp-contratacao-page/1.0.0"
+CAMARA_COLLECTOR_VERSION = "camara-federal-collector/0.1.0"
 PNCP_ITEM_PARSER_VERSION = "pncp-item-page/1.0.0"
 PNCP_RESULTADO_PARSER_VERSION = "pncp-resultado-page/1.0.0"
 
@@ -265,6 +266,99 @@ class PncpComprasPersistenceService:
                 object_key=object_key,
                 artifact_idempotency_key=artifact_key,
                 collector_version=PNCP_COLLECTOR_VERSION,
+                parser_version=parser_version,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=page.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+
+class CamaraPersistenceService:
+    """Preserva respostas da Câmara reusando o repositório padrão."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, page, *, record_type: str) -> PersistenceResult:
+        actual = hashlib.sha256(page.raw_body).hexdigest()
+        if actual != page.body_sha256:
+            raise ArtifactIntegrityError(
+                "A resposta da Câmara não corresponde ao hash informado."
+            )
+        object_key = (
+            "camara-federal/deputados/sha256/"
+            f"{page.body_sha256[:2]}/{page.body_sha256}.json"
+        )
+        parser_version = f"{record_type}/1.0.0"
+        records = []
+        for index, item in enumerate(page.items):
+            deputy_id = item.get("id")
+            if not isinstance(deputy_id, int):
+                raise PersistenceContractError(
+                    f"Registro {index} da Câmara sem id numérico."
+                )
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            records.append(
+                RawRecordInput(
+                    source_record_key=f"camara:deputado:{deputy_id}",
+                    record_type=record_type,
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=parser_version,
+                    idempotency_key=hashlib.sha256(
+                        ":".join(
+                            (
+                                record_type,
+                                page.idempotency_key,
+                                parser_version,
+                                str(index),
+                                payload_sha256,
+                            )
+                        ).encode("utf-8")
+                    ).hexdigest(),
+                )
+            )
+
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=page.raw_body,
+            content_type=page.media_type,
+            expected_sha256=page.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "A resposta restaurada do Storage diverge da coletada."
+            )
+
+        artifact_key = hashlib.sha256(
+            f"raw-artifact:{page.idempotency_key}".encode()
+        ).hexdigest()
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,
+                object_key=object_key,
+                artifact_idempotency_key=artifact_key,
+                collector_version=CAMARA_COLLECTOR_VERSION,
                 parser_version=parser_version,
                 records=tuple(records),
             )
