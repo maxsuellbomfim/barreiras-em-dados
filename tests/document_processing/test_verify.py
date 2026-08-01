@@ -58,6 +58,8 @@ class VerifyCandidateTests(unittest.TestCase):
             ),
             {"position": "Assessora Técnica"},
             "A prefeitura exonerou Maria das Dores Silva a pedido dela.",
+            "PORTARIA Nº 205. Exonerar a pedido a servidora Maria das "
+            "Dores Silva do cargo de Assessora Técnica.",
         )
 
         self.assertTrue(outcome.publishable)
@@ -77,14 +79,79 @@ class VerifyCandidateTests(unittest.TestCase):
                     "person_name": det("MARIA DAS DORES SILVA"),
                     "act_number": det("205"),
                     "act_date": det("2026-06-03"),
+                    "position": det("Assessora Técnica"),
                 }
             ),
             {"organization": "Secretaria de Obras"},
             "Resumo simples do ato.",
+            "Texto do ato recomposto.",
         )
 
         self.assertTrue(outcome.publishable)
         self.assertNotIn("organization", outcome.verified_fields)
+
+    def test_institutional_name_from_ai_is_refused(self) -> None:
+        """'SMS JUSTIFICATIVA' chegou ao site: estar no texto não basta."""
+        outcome = verify_candidate(
+            {
+                "excerpt": "SMS JUSTIFICATIVA da PORTARIA Nº 205 de "
+                "03 de junho de 2026, cargo de Diretor.",
+                "fields": {},
+            },
+            {
+                "person_name": "SMS JUSTIFICATIVA",
+                "act_number": "205",
+                "act_date": "2026-06-03",
+                "position": "Diretor",
+            },
+            "Resumo.",
+            "Texto recomposto.",
+        )
+
+        self.assertFalse(outcome.publishable)
+        self.assertIn("person_name", outcome.missing)
+
+    def test_organization_invading_next_block_is_refused(self) -> None:
+        excerpt = (
+            "Art. 1º Exonerar a servidora Maria das Dores Silva do cargo "
+            "de Assessora, da Secretaria Municipal de Assistência Social "
+            "e Trabalho BARREIRAS BAHIA CONVOCAÇÃO 003/2026. "
+            "PORTARIA Nº 205, DE 03 DE JUNHO DE 2026."
+        )
+        outcome = verify_candidate(
+            {"excerpt": excerpt, "fields": {}},
+            {
+                "person_name": "Maria das Dores Silva",
+                "act_number": "205",
+                "act_date": "2026-06-03",
+                "position": "Assessora",
+                "organization": "Secretaria Municipal de Assistência "
+                "Social e Trabalho BARREIRAS BAHIA CONVOCAÇÃO 003/2026",
+            },
+            "Resumo.",
+            "Texto recomposto.",
+        )
+
+        self.assertTrue(outcome.publishable)
+        self.assertNotIn("organization", outcome.verified_fields)
+
+    def test_missing_clean_text_keeps_candidate_for_humans(self) -> None:
+        outcome = verify_candidate(
+            payload(
+                {
+                    "person_name": det("MARIA DAS DORES SILVA"),
+                    "act_number": det("205"),
+                    "act_date": det("2026-06-03"),
+                    "position": det("Assessora Técnica"),
+                }
+            ),
+            None,
+            "Resumo presente.",
+            None,
+        )
+
+        self.assertFalse(outcome.publishable)
+        self.assertIn("clean_text", outcome.missing)
 
     def test_missing_person_keeps_candidate_for_humans(self) -> None:
         outcome = verify_candidate(

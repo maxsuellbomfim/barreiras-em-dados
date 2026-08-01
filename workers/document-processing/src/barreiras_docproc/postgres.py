@@ -576,6 +576,48 @@ class PostgresExtractionRepository:
         finally:
             connection.close()
 
+    def act_already_published(
+        self,
+        *,
+        act_type: str,
+        act_number: str,
+        act_date: str,
+        person_name: str,
+    ) -> bool:
+        """O mesmo ato já está no ar por outro candidato?
+
+        A dedup da projeção esconde a duplicata; esta trava impede que ela
+        exista. A chave é o ato em si: tipo, portaria, data e pessoa.
+        """
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select 1 as ok
+                from editorial.editorial_reviews as review
+                join raw.extraction_results as result
+                  on result.id = review.target_id
+                where review.decision = 'approved'
+                  and review.reviewer_subject like 'automated:%'
+                  and result.candidate_type = %s
+                  and review.checklist #>> '{verification,fields,act_number,value}' = %s
+                  and review.checklist #>> '{verification,fields,act_date,value}' = %s
+                  and review.checklist #>> '{verification,fields,person_name,value}' = %s
+                  and not exists (
+                    select 1
+                    from editorial.editorial_reviews as later
+                    where later.target_id = review.target_id
+                      and later.decision = 'withdrawn'
+                      and later.created_at > review.created_at
+                  )
+                limit 1
+                """,
+                (act_type, act_number, act_date, person_name),
+            ).fetchone()
+            return row is not None
+        finally:
+            connection.close()
+
     def record_automated_review(
         self,
         *,

@@ -58,14 +58,17 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     published = 0
     kept = 0
+    duplicates = 0
     for candidate in repository.publishable_candidates(arguments.limit):
         assisted = candidate["assisted"] or {}
         suggestions = assisted.get("suggestions")
         summary = assisted.get("summary")
+        clean_text = assisted.get("clean_text")
         outcome = verify_candidate(
             candidate["payload"],
             suggestions if isinstance(suggestions, dict) else None,
             summary if isinstance(summary, str) else None,
+            clean_text if isinstance(clean_text, str) else None,
         )
         if not outcome.publishable:
             kept += 1
@@ -75,6 +78,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "publish_candidate_kept_for_review",
                 result_id=candidate["result_id"],
                 missing=list(outcome.missing),
+            )
+            continue
+
+        fields = outcome.verified_fields
+        if repository.act_already_published(
+            act_type=candidate["candidate_type"],
+            act_number=fields["act_number"]["value"],
+            act_date=fields["act_date"]["value"],
+            person_name=fields["person_name"]["value"],
+        ):
+            duplicates += 1
+            log_event(
+                logger,
+                logging.INFO,
+                "publish_candidate_duplicate_skipped",
+                result_id=candidate["result_id"],
+                act_number=fields["act_number"]["value"],
             )
             continue
 
@@ -104,6 +124,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         verifier=VERIFIER_VERSION,
         published=published,
         kept_for_review=kept,
+        duplicates_skipped=duplicates,
     )
     return 0
 
