@@ -676,10 +676,52 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 3,
-    endpoints: 3,
+    sources: 4,
+    endpoints: 4,
     private_buckets: 1,
   });
+
+  // Corredores por fonte: a mesma identidade pode receber um segundo
+  // prefixo autorizado, sem ganhar acesso fora da lista fechada.
+  await database.exec(`
+    insert into audit.storage_workload_identities (
+      slug, auth_user_id, bucket_id, object_prefix, status, activated_at
+    ) values (
+      'barreiras-diario-collector', '${workloadUserId}', 'raw-artifacts',
+      'barreiras-diario/gazettes/', 'active', statement_timestamp()
+    );
+    select set_config('request.jwt.claim.sub', '${workloadUserId}', false);
+  `);
+  const corridorAuthorization = await database.query(`
+    select
+      api.can_access_raw_artifact(
+        'insert', 'raw-artifacts',
+        'barreiras-diario/gazettes/documents/sha256/aa/file.pdf'
+      ) as direct_insert,
+      api.can_access_raw_artifact(
+        'insert', 'raw-artifacts',
+        'querido-diario/gazettes/sha256/aa/file.json'
+      ) as qd_insert_still_works,
+      api.can_access_raw_artifact(
+        'insert', 'raw-artifacts', 'pncp/file.json'
+      ) as foreign_prefix_denied
+  `);
+  assert.deepEqual(corridorAuthorization.rows[0], {
+    direct_insert: true,
+    qd_insert_still_works: true,
+    foreign_prefix_denied: false,
+  });
+  await assert.rejects(
+    database.exec(`
+      insert into audit.storage_workload_identities (
+        slug, auth_user_id, bucket_id, object_prefix, status, activated_at
+      ) values (
+        'prefixo-invalido', '${workloadUserId}', 'raw-artifacts',
+        'pncp/contratos/', 'active', statement_timestamp()
+      );
+    `),
+    /object_prefix/,
+  );
 
   console.log(
     "Migrations e seed executados: 41 tabelas, origem e acesso mínimos.",
