@@ -359,24 +359,29 @@ class PostgresExtractionRepository:
                   where artifact.metadata ->> 'schema_name'
                       = 'gazette-direct-edition'
                   union all
-                  select distinct on (artifact.id)
-                    artifact.id,
-                    artifact.sha256,
-                    artifact.created_at,
-                    (record.payload ->> 'edition')::int,
-                    extract(
-                      year from (record.payload ->> 'date')::date
-                    )::int
-                  from raw.raw_artifacts as artifact
-                  join raw.raw_records as record
-                    on record.record_type = 'querido_diario_gazette'
-                   and record.source_record_key
-                       = artifact.metadata ->> 'source_record_key'
-                  where artifact.metadata ->> 'document_role' = 'txt'
-                    and record.payload ->> 'edition' ~ '^[0-9]+$'
-                    and record.payload ->> 'date'
-                        ~ '^\\d{4}-\\d{2}-\\d{2}'
-                  order by artifact.id, record.collected_at desc
+                  -- O ORDER BY de um DISTINCT ON precisa de subconsulta
+                  -- própria: dentro do UNION ele se aplicaria ao conjunto
+                  -- todo e a consulta falha.
+                  select * from (
+                    select distinct on (artifact.id)
+                      artifact.id,
+                      artifact.sha256,
+                      artifact.created_at,
+                      (record.payload ->> 'edition')::int as edition,
+                      extract(
+                        year from (record.payload ->> 'date')::date
+                      )::int as year
+                    from raw.raw_artifacts as artifact
+                    join raw.raw_records as record
+                      on record.record_type = 'querido_diario_gazette'
+                     and record.source_record_key
+                         = artifact.metadata ->> 'source_record_key'
+                    where artifact.metadata ->> 'document_role' = 'txt'
+                      and record.payload ->> 'edition' ~ '^[0-9]+$'
+                      and record.payload ->> 'date'
+                          ~ '^\\d{4}-\\d{2}-\\d{2}'
+                    order by artifact.id, record.collected_at desc
+                  ) as querido_diario_editions
                 ) as editions
                 where exists (
                   select 1
