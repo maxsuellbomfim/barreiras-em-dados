@@ -16,8 +16,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <header className="topbar">
           <span className="topbar-brand">
-            <span className="topbar-dot" aria-hidden="true" />
-            Barreiras em Dados · Revisão
+            <span className="brand-mark" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+            Barreiras em Dados
+            <span className="topbar-tag">Revisão</span>
           </span>
           <a
             className="topbar-link"
@@ -25,13 +30,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             target="_blank"
             rel="noreferrer"
           >
-            Ver site público ↗
+            Site público ↗
           </a>
         </header>
         {children}
         <footer className="page-foot">
           Área interna de revisão humana — cada decisão fica registrada com
-          autoria, justificativa e data.
+          autoria, justificativa e data. Nada é publicado sem uma pessoa
+          aprovar.
         </footer>
       </body>
     </html>

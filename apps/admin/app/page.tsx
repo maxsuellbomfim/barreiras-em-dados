@@ -52,6 +52,9 @@ type HistoryState =
   | Readonly<{ kind: "error"; message: string }>
   | Readonly<{ kind: "ready"; items: readonly HistoryItem[] }>;
 
+type TypeFilter = "todos" | "nomeacao" | "exoneracao";
+type DecisionFilter = "todas" | "approved" | "rejected";
+
 const FIELD_LABELS: Readonly<Record<string, string>> = {
   person_name: "Pessoa",
   position: "Cargo",
@@ -60,6 +63,36 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   act_number: "Portaria nº",
   act_date: "Data do ato",
 };
+
+const PUBLIC_ACTS_URL = "https://barreiras-em-dados.vercel.app/atos";
+
+function candidateLabel(type: string): string {
+  if (type === "nomeacao") return "Nomeação";
+  if (type === "exoneracao") return "Exoneração";
+  return type;
+}
+
+function normalize(value: string): string {
+  return value
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+function payloadSearchText(
+  candidateType: string,
+  payload: QueueItem["result_payload"],
+): string {
+  const fields = payload.fields ?? {};
+  const values = Object.values(fields)
+    .map((entry) =>
+      typeof entry === "object" && entry !== null ? entry.value ?? "" : "",
+    )
+    .join(" ");
+  return normalize(
+    `${candidateLabel(candidateType)} ${values} ${payload.excerpt ?? ""}`,
+  );
+}
 
 function ReviewCard({
   item,
@@ -87,13 +120,12 @@ function ReviewCard({
 
   return (
     <article aria-label="Candidato de ato">
-      <h2>
-        {item.candidate_type === "nomeacao"
-          ? "Nomeação"
-          : item.candidate_type === "exoneracao"
-            ? "Exoneração"
-            : item.candidate_type}
-      </h2>
+      <div className="card-top">
+        <h2>{candidateLabel(item.candidate_type)}</h2>
+        <span className="badge badge-type">
+          {new Date(item.result_created_at).toLocaleDateString("pt-BR")}
+        </span>
+      </div>
       <FieldList payload={item.result_payload} />
       {item.assisted_payload ? (
         <div className="assisted" aria-label="Sugestões de IA">
@@ -143,23 +175,23 @@ function ReviewCard({
           {error}
         </p>
       ) : null}
-      <p>
+      <div className="actions-row">
         <button
           type="button"
           disabled={busy || rationale.trim().length < 5}
           onClick={() => void decide("approved")}
         >
-          Aprovar
-        </button>{" "}
+          Aprovar e publicar
+        </button>
         <button
           type="button"
-          className="secondary"
+          className="destructive"
           disabled={busy || rationale.trim().length < 5}
           onClick={() => void decide("rejected")}
         >
           Rejeitar
         </button>
-      </p>
+      </div>
       <p className="meta">
         Aprovar publica o ato na página pública /atos, com registro auditado;
         rejeitar mantém fora do site. Extraído por {item.extractor_version} em{" "}
@@ -179,13 +211,12 @@ function FieldList({
       {Object.entries(FIELD_LABELS).map(([key, label]) => {
         const entry = fields[key];
         const isEntry = typeof entry === "object" && entry !== null;
+        const found = isEntry && entry.value;
         return (
           <div key={key} style={{ display: "contents" }}>
             <dt>{label}</dt>
-            <dd>
-              {isEntry && entry.value
-                ? entry.value
-                : "não encontrado — confira o trecho"}
+            <dd className={found ? undefined : "field-missing"}>
+              {found ? entry.value : "não encontrado — confira o trecho"}
             </dd>
           </div>
         );
@@ -221,13 +252,7 @@ function HistoryCard({
   return (
     <article aria-label="Decisão registrada">
       <div className="card-top">
-        <h2>
-          {item.candidate_type === "nomeacao"
-            ? "Nomeação"
-            : item.candidate_type === "exoneracao"
-              ? "Exoneração"
-              : item.candidate_type}
-        </h2>
+        <h2>{candidateLabel(item.candidate_type)}</h2>
         <span
           className={
             item.decision === "approved" ? "badge badge-ok" : "badge badge-no"
@@ -247,6 +272,20 @@ function HistoryCard({
         Decidido em {new Date(item.decided_at).toLocaleString("pt-BR")} ·
         justificativa: “{item.rationale}” · artefato{" "}
         {item.artifact_sha256.slice(0, 12)}…
+        {item.decision === "approved" ? (
+          <>
+            {" "}
+            ·{" "}
+            <a
+              className="act-link"
+              href={PUBLIC_ACTS_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Ver publicado em /atos ↗
+            </a>
+          </>
+        ) : null}
       </p>
       {confirming ? (
         <>
@@ -265,14 +304,14 @@ function HistoryCard({
               {error}
             </p>
           ) : null}
-          <p>
+          <div className="actions-row">
             <button
               type="button"
               disabled={busy || rationale.trim().length < 5}
               onClick={() => void withdraw()}
             >
               Confirmar reversão
-            </button>{" "}
+            </button>
             <button
               type="button"
               className="secondary"
@@ -280,10 +319,10 @@ function HistoryCard({
             >
               Cancelar
             </button>
-          </p>
+          </div>
         </>
       ) : (
-        <p>
+        <div className="actions-row">
           <button
             type="button"
             className="secondary"
@@ -291,13 +330,91 @@ function HistoryCard({
           >
             Reverter decisão
           </button>
-        </p>
+        </div>
       )}
       <p className="meta">
         Reverter não apaga nada: cria um novo registro auditado e devolve o
         candidato à fila para uma nova decisão.
       </p>
     </article>
+  );
+}
+
+function StatsRow({
+  queue,
+  history,
+}: Readonly<{ queue: QueueState; history: HistoryState }>) {
+  const pending = queue.kind === "ready" ? queue.items.length : null;
+  const approved =
+    history.kind === "ready"
+      ? history.items.filter((item) => item.decision === "approved").length
+      : null;
+  const rejected =
+    history.kind === "ready"
+      ? history.items.filter((item) => item.decision === "rejected").length
+      : null;
+  const lastDecision =
+    history.kind === "ready" && history.items.length > 0
+      ? history.items
+          .map((item) => item.decided_at)
+          .sort()
+          .at(-1)
+      : null;
+
+  return (
+    <dl className="stats-row" aria-label="Resumo da revisão">
+      <div className="stat-card">
+        <dt>Aguardando revisão</dt>
+        <dd>{pending ?? "—"}</dd>
+      </div>
+      <div className="stat-card">
+        <dt>Aprovados e públicos</dt>
+        <dd>{approved ?? "—"}</dd>
+      </div>
+      <div className="stat-card">
+        <dt>Rejeitados</dt>
+        <dd>{rejected ?? "—"}</dd>
+      </div>
+      <div className="stat-card">
+        <dt>Última decisão</dt>
+        <dd className="stat-date">
+          {lastDecision
+            ? new Date(lastDecision).toLocaleString("pt-BR", {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "ainda não houve"}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+function TypeChips({
+  value,
+  onChange,
+}: Readonly<{ value: TypeFilter; onChange: (next: TypeFilter) => void }>) {
+  const options: readonly (readonly [TypeFilter, string])[] = [
+    ["todos", "Todos"],
+    ["nomeacao", "Nomeações"],
+    ["exoneracao", "Exonerações"],
+  ];
+  return (
+    <div className="chip-group" role="group" aria-label="Filtrar por tipo">
+      {options.map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          className={value === key ? "chip chip-active" : "chip"}
+          aria-pressed={value === key}
+          onClick={() => onChange(key)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -333,6 +450,10 @@ export default function ReviewQueuePage() {
   const [history, setHistory] = useState<HistoryState>({ kind: "loading" });
   const [view, setView] = useState<"fila" | "historico">("fila");
   const [deciding, setDeciding] = useState(false);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("todos");
+  const [decisionFilter, setDecisionFilter] =
+    useState<DecisionFilter>("todas");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -446,6 +567,51 @@ export default function ReviewQueuePage() {
     }
   }
 
+  const visibleQueue = useMemo(() => {
+    if (queue.kind !== "ready") {
+      return [];
+    }
+    const term = normalize(search.trim());
+    return queue.items.filter((item) => {
+      if (typeFilter !== "todos" && item.candidate_type !== typeFilter) {
+        return false;
+      }
+      if (
+        term &&
+        !payloadSearchText(item.candidate_type, item.result_payload).includes(
+          term,
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [queue, search, typeFilter]);
+
+  const visibleHistory = useMemo(() => {
+    if (history.kind !== "ready") {
+      return [];
+    }
+    const term = normalize(search.trim());
+    return history.items.filter((item) => {
+      if (decisionFilter !== "todas" && item.decision !== decisionFilter) {
+        return false;
+      }
+      if (typeFilter !== "todos" && item.candidate_type !== typeFilter) {
+        return false;
+      }
+      if (
+        term &&
+        !normalize(
+          `${payloadSearchText(item.candidate_type, item.result_payload)} ${item.rationale}`,
+        ).includes(term)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [history, search, typeFilter, decisionFilter]);
+
   if (!sessionLoaded) {
     return (
       <main>
@@ -457,13 +623,11 @@ export default function ReviewQueuePage() {
 
   if (!session) {
     return (
-      <main>
-        <h1>Revisão de candidatos</h1>
-        <p className="meta">
-          Área interna. Nada aqui é público até ser aprovado por uma pessoa.
-        </p>
-        <form onSubmit={handleLogin} aria-describedby="login-hint">
-          <p id="login-hint" className="meta">
+      <main className="login-wrap">
+        <form className="login-card" onSubmit={handleLogin} aria-describedby="login-hint">
+          <h1>Revisão de candidatos</h1>
+          <p id="login-hint" className="page-lede">
+            Área interna. Nada aqui é público até ser aprovado por uma pessoa.
             Entre com a conta de revisão cadastrada.
           </p>
           <label htmlFor="email">E-mail</label>
@@ -497,11 +661,12 @@ export default function ReviewQueuePage() {
   return (
     <main>
       <h1>Revisão de candidatos</h1>
-      <p className="meta">
-        Conectado como {session.user.email}.{" "}
+      <p className="page-lede">
+        Conectado como {session.user.email} ·{" "}
         <button
           type="button"
           className="secondary"
+          style={{ minHeight: "2rem", padding: "0 0.7rem", fontSize: "0.8rem" }}
           onClick={() => void supabase.auth.signOut()}
         >
           Sair
@@ -515,6 +680,8 @@ export default function ReviewQueuePage() {
         </p>
       ) : (
         <>
+          <StatsRow queue={queue} history={history} />
+
           <nav className="tabs" aria-label="Seções do painel">
             <button
               type="button"
@@ -543,6 +710,44 @@ export default function ReviewQueuePage() {
             </button>
           </nav>
 
+          <div className="toolbar">
+            <input
+              type="search"
+              aria-label="Buscar por pessoa, cargo, órgão ou trecho"
+              placeholder="Buscar por pessoa, cargo, órgão ou trecho…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <TypeChips value={typeFilter} onChange={setTypeFilter} />
+            {view === "historico" ? (
+              <div
+                className="chip-group"
+                role="group"
+                aria-label="Filtrar por decisão"
+              >
+                {(
+                  [
+                    ["todas", "Todas"],
+                    ["approved", "Aprovadas"],
+                    ["rejected", "Rejeitadas"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={
+                      decisionFilter === key ? "chip chip-active" : "chip"
+                    }
+                    aria-pressed={decisionFilter === key}
+                    onClick={() => setDecisionFilter(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           {view === "fila" ? (
             <>
               {queue.kind === "loading" ? (
@@ -554,22 +759,27 @@ export default function ReviewQueuePage() {
                 </p>
               ) : null}
               {queue.kind === "ready" && queue.items.length === 0 ? (
-                <p>
+                <div className="empty-state">
                   Nenhum candidato aguardando revisão. Fila vazia é um estado
-                  legítimo: as edições coletadas não continham atos de
-                  pessoal pendentes.
-                </p>
+                  legítimo: as edições coletadas não continham atos de pessoal
+                  pendentes.
+                </div>
               ) : null}
-              {queue.kind === "ready"
-                ? queue.items.map((item) => (
-                    <ReviewCard
-                      key={item.result_id}
-                      item={item}
-                      onDecide={decideCandidate}
-                      busy={deciding}
-                    />
-                  ))
-                : null}
+              {queue.kind === "ready" &&
+              queue.items.length > 0 &&
+              visibleQueue.length === 0 ? (
+                <div className="empty-state">
+                  Nenhum candidato corresponde à busca ou ao filtro atual.
+                </div>
+              ) : null}
+              {visibleQueue.map((item) => (
+                <ReviewCard
+                  key={item.result_id}
+                  item={item}
+                  onDecide={decideCandidate}
+                  busy={deciding}
+                />
+              ))}
             </>
           ) : (
             <>
@@ -582,21 +792,26 @@ export default function ReviewQueuePage() {
                 </p>
               ) : null}
               {history.kind === "ready" && history.items.length === 0 ? (
-                <p>
-                  Nenhuma decisão registrada ainda. Tudo o que você aprovar
-                  ou rejeitar aparece aqui, com justificativa e data.
-                </p>
+                <div className="empty-state">
+                  Nenhuma decisão registrada ainda. Tudo o que você aprovar ou
+                  rejeitar aparece aqui, com justificativa e data.
+                </div>
               ) : null}
-              {history.kind === "ready"
-                ? history.items.map((item) => (
-                    <HistoryCard
-                      key={item.result_id}
-                      item={item}
-                      onWithdraw={withdrawDecision}
-                      busy={deciding}
-                    />
-                  ))
-                : null}
+              {history.kind === "ready" &&
+              history.items.length > 0 &&
+              visibleHistory.length === 0 ? (
+                <div className="empty-state">
+                  Nenhuma decisão corresponde à busca ou ao filtro atual.
+                </div>
+              ) : null}
+              {visibleHistory.map((item) => (
+                <HistoryCard
+                  key={item.result_id}
+                  item={item}
+                  onWithdraw={withdrawDecision}
+                  busy={deciding}
+                />
+              ))}
             </>
           )}
         </>
