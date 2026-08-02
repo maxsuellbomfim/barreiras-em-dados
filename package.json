@@ -16,6 +16,7 @@
     "check:contracts": "node packages/data-contracts/scripts/validate-schemas.mjs",
     "check:migration": "node packages/database/scripts/test-foundation-migration.mjs",
     "check:sources": "node packages/data-contracts/scripts/validate-source-observations.mjs",
+    "check:source-catalog": "node packages/data-contracts/scripts/validate-source-catalog.mjs",
     "test": "node --test"
   },
   "devDependencies": {

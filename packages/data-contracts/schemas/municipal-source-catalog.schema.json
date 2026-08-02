@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreirasemdados.org/schemas/municipal-source-catalog/1-0-0",
+  "title": "Barreiras 360 municipal source catalog",
+  "description": "Catalogo versionado das fontes publicas monitoradas para Barreiras.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["catalog_version", "jurisdiction", "sources"],
+  "properties": {
+    "catalog_version": { "type": "string", "const": "1.0.0" },
+    "jurisdiction": { "type": "string", "const": "Barreiras-BA" },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "publisher",
+          "authority_level",
+          "catalog_url",
+          "endpoint_url",
+          "endpoint_kind",
+          "status",
+          "observed_at",
+          "evidence_policy"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "publisher": { "type": "string", "minLength": 1 },
+          "authority_level": {
+            "type": "string",
+            "enum": ["official", "official_aggregator", "oversight_body", "secondary"]
+          },
+          "catalog_url": { "type": "string", "pattern": "^https://" },
+          "endpoint_url": { "type": "string", "pattern": "^https://" },
+          "endpoint_kind": {
+            "type": "string",
+            "enum": ["api", "html", "rss", "file", "database_export"]
+          },
+          "resources": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "formats": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "coverage": { "type": "string", "minLength": 1 },
+          "observed_at": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "degraded", "unverified", "deprecated"]
+          },
+          "rate_limit_per_minute": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "evidence_policy": {
+            "type": "string",
+            "enum": ["raw_and_source_url", "source_url_only", "manual_review"]
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

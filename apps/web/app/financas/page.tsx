@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 
 import {
-  formatBrlDecimal,
-  getPublicRevenues,
-} from "../../lib/revenues";
+  financeResourceLabel,
+  getPublicFinanceDocuments,
+} from "../../lib/finance-documents";
+import { formatBrlDecimal, getPublicRevenues } from "../../lib/revenues";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Finanças públicas",
   description:
-    "Receitas municipais normalizadas com fonte, data de coleta e evidência verificável.",
+    "Receitas, despesas e documentos financeiros municipais com fonte verificável.",
 };
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -21,13 +22,25 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
 });
 
 function formatDate(value: string | null): string {
-  return value
-    ? dateFormatter.format(new Date(`${value}T12:00:00-03:00`))
-    : "data não informada";
+  if (!value) return "data não informada";
+  const parsed = new Date(`${value}T12:00:00-03:00`);
+  return Number.isNaN(parsed.getTime()) ? value : dateFormatter.format(parsed);
+}
+
+function formatCollectedAt(value: string): string {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : dateFormatter.format(parsed);
 }
 
 export default async function FinancesPage() {
-  const result = await getPublicRevenues();
+  const [revenuesResult, documentsResult] = await Promise.all([
+    getPublicRevenues(),
+    getPublicFinanceDocuments(),
+  ]);
+  const revenues =
+    revenuesResult.state === "available" ? revenuesResult.revenues : [];
+  const documents =
+    documentsResult.state === "available" ? documentsResult.documents : [];
 
   return (
     <main>
@@ -46,59 +59,34 @@ export default async function FinancesPage() {
 
       <section className="section" aria-labelledby="finances-title">
         <div className="section-heading">
-          <span className="eyebrow">Receitas do município</span>
+          <span className="eyebrow">Dinheiro público</span>
           <h1 id="finances-title">Finanças públicas, sem esconder a conta.</h1>
           <p>
-            Esta página exibirá receitas normalizadas a partir dos registros
-            oficiais da Prefeitura. Cada linha terá sua fonte, data e artefato
-            preservado. Totais só aparecem quando forem calculados por código
-            sobre dados reconciliados.
+            Acompanhe receitas já normalizadas e os documentos oficiais que
+            registram arrecadação, despesas, transferências e relatórios fiscais.
+            Quando um valor ainda estiver em um PDF, mostramos o documento e
+            deixamos explícito que a extração numérica ainda não foi validada.
           </p>
         </div>
 
-        {result.state === "unavailable" ? (
-          <div className="collection-unavailable" role="status">
-            <div>
-              <strong>Dados financeiros temporariamente indisponíveis</strong>
+        {revenues.length > 0 ? (
+          <section aria-labelledby="revenue-title">
+            <div className="section-heading compact">
+              <span className="eyebrow">Dados numéricos validados</span>
+              <h2 id="revenue-title">Receitas normalizadas</h2>
               <p>
-                A base ainda está sendo validada. Isso não significa receita
-                zero nem ausência de publicação na fonte oficial.
-              </p>
-              <a
-                href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Consultar a fonte oficial →
-              </a>
-            </div>
-          </div>
-        ) : result.revenues.length === 0 ? (
-          <div className="collection-unavailable" role="status">
-            <div>
-              <strong>Nenhuma receita reconciliada foi publicada ainda</strong>
-              <p>
-                A coleta bruta e o contrato de normalização já estão preparados;
-                a publicação aguarda confirmação de classificação, estornos e
-                chaves estáveis.
+                {revenues.length.toLocaleString("pt-BR")} registros com cálculo
+                determinístico, versão e evidência de origem.
               </p>
             </div>
-          </div>
-        ) : (
-          <>
-            <p className="acts-count" role="status">
-              {result.revenues.length.toLocaleString("pt-BR")} registros de receita
-            </p>
             <div className="digest-grid">
-              {result.revenues.map((revenue) => (
+              {revenues.map((revenue) => (
                 <article className="digest-card" key={revenue.revenueId}>
                   <div className="track-top">
                     <span>{revenue.publicBodyName}</span>
-                    <span className="track-status">
-                      {revenue.fiscalYear}
-                    </span>
+                    <span className="track-status">{revenue.fiscalYear}</span>
                   </div>
-                  <h2 className="procurement-object">{revenue.description}</h2>
+                  <h3 className="procurement-object">{revenue.description}</h3>
                   <dl className="procurement-values">
                     <div>
                       <dt>Valor arrecadado</dt>
@@ -124,18 +112,82 @@ export default async function FinancesPage() {
                       <span>Fonte preservada sem URL pública</span>
                     )}{" "}
                     · hash {revenue.artifactSha256.slice(0, 12)}… · coletado em{" "}
-                    {dateFormatter.format(new Date(revenue.collectedAt))}
+                    {formatCollectedAt(revenue.collectedAt)}
                   </p>
                 </article>
               ))}
             </div>
-          </>
-        )}
+          </section>
+        ) : null}
+
+        <section aria-labelledby="document-title" className="finance-documents">
+          <div className="section-heading compact">
+            <span className="eyebrow">Documentos oficiais</span>
+            <h2 id="document-title">O que a Prefeitura publicou</h2>
+            <p>
+              {documents.length > 0
+                ? `${documents.length.toLocaleString("pt-BR")} documentos financeiros encontrados.`
+                : "A coleta dos documentos financeiros ainda não está disponível."}
+            </p>
+          </div>
+
+          {documents.length === 0 ? (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Nenhum documento financeiro preservado ainda</strong>
+                <p>
+                  Isso não significa receita zero. A API oficial publica parte
+                  das informações como PDFs; o coletor precisa preservar o
+                  documento antes de extrair números.
+                </p>
+                <a
+                  href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Consultar a fonte oficial →
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="digest-grid">
+              {documents.map((document) => (
+                <article className="digest-card" key={document.documentId}>
+                  <div className="track-top">
+                    <span>{financeResourceLabel(document.sourceResource)}</span>
+                    <span className="track-status">
+                      {document.fiscalYear ?? "período não informado"}
+                    </span>
+                  </div>
+                  <h3 className="procurement-object">{document.title}</h3>
+                  <dl className="procurement-values">
+                    <div>
+                      <dt>Referência</dt>
+                      <dd>{document.referenceDate ?? "não informada"}</dd>
+                    </div>
+                    {document.description ? (
+                      <div>
+                        <dt>Descrição</dt>
+                        <dd>{document.description}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                  <p className="act-evidence">
+                    <a href={document.documentUrl} target="_blank" rel="noreferrer">
+                      Abrir documento oficial →
+                    </a>{" "}
+                    · resposta da API preservada · hash {document.artifactSha256.slice(0, 12)}…
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         <p className="hero-note">
-          Metodologia: valores monetários são tratados como decimal exato. Esta
-          página não soma empenho, liquidação, pagamento e receita como se fossem
-          o mesmo estágio contábil.
+          Metodologia: empenho, liquidação, pagamento e receita são estágios
+          diferentes. O Barreiras 360 não soma esses estágios como se fossem a
+          mesma coisa e não publica valor extraído de PDF sem validação.
         </p>
       </section>
 
@@ -149,11 +201,10 @@ export default async function FinancesPage() {
           </div>
           <div className="footer-status">
             <span className="status-dot" />
-            Receitas somente com fonte e evidência
+            Receitas e documentos somente com fonte e evidência
           </div>
         </div>
       </footer>
     </main>
   );
 }
-
