@@ -1696,6 +1696,152 @@ footer {
   line-height: 1.55;
 }
 
+.representation-jump-nav {
+  position: sticky;
+  z-index: 4;
+  top: 0.8rem;
+  display: flex;
+  gap: 0.35rem;
+  margin: 1.25rem 0 0;
+  padding: 0.4rem;
+  overflow-x: auto;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 30px rgba(33, 46, 79, 0.08);
+  backdrop-filter: blur(18px) saturate(150%);
+  scrollbar-width: none;
+}
+
+.representation-jump-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.representation-jump-nav a {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  color: #5c687d;
+  font-size: 0.76rem;
+  font-weight: 680;
+  text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.representation-jump-nav a:hover,
+.representation-jump-nav a:focus-visible {
+  background: #eef3fb;
+  color: var(--blue-dark);
+}
+
+.representation-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.representation-overview > div {
+  display: grid;
+  gap: 0.15rem;
+  min-height: 5.1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(28, 40, 61, 0.08);
+  border-radius: 1rem;
+  background: linear-gradient(145deg, #ffffff, #f4f7fb);
+}
+
+.representation-overview strong {
+  color: var(--ink);
+  font-size: 1.35rem;
+  letter-spacing: -0.04em;
+}
+
+.representation-overview span {
+  color: #718097;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.representation-collapsible {
+  margin-top: 2.6rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1.35rem;
+  background: rgba(249, 251, 254, 0.72);
+}
+
+.representation-collapsible > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.05rem 1.2rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.representation-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.representation-collapsible > summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  color: var(--blue);
+  font-size: 1.35rem;
+  font-weight: 400;
+  transition: transform 180ms ease;
+}
+
+.representation-collapsible[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.representation-collapsible > summary:focus-visible {
+  outline: 3px solid rgba(23, 105, 224, 0.2);
+  outline-offset: -3px;
+}
+
+.representation-collapsible > summary > span:first-child {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.representation-collapsible > summary strong {
+  color: var(--ink);
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.representation-collapsible-meta {
+  color: #718097;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.representation-collapsible > .representation-block {
+  margin-top: 0;
+  padding: 0 1.2rem 1.2rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .representation-jump-nav a,
+  .representation-collapsible > summary::after {
+    transition: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .representation-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .representation-collapsible-meta {
+    white-space: normal;
+    text-align: right;
+  }
+}
+
 .person-grid {
   margin-top: 1.5rem;
   display: grid;
