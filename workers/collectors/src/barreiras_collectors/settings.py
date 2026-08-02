@@ -6,7 +6,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from urllib.parse import parse_qs, urlparse
 
 PRODUCTION_SSL_ROOT_CERTIFICATE = "config/certificates/supabase-prod-ca-2021.crt"
@@ -200,10 +200,14 @@ class PersistenceSettings:
                 "data/local-evidence",
             ).strip()
             local_directory = Path(raw_directory)
+            windows_directory = PureWindowsPath(raw_directory)
             if (
                 not raw_directory
                 or local_directory.is_absolute()
+                or windows_directory.is_absolute()
+                or bool(windows_directory.drive)
                 or any(part in {"", ".", ".."} for part in local_directory.parts)
+                or any(part in {"", ".", ".."} for part in windows_directory.parts)
             ):
                 raise EnvironmentValidationError(
                     "LOCAL_DATA_DIRECTORY deve ser um caminho relativo seguro."

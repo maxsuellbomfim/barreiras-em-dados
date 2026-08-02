@@ -112,7 +112,7 @@ _ORGANIZATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 # Sem este corte a captura invadia o ato seguinte do diário
-# ("... e Trabalho BARREIRAS – BAHIA CONVOCAÇÃO 003/2026 ...").
+# ("... e Trabalho BARREIRAS - BAHIA CONVOCAÇÃO 003/2026 ...").
 _ORGANIZATION_STOP = re.compile(
     r"\s+(?:EXTRATO|PORTARIA|CONVOCA\w*|EDITAL|DECRETO|AVISO|RESOLVE|"
     r"BARREIRAS|BAHIA|ESTADO|MUNIC[ÍI]PIO|Lei)\b.*",

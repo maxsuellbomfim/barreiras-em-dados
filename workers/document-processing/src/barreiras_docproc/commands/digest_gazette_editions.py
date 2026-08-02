@@ -42,7 +42,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Falha aqui é estado explícito: não derruba os passos anteriores."""
     try:
         return _run(argv)
-    except Exception as error:  # noqa: BLE001 - fronteira de processo
+    except Exception as error:
         logging.getLogger(__name__).warning(
             json.dumps(
                 {
@@ -231,7 +231,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
             "digest_gazette_editions",
             attempts,
         )
-    except Exception as error:  # noqa: BLE001 - diagnóstico é best effort
+    except Exception as error:
         log_event(
             logger,
             logging.WARNING,

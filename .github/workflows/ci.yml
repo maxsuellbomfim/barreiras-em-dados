@@ -29,7 +29,6 @@ jobs:
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22.x
-          cache: pnpm
 
       - name: Preparar pnpm
         uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4.0.0
@@ -81,14 +80,8 @@ jobs:
       - name: Verificar estilo
         run: python -m ruff check workers/collectors/src workers/document-processing/src tests
 
-      - name: Testar coletores
+      - name: Testar coletores e processamento de documentos
         env:
           PYTHONDONTWRITEBYTECODE: '1'
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
-        run: python -B -m unittest discover -s tests/collectors -p 'test_*.py' -v
-
-      - name: Testar processamento de documentos
-        env:
-          PYTHONDONTWRITEBYTECODE: '1'
-          PYTHONPATH: workers/collectors/src:workers/document-processing/src
-        run: python -B -m unittest discover -s tests/document_processing -p 'test_*.py' -v
+        run: python -B -m unittest discover -s tests -t . -p 'test_*.py' -v

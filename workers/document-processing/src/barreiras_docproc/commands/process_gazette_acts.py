@@ -122,7 +122,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 error_code="unreadable_document",
             )
             continue
-        except Exception as error:  # noqa: BLE001 - fronteira de lote
+        except Exception as error:
             # Um documento hostil (ex.: byte NUL vazado da camada binária)
             # não pode custar as outras edições da execução.
             failed += 1
@@ -137,8 +137,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     error_code="processing_error",
                     error_detail=f"{type(error).__name__}: {error}",
                 )
-            except Exception:  # noqa: BLE001 - registro é best effort
-                pass
+            except Exception:
+                logger.debug(
+                    "extraction_failure_persistence_failed",
+                    exc_info=True,
+                )
             log_event(
                 logger,
                 logging.WARNING,
