@@ -53,6 +53,12 @@ Quando uma nova identidade técnica for criada, a migration de rotação:
 4. ativa somente o novo UUID no mesmo bucket e prefixo;
 5. não apaga o usuário Auth antigo e não grava segredos no banco ou no Git.
 
+Se o usuário Auth antigo já tiver sido excluído antes da rotação, o Supabase
+remove a linha de allowlist por `ON DELETE CASCADE`. Nesse caso a migration não
+tenta recriar uma identidade impossível: registra a lacuna no log de auditoria
+e ativa o novo UUID. O histórico da ativação anterior continua preservado em
+`audit.audit_events`.
+
 O PR da rotação deve ser revisado e mesclado antes da aplicação no Supabase.
 Depois disso, o segredo correspondente precisa ser atualizado somente no secret
 `MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD` do GitHub Actions.
