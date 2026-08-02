@@ -38,7 +38,10 @@ class SqlPlaceholderTests(unittest.TestCase):
             source = module.read_text(encoding="utf-8")
             for line_number, line in enumerate(source.splitlines(), start=1):
                 stripped = line.strip()
-                if stripped.startswith("#") or stripped.startswith("--"):
+                # Comentário Python não vai para o driver; comentário SQL
+                # (`--`) vai dentro da string e é lido igual — foi assim
+                # que um `%` dentro de comentário derrubou a publicação.
+                if stripped.startswith("#"):
                     continue
                 if "%" not in line:
                     continue
