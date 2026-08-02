@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 
 import {
   getApprovedGazetteActs,
-  type ApprovedGazetteAct,
 } from "../../lib/approved-acts";
+import { ActExplorer } from "./act-explorer";
 
 export const revalidate = 300;
 
@@ -14,13 +14,6 @@ export const metadata: Metadata = {
     "pessoa e ligados ao documento oficial que os sustenta.",
 };
 
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "long",
-  year: "numeric",
-  timeZone: "America/Bahia",
-});
-
 const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
   month: "short",
@@ -29,66 +22,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
   timeZone: "America/Bahia",
 });
-
-function formatDate(value: string) {
-  return dateFormatter.format(new Date(`${value}T12:00:00-03:00`));
-}
-
-function ActCard({ act }: Readonly<{ act: ApprovedGazetteAct }>) {
-  return (
-    <article className="track-card" aria-label="Ato oficial revisado">
-      <div className="track-top">
-        <span>{act.actType === "nomeacao" ? "Nomeação" : "Exoneração"}</span>
-        <span className="track-status">
-          {act.gazetteDate ? formatDate(act.gazetteDate) : "data no documento"}
-        </span>
-      </div>
-      <h2>{act.personName ?? "Pessoa indicada no trecho do documento"}</h2>
-      <p>
-        {[
-          act.positionTitle,
-          act.positionSymbol ? `símbolo ${act.positionSymbol}` : null,
-          act.organization,
-        ]
-          .filter(Boolean)
-          .join(" · ") ||
-          "Detalhes do cargo disponíveis no trecho do documento oficial."}
-      </p>
-      {act.assistedSummary ? (
-        <p className="act-summary">
-          <strong>Em palavras simples:</strong> {act.assistedSummary}
-          <span className="act-summary-label">
-            Resumo gerado com IA e conferido na revisão humana.
-          </span>
-        </p>
-      ) : null}
-      {act.excerpt ? (
-        <details>
-          <summary>Trecho do documento oficial</summary>
-          <pre className="act-excerpt">{act.excerpt}</pre>
-        </details>
-      ) : null}
-      <p className="act-evidence">
-        {act.gazetteUrl ? (
-          <a href={act.gazetteUrl} target="_blank" rel="noreferrer">
-            Ver o documento oficial (PDF)
-          </a>
-        ) : (
-          <span>Documento preservado no acervo verificável</span>
-        )}{" "}
-        · hash {act.artifactSha256.slice(0, 12)}… · publicado em{" "}
-        {dateTimeFormatter.format(new Date(act.approvedAt))}
-      </p>
-      <p className="act-review-mode">
-        {act.reviewMode === "human"
-          ? "Revisado por uma pessoa antes de publicar."
-          : "Publicação automática: dados conferidos por código contra o " +
-            "documento oficial. Sujeita a correção — e toda correção fica " +
-            "registrada."}
-      </p>
-    </article>
-  );
-}
 
 export default async function ApprovedActsPage() {
   const result = await getApprovedGazetteActs();
@@ -152,11 +85,7 @@ export default async function ApprovedActsPage() {
             </div>
           </div>
         ) : (
-          <div className="track-grid">
-            {result.acts.map((act) => (
-              <ActCard key={act.actId} act={act} />
-            ))}
-          </div>
+          <ActExplorer acts={result.acts} />
         )}
 
         <p className="hero-note">
