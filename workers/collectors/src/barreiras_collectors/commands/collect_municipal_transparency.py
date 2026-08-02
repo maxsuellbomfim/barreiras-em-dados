@@ -106,7 +106,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
     logging.basicConfig(
-        level=getattr(collector_settings, "log_level"),
+        level=collector_settings.log_level,
         format="%(message)s",
         force=True,
     )
