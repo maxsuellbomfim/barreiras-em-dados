@@ -1,0 +1,293 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
+import type { Procurement } from "../../lib/pncp-procurements";
+
+const BARREIRAS_CNPJ = "13654405000195";
+
+const currencyFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  timeZone: "America/Bahia",
+});
+
+function formatDate(value: string) {
+  return dateFormatter.format(new Date(`${value}T12:00:00-03:00`));
+}
+
+function pncpUrl(procurement: Procurement) {
+  return (
+    "https://pncp.gov.br/app/editais/" +
+    `${BARREIRAS_CNPJ}/${procurement.ano}/${procurement.sequencial}`
+  );
+}
+
+function searchableText(procurement: Procurement) {
+  return [
+    procurement.objeto,
+    procurement.unidade,
+    procurement.modalidade,
+    procurement.situacao,
+    ...procurement.resultados.flatMap((resultado) => [
+      resultado.fornecedor,
+      resultado.niFornecedor,
+    ]),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase("pt-BR");
+}
+
+function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>) {
+  return (
+    <article className="digest-card" aria-label="Contratação pública">
+      <div className="track-top">
+        <span>
+          {procurement.modalidade ?? "Contratação"} ·{" "}
+          {procurement.dataPublicacao
+            ? formatDate(procurement.dataPublicacao)
+            : `${procurement.ano}`}
+        </span>
+        <span className="track-status">
+          {procurement.situacao ?? "situação no PNCP"}
+        </span>
+      </div>
+      <h2 className="procurement-object">{procurement.objeto}</h2>
+      <dl className="procurement-values">
+        {procurement.unidade ? (
+          <div>
+            <dt>Unidade compradora</dt>
+            <dd>{procurement.unidade}</dd>
+          </div>
+        ) : null}
+        <div>
+          <dt>Valor estimado (PNCP)</dt>
+          <dd>
+            {procurement.valorEstimado !== null
+              ? currencyFormatter.format(procurement.valorEstimado)
+              : "não informado"}
+          </dd>
+        </div>
+        <div>
+          <dt>Valor homologado (PNCP)</dt>
+          <dd>
+            {procurement.valorHomologado !== null
+              ? currencyFormatter.format(procurement.valorHomologado)
+              : "ainda sem homologação registrada"}
+          </dd>
+        </div>
+      </dl>
+      {procurement.resultados.length > 0 ? (
+        <details className="procurement-results" open>
+          <summary>
+            Quem venceu ({procurement.resultados.length}{" "}
+            {procurement.resultados.length === 1 ? "item" : "itens"})
+          </summary>
+          <ul>
+            {procurement.resultados.map((resultado) => (
+              <li key={`${procurement.controlNumber}-${resultado.numeroItem}`}>
+                <strong>{resultado.fornecedor}</strong>
+                {resultado.niFornecedor
+                  ? ` · CNPJ ${resultado.niFornecedor}`
+                  : resultado.tipoPessoa === "PF"
+                    ? " · pessoa física (documento preservado)"
+                    : ""}
+                {resultado.valorTotalHomologado !== null
+                  ? ` — ${currencyFormatter.format(
+                      resultado.valorTotalHomologado,
+                    )}`
+                  : ""}
+                {resultado.dataResultado
+                  ? ` (homologado em ${formatDate(resultado.dataResultado)})`
+                  : ""}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : (
+        <p className="meta-note">
+          Nenhum resultado homologado registrado até agora para esta
+          contratação.
+        </p>
+      )}
+      <p className="act-evidence">
+        <a href={pncpUrl(procurement)} target="_blank" rel="noreferrer">
+          Ver no PNCP (registro oficial)
+        </a>{" "}
+        · processo {procurement.controlNumber}
+      </p>
+      <p className="act-review-mode">
+        Dados oficiais do Portal Nacional de Contratações Públicas, exibidos
+        sem tratamento editorial. Valores estimados e homologados são os
+        informados pelo próprio portal — nada é calculado por nós.
+      </p>
+    </article>
+  );
+}
+
+export function ProcurementExplorer({
+  procurements,
+}: Readonly<{ procurements: readonly Procurement[] }>) {
+  const [query, setQuery] = useState("");
+  const [mode, setMode] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [year, setYear] = useState("all");
+
+  const modes = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          procurements
+            .map((procurement) => procurement.modalidade)
+            .filter((value): value is string => value !== null),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [procurements],
+  );
+
+  const statuses = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          procurements
+            .map((procurement) => procurement.situacao)
+            .filter((value): value is string => value !== null),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [procurements],
+  );
+
+  const years = useMemo(
+    () =>
+      Array.from(new Set(procurements.map((procurement) => procurement.ano))).sort(
+        (a, b) => b - a,
+      ),
+    [procurements],
+  );
+
+  const filtered = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
+    return procurements.filter((procurement) => {
+      if (normalizedQuery && !searchableText(procurement).includes(normalizedQuery)) {
+        return false;
+      }
+      if (mode !== "all" && procurement.modalidade !== mode) {
+        return false;
+      }
+      if (status !== "all" && procurement.situacao !== status) {
+        return false;
+      }
+      if (year !== "all" && procurement.ano !== Number(year)) {
+        return false;
+      }
+      return true;
+    });
+  }, [mode, procurements, query, status, year]);
+
+  const loadedHomologatedTotal = filtered.reduce(
+    (total, procurement) => total + (procurement.valorHomologado ?? 0),
+    0,
+  );
+
+  function clearFilters() {
+    setQuery("");
+    setMode("all");
+    setStatus("all");
+    setYear("all");
+  }
+
+  return (
+    <div className="procurement-explorer">
+      <form className="procurement-filters" aria-label="Filtrar contratações">
+        <label>
+          <span>Buscar</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="objeto, fornecedor ou unidade"
+          />
+        </label>
+        <label>
+          <span>Modalidade</span>
+          <select value={mode} onChange={(event) => setMode(event.target.value)}>
+            <option value="all">Todas</option>
+            {modes.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Situação</span>
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+          >
+            <option value="all">Todas</option>
+            {statuses.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Ano</span>
+          <select value={year} onChange={(event) => setYear(event.target.value)}>
+            <option value="all">Todos</option>
+            {years.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="filter-clear" onClick={clearFilters}>
+          Limpar filtros
+        </button>
+      </form>
+
+      <div className="procurement-summary" aria-live="polite">
+        <strong>
+          {filtered.length} {filtered.length === 1 ? "registro" : "registros"}
+        </strong>
+        <span>
+          Soma dos valores homologados carregados: {currencyFormatter.format(loadedHomologatedTotal)}
+        </span>
+      </div>
+
+      {filtered.length > 0 ? (
+        <div className="digest-grid">
+          {filtered.map((procurement) => (
+            <ProcurementCard
+              key={procurement.controlNumber}
+              procurement={procurement}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="collection-unavailable" role="status">
+          <div>
+            <strong>Nenhum registro corresponde aos filtros</strong>
+            <p>
+              Ajuste a busca ou limpe os filtros. Isso não significa que não
+              existam contratações na fonte oficial.
+            </p>
+          </div>
+          <button type="button" className="filter-clear" onClick={clearFilters}>
+            Mostrar todos
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1717,6 +1717,121 @@ footer {
 }
 
 /* Licitações (/licitacoes) */
+.procurement-explorer {
+  margin-top: 2.4rem;
+}
+
+.procurement-filters {
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: minmax(16rem, 1.5fr) repeat(3, minmax(9rem, 1fr)) auto;
+  align-items: end;
+  gap: 0.7rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: 0 10px 28px rgba(33, 46, 79, 0.04);
+}
+
+.procurement-filters label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.procurement-filters label > span {
+  color: #758094;
+  font-size: 0.66rem;
+  font-weight: 680;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.procurement-filters input,
+.procurement-filters select {
+  min-height: 2.65rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(28, 40, 61, 0.15);
+  border-radius: 0.72rem;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.procurement-filters input:focus,
+.procurement-filters select:focus {
+  outline: 3px solid rgba(23, 105, 224, 0.18);
+  border-color: var(--blue);
+}
+
+.filter-clear {
+  min-height: 2.65rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgba(28, 40, 61, 0.15);
+  border-radius: 0.72rem;
+  background: #f6f8fb;
+  color: #4e5a6f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.filter-clear:hover {
+  border-color: rgba(23, 105, 224, 0.35);
+  color: var(--blue-dark);
+}
+
+.procurement-summary {
+  margin: 1rem 0 1.2rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  color: #758094;
+  font-size: 0.78rem;
+}
+
+.procurement-summary strong {
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.procurement-summary span {
+  font-variant-numeric: tabular-nums;
+}
+
+.procurement-explorer > .collection-unavailable {
+  margin-top: 0;
+}
+
+@media (max-width: 960px) {
+  .procurement-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .procurement-filters label:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .procurement-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .procurement-filters label:first-child {
+    grid-column: auto;
+  }
+
+  .filter-clear {
+    width: 100%;
+  }
+}
+
 .procurement-object {
   margin: 0.75rem 0 0.5rem;
   font-size: 1.05rem;
