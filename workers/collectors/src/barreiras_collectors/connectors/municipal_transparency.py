@@ -82,6 +82,8 @@ class MunicipalTransparencyPage:
     cursor: Mapping[str, int]
     raw_body: bytes
     items: tuple[dict, ...]
+    window_start: str | None = None
+    window_end: str | None = None
 
 
 def iter_resource_pages(
@@ -164,7 +166,7 @@ def iter_resource_pages(
             body_size_bytes=len(response.body),
             media_type=_media_type(response.headers),
             response_headers=_safe_headers(response.headers),
-            cursor={"offset": current_offset, "limit": limit},
+            cursor={"offset": current_offset, "size": limit},
             raw_body=response.body,
             items=tuple(items),
         )
