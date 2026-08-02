@@ -3,7 +3,6 @@
 -- autoria individual quando esse vínculo não vier no registro oficial.
 
 insert into source.data_sources (
-  id,
   slug,
   name,
   description,
@@ -14,7 +13,6 @@ insert into source.data_sources (
   status
 )
 values (
-  '00000000-0000-4000-8000-000000000003',
   'camara-barreiras-transparencia',
   'Portal da Transparência da Câmara Municipal de Barreiras',
   'API oficial de contratos, atos, documentos, RH e atividade legislativa.',
@@ -32,7 +30,6 @@ set
   status = excluded.status;
 
 insert into source.source_endpoints (
-  id,
   data_source_id,
   slug,
   endpoint_kind,
@@ -44,7 +41,6 @@ insert into source.source_endpoints (
   config
 )
 values (
-  '00000000-0000-4000-8000-000000000111',
   (select id from source.data_sources where slug = 'camara-barreiras-transparencia'),
   'leis-api',
   'api',

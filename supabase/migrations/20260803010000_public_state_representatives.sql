@@ -3,7 +3,6 @@
 -- listagem. Vínculo individual com Barreiras não é presumido nesta fatia.
 
 insert into source.data_sources (
-  id,
   slug,
   name,
   description,
@@ -14,7 +13,6 @@ insert into source.data_sources (
   status
 )
 values (
-  '00000000-0000-4000-8000-000000000007',
   'alba',
   'Assembleia Legislativa da Bahia',
   'Composição publicada pela Assembleia Legislativa da Bahia em HTML.',
@@ -32,7 +30,6 @@ set
   status = excluded.status;
 
 insert into source.source_endpoints (
-  id,
   data_source_id,
   slug,
   endpoint_kind,
@@ -44,8 +41,7 @@ insert into source.source_endpoints (
   config
 )
 values (
-  '00000000-0000-4000-8000-000000000109',
-  '00000000-0000-4000-8000-000000000007',
+  (select id from source.data_sources where slug = 'alba'),
   'deputados-estaduais-html',
   'html',
   'https://www.al.ba.gov.br/deputados/deputados-estaduais',
