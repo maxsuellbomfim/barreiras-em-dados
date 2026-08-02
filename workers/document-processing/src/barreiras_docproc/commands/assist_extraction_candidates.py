@@ -33,7 +33,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     try:
         return _run(argv)
-    except Exception as error:  # noqa: BLE001 - fronteira de processo
+    except Exception as error:
         logging.getLogger(__name__).warning(
             json.dumps(
                 {
@@ -180,7 +180,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
             "assist_extraction_candidates",
             attempts,
         )
-    except Exception as error:  # noqa: BLE001 - diagnóstico é best effort
+    except Exception as error:
         log_event(
             logger,
             logging.WARNING,

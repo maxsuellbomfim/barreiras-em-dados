@@ -26,7 +26,7 @@ class SanitizeTests(unittest.TestCase):
     def test_canonical_text_is_sanitized(self) -> None:
         from barreiras_docproc.canonical import derive_canonical_text
 
-        canonical = derive_canonical_text("A\x00B".encode())
+        canonical = derive_canonical_text(b"A\x00B")
 
         self.assertEqual(canonical.text, "AB")
 

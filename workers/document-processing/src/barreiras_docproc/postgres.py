@@ -605,7 +605,8 @@ class PostgresExtractionRepository:
                   and result.candidate_type = %s
                   and review.checklist #>> '{verification,fields,act_number,value}' = %s
                   and review.checklist #>> '{verification,fields,act_date,value}' = %s
-                  and review.checklist #>> '{verification,fields,person_name,value}' = %s
+                  and review.checklist #>> '{verification,fields,person_name,value}'
+                    = %s
                   and not exists (
                     select 1
                     from editorial.editorial_reviews as later
