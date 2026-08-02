@@ -92,6 +92,16 @@ O snapshot sanitizado completo está em
 
 ## Pendências antes do conector
 
+O cliente paginado inicial foi implementado em
+`workers/collectors/src/barreiras_collectors/connectors/municipal_transparency.py`
+para preservar o recurso `pdc-resumo-execucao-da-receita`. Ele valida a raiz
+`resource,count,data`, trata erro HTTP 200 com `error`, usa limite conservador,
+retries e circuit breaker e ainda não normaliza valores monetários.
+
+Esse cliente não publica totais nem grava `finance.revenues` sozinho: a próxima
+etapa precisa observar uma resposta real, confirmar nomes/unidades de campos e
+criar a persistência raw-first antes de qualquer cálculo.
+
 1. confirmar contato técnico, termos e limite aceitável;
 2. medir cobertura temporal e duplicação por recurso;
 3. definir chave estável por recurso;
