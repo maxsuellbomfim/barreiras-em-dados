@@ -84,6 +84,12 @@ const quickLinks = [
     href: "/representantes",
     tone: "green",
   },
+  {
+    label: "Leis da Câmara",
+    detail: "Leis municipais, ementas e arquivos da fonte oficial.",
+    href: "/camara",
+    tone: "blue",
+  },
 ] as const;
 
 const evidenceSteps = [
@@ -328,6 +334,7 @@ export default async function HomePage() {
             <a href="/atos">Atos</a>
             <a href="/licitacoes">Licitações</a>
             <a href="/representantes">Representantes</a>
+            <a href="/camara">Leis da Câmara</a>
           </nav>
 
           <a className="nav-cta" href="/diario">
