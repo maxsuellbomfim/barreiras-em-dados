@@ -283,8 +283,9 @@ class PostgresRevenuePublicationRepository:
                           %s, %s, %s, %s, %s, %s, %s,
                           %s, 'validated', statement_timestamp()
                         )
-                        on conflict (public_body_id, external_id, version)
-                        do nothing
+                         on conflict (public_body_id, external_id, version)
+                           where external_id is not null
+                         do nothing
                         returning id::text
                         """,
                         (
