@@ -160,6 +160,40 @@ try {
   `);
   assert.equal(nullableOrigins.rows[0].count, 0);
 
+  const revenueAutomationColumns = await database.query(`
+    select column_name
+    from information_schema.columns
+    where table_schema = 'finance'
+      and table_name = 'revenues'
+      and column_name in (
+        'source_document_artifact_id', 'accumulated_amount',
+        'difference_more', 'difference_less', 'collection_direction',
+        'methodology_version', 'validation_status', 'published_at'
+      )
+    order by column_name
+  `);
+  assert.deepEqual(
+    revenueAutomationColumns.rows.map((row) => row.column_name),
+    [
+      'accumulated_amount',
+      'collection_direction',
+      'difference_less',
+      'difference_more',
+      'methodology_version',
+      'published_at',
+      'source_document_artifact_id',
+      'validation_status',
+    ],
+  );
+
+  const revenueFunction = await database.query(`
+    select pg_get_function_result(
+      'api.get_public_revenues(integer,smallint)'::regprocedure
+    ) as result
+  `);
+  assert.match(String(revenueFunction.rows[0].result), /document_artifact_sha256/);
+  assert.match(String(revenueFunction.rows[0].result), /validation_status/);
+
   const immutableTriggers = await database.query(`
     select count(*)::integer as count
     from pg_catalog.pg_trigger
