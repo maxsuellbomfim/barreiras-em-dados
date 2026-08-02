@@ -1,0 +1,26 @@
+{
+  "_fixture": {
+    "kind": "sanitized-contract-fixture",
+    "source": "Prefeitura de Barreiras",
+    "resource": "pdc-resumo-execucao-da-receita",
+    "contains_record_values": false
+  },
+  "resource": "pdc-resumo-execucao-da-receita",
+  "count": 2,
+  "data": [
+    {
+      "id": "sanitized-revenue-1",
+      "ano": "2026",
+      "data": "2026-07-01",
+      "descricao": "RECEITA SANITIZADA DE TESTE",
+      "valor_arrecadado": "0,00"
+    },
+    {
+      "id": "sanitized-revenue-2",
+      "ano": "2026",
+      "data": "2026-07-02",
+      "descricao": "RECEITA SANITIZADA DE TESTE",
+      "valor_arrecadado": "0,00"
+    }
+  ]
+}
