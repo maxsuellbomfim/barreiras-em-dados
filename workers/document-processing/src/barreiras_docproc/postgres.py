@@ -598,8 +598,9 @@ class PostgresExtractionRepository:
                 join raw.extraction_results as result
                   on result.id = review.target_id
                 where review.decision = 'approved'
-                  -- %% escapa o curinga: a query leva parâmetros e o
-                  -- driver trataria um % solto como marcador.
+                  -- O curinga vai duplicado porque a consulta leva
+                  -- parâmetros e o driver lê sinal de porcentagem
+                  -- isolado como marcador -- inclusive em comentário.
                   and review.reviewer_subject like 'automated:%%'
                   and result.candidate_type = %s
                   and review.checklist #>> '{verification,fields,act_number,value}' = %s
