@@ -24,6 +24,7 @@ type ActRow = Readonly<Record<string, unknown>>;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
+const APPROVED_ACTS_METHODOLOGY_VERSION = "approved-gazette-acts/1.6.0";
 
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
@@ -47,7 +48,7 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     (reviewMode !== "human" && reviewMode !== "automated") ||
     (gazetteDate !== null && !ISO_DATE.test(gazetteDate)) ||
     (gazetteUrl !== null && !gazetteUrl.startsWith("https://")) ||
-    row.methodology_version !== "approved-gazette-acts/1.4.0"
+    row.methodology_version !== APPROVED_ACTS_METHODOLOGY_VERSION
   ) {
     return null;
   }
@@ -67,7 +68,7 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     approvedAt,
     artifactSha256,
     reviewMode,
-    methodologyVersion: "approved-gazette-acts/1.4.0",
+    methodologyVersion: APPROVED_ACTS_METHODOLOGY_VERSION,
   };
 }
 
