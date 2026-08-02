@@ -618,6 +618,60 @@ a:focus-visible {
   border-top: 1px solid rgba(28, 40, 61, 0.07);
 }
 
+.section-representatives {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-representatives > .section-heading,
+.section-representatives > .coverage-note {
+  order: 0;
+}
+
+.section-representatives > .representation-block-municipal-leadership {
+  order: 1;
+}
+
+.section-representatives > .representation-block-councillors {
+  order: 2;
+}
+
+.section-representatives > .representation-block-state {
+  order: 3;
+}
+
+.section-representatives > .representation-block-federal {
+  order: 4;
+}
+
+.section-representatives > .representation-block-candidates {
+  order: 5;
+}
+
+.section-representatives > .hero-note {
+  order: 6;
+}
+
+.representation-block {
+  margin-top: 3.5rem;
+}
+
+.representation-future .section-heading {
+  margin-bottom: 1.25rem;
+}
+
+.representation-future .collection-unavailable {
+  margin-top: 0;
+}
+
+.representation-future .collection-unavailable a {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: var(--blue-dark);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
 .section > * {
   width: min(1180px, 100%);
   margin-right: auto;

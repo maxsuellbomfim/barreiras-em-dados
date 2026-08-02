@@ -168,6 +168,43 @@ function CouncillorCard({ person }: Readonly<{ person: Councillor }>) {
   );
 }
 
+function FutureCoverage({
+  eyebrow,
+  title,
+  description,
+  sourceLabel,
+  sourceUrl,
+}: Readonly<{
+  eyebrow: string;
+  title: string;
+  description: string;
+  sourceLabel: string;
+  sourceUrl: string;
+}>) {
+  return (
+    <section className="representation-future" aria-labelledby={`${title}-title`}>
+      <div className="section-heading">
+        <span className="eyebrow">{eyebrow}</span>
+        <h2 id={`${title}-title`}>{title}</h2>
+        <p>{description}</p>
+      </div>
+      <div className="collection-unavailable" role="status">
+        <div>
+          <strong>Fonte em preparação</strong>
+          <p>
+            Esta seção só será preenchida depois que a fonte oficial for
+            coletada, conferida e ligada a evidências. Ausência de dados não
+            será apresentada como zero ou como avaliação.
+          </p>
+          <a href={sourceUrl} target="_blank" rel="noreferrer">
+            Consultar {sourceLabel} →
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default async function RepresentativesPage() {
   const [result, councillorsResult] = await Promise.all([
     getFederalRepresentatives(),
@@ -189,7 +226,7 @@ export default async function RepresentativesPage() {
         </div>
       </header>
 
-      <section className="section" aria-labelledby="people-title">
+      <section className="section section-representatives" aria-labelledby="people-title">
         <div className="section-heading">
           <span className="eyebrow">Registro público, não avaliação</span>
           <h1 id="people-title">Quem representa Barreiras</h1>
@@ -206,8 +243,8 @@ export default async function RepresentativesPage() {
           <strong>Cobertura desta página, hoje</strong>
           <ul>
             <li>
-              <strong>Deputados federais</strong>: eleitos pela Bahia, da API
-              aberta da Câmara dos Deputados — já disponível abaixo.
+              <strong>Prefeitura</strong>: prefeito, vice e secretários estão no
+              primeiro recorte de fontes em preparação.
             </li>
             <li>
               <strong>Vereadores</strong>: os que a Câmara Municipal publica
@@ -215,10 +252,16 @@ export default async function RepresentativesPage() {
               bandeira e a biografia atribuídas à própria Câmara.
             </li>
             <li>
-              <strong>Deputados estaduais, secretários e candidaturas</strong>:
-              a projeção pública ainda está em construção. A base de fontes é
-              incorporada somente quando há fonte oficial e critério de vínculo
-              verificável (ADR 0014).
+              <strong>Deputados estaduais</strong>: serão ligados à fonte oficial
+              da ALBA e a um vínculo territorial documentado.
+            </li>
+            <li>
+              <strong>Deputados federais</strong>: eleitos pela Bahia, da API
+              aberta da Câmara dos Deputados — já disponíveis abaixo.
+            </li>
+            <li>
+              <strong>Candidatos</strong>: aparecerão somente quando registrados
+              no TSE, com situação atualizada por eleição.
             </li>
             <li>
               <strong>Vínculo com Barreiras</strong>: será apresentado com
@@ -228,7 +271,26 @@ export default async function RepresentativesPage() {
           </ul>
         </div>
 
-        {result.state === "unavailable" ? (
+        <div className="representation-block representation-block-municipal-leadership">
+          <FutureCoverage
+            eyebrow="Prefeitura"
+            title="Prefeito, vice-prefeito e secretários"
+            description="A composição do Executivo será ligada aos atos de nomeação, vigência, remuneração e atuação de cada órgão."
+            sourceLabel="Prefeitura de Barreiras"
+            sourceUrl="https://barreiras.ba.gov.br/"
+          />
+        </div>
+
+        <section className="representation-block representation-block-federal" aria-labelledby="federal-title">
+          <div className="section-heading">
+            <span className="eyebrow">Câmara dos Deputados</span>
+            <h2 id="federal-title">Deputados federais</h2>
+            <p>
+              Parlamentares eleitos pela Bahia, com vínculo territorial
+              apresentado separadamente da representação municipal.
+            </p>
+          </div>
+          {result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
             <div>
               <strong>Lista temporariamente indisponível</strong>
@@ -260,11 +322,13 @@ export default async function RepresentativesPage() {
               ))}
             </div>
           </>
-        )}
+          )}
+        </section>
 
-        <div className="section-heading" style={{ marginTop: "3.5rem" }}>
+        <section className="representation-block representation-block-councillors" aria-labelledby="councillors-title">
+        <div className="section-heading">
           <span className="eyebrow">Câmara Municipal</span>
-          <h2>Vereadores de Barreiras</h2>
+          <h2 id="councillors-title">Vereadores de Barreiras</h2>
           <p>
             Composição publicada pelo portal oficial da Câmara. Bandeira e
             biografia são textos da própria Casa, reproduzidos com
@@ -304,6 +368,27 @@ export default async function RepresentativesPage() {
             </div>
           </>
         )}
+        </section>
+
+        <div className="representation-block representation-block-state">
+          <FutureCoverage
+            eyebrow="Assembleia Legislativa da Bahia"
+            title="Deputados estaduais"
+            description="A base estadual incluirá mandato, proposições, votações e vínculos verificáveis com Barreiras, sem chamar nenhum deputado de representante exclusivo da cidade."
+            sourceLabel="ALBA"
+            sourceUrl="https://www.al.ba.gov.br/deputados/legislatura-atual"
+          />
+        </div>
+
+        <div className="representation-block representation-block-candidates">
+          <FutureCoverage
+            eyebrow="Eleições"
+            title="Candidatos registrados"
+            description="Candidatos só aparecerão quando registrados no TSE, com cargo, partido, situação da candidatura, bens declarados e contas eleitorais por eleição."
+            sourceLabel="DivulgaCandContas/TSE"
+            sourceUrl="https://divulgacandcontas.tse.jus.br/"
+          />
+        </div>
 
         <p className="hero-note">
           Metodologia: identidade unificada apenas por identificador oficial
