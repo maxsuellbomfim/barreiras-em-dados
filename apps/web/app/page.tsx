@@ -55,7 +55,8 @@ const publicTracks = [
     title: "Para onde vai o dinheiro",
     description:
       "Receitas, empenhos, liquidações e pagamentos explicados sem esconder os números.",
-    status: "Planejado",
+    status: "Base em preparação",
+    href: "/financas",
   },
 ] as const;
 
@@ -89,6 +90,12 @@ const quickLinks = [
     detail: "O que a Câmara propõe, aprova e encaminha.",
     href: "/camara",
     tone: "blue",
+  },
+  {
+    label: "Finanças públicas",
+    detail: "Receitas municipais com fonte, data e evidência.",
+    href: "/financas",
+    tone: "amber",
   },
 ] as const;
 
