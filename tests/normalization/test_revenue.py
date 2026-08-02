@@ -36,6 +36,7 @@ class RevenueNormalizationTests(unittest.TestCase):
         self.assertEqual(report.fiscal_year, 2026)
         self.assertEqual(report.period_end.isoformat(), "2026-06-30")
         self.assertEqual(len(report.rows), 3)
+        self.assertEqual(report.total_period_amount, Decimal("97976757.57"))
         self.assertEqual(report.rows[0].accumulated_amount, Decimal("532630204.77"))
         self.assertEqual(report.rows[2].accumulated_amount, Decimal("-21879379.30"))
 
@@ -44,6 +45,14 @@ class RevenueNormalizationTests(unittest.TestCase):
             "Data: De 01/06/2026 até 30/06/2026\n"
             "1.0.0.0.00.0.0.00.00.00 A 1,00 1,00 1,00 0,00 0,00\n"
             "1.0.0.0.00.0.0.00.00.00 B 1,00 1,00 1,00 0,00 0,00\n"
+        )
+        with self.assertRaises(RevenuePdfContractError):
+            parse_revenue_pdf_text(text)
+
+    def test_financial_pdf_requires_declared_total(self):
+        text = (
+            "Data: De 01/06/2026 até 30/06/2026\n"
+            "1.0.0.0.00.0.0.00.00.00 A 1,00 1,00 1,00 0,00 0,00\n"
         )
         with self.assertRaises(RevenuePdfContractError):
             parse_revenue_pdf_text(text)

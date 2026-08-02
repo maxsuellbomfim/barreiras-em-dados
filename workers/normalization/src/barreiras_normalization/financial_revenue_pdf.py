@@ -35,6 +35,11 @@ class RevenuePdfReport:
     period_start: date
     period_end: date
     fiscal_year: int
+    total_forecast_amount: Decimal
+    total_period_amount: Decimal
+    total_accumulated_amount: Decimal
+    total_difference_more: Decimal
+    total_difference_less: Decimal
     rows: tuple[RevenuePdfRow, ...]
 
 
@@ -50,6 +55,13 @@ _ROW = re.compile(
     rf"(?P<forecast>{_AMOUNT})\s+(?P<period>{_AMOUNT})\s+"
     rf"(?P<accumulated>{_AMOUNT})\s+(?P<more>{_AMOUNT})\s+"
     rf"(?P<less>{_AMOUNT})\s*$"
+)
+_TOTAL = re.compile(
+    rf"^Total\s+da\s+Receita\s*:\s*"
+    rf"(?P<forecast>{_AMOUNT})\s+(?P<period>{_AMOUNT})\s+"
+    rf"(?P<accumulated>{_AMOUNT})"
+    rf"(?:\s+(?P<more>{_AMOUNT})\s+(?P<less>{_AMOUNT}))?\s*$",
+    re.IGNORECASE,
 )
 
 
@@ -82,8 +94,11 @@ def parse_revenue_pdf_text(text: str) -> RevenuePdfReport:
 
     rows: list[RevenuePdfRow] = []
     seen_codes: set[str] = set()
+    total_match = None
     for line_number, line in enumerate(text.splitlines(), start=1):
-        match = _ROW.match(line.strip())
+        stripped = line.strip()
+        total_match = total_match or _TOTAL.match(stripped)
+        match = _ROW.match(stripped)
         if match is None:
             continue
         code = match.group("code")
@@ -109,9 +124,16 @@ def parse_revenue_pdf_text(text: str) -> RevenuePdfReport:
 
     if not rows:
         raise RevenuePdfContractError("nenhuma linha de receita reconhecida")
+    if total_match is None:
+        raise RevenuePdfContractError("total declarado da receita nao encontrado")
     return RevenuePdfReport(
         period_start=period_start,
         period_end=period_end,
         fiscal_year=period_end.year,
+        total_forecast_amount=_amount(total_match.group("forecast")),
+        total_period_amount=_amount(total_match.group("period")),
+        total_accumulated_amount=_amount(total_match.group("accumulated")),
+        total_difference_more=_amount(total_match.group("more") or "0,00"),
+        total_difference_less=_amount(total_match.group("less") or "0,00"),
         rows=tuple(rows),
     )
