@@ -52,7 +52,8 @@ try {
     -- usuário de serviço antes de executar as migrations; em produção ele
     -- é criado pelo provisionamento de credenciais, não pela migration.
     insert into auth.users (id) values
-      ('1575c740-fcff-4b1a-89a9-e8e5a314880a');
+      ('1575c740-fcff-4b1a-89a9-e8e5a314880a'),
+      ('27b3add6-f788-48e5-bf6f-50dfbd8cf198');
     create function auth.uid()
     returns uuid
     language sql
