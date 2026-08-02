@@ -10,8 +10,8 @@ export const revalidate = 300;
 export const metadata: Metadata = {
   title: "Nomeações e exonerações",
   description:
-    "Atos de pessoal do Diário Oficial de Barreiras, revisados por uma " +
-    "pessoa e ligados ao documento oficial que os sustenta.",
+    "Atos de pessoal do Diário Oficial de Barreiras, ligados ao documento " +
+    "oficial e publicados por revisão humana ou validação determinística.",
 };
 
 const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -42,9 +42,10 @@ export default async function ApprovedActsPage() {
           <h1 id="acts-title">Nomeações e exonerações</h1>
           <p>
             Cada registro abaixo foi identificado automaticamente no Diário
-            Oficial, conferido por uma pessoa e publicado com o trecho e o
-            documento que o sustentam. Isto é um registro de atos oficiais —
-            não é avaliação sobre pessoas.
+            Oficial e publicado somente depois de uma pessoa conferir o trecho
+            ou de um verificador determinístico confirmar os campos literais.
+            O documento que sustenta cada registro fica ligado ao ato. Isto é
+            um registro de atos oficiais — não é avaliação sobre pessoas.
           </p>
           {result.state === "available" && result.acts.length > 0 ? (
             <p className="acts-count" role="status">
@@ -78,9 +79,10 @@ export default async function ApprovedActsPage() {
             <div>
               <strong>Nenhum ato publicado até agora</strong>
               <p>
-                A coleta e a revisão humana estão em andamento. Os primeiros
-                atos aprovados aparecerão aqui — nunca antes de uma pessoa
-                conferir cada um.
+                A coleta, a validação automática e a revisão humana estão em
+                andamento. Os atos aparecem assim que o documento é preservado
+                e os campos essenciais são conferidos; sugestões de IA nunca
+                publicam sozinhas.
               </p>
             </div>
           </div>
@@ -120,7 +122,7 @@ export default async function ApprovedActsPage() {
           </div>
           <div className="footer-status">
             <span className="status-dot" />
-            Atos publicados somente após revisão humana registrada
+            Atos publicados após revisão humana ou validação determinística
           </div>
         </div>
       </footer>

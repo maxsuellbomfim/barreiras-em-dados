@@ -493,6 +493,18 @@ try {
       'human-review-pending/1.0.0',
       '{"excerpt":"NOMEAR FULANO DE TAL"}', 'needs_review'
     );
+    insert into raw.extraction_results (
+      id, extraction_job_id, supersedes_id, candidate_type,
+      extractor_version, validator_version, result_payload, validation_status
+    ) values (
+      '00000000-0000-0000-0000-000000000603',
+      '00000000-0000-0000-0000-000000000601',
+      '00000000-0000-0000-0000-000000000602',
+      'assisted_enrichment', 'assisted-inference/2.0.0',
+      'human-review-pending/1.0.0',
+      '{"provider":"teste","summary":"Resumo de teste","clean_text":"Nomeação de teste"}',
+      'needs_review'
+    );
   `);
 
   const reviewerUserId = "00000000-0000-4000-8000-000000000701";
@@ -518,6 +530,8 @@ try {
       candidate_type,
       validation_status,
       result_payload ->> 'excerpt' as excerpt,
+      assisted_payload,
+      queue_reason,
       methodology_version
     from api.get_extraction_review_queue(20)
   `);
@@ -526,7 +540,13 @@ try {
       candidate_type: "nomeacao",
       validation_status: "needs_review",
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "extraction-review-queue/1.5.0",
+      assisted_payload: {
+        provider: "teste",
+        summary: "Resumo de teste",
+        clean_text: "Nomeação de teste",
+      },
+      queue_reason: "needs_human_verification",
+      methodology_version: "extraction-review-queue/1.6.0",
     },
   ]);
   await assert.rejects(
