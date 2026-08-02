@@ -3,7 +3,6 @@
 -- nomes nunca são usados como chave e a fonte nacional integral não é exposta.
 
 insert into source.data_sources (
-  id,
   slug,
   name,
   description,
@@ -14,7 +13,6 @@ insert into source.data_sources (
   status
 )
 values (
-  '00000000-0000-4000-8000-000000000008',
   'tse',
   'Tribunal Superior Eleitoral',
   'Resultados eleitorais e votação nominal por município, preservados por pleito.',
@@ -32,7 +30,6 @@ set
   status = excluded.status;
 
 insert into source.source_endpoints (
-  id,
   data_source_id,
   slug,
   endpoint_kind,
@@ -44,9 +41,8 @@ insert into source.source_endpoints (
   config
 )
 values (
-  '00000000-0000-4000-8000-000000000110',
-  '00000000-0000-4000-8000-000000000008',
-  'votacao-candidato-munzona',
+  (select id from source.data_sources where slug = 'tse'),
+  'votacao-munzona',
   'file',
   'https://cdn.tse.jus.br/estatistica/sead/odsele/votacao_candidato_munzona/',
   'GET',
