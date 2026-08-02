@@ -154,19 +154,7 @@ class MunicipalTransparencyPersistenceService:
             f"{page.body_sha256[:2]}/{page.body_sha256}.json"
         )
         records = tuple(
-            RawRecordInput(
-                source_record_key=self._record_key(page, item),
-                record_type=f"municipal_transparency_{page.resource}",
-                record_index=index,
-                payload=item,
-                payload_sha256=self._payload_hash(item),
-                parser_version=MUNICIPAL_TRANSPARENCY_PARSER_VERSION,
-                idempotency_key=self._record_idempotency(
-                    page,
-                    index=index,
-                    payload=item,
-                ),
-            )
+            self.record_input(page, index=index, item=item)
             for index, item in enumerate(page.items)
         )
         stored = self.object_store.put_if_absent(
@@ -204,6 +192,106 @@ class MunicipalTransparencyPersistenceService:
             object_created=stored.created,
             inserted_records=persisted.inserted_records,
             existing_records=persisted.existing_records,
+        )
+
+    def record_input(
+        self,
+        page: MunicipalTransparencyPage,
+        *,
+        index: int,
+        item: dict,
+    ) -> RawRecordInput:
+        """Retorna a identidade bruta usada também pelos artefatos filhos."""
+
+        payload_hash = self._payload_hash(item)
+        return RawRecordInput(
+            source_record_key=self._record_key(page, item),
+            record_type=f"municipal_transparency_{page.resource}",
+            record_index=index,
+            payload=item,
+            payload_sha256=payload_hash,
+            parser_version=MUNICIPAL_TRANSPARENCY_PARSER_VERSION,
+            idempotency_key=self._record_idempotency(
+                page,
+                index=index,
+                payload=item,
+            ),
+        )
+
+    def persist_document(
+        self,
+        *,
+        page_result: PersistenceResult,
+        record: RawRecordInput,
+        document: CollectedDocument,
+        source_code: str,
+        endpoint_code: str,
+    ) -> DocumentPersistResult:
+        """Preserva um PDF municipal como artefato filho da resposta JSON."""
+
+        extension = DOCUMENT_EXTENSIONS.get(document.role)
+        if extension is None:
+            raise PersistenceContractError(
+                f"Papel de documento desconhecido: {document.role}."
+            )
+        actual_hash = hashlib.sha256(document.raw_body).hexdigest()
+        if (
+            actual_hash != document.body_sha256
+            or len(document.raw_body) != document.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "O documento financeiro nao corresponde ao hash informado."
+            )
+        object_key = (
+            "municipal-transparency/documents/sha256/"
+            f"{document.body_sha256[:2]}/{document.body_sha256}.{extension}"
+        )
+        idempotency_key = self._digest(
+            ":".join(
+                (
+                    "municipal-transparency-document",
+                    record.source_record_key,
+                    document.role,
+                    document.body_sha256,
+                )
+            )
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=document.raw_body,
+            content_type=document.media_type,
+            expected_sha256=document.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != document.body_sha256
+            or len(restored) != document.body_size_bytes
+            or stored.sha256 != document.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "O documento financeiro restaurado diverge do baixado."
+            )
+        persisted = self.repository.persist_document(
+            DocumentBatch(
+                source_code=source_code,
+                endpoint_code=endpoint_code,
+                collection_run_id=page_result.collection_run_id,
+                parent_artifact_id=page_result.raw_artifact_id,
+                source_record_key=record.source_record_key,
+                document=document,
+                object_key=object_key,
+                idempotency_key=idempotency_key,
+                collector_version=MUNICIPAL_TRANSPARENCY_COLLECTOR_VERSION,
+                document_schema_name="municipal-transparency-document",
+                document_object_prefix="municipal-transparency/documents",
+            )
+        )
+        return DocumentPersistResult(
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=document.body_sha256,
+            object_created=stored.created,
+            artifact_created=persisted.created,
         )
 
     @classmethod
@@ -980,6 +1068,8 @@ class QueridoDiarioPersistenceService:
         document: CollectedDocument,
         source_code: str,
         endpoint_code: str,
+        document_schema_name: str = "gazette-document",
+        document_object_prefix: str = "querido-diario/gazettes/documents",
     ) -> DocumentPersistResult:
         extension = DOCUMENT_EXTENSIONS.get(document.role)
         if extension is None:
@@ -996,7 +1086,7 @@ class QueridoDiarioPersistenceService:
             )
 
         object_key = (
-            "querido-diario/gazettes/documents/sha256/"
+            f"{document_object_prefix.rstrip('/')}/sha256/"
             f"{document.body_sha256[:2]}/{document.body_sha256}.{extension}"
         )
         idempotency_key = self._digest(
@@ -1044,6 +1134,8 @@ class QueridoDiarioPersistenceService:
                 object_key=object_key,
                 idempotency_key=idempotency_key,
                 collector_version=self.collector_version,
+                document_schema_name=document_schema_name,
+                document_object_prefix=document_object_prefix,
             )
         )
         return DocumentPersistResult(

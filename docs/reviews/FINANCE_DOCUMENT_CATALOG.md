@@ -24,6 +24,9 @@ validada → revisão → finance.revenues → projeção pública
   - números somente quando `finance.revenues` estiver normalizada;
   - documentos oficiais e trilha de evidência quando a fonte ainda for PDF;
 - workflow diário para preservar os catálogos financeiros da Prefeitura;
+- preservação do PDF apontado por cada registro como artefato filho imutável,
+  com allowlist exclusiva de `barreiras.mtransparente.com.br`, hash e vínculo
+  ao artefato JSON pai;
 - parser determinístico inicial para o `Demonstrativo de Receita Orçamentária
   Sintético`, com suporte a valores negativos de deduções e testes unitários;
 - contrato de assistência em cascata para classificar o relatório e sugerir
@@ -33,25 +36,25 @@ validada → revisão → finance.revenues → projeção pública
 
 ## Limite atual
 
-O workflow preserva a resposta da API e aponta para o documento oficial. Ele
-ainda não publica valores extraídos dos PDFs. Essa próxima etapa exige parser
+O workflow preserva a resposta da API e o PDF oficial quando o endpoint entrega
+um link válido. Ele ainda não publica valores extraídos dos PDFs. Essa próxima etapa exige parser
 específico por relatório, testes com fixtures reais sanitizadas, reconciliação
 de período e revisão humana antes da publicação.
 
 O parser inicial já reconhece o layout textual desse demonstrativo quando o
 PDF passa pelo extrator de texto. Ele permanece deliberadamente separado da
-publicação: uma integração futura deverá baixar o PDF como artefato filho,
-registrar a versão do extrator, comparar totais e só então gerar linhas em
-`finance.revenues`.
+publicação: uma integração futura deverá registrar a versão do extrator,
+comparar totais e só então gerar linhas em `finance.revenues`.
 
 ## Procedimento de ativação
 
-1. Aplicar a migration `20260804030000_public_finance_documents.sql` no projeto
-   Supabase de produção.
+1. Aplicar as migrations `20260804030000_public_finance_documents.sql` e
+   `20260804040000_finance_document_artifacts.sql` no projeto Supabase de
+   produção.
 2. Conferir se as variáveis e secrets usados pelo workflow municipal continuam
    válidos.
 3. Executar manualmente `Coletar documentos financeiros municipais` para uma
    matriz pequena e revisar o status da coleta.
-4. Conferir `/financas`; a seção de documentos deve aparecer antes dos números.
+4. Conferir `/financas`; cada card deve informar se o PDF foi preservado.
 5. Só depois iniciar a extração de RREO, RGF, receitas e despesas com fixtures e
    validação de qualidade.

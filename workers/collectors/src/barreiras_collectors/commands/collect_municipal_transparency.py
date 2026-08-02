@@ -8,16 +8,19 @@ import os
 from collections.abc import Sequence
 from itertools import islice
 
+from ..connectors.gazette_documents import MunicipalTransparencyDocumentClient
 from ..connectors.municipal_transparency import (
     CAMARA_BASE_URL,
     PREFEITURA_BASE_URL,
     MunicipalTransparencyAvailabilityError,
+    QueridoDiarioError,
     iter_resource_pages,
 )
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import MunicipalTransparencyPersistenceService
 from ..persistence.storage import SupabaseStorageObjectStore
+from ..resilience import CircuitOpenError
 from ..settings import CollectorSettings, PersistenceSettings
 
 SOURCE_CONFIG = {
@@ -31,6 +34,18 @@ SOURCE_CONFIG = {
     ),
 }
 DEFAULT_RESOURCE = "pdc-resumo-execucao-da-receita"
+FINANCIAL_DOCUMENT_RESOURCES = frozenset(
+    {
+        "pdc-receita-tributaria",
+        "pdc-recursos-extraordinarios",
+        "pdc-resumo-execucao-da-receita",
+        "pdc-resumo-execucao-da-despesa",
+        "pdc-transferencia",
+        "pdc-emendas-parlamentares-receitas",
+        "rreo",
+        "rgf",
+    }
+)
 
 
 def _bounded_env_int(name: str, *, default: int, minimum: int, maximum: int) -> int:
@@ -101,6 +116,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="aceita indisponibilidade após persistir ao menos uma página",
     )
+    parser.add_argument(
+        "--download-documents",
+        action="store_true",
+        help="baixa e preserva PDFs oficiais apontados pelos registros financeiros",
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 500:
         parser.error("--limit deve estar entre 1 e 500.")
@@ -128,6 +148,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
 
+    document_client = None
+    if args.download_documents:
+        if args.resource not in FINANCIAL_DOCUMENT_RESOURCES:
+            parser.error(
+                "--download-documents so pode ser usado em recurso financeiro."
+            )
+        document_client = MunicipalTransparencyDocumentClient(
+            max_document_bytes=_bounded_env_int(
+                "MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES",
+                default=64 * 1024 * 1024,
+                minimum=1024,
+                maximum=128 * 1024 * 1024,
+            ),
+            requests_per_minute=_bounded_env_int(
+                "MUNICIPAL_TRANSPARENCY_DOCUMENT_REQUESTS_PER_MINUTE",
+                default=6,
+                minimum=1,
+                maximum=30,
+            ),
+            timeout_seconds=collector_settings.read_timeout_seconds,
+            logger=logger,
+        )
+
     pages = iter_resource_pages(
         base_url=base_url,
         source_code=source_code,
@@ -152,12 +195,56 @@ def main(argv: Sequence[str] | None = None) -> int:
     persisted_pages = 0
     inserted_records = 0
     existing_records = 0
+    persisted_documents = 0
+    failed_documents = 0
     try:
         for page in islice(pages, args.max_pages):
             result = service.persist(page)
             persisted_pages += 1
             inserted_records += result.inserted_records
             existing_records += result.existing_records
+            if document_client is not None:
+                for index, item in enumerate(page.items):
+                    document_url = item.get("url")
+                    if not isinstance(document_url, str) or not document_url.strip():
+                        continue
+                    try:
+                        document = document_client.fetch(
+                            document_url.strip(),
+                            role="pdf",
+                        )
+                        service.persist_document(
+                            page_result=result,
+                            record=service.record_input(
+                                page,
+                                index=index,
+                                item=item,
+                            ),
+                            document=document,
+                            source_code=source_code,
+                            endpoint_code="dados-abertos-api",
+                        )
+                        persisted_documents += 1
+                    except (
+                        CircuitOpenError,
+                        OSError,
+                        QueridoDiarioError,
+                        TimeoutError,
+                        ValueError,
+                    ) as error:
+                        failed_documents += 1
+                        log_event(
+                            logger,
+                            logging.ERROR,
+                            "collector_municipal_transparency_document_failed",
+                            source=source_code,
+                            resource=page.resource,
+                            document_url=document_url,
+                            error_type=type(error).__name__,
+                            error=str(error)[:500],
+                        )
+                        if not args.allow_partial:
+                            raise
             log_event(
                 logger,
                 logging.INFO,
@@ -169,6 +256,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 artifact_hash=page.body_sha256,
                 inserted_records=result.inserted_records,
                 existing_records=result.existing_records,
+                documents_persisted=persisted_documents,
+                documents_failed=failed_documents,
             )
     except MunicipalTransparencyAvailabilityError as error:
         if not args.allow_partial or persisted_pages == 0:
@@ -184,6 +273,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             existing_records=existing_records,
             max_pages=args.max_pages,
             error=str(error),
+            documents_persisted=persisted_documents,
+            documents_failed=failed_documents,
         )
         return 0
 
@@ -197,6 +288,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         inserted_records=inserted_records,
         existing_records=existing_records,
         max_pages=args.max_pages,
+        documents_persisted=persisted_documents,
+        documents_failed=failed_documents,
     )
     return 0
 

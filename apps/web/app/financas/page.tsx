@@ -176,7 +176,10 @@ export default async function FinancesPage() {
                     <a href={document.documentUrl} target="_blank" rel="noreferrer">
                       Abrir documento oficial →
                     </a>{" "}
-                    · resposta da API preservada · hash {document.artifactSha256.slice(0, 12)}…
+                    · resposta da API preservada · {document.documentPreserved
+                      ? "PDF preservado"
+                      : "PDF ainda não preservado"}{" "}
+                    · hash {document.artifactSha256.slice(0, 12)}…
                   </p>
                 </article>
               ))}

@@ -4,7 +4,9 @@ import hashlib
 import unittest
 
 from barreiras_collectors.connectors.gazette_documents import (
+    MUNICIPAL_ARTIFACT_HOSTS,
     GazetteDocumentClient,
+    MunicipalTransparencyDocumentClient,
 )
 from barreiras_collectors.connectors.querido_diario import (
     PermanentHttpError,
@@ -156,6 +158,26 @@ class GazetteDocumentClientTests(unittest.TestCase):
             client.fetch("https://malicioso.example/arquivo.pdf", role="pdf")
 
         self.assertEqual(transport.requests, [])
+
+    def test_municipal_client_accepts_only_transparency_host(self) -> None:
+        transport = ScriptedTransport([response(200)])
+        client = MunicipalTransparencyDocumentClient(
+            max_document_bytes=1024,
+            transport=transport,
+            rate_limiter=NoopRateLimiter(),
+            retry_policy=RetryPolicy(max_attempts=1),
+            sleep=lambda _seconds: None,
+        )
+
+        document = client.fetch(
+            "https://barreiras.mtransparente.com.br/arquivo.pdf",
+            role="pdf",
+        )
+
+        self.assertEqual(document.media_type, "application/pdf")
+        self.assertEqual(client.allowed_hosts, MUNICIPAL_ARTIFACT_HOSTS)
+        with self.assertRaises(ValueError):
+            client.fetch(PDF_URL, role="pdf")
 
 
 if __name__ == "__main__":

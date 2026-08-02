@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import unittest
 from types import SimpleNamespace
 
+from barreiras_collectors.connectors.gazette_documents import CollectedDocument
 from barreiras_collectors.connectors.municipal_transparency import (
     iter_resource_pages,
 )
@@ -51,6 +53,7 @@ class FakeObjectStore:
 class FakeRepository:
     def __init__(self) -> None:
         self.batches = []
+        self.document_batches = []
 
     def persist(self, batch):
         self.batches.append(batch)
@@ -60,6 +63,10 @@ class FakeRepository:
             inserted_records=len(batch.records),
             existing_records=0,
         )
+
+    def persist_document(self, batch):
+        self.document_batches.append(batch)
+        return SimpleNamespace(raw_artifact_id="document-artifact", created=True)
 
 
 def page_fixture():
@@ -122,6 +129,50 @@ class MunicipalTransparencyPersistenceTests(unittest.TestCase):
         with self.assertRaises(ArtifactIntegrityError):
             service.persist(page_fixture())
         self.assertEqual(repository.batches, [])
+
+    def test_persists_pdf_as_child_artifact_with_municipal_schema(self) -> None:
+        repository = FakeRepository()
+        store = FakeObjectStore()
+        service = MunicipalTransparencyPersistenceService(
+            object_store=store,
+            repository=repository,
+        )
+        page = page_fixture()
+        page_result = service.persist(page)
+        body = b"%PDF-1.7 documento financeiro"
+        document = CollectedDocument(
+            role="pdf",
+            source_url="https://barreiras.mtransparente.com.br/arquivo.pdf",
+            final_url="https://barreiras.mtransparente.com.br/arquivo.pdf",
+            requested_at="2026-08-02T12:00:00+00:00",
+            received_at="2026-08-02T12:00:01+00:00",
+            attempts=1,
+            http_status=200,
+            body_sha256=hashlib.sha256(body).hexdigest(),
+            body_size_bytes=len(body),
+            media_type="application/pdf",
+            response_headers={"content-type": "application/pdf"},
+            raw_body=body,
+        )
+
+        result = service.persist_document(
+            page_result=page_result,
+            record=service.record_input(page, index=0, item=page.items[0]),
+            document=document,
+            source_code="prefeitura-barreiras-transparencia",
+            endpoint_code="dados-abertos-api",
+        )
+
+        self.assertTrue(result.artifact_created)
+        self.assertTrue(result.object_key.startswith("municipal-transparency/documents/"))
+        self.assertEqual(
+            repository.document_batches[0].document_schema_name,
+            "municipal-transparency-document",
+        )
+        self.assertEqual(
+            repository.document_batches[0].parent_artifact_id,
+            page_result.raw_artifact_id,
+        )
 
 
 if __name__ == "__main__":
