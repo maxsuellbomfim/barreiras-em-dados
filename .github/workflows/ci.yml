@@ -42,6 +42,7 @@ jobs:
         run: |
           pnpm run check:contracts
           pnpm run check:sources
+          pnpm run check:source-catalog
 
       - name: Testar migrations e seed
         run: pnpm run check:migration

@@ -3,6 +3,10 @@ import unittest
 from decimal import Decimal
 from pathlib import Path
 
+from barreiras_normalization.financial_revenue_pdf import (
+    RevenuePdfContractError,
+    parse_revenue_pdf_text,
+)
 from barreiras_normalization.revenue import (
     RevenueNormalizationError,
     normalize_revenue_page,
@@ -19,6 +23,31 @@ FIXTURE = (
 
 
 class RevenueNormalizationTests(unittest.TestCase):
+    def test_financial_pdf_rows_are_parsed_without_float_conversion(self):
+        text = (
+            Path(__file__).parents[2]
+            / "fixtures"
+            / "documents"
+            / "financial-revenue-report-sample.txt"
+        ).read_text(encoding="utf-8")
+
+        report = parse_revenue_pdf_text(text)
+
+        self.assertEqual(report.fiscal_year, 2026)
+        self.assertEqual(report.period_end.isoformat(), "2026-06-30")
+        self.assertEqual(len(report.rows), 3)
+        self.assertEqual(report.rows[0].accumulated_amount, Decimal("532630204.77"))
+        self.assertEqual(report.rows[2].accumulated_amount, Decimal("-21879379.30"))
+
+    def test_financial_pdf_rejects_duplicate_codes(self):
+        text = (
+            "Data: De 01/06/2026 até 30/06/2026\n"
+            "1.0.0.0.00.0.0.00.00.00 A 1,00 1,00 1,00 0,00 0,00\n"
+            "1.0.0.0.00.0.0.00.00.00 B 1,00 1,00 1,00 0,00 0,00\n"
+        )
+        with self.assertRaises(RevenuePdfContractError):
+            parse_revenue_pdf_text(text)
+
     def test_sanitized_fixture_is_typed_without_float_conversion(self):
         payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
 

@@ -1,0 +1,8 @@
+PREFEITURA MUNICIPAL DE BARREIRAS
+Demonstrativo de Receita Orçamentária Sintético
+Data: De 01/06/2026 até 30/06/2026
+Número Receita Descrição Orçado R$ Período R$ Até Período Dif. para Mais Dif. para Menos
+1.0.0.0.00.0.0.00.00.00 Receitas Correntes 1.090.453.144,00 106.245.940,88 532.630.204,77 0,00 557.822.939,23
+1.1.1.2.50.0.1.00.00.00 Imposto sobre a Propriedade Predial e Territorial Urbana - Principal 12.353.260,00 3.707.491,13 8.649.444,84 0,00 3.703.815,16
+9.7.1.1.51.1.1.00.00.00 Dedução de Receita para a Formação do FUNDEB - FPM -45.271.000,00 -4.071.293,91 -21.879.379,30 0,00 -23.391.620,70
+Total da Receita : 1.092.070.168,00 97.976.757,57 490.217.172,90
