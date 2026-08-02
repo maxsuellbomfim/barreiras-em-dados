@@ -11,6 +11,23 @@ sugerir culpa.
 O perfil é uma composição de projeções aprovadas. Não é uma tabela única e não
 autoriza coleta indiscriminada de vida privada.
 
+## Ordem pública da interface
+
+A página pública apresenta as pessoas nesta ordem, priorizando o vínculo
+municipal e a compreensão popular:
+
+1. prefeito, vice-prefeito e secretários;
+2. vereadores;
+3. deputados estaduais;
+4. deputados federais;
+5. candidatos registrados.
+
+Uma seção sem coletor aprovado aparece como **fonte em preparação**. Ela não
+exibe nomes inventados, zero como substituto de dado ausente ou avaliação sobre
+quem ocupa o cargo. Atuação, indicações, projetos, leis, emendas, remuneração e
+processos só entram quando houver fonte, período, identificador e evidência
+própria.
+
 ## Quem entra
 
 ### Núcleo municipal
