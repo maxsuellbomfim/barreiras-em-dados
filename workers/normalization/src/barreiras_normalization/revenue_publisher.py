@@ -244,9 +244,9 @@ class PostgresRevenuePublicationRepository:
                           'Prefeitura Municipal de Barreiras', 'executive',
                           'municipal', 'BA', %s::date
                         )
-                        on conflict (ibge_code, body_type)
-                          where active_until is null
-                        do nothing
+                         on conflict (ibge_code, body_type)
+                           where ibge_code is not null and active_until is null
+                         do nothing
                         """,
                         (artifact.parent_record_id, batch.period_start),
                     )
