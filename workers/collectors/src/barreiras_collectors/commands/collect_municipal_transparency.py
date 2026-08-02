@@ -10,6 +10,7 @@ from itertools import islice
 
 from ..connectors.municipal_transparency import (
     CAMARA_BASE_URL,
+    MunicipalTransparencyAvailabilityError,
     PREFEITURA_BASE_URL,
     iter_resource_pages,
 )
@@ -95,6 +96,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=1)
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--max-pages", type=int, default=1)
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="aceita indisponibilidade após persistir ao menos uma página",
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 500:
         parser.error("--limit deve estar entre 1 e 500.")
@@ -146,23 +152,40 @@ def main(argv: Sequence[str] | None = None) -> int:
     persisted_pages = 0
     inserted_records = 0
     existing_records = 0
-    for page in islice(pages, args.max_pages):
-        result = service.persist(page)
-        persisted_pages += 1
-        inserted_records += result.inserted_records
-        existing_records += result.existing_records
+    try:
+        for page in islice(pages, args.max_pages):
+            result = service.persist(page)
+            persisted_pages += 1
+            inserted_records += result.inserted_records
+            existing_records += result.existing_records
+            log_event(
+                logger,
+                logging.INFO,
+                "collector_municipal_transparency_page_persisted",
+                source=source_code,
+                resource=page.resource,
+                page_offset=page.cursor["offset"],
+                page_size=len(page.items),
+                artifact_hash=page.body_sha256,
+                inserted_records=result.inserted_records,
+                existing_records=result.existing_records,
+            )
+    except MunicipalTransparencyAvailabilityError as error:
+        if not args.allow_partial or persisted_pages == 0:
+            raise
         log_event(
             logger,
-            logging.INFO,
-            "collector_municipal_transparency_page_persisted",
+            logging.WARNING,
+            "collector_municipal_transparency_partial",
             source=source_code,
-            resource=page.resource,
-            page_offset=page.cursor["offset"],
-            page_size=len(page.items),
-            artifact_hash=page.body_sha256,
-            inserted_records=result.inserted_records,
-            existing_records=result.existing_records,
+            resource=args.resource,
+            pages=persisted_pages,
+            inserted_records=inserted_records,
+            existing_records=existing_records,
+            max_pages=args.max_pages,
+            error=str(error),
         )
+        return 0
 
     log_event(
         logger,

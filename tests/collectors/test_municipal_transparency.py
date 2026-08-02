@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from barreiras_collectors.connectors.municipal_transparency import (
+    MunicipalTransparencyAvailabilityError,
     MunicipalTransparencyContractError,
     MunicipalTransparencyError,
     iter_resource_pages,
@@ -163,6 +164,25 @@ class MunicipalTransparencyTests(unittest.TestCase):
                     resource="pdc-resumo-execucao-da-receita",
                     transport=SequenceTransport([b"forbidden"], statuses=[403]),
                     requests_per_minute=600,
+                    sleep=lambda _seconds: None,
+                )
+            )
+
+    def test_transport_exhaustion_has_availability_error_type(self) -> None:
+        class FailingTransport:
+            def get(self, url, *, headers, timeout_seconds, max_body_bytes):
+                del url, headers, timeout_seconds, max_body_bytes
+                raise TimeoutError("fonte indisponível")
+
+        with self.assertRaises(MunicipalTransparencyAvailabilityError):
+            list(
+                iter_resource_pages(
+                    base_url="https://portaldatransparencia.barreiras.ba.gov.br/api",
+                    source_code="prefeitura-barreiras-transparencia",
+                    resource="pdc-resumo-execucao-da-receita",
+                    transport=FailingTransport(),
+                    requests_per_minute=600,
+                    retry_policy=RetryPolicy(max_attempts=1),
                     sleep=lambda _seconds: None,
                 )
             )

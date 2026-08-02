@@ -58,3 +58,4 @@ jobs:
           --resource leis
           --limit 50
           --max-pages 100
+          --allow-partial
