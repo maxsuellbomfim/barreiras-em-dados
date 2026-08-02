@@ -98,6 +98,22 @@ try {
   `);
   assert.equal(relations.rows[0].count, 42);
 
+  const rlsRelations = await database.query(`
+    select count(*)::integer as count
+    from pg_catalog.pg_tables as table_record
+    join pg_catalog.pg_class as relation
+      on relation.relname = table_record.tablename
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = relation.relnamespace
+     and namespace.nspname = table_record.schemaname
+    where table_record.schemaname in (
+      'source', 'raw', 'org', 'hr', 'procurement', 'finance',
+      'evidence', 'analysis', 'editorial', 'audit'
+    )
+      and relation.relrowsecurity
+  `);
+  assert.equal(rlsRelations.rows[0].count, 42);
+
   const originColumns = await database.query(`
     select count(*)::integer as count
     from information_schema.columns
