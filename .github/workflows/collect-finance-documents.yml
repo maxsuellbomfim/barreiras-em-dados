@@ -19,6 +19,10 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
+      # O plano gratuito limita as conexões simultâneas da role de coleta.
+      # Oito jobs em paralelo faziam todos chegarem ao banco ao mesmo tempo
+      # e produziam "too many connections" antes de persistir o documento.
+      max-parallel: 1
       matrix:
         resource:
           - pdc-receita-tributaria
