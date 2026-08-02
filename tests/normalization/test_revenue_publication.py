@@ -29,6 +29,7 @@ class RevenuePublicationTests(unittest.TestCase):
 
         self.assertEqual(batch.rows[0].collected_amount, Decimal("106245940.88"))
         self.assertEqual(batch.rows[0].accumulated_amount, Decimal("532630204.77"))
+        self.assertEqual(batch.total_period_amount, Decimal("97976757.57"))
         self.assertEqual(batch.rows[2].collection_direction, "deduction")
         self.assertEqual(batch.rows[2].collected_amount, Decimal("4071293.91"))
         self.assertEqual(batch.methodology_version, PUBLICATION_METHODOLOGY_VERSION)

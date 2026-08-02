@@ -167,6 +167,7 @@ try {
       and table_name = 'revenues'
       and column_name in (
         'source_document_artifact_id', 'accumulated_amount',
+        'report_total_period_amount',
         'difference_more', 'difference_less', 'collection_direction',
         'methodology_version', 'validation_status', 'published_at'
       )
@@ -181,6 +182,7 @@ try {
       'difference_more',
       'methodology_version',
       'published_at',
+      'report_total_period_amount',
       'source_document_artifact_id',
       'validation_status',
     ],

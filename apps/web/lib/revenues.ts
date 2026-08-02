@@ -7,6 +7,7 @@ export type PublicRevenue = Readonly<{
   description: string;
   collectedAmount: string;
   accumulatedAmount: string;
+  reportTotalPeriodAmount: string;
   collectionDirection: "credit" | "deduction";
   currency: "BRL";
   publicBodyName: string;
@@ -37,6 +38,7 @@ function parseRevenue(row: Record<string, unknown>): PublicRevenue | null {
   const publicBodyName = optionalString(row.public_body_name);
   const collectedAmount = optionalString(row.collected_amount);
   const accumulatedAmount = optionalString(row.accumulated_amount);
+  const reportTotalPeriodAmount = optionalString(row.report_total_period_amount);
   const collectionDirection = row.collection_direction;
   const sourceUrl = optionalString(row.source_url);
   const documentSourceUrl = optionalString(row.document_source_url);
@@ -52,6 +54,8 @@ function parseRevenue(row: Record<string, unknown>): PublicRevenue | null {
     !DECIMAL.test(collectedAmount) ||
     accumulatedAmount === null ||
     !DECIMAL.test(accumulatedAmount) ||
+    reportTotalPeriodAmount === null ||
+    !DECIMAL.test(reportTotalPeriodAmount) ||
     (collectionDirection !== "credit" && collectionDirection !== "deduction") ||
     row.currency !== "BRL" ||
     artifactSha256 === null ||
@@ -79,6 +83,7 @@ function parseRevenue(row: Record<string, unknown>): PublicRevenue | null {
     description,
     collectedAmount,
     accumulatedAmount,
+    reportTotalPeriodAmount,
     collectionDirection,
     currency: "BRL",
     publicBodyName,

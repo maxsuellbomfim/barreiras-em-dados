@@ -6,6 +6,8 @@ alter table finance.revenues
     references raw.raw_artifacts(id),
   add column if not exists accumulated_amount numeric(20,2)
     check (accumulated_amount is null or accumulated_amount >= 0),
+  add column if not exists report_total_period_amount numeric(20,2)
+    check (report_total_period_amount is null or report_total_period_amount >= 0),
   add column if not exists difference_more numeric(20,2)
     check (difference_more is null or difference_more >= 0),
   add column if not exists difference_less numeric(20,2)
@@ -50,6 +52,7 @@ returns table (
   description text,
   collected_amount numeric,
   accumulated_amount numeric,
+  report_total_period_amount numeric,
   collection_direction text,
   currency text,
   public_body_name text,
@@ -112,6 +115,7 @@ begin
       then -revenue.accumulated_amount
       else revenue.accumulated_amount
     end,
+    revenue.report_total_period_amount,
     revenue.collection_direction,
     revenue.currency::text,
     body.name,

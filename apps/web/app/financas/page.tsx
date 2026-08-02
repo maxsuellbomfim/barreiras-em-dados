@@ -102,6 +102,10 @@ export default async function FinancesPage() {
                       <dd>{formatBrlDecimal(revenue.accumulatedAmount)}</dd>
                     </div>
                     <div>
+                      <dt>Total declarado no relatório</dt>
+                      <dd>{formatBrlDecimal(revenue.reportTotalPeriodAmount)}</dd>
+                    </div>
+                    <div>
                       <dt>Data da receita</dt>
                       <dd>{formatDate(revenue.revenueDate)}</dd>
                     </div>

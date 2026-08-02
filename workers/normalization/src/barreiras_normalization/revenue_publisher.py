@@ -274,12 +274,13 @@ class PostgresRevenuePublicationRepository:
                           source_document_artifact_id, version, external_id,
                           fiscal_year, revenue_date, revenue_code, description,
                           forecast_amount, collected_amount, accumulated_amount,
+                          report_total_period_amount,
                           difference_more, difference_less, collection_direction,
                           methodology_version, validation_status, published_at
                         ) values (
                           %s::uuid, %s::uuid, %s::uuid, 1, %s,
                           %s, %s::date, %s, %s,
-                          %s, %s, %s, %s, %s, %s,
+                          %s, %s, %s, %s, %s, %s, %s,
                           %s, 'validated', statement_timestamp()
                         )
                         on conflict (public_body_id, external_id, version)
@@ -298,6 +299,7 @@ class PostgresRevenuePublicationRepository:
                             row.forecast_amount,
                             row.collected_amount,
                             row.accumulated_amount,
+                            batch.total_period_amount,
                             row.difference_more,
                             row.difference_less,
                             row.collection_direction,
