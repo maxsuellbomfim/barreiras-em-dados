@@ -10,8 +10,8 @@ from itertools import islice
 
 from ..connectors.municipal_transparency import (
     CAMARA_BASE_URL,
-    MunicipalTransparencyAvailabilityError,
     PREFEITURA_BASE_URL,
+    MunicipalTransparencyAvailabilityError,
     iter_resource_pages,
 )
 from ..logging import log_event
