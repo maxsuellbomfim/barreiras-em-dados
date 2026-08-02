@@ -1,6 +1,6 @@
-# Barreiras em Dados
+# Barreiras 360
 
-Fundação de uma plataforma cívica municipal, apartidária e orientada a
+Fundação do Barreiras 360, uma plataforma cívica municipal, apartidária e orientada a
 evidências para tornar dados públicos da Prefeitura e da Câmara Municipal de
 Barreiras (BA) mais verificáveis e compreensíveis.
 

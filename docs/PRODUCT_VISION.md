@@ -2,7 +2,7 @@
 
 ## Propósito
 
-**Barreiras em Dados** transforma publicações dispersas da Prefeitura e da
+**Barreiras 360** transforma publicações dispersas da Prefeitura e da
 Câmara Municipal de Barreiras (BA) em informação pública pesquisável, sem
 substituir a fonte oficial e sem emitir juízos automáticos sobre pessoas.
 

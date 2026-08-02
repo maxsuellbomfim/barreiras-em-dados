@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Transformar o **Barreiras em Dados** em um observatório territorial que permita
+Transformar o **Barreiras 360** em um observatório territorial que permita
 seguir o caminho de uma decisão ou de um recurso público entre Município,
 Estado e União, sem perder o foco geográfico em Barreiras e sem converter
 relações públicas em acusações.
