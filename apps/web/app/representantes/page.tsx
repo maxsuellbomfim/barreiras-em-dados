@@ -97,8 +97,9 @@ function RepresentativeCard({
 
       <p className="person-link-note">
         <strong>Vínculo com Barreiras:</strong> eleito(a) pelo estado da
-        Bahia. A votação nominal recebida em Barreiras — o vínculo local
-        mensurável — ainda não foi coletada do TSE.
+        Bahia. A base municipal do TSE já foi preservada; a associação
+        individual entre votação em Barreiras e este perfil ainda passa por
+        consolidação e revisão.
       </p>
 
       <p className="act-evidence">
@@ -215,13 +216,14 @@ export default async function RepresentativesPage() {
             </li>
             <li>
               <strong>Deputados estaduais, secretários e candidaturas</strong>:
-              em construção. Cada grupo entra quando houver fonte oficial e
-              critério de vínculo verificável (ADR 0014).
+              a projeção pública ainda está em construção. A base de fontes é
+              incorporada somente quando há fonte oficial e critério de vínculo
+              verificável (ADR 0014).
             </li>
             <li>
-              <strong>Vínculo com Barreiras</strong>: será medido pela
-              votação nominal no município (TSE) e por emendas destinadas ao
-              município — números, não opinião.
+              <strong>Vínculo com Barreiras</strong>: será apresentado com
+              votação nominal no município (TSE), emendas destinadas ao
+              município e demais registros oficiais — números, não opinião.
             </li>
           </ul>
         </div>
