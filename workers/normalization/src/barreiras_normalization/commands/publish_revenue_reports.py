@@ -7,7 +7,10 @@ import logging
 from collections.abc import Sequence
 from datetime import date
 
+from barreiras_docproc.canonical import CanonicalTextError
+
 from ..revenue_publisher import (
+    ArtifactMismatchError,
     PostgresRevenuePublicationRepository,
     RevenueReportPublisher,
 )
@@ -76,7 +79,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     for artifact in artifacts:
         try:
             result = publisher.publish(artifact)
-        except Exception as error:
+        except (ArtifactMismatchError, CanonicalTextError, ValueError) as error:
             needs_review += 1
             repository.record_failure(
                 artifact,
