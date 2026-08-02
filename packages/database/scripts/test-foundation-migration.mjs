@@ -47,6 +47,12 @@ try {
     create table auth.users (
       id uuid primary key
     );
+    -- A migration de representação provisiona um corredor de Storage para
+    -- o workload da Câmara Federal. O fixture precisa reproduzir esse
+    -- usuário de serviço antes de executar as migrations; em produção ele
+    -- é criado pelo provisionamento de credenciais, não pela migration.
+    insert into auth.users (id) values
+      ('1575c740-fcff-4b1a-89a9-e8e5a314880a');
     create function auth.uid()
     returns uuid
     language sql
@@ -90,7 +96,7 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  assert.equal(relations.rows[0].count, 41);
+  assert.equal(relations.rows[0].count, 42);
 
   const originColumns = await database.query(`
     select count(*)::integer as count
@@ -438,7 +444,7 @@ try {
       candidate_type: "nomeacao",
       validation_status: "needs_review",
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "extraction-review-queue/1.3.0",
+      methodology_version: "extraction-review-queue/1.4.0",
     },
   ]);
   await assert.rejects(
@@ -530,7 +536,7 @@ try {
       gazette_date: "2026-06-10",
       gazette_url: null,
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "approved-gazette-acts/1.2.0",
+      methodology_version: "approved-gazette-acts/1.5.0",
     },
   ]);
 
@@ -676,8 +682,8 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 5,
-    endpoints: 6,
+    sources: 6,
+    endpoints: 8,
     private_buckets: 1,
   });
 
@@ -724,7 +730,7 @@ try {
   );
 
   console.log(
-    "Migrations e seed executados: 41 tabelas, origem e acesso mínimos.",
+    "Migrations e seed executados: 42 tabelas, origem e acesso mínimos.",
   );
 } finally {
   await database.close();
