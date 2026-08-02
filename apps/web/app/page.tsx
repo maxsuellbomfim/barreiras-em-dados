@@ -59,6 +59,33 @@ const publicTracks = [
   },
 ] as const;
 
+const quickLinks = [
+  {
+    label: "Diário traduzido",
+    detail: "Os atos oficiais explicados em linguagem simples.",
+    href: "/diario",
+    tone: "blue",
+  },
+  {
+    label: "Nomeações e exonerações",
+    detail: "Quem entrou, quem saiu e qual documento comprova.",
+    href: "/atos",
+    tone: "violet",
+  },
+  {
+    label: "Licitações e contratos",
+    detail: "Compras públicas, fornecedores e valores publicados.",
+    href: "/licitacoes",
+    tone: "amber",
+  },
+  {
+    label: "Representantes",
+    detail: "Vereadores e deputados com fonte oficial por informação.",
+    href: "/representantes",
+    tone: "green",
+  },
+] as const;
+
 const evidenceSteps = [
   {
     number: "01",
@@ -299,9 +326,8 @@ export default async function HomePage() {
 
           <nav className="nav-links" aria-label="Navegação principal">
             <a href="/atos">Atos</a>
-            <a href="#como-funciona">Como funciona</a>
-            <a href="#fontes">Fontes</a>
-            <a href="#metodologia">Metodologia</a>
+            <a href="/licitacoes">Licitações</a>
+            <a href="/representantes">Representantes</a>
           </nav>
 
           <a className="nav-cta" href="/diario">
@@ -333,12 +359,12 @@ export default async function HomePage() {
           </p>
 
           <div className="hero-actions">
-            <a className="button button-primary" href="#construcao">
-              Ver o que estamos construindo
-              <span aria-hidden="true">↓</span>
+            <a className="button button-primary" href="#dados">
+              Explorar os dados
+              <span aria-hidden="true">→</span>
             </a>
-            <a className="button button-secondary" href="#como-funciona">
-              Entender a cadeia de evidências
+            <a className="button button-secondary" href="/representantes">
+              Ver representantes
             </a>
           </div>
 
@@ -348,61 +374,49 @@ export default async function HomePage() {
           </p>
         </div>
 
-        <div className="hero-proof" aria-label="Estado técnico do projeto">
-          <div className="proof-top">
-            <div>
-              <span className="proof-label">Cadeia de custódia</span>
-              <strong>Ativa</strong>
-            </div>
-            <span className="proof-icon">
-              <ShieldCheck />
-            </span>
+        <div className="hero-proof hero-panel" aria-label="Acesso rápido">
+          <span className="proof-label">Acesso rápido</span>
+          <h2>O que você quer descobrir?</h2>
+          <div className="hero-shortcuts">
+            {quickLinks.map((link) => (
+              <a href={link.href} key={link.href}>
+                <span className={`quick-dot quick-dot-${link.tone}`} />
+                <span>{link.label}</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            ))}
           </div>
-
-          <div className="proof-document">
-            <div className="document-head">
-              <span />
-              <span />
-              <span />
-            </div>
-            <div className="document-line line-long" />
-            <div className="document-line line-medium" />
-            <div className="document-line line-short" />
-            <div className="hash-row">
-              <span>SHA-256 verificado</span>
-              <code>cf1d…b0f1</code>
-            </div>
-          </div>
-
-          <div className="proof-stats">
-            <div>
-              <strong>79</strong>
-              <span>recursos oficiais catalogados</span>
-            </div>
-            <div>
-              <strong>10</strong>
-              <span>domínios de dados na fundação</span>
-            </div>
-            <div>
-              <strong>
-                {collectionStatus.state === "available"
-                  ? collectionStatus.data.preservedEditionCount.toLocaleString(
-                      "pt-BR",
-                    )
-                  : "—"}
-              </strong>
-              <span>edições preservadas por hash</span>
-            </div>
-          </div>
-
-          <p className="proof-caption">
-            Estes números descrevem a infraestrutura atual, não indicadores da
-            gestão municipal.
-          </p>
         </div>
       </section>
 
-      <CollectionStatus status={collectionStatus} />
+      <section className="section section-quick-access" id="dados" aria-labelledby="data-title">
+        <div className="section-heading">
+          <span className="eyebrow">Dados de Barreiras</span>
+          <h2 id="data-title">Escolha por onde começar.</h2>
+          <p>
+            O essencial está a um clique. Cada página mostra o que foi encontrado,
+            de onde veio e o documento que sustenta a informação.
+          </p>
+        </div>
+
+        <div className="quick-grid">
+          {quickLinks.map((link) => (
+            <a className="quick-card" href={link.href} key={link.href}>
+              <span className={`quick-dot quick-dot-${link.tone}`} />
+              <span className="quick-card-copy">
+                <strong>{link.label}</strong>
+                <span>{link.detail}</span>
+              </span>
+              <span className="quick-card-arrow" aria-hidden="true">→</span>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <details className="technical-details">
+        <summary>Ver como os dados são coletados e revisados</summary>
+        <div className="technical-details-content">
+          <CollectionStatus status={collectionStatus} />
 
       <section
         className="section section-evidence"
@@ -546,6 +560,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+        </div>
+      </details>
 
       <footer>
         <div className="footer-inner">
