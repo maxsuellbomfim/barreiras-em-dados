@@ -11,7 +11,9 @@ export type PublicFinanceDocument = Readonly<{
   artifactSha256: string;
   collectedAt: string;
   sourceStatus: "api_response_preserved";
-  methodologyVersion: "public-finance-documents/1.0.0";
+  methodologyVersion: "public-finance-documents/1.1.0";
+  documentArtifactSha256: string | null;
+  documentPreserved: boolean;
 }>;
 
 export type FinanceDocumentsResult =
@@ -52,7 +54,8 @@ function parseDocument(row: Record<string, unknown>): PublicFinanceDocument | nu
     !collectedAt ||
     Number.isNaN(Date.parse(collectedAt)) ||
     row.source_status !== "api_response_preserved" ||
-    row.methodology_version !== "public-finance-documents/1.0.0"
+    row.methodology_version !== "public-finance-documents/1.1.0" ||
+    typeof row.document_preserved !== "boolean"
   ) {
     return null;
   }
@@ -76,7 +79,9 @@ function parseDocument(row: Record<string, unknown>): PublicFinanceDocument | nu
     artifactSha256,
     collectedAt,
     sourceStatus: "api_response_preserved",
-    methodologyVersion: "public-finance-documents/1.0.0",
+    methodologyVersion: "public-finance-documents/1.1.0",
+    documentArtifactSha256: text(row.document_artifact_sha256),
+    documentPreserved: row.document_preserved,
   };
 }
 

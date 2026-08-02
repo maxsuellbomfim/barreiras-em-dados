@@ -567,7 +567,7 @@ class PostgresCollectionRepository:
     ) -> RepositoryDocumentResult:
         document = batch.document
         metadata = {
-            "schema_name": "gazette-document",
+            "schema_name": batch.document_schema_name,
             "schema_version": "1.0.0",
             "source_record_key": batch.source_record_key,
             "document_role": document.role,

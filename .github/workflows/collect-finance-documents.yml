@@ -43,6 +43,8 @@ jobs:
       SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
       MUNICIPAL_TRANSPARENCY_REQUESTS_PER_MINUTE: "10"
       MUNICIPAL_TRANSPARENCY_MAX_BODY_BYTES: "16777216"
+      MUNICIPAL_TRANSPARENCY_DOCUMENT_REQUESTS_PER_MINUTE: "6"
+      MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES: "67108864"
     steps:
       - name: Baixar código
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -68,4 +70,5 @@ jobs:
           --resource "${{ matrix.resource }}"
           --limit 50
           --max-pages 3
+          --download-documents
           --allow-partial

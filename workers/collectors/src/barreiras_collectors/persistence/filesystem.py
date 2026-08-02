@@ -149,6 +149,7 @@ class FilesystemCollectionRepository:
             "parent_artifact_id": batch.parent_artifact_id,
             "source_record_key": batch.source_record_key,
             "collector_version": batch.collector_version,
+            "document_schema_name": batch.document_schema_name,
             "document": {
                 "role": document.role,
                 "source_url": document.source_url,
@@ -175,6 +176,7 @@ class FilesystemCollectionRepository:
             "idempotency_key": manifest.get("idempotency_key"),
             "parent_artifact_id": manifest.get("parent_artifact_id"),
             "source_record_key": manifest.get("source_record_key"),
+            "document_schema_name": manifest.get("document_schema_name"),
             "document": {
                 "role": document.get("role"),
                 "source_url": document.get("source_url"),

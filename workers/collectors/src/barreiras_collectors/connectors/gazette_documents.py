@@ -32,6 +32,7 @@ DOCUMENT_ROLES = frozenset({"pdf", "txt"})
 # O CDN devolve tipos imprecisos (ex.: binary/octet-stream); classificamos o
 # artefato pelo papel anunciado e preservamos o header observado nos metadados.
 DOCUMENT_MEDIA_TYPES = {"pdf": "application/pdf", "txt": "text/plain"}
+MUNICIPAL_ARTIFACT_HOSTS = frozenset({"barreiras.mtransparente.com.br"})
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,9 @@ class GazetteDocumentClient:
         self,
         *,
         max_document_bytes: int,
+        allowed_hosts: frozenset[str] = ALLOWED_ARTIFACT_HOSTS,
+        source_name: str = "querido-diario",
+        endpoint_name: str = "gazette-documents",
         requests_per_minute: int = 30,
         timeout_seconds: float = 35.0,
         retry_policy: RetryPolicy | None = None,
@@ -73,9 +77,12 @@ class GazetteDocumentClient:
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds deve ser positivo.")
         self.max_document_bytes = max_document_bytes
+        self.allowed_hosts = allowed_hosts
+        self.source_name = source_name
+        self.endpoint_name = endpoint_name
         self.timeout_seconds = timeout_seconds
         self.retry_policy = retry_policy or RetryPolicy()
-        self.transport = transport or UrllibTransport(ALLOWED_ARTIFACT_HOSTS)
+        self.transport = transport or UrllibTransport(allowed_hosts)
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
         self.rate_limiter = rate_limiter or PacedRateLimiter(requests_per_minute)
         self.sleep = sleep
@@ -86,7 +93,7 @@ class GazetteDocumentClient:
     def fetch(self, url: str, *, role: str) -> CollectedDocument:
         if role not in DOCUMENT_ROLES:
             raise ValueError(f"Papel de documento desconhecido: {role}.")
-        validate_https_url(url, ALLOWED_ARTIFACT_HOSTS)
+        validate_https_url(url, self.allowed_hosts)
 
         try:
             self.circuit_breaker.before_request()
@@ -95,8 +102,8 @@ class GazetteDocumentClient:
                 self.logger,
                 logging.WARNING,
                 "collector_circuit_open",
-                source="querido-diario",
-                endpoint="gazette-documents",
+                source=self.source_name,
+                endpoint=self.endpoint_name,
             )
             raise
 
@@ -123,8 +130,8 @@ class GazetteDocumentClient:
                 self.logger,
                 logging.INFO,
                 "collector_http_response",
-                source="querido-diario",
-                endpoint="gazette-documents",
+                source=self.source_name,
+                endpoint=self.endpoint_name,
                 status=response.status,
                 attempt=attempt,
                 body_size_bytes=len(response.body),
@@ -168,8 +175,8 @@ class GazetteDocumentClient:
             self.logger,
             logging.ERROR,
             "collector_source_unavailable",
-            source="querido-diario",
-            endpoint="gazette-documents",
+            source=self.source_name,
+            endpoint=self.endpoint_name,
             attempts=self.retry_policy.max_attempts,
             error_type=type(last_error).__name__ if last_error else "unknown",
         )
@@ -189,3 +196,15 @@ class GazetteDocumentClient:
 
     def _backoff(self, attempt: int) -> None:
         self.sleep(self.retry_policy.delay(attempt, self.random_value()))
+
+
+class MunicipalTransparencyDocumentClient(GazetteDocumentClient):
+    """Baixa documentos apontados pela API municipal, com allowlist própria."""
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(
+            allowed_hosts=MUNICIPAL_ARTIFACT_HOSTS,
+            source_name="municipal-transparency",
+            endpoint_name="financial-documents",
+            **kwargs,
+        )

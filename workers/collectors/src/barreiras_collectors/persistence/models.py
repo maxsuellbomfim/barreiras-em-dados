@@ -80,6 +80,8 @@ class DocumentBatch:
     object_key: str
     idempotency_key: str
     collector_version: str
+    document_schema_name: str = "gazette-document"
+    document_object_prefix: str = "querido-diario/gazettes/documents"
 
 
 @dataclass(frozen=True)
