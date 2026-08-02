@@ -12,6 +12,7 @@ import {
   getStateRepresentatives,
   type StateRepresentative,
 } from "../../lib/state-representatives";
+import { getTseBarreirasVotes, type TseVote } from "../../lib/tse-votes";
 
 export const revalidate = 300;
 
@@ -200,6 +201,49 @@ function StateRepresentativeCard({
   );
 }
 
+function CandidateVoteCard({ vote }: Readonly<{ vote: TseVote }>) {
+  return (
+    <article className="person-card" aria-label="Candidatura com votação em Barreiras">
+      <div className="person-head">
+        <span className="person-photo person-photo-empty" aria-hidden="true" />
+        <div>
+          <h2>{vote.ballotName ?? vote.displayName ?? "Candidatura identificada pelo TSE"}</h2>
+          <p className="person-role">
+            {vote.office ?? "Cargo não informado"} · eleição {vote.electionYear} · {vote.turnNumber}º turno
+          </p>
+          {vote.party ? <span className="person-badge">{vote.party}</span> : null}
+        </div>
+      </div>
+      <dl className="person-facts">
+        <div>
+          <dt>Votos em Barreiras</dt>
+          <dd>{vote.votesInBarreiras.toLocaleString("pt-BR")}</dd>
+        </div>
+        <div>
+          <dt>Zonas somadas</dt>
+          <dd>{vote.zones.toLocaleString("pt-BR")}</dd>
+        </div>
+        <div>
+          <dt>Situação no TSE</dt>
+          <dd>{vote.situation ?? "não informado"}</dd>
+        </div>
+        <div>
+          <dt>Número de urna</dt>
+          <dd>{vote.candidateNumber ?? "não informado"}</dd>
+        </div>
+      </dl>
+      <p className="person-link-note">
+        Este é um registro de votação municipal por candidatura. Não representa
+        avaliação de mandato, patrimônio ou atuação posterior.
+      </p>
+      <p className="act-evidence">
+        Fonte: dados eleitorais do TSE · coletado em{" "}
+        {dateFormatter.format(new Date(vote.collectedAt))}
+      </p>
+    </article>
+  );
+}
+
 function FutureCoverage({
   eyebrow,
   title,
@@ -238,10 +282,11 @@ function FutureCoverage({
 }
 
 export default async function RepresentativesPage() {
-  const [result, councillorsResult, stateResult] = await Promise.all([
+  const [result, councillorsResult, stateResult, votesResult] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
     getStateRepresentatives(),
+    getTseBarreirasVotes(),
   ]);
 
   return (
@@ -448,15 +493,52 @@ export default async function RepresentativesPage() {
           )}
         </section>
 
-        <div className="representation-block representation-block-candidates">
-          <FutureCoverage
-            eyebrow="Eleições"
-            title="Candidatos registrados"
-            description="Candidatos só aparecerão quando registrados no TSE, com cargo, partido, situação da candidatura, bens declarados e contas eleitorais por eleição."
-            sourceLabel="DivulgaCandContas/TSE"
-            sourceUrl="https://divulgacandcontas.tse.jus.br/"
-          />
-        </div>
+        <section className="representation-block representation-block-candidates" aria-labelledby="candidates-title">
+          <div className="section-heading">
+            <span className="eyebrow">Eleições e vínculo municipal</span>
+            <h2 id="candidates-title">Candidaturas com votação em Barreiras</h2>
+            <p>
+              Resultado nominal agregado pelo código da candidatura, conforme o
+              TSE. A lista não é o cadastro completo de candidatos e não avalia
+              pessoas ou mandatos.
+            </p>
+          </div>
+          {votesResult.state === "unavailable" ? (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Dados eleitorais temporariamente indisponíveis</strong>
+                <p>
+                  Isso representa falha de consulta ou ausência de coleta
+                  válida, não ausência de candidaturas.
+                </p>
+                <a href="https://divulgacandcontas.tse.jus.br/" target="_blank" rel="noreferrer">
+                  Consultar DivulgaCandContas/TSE →
+                </a>
+              </div>
+            </div>
+          ) : votesResult.votes.length === 0 ? (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Votação municipal ainda não coletada</strong>
+                <p>
+                  A coleta do TSE aparecerá aqui depois da primeira execução
+                  válida para um pleito.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="acts-count" role="status">
+                {votesResult.votes.length.toLocaleString("pt-BR")} registros de votação municipal
+              </p>
+              <div className="person-grid">
+                {votesResult.votes.map((vote) => (
+                  <CandidateVoteCard key={`${vote.electionYear}-${vote.candidateId}-${vote.turnNumber}`} vote={vote} />
+                ))}
+              </div>
+            </>
+          )}
+        </section>
 
         <p className="hero-note">
           Metodologia: identidade unificada apenas por identificador oficial
