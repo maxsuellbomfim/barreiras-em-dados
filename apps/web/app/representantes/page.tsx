@@ -13,6 +13,11 @@ import {
   type StateRepresentative,
 } from "../../lib/state-representatives";
 import { getTseBarreirasVotes, type TseVote } from "../../lib/tse-votes";
+import { getApprovedGazetteActs } from "../../lib/approved-acts";
+import {
+  buildExecutiveSnapshot,
+  type ExecutiveSnapshot,
+} from "../../lib/executive-snapshot";
 
 export const revalidate = 300;
 
@@ -205,6 +210,57 @@ function StateRepresentativeCard({
   );
 }
 
+function ExecutiveActCard({
+  profile,
+}: Readonly<{ profile: ExecutiveSnapshot }>) {
+  const actLabel = profile.actType === "nomeacao" ? "Nomeação" : "Exoneração";
+  return (
+    <article className="person-card" aria-label="Ato do Executivo municipal">
+      <div className="person-head">
+        <span className="person-photo person-photo-empty" aria-hidden="true" />
+        <div>
+          <h2>{profile.personName}</h2>
+          <p className="person-role">
+            {profile.positionTitle}
+            {profile.positionSymbol ? ` · ${profile.positionSymbol}` : ""}
+          </p>
+          <span
+            className={
+              profile.actType === "nomeacao"
+                ? "person-badge person-badge-active"
+                : "person-badge"
+            }
+          >
+            {actLabel}
+          </span>
+        </div>
+      </div>
+      {profile.organization ? (
+        <p className="person-link-note">
+          <strong>Órgão:</strong> {profile.organization}
+        </p>
+      ) : null}
+      {profile.excerpt ? (
+        <details>
+          <summary>Trecho que sustenta o registro</summary>
+          <p className="person-bio">“{profile.excerpt}”</p>
+        </details>
+      ) : null}
+      <p className="act-evidence">
+        {profile.gazetteUrl ? (
+          <a href={profile.gazetteUrl} target="_blank" rel="noreferrer">
+            Ver documento oficial
+          </a>
+        ) : (
+          <span>Documento preservado no acervo verificável</span>
+        )}{" "}
+        · ato em {profile.gazetteDate ?? "data não informada"} · hash{" "}
+        {profile.artifactSha256.slice(0, 12)}…
+      </p>
+    </article>
+  );
+}
+
 function CandidateVoteCard({ vote }: Readonly<{ vote: TseVote }>) {
   return (
     <article className="person-card" aria-label="Candidatura com votação em Barreiras">
@@ -248,50 +304,18 @@ function CandidateVoteCard({ vote }: Readonly<{ vote: TseVote }>) {
   );
 }
 
-function FutureCoverage({
-  eyebrow,
-  title,
-  description,
-  sourceLabel,
-  sourceUrl,
-}: Readonly<{
-  eyebrow: string;
-  title: string;
-  description: string;
-  sourceLabel: string;
-  sourceUrl: string;
-}>) {
-  return (
-    <section className="representation-future" aria-labelledby={`${title}-title`}>
-      <div className="section-heading">
-        <span className="eyebrow">{eyebrow}</span>
-        <h2 id={`${title}-title`}>{title}</h2>
-        <p>{description}</p>
-      </div>
-      <div className="collection-unavailable" role="status">
-        <div>
-          <strong>Fonte em preparação</strong>
-          <p>
-            Esta seção só será preenchida depois que a fonte oficial for
-            coletada, conferida e ligada a evidências. Ausência de dados não
-            será apresentada como zero ou como avaliação.
-          </p>
-          <a href={sourceUrl} target="_blank" rel="noreferrer">
-            Consultar {sourceLabel} →
-          </a>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default async function RepresentativesPage() {
-  const [result, councillorsResult, stateResult, votesResult] = await Promise.all([
+  const [result, councillorsResult, stateResult, votesResult, executiveResult] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
     getStateRepresentatives(),
     getTseBarreirasVotes(),
+    getApprovedGazetteActs(),
   ]);
+  const executiveSnapshot =
+    executiveResult.state === "available"
+      ? buildExecutiveSnapshot(executiveResult.acts)
+      : [];
 
   return (
     <main>
@@ -325,8 +349,9 @@ export default async function RepresentativesPage() {
           <strong>Cobertura desta página, hoje</strong>
           <ul>
             <li>
-              <strong>Prefeitura</strong>: prefeito, vice e secretários estão no
-              primeiro recorte de fontes em preparação.
+              <strong>Prefeitura</strong>: atos aprovados de nomeação e
+              exoneração aparecem no primeiro recorte abaixo; o cadastro
+              completo do Executivo continua em construção.
             </li>
             <li>
               <strong>Vereadores</strong>: os que a Câmara Municipal publica
@@ -381,13 +406,58 @@ export default async function RepresentativesPage() {
         </div>
 
         <div id="executivo" className="representation-block representation-block-municipal-leadership">
-          <FutureCoverage
-            eyebrow="Prefeitura"
-            title="Prefeito, vice-prefeito e secretários"
-            description="A composição do Executivo será ligada aos atos de nomeação, vigência, remuneração e atuação de cada órgão."
-            sourceLabel="Prefeitura de Barreiras"
-            sourceUrl="https://barreiras.ba.gov.br/"
-          />
+          <section aria-labelledby="executive-title">
+            <div className="section-heading">
+              <span className="eyebrow">Prefeitura de Barreiras</span>
+              <h2 id="executive-title">Atos do Executivo municipal</h2>
+              <p>
+                Pessoas e cargos aparecem aqui somente quando um ato aprovado
+                do Diário Oficial os sustenta. A lista é um recorte dos atos
+                publicados, não um cadastro completo nem uma avaliação de
+                desempenho.
+              </p>
+            </div>
+            {executiveResult.state === "unavailable" ? (
+              <div className="collection-unavailable" role="status">
+                <div>
+                  <strong>Atos do Executivo temporariamente indisponíveis</strong>
+                  <p>
+                    Isso representa falha de consulta, não ausência de
+                    nomeações ou exonerações. Tente novamente em alguns minutos.
+                  </p>
+                </div>
+              </div>
+            ) : executiveSnapshot.length === 0 ? (
+              <div className="collection-unavailable" role="status">
+                <div>
+                  <strong>O primeiro recorte do Executivo está em revisão</strong>
+                  <p>
+                    Os atos só aparecem nesta página depois de preservação,
+                    extração e aprovação editorial.
+                  </p>
+                  <a href="/atos">Acompanhar atos publicados →</a>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="acts-count" role="status">
+                  {executiveSnapshot.length.toLocaleString("pt-BR")} cargos com
+                  ato mais recente no recorte aprovado
+                </p>
+                <div className="person-grid">
+                  {executiveSnapshot.slice(0, 24).map((profile) => (
+                    <ExecutiveActCard key={profile.key} profile={profile} />
+                  ))}
+                </div>
+                {executiveSnapshot.length > 24 ? (
+                  <p className="hero-note">
+                    Exibindo os 24 atos mais recentes. O histórico completo está
+                    disponível em <a href="/atos">Atos públicos</a>.
+                  </p>
+                ) : null}
+              </>
+            )}
+          </section>
         </div>
 
         <section id="federais" className="representation-block representation-block-federal" aria-labelledby="federal-title">
