@@ -31,7 +31,7 @@
 - Consumes: `RevenuePdfReport` e `RevenuePdfRow` existentes.
 - Produces: `RevenuePublicationRow`, `RevenuePublicationBatch` e `validate_publication_batch(report)`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 def test_publication_uses_period_amount_and_keeps_accumulated_amount():
@@ -46,23 +46,23 @@ def test_publication_rejects_negative_or_non_finite_money():
         build_publication_batch(report)
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm failure**
+- [x] **Step 2: Run the focused tests and confirm failure**
 
 Run: `python -m unittest tests.normalization.test_revenue tests.normalization.test_revenue_publication -v`
 
 Expected: FAIL because the publication contract does not exist.
 
-- [ ] **Step 3: Implement the pure contract**
+- [x] **Step 3: Implement the pure contract**
 
 Add immutable dataclasses with `Decimal` fields. Map `period_amount` to the public `collected_amount`, preserve `accumulated_amount`, `forecast_amount`, `difference_more` and `difference_less`, and require the declared total line to be present and parseable. For revenue codes beginning with `9`, preserve accounting direction as `deduction` while storing magnitudes as non-negative values; all other rows use `credit`. Reject non-finite values, reject duplicate codes, and compute a canonical batch digest from the ordered rows.
 
-- [ ] **Step 4: Run tests and Ruff**
+- [x] **Step 4: Run tests and Ruff**
 
 Run: `python -m unittest tests.normalization.test_revenue tests.normalization.test_revenue_publication -v` and `python -m ruff check workers/normalization tests/normalization`.
 
 Expected: PASS with no floating-point conversion.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add workers/normalization tests/normalization
@@ -79,27 +79,27 @@ git commit -m "feat: criar contrato publicável de receitas"
 - Consumes: `finance.revenues`, `raw.raw_artifacts`, `raw.raw_records`, `org.public_bodies`.
 - Produces: columns `source_document_artifact_id`, `accumulated_amount`, `difference_more`, `difference_less`, `methodology_version`, `validation_status`, `published_at` and a public RPC version `public-revenues/1.1.0`.
 
-- [ ] **Step 1: Add a structural migration assertion**
+- [x] **Step 1: Add a structural migration assertion**
 
 Assert that `finance.revenues` has the new provenance and validation columns, that `validation_status` accepts `extracted`, `validated`, `needs_source`, `needs_review`, `superseded`, and that the public RPC filters to `validated` rows with a publication timestamp.
 
-- [ ] **Step 2: Run the migration test and confirm failure**
+- [x] **Step 2: Run the migration test and confirm failure**
 
 Run: `pnpm run check:migration`.
 
 Expected: FAIL until the migration and assertions are present.
 
-- [ ] **Step 3: Implement the migration**
+- [x] **Step 3: Implement the migration**
 
 Add nullable child-artifact and report-column fields, `collection_direction` with `credit`/`deduction`, default `methodology_version` to `public-revenue-pdf/1.0.0`, enforce non-negative stored magnitudes, add an index for `(public_body_id, fiscal_year, validation_status)`, replace `api.get_public_revenues(integer, smallint)` with methodology `public-revenues/1.1.0` and a signed amount projection, and grant only `anon`/`authenticated` execution. Keep previous rows queryable through their version and status.
 
-- [ ] **Step 4: Run the migration check**
+- [x] **Step 4: Run the migration check**
 
 Run: `pnpm run check:migration && pnpm run check:contracts`.
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add supabase/migrations/20260805010000_finance_revenue_automation.sql packages/database/scripts/test-foundation-migration.mjs
@@ -117,7 +117,7 @@ git commit -m "feat: versionar publicação de receitas"
 - Consumes: `RevenuePublicationBatch`, `ObjectReader`, `RevenuePublicationRepository` e `PostgresCollectionRepository` connection factory.
 - Produces: `publish_pending_reports(limit: int) -> PublishSummary` e CLI `python -m barreiras_normalization.commands.publish_revenue_reports --limit N`.
 
-- [ ] **Step 1: Write failing publisher tests**
+- [x] **Step 1: Write failing publisher tests**
 
 ```python
 def test_publisher_rejects_tampered_pdf_before_insert():
@@ -136,27 +136,27 @@ def test_publisher_replays_without_duplicate_rows():
     assert len(repository.inserted_batches) == 1
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm failure**
+- [x] **Step 2: Run the focused tests and confirm failure**
 
 Run: `python -m unittest tests.normalization.test_revenue_publisher -v`.
 
 Expected: FAIL because the publisher does not exist.
 
-- [ ] **Step 3: Implement hash verification and deterministic persistence**
+- [x] **Step 3: Implement hash verification and deterministic persistence**
 
 Read the object by key, verify SHA-256 and byte size, extract canonical text through the existing PDF text service, parse the report, build a publication batch, and call a repository method that inserts the municipal executive body from the parent raw record when absent. Insert each line with `source_document_artifact_id`, `origin_raw_record_id`, `validation_status = 'validated'`, `published_at`, methodology and a stable external id composed of PDF hash plus revenue code. Any parser or reconciliation failure creates no public rows and returns `needs_review`.
 
-- [ ] **Step 4: Implement the CLI with bounded backfill**
+- [x] **Step 4: Implement the CLI with bounded backfill**
 
 Accept `--limit` from 1 to 100, `--fiscal-year-from` from 2021 to the current year, and `--fiscal-year-to`. Select only municipal-transparency document artifacts whose metadata schema is `municipal-transparency-document`, whose parent record is a financial resource, and which have no validated publication for the same artifact hash. Log `published_rows`, `needs_source`, `needs_review`, and `skipped_existing` as structured metrics.
 
-- [ ] **Step 5: Run tests and Ruff**
+- [x] **Step 5: Run tests and Ruff**
 
 Run: `python -m unittest tests.normalization.test_revenue_publisher -v` and `python -m ruff check workers/normalization tests/normalization`.
 
 Expected: PASS; replay is idempotent and persistence corruption aborts the run.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add workers/normalization tests/normalization
@@ -174,23 +174,23 @@ git commit -m "feat: publicar receitas validadas de PDFs"
 - Consumes: `publish_revenue_reports` CLI and existing Supabase workload secrets.
 - Produces: scheduled/manual backfill workflow with bounded concurrency.
 
-- [ ] **Step 1: Add workflow contract test**
+- [x] **Step 1: Add workflow contract test**
 
 Assert that the workflow uses Python 3.12, `PERSISTENCE_MODE=postgres-supabase`, the existing database/storage secrets, `--limit 50`, and year bounds beginning at 2021.
 
-- [ ] **Step 2: Implement daily and manual workflow**
+- [x] **Step 2: Implement daily and manual workflow**
 
 Run the publisher after document collection, with `workflow_dispatch` inputs for `fiscal_year_from`, `fiscal_year_to` and `limit`, timeout 20 minutes, concurrency `publish-financial-revenues-production`, and no secrets printed in logs.
 
-- [ ] **Step 3: Update runbook**
+- [x] **Step 3: Update runbook**
 
 Document that collection must run before publication, that only `validated` rows appear in `/financas`, and that a missing year means no validated source was found rather than zero revenue.
 
-- [ ] **Step 4: Run workflow and contract checks**
+- [x] **Step 4: Run workflow and contract checks**
 
 Run: `pnpm run check:contracts`, `pnpm run check:migration`, the full normalization tests, web build/typecheck, and `git diff --check`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .github/workflows/publish-financial-revenues.yml docs/reviews/FINANCE_DOCUMENT_CATALOG.md docs/superpowers/specs/2026-08-02-financial-auto-publication-design.md
@@ -208,19 +208,19 @@ git commit -m "feat: automatizar publicação de receitas"
 - Consumes: RPC `api.get_public_revenues` version `public-revenues/1.1.0`.
 - Produces: cards that show accumulated amount, source document, validation status, methodology and coverage note.
 
-- [ ] **Step 1: Write the contract test**
+- [x] **Step 1: Write the contract test**
 
 Reject payloads whose methodology is not `public-revenues/1.1.0`, whose validation status is not `validated`, or whose document hash is invalid.
 
-- [ ] **Step 2: Update parser and page copy**
+- [x] **Step 2: Update parser and page copy**
 
 Add fields with strict runtime validation. Show “publicado automaticamente após validação determinística” and a link to the official source. Show “sem dado validado para este período” when the result is empty; never render zero as a substitute.
 
-- [ ] **Step 3: Run web checks**
+- [x] **Step 3: Run web checks**
 
 Run: `pnpm --filter @barreiras-em-dados/web build` and `pnpm --filter @barreiras-em-dados/web typecheck`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web tests/web
@@ -232,11 +232,11 @@ git commit -m "feat: exibir receitas e cobertura validadas"
 **Files:**
 - No new source files; review all files changed by Tasks 1–5.
 
-- [ ] **Step 1: Run the complete verification set**
+- [x] **Step 1: Run the complete verification set**
 
 Run: collector suite, normalization suite, document-processing suite, migration/contracts checks, web build/typecheck, Ruff and `git diff --check`.
 
-- [ ] **Step 2: Inspect the diff for policy regressions**
+- [x] **Step 2: Inspect the diff for policy regressions**
 
 Confirm no automatic accusation, no LLM arithmetic, no full CPF, no raw schema exposure, and no destructive update/delete path.
 
@@ -244,7 +244,7 @@ Confirm no automatic accusation, no LLM arithmetic, no full CPF, no raw schema e
 
 Use title `feat: publicar receitas municipais validadas` and include the activation order: merge, apply migration, collect PDFs, run publisher with a small limit, inspect `/financas`, then expand backfill.
 
-- [ ] **Step 4: Commit any final documentation correction**
+- [x] **Step 4: Commit any final documentation correction**
 
 ```bash
 git add .
