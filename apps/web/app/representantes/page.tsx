@@ -30,6 +30,10 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Bahia",
 });
 
+function countLabel(count: number | null): string {
+  return count === null ? "—" : count.toLocaleString("pt-BR");
+}
+
 function RepresentativeCard({
   person,
 }: Readonly<{ person: FederalRepresentative }>) {
@@ -349,7 +353,34 @@ export default async function RepresentativesPage() {
           </ul>
         </div>
 
-        <div className="representation-block representation-block-municipal-leadership">
+        <nav className="representation-jump-nav" aria-label="Ir para uma seção">
+          <a href="#executivo">Executivo</a>
+          <a href="#vereadores">Vereadores</a>
+          <a href="#estaduais">Estaduais</a>
+          <a href="#federais">Federais</a>
+          <a href="#candidaturas">Candidaturas</a>
+        </nav>
+
+        <div className="representation-overview" aria-label="Resumo da cobertura">
+          <div>
+            <strong>{countLabel(councillorsResult.state === "available" ? councillorsResult.councillors.length : null)}</strong>
+            <span>vereadores atuais</span>
+          </div>
+          <div>
+            <strong>{countLabel(stateResult.state === "available" ? stateResult.representatives.length : null)}</strong>
+            <span>deputados estaduais</span>
+          </div>
+          <div>
+            <strong>{countLabel(result.state === "available" ? result.representatives.length : null)}</strong>
+            <span>deputados federais</span>
+          </div>
+          <div>
+            <strong>{countLabel(votesResult.state === "available" ? votesResult.votes.length : null)}</strong>
+            <span>registros eleitorais</span>
+          </div>
+        </div>
+
+        <div id="executivo" className="representation-block representation-block-municipal-leadership">
           <FutureCoverage
             eyebrow="Prefeitura"
             title="Prefeito, vice-prefeito e secretários"
@@ -359,7 +390,7 @@ export default async function RepresentativesPage() {
           />
         </div>
 
-        <section className="representation-block representation-block-federal" aria-labelledby="federal-title">
+        <section id="federais" className="representation-block representation-block-federal" aria-labelledby="federal-title">
           <div className="section-heading">
             <span className="eyebrow">Câmara dos Deputados</span>
             <h2 id="federal-title">Deputados federais</h2>
@@ -403,7 +434,7 @@ export default async function RepresentativesPage() {
           )}
         </section>
 
-        <section className="representation-block representation-block-councillors" aria-labelledby="councillors-title">
+        <section id="vereadores" className="representation-block representation-block-councillors" aria-labelledby="councillors-title">
         <div className="section-heading">
           <span className="eyebrow">Câmara Municipal</span>
           <h2 id="councillors-title">Vereadores de Barreiras</h2>
@@ -448,7 +479,7 @@ export default async function RepresentativesPage() {
         )}
         </section>
 
-        <section className="representation-block representation-block-state" aria-labelledby="state-title">
+        <section id="estaduais" className="representation-block representation-block-state" aria-labelledby="state-title">
           <div className="section-heading">
             <span className="eyebrow">Assembleia Legislativa da Bahia</span>
             <h2 id="state-title">Deputados estaduais</h2>
@@ -493,6 +524,16 @@ export default async function RepresentativesPage() {
           )}
         </section>
 
+        <details id="candidaturas" className="representation-collapsible">
+          <summary>
+            <span>
+              <span className="eyebrow">Histórico eleitoral</span>
+              <strong>Candidaturas e estudos</strong>
+            </span>
+            <span className="representation-collapsible-meta">
+              {countLabel(votesResult.state === "available" ? votesResult.votes.length : null)} registros · abrir
+            </span>
+          </summary>
         <section className="representation-block representation-block-candidates" aria-labelledby="candidates-title">
           <div className="section-heading">
             <span className="eyebrow">Eleições e vínculo municipal</span>
@@ -539,6 +580,7 @@ export default async function RepresentativesPage() {
             </>
           )}
         </section>
+        </details>
 
         <p className="hero-note">
           Metodologia: identidade unificada apenas por identificador oficial
