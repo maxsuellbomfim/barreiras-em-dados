@@ -1,0 +1,23 @@
+<!-- Fixture sanitizada: estrutura real da listagem da Assembleia
+     Legislativa da Bahia, com nomes fictícios e identificadores de teste.
+     O portal publica a composição num <select> com o id oficial de cada
+     parlamentar no atributo value. -->
+<div class="deputados">
+  <select name="deputado" id="select-deputado">
+    <option value="">Selecione</option>
+    <option value="/deputados/deputado-estadual/900001">
+      <span>Fulano de Tal Exemplo</span>
+    </option>
+    <option value="/deputados/deputado-estadual/900002">
+      <span>Beltrana Modelo</span>
+    </option>
+    <option value="/deputados/deputado-estadual/900003">
+      <span>Sicrano Terceiro</span>
+    </option>
+    <!-- Repetição do mesmo parlamentar em outro menu da página: a coleta
+         deduplica pelo identificador. -->
+    <option value="/deputados/deputado-estadual/900001">
+      <span>Fulano de Tal Exemplo</span>
+    </option>
+  </select>
+</div>
