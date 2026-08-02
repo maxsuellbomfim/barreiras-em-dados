@@ -1,6 +1,6 @@
 # 0016 — Corredor de evidência bruta da transparência municipal
 
-Data: 2026-08-02. Status: proposta, aguardando revisão e merge.
+Data: 2026-08-02. Status: aceita e aplicada após o merge do PR #66.
 
 ## Contexto
 
@@ -29,4 +29,6 @@ O próximo passo operacional exige revisão humana, criação de uma credencial
 técnica separada e registro auditável do UUID. Até lá, a aplicação não publica
 valores de receita e não faz normalização financeira. A migration pode ser
 aplicada sem alterar dados existentes e pode ser auditada pelo catálogo de
-constraints.
+constraints. A migration foi aplicada no projeto Supabase
+`mpladsyzilmgiefejpkq` como `20260802030921`; a consulta posterior confirmou
+que nenhum workload municipal foi ativado.
