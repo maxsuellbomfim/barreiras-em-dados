@@ -12,9 +12,9 @@ from barreiras_docproc.canonical import CanonicalTextError
 from ..revenue_publisher import (
     ArtifactMismatchError,
     PostgresRevenuePublicationRepository,
-    RevenuePublicationError,
     RevenueReportPublisher,
 )
+from ..revenue_publication import RevenuePublicationError
 
 
 def _cloud_client(settings):
