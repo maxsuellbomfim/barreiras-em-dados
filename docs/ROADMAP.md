@@ -175,6 +175,9 @@ Portais locais, SICONFI e TCM-BA:
 - órgãos, fontes de recurso e classificações;
 - conflitos entre fontes.
 
+Estado atual: contrato determinístico de receita e projeção pública segura
+preparados; persistência normalizada e reconciliação de amostra ainda pendentes.
+
 Gate:
 
 - unidade/escala contábil verificadas;
