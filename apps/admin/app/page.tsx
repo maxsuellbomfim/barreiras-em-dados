@@ -28,6 +28,12 @@ type QueueItem = Readonly<{
     suggestions?: Record<string, string | null>;
   } | null;
   artifact_sha256: string;
+  artifact_source_url?: string | null;
+  queue_reason?:
+    | "missing_source_excerpt"
+    | "ai_assistance_pending"
+    | "needs_human_verification"
+    | string;
   methodology_version: string;
 }>;
 
@@ -216,9 +222,23 @@ function ReviewCard({
         </button>
       </div>
       <p className="meta">
+        {item.queue_reason === "missing_source_excerpt"
+          ? "Atenção: este candidato não trouxe trecho de sustentação; não publique sem localizar o documento. "
+          : item.queue_reason === "ai_assistance_pending"
+            ? "A IA ainda não respondeu; a decisão deve usar somente o trecho oficial abaixo. "
+            : "Trecho e sugestão assistida disponíveis para conferência. "}
         Aprovar publica o ato na página pública /atos, com registro auditado;
         rejeitar mantém fora do site. Extraído por {item.extractor_version} em{" "}
         {new Date(item.result_created_at).toLocaleString("pt-BR")} · artefato{" "}
+        {item.artifact_source_url ? (
+          <a
+            href={item.artifact_source_url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            documento oficial
+          </a>
+        ) : null}{" "}
         {item.artifact_sha256.slice(0, 12)}… · {item.methodology_version}
       </p>
     </article>
