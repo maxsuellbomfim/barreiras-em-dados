@@ -53,7 +53,8 @@ try {
     -- é criado pelo provisionamento de credenciais, não pela migration.
     insert into auth.users (id) values
       ('1575c740-fcff-4b1a-89a9-e8e5a314880a'),
-      ('27b3add6-f788-48e5-bf6f-50dfbd8cf198');
+      ('27b3add6-f788-48e5-bf6f-50dfbd8cf198'),
+      ('c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a');
     create function auth.uid()
     returns uuid
     language sql
@@ -88,6 +89,34 @@ try {
   for (const migration of migrations) {
     await database.exec(migration);
   }
+
+  const municipalWorkloads = await database.query(`
+    select
+      slug,
+      auth_user_id::text as auth_user_id,
+      status,
+      can_select,
+      can_insert
+    from audit.storage_workload_identities
+    where object_prefix = 'municipal-transparency/'
+    order by slug
+  `);
+  assert.deepEqual(municipalWorkloads.rows, [
+    {
+      slug: "municipal-transparency-collector",
+      auth_user_id: "c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a",
+      status: "active",
+      can_select: true,
+      can_insert: true,
+    },
+    {
+      slug: "municipal-transparency-collector-retired-20260802",
+      auth_user_id: "27b3add6-f788-48e5-bf6f-50dfbd8cf198",
+      status: "retired",
+      can_select: false,
+      can_insert: false,
+    },
+  ]);
 
   const relations = await database.query(`
     select count(*)::integer as count

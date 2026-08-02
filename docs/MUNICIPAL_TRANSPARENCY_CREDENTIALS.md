@@ -8,7 +8,8 @@ Câmara ou TSE.
 
 - migration do corredor aplicada no Supabase;
 - bucket `raw-artifacts` continua privado;
-- nenhum usuário Auth municipal está na allowlist;
+- a identidade municipal anterior continua ativa até a aplicação da rotação;
+- a nova identidade foi criada no Auth e aguarda a migration de troca;
 - nenhuma página real da Prefeitura ou Câmara foi persistida remotamente;
 - nenhum valor financeiro foi normalizado ou publicado.
 
@@ -41,6 +42,20 @@ A migration não conterá senha. Depois da ativação serão executados, em jane
 controlada, um upload de teste, restauração com SHA-256, tentativa negativa de
 outro prefixo e uma única página oficial. O mesmo recorte será repetido para
 confirmar idempotência antes de qualquer normalização financeira.
+
+## Rotação de credencial
+
+Quando uma nova identidade técnica for criada, a migration de rotação:
+
+1. verifica que o novo UUID existe em `auth.users`;
+2. marca a identidade anterior como `retired` e desabilita leitura e inserção;
+3. preserva a linha antiga e registra a substituição no log de auditoria;
+4. ativa somente o novo UUID no mesmo bucket e prefixo;
+5. não apaga o usuário Auth antigo e não grava segredos no banco ou no Git.
+
+O PR da rotação deve ser revisado e mesclado antes da aplicação no Supabase.
+Depois disso, o segredo correspondente precisa ser atualizado somente no secret
+`MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD` do GitHub Actions.
 
 ## Critério de publicação
 
