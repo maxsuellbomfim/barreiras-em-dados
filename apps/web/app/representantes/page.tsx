@@ -425,11 +425,21 @@ export default async function RepresentativesPage() {
               {result.representatives.length.toLocaleString("pt-BR")}{" "}
               deputados federais eleitos pela Bahia
             </p>
-            <div className="person-grid">
-              {result.representatives.map((person) => (
-                <RepresentativeCard key={person.externalId} person={person} />
-              ))}
-            </div>
+            <details className="representation-collapsible representation-directory-collapsible">
+              <summary>
+                <span>
+                  <strong>Ver perfis federais</strong>
+                </span>
+                <span className="representation-collapsible-meta">
+                  {result.representatives.length.toLocaleString("pt-BR")} perfis · abrir
+                </span>
+              </summary>
+              <div className="person-grid">
+                {result.representatives.map((person) => (
+                  <RepresentativeCard key={person.externalId} person={person} />
+                ))}
+              </div>
+            </details>
           </>
           )}
         </section>
@@ -515,11 +525,21 @@ export default async function RepresentativesPage() {
                 {stateResult.representatives.length.toLocaleString("pt-BR")} deputados
                 estaduais publicados pela ALBA
               </p>
-              <div className="person-grid">
-                {stateResult.representatives.map((person) => (
-                  <StateRepresentativeCard key={person.externalId} person={person} />
-                ))}
-              </div>
+              <details className="representation-collapsible representation-directory-collapsible">
+                <summary>
+                  <span>
+                    <strong>Ver perfis estaduais</strong>
+                  </span>
+                  <span className="representation-collapsible-meta">
+                    {stateResult.representatives.length.toLocaleString("pt-BR")} perfis · abrir
+                  </span>
+                </summary>
+                <div className="person-grid">
+                  {stateResult.representatives.map((person) => (
+                    <StateRepresentativeCard key={person.externalId} person={person} />
+                  ))}
+                </div>
+              </details>
             </>
           )}
         </section>

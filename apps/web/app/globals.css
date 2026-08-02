@@ -1824,6 +1824,15 @@ footer {
   padding: 0 1.2rem 1.2rem;
 }
 
+.representation-directory-collapsible {
+  margin-top: 1rem;
+}
+
+.representation-directory-collapsible > .person-grid {
+  margin-top: 0;
+  padding: 0 1.2rem 1.2rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .representation-jump-nav a,
   .representation-collapsible > summary::after {
