@@ -729,7 +729,7 @@ try {
   `);
   assert.deepEqual(seeded.rows[0], {
     sources: 8,
-    endpoints: 10,
+    endpoints: 11,
     private_buckets: 1,
   });
 
