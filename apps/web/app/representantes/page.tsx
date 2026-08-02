@@ -8,6 +8,10 @@ import {
   getFederalRepresentatives,
   type FederalRepresentative,
 } from "../../lib/representatives";
+import {
+  getStateRepresentatives,
+  type StateRepresentative,
+} from "../../lib/state-representatives";
 
 export const revalidate = 300;
 
@@ -168,6 +172,34 @@ function CouncillorCard({ person }: Readonly<{ person: Councillor }>) {
   );
 }
 
+function StateRepresentativeCard({
+  person,
+}: Readonly<{ person: StateRepresentative }>) {
+  return (
+    <article className="person-card" aria-label="Deputado estadual">
+      <div className="person-head">
+        <span className="person-photo person-photo-empty" aria-hidden="true" />
+        <div>
+          <h2>{person.displayName}</h2>
+          <p className="person-role">Deputado(a) estadual da Bahia</p>
+          <span className="person-badge person-badge-active">mandato publicado pela ALBA</span>
+        </div>
+      </div>
+      <p className="person-link-note">
+        <strong>Vínculo com Barreiras:</strong> ainda não consolidado nesta
+        projeção. A presença na Assembleia não é tratada como representação
+        exclusiva do município.
+      </p>
+      <p className="act-evidence">
+        <a href={person.profileUrl} target="_blank" rel="noreferrer">
+          Perfil oficial na ALBA
+        </a>{" "}
+        · coletado em {dateFormatter.format(new Date(person.collectedAt))}
+      </p>
+    </article>
+  );
+}
+
 function FutureCoverage({
   eyebrow,
   title,
@@ -206,9 +238,10 @@ function FutureCoverage({
 }
 
 export default async function RepresentativesPage() {
-  const [result, councillorsResult] = await Promise.all([
+  const [result, councillorsResult, stateResult] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
+    getStateRepresentatives(),
   ]);
 
   return (
@@ -370,15 +403,50 @@ export default async function RepresentativesPage() {
         )}
         </section>
 
-        <div className="representation-block representation-block-state">
-          <FutureCoverage
-            eyebrow="Assembleia Legislativa da Bahia"
-            title="Deputados estaduais"
-            description="A base estadual incluirá mandato, proposições, votações e vínculos verificáveis com Barreiras, sem chamar nenhum deputado de representante exclusivo da cidade."
-            sourceLabel="ALBA"
-            sourceUrl="https://www.al.ba.gov.br/deputados/legislatura-atual"
-          />
-        </div>
+        <section className="representation-block representation-block-state" aria-labelledby="state-title">
+          <div className="section-heading">
+            <span className="eyebrow">Assembleia Legislativa da Bahia</span>
+            <h2 id="state-title">Deputados estaduais</h2>
+            <p>
+              Composição publicada pela ALBA, com vínculo territorial tratado
+              separadamente. A lista não afirma que qualquer parlamentar
+              representa Barreiras sem evidência municipal específica.
+            </p>
+          </div>
+          {stateResult.state === "unavailable" ? (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Lista estadual temporariamente indisponível</strong>
+                <p>
+                  Isso representa uma falha de consulta, não ausência de
+                  deputados na fonte oficial.
+                </p>
+              </div>
+            </div>
+          ) : stateResult.representatives.length === 0 ? (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Lista estadual ainda não coletada</strong>
+                <p>
+                  A coleta da ALBA está configurada e aparecerá depois da
+                  primeira execução válida.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="acts-count" role="status">
+                {stateResult.representatives.length.toLocaleString("pt-BR")} deputados
+                estaduais publicados pela ALBA
+              </p>
+              <div className="person-grid">
+                {stateResult.representatives.map((person) => (
+                  <StateRepresentativeCard key={person.externalId} person={person} />
+                ))}
+              </div>
+            </>
+          )}
+        </section>
 
         <div className="representation-block representation-block-candidates">
           <FutureCoverage
