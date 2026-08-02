@@ -1,7 +1,7 @@
 # Especificação: publicação automática de receitas financeiras
 
 **Data:** 2026-08-02  
-**Status:** proposta para revisão  
+**Status:** aprovada; primeira implementação em revisão  
 **Escopo:** primeiro relatório municipal de receitas e seu backfill histórico
 
 ## 1. Objetivo
@@ -171,3 +171,11 @@ Antes da publicação desta etapa:
 
 Implementar o parser e o publicador do primeiro relatório de receitas, usando o
 artefato financeiro já preservado, seguido de um PR separado para revisão.
+
+## 13. Primeira implementação
+
+A primeira implementação desta especificação está sendo entregue separadamente
+e inclui o contrato `public-revenue-pdf/1.0.0`, a migration de proveniência e o
+workflow `Publicar receitas financeiras validadas`. A ativação em produção deve
+começar com `limit=1`; somente depois de conferir o primeiro PDF o backfill deve
+ser ampliado por ano.

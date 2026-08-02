@@ -31,30 +31,37 @@ validada → revisão → finance.revenues → projeção pública
   Sintético`, com suporte a valores negativos de deduções e testes unitários;
 - contrato de assistência em cascata para classificar o relatório e sugerir
   linhas com âncora literal, sem permitir que a IA calcule números;
+- contrato publicável e publicador idempotente para o primeiro demonstrativo de
+  receita, com deduções assinadas e status `validated`;
+- workflow separado para publicar uma janela financeira por ano, com backfill
+  inicial a partir de 2021;
 - mensagem pública explícita quando a ausência de números ainda for uma
   etapa de validação, e não receita zero.
 
 ## Limite atual
 
 O workflow preserva a resposta da API e o PDF oficial quando o endpoint entrega
-um link válido. Ele ainda não publica valores extraídos dos PDFs. Essa próxima etapa exige parser
-específico por relatório, testes com fixtures reais sanitizadas, reconciliação
-de período e revisão humana antes da publicação.
+um link válido. O publicador grava somente linhas com validação determinística,
+preserva a direção contábil das deduções e liga cada linha ao JSON pai e ao PDF
+filho.
 
-O parser inicial já reconhece o layout textual desse demonstrativo quando o
-PDF passa pelo extrator de texto. Ele permanece deliberadamente separado da
-publicação: uma integração futura deverá registrar a versão do extrator,
-comparar totais e só então gerar linhas em `finance.revenues`.
+O parser inicial reconhece o layout textual desse demonstrativo quando o PDF
+passa pelo extrator de texto. Páginas sem texto embutido permanecem fora da
+publicação até o estágio de OCR; elas não são tratadas como receita zero.
 
 ## Procedimento de ativação
 
-1. Aplicar as migrations `20260804030000_public_finance_documents.sql` e
-   `20260804040000_finance_document_artifacts.sql` no projeto Supabase de
+1. Aplicar as migrations `20260804030000_public_finance_documents.sql`,
+   `20260804040000_finance_document_artifacts.sql` e
+   `20260805010000_finance_revenue_automation.sql` no projeto Supabase de
    produção.
 2. Conferir se as variáveis e secrets usados pelo workflow municipal continuam
    válidos.
 3. Executar manualmente `Coletar documentos financeiros municipais` para uma
    matriz pequena e revisar o status da coleta.
-4. Conferir `/financas`; cada card deve informar se o PDF foi preservado.
-5. Só depois iniciar a extração de RREO, RGF, receitas e despesas com fixtures e
-   validação de qualidade.
+4. Executar `Publicar receitas financeiras validadas` com `limit=1` e o ano do
+   primeiro relatório coletado.
+5. Conferir `/financas`; somente linhas `validated` devem aparecer, com PDF,
+   hash, direção contábil e metodologia.
+6. Ampliar o backfill por ano após conferir a primeira janela; anos sem fonte
+   validada devem continuar visíveis como ausência de cobertura, não como zero.

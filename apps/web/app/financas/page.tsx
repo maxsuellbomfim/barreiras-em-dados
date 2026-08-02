@@ -74,9 +74,10 @@ export default async function FinancesPage() {
             <div className="section-heading compact">
               <span className="eyebrow">Dados numéricos validados</span>
               <h2 id="revenue-title">Receitas normalizadas</h2>
-              <p>
-                {revenues.length.toLocaleString("pt-BR")} registros com cálculo
-                determinístico, versão e evidência de origem.
+            <p>
+              {revenues.length.toLocaleString("pt-BR")} registros com cálculo
+                determinístico, versão e evidência de origem. A publicação é
+                automática quando todos os checks passam.
               </p>
             </div>
             <div className="digest-grid">
@@ -89,8 +90,20 @@ export default async function FinancesPage() {
                   <h3 className="procurement-object">{revenue.description}</h3>
                   <dl className="procurement-values">
                     <div>
-                      <dt>Valor arrecadado</dt>
+                      <dt>
+                        {revenue.collectionDirection === "deduction"
+                          ? "Deduções no período"
+                          : "Valor arrecadado no período"}
+                      </dt>
                       <dd>{formatBrlDecimal(revenue.collectedAmount)}</dd>
+                    </div>
+                    <div>
+                      <dt>Acumulado no relatório</dt>
+                      <dd>{formatBrlDecimal(revenue.accumulatedAmount)}</dd>
+                    </div>
+                    <div>
+                      <dt>Total declarado no relatório</dt>
+                      <dd>{formatBrlDecimal(revenue.reportTotalPeriodAmount)}</dd>
                     </div>
                     <div>
                       <dt>Data da receita</dt>
@@ -104,15 +117,22 @@ export default async function FinancesPage() {
                     ) : null}
                   </dl>
                   <p className="act-evidence">
+                    {revenue.documentSourceUrl ? (
+                      <a
+                        href={revenue.documentSourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Ver PDF oficial
+                      </a>
+                    ) : null}{" "}
                     {revenue.sourceUrl ? (
                       <a href={revenue.sourceUrl} target="_blank" rel="noreferrer">
-                        Ver fonte preservada
+                        Ver resposta da API
                       </a>
-                    ) : (
-                      <span>Fonte preservada sem URL pública</span>
-                    )}{" "}
-                    · hash {revenue.artifactSha256.slice(0, 12)}… · coletado em{" "}
-                    {formatCollectedAt(revenue.collectedAt)}
+                    ) : null}{" "}
+                    · PDF preservado · hash {revenue.documentArtifactSha256.slice(0, 12)}…
+                    · publicado após validação determinística em {formatCollectedAt(revenue.collectedAt)}
                   </p>
                 </article>
               ))}
@@ -190,7 +210,9 @@ export default async function FinancesPage() {
         <p className="hero-note">
           Metodologia: empenho, liquidação, pagamento e receita são estágios
           diferentes. O Barreiras 360 não soma esses estágios como se fossem a
-          mesma coisa e não publica valor extraído de PDF sem validação.
+          mesma coisa. Deduções são exibidas com sinal negativo e só aparecem
+          quando o PDF, o período, o hash e a estrutura do relatório passam por
+          validação determinística.
         </p>
       </section>
 

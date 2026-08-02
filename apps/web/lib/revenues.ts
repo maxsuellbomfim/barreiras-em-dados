@@ -6,12 +6,18 @@ export type PublicRevenue = Readonly<{
   revenueCode: string | null;
   description: string;
   collectedAmount: string;
+  accumulatedAmount: string;
+  reportTotalPeriodAmount: string;
+  collectionDirection: "credit" | "deduction";
   currency: "BRL";
   publicBodyName: string;
   sourceUrl: string | null;
+  documentSourceUrl: string;
   artifactSha256: string;
+  documentArtifactSha256: string;
   collectedAt: string;
-  methodologyVersion: "public-revenues/1.0.0";
+  methodologyVersion: "public-revenues/1.1.0";
+  validationStatus: "validated";
 }>;
 
 export type RevenuesResult =
@@ -20,7 +26,7 @@ export type RevenuesResult =
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
-const DECIMAL = /^\d+(?:\.\d{1,2})?$/;
+const DECIMAL = /^-?\d+(?:\.\d{1,2})?$/;
 
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
@@ -31,8 +37,13 @@ function parseRevenue(row: Record<string, unknown>): PublicRevenue | null {
   const description = optionalString(row.description);
   const publicBodyName = optionalString(row.public_body_name);
   const collectedAmount = optionalString(row.collected_amount);
+  const accumulatedAmount = optionalString(row.accumulated_amount);
+  const reportTotalPeriodAmount = optionalString(row.report_total_period_amount);
+  const collectionDirection = row.collection_direction;
   const sourceUrl = optionalString(row.source_url);
+  const documentSourceUrl = optionalString(row.document_source_url);
   const artifactSha256 = optionalString(row.artifact_sha256);
+  const documentArtifactSha256 = optionalString(row.document_artifact_sha256);
   const collectedAt = optionalString(row.collected_at);
   const revenueDate = optionalString(row.revenue_date);
   if (
@@ -41,14 +52,24 @@ function parseRevenue(row: Record<string, unknown>): PublicRevenue | null {
     publicBodyName === null ||
     collectedAmount === null ||
     !DECIMAL.test(collectedAmount) ||
+    accumulatedAmount === null ||
+    !DECIMAL.test(accumulatedAmount) ||
+    reportTotalPeriodAmount === null ||
+    !DECIMAL.test(reportTotalPeriodAmount) ||
+    (collectionDirection !== "credit" && collectionDirection !== "deduction") ||
     row.currency !== "BRL" ||
     artifactSha256 === null ||
     !SHA256.test(artifactSha256) ||
+    documentSourceUrl === null ||
+    !documentSourceUrl.startsWith("https://") ||
+    documentArtifactSha256 === null ||
+    !SHA256.test(documentArtifactSha256) ||
     collectedAt === null ||
     Number.isNaN(Date.parse(collectedAt)) ||
     (revenueDate !== null && !ISO_DATE.test(revenueDate)) ||
     !Number.isSafeInteger(row.fiscal_year) ||
-    row.methodology_version !== "public-revenues/1.0.0" ||
+    row.methodology_version !== "public-revenues/1.1.0" ||
+    row.validation_status !== "validated" ||
     (sourceUrl !== null && !sourceUrl.startsWith("https://"))
   ) {
     return null;
@@ -61,12 +82,18 @@ function parseRevenue(row: Record<string, unknown>): PublicRevenue | null {
     revenueCode: optionalString(row.revenue_code),
     description,
     collectedAmount,
+    accumulatedAmount,
+    reportTotalPeriodAmount,
+    collectionDirection,
     currency: "BRL",
     publicBodyName,
     sourceUrl,
+    documentSourceUrl,
     artifactSha256,
+    documentArtifactSha256,
     collectedAt,
-    methodologyVersion: "public-revenues/1.0.0",
+    methodologyVersion: "public-revenues/1.1.0",
+    validationStatus: "validated",
   };
 }
 
@@ -125,7 +152,8 @@ export async function getPublicRevenues(
 
 export function formatBrlDecimal(value: string): string {
   const [integerPart, decimalPart = "00"] = value.split(".");
-  const grouped = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `R$ ${grouped},${decimalPart.padEnd(2, "0")}`;
+  const sign = integerPart.startsWith("-") ? "-" : "";
+  const unsignedInteger = sign ? integerPart.slice(1) : integerPart;
+  const grouped = unsignedInteger.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `R$ ${sign}${grouped},${decimalPart.padEnd(2, "0")}`;
 }
-
