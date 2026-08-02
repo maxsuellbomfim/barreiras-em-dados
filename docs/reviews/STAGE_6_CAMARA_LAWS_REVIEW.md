@@ -33,4 +33,12 @@ arquivo quando a fonte informa.
 - migration/seed reaplicáveis;
 - build e typecheck do portal;
 - `npm test` e `git diff --check`;
+
+## Resultado da primeira coleta em producao
+
+A execucao manual de 02/08/2026 preservou 8 paginas e 400 registros no
+Supabase. A requisicao seguinte expirou na fonte municipal; os artefatos e
+registros ja preservados nao foram desfeitos. O workflow foi ajustado para
+registrar esse caso como coleta parcial quando houver pelo menos uma pagina
+persistida, mantendo falha para indisponibilidade inicial ou erro de contrato.
 - workflow com credenciais técnicas já existentes, sem segredo no YAML.

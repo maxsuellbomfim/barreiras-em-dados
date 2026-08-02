@@ -56,6 +56,10 @@ class MunicipalTransparencyError(RuntimeError):
     """Falha explícita no contrato ou na disponibilidade da fonte."""
 
 
+class MunicipalTransparencyAvailabilityError(MunicipalTransparencyError):
+    """A fonte não respondeu após todas as tentativas de transporte."""
+
+
 class MunicipalTransparencyContractError(MunicipalTransparencyError):
     """A resposta não atende ao contrato observado da API."""
 
@@ -286,7 +290,7 @@ def _get_with_retries(
         if attempt < retry_policy.max_attempts:
             sleep(retry_policy.delay(attempt, random_value()))
 
-    raise MunicipalTransparencyError(
+    raise MunicipalTransparencyAvailabilityError(
         "A API municipal ficou indisponível após as tentativas configuradas."
     ) from last_error
 
