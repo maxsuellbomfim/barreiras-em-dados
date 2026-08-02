@@ -490,7 +490,7 @@ try {
       candidate_type: "nomeacao",
       validation_status: "needs_review",
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "extraction-review-queue/1.4.0",
+      methodology_version: "extraction-review-queue/1.5.0",
     },
   ]);
   await assert.rejects(
