@@ -24,7 +24,10 @@ type ActRow = Readonly<Record<string, unknown>>;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
-const APPROVED_ACTS_METHODOLOGY_VERSION = "approved-gazette-acts/1.6.0";
+// Keep this in lockstep with the append-only SQL projection. A mismatch must
+// fail closed, but it must not make an already valid public projection appear
+// empty after a frontend deploy.
+const APPROVED_ACTS_METHODOLOGY_VERSION = "approved-gazette-acts/1.5.0";
 
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
