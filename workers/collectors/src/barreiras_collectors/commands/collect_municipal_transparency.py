@@ -13,9 +13,9 @@ from ..connectors.municipal_transparency import (
     CAMARA_BASE_URL,
     PREFEITURA_BASE_URL,
     MunicipalTransparencyAvailabilityError,
-    QueridoDiarioError,
     iter_resource_pages,
 )
+from ..connectors.querido_diario import QueridoDiarioError
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import MunicipalTransparencyPersistenceService
