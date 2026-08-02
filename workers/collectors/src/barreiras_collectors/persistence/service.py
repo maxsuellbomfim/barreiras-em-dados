@@ -8,6 +8,7 @@ from typing import Any
 
 from ..connectors.direct_diary import ENDPOINT_CODE, SOURCE_CODE, DirectEdition
 from ..connectors.gazette_documents import CollectedDocument
+from ..connectors.municipal_transparency import MunicipalTransparencyPage
 from ..connectors.querido_diario import CollectedPage
 from .models import (
     ArtifactIntegrityError,
@@ -36,6 +37,8 @@ TSE_COLLECTOR_VERSION = "tse-collector/0.1.0"
 TSE_PARSER_VERSION = "tse-votacao-munzona/1.0.0"
 VEREADORES_COLLECTOR_VERSION = "cm-barreiras-collector/0.1.0"
 VEREADORES_PARSER_VERSION = "cm-barreiras-vereadores/1.0.0"
+MUNICIPAL_TRANSPARENCY_COLLECTOR_VERSION = "municipal-transparency-collector/0.1.0"
+MUNICIPAL_TRANSPARENCY_PARSER_VERSION = "municipal-transparency-page/1.0.0"
 PNCP_ITEM_PARSER_VERSION = "pncp-item-page/1.0.0"
 PNCP_RESULTADO_PARSER_VERSION = "pncp-resultado-page/1.0.0"
 
@@ -130,6 +133,124 @@ class PncpContratacoesPersistenceService:
             inserted_records=persisted.inserted_records,
             existing_records=persisted.existing_records,
         )
+
+
+class MunicipalTransparencyPersistenceService:
+    """Preserva uma página municipal antes de qualquer normalização financeira."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, page: MunicipalTransparencyPage) -> PersistenceResult:
+        actual = hashlib.sha256(page.raw_body).hexdigest()
+        if actual != page.body_sha256:
+            raise ArtifactIntegrityError(
+                "A página da API municipal não corresponde ao hash informado."
+            )
+        object_key = (
+            "municipal-transparency/"
+            f"{page.source_code}/{page.resource}/sha256/"
+            f"{page.body_sha256[:2]}/{page.body_sha256}.json"
+        )
+        records = tuple(
+            RawRecordInput(
+                source_record_key=self._record_key(page, item),
+                record_type=f"municipal_transparency_{page.resource}",
+                record_index=index,
+                payload=item,
+                payload_sha256=self._payload_hash(item),
+                parser_version=MUNICIPAL_TRANSPARENCY_PARSER_VERSION,
+                idempotency_key=self._record_idempotency(
+                    page,
+                    index=index,
+                    payload=item,
+                ),
+            )
+            for index, item in enumerate(page.items)
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=page.raw_body,
+            content_type=page.media_type,
+            expected_sha256=page.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or len(restored) != page.body_size_bytes
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "A resposta municipal restaurada diverge da coletada."
+            )
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,  # type: ignore[arg-type]
+                object_key=object_key,
+                artifact_idempotency_key=self._digest(
+                    f"raw-artifact:{page.idempotency_key}"
+                ),
+                collector_version=MUNICIPAL_TRANSPARENCY_COLLECTOR_VERSION,
+                parser_version=MUNICIPAL_TRANSPARENCY_PARSER_VERSION,
+                records=records,
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=page.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+    @classmethod
+    def _record_key(cls, page: MunicipalTransparencyPage, item: dict) -> str:
+        return ":".join(
+            (
+                "municipal-transparency",
+                page.source_code,
+                page.resource,
+                cls._payload_hash(item)[:24],
+            )
+        )
+
+    @staticmethod
+    def _payload_hash(item: dict) -> str:
+        return hashlib.sha256(
+            json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+
+    @classmethod
+    def _record_idempotency(
+        cls,
+        page: MunicipalTransparencyPage,
+        *,
+        index: int,
+        payload: dict,
+    ) -> str:
+        return cls._digest(
+            ":".join(
+                (
+                    "municipal-transparency-record",
+                    page.idempotency_key,
+                    page.resource,
+                    str(index),
+                    cls._payload_hash(payload),
+                )
+            )
+        )
+
+    @staticmethod
+    def _digest(value: str) -> str:
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 class PncpComprasPersistenceService:
