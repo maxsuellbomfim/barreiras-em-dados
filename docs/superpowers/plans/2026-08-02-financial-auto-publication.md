@@ -240,7 +240,7 @@ Run: collector suite, normalization suite, document-processing suite, migration/
 
 Confirm no automatic accusation, no LLM arithmetic, no full CPF, no raw schema exposure, and no destructive update/delete path.
 
-- [ ] **Step 3: Open a PR**
+- [x] **Step 3: Open a PR**
 
 Use title `feat: publicar receitas municipais validadas` and include the activation order: merge, apply migration, collect PDFs, run publisher with a small limit, inspect `/financas`, then expand backfill.
 
