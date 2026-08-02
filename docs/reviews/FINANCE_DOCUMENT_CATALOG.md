@@ -26,6 +26,8 @@ validada → revisão → finance.revenues → projeção pública
 - workflow diário para preservar os catálogos financeiros da Prefeitura;
 - parser determinístico inicial para o `Demonstrativo de Receita Orçamentária
   Sintético`, com suporte a valores negativos de deduções e testes unitários;
+- contrato de assistência em cascata para classificar o relatório e sugerir
+  linhas com âncora literal, sem permitir que a IA calcule números;
 - mensagem pública explícita quando a ausência de números ainda for uma
   etapa de validação, e não receita zero.
 
