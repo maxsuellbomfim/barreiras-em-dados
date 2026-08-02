@@ -391,11 +391,11 @@ function StatsRow({
         <dd>{pending ?? "—"}</dd>
       </div>
       <div className="stat-card">
-        <dt>Aprovados e públicos</dt>
+        <dt>Aprovados no histórico</dt>
         <dd>{approved ?? "—"}</dd>
       </div>
       <div className="stat-card">
-        <dt>Rejeitados</dt>
+        <dt>Rejeitados no histórico</dt>
         <dd>{rejected ?? "—"}</dd>
       </div>
       <div className="stat-card">
@@ -495,7 +495,7 @@ export default function ReviewQueuePage() {
     setQueue({ kind: "loading" });
     const { data, error } = await supabase.rpc(
       "get_extraction_review_queue",
-      { page_size: 20 },
+      { page_size: 100 },
     );
     if (error) {
       if (error.message.includes("revisores ativos")) {
@@ -512,7 +512,7 @@ export default function ReviewQueuePage() {
     setHistory({ kind: "loading" });
     const { data, error } = await supabase.rpc(
       "get_extraction_review_history",
-      { page_size: 50 },
+      { page_size: 200 },
     );
     if (error) {
       setHistory({ kind: "error", message: error.message });
