@@ -9,25 +9,25 @@ export const revalidate = 300;
 const officialSources = [
   {
     name: "Diário Oficial",
-    detail: "Edições oficiais publicadas pela Prefeitura — coletadas direto da fonte",
+    detail: "Atos oficiais da Prefeitura, preservados com data, fonte e documento original",
     href: "https://pmbarreiras.diariomtransparente.com.br/",
     tone: "blue",
   },
   {
     name: "Prefeitura",
-    detail: "Portal de dados abertos do Executivo",
+    detail: "Receitas, despesas, servidores e contratos do Executivo",
     href: "https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/",
     tone: "green",
   },
   {
     name: "Câmara Municipal",
-    detail: "Portal de dados abertos do Legislativo",
+    detail: "Leis, indicações, vereadores e gastos da Câmara",
     href: "https://portaldatransparencia.cmbarreiras.ba.gov.br/dados-abertos/",
     tone: "violet",
   },
   {
     name: "PNCP",
-    detail: "Contratações públicas nacionais",
+    detail: "Contratações públicas e fornecedores de todo o país",
     href: "https://www.gov.br/pncp/pt-br/acesso-a-informacao/dados-abertos",
     tone: "amber",
   },
@@ -35,26 +35,26 @@ const officialSources = [
 
 const publicTracks = [
   {
-    eyebrow: "Primeiro",
-    title: "Nomeações e exonerações",
+    eyebrow: "Agora",
+    title: "Atos que mudam a cidade",
     description:
-      "Uma linha do tempo pesquisável, sempre ligada ao ato oficial e ao trecho que sustenta cada registro.",
+      "Nomeações, exonerações e decisões em uma linha do tempo ligada ao ato oficial.",
     status: "Primeiros atos em revisão",
     href: "/atos",
   },
   {
-    eyebrow: "Depois",
-    title: "Licitações e contratos",
+    eyebrow: "Em foco",
+    title: "Compras e contratos",
     description:
-      "Do processo ao fornecedor: itens, resultados, contratos, documentos e histórico de alterações.",
+      "Do processo ao fornecedor: itens, valores, contratos, documentos e alterações.",
     status: "Coleta iniciada no PNCP",
     href: "/licitacoes",
   },
   {
-    eyebrow: "Na sequência",
-    title: "Receitas e despesas",
+    eyebrow: "Próximo",
+    title: "Para onde vai o dinheiro",
     description:
-      "Empenho, liquidação e pagamento explicados em linguagem comum, com cálculos reproduzíveis.",
+      "Receitas, empenhos, liquidações e pagamentos explicados sem esconder os números.",
     status: "Planejado",
   },
 ] as const;
@@ -62,31 +62,31 @@ const publicTracks = [
 const quickLinks = [
   {
     label: "Diário traduzido",
-    detail: "Os atos oficiais explicados em linguagem simples.",
+    detail: "O que foi publicado e o que isso muda na cidade.",
     href: "/diario",
     tone: "blue",
   },
   {
-    label: "Nomeações e exonerações",
+    label: "Atos públicos",
     detail: "Quem entrou, quem saiu e qual documento comprova.",
     href: "/atos",
     tone: "violet",
   },
   {
-    label: "Licitações e contratos",
-    detail: "Compras públicas, fornecedores e valores publicados.",
+    label: "Compras públicas",
+    detail: "Licitações, fornecedores, contratos e valores publicados.",
     href: "/licitacoes",
     tone: "amber",
   },
   {
-    label: "Representantes",
-    detail: "Vereadores e deputados com fonte oficial por informação.",
+    label: "Quem decide",
+    detail: "Prefeitura, vereadores e deputados com fonte oficial.",
     href: "/representantes",
     tone: "green",
   },
   {
-    label: "Leis da Câmara",
-    detail: "Leis municipais, ementas e arquivos da fonte oficial.",
+    label: "Leis e indicações",
+    detail: "O que a Câmara propõe, aprova e encaminha.",
     href: "/camara",
     tone: "blue",
   },
@@ -325,9 +325,9 @@ export default async function HomePage() {
     <main>
       <header className="site-header">
         <div className="nav-shell">
-          <a className="brand" href="#inicio" aria-label="Barreiras em Dados">
+          <a className="brand" href="#inicio" aria-label="Barreiras 360">
             <BrandMark />
-            <span>Barreiras em Dados</span>
+            <span>Barreiras 360</span>
           </a>
 
           <nav className="nav-links" aria-label="Navegação principal">
@@ -351,39 +351,39 @@ export default async function HomePage() {
         <div className="hero-content">
           <div className="status-pill">
             <span className="status-dot" />
-            Portal público em construção
+            Transparência pública em construção
           </div>
 
           <h1 id="hero-title">
             Barreiras,
             <br />
-            <span>sem barreiras nos dados.</span>
+            <span>vista por inteiro.</span>
           </h1>
 
           <p className="hero-copy">
-            Informação pública municipal com fonte, contexto e linguagem que
-            todo mundo entende.
+            Receitas, decisões, obras e representantes em um só lugar — com a
+            fonte original e uma explicação clara.
           </p>
 
           <div className="hero-actions">
             <a className="button button-primary" href="#dados">
-              Explorar os dados
+              Explorar Barreiras
               <span aria-hidden="true">→</span>
             </a>
             <a className="button button-secondary" href="/representantes">
-              Ver representantes
+              Ver quem decide
             </a>
           </div>
 
           <p className="hero-note">
-            Sem acusações automáticas. Sem ranking de pessoas. Todo registro
-            publicado terá uma fonte verificável.
+            Fonte verificável em cada registro. Cálculos reproduzíveis. Sem
+            conclusões automáticas.
           </p>
         </div>
 
         <div className="hero-proof hero-panel" aria-label="Acesso rápido">
           <span className="proof-label">Acesso rápido</span>
-          <h2>O que você quer descobrir?</h2>
+          <h2>O que você quer acompanhar?</h2>
           <div className="hero-shortcuts">
             {quickLinks.map((link) => (
               <a href={link.href} key={link.href}>
@@ -398,11 +398,11 @@ export default async function HomePage() {
 
       <section className="section section-quick-access" id="dados" aria-labelledby="data-title">
         <div className="section-heading">
-          <span className="eyebrow">Dados de Barreiras</span>
-          <h2 id="data-title">Escolha por onde começar.</h2>
+          <span className="eyebrow">Barreiras 360</span>
+          <h2 id="data-title">Comece pelo que afeta a cidade.</h2>
           <p>
-            O essencial está a um clique. Cada página mostra o que foi encontrado,
-            de onde veio e o documento que sustenta a informação.
+            Cada página mostra o que encontramos, de onde veio e o documento
+            que sustenta a informação.
           </p>
         </div>
 
@@ -575,11 +575,11 @@ export default async function HomePage() {
           <div>
             <a className="brand brand-footer" href="#inicio">
               <BrandMark />
-              <span>Barreiras em Dados</span>
+              <span>Barreiras 360</span>
             </a>
             <p>
-              Civic tech independente para tornar a informação pública de
-              Barreiras mais acessível e verificável.
+              Informação pública de Barreiras para acompanhar a cidade com
+              clareza.
             </p>
           </div>
 

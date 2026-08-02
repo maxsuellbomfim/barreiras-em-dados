@@ -5,12 +5,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Barreiras em Dados",
-    template: "%s | Barreiras em Dados",
+    default: "Barreiras 360",
+    template: "%s | Barreiras 360",
   },
   description:
-    "Informação pública de Barreiras com fonte, contexto e linguagem clara.",
-  applicationName: "Barreiras em Dados",
+    "O panorama público de Barreiras: contas, decisões, obras e representantes com fonte e contexto.",
+  applicationName: "Barreiras 360",
   category: "civic tech",
   keywords: [
     "Barreiras",
@@ -22,16 +22,16 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    title: "Barreiras em Dados",
+    title: "Barreiras 360",
     description:
-      "Informação pública de Barreiras com fonte, contexto e linguagem clara.",
-    siteName: "Barreiras em Dados",
+      "O panorama público de Barreiras: contas, decisões, obras e representantes com fonte e contexto.",
+    siteName: "Barreiras 360",
   },
   twitter: {
     card: "summary",
-    title: "Barreiras em Dados",
+    title: "Barreiras 360",
     description:
-      "Informação pública de Barreiras com fonte, contexto e linguagem clara.",
+      "O panorama público de Barreiras: contas, decisões, obras e representantes com fonte e contexto.",
   },
 };
 

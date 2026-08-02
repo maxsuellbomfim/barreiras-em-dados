@@ -17,7 +17,7 @@ export default async function CamaraPage() {
     <main>
       <header className="site-header">
         <div className="nav-shell">
-          <a className="brand" href="/" aria-label="Barreiras em Dados">← Barreiras em Dados</a>
+          <a className="brand" href="/" aria-label="Barreiras 360">← Barreiras 360</a>
           <nav className="nav-links" aria-label="Páginas públicas">
             <a href="/representantes">Representantes</a>
             <a href="/licitacoes">Licitações</a>
@@ -56,7 +56,7 @@ export default async function CamaraPage() {
           Fonte: <a href="https://portaldatransparencia.cmbarreiras.ba.gov.br/dados-abertos/" target="_blank" rel="noreferrer">Portal de dados abertos da Câmara</a>. Encontrou erro? <a href="https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/camara&labels=correcao" target="_blank" rel="noreferrer">Abra uma correção pública</a>.
         </p>
       </section>
-      <footer><div className="footer-inner"><div><a className="brand brand-footer" href="/">Barreiras em Dados</a><p>Civic tech independente para tornar a informação pública verificável.</p></div><div className="footer-status"><span className="status-dot" />Leis oficiais, sem autoria inferida</div></div></footer>
+      <footer><div className="footer-inner"><div><a className="brand brand-footer" href="/">Barreiras 360</a><p>Informação pública de Barreiras para acompanhar a cidade com clareza.</p></div><div className="footer-status"><span className="status-dot" />Leis oficiais, sem autoria inferida</div></div></footer>
     </main>
   );
 }

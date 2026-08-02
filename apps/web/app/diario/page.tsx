@@ -99,8 +99,8 @@ export default async function EditionDigestsPage() {
     <main>
       <header className="site-header">
         <div className="nav-shell">
-          <a className="brand" href="/" aria-label="Barreiras em Dados">
-            <span>← Barreiras em Dados</span>
+          <a className="brand" href="/" aria-label="Barreiras 360">
+            <span>← Barreiras 360</span>
           </a>
           <nav className="nav-links" aria-label="Páginas públicas">
             <a href="/atos">Nomeações e exonerações</a>
@@ -169,11 +169,11 @@ export default async function EditionDigestsPage() {
         <div className="footer-inner">
           <div>
             <a className="brand brand-footer" href="/">
-              <span>Barreiras em Dados</span>
+              <span>Barreiras 360</span>
             </a>
             <p>
-              Civic tech independente para tornar a informação pública de
-              Barreiras mais acessível e verificável.
+              Informação pública de Barreiras para acompanhar a cidade com
+              clareza.
             </p>
           </div>
           <div className="footer-status">

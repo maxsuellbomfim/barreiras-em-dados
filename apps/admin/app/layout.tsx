@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Revisão | Barreiras em Dados",
+  title: "Revisão | Barreiras 360",
   description:
     "Área interna de revisão humana. Nada aqui é público até ser aprovado.",
   robots: { index: false, follow: false },
@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <span />
               <span />
             </span>
-            Barreiras em Dados
+            Barreiras 360
             <span className="topbar-tag">Revisão</span>
           </span>
           <a
