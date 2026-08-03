@@ -22,6 +22,10 @@ function formatDate(value: string) {
   return dateFormatter.format(new Date(`${value}T12:00:00-03:00`));
 }
 
+function formatCount(value: number) {
+  return value.toLocaleString("pt-BR");
+}
+
 function pncpUrl(procurement: Procurement) {
   return (
     "https://pncp.gov.br/app/editais/" +
@@ -117,6 +121,67 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
           contratação.
         </p>
       )}
+      <details className="procurement-execution">
+        <summary>Execução financeira ligada</summary>
+        {procurement.executionSummary.state === "linked" ? (
+          <>
+            <p className="meta-note">
+              Registros normalizados encontrados pelo identificador oficial da contratação.
+              Os valores são líquidos de cancelamentos e reversões.
+            </p>
+            <dl className="procurement-values procurement-execution-values">
+              <div>
+                <dt>Contratos</dt>
+                <dd>{formatCount(procurement.executionSummary.contractsCount)}</dd>
+              </div>
+              <div>
+                <dt>Empenhos</dt>
+                <dd>{formatCount(procurement.executionSummary.commitmentsCount)}</dd>
+              </div>
+              <div>
+                <dt>Liquidações</dt>
+                <dd>{formatCount(procurement.executionSummary.liquidationsCount)}</dd>
+              </div>
+              <div>
+                <dt>Pagamentos</dt>
+                <dd>{formatCount(procurement.executionSummary.paymentsCount)}</dd>
+              </div>
+              <div>
+                <dt>Valor contratado</dt>
+                <dd>{currencyFormatter.format(procurement.executionSummary.contractCurrentAmount)}</dd>
+              </div>
+              <div>
+                <dt>Empenhado</dt>
+                <dd>{currencyFormatter.format(procurement.executionSummary.committedAmount)}</dd>
+              </div>
+              <div>
+                <dt>Liquidado</dt>
+                <dd>{currencyFormatter.format(procurement.executionSummary.liquidatedAmount)}</dd>
+              </div>
+              <div>
+                <dt>Pago</dt>
+                <dd>{currencyFormatter.format(procurement.executionSummary.paidAmount)}</dd>
+              </div>
+            </dl>
+          </>
+        ) : procurement.executionSummary.state === "no_linked_execution" ? (
+          <p className="meta-note">
+            A contratação foi normalizada, mas ainda não há contrato, empenho,
+            liquidação ou pagamento vinculado por identificador oficial. Isso não
+            significa que a despesa não exista.
+          </p>
+        ) : procurement.executionSummary.state === "not_normalized" ? (
+          <p className="meta-note">
+            A execução financeira ainda não foi normalizada para esta contratação.
+            O registro do PNCP continua disponível na fonte oficial.
+          </p>
+        ) : (
+          <p className="meta-note">
+            O resumo de execução será exibido quando a versão pública do vínculo
+            estiver disponível.
+          </p>
+        )}
+      </details>
       <p className="act-evidence">
         <a href={pncpUrl(procurement)} target="_blank" rel="noreferrer">
           Ver no PNCP (registro oficial)
