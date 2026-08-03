@@ -1732,6 +1732,98 @@ footer {
   white-space: nowrap;
 }
 
+.finance-coverage-section {
+  margin-bottom: 3.5rem;
+}
+
+.finance-coverage-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 1.2rem 0 0.2rem;
+}
+
+.finance-coverage-summary > div {
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(55, 91, 232, 0.14);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.finance-coverage-summary strong {
+  display: block;
+  color: #172a8a;
+  font-size: 1.55rem;
+  letter-spacing: -0.05em;
+}
+
+.finance-coverage-summary span {
+  color: #6f7b8e;
+  font-size: 0.76rem;
+}
+
+.finance-coverage-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.finance-coverage-row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.8fr) auto minmax(0, 1.7fr);
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(55, 91, 232, 0.1);
+}
+
+.finance-coverage-row strong,
+.finance-coverage-row small {
+  display: block;
+}
+
+.finance-coverage-row strong {
+  color: #273d9c;
+  text-transform: capitalize;
+}
+
+.finance-coverage-row small {
+  margin-top: 0.15rem;
+  color: #8a94a8;
+  font-size: 0.72rem;
+}
+
+.finance-coverage-row p {
+  margin: 0;
+  color: #6f7b8e;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.finance-coverage-badge {
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.finance-coverage-complete {
+  background: rgba(20, 122, 85, 0.12);
+  color: #147a55;
+}
+
+.finance-coverage-revenue_only,
+.finance-coverage-expense_only,
+.finance-coverage-needs_review {
+  background: rgba(184, 122, 24, 0.13);
+  color: #8b5f11;
+}
+
+.finance-coverage-missing {
+  background: rgba(107, 116, 136, 0.12);
+  color: #687286;
+}
+
 .monthly-closure-section {
   margin-bottom: 3.5rem;
 }
@@ -1968,6 +2060,18 @@ footer {
     display: inline-block;
     margin-top: 1rem;
     white-space: normal;
+  }
+
+  .finance-coverage-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-coverage-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .finance-coverage-row p {
+    grid-column: 1 / -1;
   }
 }
 
