@@ -1732,6 +1732,62 @@ footer {
   white-space: nowrap;
 }
 
+.monthly-closure-section {
+  margin-bottom: 3.5rem;
+}
+
+.monthly-closure-card {
+  border-color: rgba(55, 91, 232, 0.16);
+}
+
+.monthly-closure-reading {
+  margin: 1rem 0 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(55, 91, 232, 0.16);
+  border-radius: 1.1rem;
+  background: rgba(244, 247, 255, 0.78);
+}
+
+.monthly-closure-reading strong {
+  color: #273d9c;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.monthly-closure-reading p {
+  margin: 0.35rem 0 0;
+  color: #4f5d74;
+  line-height: 1.55;
+}
+
+.finance-closure-badge {
+  padding: 0.32rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.finance-closure-operational {
+  background: rgba(20, 122, 85, 0.12);
+  color: #147a55;
+}
+
+.finance-closure-needs_data,
+.finance-closure-needs_review {
+  background: rgba(180, 122, 24, 0.12);
+  color: #8b5f11;
+}
+
+.finance-positive-value dd {
+  color: #147a55;
+}
+
+.finance-negative-value dd {
+  color: #b42318;
+}
+
 .finance-month-title {
   margin-bottom: 0.15rem;
   text-transform: capitalize;
