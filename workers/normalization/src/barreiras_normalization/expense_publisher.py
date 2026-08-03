@@ -132,19 +132,21 @@ class PostgresExpensePublicationRepository:
         try:
             result = connection.execute(
                 """
-                select
-                  document.id::text,
-                  document.sha256,
-                  document.object_key,
-                  document.byte_size,
-                  record.id::text as parent_record_id,
-                  document.source_url
-                from raw.raw_artifacts as document
-                join raw.raw_artifacts as parent_artifact
-                  on parent_artifact.id = document.parent_artifact_id
-                join raw.raw_records as record
-                  on record.raw_artifact_id = parent_artifact.id
-                where document.artifact_kind = 'document'
+                with candidates as (
+                  select distinct on (document.id)
+                    document.id::text,
+                    document.sha256,
+                    document.object_key,
+                    document.byte_size,
+                    record.id::text as parent_record_id,
+                    document.source_url,
+                    document.created_at
+                  from raw.raw_artifacts as document
+                  join raw.raw_artifacts as parent_artifact
+                    on parent_artifact.id = document.parent_artifact_id
+                  join raw.raw_records as record
+                    on record.raw_artifact_id = parent_artifact.id
+                  where document.artifact_kind = 'document'
                   and document.metadata ->> 'schema_name'
                     = 'municipal-transparency-document'
                   and record.record_type
@@ -164,7 +166,12 @@ class PostgresExpensePublicationRepository:
                       and job.job_type = %s
                       and job.status = 'failed'
                   )
-                order by document.created_at, document.id
+                  order by document.id, record.created_at desc, record.id desc
+                )
+                select id, sha256, object_key, byte_size, parent_record_id,
+                  source_url
+                from candidates
+                order by created_at, id
                 limit %s
                 """,
                 (fiscal_year_from, fiscal_year_to, EXPENSE_PUBLICATION_JOB_TYPE, limit),
