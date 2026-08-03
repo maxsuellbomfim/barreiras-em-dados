@@ -19,6 +19,7 @@ import {
   type PublicMonthlyFinanceClosure,
 } from "../../lib/monthly-finance";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
+import { getPublicFinanceCoverage, type PublicFinanceCoverageRow } from "../../lib/finance-coverage";
 
 export const revalidate = 300;
 
@@ -112,14 +113,23 @@ function signalSeverityLabel(severity: PublicFinanceSignal["severity"]): string 
   return "informativo";
 }
 
+function coverageStatusLabel(status: PublicFinanceCoverageRow["coverageStatus"]): string {
+  if (status === "complete") return "comparável";
+  if (status === "needs_review") return "revisão";
+  if (status === "revenue_only") return "só receita";
+  if (status === "expense_only") return "só despesa";
+  return "sem relatório";
+}
+
 export default async function FinancesPage() {
-  const [expensesResult, expenseLinesResult, revenuesResult, documentsResult, monthlyResult, signalsResult] = await Promise.all([
+  const [expensesResult, expenseLinesResult, revenuesResult, documentsResult, monthlyResult, signalsResult, coverageResult] = await Promise.all([
     getPublicExpenseReports(),
     getPublicExpenseLines(),
     getPublicRevenues(),
     getPublicFinanceDocuments(),
     getPublicMonthlyFinanceClosures(),
     getPublicFinanceSignals(),
+    getPublicFinanceCoverage(),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -132,6 +142,9 @@ export default async function FinancesPage() {
   const monthlyClosures =
     monthlyResult.state === "available" ? monthlyResult.closures : [];
   const financeSignals = signalsResult.state === "available" ? signalsResult.signals : [];
+  const coverageRows = coverageResult.state === "available" ? coverageResult.rows : [];
+  const comparableMonths = coverageRows.filter((row) => row.coverageStatus === "complete").length;
+  const missingMonths = coverageRows.filter((row) => row.coverageStatus === "missing").length;
   const sortedRevenues = sortNewest(revenues, "revenueDate");
   const sortedDocuments = sortNewest(documents, "referenceDate");
   const sortedExpenseReports = [...expenseReports].sort((left, right) =>
@@ -212,6 +225,44 @@ export default async function FinancesPage() {
           </div>
           <span className="finance-status-pill">Resultado fiscal: aguardando base comparável</span>
         </section>
+
+        {coverageResult.state === "available" ? (
+          <section className="finance-coverage-section" aria-labelledby="finance-coverage-title">
+            <div className="section-heading compact">
+              <span className="eyebrow">Cobertura da série</span>
+              <h2 id="finance-coverage-title">Onde já temos dados comparáveis</h2>
+              <p>
+                A série começa em 2021. “Sem relatório” significa que ainda não preservamos um
+                documento validado para o mês — nunca significa arrecadação ou gasto zero.
+              </p>
+            </div>
+            <div className="finance-coverage-summary" aria-label="Resumo da cobertura financeira">
+              <div><strong>{comparableMonths.toLocaleString("pt-BR")}</strong><span>meses comparáveis</span></div>
+              <div><strong>{missingMonths.toLocaleString("pt-BR")}</strong><span>meses sem relatório</span></div>
+              <div><strong>{coverageRows.length.toLocaleString("pt-BR")}</strong><span>meses acompanhados</span></div>
+            </div>
+            <details className="finance-details">
+              <summary>Ver a situação mês a mês</summary>
+              <div className="finance-coverage-list">
+                {coverageRows.slice(0, 12).map((row) => (
+                  <div className="finance-coverage-row" key={row.coverageId}>
+                    <div>
+                      <strong>{formatMonthTitle(row.periodEnd)}</strong>
+                      <small>{row.publicBodyName}</small>
+                    </div>
+                    <span className={`finance-coverage-badge finance-coverage-${row.coverageStatus}`}>
+                      {coverageStatusLabel(row.coverageStatus)}
+                    </span>
+                    <p>{row.coverageNote}</p>
+                  </div>
+                ))}
+              </div>
+              {coverageRows.length > 12 ? (
+                <p className="finance-details-note">A lista pública mostra os 12 meses mais recentes; o inventário completo permanece disponível no painel administrativo.</p>
+              ) : null}
+            </details>
+          </section>
+        ) : null}
 
         {monthlyClosures.length > 0 ? (
           <section aria-labelledby="monthly-closure-title" className="monthly-closure-section">
