@@ -27,7 +27,13 @@ const SHA256 = /^[0-9a-f]{64}$/;
 // Keep this in lockstep with the append-only SQL projection. A mismatch must
 // fail closed, but it must not make an already valid public projection appear
 // empty after a frontend deploy.
-const APPROVED_ACTS_METHODOLOGY_VERSION = "approved-gazette-acts/1.5.0";
+// The projection is append-only and production can be one migration ahead of
+// a web deployment. Accept the two compatible projection versions while
+// preserving the exact version returned by the database in the public record.
+const SUPPORTED_APPROVED_ACTS_METHODOLOGY_VERSIONS = new Set([
+  "approved-gazette-acts/1.5.0",
+  "approved-gazette-acts/1.6.0",
+]);
 
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
@@ -39,6 +45,7 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
   const approvedAt = row.approved_at;
   const artifactSha256 = row.artifact_sha256;
   const reviewMode = row.review_mode;
+  const methodologyVersion = optionalString(row.methodology_version);
   const gazetteDate = optionalString(row.gazette_date);
   const gazetteUrl = optionalString(row.gazette_url);
   if (
@@ -51,7 +58,8 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     (reviewMode !== "human" && reviewMode !== "automated") ||
     (gazetteDate !== null && !ISO_DATE.test(gazetteDate)) ||
     (gazetteUrl !== null && !gazetteUrl.startsWith("https://")) ||
-    row.methodology_version !== APPROVED_ACTS_METHODOLOGY_VERSION
+    methodologyVersion === null ||
+    !SUPPORTED_APPROVED_ACTS_METHODOLOGY_VERSIONS.has(methodologyVersion)
   ) {
     return null;
   }
@@ -71,7 +79,7 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     approvedAt,
     artifactSha256,
     reviewMode,
-    methodologyVersion: APPROVED_ACTS_METHODOLOGY_VERSION,
+    methodologyVersion,
   };
 }
 
