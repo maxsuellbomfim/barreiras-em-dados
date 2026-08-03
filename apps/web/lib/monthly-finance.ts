@@ -15,6 +15,13 @@ export type PublicMonthlyFinanceClosure = Readonly<{
   closureStatus: "operational" | "needs_data" | "needs_review";
   coverageNote: string;
   calculationMethodology: "monthly-finance-closure/1.0.0";
+  aiCommentary: string | null;
+}>;
+
+type PublicMonthlyFinanceCommentary = Readonly<{
+  closureId: string;
+  commentary: string;
+  statementClass: "fact" | "methodology";
 }>;
 
 export type MonthlyFinanceResult =
@@ -123,6 +130,29 @@ function parseClosure(row: Record<string, unknown>): PublicMonthlyFinanceClosure
     closureStatus: status,
     coverageNote,
     calculationMethodology: "monthly-finance-closure/1.0.0",
+    aiCommentary: null,
+  };
+}
+
+function parseCommentary(
+  row: Record<string, unknown>,
+): PublicMonthlyFinanceCommentary | null {
+  const closureId = text(row.closure_id);
+  const commentary = text(row.commentary);
+  const statementClass = row.statement_class;
+  if (
+    !closureId ||
+    !commentary ||
+    commentary.length > 900 ||
+    /\d/.test(commentary) ||
+    (statementClass !== "fact" && statementClass !== "methodology")
+  ) {
+    return null;
+  }
+  return {
+    closureId,
+    commentary,
+    statementClass,
   };
 }
 
@@ -135,7 +165,7 @@ export async function getPublicMonthlyFinanceClosures(
     return { state: "unavailable" };
   }
   try {
-    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/get_public_monthly_finance_closures`, {
+    const request = {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -150,7 +180,11 @@ export async function getPublicMonthlyFinanceClosures(
       }),
       next: { revalidate: 300 },
       signal: AbortSignal.timeout(5_000),
-    });
+    } satisfies RequestInit;
+    const [response, commentaryResponse] = await Promise.all([
+      fetch(`${supabaseUrl}/rest/v1/rpc/get_public_monthly_finance_closures`, request),
+      fetch(`${supabaseUrl}/rest/v1/rpc/get_public_monthly_finance_commentaries`, request),
+    ]);
     if (!response.ok) return { state: "unavailable" };
     const payload = await response.json();
     if (!Array.isArray(payload)) return { state: "unavailable" };
@@ -161,7 +195,24 @@ export async function getPublicMonthlyFinanceClosures(
       if (!closure) return { state: "unavailable" };
       closures.push(closure);
     }
-    return { state: "available", closures };
+    const commentaryByClosure = new Map<string, string>();
+    if (commentaryResponse.ok) {
+      const commentaryPayload = await commentaryResponse.json();
+      if (Array.isArray(commentaryPayload)) {
+        for (const row of commentaryPayload) {
+          if (typeof row !== "object" || row === null) continue;
+          const commentary = parseCommentary(row as Record<string, unknown>);
+          if (commentary) commentaryByClosure.set(commentary.closureId, commentary.commentary);
+        }
+      }
+    }
+    return {
+      state: "available",
+      closures: closures.map((closure) => ({
+        ...closure,
+        aiCommentary: commentaryByClosure.get(closure.closureId) ?? null,
+      })),
+    };
   } catch {
     return { state: "unavailable" };
   }
