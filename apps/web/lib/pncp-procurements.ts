@@ -18,6 +18,7 @@ export type ProcurementExecutionSummary = Readonly<{
   committedAmount: number;
   liquidatedAmount: number;
   paidAmount: number;
+  contracts: readonly ProcurementContract[];
   evidenceCount: number;
   evidence: readonly ProcurementEvidence[];
 }>;
@@ -35,6 +36,20 @@ export type ProcurementEvidence = Readonly<{
   documentSha256: string | null;
   documentRetrievedAt: string | null;
   documentPreserved: boolean;
+}>;
+
+export type ProcurementContract = Readonly<{
+  externalId: string;
+  contractNumber: string | null;
+  supplierName: string | null;
+  supplierRegistrationNumber: string | null;
+  initialAmount: number | null;
+  currentAmount: number | null;
+  signedDate: string | null;
+  effectiveFrom: string | null;
+  effectiveUntil: string | null;
+  sourceUrl: string | null;
+  retrievedAt: string | null;
 }>;
 
 export type Procurement = Readonly<{
@@ -147,6 +162,53 @@ function parseResults(value: unknown): readonly ProcurementResult[] | null {
   return results;
 }
 
+function parseContracts(value: unknown): readonly ProcurementContract[] | null {
+  if (!Array.isArray(value)) return null;
+  const contracts: ProcurementContract[] = [];
+  for (const raw of value) {
+    if (typeof raw !== "object" || raw === null) return null;
+    const row = raw as Record<string, unknown>;
+    const externalId = optionalString(row.external_id);
+    const dates = [row.signed_date, row.effective_from, row.effective_until];
+    if (
+      externalId === null ||
+      dates.some(
+        (date) => date !== null && date !== undefined &&
+          (typeof date !== "string" || !ISO_DATE.test(date)),
+      )
+    ) {
+      return null;
+    }
+    const amounts = [row.initial_amount, row.current_amount];
+    if (
+      amounts.some(
+        (amount) => amount !== null && amount !== undefined &&
+          (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0),
+      )
+    ) {
+      return null;
+    }
+    const sourceUrl = row.source_url === null || row.source_url === undefined
+      ? null
+      : optionalString(row.source_url);
+    if (sourceUrl !== null && !sourceUrl.startsWith("https://")) return null;
+    contracts.push({
+      externalId,
+      contractNumber: optionalString(row.contract_number),
+      supplierName: optionalString(row.supplier_name),
+      supplierRegistrationNumber: optionalString(row.supplier_registration_number),
+      initialAmount: optionalNumber(row.initial_amount),
+      currentAmount: optionalNumber(row.current_amount),
+      signedDate: optionalString(row.signed_date),
+      effectiveFrom: optionalString(row.effective_from),
+      effectiveUntil: optionalString(row.effective_until),
+      sourceUrl,
+      retrievedAt: optionalString(row.retrieved_at),
+    });
+  }
+  return contracts;
+}
+
 function parseExecutionSummary(value: unknown): ProcurementExecutionSummary | null {
   if (typeof value !== "object" || value === null) return null;
   const row = value as Record<string, unknown>;
@@ -179,6 +241,8 @@ function parseExecutionSummary(value: unknown): ProcurementExecutionSummary | nu
   }
   const methodologyVersion = optionalString(row.methodology_version);
   if (methodologyVersion === null) return null;
+  const contracts = row.contracts === undefined ? [] : parseContracts(row.contracts);
+  if (contracts === null) return null;
   const rawEvidence = row.evidence;
   const evidence: ProcurementEvidence[] = [];
   if (rawEvidence !== undefined) {
@@ -254,6 +318,7 @@ function parseExecutionSummary(value: unknown): ProcurementExecutionSummary | nu
     committedAmount: Number(amounts[1]),
     liquidatedAmount: Number(amounts[2]),
     paidAmount: Number(amounts[3]),
+    contracts,
     evidenceCount: Number(evidenceCount),
     evidence,
   };
@@ -279,6 +344,7 @@ function parseProcurement(
           committedAmount: 0,
           liquidatedAmount: 0,
           paidAmount: 0,
+          contracts: [],
           evidenceCount: 0,
           evidence: [],
         }

@@ -2783,6 +2783,35 @@ footer {
   background: rgba(241, 245, 255, 0.72);
 }
 
+.procurement-contract-details {
+  margin: 0.7rem 0 0.25rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(49, 95, 212, 0.18);
+  border-radius: 0.85rem;
+  background: rgba(247, 249, 255, 0.82);
+}
+
+.procurement-contract-details summary {
+  color: #315fd4;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.procurement-contract-details ul {
+  margin: 0.55rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.55rem;
+  color: #4e5a6f;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.procurement-contract-details li strong {
+  color: var(--ink);
+}
+
 .procurement-evidence {
   margin-top: 0.65rem;
   border-top: 1px solid var(--line);

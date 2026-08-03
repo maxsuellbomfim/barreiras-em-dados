@@ -22,6 +22,10 @@ function formatCount(value: number) {
   return value.toLocaleString("pt-BR");
 }
 
+function formatOptionalDate(value: string | null) {
+  return value ? formatDate(value) : "não informado";
+}
+
 function evidenceLabel(value: string) {
   return {
     contratacao: "Contratação",
@@ -153,6 +157,47 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
                 <dd>{currencyFormatter.format(procurement.executionSummary.paidAmount)}</dd>
               </div>
             </dl>
+            {procurement.executionSummary.contracts.length > 0 ? (
+              <details className="procurement-contract-details" open>
+                <summary>
+                  Detalhes dos contratos ({formatCount(procurement.executionSummary.contracts.length)})
+                </summary>
+                <ul>
+                  {procurement.executionSummary.contracts.map((contract) => (
+                    <li key={contract.externalId}>
+                      <strong>
+                        {contract.contractNumber
+                          ? `Contrato ${contract.contractNumber}`
+                          : "Contrato sem número informado"}
+                      </strong>
+                      {contract.supplierName ? ` · ${contract.supplierName}` : ""}
+                      {contract.supplierRegistrationNumber
+                        ? ` · CNPJ ${contract.supplierRegistrationNumber}`
+                        : ""}
+                      <br />
+                      Valor atual: {contract.currentAmount !== null
+                        ? currencyFormatter.format(contract.currentAmount)
+                        : "não informado"}
+                      {" · assinado "}{formatOptionalDate(contract.signedDate)}
+                      {" · vigência "}{formatOptionalDate(contract.effectiveFrom)}
+                      {" a "}{formatOptionalDate(contract.effectiveUntil)}
+                      {contract.sourceUrl ? (
+                        <>
+                          {" · "}
+                          <a href={contract.sourceUrl} target="_blank" rel="noreferrer">
+                            fonte do contrato
+                          </a>
+                        </>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+                <p className="meta-note">
+                  Este valor é o valor atual informado no contrato pelo PNCP. Ele não
+                  representa, sozinho, empenho ou pagamento.
+                </p>
+              </details>
+            ) : null}
           </>
         ) : procurement.executionSummary.state === "no_linked_execution" ? (
           <p className="meta-note">

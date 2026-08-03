@@ -37,6 +37,13 @@ const documentEvidenceMigration = await readFile(
   ),
   "utf8",
 );
+const contractDetailsMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260808010000_pncp_contract_details_public.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(new URL("../../apps/web/lib/pncp-procurements.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url), "utf8");
 const explorer = await readFile(
@@ -126,6 +133,18 @@ test("documento filho oficial aparece sem abrir o Storage bruto", () => {
   assert.match(documentEvidenceMigration, /document_preserved/);
   assert.match(documentEvidenceMigration, /Storage bruto permanece privado/);
   assert.match(client, /documentSourceUrl/);
+});
+
+test("detalhes do contrato aparecem separados de empenho e pagamento", () => {
+  assert.match(contractDetailsMigration, /get_pncp_execution_summary_base/);
+  assert.match(contractDetailsMigration, /supplier_registration_number/);
+  assert.match(contractDetailsMigration, /contract_current_amount/);
+  assert.match(contractDetailsMigration, /'contracts', contract_summary\.entries/);
+  assert.match(contractDetailsMigration, /pncp-execution-links\/1\.3\.0/);
+  assert.match(client, /parseContracts/);
+  assert.match(client, /supplierRegistrationNumber/);
+  assert.match(explorer, /Detalhes dos contratos/);
+  assert.match(explorer, /representa, sozinho, empenho ou pagamento/);
 });
 
 test("sugestões de filtros vêm de opções PNCP preservadas", () => {
