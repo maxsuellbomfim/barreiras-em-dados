@@ -23,6 +23,13 @@ const executionMigration = await readFile(
   ),
   "utf8",
 );
+const evidenceMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260807020000_pncp_execution_evidence.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(new URL("../../apps/web/lib/pncp-procurements.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url), "utf8");
 const optionsMigration = await readFile(
@@ -76,6 +83,20 @@ test("execucao financeira do PNCP so e ligada por identificador oficial", () => 
   assert.match(executionMigration, /execution_summary jsonb/);
   assert.match(executionMigration, /pncp-procurements\/1\.4\.0/);
   assert.match(client, /executionSummary/);
+});
+
+test("vinculos PNCP preservam metadados de evidencia sem dados sensiveis", () => {
+  assert.match(evidenceMigration, /evidence_rows/);
+  assert.match(evidenceMigration, /raw\.raw_records/);
+  assert.match(evidenceMigration, /raw\.raw_artifacts/);
+  assert.match(evidenceMigration, /source_url/);
+  assert.match(evidenceMigration, /sha256/);
+  assert.match(evidenceMigration, /collector_version/);
+  assert.match(evidenceMigration, /parser_version/);
+  assert.match(evidenceMigration, /limit 20/);
+  assert.match(evidenceMigration, /pncp-execution-links\/1\.1\.0/);
+  assert.match(client, /evidenceCount/);
+  assert.match(client, /startsWith\("https:\/\/"\)/);
 });
 
 test("sugestões de filtros vêm de opções PNCP preservadas", () => {
