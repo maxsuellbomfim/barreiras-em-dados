@@ -8,9 +8,15 @@ class MunicipalExecutiveParserTests(unittest.TestCase):
         page = """
         <div class='content'>
           <div class='secretario'>
-            <p><img src='https://barreiras.ba.gov.br/wp-content/uploads/prefeito.jpeg' /></p>
+            <p>
+              <img
+                src='https://barreiras.ba.gov.br/wp-content/uploads/prefeito.jpeg'
+              />
+            </p>
             <h2>Prefeito</h2>
-            <h2 class='panel-title'><strong>OTONIEL NASCIMENTO TEIXEIRA</strong></h2>
+            <h2 class='panel-title'>
+              <strong>OTONIEL NASCIMENTO TEIXEIRA</strong>
+            </h2>
           </div>
         </div><div class='clear'></div>
         """
@@ -22,14 +28,21 @@ class MunicipalExecutiveParserTests(unittest.TestCase):
         )
         self.assertEqual(len(profiles), 1)
         self.assertEqual(profiles[0]["display_name"], "OTONIEL NASCIMENTO TEIXEIRA")
-        self.assertEqual(profiles[0]["photo_url"], "https://barreiras.ba.gov.br/wp-content/uploads/prefeito.jpeg")
+        self.assertEqual(
+            profiles[0]["photo_url"],
+            "https://barreiras.ba.gov.br/wp-content/uploads/prefeito.jpeg",
+        )
 
     def test_parses_secretary_from_first_official_paragraph(self):
         page = """
         <div class='content'>
-          <p><img src='https://barreiras.ba.gov.br/wp-content/uploads/secretaria.jpeg' />
-          GISLAINE CÉSAR DE CARVALHO BARBOSA<br />
-          (77) 3614-7104</p>
+          <p>
+            <img
+              src='https://barreiras.ba.gov.br/wp-content/uploads/secretaria.jpeg'
+            />
+            GISLAINE CÉSAR DE CARVALHO BARBOSA<br />
+            (77) 3614-7104
+          </p>
         </div><div class='clear'></div>
         """
         profiles = parse_official_page(
@@ -39,7 +52,10 @@ class MunicipalExecutiveParserTests(unittest.TestCase):
             page_html=page,
         )
         self.assertEqual(len(profiles), 1)
-        self.assertEqual(profiles[0]["display_name"], "GISLAINE CÉSAR DE CARVALHO BARBOSA")
+        self.assertEqual(
+            profiles[0]["display_name"],
+            "GISLAINE CÉSAR DE CARVALHO BARBOSA",
+        )
 
     def test_does_not_invent_profile_when_marker_is_missing(self):
         profiles = parse_official_page(

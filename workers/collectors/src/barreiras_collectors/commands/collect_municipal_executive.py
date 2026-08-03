@@ -28,7 +28,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     logger = logging.getLogger(__name__)
     if persistence_settings.mode != "postgres-supabase":
-        raise RuntimeError("A coleta do Executivo requer PERSISTENCE_MODE=postgres-supabase.")
+        raise RuntimeError(
+            "A coleta do Executivo requer PERSISTENCE_MODE=postgres-supabase."
+        )
     required = (
         persistence_settings.database_url,
         persistence_settings.supabase_url,
@@ -42,7 +44,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         from supabase import create_client
     except ImportError as error:
-        raise RuntimeError("Instale a dependência opcional 'storage' para coletar.") from error
+        raise RuntimeError(
+            "Instale a dependência opcional 'storage' para coletar."
+        ) from error
 
     supabase_client = create_client(
         persistence_settings.supabase_url,
@@ -57,7 +61,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if authentication.session is None or authentication.user is None:
         raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
 
-    repository = PostgresCollectionRepository.from_dsn(persistence_settings.database_url)
+    repository = PostgresCollectionRepository.from_dsn(
+        persistence_settings.database_url
+    )
     service = MunicipalExecutivePersistenceService(
         object_store=SupabaseStorageObjectStore(
             supabase_client.storage.from_(persistence_settings.raw_artifacts_bucket)

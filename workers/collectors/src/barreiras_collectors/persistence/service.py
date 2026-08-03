@@ -654,7 +654,12 @@ class MunicipalExecutivePersistenceService:
                 raise PersistenceContractError(f"Perfil {index} sem nome oficial.")
             if role not in {"prefeito", "vice-prefeito", "secretario"}:
                 raise PersistenceContractError(f"Perfil {index} com função inválida.")
-            canonical = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
             payload_sha256 = hashlib.sha256(canonical).hexdigest()
             records.append(
                 RawRecordInput(
@@ -677,8 +682,13 @@ class MunicipalExecutivePersistenceService:
             expected_sha256=page.body_sha256,
         )
         restored = self.object_store.read(object_key)
-        if hashlib.sha256(restored).hexdigest() != page.body_sha256 or stored.sha256 != page.body_sha256:
-            raise ArtifactIntegrityError("O envelope restaurado do Executivo diverge da coleta.")
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "O envelope restaurado do Executivo diverge da coleta."
+            )
         persisted = self.repository.persist(
             PersistenceBatch(
                 page=page,
