@@ -156,6 +156,20 @@ export default async function FinancesPage() {
           </p>
         </section>
 
+        <section className="finance-status-panel" aria-labelledby="finance-status-title">
+          <div>
+            <span className="eyebrow">Resultado das contas</span>
+            <h2 id="finance-status-title">Ainda não classificamos como “no azul” ou “no vermelho”</h2>
+            <p>
+              Para afirmar déficit ou superávit, precisamos comparar todas as
+              receitas e todas as despesas do mesmo período e pelo mesmo critério.
+              Hoje temos relatórios de receitas e de pagamentos, mas eles ainda não
+              formam um balanço fiscal completo.
+            </p>
+          </div>
+          <span className="finance-status-pill">Resultado fiscal: aguardando base comparável</span>
+        </section>
+
         {sortedExpenseReports.length > 0 ? (
           <section aria-labelledby="expense-title">
             <div className="section-heading compact">
@@ -168,7 +182,7 @@ export default async function FinancesPage() {
             </div>
             <div className="digest-grid">
               {sortedExpenseReports.map((report) => (
-                <article className="digest-card" key={report.expenseReportId}>
+                <article className="digest-card finance-negative-card" key={report.expenseReportId}>
                   <div className="track-top">
                     <span>{report.publicBodyName}</span>
                     <span className="track-status">{report.fiscalYear}</span>
@@ -254,7 +268,7 @@ export default async function FinancesPage() {
                 </div>
                 <div className="digest-grid">
                   {expenseLines.map((line) => (
-                    <article className="digest-card" key={line.expenseLineId}>
+                    <article className="digest-card finance-negative-card" key={line.expenseLineId}>
                       <div className="track-top">
                         <span>Linha {line.lineNumber.toLocaleString("pt-BR")}</span>
                         <span className="track-status">{line.expenseCode}</span>
@@ -331,7 +345,14 @@ export default async function FinancesPage() {
             </div>
             <div className="digest-grid">
               {sortedRevenues.map((revenue) => (
-                <article className="digest-card" key={revenue.revenueId}>
+                  <article
+                    className={`digest-card ${
+                      revenue.collectionDirection === "deduction"
+                        ? "finance-negative-card"
+                        : "finance-positive-card"
+                    }`}
+                    key={revenue.revenueId}
+                  >
                   <div className="track-top">
                     <span>{revenue.publicBodyName}</span>
                     <span className="track-status">{revenue.fiscalYear}</span>

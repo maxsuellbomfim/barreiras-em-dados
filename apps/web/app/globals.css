@@ -1695,6 +1695,43 @@ footer {
   line-height: 1.5;
 }
 
+.finance-status-panel {
+  margin: 0 0 3.5rem;
+  padding: 1.35rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  border: 1px solid rgba(107, 86, 32, 0.18);
+  border-radius: 1.35rem;
+  background: #fffbf1;
+}
+
+.finance-status-panel h2 {
+  margin: 0.45rem 0 0;
+  color: #3d3421;
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  letter-spacing: -0.03em;
+}
+
+.finance-status-panel p {
+  max-width: 50rem;
+  margin: 0.55rem 0 0;
+  color: #6e6247;
+  line-height: 1.55;
+}
+
+.finance-status-pill {
+  flex: 0 0 auto;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+  background: #f4e7bd;
+  color: #6e5620;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .finance-guide-note {
   margin-top: 1rem;
   padding-top: 0.9rem;
@@ -1737,6 +1774,24 @@ footer {
   background: rgba(255, 255, 255, 0.78);
 }
 
+.finance-negative-card .procurement-values dd {
+  color: #b42318;
+}
+
+.finance-negative-card .revenue-primary-value {
+  border-color: rgba(180, 35, 24, 0.2) !important;
+  background: linear-gradient(145deg, #fff6f5, #ffffff) !important;
+}
+
+.finance-positive-card .procurement-values dd {
+  color: #147a55;
+}
+
+.finance-positive-card .revenue-primary-value {
+  border-color: rgba(20, 122, 85, 0.2) !important;
+  background: linear-gradient(145deg, #f1fbf6, #ffffff) !important;
+}
+
 .revenue-primary-value {
   border-color: rgba(55, 91, 232, 0.24) !important;
   background: linear-gradient(145deg, #f3f6ff, #ffffff) !important;
@@ -1760,6 +1815,16 @@ footer {
 
   .finance-guide-grid {
     grid-template-columns: 1fr;
+  }
+
+  .finance-status-panel {
+    display: block;
+  }
+
+  .finance-status-pill {
+    display: inline-block;
+    margin-top: 1rem;
+    white-space: normal;
   }
 }
 
