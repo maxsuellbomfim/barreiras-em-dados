@@ -3,6 +3,11 @@ import type { Metadata } from "next";
 import {
   getPncpProcurements,
 } from "../../lib/pncp-procurements";
+import {
+  getPublicSupplierConcentration,
+  type PublicSupplierConcentration,
+} from "../../lib/supplier-concentration";
+import { formatBrlDecimal } from "../../lib/revenues";
 import { ProcurementExplorer } from "./procurement-explorer";
 
 export const revalidate = 300;
@@ -14,8 +19,22 @@ export const metadata: Metadata = {
     "valores oficiais e quem venceu cada item, com fonte verificável.",
 };
 
+function formatShare(value: string): string {
+  const numeric = Number(value);
+  return Number.isFinite(numeric)
+    ? `${(numeric * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`
+    : "não calculado";
+}
+
+function supplierSignalLabel(supplier: PublicSupplierConcentration): string {
+  return supplier.attentionSignal ? "merece contexto" : "resumo";
+}
+
 export default async function ProcurementsPage() {
-  const result = await getPncpProcurements();
+  const [result, supplierResult] = await Promise.all([
+    getPncpProcurements(),
+    getPublicSupplierConcentration(),
+  ]);
 
   return (
     <main>
@@ -65,7 +84,42 @@ export default async function ProcurementsPage() {
             </div>
           </div>
         ) : (
-          <ProcurementExplorer procurements={result.procurements} />
+          <>
+            {supplierResult.state === "available" && supplierResult.suppliers.length > 0 ? (
+              <section className="supplier-concentration-section" aria-labelledby="supplier-concentration-title">
+                <div className="section-heading compact">
+                  <span className="eyebrow">Cruzamento PNCP</span>
+                  <h2 id="supplier-concentration-title">Quem aparece nos resultados</h2>
+                  <p>
+                    Resumo dos fornecedores vencedores na janela preservada. “Merece contexto”
+                    indica recorrência entre processos; não é ranking, julgamento ou prova de irregularidade.
+                  </p>
+                </div>
+                <div className="supplier-concentration-grid">
+                  {supplierResult.suppliers.map((supplier) => (
+                    <article className="supplier-concentration-card" key={supplier.supplierKey}>
+                      <div className="track-top">
+                        <span>{supplier.supplierType === "PJ" ? "Pessoa jurídica" : "Fornecedor"}</span>
+                        <span className={`supplier-signal-badge ${supplier.attentionSignal ? "supplier-signal-attention" : "supplier-signal-summary"}`}>
+                          {supplierSignalLabel(supplier)}
+                        </span>
+                      </div>
+                      <h3>{supplier.supplierName}</h3>
+                      <dl className="supplier-concentration-values">
+                        <div><dt>Processos</dt><dd>{supplier.procurementCount.toLocaleString("pt-BR")}</dd></div>
+                        <div><dt>Itens</dt><dd>{supplier.itemCount.toLocaleString("pt-BR")}</dd></div>
+                        <div><dt>Valor homologado</dt><dd>{formatBrlDecimal(supplier.totalAwardedAmount)}</dd></div>
+                        <div><dt>Parcela da janela</dt><dd>{formatShare(supplier.awardedShare)}</dd></div>
+                      </dl>
+                      <p className="supplier-concentration-explanation">{supplier.publicExplanation}</p>
+                      {supplier.sourceUrl ? <p className="act-evidence"><a href={supplier.sourceUrl} target="_blank" rel="noreferrer">Ver fonte PNCP</a></p> : null}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+            <ProcurementExplorer procurements={result.procurements} />
+          </>
         )}
 
         <p className="hero-note">
