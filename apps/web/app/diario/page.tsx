@@ -103,7 +103,8 @@ export default async function EditionDigestsPage() {
             <span>← Barreiras 360</span>
           </a>
           <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/atos">Nomeações e exonerações</a>
+            <a href="/atos">Atos públicos</a>
+            <a href="/representantes">Quem decide</a>
           </nav>
         </div>
       </header>

@@ -8,10 +8,10 @@ import { ActExplorer } from "./act-explorer";
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "Nomeações e exonerações",
+  title: "Atos públicos",
   description:
-    "Atos de pessoal do Diário Oficial de Barreiras, ligados ao documento " +
-    "oficial e publicados por revisão humana ou validação determinística.",
+    "Atos públicos do Diário Oficial de Barreiras, com busca, resumo assistido " +
+    "e ligação verificável ao documento oficial.",
 };
 
 const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -33,19 +33,23 @@ export default async function ApprovedActsPage() {
           <a className="brand" href="/" aria-label="Barreiras 360">
             <span>← Barreiras 360</span>
           </a>
+          <nav className="nav-links" aria-label="Páginas públicas">
+            <a href="/diario">Diário traduzido</a>
+            <a href="/representantes">Quem decide</a>
+          </nav>
         </div>
       </header>
 
       <section className="section" aria-labelledby="acts-title">
         <div className="section-heading">
-          <span className="eyebrow">Revisado por gente, ligado à fonte</span>
-          <h1 id="acts-title">Nomeações e exonerações</h1>
+          <span className="eyebrow">Linha do tempo oficial, ligada à fonte</span>
+          <h1 id="acts-title">Atos públicos</h1>
           <p>
-            Cada registro abaixo foi identificado automaticamente no Diário
-            Oficial e publicado somente depois de uma pessoa conferir o trecho
-            ou de um verificador determinístico confirmar os campos literais.
-            O documento que sustenta cada registro fica ligado ao ato. Isto é
-            um registro de atos oficiais — não é avaliação sobre pessoas.
+            Consulte nomeações, exonerações e outros atos de pessoal em uma
+            linha do tempo pesquisável. Cada registro mantém o trecho do
+            documento, a edição preservada e um resumo assistido por IA
+            separado do texto oficial. Isto é um registro de atos — não uma
+            avaliação sobre pessoas.
           </p>
           {result.state === "available" && result.acts.length > 0 ? (
             <p className="acts-count" role="status">

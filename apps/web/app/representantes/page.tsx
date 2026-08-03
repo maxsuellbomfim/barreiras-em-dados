@@ -13,11 +13,6 @@ import {
   type StateRepresentative,
 } from "../../lib/state-representatives";
 import { getTseBarreirasVotes, type TseVote } from "../../lib/tse-votes";
-import { getApprovedGazetteActs } from "../../lib/approved-acts";
-import {
-  buildExecutiveSnapshot,
-  type ExecutiveSnapshot,
-} from "../../lib/executive-snapshot";
 import {
   getExecutiveProfiles,
   type ExecutiveProfile,
@@ -214,7 +209,7 @@ function StateRepresentativeCard({
   );
 }
 
-function ExecutiveActCard({
+/* function ExecutiveActCard({
   profile,
 }: Readonly<{ profile: ExecutiveSnapshot }>) {
   const actLabel = profile.actType === "nomeacao" ? "Nomeação" : "Exoneração";
@@ -263,7 +258,7 @@ function ExecutiveActCard({
       </p>
     </article>
   );
-}
+} */
 
 function ExecutiveProfileCard({ profile }: Readonly<{ profile: ExecutiveProfile }>) {
   const roleLabel =
@@ -348,18 +343,13 @@ function CandidateVoteCard({ vote }: Readonly<{ vote: TseVote }>) {
 }
 
 export default async function RepresentativesPage() {
-  const [result, councillorsResult, stateResult, votesResult, executiveResult, executiveProfilesResult] = await Promise.all([
+  const [result, councillorsResult, stateResult, votesResult, executiveProfilesResult] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
     getStateRepresentatives(),
     getTseBarreirasVotes(),
-    getApprovedGazetteActs(),
     getExecutiveProfiles(),
   ]);
-  const executiveSnapshot =
-    executiveResult.state === "available"
-      ? buildExecutiveSnapshot(executiveResult.acts)
-      : [];
 
   return (
     <main>
@@ -478,7 +468,7 @@ export default async function RepresentativesPage() {
               </div>
             )}
           </section>
-          <section aria-labelledby="executive-acts-title">
+          {/* <section aria-labelledby="executive-acts-title">
             <div className="section-heading">
               <span className="eyebrow">Diário Oficial</span>
               <h2 id="executive-acts-title">Atos do Executivo municipal</h2>
@@ -527,7 +517,18 @@ export default async function RepresentativesPage() {
                 ) : null}
               </>
             )}
-          </section>
+          </section> */}
+          <div className="collection-unavailable" role="note">
+            <div>
+              <strong>Atos públicos ficam em uma página própria</strong>
+              <p>
+                Acompanhe nomeações, exonerações e demais registros do Diário
+                Oficial em uma linha do tempo com busca, filtros e documento
+                original.
+              </p>
+              <a href="/atos">Abrir Atos públicos →</a>
+            </div>
+          </div>
         </div>
 
         <section id="federais" className="representation-block representation-block-federal" aria-labelledby="federal-title">

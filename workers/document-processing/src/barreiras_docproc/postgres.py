@@ -389,7 +389,9 @@ class PostgresExtractionRepository:
                   where page.raw_artifact_id = editions.id
                     and page.text_content is not null
                 )
-                order by editions.created_at
+                -- A vitrine pública deve alcançar a última edição preservada
+                -- antes de continuar drenando o backfill histórico.
+                order by editions.edition desc, editions.created_at desc
                 limit %s
                 """,
                 (limit * 4,),
