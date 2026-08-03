@@ -10,7 +10,6 @@ from barreiras_normalization.expense_publication import (
 )
 from barreiras_normalization.financial_expense_pdf import parse_expense_pdf_text
 
-
 FIXTURE = (
     Path(__file__).parents[2]
     / "fixtures"

@@ -8,11 +8,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
-from .financial_expense_pdf import parse_expense_pdf_text
 from .expense_publication import (
     ExpensePublicationBatch,
     build_expense_publication_batch,
 )
+from .financial_expense_pdf import parse_expense_pdf_text
 from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
 
 EXPENSE_PUBLICATION_JOB_TYPE = "financial_expense_publication"
