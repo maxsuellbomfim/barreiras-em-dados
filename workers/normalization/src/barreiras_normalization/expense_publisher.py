@@ -314,7 +314,7 @@ class PostgresExpensePublicationRepository:
                             artifact.id,
                             artifact.parent_record_id,
                             artifact.source_url,
-                            row.description,
+                            f"{row.description} — "
                             f"{batch.period_start} a {batch.period_end}",
                             f'{{"line_number": {row.line_number}, '
                             f'"expense_code": "{row.expense_code}"}}',
