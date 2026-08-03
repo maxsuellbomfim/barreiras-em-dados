@@ -18,6 +18,10 @@ import {
   buildExecutiveSnapshot,
   type ExecutiveSnapshot,
 } from "../../lib/executive-snapshot";
+import {
+  getExecutiveProfiles,
+  type ExecutiveProfile,
+} from "../../lib/executive-profiles";
 
 export const revalidate = 300;
 
@@ -261,6 +265,45 @@ function ExecutiveActCard({
   );
 }
 
+function ExecutiveProfileCard({ profile }: Readonly<{ profile: ExecutiveProfile }>) {
+  const roleLabel =
+    profile.role === "prefeito"
+      ? "Prefeito de Barreiras"
+      : profile.role === "vice-prefeito"
+        ? "Vice-prefeito de Barreiras"
+        : profile.departmentName ?? "Secretaria municipal";
+  return (
+    <article className="person-card" aria-label="Perfil do Executivo municipal">
+      <div className="person-head">
+        {profile.photoUrl ? (
+          // Foto publicada pela própria Prefeitura.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="person-photo" src={profile.photoUrl} alt="" width={72} height={96} loading="lazy" />
+        ) : (
+          <span className="person-photo person-photo-empty" aria-hidden="true" />
+        )}
+        <div>
+          <h2>{profile.displayName}</h2>
+          <p className="person-role">{roleLabel}</p>
+          <span className="person-badge person-badge-active">perfil oficial</span>
+        </div>
+      </div>
+      {profile.sourceExcerpt ? (
+        <details>
+          <summary>O que a Prefeitura publicou</summary>
+          <p className="person-bio">{profile.sourceExcerpt}</p>
+        </details>
+      ) : null}
+      <p className="act-evidence">
+        <a href={profile.profileUrl} target="_blank" rel="noreferrer">
+          Ver perfil oficial
+        </a>{" "}
+        · página consultada em {dateFormatter.format(new Date(profile.collectedAt))}
+      </p>
+    </article>
+  );
+}
+
 function CandidateVoteCard({ vote }: Readonly<{ vote: TseVote }>) {
   return (
     <article className="person-card" aria-label="Candidatura com votação em Barreiras">
@@ -305,12 +348,13 @@ function CandidateVoteCard({ vote }: Readonly<{ vote: TseVote }>) {
 }
 
 export default async function RepresentativesPage() {
-  const [result, councillorsResult, stateResult, votesResult, executiveResult] = await Promise.all([
+  const [result, councillorsResult, stateResult, votesResult, executiveResult, executiveProfilesResult] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
     getStateRepresentatives(),
     getTseBarreirasVotes(),
     getApprovedGazetteActs(),
+    getExecutiveProfiles(),
   ]);
   const executiveSnapshot =
     executiveResult.state === "available"
@@ -409,12 +453,38 @@ export default async function RepresentativesPage() {
           <section aria-labelledby="executive-title">
             <div className="section-heading">
               <span className="eyebrow">Prefeitura de Barreiras</span>
-              <h2 id="executive-title">Atos do Executivo municipal</h2>
+              <h2 id="executive-title">Prefeito, vice e secretarias</h2>
               <p>
-                Pessoas e cargos aparecem aqui somente quando um ato aprovado
-                do Diário Oficial os sustenta. A lista é um recorte dos atos
-                publicados, não um cadastro completo nem uma avaliação de
-                desempenho.
+                Perfis oficiais da Prefeitura, separados da linha do tempo de
+                nomeações e exonerações. A fonte, a data da consulta e o trecho
+                publicado ficam disponíveis em cada cartão.
+              </p>
+            </div>
+            {executiveProfilesResult.state === "available" && executiveProfilesResult.profiles.length > 0 ? (
+              <div className="person-grid">
+                {executiveProfilesResult.profiles.map((profile) => (
+                  <ExecutiveProfileCard key={profile.profileKey} profile={profile} />
+                ))}
+              </div>
+            ) : (
+              <div className="collection-unavailable" role="status">
+                <div>
+                  <strong>Cadastro do Executivo em atualização</strong>
+                  <p>
+                    O perfil oficial será exibido assim que a próxima coleta da
+                    Prefeitura for preservada e validada.
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+          <section aria-labelledby="executive-acts-title">
+            <div className="section-heading">
+              <span className="eyebrow">Diário Oficial</span>
+              <h2 id="executive-acts-title">Atos do Executivo municipal</h2>
+              <p>
+                Nomeações e exonerações aparecem somente quando sustentadas por
+                ato oficial preservado.
               </p>
             </div>
             {executiveResult.state === "unavailable" ? (

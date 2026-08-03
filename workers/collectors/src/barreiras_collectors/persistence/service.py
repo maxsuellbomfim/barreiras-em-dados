@@ -33,6 +33,8 @@ PNCP_CONTRATACAO_PARSER_VERSION = "pncp-contratacao-page/1.0.0"
 CAMARA_COLLECTOR_VERSION = "camara-federal-collector/0.1.0"
 ALBA_COLLECTOR_VERSION = "alba-collector/0.1.0"
 ALBA_PARSER_VERSION = "alba-deputados/1.0.0"
+EXECUTIVE_COLLECTOR_VERSION = "barreiras-executive-collector/1.0.0"
+EXECUTIVE_PARSER_VERSION = "barreiras-executive-pages/1.0.0"
 TSE_COLLECTOR_VERSION = "tse-collector/0.1.0"
 TSE_PARSER_VERSION = "tse-votacao-munzona/1.0.0"
 VEREADORES_COLLECTOR_VERSION = "cm-barreiras-collector/0.1.0"
@@ -610,6 +612,90 @@ class AlbaPersistenceService:
                 artifact_idempotency_key=artifact_key,
                 collector_version=ALBA_COLLECTOR_VERSION,
                 parser_version=ALBA_PARSER_VERSION,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=page.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+
+class MunicipalExecutivePersistenceService:
+    """Preserva páginas e perfis oficiais do Executivo de Barreiras."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, page) -> PersistenceResult:
+        actual = hashlib.sha256(page.raw_body).hexdigest()
+        if actual != page.body_sha256:
+            raise ArtifactIntegrityError(
+                "As páginas do Executivo não correspondem ao hash informado."
+            )
+        object_key = (
+            "prefeitura/executivo/sha256/"
+            f"{page.body_sha256[:2]}/{page.body_sha256}.json"
+        )
+        records = []
+        for index, item in enumerate(page.items):
+            profile_key = item.get("profile_key")
+            name = item.get("display_name")
+            role = item.get("role")
+            if not isinstance(profile_key, str) or not profile_key:
+                raise PersistenceContractError(f"Perfil {index} sem chave estável.")
+            if not isinstance(name, str) or not name.strip():
+                raise PersistenceContractError(f"Perfil {index} sem nome oficial.")
+            if role not in {"prefeito", "vice-prefeito", "secretario"}:
+                raise PersistenceContractError(f"Perfil {index} com função inválida.")
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            records.append(
+                RawRecordInput(
+                    source_record_key=f"barreiras:executive:{profile_key}",
+                    record_type="barreiras_executive_profile",
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=EXECUTIVE_PARSER_VERSION,
+                    idempotency_key=hashlib.sha256(
+                        f"executive-profile:{profile_key}:{payload_sha256}".encode()
+                    ).hexdigest(),
+                )
+            )
+
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=page.raw_body,
+            content_type=page.media_type,
+            expected_sha256=page.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "O envelope restaurado do Executivo diverge da coleta."
+            )
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,
+                object_key=object_key,
+                artifact_idempotency_key=hashlib.sha256(f"raw-artifact:{page.idempotency_key}".encode()).hexdigest(),
+                collector_version=EXECUTIVE_COLLECTOR_VERSION,
+                parser_version=EXECUTIVE_PARSER_VERSION,
                 records=tuple(records),
             )
         )
