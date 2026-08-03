@@ -204,6 +204,14 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
                 <a href={evidence.sourceUrl} target="_blank" rel="noreferrer">
                   fonte oficial
                 </a>
+                {evidence.documentSourceUrl ? (
+                  <>
+                    {" · "}
+                    <a href={evidence.documentSourceUrl} target="_blank" rel="noreferrer">
+                      documento oficial
+                    </a>
+                  </>
+                ) : null}
                 <span className="evidence-meta">
                   {" · coleta "}{evidence.retrievedAt}{" · hash "}{evidence.sha256}
                 </span>
