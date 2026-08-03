@@ -40,6 +40,16 @@ class FinancialExpensePdfTests(unittest.TestCase):
         with self.assertRaises(ExpensePdfContractError):
             parse_expense_pdf_text(text)
 
+    def test_accepts_one_decimal_when_pdf_omits_trailing_zero(self):
+        text = FIXTURE.read_text(encoding="utf-8").replace(
+            "Total : 595.221.834,00",
+            "Total : 595.221.834,0",
+        )
+
+        report = parse_expense_pdf_text(text)
+
+        self.assertEqual(report.total_fixed_amount, Decimal("595221834.00"))
+
 
 if __name__ == "__main__":
     unittest.main()

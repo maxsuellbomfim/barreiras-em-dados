@@ -65,7 +65,7 @@ _DATE_RANGE = re.compile(
     re.IGNORECASE,
 )
 _CODE = r"\d+(?:\.\d+){6,8}\.?"
-_AMOUNT = r"-?(?:\d{1,3}(?:\.\d{3})*|\d+),\d{2}"
+_AMOUNT = r"-?(?:\d{1,3}(?:\.\d{3})*|\d+),\d{1,2}"
 _ROW = re.compile(
     rf"^(?P<code>{_CODE})\s+(?P<description>.+?)\s+"
     rf"(?P<source>\d{{4}})\s+(?P<amounts>{_AMOUNT}(?:\s+{_AMOUNT}){{11}})\s*$"
@@ -85,7 +85,12 @@ def _parse_date(value: str) -> date:
 
 
 def _amounts(value: str, *, field: str) -> tuple[Decimal, ...]:
-    values = tuple(parse_brl_amount(item) for item in value.split())
+    def parse_amount(item: str) -> Decimal:
+        if item.startswith("-"):
+            return -parse_brl_amount(item[1:])
+        return parse_brl_amount(item)
+
+    values = tuple(parse_amount(item) for item in value.split())
     if len(values) != 12:
         raise ExpensePdfContractError(f"{field} deve conter 12 valores")
     return values
