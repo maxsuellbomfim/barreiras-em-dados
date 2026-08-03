@@ -121,6 +121,11 @@ export default async function ProcurementsPage() {
                         <div><dt>Parcela da janela</dt><dd>{formatShare(supplier.awardedShare)}</dd></div>
                       </dl>
                       <p className="supplier-concentration-explanation">{supplier.publicExplanation}</p>
+                      <p className="supplier-history-link">
+                        <a href={`/licitacoes/fornecedor/${encodeURIComponent(supplier.supplierKey)}`}>
+                          Ver histórico deste fornecedor →
+                        </a>
+                      </p>
                       {supplier.sourceUrl ? <p className="act-evidence"><a href={supplier.sourceUrl} target="_blank" rel="noreferrer">Ver fonte PNCP</a></p> : null}
                     </article>
                   ))}
