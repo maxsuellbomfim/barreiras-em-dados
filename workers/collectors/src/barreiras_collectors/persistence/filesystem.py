@@ -174,7 +174,6 @@ class FilesystemCollectionRepository:
             "schema_version": manifest.get("schema_version"),
             "raw_artifact_id": manifest.get("raw_artifact_id"),
             "idempotency_key": manifest.get("idempotency_key"),
-            "parent_artifact_id": manifest.get("parent_artifact_id"),
             "source_record_key": manifest.get("source_record_key"),
             "document_schema_name": manifest.get("document_schema_name"),
             "document": {
