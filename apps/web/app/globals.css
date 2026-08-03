@@ -1824,6 +1824,81 @@ footer {
   color: #687286;
 }
 
+.supplier-concentration-section {
+  margin-bottom: 3.5rem;
+}
+
+.supplier-concentration-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.supplier-concentration-card {
+  margin: 0;
+  padding: 1.15rem;
+  border: 1px solid rgba(55, 91, 232, 0.14);
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.supplier-concentration-card h3 {
+  margin: 0.75rem 0 0;
+  color: #172a8a;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.supplier-signal-badge {
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.supplier-signal-attention {
+  background: rgba(184, 122, 24, 0.13);
+  color: #8b5f11;
+}
+
+.supplier-signal-summary {
+  background: rgba(55, 91, 232, 0.1);
+  color: #334a9e;
+}
+
+.supplier-concentration-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 1rem 0 0;
+}
+
+.supplier-concentration-values div {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.75rem;
+  background: rgba(244, 247, 255, 0.82);
+}
+
+.supplier-concentration-values dt {
+  color: #788397;
+  font-size: 0.68rem;
+}
+
+.supplier-concentration-values dd {
+  margin: 0.15rem 0 0;
+  color: #18233d;
+  font-size: 0.83rem;
+  font-weight: 700;
+}
+
+.supplier-concentration-explanation {
+  margin: 0.9rem 0 0;
+  color: #6f7b8e;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
 .monthly-closure-section {
   margin-bottom: 3.5rem;
 }
@@ -2041,6 +2116,10 @@ footer {
   .finance-guide-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .supplier-concentration-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 620px) {
@@ -2063,6 +2142,10 @@ footer {
   }
 
   .finance-coverage-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .supplier-concentration-grid {
     grid-template-columns: 1fr;
   }
 
