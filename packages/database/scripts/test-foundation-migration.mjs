@@ -126,7 +126,7 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  assert.equal(relations.rows[0].count, 42);
+  assert.equal(relations.rows[0].count, 44);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -150,7 +150,7 @@ try {
     where column_name = 'origin_raw_record_id'
       and table_schema in ('org', 'hr', 'procurement', 'finance', 'analysis', 'editorial')
   `);
-  assert.equal(originColumns.rows[0].count, 25);
+  assert.equal(originColumns.rows[0].count, 27);
 
   const nullableOrigins = await database.query(`
     select count(*)::integer as count
@@ -187,6 +187,26 @@ try {
       'validation_status',
     ],
   );
+
+  const expenseTables = await database.query(`
+    select table_name
+    from information_schema.tables
+    where table_schema = 'finance'
+      and table_name in ('expense_reports', 'expense_lines')
+    order by table_name
+  `);
+  assert.deepEqual(
+    expenseTables.rows.map((row) => row.table_name),
+    ['expense_lines', 'expense_reports'],
+  );
+
+  const expenseFunction = await database.query(`
+    select pg_get_function_result(
+      'api.get_public_expense_reports(integer,smallint)'::regprocedure
+    ) as result
+  `);
+  assert.match(String(expenseFunction.rows[0].result), /total_paid_period_amount/);
+  assert.match(String(expenseFunction.rows[0].result), /document_artifact_sha256/);
 
   const revenueFunction = await database.query(`
     select pg_get_function_result(
