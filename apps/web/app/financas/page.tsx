@@ -70,6 +70,9 @@ function sortNewest<T extends { revenueDate?: string | null; referenceDate?: str
 }
 
 function explainRevenue(revenue: PublicRevenue): string {
+  if (revenue.collectionDirection === "adjustment") {
+    return `Este registro é um ajuste negativo de ${formatBrlDecimal(revenue.collectedAmount)} no período. O documento oficial o apresenta fora do grupo de deduções; por isso ele é mostrado separadamente e não é tratado como arrecadação bruta.`;
+  }
   if (revenue.collectionDirection === "deduction") {
     return `Este registro é uma dedução de ${formatBrlDecimal(revenue.collectedAmount)} no período. Ela aparece com sinal negativo para não ser confundida com arrecadação bruta.`;
   }
@@ -560,7 +563,7 @@ export default async function FinancesPage() {
               {sortedRevenues.map((revenue) => (
                   <article
                     className={`digest-card ${
-                      revenue.collectionDirection === "deduction"
+                      revenue.collectionDirection !== "credit"
                         ? "finance-negative-card"
                         : "finance-positive-card"
                     }`}
@@ -576,7 +579,9 @@ export default async function FinancesPage() {
                       <dt>
                         {revenue.collectionDirection === "deduction"
                           ? "Deduções no período"
-                          : "Valor arrecadado no período"}
+                          : revenue.collectionDirection === "adjustment"
+                            ? "Ajuste negativo no período"
+                            : "Valor arrecadado no período"}
                       </dt>
                       <dd>{formatBrlDecimal(revenue.collectedAmount)}</dd>
                     </div>

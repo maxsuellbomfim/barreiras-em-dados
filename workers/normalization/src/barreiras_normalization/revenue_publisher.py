@@ -9,9 +9,11 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from .financial_revenue_pdf import parse_revenue_pdf_text
-from .revenue_publication import RevenuePublicationBatch, build_publication_batch
-
-REVENUE_PUBLICATION_JOB_TYPE = "financial_revenue_publication"
+from .revenue_publication import (
+    REVENUE_PUBLICATION_JOB_TYPE,
+    RevenuePublicationBatch,
+    build_publication_batch,
+)
 
 
 class ArtifactMismatchError(RuntimeError):
@@ -274,13 +276,15 @@ class PostgresRevenuePublicationRepository:
                           source_document_artifact_id, version, external_id,
                           fiscal_year, revenue_date, revenue_code, description,
                           forecast_amount, collected_amount, accumulated_amount,
+                          forecast_amount_signed, collected_amount_signed,
+                          accumulated_amount_signed,
                           report_total_period_amount,
                           difference_more, difference_less, collection_direction,
                           methodology_version, validation_status, published_at
                         ) values (
                           %s::uuid, %s::uuid, %s::uuid, 1, %s,
                           %s, %s::date, %s, %s,
-                          %s, %s, %s, %s, %s, %s, %s,
+                          %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                           %s, 'validated', statement_timestamp()
                         )
                          on conflict (public_body_id, external_id, version)
@@ -300,6 +304,9 @@ class PostgresRevenuePublicationRepository:
                             row.forecast_amount,
                             row.collected_amount,
                             row.accumulated_amount,
+                            row.forecast_amount_signed,
+                            row.collected_amount_signed,
+                            row.accumulated_amount_signed,
                             batch.total_period_amount,
                             row.difference_more,
                             row.difference_less,

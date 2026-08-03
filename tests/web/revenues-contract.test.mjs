@@ -12,10 +12,11 @@ const page = await readFile(
 );
 
 test("contrato público exige receita validada e documento filho", () => {
-  assert.match(source, /public-revenues\/1\.1\.0/);
+  assert.match(source, /public-revenues\/1\.2\.0/);
   assert.match(source, /validation_status/);
   assert.match(source, /document_artifact_sha256/);
   assert.match(source, /collection_direction/);
+  assert.match(source, /adjustment/);
   assert.match(source, /-\\?\\d/);
   assert.match(page, /publicado após validação determinística/);
   assert.match(page, /PDF preservado/);

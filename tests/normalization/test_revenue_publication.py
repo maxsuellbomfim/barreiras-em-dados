@@ -40,6 +40,19 @@ class RevenuePublicationTests(unittest.TestCase):
         with self.assertRaises(RevenuePublicationError):
             build_publication_batch(replace(self.report, rows=(row,)))
 
+    def test_publication_keeps_non_deduction_negative_adjustment(self) -> None:
+        row = replace(
+            self.report.rows[0],
+            revenue_code="1.7.2.4.00.0.0.00.00.00",
+            forecast_amount=Decimal("-88458.00"),
+            period_amount=Decimal("-3776.33"),
+            accumulated_amount=Decimal("-696223.67"),
+        )
+        batch = build_publication_batch(replace(self.report, rows=(row,)))
+
+        self.assertEqual(batch.rows[0].collection_direction, "adjustment")
+        self.assertEqual(batch.rows[0].collected_amount, Decimal("3776.33"))
+
     def test_publication_digest_is_deterministic(self) -> None:
         first = build_publication_batch(self.report)
         second = build_publication_batch(self.report)
