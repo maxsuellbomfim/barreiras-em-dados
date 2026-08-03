@@ -9,6 +9,13 @@ const migration = await readFile(
   ),
   "utf8",
 );
+const normalizedMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260806230000_pncp_normalized_filtering.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(new URL("../../apps/web/lib/pncp-procurements.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url), "utf8");
 const optionsMigration = await readFile(
@@ -37,7 +44,18 @@ test("pÃ¡gina oferece filtros GET e o cliente usa a RPC filtrÃ¡vel", () => {
   assert.match(page, /name="modalidade"/);
   assert.match(page, /name="situacao"/);
   assert.match(page, /name="orgao"/);
-  assert.match(client, /get_pncp_procurements_structured/);
+  assert.match(client, /get_pncp_procurements_normalized/);
+});
+
+test("filtros estruturados usam a mesma chave normalizada do catálogo", () => {
+  assert.match(normalizedMigration, /pncp_label_key/);
+  assert.match(normalizedMigration, /set search_path = ''/);
+  assert.match(normalizedMigration, /get_pncp_procurements_normalized/);
+  assert.match(normalizedMigration, /pncp-procurements\/1\.3\.0/);
+  assert.match(normalizedMigration, /modality_filter/);
+  assert.match(normalizedMigration, /status_filter/);
+  assert.match(normalizedMigration, /unit_filter/);
+  assert.match(client, /get_pncp_procurements_normalized/);
 });
 
 test("sugestões de filtros vêm de opções PNCP preservadas", () => {
