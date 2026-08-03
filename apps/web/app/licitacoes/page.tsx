@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import {
   getPncpProcurements,
+  getPncpProcurementFilterOptions,
   type ProcurementFilters,
 } from "../../lib/pncp-procurements";
 import {
@@ -36,6 +37,13 @@ function parseYear(value: string | undefined): number | undefined {
   if (!value || !/^\d{4}$/.test(value)) return undefined;
   const year = Number(value);
   return year >= 1900 && year <= 2200 ? year : undefined;
+}
+
+function optionsFor(
+  options: readonly { optionType: string; value: string; procurementCount: number }[],
+  optionType: string,
+) {
+  return options.filter((option) => option.optionType === optionType).slice(0, 50);
 }
 
 function supplierSignalKind(supplier: PublicSupplierConcentration): "attention" | "monitoring" | "summary" {
@@ -80,12 +88,15 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
       filters.status ||
       filters.unit,
   );
-  const [result, supplierResult] = await Promise.all([
+  const [result, supplierResult, filterOptionsResult] = await Promise.all([
     getPncpProcurements(filters),
     hasFilters
       ? Promise.resolve({ state: "available" as const, suppliers: [] as const })
       : getPublicSupplierConcentration(),
+    getPncpProcurementFilterOptions(),
   ]);
+  const filterOptions =
+    filterOptionsResult.state === "available" ? filterOptionsResult.options : [];
 
   return (
     <main>
@@ -128,15 +139,30 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
           </label>
           <label>
             Modalidade
-            <input name="modalidade" defaultValue={filters.modality ?? ""} placeholder="Ex.: Dispensa" />
+            <input list="pncp-modalidades" name="modalidade" defaultValue={filters.modality ?? ""} placeholder="Ex.: Dispensa" />
+            <datalist id="pncp-modalidades">
+              {optionsFor(filterOptions, "modalidade").map((option) => (
+                <option key={option.value} value={option.value} label={`${option.value} (${option.procurementCount})`} />
+              ))}
+            </datalist>
           </label>
           <label>
             Situação
-            <input name="situacao" defaultValue={filters.status ?? ""} placeholder="Ex.: Suspensa" />
+            <input list="pncp-situacoes" name="situacao" defaultValue={filters.status ?? ""} placeholder="Ex.: Suspensa" />
+            <datalist id="pncp-situacoes">
+              {optionsFor(filterOptions, "situacao").map((option) => (
+                <option key={option.value} value={option.value} label={`${option.value} (${option.procurementCount})`} />
+              ))}
+            </datalist>
           </label>
           <label className="procurement-filter-query">
             Órgão ou unidade
-            <input name="orgao" defaultValue={filters.unit ?? ""} placeholder="Ex.: MUNICIPIO DE BARREIRAS-BA" />
+            <input list="pncp-orgaos" name="orgao" defaultValue={filters.unit ?? ""} placeholder="Ex.: MUNICIPIO DE BARREIRAS-BA" />
+            <datalist id="pncp-orgaos">
+              {optionsFor(filterOptions, "orgao").map((option) => (
+                <option key={option.value} value={option.value} label={`${option.value} (${option.procurementCount})`} />
+              ))}
+            </datalist>
           </label>
           <div className="procurement-filter-actions">
             <button type="submit">Filtrar</button>

@@ -11,6 +11,13 @@ const migration = await readFile(
 );
 const client = await readFile(new URL("../../apps/web/lib/pncp-procurements.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url), "utf8");
+const optionsMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260806210000_pncp_filter_options.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("filtros PNCP restringem fornecedor, ano e texto sem recalcular valores", () => {
   assert.match(migration, /supplier_key_filter/);
@@ -31,4 +38,15 @@ test("pÃ¡gina oferece filtros GET e o cliente usa a RPC filtrÃ¡vel", () => {
   assert.match(page, /name="situacao"/);
   assert.match(page, /name="orgao"/);
   assert.match(client, /get_pncp_procurements_structured/);
+});
+
+test("sugestões de filtros vêm de opções PNCP preservadas", () => {
+  assert.match(optionsMigration, /get_pncp_procurement_filter_options/);
+  assert.match(optionsMigration, /modalidade/);
+  assert.match(optionsMigration, /situacao/);
+  assert.match(optionsMigration, /orgao/);
+  assert.match(client, /getPncpProcurementFilterOptions/);
+  assert.match(page, /pncp-modalidades/);
+  assert.match(page, /pncp-situacoes/);
+  assert.match(page, /pncp-orgaos/);
 });
