@@ -14,7 +14,6 @@ from barreiras_collectors.http import HttpResponse
 from barreiras_collectors.persistence.filesystem import (
     FilesystemCollectionRepository,
 )
-from barreiras_collectors.persistence.postgres import PostgresCollectionRepository
 from barreiras_collectors.persistence.models import (
     ArtifactIntegrityError,
     DocumentBatch,
@@ -23,6 +22,7 @@ from barreiras_collectors.persistence.models import (
     RepositoryDocumentResult,
     RepositoryPersistResult,
 )
+from barreiras_collectors.persistence.postgres import PostgresCollectionRepository
 from barreiras_collectors.persistence.service import (
     QueridoDiarioPersistenceService,
 )
