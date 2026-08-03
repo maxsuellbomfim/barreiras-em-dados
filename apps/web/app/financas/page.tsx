@@ -18,6 +18,7 @@ import {
   getPublicMonthlyFinanceClosures,
   type PublicMonthlyFinanceClosure,
 } from "../../lib/monthly-finance";
+import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
 
 export const revalidate = 300;
 
@@ -104,13 +105,21 @@ function explainClosure(closure: PublicMonthlyFinanceClosure): string {
   return closure.coverageNote;
 }
 
+function signalSeverityLabel(severity: PublicFinanceSignal["severity"]): string {
+  if (severity === "high") return "atenção alta";
+  if (severity === "medium") return "atenção";
+  if (severity === "low") return "reconciliação";
+  return "informativo";
+}
+
 export default async function FinancesPage() {
-  const [expensesResult, expenseLinesResult, revenuesResult, documentsResult, monthlyResult] = await Promise.all([
+  const [expensesResult, expenseLinesResult, revenuesResult, documentsResult, monthlyResult, signalsResult] = await Promise.all([
     getPublicExpenseReports(),
     getPublicExpenseLines(),
     getPublicRevenues(),
     getPublicFinanceDocuments(),
     getPublicMonthlyFinanceClosures(),
+    getPublicFinanceSignals(),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -122,6 +131,7 @@ export default async function FinancesPage() {
     documentsResult.state === "available" ? documentsResult.documents : [];
   const monthlyClosures =
     monthlyResult.state === "available" ? monthlyResult.closures : [];
+  const financeSignals = signalsResult.state === "available" ? signalsResult.signals : [];
   const sortedRevenues = sortNewest(revenues, "revenueDate");
   const sortedDocuments = sortNewest(documents, "referenceDate");
   const sortedExpenseReports = [...expenseReports].sort((left, right) =>
@@ -264,6 +274,58 @@ export default async function FinancesPage() {
                       {closure.expenseLiquidatedAmount ? <div><dt>Liquidado no período</dt><dd>{formatBrlDecimal(closure.expenseLiquidatedAmount)}</dd></div> : null}
                     </dl>
                     <p className="act-evidence">Metodologia determinística: {closure.calculationMethodology}. Receita usa o total declarado por documento; despesas usam o pagamento efetivado do relatório publicado.</p>
+                  </details>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {signalsResult.state === "available" ? (
+          <section className="finance-signals-section" aria-labelledby="finance-signals-title">
+            <div className="section-heading compact">
+              <span className="eyebrow">Sinais para contexto</span>
+              <h2 id="finance-signals-title">O que merece uma conferência</h2>
+              <p>
+                São verificações automáticas de consistência e duplicidade nos documentos publicados.
+                Um sinal orienta a leitura e não prova irregularidade, fraude ou corrupção.
+              </p>
+            </div>
+            {financeSignals.length === 0 ? (
+              <article className="digest-card finance-signal-card">
+                <strong>Nenhum sinal pendente nesta janela</strong>
+                <p className="finance-signal-explanation">
+                  As regras foram executadas sobre os relatórios financeiros publicados e não
+                  encontraram, até agora, duplicidade ou relação contábil que exija conferência.
+                </p>
+              </article>
+            ) : null}
+            <div className="digest-grid">
+              {financeSignals.map((signal) => (
+                <article className="digest-card finance-signal-card" key={signal.findingId}>
+                  <div className="track-top">
+                    <span>{signal.publicBodyName}</span>
+                    <span className={`finance-signal-badge finance-signal-${signal.severity}`}>
+                      {signalSeverityLabel(signal.severity)}
+                    </span>
+                  </div>
+                  <h3 className="procurement-object">{signal.ruleName}</h3>
+                  <p className="finance-period-note">
+                    Período: {formatDate(signal.periodStart)} a {formatDate(signal.periodEnd)}
+                  </p>
+                  <p className="finance-signal-explanation">{signal.publicExplanation}</p>
+                  <details className="finance-details">
+                    <summary>Ver como o sinal foi calculado</summary>
+                    <p className="finance-details-note">
+                      Regra versionada <code>{signal.ruleSlug}</code>. O cálculo usa apenas os valores
+                      determinísticos do relatório validado e pode ser refeito a qualquer momento.
+                    </p>
+                    {signal.sourceUrl ? (
+                      <p className="act-evidence">
+                        <a href={signal.sourceUrl} target="_blank" rel="noreferrer">Ver fonte oficial</a>
+                        {signal.artifactSha256 ? ` · hash ${signal.artifactSha256.slice(0, 12)}…` : null}
+                      </p>
+                    ) : null}
                   </details>
                 </article>
               ))}

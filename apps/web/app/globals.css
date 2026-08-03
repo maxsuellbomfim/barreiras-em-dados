@@ -1736,6 +1736,41 @@ footer {
   margin-bottom: 3.5rem;
 }
 
+.finance-signals-section {
+  margin-bottom: 3.5rem;
+}
+
+.finance-signal-card {
+  border-color: rgba(184, 122, 24, 0.22);
+  background: linear-gradient(160deg, #fffdf7, #ffffff 72%);
+}
+
+.finance-signal-badge {
+  padding: 0.32rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.finance-signal-low,
+.finance-signal-information {
+  background: rgba(55, 91, 232, 0.1);
+  color: #334a9e;
+}
+
+.finance-signal-medium,
+.finance-signal-high {
+  background: rgba(184, 122, 24, 0.13);
+  color: #8b5f11;
+}
+
+.finance-signal-explanation {
+  margin: 0.7rem 0 0;
+  color: #4f5d74;
+  line-height: 1.55;
+}
+
 .monthly-closure-card {
   border-color: rgba(55, 91, 232, 0.16);
 }
