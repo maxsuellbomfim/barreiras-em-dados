@@ -1904,6 +1904,57 @@ footer {
   line-height: 1.5;
 }
 
+.supplier-history-link {
+  margin: 0.9rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.supplier-history-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.supplier-history-card {
+  margin: 0;
+  padding: 1.3rem 1.4rem;
+  border: 1px solid rgba(55, 91, 232, 0.14);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.supplier-history-card h2 {
+  margin: 0.8rem 0 0;
+  color: #172a8a;
+  font-size: 1.05rem;
+  letter-spacing: -0.025em;
+}
+
+.supplier-history-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 1rem 0 0;
+}
+
+.supplier-history-values div {
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.8rem;
+  background: rgba(244, 247, 255, 0.82);
+}
+
+.supplier-history-values dt {
+  color: #788397;
+  font-size: 0.7rem;
+}
+
+.supplier-history-values dd {
+  margin: 0.15rem 0 0;
+  color: #18233d;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .monthly-closure-section {
   margin-bottom: 3.5rem;
 }
@@ -2151,6 +2202,10 @@ footer {
   }
 
   .supplier-concentration-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .supplier-history-values {
     grid-template-columns: 1fr;
   }
 
