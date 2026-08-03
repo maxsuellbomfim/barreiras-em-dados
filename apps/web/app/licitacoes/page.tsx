@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import {
   getPncpProcurements,
+  type ProcurementFilters,
 } from "../../lib/pncp-procurements";
 import {
   getPublicSupplierConcentration,
@@ -26,6 +27,17 @@ function formatShare(value: string): string {
     : "não calculado";
 }
 
+function cleanFilter(value: string | undefined, maxLength: number): string | undefined {
+  const normalized = value?.trim();
+  return normalized && normalized.length <= maxLength ? normalized : undefined;
+}
+
+function parseYear(value: string | undefined): number | undefined {
+  if (!value || !/^\d{4}$/.test(value)) return undefined;
+  const year = Number(value);
+  return year >= 1900 && year <= 2200 ? year : undefined;
+}
+
 function supplierSignalKind(supplier: PublicSupplierConcentration): "attention" | "monitoring" | "summary" {
   if (supplier.attentionSignal) return "attention";
   if (supplier.procurementCount === 1 && Number(supplier.awardedShare) >= 0.5) return "monitoring";
@@ -39,10 +51,27 @@ function supplierSignalLabel(supplier: PublicSupplierConcentration): string {
   return "resumo";
 }
 
-export default async function ProcurementsPage() {
+type ProcurementsPageProps = {
+  searchParams: Promise<{
+    fornecedor?: string;
+    ano?: string;
+    q?: string;
+  }>;
+};
+
+export default async function ProcurementsPage({ searchParams }: ProcurementsPageProps) {
+  const params = await searchParams;
+  const filters: ProcurementFilters = {
+    supplierKey: cleanFilter(params.fornecedor, 200),
+    fiscalYear: parseYear(params.ano),
+    query: cleanFilter(params.q, 120),
+  };
+  const hasFilters = Boolean(filters.supplierKey || filters.fiscalYear || filters.query);
   const [result, supplierResult] = await Promise.all([
-    getPncpProcurements(),
-    getPublicSupplierConcentration(),
+    getPncpProcurements(filters),
+    hasFilters
+      ? Promise.resolve({ state: "available" as const, suppliers: [] as const })
+      : getPublicSupplierConcentration(),
   ]);
 
   return (
@@ -70,6 +99,31 @@ export default async function ProcurementsPage() {
             espelhado da fonte — não é avaliação sobre empresas ou pessoas.
           </p>
         </div>
+
+        <form className="procurement-filter-form" method="get" aria-label="Filtrar contratações">
+          <label>
+            Fornecedor ou CNPJ
+            <input name="fornecedor" defaultValue={filters.supplierKey ?? ""} placeholder="Ex.: 07665220000183" />
+          </label>
+          <label>
+            Ano
+            <input name="ano" inputMode="numeric" pattern="[0-9]{4}" defaultValue={filters.fiscalYear?.toString() ?? ""} placeholder="2026" />
+          </label>
+          <label className="procurement-filter-query">
+            Palavra no objeto ou unidade
+            <input name="q" defaultValue={filters.query ?? ""} placeholder="Ex.: infraestrutura" />
+          </label>
+          <div className="procurement-filter-actions">
+            <button type="submit">Filtrar</button>
+            {hasFilters ? <a className="button-secondary" href="/licitacoes">Limpar</a> : null}
+          </div>
+        </form>
+
+        {hasFilters ? (
+          <p className="procurement-filter-active" role="status">
+            Filtros ativos. O resumo de fornecedores abaixo é substituído pela lista filtrada.
+          </p>
+        ) : null}
 
         {result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
