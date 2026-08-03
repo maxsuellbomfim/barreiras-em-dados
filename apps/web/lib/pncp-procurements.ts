@@ -26,6 +26,16 @@ export type ProcurementsResult =
   | Readonly<{ state: "available"; procurements: readonly Procurement[] }>
   | Readonly<{ state: "unavailable" }>;
 
+export type ProcurementFilterOption = Readonly<{
+  optionType: "modalidade" | "situacao" | "orgao";
+  value: string;
+  procurementCount: number;
+}>;
+
+export type ProcurementFilterOptionsResult =
+  | Readonly<{ state: "available"; options: readonly ProcurementFilterOption[] }>
+  | Readonly<{ state: "unavailable" }>;
+
 export type ProcurementFilters = Readonly<{
   supplierKey?: string;
   fiscalYear?: number;
@@ -43,6 +53,25 @@ function optionalString(value: unknown): string | null {
 
 function optionalNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function parseFilterOption(row: Record<string, unknown>): ProcurementFilterOption | null {
+  const optionType = row.option_type;
+  const value = optionalString(row.option_value);
+  const count = row.procurement_count;
+  if (
+    (optionType !== "modalidade" && optionType !== "situacao" && optionType !== "orgao") ||
+    value === null ||
+    !Number.isSafeInteger(count) ||
+    Number(count) < 1
+  ) {
+    return null;
+  }
+  return {
+    optionType,
+    value,
+    procurementCount: Number(count),
+  };
 }
 
 function parseResults(value: unknown): readonly ProcurementResult[] | null {
@@ -167,6 +196,51 @@ export async function getPncpProcurements(
       procurements.push(procurement);
     }
     return { state: "available", procurements };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function getPncpProcurementFilterOptions(): Promise<ProcurementFilterOptionsResult> {
+  const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const publishableKey =
+    process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (
+    !supabaseUrl ||
+    !publishableKey ||
+    !supabaseUrl.startsWith("https://") ||
+    !publishableKey.startsWith("sb_publishable_")
+  ) {
+    return { state: "unavailable" };
+  }
+
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/get_pncp_procurement_filter_options`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Profile": "api",
+          apikey: publishableKey,
+          "Content-Profile": "api",
+          "Content-Type": "application/json",
+        },
+        body: "{}",
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) return { state: "unavailable" };
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return { state: "unavailable" };
+    const options: ProcurementFilterOption[] = [];
+    for (const row of payload) {
+      const option = parseFilterOption(row as Record<string, unknown>);
+      if (option === null) return { state: "unavailable" };
+      options.push(option);
+    }
+    return { state: "available", options };
   } catch {
     return { state: "unavailable" };
   }
