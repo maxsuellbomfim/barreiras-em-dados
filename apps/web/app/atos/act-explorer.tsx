@@ -24,16 +24,35 @@ function formatDate(value: string) {
   return dateFormatter.format(new Date(`${value}T12:00:00-03:00`));
 }
 
+function inferredPersonName(act: ApprovedGazetteAct): string | null {
+  if (act.personName) return act.personName;
+  const summary = act.assistedSummary?.trim();
+  if (!summary) return null;
+  const match = summary.match(
+    /\b(?:designa|designou|nomeia|nomeou|exonera|exonerou|dispensa|dispensou)\s+(?:o|a|servidor|servidora|funcionário|funcionária)?\s*([A-ZÁÉÍÓÚÃÕÇ][\p{L}'-]+(?:\s+[A-ZÁÉÍÓÚÃÕÇ][\p{L}'-]+){1,8})/u,
+  );
+  return match?.[1]?.replace(/[.,;:]$/, "") ?? null;
+}
+
 function ActCard({ act }: Readonly<{ act: ApprovedGazetteAct }>) {
+  const headline = inferredPersonName(act);
+  const inferred = !act.personName && headline !== null;
   return (
     <article className="track-card" aria-label="Ato oficial revisado">
       <div className="track-top">
         <span>{act.actType === "nomeacao" ? "Nomeação" : "Exoneração"}</span>
         <span className="track-status">
-          {act.gazetteDate ? formatDate(act.gazetteDate) : "data no documento"}
+          {act.gazetteDate
+            ? `Ato de ${formatDate(act.gazetteDate)}`
+            : "Data do ato não informada"}
         </span>
       </div>
-      <h2>{act.personName ?? "Pessoa indicada no trecho do documento"}</h2>
+      <h2>{headline ?? "Pessoa não identificada no ato"}</h2>
+      {inferred ? (
+        <p className="act-inference-note">
+          Nome recuperado do resumo assistido; confira o trecho oficial.
+        </p>
+      ) : null}
       <p>
         {[
           act.positionTitle,

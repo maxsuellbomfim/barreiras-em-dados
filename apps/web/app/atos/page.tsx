@@ -83,10 +83,9 @@ export default async function ApprovedActsPage() {
             <div>
               <strong>Nenhum ato publicado até agora</strong>
               <p>
-                A coleta, a validação automática e a revisão humana estão em
-                andamento. Os atos aparecem assim que o documento é preservado
-                e os campos essenciais são conferidos; sugestões de IA nunca
-                publicam sozinhas.
+                A coleta e a validação determinística continuam em andamento.
+                Registros podem ser publicados automaticamente quando o código
+                confirma o trecho oficial; casos ambíguos ficam para revisão.
               </p>
             </div>
           </div>

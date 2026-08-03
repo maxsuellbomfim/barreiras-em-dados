@@ -43,7 +43,10 @@ function ItemRow({ item }: Readonly<{ item: DigestItem }>) {
       </span>
       <div>
         <h3>{item.titulo}</h3>
-        <p>{item.resumo}</p>
+        <details className="digest-item-explanation">
+          <summary>Explicação em palavras simples</summary>
+          <p>{item.resumo}</p>
+        </details>
         <details>
           <summary>Citação do texto oficial</summary>
           <pre className="act-excerpt">“{item.trecho}”</pre>
@@ -62,11 +65,20 @@ function DigestCard({ digest }: Readonly<{ digest: EditionDigest }>) {
           {digest.editionYear}
         </span>
         <span className="track-status">
-          {digest.items.length}{" "}
-          {digest.items.length === 1 ? "item" : "itens"}
-          {digest.partial ? " · resumo parcial" : ""}
+          {digest.editionDate
+            ? `Publicada em ${new Intl.DateTimeFormat("pt-BR", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                timeZone: "America/Bahia",
+              }).format(new Date(`${digest.editionDate}T12:00:00-03:00`))}`
+            : "Data da edição não informada"}
         </span>
       </div>
+      <p className="digest-card-meta">
+        {digest.items.length} {digest.items.length === 1 ? "item" : "itens"}
+        {digest.partial ? " · resumo parcial" : ""}
+      </p>
       <ul className="digest-items">
         {digest.items.map((item, index) => (
           <ItemRow key={`${digest.digestId}-${index}`} item={item} />

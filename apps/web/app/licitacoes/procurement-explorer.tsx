@@ -82,8 +82,22 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
           </dd>
         </div>
       </dl>
+      {procurement.valorEstimado === null ? (
+        <p className="procurement-privacy-note">
+          O PNCP não informou um valor estimado neste registro. Isso pode ocorrer
+          quando o edital mantém o orçamento sob sigilo ou quando a etapa ainda
+          não foi atualizada. Acompanharemos novas versões do processo e manteremos
+          o edital oficial como fonte.
+        </p>
+      ) : null}
+      {procurement.valorHomologado === null ? (
+        <p className="procurement-privacy-note">
+          Ainda não há valor homologado publicado pelo PNCP. Quando a contratação
+          avançar, o próximo registro coletado poderá preencher esse campo.
+        </p>
+      ) : null}
       {procurement.resultados.length > 0 ? (
-        <details className="procurement-results" open>
+        <details className="procurement-results">
           <summary>
             Quem venceu ({procurement.resultados.length}{" "}
             {procurement.resultados.length === 1 ? "item" : "itens"})
