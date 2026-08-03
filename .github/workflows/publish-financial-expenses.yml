@@ -18,8 +18,13 @@ on:
       limit:
         description: "Máximo de PDFs por execução"
         required: false
-        default: "1"
-        type: string
+        default: "5"
+        type: choice
+        options:
+          - "1"
+          - "5"
+          - "10"
+          - "20"
 
 permissions:
   contents: read
