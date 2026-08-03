@@ -59,7 +59,10 @@ PAGE_SPECS: tuple[tuple[str, str, str], ...] = (
     ),
     (
         "secretario",
-        "Secretaria Municipal de Infraestrutura, Obras, Servi\u00e7os P\u00fablicos e Transporte",
+        (
+            "Secretaria Municipal de Infraestrutura, Obras, "
+            "Servi\u00e7os P\u00fablicos e Transporte"
+        ),
         "https://barreiras.ba.gov.br/secretaria-municipal-de-infraestrutura-obras-servicos-publicos-e-transporte",
     ),
     (

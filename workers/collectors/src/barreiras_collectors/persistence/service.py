@@ -670,7 +670,7 @@ class MunicipalExecutivePersistenceService:
                     payload_sha256=payload_sha256,
                     parser_version=EXECUTIVE_PARSER_VERSION,
                     idempotency_key=hashlib.sha256(
-                        f"executive-profile:{profile_key}:{payload_sha256}".encode("utf-8")
+                        f"executive-profile:{profile_key}:{payload_sha256}".encode()
                     ).hexdigest(),
                 )
             )
