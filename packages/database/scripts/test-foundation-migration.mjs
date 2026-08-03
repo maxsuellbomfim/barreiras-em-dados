@@ -126,7 +126,7 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  assert.equal(relations.rows[0].count, 44);
+  assert.equal(relations.rows[0].count, 45);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -142,7 +142,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 44);
+  assert.equal(rlsRelations.rows[0].count, 45);
 
   const originColumns = await database.query(`
     select count(*)::integer as count

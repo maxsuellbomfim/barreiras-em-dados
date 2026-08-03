@@ -231,7 +231,13 @@ export default async function FinancesPage() {
                   </p>
                   <div className="monthly-closure-reading">
                     <strong>Comentário do mês</strong>
-                    <p>{explainClosure(closure)}</p>
+                    <p>{closure.aiCommentary ?? explainClosure(closure)}</p>
+                    {closure.aiCommentary ? (
+                      <small className="finance-ai-note">
+                        Texto explicativo assistido por IA; os valores e o estado do fechamento
+                        são calculados deterministicamente.
+                      </small>
+                    ) : null}
                   </div>
                   <dl className="procurement-values finance-key-values">
                     <div className="finance-positive-value">

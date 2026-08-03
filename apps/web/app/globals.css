@@ -1761,6 +1761,14 @@ footer {
   line-height: 1.55;
 }
 
+.finance-ai-note {
+  display: block;
+  margin-top: 0.65rem;
+  color: #6e7a91;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .finance-closure-badge {
   padding: 0.32rem 0.62rem;
   border-radius: 999px;
