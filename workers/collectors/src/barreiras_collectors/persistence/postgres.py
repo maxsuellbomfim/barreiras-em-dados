@@ -385,6 +385,65 @@ class PostgresCollectionRepository:
             for row in rows
         ]
 
+    def pncp_pending_contratos(
+        self,
+        *,
+        refresh_days: int,
+        limit: int,
+    ) -> list[tuple[str, int, int]]:
+        """ContrataÃ§Ãµes sem snapshot de contratos/empenhos preservado."""
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                with contratacao as (
+                  select distinct on (record.payload ->> 'numeroControlePNCP')
+                    record.payload ->> 'numeroControlePNCP' as control,
+                    (record.payload ->> 'anoCompra')::int as ano,
+                    (record.payload ->> 'sequencialCompra')::int as sequencial,
+                    case
+                      when record.payload ->> 'dataPublicacaoPncp'
+                          ~ '^\\d{4}-\\d{2}-\\d{2}'
+                      then left(
+                        record.payload ->> 'dataPublicacaoPncp', 10
+                      )::date
+                    end as published_on
+                  from raw.raw_records as record
+                  where record.record_type = 'pncp_contratacao'
+                    and record.payload ->> 'anoCompra' ~ '^[0-9]+$'
+                    and record.payload ->> 'sequencialCompra' ~ '^[0-9]+$'
+                  order by
+                    record.payload ->> 'numeroControlePNCP',
+                    record.created_at desc
+                )
+                select control, ano, sequencial
+                from contratacao
+                where coalesce(
+                    published_on >= current_date - %s::int, false
+                  )
+                  or not exists (
+                    select 1
+                    from raw.raw_artifacts as artifact
+                    where artifact.metadata ->> 'schema_name'
+                        = 'pncp-contratos-page'
+                      and (artifact.metadata -> 'cursor' ->> 'ano')::int
+                        = contratacao.ano
+                      and (
+                        artifact.metadata -> 'cursor' ->> 'sequencial'
+                      )::int = contratacao.sequencial
+                  )
+                order by published_on desc nulls last, control
+                limit %s
+                """,
+                (refresh_days, limit),
+            ).fetchall()
+        finally:
+            connection.close()
+        return [
+            (str(row["control"]), int(row["ano"]), int(row["sequencial"]))
+            for row in rows
+        ]
+
     def pncp_itens_com_resultado(self, control: str) -> set[int]:
         """Itens da contratação que já têm algum resultado preservado."""
         connection = self.connection_factory()

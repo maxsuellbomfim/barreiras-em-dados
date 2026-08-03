@@ -41,6 +41,7 @@ MUNICIPAL_TRANSPARENCY_COLLECTOR_VERSION = "municipal-transparency-collector/0.1
 MUNICIPAL_TRANSPARENCY_PARSER_VERSION = "municipal-transparency-page/1.0.0"
 PNCP_ITEM_PARSER_VERSION = "pncp-item-page/1.0.0"
 PNCP_RESULTADO_PARSER_VERSION = "pncp-resultado-page/1.0.0"
+PNCP_CONTRATO_PARSER_VERSION = "pncp-contrato-page/1.0.0"
 
 
 class PncpContratacoesPersistenceService:
@@ -400,6 +401,39 @@ class PncpComprasPersistenceService:
             page,
             kind="resultados",
             parser_version=PNCP_RESULTADO_PARSER_VERSION,
+            records=records,
+        )
+
+    def persist_contratos(self, page, *, control: str) -> PersistenceResult:
+        """Preserva contratos/empenhos sem convertê-los em valores financeiros."""
+        records = []
+        for index, item in enumerate(page.items):
+            numero_controle = item.get("numeroControlePNCP")
+            compra_controle = item.get("numeroControlePNCPCompra")
+            if not isinstance(numero_controle, str) or not numero_controle:
+                raise PersistenceContractError(
+                    f"Contrato {index} da contrataÃ§Ã£o {control} sem "
+                    "numeroControlePNCP."
+                )
+            if compra_controle != control:
+                raise PersistenceContractError(
+                    f"Contrato {numero_controle} nÃ£o referencia a "
+                    "contrataÃ§Ã£o esperada."
+                )
+            records.append(
+                self._record(
+                    page,
+                    item,
+                    index=index,
+                    source_record_key=f"pncp:contrato:{numero_controle}",
+                    record_type="pncp_contrato",
+                    parser_version=PNCP_CONTRATO_PARSER_VERSION,
+                )
+            )
+        return self._persist(
+            page,
+            kind="contratos",
+            parser_version=PNCP_CONTRATO_PARSER_VERSION,
             records=records,
         )
 

@@ -11,6 +11,7 @@ from barreiras_collectors.commands.collect_pncp_itens import (
 from barreiras_collectors.connectors.pncp import (
     COMPRAS_PAGE_SIZE,
     PncpError,
+    fetch_contratos_page,
     fetch_itens_page,
     fetch_resultados_page,
 )
@@ -98,6 +99,29 @@ class ItensFetchTests(unittest.TestCase):
         assert page is not None
         self.assertEqual(page.cursor["item"], 77)
         self.assertIn("/itens/77/resultados", page.request_url)
+
+    def test_contracts_endpoint_uses_contracts_api_and_keeps_parent(self) -> None:
+        body = json.dumps(
+            [
+                {
+                    "numeroControlePNCP": "13654405000195-2-000001/2026",
+                    "numeroControlePNCPCompra": CONTROL,
+                    "objetoContrato": "Serviço de manutenção",
+                }
+            ]
+        ).encode()
+        page = fetch_contratos_page(
+            ano=2025,
+            sequencial=9,
+            transport=SequencedTransport((200, body)),
+            retry_policy=RetryPolicy(max_attempts=2),
+            sleep=lambda _s: None,
+        )
+
+        assert page is not None
+        self.assertEqual(page.endpoint_code, "contratos-api")
+        self.assertEqual(page.schema_name, "pncp-contratos-page")
+        self.assertIn("/contratos/contratacao/2025/9", page.request_url)
 
 
 class ItensPaginationTests(unittest.TestCase):
@@ -232,6 +256,74 @@ class ComprasPersistenceTests(unittest.TestCase):
             record.source_record_key,
             f"pncp:resultado:{CONTROL}:5476570:1",
         )
+
+    def test_contract_records_are_keyed_by_contract_control(self) -> None:
+        body = json.dumps(
+            [
+                {
+                    "numeroControlePNCP": "13654405000195-2-000001/2026",
+                    "numeroControlePNCPCompra": CONTROL,
+                    "objetoContrato": "Serviço de manutenção",
+                }
+            ]
+        ).encode()
+        page = fetch_contratos_page(
+            ano=2025,
+            sequencial=9,
+            transport=SequencedTransport((200, body)),
+            retry_policy=RetryPolicy(max_attempts=2),
+            sleep=lambda _s: None,
+        )
+        assert page is not None
+        repository = FakeRepository()
+        service = PncpComprasPersistenceService(
+            object_store=FakeObjectStore(),
+            repository=repository,
+        )
+
+        result = service.persist_contratos(page, control=CONTROL)
+
+        self.assertEqual(result.inserted_records, 1)
+        record = repository.batches[0].records[0]
+        self.assertEqual(record.record_type, "pncp_contrato")
+        self.assertEqual(
+            record.source_record_key,
+            "pncp:contrato:13654405000195-2-000001/2026",
+        )
+        self.assertTrue(
+            repository.batches[0].object_key.startswith(
+                "pncp/procurement/contratos/sha256/"
+            )
+        )
+
+    def test_contract_with_wrong_parent_is_rejected(self) -> None:
+        page = fetch_contratos_page(
+            ano=2025,
+            sequencial=9,
+            transport=SequencedTransport(
+                (
+                    200,
+                    json.dumps(
+                        [
+                            {
+                                "numeroControlePNCP": "13654405000195-2-000001/2026",
+                                "numeroControlePNCPCompra": "outro",
+                            }
+                        ]
+                    ).encode(),
+                )
+            ),
+            retry_policy=RetryPolicy(max_attempts=2),
+            sleep=lambda _s: None,
+        )
+        assert page is not None
+        service = PncpComprasPersistenceService(
+            object_store=FakeObjectStore(),
+            repository=FakeRepository(),
+        )
+
+        with self.assertRaises(PersistenceContractError):
+            service.persist_contratos(page, control=CONTROL)
 
 
 if __name__ == "__main__":

@@ -54,6 +54,10 @@ COMPRAS_PAGE_SIZE = 50
 COMPRAS_BASE_URL = (
     f"https://pncp.gov.br/api/pncp/v1/orgaos/{BARREIRAS_CNPJ}/compras"
 )
+CONTRATOS_ENDPOINT_CODE = "contratos-api"
+CONTRATOS_BASE_URL = (
+    f"https://pncp.gov.br/api/pncp/v1/orgaos/{BARREIRAS_CNPJ}/contratos"
+)
 
 
 @dataclass(frozen=True)
@@ -269,10 +273,42 @@ def fetch_resultados_page(
     )
 
 
+def fetch_contratos_page(
+    *,
+    ano: int,
+    sequencial: int,
+    transport: HttpTransport | None = None,
+    retry_policy: RetryPolicy | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    logger: logging.Logger | None = None,
+) -> PncpPage | None:
+    """Contratos/empenhos vinculados a uma contratação, sem normalização."""
+    url = (
+        f"{CONTRATOS_BASE_URL}/contratacao/{ano}/{sequencial}"
+    )
+    return _fetch_compras_array(
+        url,
+        schema_name="pncp-contratos-page",
+        endpoint_code=CONTRATOS_ENDPOINT_CODE,
+        cursor={
+            "offset": 0,
+            "size": COMPRAS_PAGE_SIZE,
+            "ano": ano,
+            "sequencial": sequencial,
+            "pagina": 1,
+        },
+        transport=transport,
+        retry_policy=retry_policy,
+        sleep=sleep,
+        logger=logger,
+    )
+
+
 def _fetch_compras_array(
     url: str,
     *,
     schema_name: str,
+    endpoint_code: str = COMPRAS_ENDPOINT_CODE,
     cursor: dict[str, int],
     transport: HttpTransport | None,
     retry_policy: RetryPolicy | None,
@@ -301,7 +337,7 @@ def _fetch_compras_array(
             logging.INFO,
             "collector_http_response",
             source=SOURCE_CODE,
-            endpoint=COMPRAS_ENDPOINT_CODE,
+            endpoint=endpoint_code,
             status=response.status,
             attempt=attempt,
             body_size_bytes=len(response.body),
@@ -326,7 +362,7 @@ def _fetch_compras_array(
                 schema_name=schema_name,
                 schema_version="1.0.0",
                 source_code=SOURCE_CODE,
-                endpoint_code=COMPRAS_ENDPOINT_CODE,
+                endpoint_code=endpoint_code,
                 idempotency_key=hashlib.sha256(
                     json.dumps(
                         {

@@ -72,3 +72,7 @@ jobs:
       - name: Preservar itens e resultados das contratações
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_itens
+
+      - name: Preservar contratos e empenhos das contratações
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_pncp_contratos
