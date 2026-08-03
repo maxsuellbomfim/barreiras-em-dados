@@ -124,6 +124,10 @@ function coverageStatusLabel(status: PublicFinanceCoverageRow["coverageStatus"])
   return "sem relatório";
 }
 
+function formatAmount(value: string | null, unavailable = "não disponível"): string {
+  return value === null ? unavailable : formatBrlDecimal(value);
+}
+
 export default async function FinancesPage() {
   const [expensesResult, expenseLinesResult, revenuesResult, documentsResult, monthlyResult, signalsResult, coverageResult] = await Promise.all([
     getPublicExpenseReports(),
@@ -153,7 +157,14 @@ export default async function FinancesPage() {
   const sortedExpenseReports = [...expenseReports].sort((left, right) =>
     right.periodEnd.localeCompare(left.periodEnd),
   );
+  const sortedMonthlyClosures = [...monthlyClosures].sort((left, right) =>
+    right.periodEnd.localeCompare(left.periodEnd),
+  );
+  const sortedCoverageRows = [...coverageRows].sort((left, right) =>
+    right.periodEnd.localeCompare(left.periodEnd),
+  );
   const latestRevenue = sortedRevenues[0]?.revenueDate ?? null;
+  const latestClosure = sortedMonthlyClosures[0] ?? null;
 
   return (
     <main>
@@ -229,6 +240,35 @@ export default async function FinancesPage() {
           <span className="finance-status-pill">Resultado fiscal: aguardando base comparável</span>
         </section>
 
+        <section className="finance-at-a-glance" aria-labelledby="finance-glance-title">
+          <div className="section-heading compact">
+            <span className="eyebrow">Resumo para começar</span>
+            <h2 id="finance-glance-title">Quanto entrou, quanto saiu e quanto devemos</h2>
+            <p>
+              Este painel mostra o último fechamento mensal disponível. “Diferença
+              operacional” não é saldo bancário nem dívida: é apenas receita
+              declarada menos pagamentos do mesmo período.
+            </p>
+          </div>
+          <div className="finance-at-a-glance-grid">
+            <article className="finance-glance-card finance-positive-card">
+              <span>Entrou no último mês</span>
+              <strong>{formatAmount(latestClosure?.revenueReportAmount ?? null)}</strong>
+              <small>{latestClosure ? formatMonthTitle(latestClosure.periodEnd) : "Fechamento ainda não disponível"}</small>
+            </article>
+            <article className="finance-glance-card finance-negative-card">
+              <span>Saiu no último mês</span>
+              <strong>{formatAmount(latestClosure?.expensePaidAmount ?? null)}</strong>
+              <small>Pagamentos efetivados no período</small>
+            </article>
+            <article className="finance-glance-card finance-debt-card">
+              <span>Dívida registrada</span>
+              <strong>Ainda não publicada</strong>
+              <small>Estamos integrando empréstimos, precatórios e restos a pagar.</small>
+            </article>
+          </div>
+        </section>
+
         {coverageResult.state === "available" ? (
           <section className="finance-coverage-section" aria-labelledby="finance-coverage-title">
             <div className="section-heading compact">
@@ -247,7 +287,7 @@ export default async function FinancesPage() {
             <details className="finance-details">
               <summary>Ver a situação mês a mês</summary>
               <div className="finance-coverage-list">
-                {coverageRows.slice(0, 12).map((row) => (
+                {sortedCoverageRows.slice(0, 12).map((row) => (
                   <div className="finance-coverage-row" key={row.coverageId}>
                     <div>
                       <strong>{formatMonthTitle(row.periodEnd)}</strong>
@@ -279,7 +319,7 @@ export default async function FinancesPage() {
               </p>
             </div>
             <div className="digest-grid">
-              {monthlyClosures.map((closure) => (
+              {sortedMonthlyClosures.map((closure) => (
                 <article className="digest-card monthly-closure-card" key={closure.closureId}>
                   <div className="track-top">
                     <span>{closure.publicBodyName}</span>
@@ -306,15 +346,15 @@ export default async function FinancesPage() {
                   <dl className="procurement-values finance-key-values">
                     <div className="finance-positive-value">
                       <dt>Receita declarada no relatório<small>não é soma das linhas hierárquicas</small></dt>
-                      <dd>{closure.revenueReportAmount ? formatBrlDecimal(closure.revenueReportAmount) : "não disponível"}</dd>
+                      <dd>{formatAmount(closure.revenueReportAmount)}</dd>
                     </div>
                     <div className="finance-negative-value">
                       <dt>Pagamentos efetivados<small>dinheiro que saiu do caixa</small></dt>
-                      <dd>{closure.expensePaidAmount ? formatBrlDecimal(closure.expensePaidAmount) : "não disponível"}</dd>
+                      <dd>{formatAmount(closure.expensePaidAmount)}</dd>
                     </div>
                     <div>
                       <dt>Diferença operacional<small>receita declarada menos pagamentos</small></dt>
-                      <dd>{closure.operationalDifferenceAmount ? formatBrlDecimal(closure.operationalDifferenceAmount) : "aguardando reconciliação"}</dd>
+                      <dd>{formatAmount(closure.operationalDifferenceAmount, "aguardando reconciliação")}</dd>
                     </div>
                   </dl>
                   <details className="finance-details">

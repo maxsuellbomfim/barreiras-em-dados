@@ -9,6 +9,7 @@ export type EditionDigest = Readonly<{
   digestId: string;
   edition: number;
   editionYear: number;
+  editionDate: string | null;
   items: readonly DigestItem[];
   partial: boolean;
   gazetteUrl: string | null;
@@ -33,6 +34,7 @@ const ITEM_TYPES = new Set([
   "aviso",
   "outro",
 ]);
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function parseItems(value: unknown): readonly DigestItem[] | null {
   if (!Array.isArray(value)) {
@@ -70,6 +72,10 @@ function parseDigest(row: Record<string, unknown>): EditionDigest | null {
   const digestId = row.digest_id;
   const edition = row.edition;
   const editionYear = row.edition_year;
+  const editionDate =
+    typeof row.edition_date === "string" && ISO_DATE.test(row.edition_date)
+      ? row.edition_date
+      : null;
   const publishedAt = row.published_at;
   const artifactSha256 = row.artifact_sha256;
   const reviewMode = row.review_mode;
@@ -94,7 +100,8 @@ function parseDigest(row: Record<string, unknown>): EditionDigest | null {
     (reviewMode !== "human" && reviewMode !== "automated") ||
     items === null ||
     items.length === 0 ||
-    row.methodology_version !== "edition-digests/1.0.0"
+    row.methodology_version !== "edition-digests/1.0.0" &&
+    row.methodology_version !== "edition-digests/1.1.0"
   ) {
     return null;
   }
@@ -102,13 +109,14 @@ function parseDigest(row: Record<string, unknown>): EditionDigest | null {
     digestId,
     edition: Number(edition),
     editionYear: Number(editionYear),
+    editionDate,
     items,
     partial: stats.partial === true,
     gazetteUrl,
     artifactSha256,
     publishedAt,
     reviewMode,
-    methodologyVersion: "edition-digests/1.0.0",
+    methodologyVersion: String(row.methodology_version),
   };
 }
 

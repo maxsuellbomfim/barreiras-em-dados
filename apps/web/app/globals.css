@@ -2344,6 +2344,27 @@ footer {
   cursor: pointer;
 }
 
+.digest-card-meta {
+  margin: 0;
+  color: #7b8596;
+  font-size: 0.76rem;
+}
+
+.digest-item-explanation {
+  margin-top: 0.35rem;
+}
+
+.digest-item-explanation summary {
+  color: #315fd4;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.digest-item-explanation p {
+  margin-top: 0.35rem;
+}
+
 @media (max-width: 720px) {
   .digest-item {
     grid-template-columns: 1fr;
@@ -2844,6 +2865,69 @@ footer {
   margin: 0.6rem 0;
   color: #7b8596;
   font-size: 0.82rem;
+}
+
+.procurement-privacy-note,
+.act-inference-note {
+  margin: 0.55rem 0;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid #9aa8bd;
+  border-radius: 0.4rem;
+  background: rgba(239, 243, 249, 0.72);
+  color: #68758a;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.act-inference-note {
+  border-left-color: #315fd4;
+  background: rgba(237, 243, 255, 0.72);
+}
+
+.finance-at-a-glance {
+  margin: 2rem 0;
+  padding: 1.3rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1.35rem;
+  background: rgba(255, 255, 255, 0.64);
+  box-shadow: 0 12px 34px rgba(33, 46, 79, 0.05);
+}
+
+.finance-at-a-glance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.finance-glance-card {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 8rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+}
+
+.finance-glance-card span,
+.finance-glance-card small {
+  color: #6e7b90;
+  font-size: 0.76rem;
+}
+
+.finance-glance-card strong {
+  color: var(--ink);
+  font-size: clamp(1.05rem, 2.4vw, 1.45rem);
+  letter-spacing: -0.025em;
+}
+
+.finance-debt-card {
+  background: rgba(247, 249, 252, 0.8);
+}
+
+@media (max-width: 700px) {
+  .finance-at-a-glance-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Modo de revisão do ato (ADR 0012) */
