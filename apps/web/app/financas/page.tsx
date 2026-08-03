@@ -74,6 +74,16 @@ function formatPeriod(report: PublicExpenseReport): string {
   return `${formatDate(report.periodStart)} a ${formatDate(report.periodEnd)}`;
 }
 
+function formatMonthTitle(value: string): string {
+  const parsed = new Date(`${value}T12:00:00-03:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Bahia",
+  }).format(parsed);
+}
+
 export default async function FinancesPage() {
   const [expensesResult, expenseLinesResult, revenuesResult, documentsResult] = await Promise.all([
     getPublicExpenseReports(),
@@ -156,6 +166,20 @@ export default async function FinancesPage() {
           </p>
         </section>
 
+        <section className="finance-status-panel" aria-labelledby="finance-status-title">
+          <div>
+            <span className="eyebrow">Resultado das contas</span>
+            <h2 id="finance-status-title">Ainda não classificamos como “no azul” ou “no vermelho”</h2>
+            <p>
+              Para afirmar déficit ou superávit, precisamos comparar todas as
+              receitas e todas as despesas do mesmo período e pelo mesmo critério.
+              Hoje temos relatórios de receitas e de pagamentos, mas eles ainda não
+              formam um balanço fiscal completo.
+            </p>
+          </div>
+          <span className="finance-status-pill">Resultado fiscal: aguardando base comparável</span>
+        </section>
+
         {sortedExpenseReports.length > 0 ? (
           <section aria-labelledby="expense-title">
             <div className="section-heading compact">
@@ -168,14 +192,17 @@ export default async function FinancesPage() {
             </div>
             <div className="digest-grid">
               {sortedExpenseReports.map((report) => (
-                <article className="digest-card" key={report.expenseReportId}>
+                <article className="digest-card finance-negative-card" key={report.expenseReportId}>
                   <div className="track-top">
                     <span>{report.publicBodyName}</span>
                     <span className="track-status">{report.fiscalYear}</span>
                   </div>
-                  <h3 className="procurement-object">
-                    Relatório de {formatPeriod(report)}
+                  <h3 className="procurement-object finance-month-title">
+                    {formatMonthTitle(report.periodEnd)}
                   </h3>
+                  <p className="finance-period-note">
+                    Mês analisado: {formatPeriod(report)} · Prefeitura Municipal de Barreiras
+                  </p>
                   <div className="finance-reading finance-reading-card">
                     <strong>Resumo para o cidadão</strong>
                     <p>
@@ -184,77 +211,83 @@ export default async function FinancesPage() {
                       Desde o início do ano, o total pago chegou a {formatBrlDecimal(report.totalPaidToDateAmount)}.
                     </p>
                   </div>
-                  <dl className="procurement-values">
+                  <dl className="procurement-values finance-key-values">
                     <div className="revenue-primary-value">
                       <dt>
-                        Orçamento atualizado
-                        <small>limite ajustado, não é gasto</small>
-                      </dt>
-                      <dd>{formatBrlDecimal(report.totalUpdatedAmount)}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        Saiu do caixa no período
-                        <small>pago neste relatório</small>
+                        Saiu do caixa no mês
+                        <small>pagamento efetivo</small>
                       </dt>
                       <dd>{formatBrlDecimal(report.totalPaidPeriodAmount)}</dd>
                     </div>
                     <div>
                       <dt>
                         Saiu do caixa no ano
-                        <small>pago acumulado</small>
+                        <small>pagamento acumulado</small>
                       </dt>
                       <dd>{formatBrlDecimal(report.totalPaidToDateAmount)}</dd>
                     </div>
                     <div>
                       <dt>
-                        Entrega conferida
-                        <small>liquidado no período</small>
+                        Orçamento atualizado
+                        <small>limite ajustado, não é gasto</small>
                       </dt>
-                      <dd>{formatBrlDecimal(report.totalLiquidatedPeriodAmount)}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        Valor reservado
-                        <small>empenhado no período</small>
-                      </dt>
-                      <dd>{formatBrlDecimal(report.totalCommittedPeriodAmount)}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        Saldo informado
-                        <small>diferença registrada no relatório</small>
-                      </dt>
-                      <dd>{formatBrlDecimal(report.totalBalanceAmount)}</dd>
+                      <dd>{formatBrlDecimal(report.totalUpdatedAmount)}</dd>
                     </div>
                   </dl>
-                  <p className="act-evidence">
-                    <a href={report.documentSourceUrl} target="_blank" rel="noreferrer">
-                      Ver PDF oficial
-                    </a>{" "}
-                    <a href={report.sourceUrl} target="_blank" rel="noreferrer">
-                      Ver resposta da API
-                    </a>{" "}
-                    · PDF preservado · hash {report.documentArtifactSha256.slice(0, 12)}…
-                    · publicado após validação determinística em {formatCollectedAt(report.collectedAt)}
-                  </p>
+                  <details className="finance-details">
+                    <summary>Ver detalhes contábeis deste mês</summary>
+                    <dl className="procurement-values">
+                      <div>
+                        <dt>
+                          Entrega conferida
+                          <small>liquidado no período</small>
+                        </dt>
+                        <dd>{formatBrlDecimal(report.totalLiquidatedPeriodAmount)}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          Valor reservado
+                          <small>empenhado no período</small>
+                        </dt>
+                        <dd>{formatBrlDecimal(report.totalCommittedPeriodAmount)}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          Saldo informado
+                          <small>diferença registrada no relatório</small>
+                        </dt>
+                        <dd>{formatBrlDecimal(report.totalBalanceAmount)}</dd>
+                      </div>
+                    </dl>
+                    <p className="finance-details-note">
+                      Empenhado, liquidado e pago são etapas diferentes. O site não
+                      soma esses valores entre si.
+                    </p>
+                    <p className="act-evidence">
+                      <a href={report.documentSourceUrl} target="_blank" rel="noreferrer">
+                        Ver PDF oficial
+                      </a>{" "}
+                      <a href={report.sourceUrl} target="_blank" rel="noreferrer">
+                        Ver resposta da API
+                      </a>{" "}
+                      · PDF preservado · hash {report.documentArtifactSha256.slice(0, 12)}…
+                      · publicado após validação determinística em {formatCollectedAt(report.collectedAt)}
+                    </p>
+                  </details>
                 </article>
               ))}
             </div>
             {expenseLines.length > 0 ? (
               <>
-                <div className="section-heading compact">
-                  <span className="eyebrow">Detalhamento determinístico</span>
-                  <h3>Maiores pagamentos registrados</h3>
-                  <p>
-                    As 25 linhas com maior pagamento no período, conforme o PDF
-                    oficial. Isso é uma ordenação contábil, não um ranking de
-                    empresas ou uma acusação.
+                <details className="finance-details">
+                  <summary>Ver os 25 maiores pagamentos do mês</summary>
+                  <p className="finance-details-note">
+                    Estas são linhas do mesmo mês, ordenadas pelo valor pago. Não
+                    são meses diferentes, nem um ranking de empresas ou uma acusação.
                   </p>
-                </div>
-                <div className="digest-grid">
+                  <div className="digest-grid">
                   {expenseLines.map((line) => (
-                    <article className="digest-card" key={line.expenseLineId}>
+                    <article className="digest-card finance-negative-card" key={line.expenseLineId}>
                       <div className="track-top">
                         <span>Linha {line.lineNumber.toLocaleString("pt-BR")}</span>
                         <span className="track-status">{line.expenseCode}</span>
@@ -286,7 +319,8 @@ export default async function FinancesPage() {
                       </p>
                     </article>
                   ))}
-                </div>
+                  </div>
+                </details>
               </>
             ) : null}
           </section>
@@ -294,30 +328,13 @@ export default async function FinancesPage() {
 
         {sortedRevenues.length > 0 ? (
           <section aria-labelledby="revenue-title">
-            <div className="finance-overview" aria-label="Resumo das finanças">
-              <div className="finance-overview-card finance-overview-card-primary">
-                <span>Registros exibidos</span>
-                <strong>{sortedRevenues.length.toLocaleString("pt-BR")}</strong>
-                <small>de receitas validadas · até 200 por consulta</small>
-              </div>
-              <div className="finance-overview-card">
-                <span>Registro mais recente</span>
-                <strong>{latestRevenue ? formatDate(latestRevenue) : "—"}</strong>
-                <small>ordenado do mais novo para o mais antigo</small>
-              </div>
-              <div className="finance-overview-card">
-                <span>Documentos exibidos</span>
-                <strong>{documents.length.toLocaleString("pt-BR")}</strong>
-                <small>preservados · até 200 por consulta</small>
-              </div>
-            </div>
             <div className="section-heading compact">
               <span className="eyebrow">Dinheiro que entrou</span>
               <h2 id="revenue-title">Receitas da Prefeitura</h2>
               <p>
-                Aqui estão os lançamentos de dinheiro que entrou, com cálculo
-                determinístico e fonte oficial. A lista começa pelos registros
-                mais recentes.
+                O último período disponível é {latestRevenue ? formatDate(latestRevenue) : "não informado"}.
+                Os lançamentos completos ficam recolhidos para não misturar meses
+                e códigos diferentes.
               </p>
             </div>
             <div className="finance-reading" role="note">
@@ -329,9 +346,22 @@ export default async function FinancesPage() {
                 diferentes podem representar partes da mesma conta.
               </p>
             </div>
-            <div className="digest-grid">
+            <details className="finance-details">
+              <summary>Ver lançamentos detalhados de receitas</summary>
+              <p className="finance-details-note">
+                Cada cartão é uma linha do relatório oficial. Use os links dentro
+                dos cartões para abrir o documento e a resposta original.
+              </p>
+              <div className="digest-grid">
               {sortedRevenues.map((revenue) => (
-                <article className="digest-card" key={revenue.revenueId}>
+                  <article
+                    className={`digest-card ${
+                      revenue.collectionDirection === "deduction"
+                        ? "finance-negative-card"
+                        : "finance-positive-card"
+                    }`}
+                    key={revenue.revenueId}
+                  >
                   <div className="track-top">
                     <span>{revenue.publicBodyName}</span>
                     <span className="track-status">{revenue.fiscalYear}</span>
@@ -389,7 +419,8 @@ export default async function FinancesPage() {
                   </p>
                 </article>
               ))}
-            </div>
+              </div>
+            </details>
           </section>
         ) : null}
 
