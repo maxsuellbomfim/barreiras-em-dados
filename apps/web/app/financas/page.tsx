@@ -98,9 +98,9 @@ export default async function FinancesPage() {
           <section aria-labelledby="revenue-title">
             <div className="finance-overview" aria-label="Resumo das finanças">
               <div className="finance-overview-card finance-overview-card-primary">
-                <span>Registros validados</span>
+                <span>Registros exibidos</span>
                 <strong>{sortedRevenues.length.toLocaleString("pt-BR")}</strong>
-                <small>extraídos de documentos oficiais</small>
+                <small>de receitas validadas · até 200 por consulta</small>
               </div>
               <div className="finance-overview-card">
                 <span>Registro mais recente</span>
@@ -108,18 +108,19 @@ export default async function FinancesPage() {
                 <small>ordenado do mais novo para o mais antigo</small>
               </div>
               <div className="finance-overview-card">
-                <span>Documentos preservados</span>
+                <span>Documentos exibidos</span>
                 <strong>{documents.length.toLocaleString("pt-BR")}</strong>
-                <small>com fonte, data e hash verificáveis</small>
+                <small>preservados · até 200 por consulta</small>
               </div>
             </div>
             <div className="section-heading compact">
               <span className="eyebrow">Dados numéricos validados</span>
               <h2 id="revenue-title">Receitas normalizadas</h2>
             <p>
-              {sortedRevenues.length.toLocaleString("pt-BR")} registros com cálculo
-                determinístico, versão e evidência de origem. A publicação é
-                automática quando todos os checks passam.
+              Exibindo {sortedRevenues.length.toLocaleString("pt-BR")} registros
+                com cálculo determinístico, versão e evidência de origem. A
+                publicação é automática quando todos os checks passam; o histórico
+                completo será paginado por período.
             </p>
             </div>
             <div className="finance-reading" role="note">
@@ -201,7 +202,7 @@ export default async function FinancesPage() {
             <h2 id="document-title">O que a Prefeitura publicou</h2>
             <p>
               {sortedDocuments.length > 0
-                ? `${sortedDocuments.length.toLocaleString("pt-BR")} documentos financeiros encontrados, do mais recente ao mais antigo.`
+                ? `Exibindo ${sortedDocuments.length.toLocaleString("pt-BR")} documentos financeiros, do mais recente ao mais antigo. O histórico completo será paginado por período.`
                 : "A coleta dos documentos financeiros ainda não está disponível."}
             </p>
           </div>
