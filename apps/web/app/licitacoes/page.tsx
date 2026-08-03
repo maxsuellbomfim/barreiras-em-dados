@@ -56,6 +56,9 @@ type ProcurementsPageProps = {
     fornecedor?: string;
     ano?: string;
     q?: string;
+    modalidade?: string;
+    situacao?: string;
+    orgao?: string;
   }>;
 };
 
@@ -65,8 +68,18 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
     supplierKey: cleanFilter(params.fornecedor, 200),
     fiscalYear: parseYear(params.ano),
     query: cleanFilter(params.q, 120),
+    modality: cleanFilter(params.modalidade, 120),
+    status: cleanFilter(params.situacao, 120),
+    unit: cleanFilter(params.orgao, 160),
   };
-  const hasFilters = Boolean(filters.supplierKey || filters.fiscalYear || filters.query);
+  const hasFilters = Boolean(
+    filters.supplierKey ||
+      filters.fiscalYear ||
+      filters.query ||
+      filters.modality ||
+      filters.status ||
+      filters.unit,
+  );
   const [result, supplierResult] = await Promise.all([
     getPncpProcurements(filters),
     hasFilters
@@ -112,6 +125,18 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
           <label className="procurement-filter-query">
             Palavra no objeto ou unidade
             <input name="q" defaultValue={filters.query ?? ""} placeholder="Ex.: infraestrutura" />
+          </label>
+          <label>
+            Modalidade
+            <input name="modalidade" defaultValue={filters.modality ?? ""} placeholder="Ex.: Dispensa" />
+          </label>
+          <label>
+            Situação
+            <input name="situacao" defaultValue={filters.status ?? ""} placeholder="Ex.: Suspensa" />
+          </label>
+          <label className="procurement-filter-query">
+            Órgão ou unidade
+            <input name="orgao" defaultValue={filters.unit ?? ""} placeholder="Ex.: MUNICIPIO DE BARREIRAS-BA" />
           </label>
           <div className="procurement-filter-actions">
             <button type="submit">Filtrar</button>

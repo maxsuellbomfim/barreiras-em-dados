@@ -30,6 +30,9 @@ export type ProcurementFilters = Readonly<{
   supplierKey?: string;
   fiscalYear?: number;
   query?: string;
+  modality?: string;
+  status?: string;
+  unit?: string;
 }>;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -87,7 +90,8 @@ function parseProcurement(
     (dataPublicacao !== null && !ISO_DATE.test(dataPublicacao)) ||
     resultados === null ||
     row.methodology_version !== "pncp-procurements/1.0.0" &&
-    row.methodology_version !== "pncp-procurements/1.1.0"
+    row.methodology_version !== "pncp-procurements/1.1.0" &&
+    row.methodology_version !== "pncp-procurements/1.2.0"
   ) {
     return null;
   }
@@ -103,7 +107,7 @@ function parseProcurement(
     valorHomologado: optionalNumber(row.valor_homologado),
     dataPublicacao,
     resultados,
-    methodologyVersion: "pncp-procurements/1.0.0",
+    methodologyVersion: String(row.methodology_version),
   };
 }
 
@@ -124,7 +128,7 @@ export async function getPncpProcurements(
 
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_pncp_procurements_filtered`,
+      `${supabaseUrl}/rest/v1/rpc/get_pncp_procurements_structured`,
       {
         method: "POST",
         headers: {
@@ -139,6 +143,9 @@ export async function getPncpProcurements(
           supplier_key_filter: filters.supplierKey ?? null,
           fiscal_year_filter: filters.fiscalYear ?? null,
           query_filter: filters.query ?? null,
+          modality_filter: filters.modality ?? null,
+          status_filter: filters.status ?? null,
+          unit_filter: filters.unit ?? null,
         }),
         next: { revalidate: 300 },
         signal: AbortSignal.timeout(5_000),
