@@ -73,7 +73,7 @@ class OfficialDiaryCatalogPersistenceService:
                 "O catálogo oficial não corresponde aos metadados informados."
             )
         object_key = (
-            "barreiras-diario/catalog/sha256/"
+            "barreiras-diario/gazettes/catalog/sha256/"
             f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.html"
         )
         stored = self.object_store.put_if_absent(
