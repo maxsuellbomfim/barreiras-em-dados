@@ -639,14 +639,16 @@ class PostgresCollectionRepository:
             """,
             (batch.idempotency_key,),
         ).fetchone()
+        # O documento é identificado pelo conteúdo e pela chave idempotente.
+        # O artefato pai é a resposta bruta da API e pode mudar quando a mesma
+        # fonte é coletada com outro tamanho de página; isso não torna o PDF
+        # divergente nem deve bloquear uma recoleção legítima.
         expected = (
-            batch.parent_artifact_id,
             document.body_sha256,
             document.body_size_bytes,
             batch.object_key,
         )
         actual = (
-            str(existing["parent_artifact_id"]) if existing else None,
             str(existing["sha256"]) if existing else None,
             int(existing["byte_size"]) if existing else None,
             str(existing["object_key"]) if existing else None,

@@ -6,6 +6,7 @@ import unittest
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import Mock
 
 from barreiras_collectors.connectors.gazette_documents import CollectedDocument
 from barreiras_collectors.connectors.querido_diario import QueridoDiarioClient
@@ -21,6 +22,7 @@ from barreiras_collectors.persistence.models import (
     RepositoryDocumentResult,
     RepositoryPersistResult,
 )
+from barreiras_collectors.persistence.postgres import PostgresCollectionRepository
 from barreiras_collectors.persistence.service import (
     QueridoDiarioPersistenceService,
 )
@@ -278,6 +280,55 @@ class FilesystemDocumentRepositoryTests(unittest.TestCase):
             )
             with self.assertRaises(PersistenceContractError):
                 repository.persist_document(divergent)
+
+    def test_replay_with_new_parent_artifact_keeps_content_identity(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw_root:
+            repository = FilesystemCollectionRepository(Path(raw_root))
+            batch = self.make_batch()
+            repository.persist_document(batch)
+
+            recollection = replace(
+                batch,
+                parent_artifact_id="00000000-0000-0000-0000-000000000999",
+            )
+            result = repository.persist_document(recollection)
+
+            self.assertFalse(result.created)
+
+
+class PostgresDocumentRepositoryTests(unittest.TestCase):
+    def test_same_pdf_with_new_parent_artifact_is_idempotent(self) -> None:
+        batch = FilesystemDocumentRepositoryTests().make_batch()
+        connection = Mock()
+        connection.execute.side_effect = [
+            Mock(fetchone=Mock(return_value=None)),
+            Mock(
+                fetchone=Mock(
+                    return_value={
+                        "id": "00000000-0000-0000-0000-000000000707",
+                        "parent_artifact_id": "00000000-0000-0000-0000-000000000202",
+                        "sha256": batch.document.body_sha256,
+                        "byte_size": batch.document.body_size_bytes,
+                        "object_key": batch.object_key,
+                    }
+                )
+            ),
+        ]
+        recollection = replace(
+            batch,
+            parent_artifact_id="00000000-0000-0000-0000-000000000999",
+        )
+
+        result = PostgresCollectionRepository._document_artifact(
+            connection,
+            recollection,
+            "00000000-0000-0000-0000-000000000606",
+        )
+
+        self.assertFalse(result.created)
+        self.assertEqual(result.raw_artifact_id, "00000000-0000-0000-0000-000000000707")
 
 
 if __name__ == "__main__":
