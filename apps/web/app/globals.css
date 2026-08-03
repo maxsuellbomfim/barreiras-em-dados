@@ -2801,6 +2801,27 @@ footer {
   line-height: 1.5;
 }
 
+.procurement-execution {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.65rem;
+}
+
+.procurement-execution summary {
+  color: #315fd4;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.procurement-execution-values {
+  margin-bottom: 0.4rem;
+}
+
+.procurement-execution-values > div {
+  background: rgba(241, 245, 255, 0.72);
+}
+
 .meta-note {
   margin: 0.6rem 0;
   color: #7b8596;

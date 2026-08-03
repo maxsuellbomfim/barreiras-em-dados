@@ -7,6 +7,19 @@ export type ProcurementResult = Readonly<{
   dataResultado: string | null;
 }>;
 
+export type ProcurementExecutionSummary = Readonly<{
+  state: "linked" | "no_linked_execution" | "not_normalized" | "not_available";
+  methodologyVersion: string;
+  contractsCount: number;
+  commitmentsCount: number;
+  liquidationsCount: number;
+  paymentsCount: number;
+  contractCurrentAmount: number;
+  committedAmount: number;
+  liquidatedAmount: number;
+  paidAmount: number;
+}>;
+
 export type Procurement = Readonly<{
   controlNumber: string;
   ano: number;
@@ -19,6 +32,7 @@ export type Procurement = Readonly<{
   valorHomologado: number | null;
   dataPublicacao: string | null;
   resultados: readonly ProcurementResult[];
+  executionSummary: ProcurementExecutionSummary;
   methodologyVersion: string;
 }>;
 
@@ -116,6 +130,52 @@ function parseResults(value: unknown): readonly ProcurementResult[] | null {
   return results;
 }
 
+function parseExecutionSummary(value: unknown): ProcurementExecutionSummary | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const state = row.state;
+  if (
+    state !== "linked" &&
+    state !== "no_linked_execution" &&
+    state !== "not_normalized" &&
+    state !== "not_available"
+  ) {
+    return null;
+  }
+  const counts = [
+    row.contracts_count,
+    row.commitments_count,
+    row.liquidations_count,
+    row.payments_count,
+  ];
+  if (!counts.every((count) => Number.isSafeInteger(count) && Number(count) >= 0)) {
+    return null;
+  }
+  const amounts = [
+    row.contract_current_amount,
+    row.committed_amount,
+    row.liquidated_amount,
+    row.paid_amount,
+  ];
+  if (!amounts.every((amount) => typeof amount === "number" && Number.isFinite(amount) && amount >= 0)) {
+    return null;
+  }
+  const methodologyVersion = optionalString(row.methodology_version);
+  if (methodologyVersion === null) return null;
+  return {
+    state,
+    methodologyVersion,
+    contractsCount: Number(counts[0]),
+    commitmentsCount: Number(counts[1]),
+    liquidationsCount: Number(counts[2]),
+    paymentsCount: Number(counts[3]),
+    contractCurrentAmount: Number(amounts[0]),
+    committedAmount: Number(amounts[1]),
+    liquidatedAmount: Number(amounts[2]),
+    paidAmount: Number(amounts[3]),
+  };
+}
+
 function parseProcurement(
   row: Record<string, unknown>,
 ): Procurement | null {
@@ -123,6 +183,21 @@ function parseProcurement(
   const objeto = optionalString(row.objeto);
   const dataPublicacao = optionalString(row.data_publicacao);
   const resultados = parseResults(row.resultados);
+  const executionSummary =
+    row.execution_summary === undefined
+      ? {
+          state: "not_available" as const,
+          methodologyVersion: "pncp-execution-links/unknown",
+          contractsCount: 0,
+          commitmentsCount: 0,
+          liquidationsCount: 0,
+          paymentsCount: 0,
+          contractCurrentAmount: 0,
+          committedAmount: 0,
+          liquidatedAmount: 0,
+          paidAmount: 0,
+        }
+      : parseExecutionSummary(row.execution_summary);
   if (
     controlNumber === null ||
     objeto === null ||
@@ -130,10 +205,12 @@ function parseProcurement(
     !Number.isSafeInteger(row.sequencial) ||
     (dataPublicacao !== null && !ISO_DATE.test(dataPublicacao)) ||
     resultados === null ||
-    row.methodology_version !== "pncp-procurements/1.0.0" &&
-    row.methodology_version !== "pncp-procurements/1.1.0" &&
-    row.methodology_version !== "pncp-procurements/1.2.0" &&
-    row.methodology_version !== "pncp-procurements/1.3.0"
+    (row.methodology_version !== "pncp-procurements/1.0.0" &&
+      row.methodology_version !== "pncp-procurements/1.1.0" &&
+      row.methodology_version !== "pncp-procurements/1.2.0" &&
+      row.methodology_version !== "pncp-procurements/1.3.0" &&
+      row.methodology_version !== "pncp-procurements/1.4.0") ||
+    executionSummary === null
   ) {
     return null;
   }
@@ -149,6 +226,7 @@ function parseProcurement(
     valorHomologado: optionalNumber(row.valor_homologado),
     dataPublicacao,
     resultados,
+    executionSummary,
     methodologyVersion: String(row.methodology_version),
   };
 }

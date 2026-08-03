@@ -16,6 +16,13 @@ const normalizedMigration = await readFile(
   ),
   "utf8",
 );
+const executionMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260807010000_pncp_execution_links.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(new URL("../../apps/web/lib/pncp-procurements.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url), "utf8");
 const optionsMigration = await readFile(
@@ -56,6 +63,19 @@ test("filtros estruturados usam a mesma chave normalizada do catálogo", () => {
   assert.match(normalizedMigration, /status_filter/);
   assert.match(normalizedMigration, /unit_filter/);
   assert.match(client, /get_pncp_procurements_normalized/);
+});
+
+test("execucao financeira do PNCP so e ligada por identificador oficial", () => {
+  assert.match(executionMigration, /get_pncp_execution_summary/);
+  assert.match(executionMigration, /p\.external_id = nullif\(trim\(control_number_filter\)/);
+  assert.match(executionMigration, /current_contracts/);
+  assert.match(executionMigration, /current_commitments/);
+  assert.match(executionMigration, /current_liquidations/);
+  assert.match(executionMigration, /current_payments/);
+  assert.match(executionMigration, /pncp-execution-links\/1\.0\.0/);
+  assert.match(executionMigration, /execution_summary jsonb/);
+  assert.match(executionMigration, /pncp-procurements\/1\.4\.0/);
+  assert.match(client, /executionSummary/);
 });
 
 test("sugestões de filtros vêm de opções PNCP preservadas", () => {
