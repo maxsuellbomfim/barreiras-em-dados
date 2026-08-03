@@ -68,6 +68,23 @@ function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
+/**
+ * PostgREST may serialize PostgreSQL numeric columns as JSON numbers. Keep the
+ * public contract decimal-based while accepting those values without doing
+ * any financial calculation or locale-dependent parsing.
+ */
+function optionalDecimal(value: unknown): string | null {
+  if (typeof value === "string") return value.trim().length > 0 ? value : null;
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    Math.abs(value) <= Number.MAX_SAFE_INTEGER
+  ) {
+    return String(value);
+  }
+  return null;
+}
+
 function parseExpenseReport(
   row: Record<string, unknown>,
 ): PublicExpenseReport | null {
@@ -92,7 +109,7 @@ function parseExpenseReport(
     "total_balance_amount",
   ] as const;
   const amounts = Object.fromEntries(
-    amountFields.map((field) => [field, optionalString(row[field])]),
+    amountFields.map((field) => [field, optionalDecimal(row[field])]),
   ) as Record<(typeof amountFields)[number], string | null>;
 
   if (
@@ -179,7 +196,7 @@ function parseExpenseLine(
     "balance_amount",
   ] as const;
   const amounts = Object.fromEntries(
-    amountFields.map((field) => [field, optionalString(row[field])]),
+    amountFields.map((field) => [field, optionalDecimal(row[field])]),
   ) as Record<(typeof amountFields)[number], string | null>;
 
   if (

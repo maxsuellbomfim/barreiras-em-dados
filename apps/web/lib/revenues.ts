@@ -32,13 +32,30 @@ function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
+/**
+ * PostgreSQL numeric values can arrive from PostgREST as JSON numbers. Convert
+ * only finite, safe values to their decimal representation; no arithmetic or
+ * locale parsing is performed here.
+ */
+function optionalDecimal(value: unknown): string | null {
+  if (typeof value === "string") return value.trim().length > 0 ? value : null;
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    Math.abs(value) <= Number.MAX_SAFE_INTEGER
+  ) {
+    return String(value);
+  }
+  return null;
+}
+
 function parseRevenue(row: Record<string, unknown>): PublicRevenue | null {
   const revenueId = optionalString(row.revenue_id);
   const description = optionalString(row.description);
   const publicBodyName = optionalString(row.public_body_name);
-  const collectedAmount = optionalString(row.collected_amount);
-  const accumulatedAmount = optionalString(row.accumulated_amount);
-  const reportTotalPeriodAmount = optionalString(row.report_total_period_amount);
+  const collectedAmount = optionalDecimal(row.collected_amount);
+  const accumulatedAmount = optionalDecimal(row.accumulated_amount);
+  const reportTotalPeriodAmount = optionalDecimal(row.report_total_period_amount);
   const collectionDirection = row.collection_direction;
   const sourceUrl = optionalString(row.source_url);
   const documentSourceUrl = optionalString(row.document_source_url);
