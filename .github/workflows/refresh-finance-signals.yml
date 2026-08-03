@@ -1,0 +1,41 @@
+name: Atualizar sinais financeiros determinísticos
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-finance-signals-production
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Calcular sinais financeiros
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: workers/collectors/src:workers/document-processing/src:workers/normalization/src
+      PERSISTENCE_MODE: postgres-supabase
+      DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências fixadas
+        run: python -m pip install --disable-pip-version-check ".[postgres]"
+
+      - name: Atualizar sinais
+        run: python -B -m barreiras_normalization.commands.refresh_finance_signals
