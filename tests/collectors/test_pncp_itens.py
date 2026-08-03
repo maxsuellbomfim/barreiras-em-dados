@@ -122,6 +122,32 @@ class ItensFetchTests(unittest.TestCase):
         self.assertEqual(page.endpoint_code, "contratos-api")
         self.assertEqual(page.schema_name, "pncp-contratos-page")
         self.assertIn("/contratos/contratacao/2025/9", page.request_url)
+        self.assertIn("pagina=1", page.request_url)
+
+    def test_contracts_endpoint_accepts_paginated_object_root(self) -> None:
+        body = json.dumps(
+            {
+                "data": [
+                    {
+                        "numeroControlePNCP": "13654405000195-2-000032/2026",
+                        "numeroControlePncpCompra": CONTROL,
+                    }
+                ],
+                "totalRegistros": 1,
+                "totalPaginas": 1,
+            }
+        ).encode()
+        page = fetch_contratos_page(
+            ano=2026,
+            sequencial=32,
+            transport=SequencedTransport((200, body)),
+            retry_policy=RetryPolicy(max_attempts=2),
+            sleep=lambda _s: None,
+        )
+
+        assert page is not None
+        self.assertEqual(len(page.items), 1)
+        self.assertEqual(page.total_registros, 1)
 
 
 class ItensPaginationTests(unittest.TestCase):
