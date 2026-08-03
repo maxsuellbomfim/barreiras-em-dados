@@ -4,7 +4,11 @@ import {
   financeResourceLabel,
   getPublicFinanceDocuments,
 } from "../../lib/finance-documents";
-import { formatBrlDecimal, getPublicRevenues } from "../../lib/revenues";
+import {
+  formatBrlDecimal,
+  getPublicRevenues,
+  type PublicRevenue,
+} from "../../lib/revenues";
 
 export const revalidate = 300;
 
@@ -32,6 +36,24 @@ function formatCollectedAt(value: string): string {
   return Number.isNaN(parsed.getTime()) ? value : dateFormatter.format(parsed);
 }
 
+function sortNewest<T extends { revenueDate?: string | null; referenceDate?: string | null; collectedAt: string }>(
+  rows: readonly T[],
+  dateKey: "revenueDate" | "referenceDate",
+): T[] {
+  return [...rows].sort((left, right) => {
+    const leftDate = left[dateKey] ?? left.collectedAt;
+    const rightDate = right[dateKey] ?? right.collectedAt;
+    return rightDate.localeCompare(leftDate);
+  });
+}
+
+function explainRevenue(revenue: PublicRevenue): string {
+  if (revenue.collectionDirection === "deduction") {
+    return `Este registro é uma dedução de ${formatBrlDecimal(revenue.collectedAmount)} no período. Ela aparece com sinal negativo para não ser confundida com arrecadação bruta.`;
+  }
+  return `Este registro representa ${formatBrlDecimal(revenue.collectedAmount)} arrecadados no período. O acumulado informado no relatório é ${formatBrlDecimal(revenue.accumulatedAmount)}.`;
+}
+
 export default async function FinancesPage() {
   const [revenuesResult, documentsResult] = await Promise.all([
     getPublicRevenues(),
@@ -41,6 +63,9 @@ export default async function FinancesPage() {
     revenuesResult.state === "available" ? revenuesResult.revenues : [];
   const documents =
     documentsResult.state === "available" ? documentsResult.documents : [];
+  const sortedRevenues = sortNewest(revenues, "revenueDate");
+  const sortedDocuments = sortNewest(documents, "referenceDate");
+  const latestRevenue = sortedRevenues[0]?.revenueDate ?? null;
 
   return (
     <main>
@@ -69,19 +94,46 @@ export default async function FinancesPage() {
           </p>
         </div>
 
-        {revenues.length > 0 ? (
+        {sortedRevenues.length > 0 ? (
           <section aria-labelledby="revenue-title">
+            <div className="finance-overview" aria-label="Resumo das finanças">
+              <div className="finance-overview-card finance-overview-card-primary">
+                <span>Registros exibidos</span>
+                <strong>{sortedRevenues.length.toLocaleString("pt-BR")}</strong>
+                <small>de receitas validadas · até 200 por consulta</small>
+              </div>
+              <div className="finance-overview-card">
+                <span>Registro mais recente</span>
+                <strong>{latestRevenue ? formatDate(latestRevenue) : "—"}</strong>
+                <small>ordenado do mais novo para o mais antigo</small>
+              </div>
+              <div className="finance-overview-card">
+                <span>Documentos exibidos</span>
+                <strong>{documents.length.toLocaleString("pt-BR")}</strong>
+                <small>preservados · até 200 por consulta</small>
+              </div>
+            </div>
             <div className="section-heading compact">
               <span className="eyebrow">Dados numéricos validados</span>
               <h2 id="revenue-title">Receitas normalizadas</h2>
             <p>
-              {revenues.length.toLocaleString("pt-BR")} registros com cálculo
-                determinístico, versão e evidência de origem. A publicação é
-                automática quando todos os checks passam.
+              Exibindo {sortedRevenues.length.toLocaleString("pt-BR")} registros
+                com cálculo determinístico, versão e evidência de origem. A
+                publicação é automática quando todos os checks passam; o histórico
+                completo será paginado por período.
+            </p>
+            </div>
+            <div className="finance-reading" role="note">
+              <strong>Como ler estes valores</strong>
+              <p>
+                Cada cartão representa um código de receita no relatório. “No período”
+                é o valor daquele intervalo; “acumulado” é o acumulado informado no
+                próprio documento. Não somamos os cartões entre si, porque códigos e
+                estágios diferentes podem representar partes da mesma conta.
               </p>
             </div>
             <div className="digest-grid">
-              {revenues.map((revenue) => (
+              {sortedRevenues.map((revenue) => (
                 <article className="digest-card" key={revenue.revenueId}>
                   <div className="track-top">
                     <span>{revenue.publicBodyName}</span>
@@ -89,7 +141,7 @@ export default async function FinancesPage() {
                   </div>
                   <h3 className="procurement-object">{revenue.description}</h3>
                   <dl className="procurement-values">
-                    <div>
+                    <div className="revenue-primary-value">
                       <dt>
                         {revenue.collectionDirection === "deduction"
                           ? "Deduções no período"
@@ -116,6 +168,10 @@ export default async function FinancesPage() {
                       </div>
                     ) : null}
                   </dl>
+                  <div className="finance-reading finance-reading-card">
+                    <strong>Leitura rápida</strong>
+                    <p>{explainRevenue(revenue)}</p>
+                  </div>
                   <p className="act-evidence">
                     {revenue.documentSourceUrl ? (
                       <a
@@ -145,8 +201,8 @@ export default async function FinancesPage() {
             <span className="eyebrow">Documentos oficiais</span>
             <h2 id="document-title">O que a Prefeitura publicou</h2>
             <p>
-              {documents.length > 0
-                ? `${documents.length.toLocaleString("pt-BR")} documentos financeiros encontrados.`
+              {sortedDocuments.length > 0
+                ? `Exibindo ${sortedDocuments.length.toLocaleString("pt-BR")} documentos financeiros, do mais recente ao mais antigo. O histórico completo será paginado por período.`
                 : "A coleta dos documentos financeiros ainda não está disponível."}
             </p>
           </div>
@@ -171,7 +227,7 @@ export default async function FinancesPage() {
             </div>
           ) : (
             <div className="digest-grid">
-              {documents.map((document) => (
+              {sortedDocuments.map((document) => (
                 <article className="digest-card" key={document.documentId}>
                   <div className="track-top">
                     <span>{financeResourceLabel(document.sourceResource)}</span>
