@@ -13,7 +13,7 @@ const client = await readFile(new URL("../../apps/web/lib/pncp-procurements.ts",
 const page = await readFile(new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url), "utf8");
 const optionsMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260806210000_pncp_filter_options.sql",
+    "../../supabase/migrations/20260806220000_pncp_normalized_filter_options.sql",
     import.meta.url,
   ),
   "utf8",
@@ -41,11 +41,14 @@ test("pÃ¡gina oferece filtros GET e o cliente usa a RPC filtrÃ¡vel", () => {
 });
 
 test("sugestões de filtros vêm de opções PNCP preservadas", () => {
-  assert.match(optionsMigration, /get_pncp_procurement_filter_options/);
+  assert.match(optionsMigration, /get_pncp_procurement_filter_options_normalized/);
   assert.match(optionsMigration, /modalidade/);
   assert.match(optionsMigration, /situacao/);
   assert.match(optionsMigration, /orgao/);
+  assert.match(optionsMigration, /normalized_key/);
+  assert.match(optionsMigration, /variants/);
   assert.match(client, /getPncpProcurementFilterOptions/);
+  assert.match(client, /get_pncp_procurement_filter_options_normalized/);
   assert.match(page, /pncp-modalidades/);
   assert.match(page, /pncp-situacoes/);
   assert.match(page, /pncp-orgaos/);
