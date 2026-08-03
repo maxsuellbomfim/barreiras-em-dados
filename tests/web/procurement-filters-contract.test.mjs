@@ -39,6 +39,10 @@ const documentEvidenceMigration = await readFile(
 );
 const client = await readFile(new URL("../../apps/web/lib/pncp-procurements.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url), "utf8");
+const explorer = await readFile(
+  new URL("../../apps/web/app/licitacoes/procurement-explorer.tsx", import.meta.url),
+  "utf8",
+);
 const optionsMigration = await readFile(
   new URL(
     "../../supabase/migrations/20260806220000_pncp_normalized_filter_options.sql",
@@ -66,6 +70,14 @@ test("pÃ¡gina oferece filtros GET e o cliente usa a RPC filtrÃ¡vel", () => {
   assert.match(page, /name="situacao"/);
   assert.match(page, /name="orgao"/);
   assert.match(client, /get_pncp_procurements_normalized/);
+});
+
+test("licitacoes exibem um unico painel de filtros no servidor", () => {
+  assert.match(page, /className="procurement-filter-form" method="get"/);
+  assert.match(page, /procurement-filter-note/);
+  assert.match(explorer, /carregados/);
+  assert.doesNotMatch(explorer, /className="procurement-filters"/);
+  assert.doesNotMatch(explorer, /useState|useMemo|onChange=|filter-clear/);
 });
 
 test("filtros estruturados usam a mesma chave normalizada do catálogo", () => {
