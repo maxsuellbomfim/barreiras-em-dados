@@ -6,13 +6,17 @@ import hashlib
 import json
 from typing import Any
 
-from ..connectors.direct_diary import DirectEdition, ENDPOINT_CODE, SOURCE_CODE
+from ..connectors.direct_diary import ENDPOINT_CODE, SOURCE_CODE, DirectEdition
 from ..connectors.gazette_documents import CollectedDocument
 from ..connectors.municipal_transparency import MunicipalTransparencyPage
 from ..connectors.official_diary_catalog import (
     ENDPOINT_CODE as OFFICIAL_CATALOG_ENDPOINT_CODE,
-    OfficialCatalogSnapshot,
+)
+from ..connectors.official_diary_catalog import (
     SOURCE_CODE as OFFICIAL_CATALOG_SOURCE_CODE,
+)
+from ..connectors.official_diary_catalog import (
+    OfficialCatalogSnapshot,
 )
 from ..connectors.querido_diario import CollectedPage, GazettePage
 from .models import (
