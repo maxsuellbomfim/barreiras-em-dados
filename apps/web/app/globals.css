@@ -1732,6 +1732,50 @@ footer {
   white-space: nowrap;
 }
 
+.finance-month-title {
+  margin-bottom: 0.15rem;
+  text-transform: capitalize;
+}
+
+.finance-period-note {
+  margin: 0 0 0.9rem;
+  color: #788397;
+  font-size: 0.8rem;
+}
+
+.finance-details {
+  margin-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.finance-details summary {
+  padding: 0.95rem 0;
+  color: #334a9e;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.finance-details summary::marker {
+  color: #5b74df;
+}
+
+.finance-details[open] summary {
+  color: #172a8a;
+}
+
+.finance-details-note {
+  margin: 0.1rem 0 0.8rem;
+  color: #6f7b8e;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.finance-details .digest-grid {
+  margin-top: 1rem;
+}
+
 .finance-guide-note {
   margin-top: 1rem;
   padding-top: 0.9rem;
