@@ -1,0 +1,79 @@
+name: Publicar despesas financeiras validadas
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+    inputs:
+      fiscal_year_from:
+        description: "Primeiro ano do backfill"
+        required: false
+        default: "2021"
+        type: string
+      fiscal_year_to:
+        description: "Último ano do backfill"
+        required: false
+        default: ""
+        type: string
+      limit:
+        description: "Máximo de PDFs por execução"
+        required: false
+        default: "1"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-financial-expenses-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publicar despesas determinísticas
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: workers/collectors/src:workers/document-processing/src:workers/normalization/src
+      PERSISTENCE_MODE: postgres-supabase
+      DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+      SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_WORKLOAD_EMAIL: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL }}
+      SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD }}
+      SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências fixadas
+        run: python -m pip install --disable-pip-version-check ".[postgres,storage,pdf]"
+
+      - name: Verificar CA oficial do Supabase
+        run: >-
+          echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
+          | sha256sum --check --strict
+
+      - name: Publicar janela de despesas
+        shell: bash
+        env:
+          INPUT_FISCAL_YEAR_FROM: ${{ inputs.fiscal_year_from }}
+          INPUT_FISCAL_YEAR_TO: ${{ inputs.fiscal_year_to }}
+          INPUT_LIMIT: ${{ inputs.limit }}
+        run: |
+          year_from="${INPUT_FISCAL_YEAR_FROM:-2021}"
+          year_to="${INPUT_FISCAL_YEAR_TO:-$(date +%Y)}"
+          limit="${INPUT_LIMIT:-1}"
+          python -B -m barreiras_normalization.commands.publish_expense_reports \
+            --limit "$limit" \
+            --fiscal-year-from "$year_from" \
+            --fiscal-year-to "$year_to"
