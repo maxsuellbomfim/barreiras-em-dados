@@ -105,7 +105,7 @@ class ItensFetchTests(unittest.TestCase):
             [
                 {
                     "numeroControlePNCP": "13654405000195-2-000001/2026",
-                    "numeroControlePNCPCompra": CONTROL,
+                    "numeroControlePncpCompra": CONTROL,
                     "objetoContrato": "Serviço de manutenção",
                 }
             ]
@@ -288,7 +288,7 @@ class ComprasPersistenceTests(unittest.TestCase):
             [
                 {
                     "numeroControlePNCP": "13654405000195-2-000001/2026",
-                    "numeroControlePNCPCompra": CONTROL,
+                    "numeroControlePncpCompra": CONTROL,
                     "objetoContrato": "Serviço de manutenção",
                 }
             ]

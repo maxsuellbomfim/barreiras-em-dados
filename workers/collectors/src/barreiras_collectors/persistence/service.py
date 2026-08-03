@@ -410,6 +410,8 @@ class PncpComprasPersistenceService:
         for index, item in enumerate(page.items):
             numero_controle = item.get("numeroControlePNCP")
             compra_controle = item.get("numeroControlePNCPCompra")
+            if not isinstance(compra_controle, str):
+                compra_controle = item.get("numeroControlePncpCompra")
             if not isinstance(numero_controle, str) or not numero_controle:
                 raise PersistenceContractError(
                     f"Contrato {index} da contrataÃ§Ã£o {control} sem "
