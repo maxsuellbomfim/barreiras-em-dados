@@ -74,10 +74,6 @@ function formatPeriod(report: PublicExpenseReport): string {
   return `${formatDate(report.periodStart)} a ${formatDate(report.periodEnd)}`;
 }
 
-function explainExpense(report: PublicExpenseReport): string {
-  return `No período de ${formatPeriod(report)}, o relatório registra ${formatBrlDecimal(report.totalPaidPeriodAmount)} pagos. O acumulado pago até o fim do relatório é ${formatBrlDecimal(report.totalPaidToDateAmount)}. Esses valores são estágios diferentes da despesa e não devem ser somados entre si.`;
-}
-
 export default async function FinancesPage() {
   const [expensesResult, expenseLinesResult, revenuesResult, documentsResult] = await Promise.all([
     getPublicExpenseReports(),
@@ -127,14 +123,47 @@ export default async function FinancesPage() {
           </p>
         </div>
 
+        <section className="finance-guide" aria-labelledby="finance-guide-title">
+          <div className="section-heading compact">
+            <span className="eyebrow">Em palavras simples</span>
+            <h2 id="finance-guide-title">O que cada número quer dizer</h2>
+            <p>
+              A Prefeitura registra uma despesa em etapas. Elas não são o mesmo
+              dinheiro e não devem ser somadas.
+            </p>
+          </div>
+          <div className="finance-guide-grid">
+            <article>
+              <strong>Orçamento atualizado</strong>
+              <p>O limite de gasto depois dos ajustes do ano. Não significa que esse valor já foi gasto.</p>
+            </article>
+            <article>
+              <strong>Reservado</strong>
+              <p>Valor separado para uma contratação ou outra despesa. No relatório, aparece como empenhado.</p>
+            </article>
+            <article>
+              <strong>Conferido</strong>
+              <p>Parte que já teve entrega ou serviço verificado. É a etapa liquidada.</p>
+            </article>
+            <article>
+              <strong>Pago</strong>
+              <p>Dinheiro que efetivamente saiu do caixa no período informado.</p>
+            </article>
+          </div>
+          <p className="finance-guide-note">
+            A leitura principal é “Pago”: ela responde quanto saiu do caixa. Os
+            demais números ajudam a acompanhar o caminho da despesa.
+          </p>
+        </section>
+
         {sortedExpenseReports.length > 0 ? (
           <section aria-labelledby="expense-title">
             <div className="section-heading compact">
-              <span className="eyebrow">Despesas executadas</span>
-              <h2 id="expense-title">Quanto a Prefeitura gastou</h2>
+              <span className="eyebrow">Despesas</span>
+              <h2 id="expense-title">Quanto saiu do caixa</h2>
               <p>
-                Relatórios oficiais preservados e publicados após validação
-                determinística. Os períodos mais recentes aparecem primeiro.
+                Este é o valor efetivamente pago pela Prefeitura no período do
+                relatório. Os meses mais recentes aparecem primeiro.
               </p>
             </div>
             <div className="digest-grid">
@@ -145,38 +174,60 @@ export default async function FinancesPage() {
                     <span className="track-status">{report.fiscalYear}</span>
                   </div>
                   <h3 className="procurement-object">
-                    Execução da despesa · {formatPeriod(report)}
+                    Relatório de {formatPeriod(report)}
                   </h3>
+                  <div className="finance-reading finance-reading-card">
+                    <strong>Resumo para o cidadão</strong>
+                    <p>
+                      Entre {formatDate(report.periodStart)} e {formatDate(report.periodEnd)},
+                      a Prefeitura pagou {formatBrlDecimal(report.totalPaidPeriodAmount)}.
+                      Desde o início do ano, o total pago chegou a {formatBrlDecimal(report.totalPaidToDateAmount)}.
+                    </p>
+                  </div>
                   <dl className="procurement-values">
                     <div className="revenue-primary-value">
-                      <dt>Total atualizado</dt>
+                      <dt>
+                        Orçamento atualizado
+                        <small>limite ajustado, não é gasto</small>
+                      </dt>
                       <dd>{formatBrlDecimal(report.totalUpdatedAmount)}</dd>
                     </div>
                     <div>
-                      <dt>Pago no período</dt>
+                      <dt>
+                        Saiu do caixa no período
+                        <small>pago neste relatório</small>
+                      </dt>
                       <dd>{formatBrlDecimal(report.totalPaidPeriodAmount)}</dd>
                     </div>
                     <div>
-                      <dt>Pago acumulado</dt>
+                      <dt>
+                        Saiu do caixa no ano
+                        <small>pago acumulado</small>
+                      </dt>
                       <dd>{formatBrlDecimal(report.totalPaidToDateAmount)}</dd>
                     </div>
                     <div>
-                      <dt>Liquidado no período</dt>
+                      <dt>
+                        Entrega conferida
+                        <small>liquidado no período</small>
+                      </dt>
                       <dd>{formatBrlDecimal(report.totalLiquidatedPeriodAmount)}</dd>
                     </div>
                     <div>
-                      <dt>Empenhado no período</dt>
+                      <dt>
+                        Valor reservado
+                        <small>empenhado no período</small>
+                      </dt>
                       <dd>{formatBrlDecimal(report.totalCommittedPeriodAmount)}</dd>
                     </div>
                     <div>
-                      <dt>Saldo informado</dt>
+                      <dt>
+                        Saldo informado
+                        <small>diferença registrada no relatório</small>
+                      </dt>
                       <dd>{formatBrlDecimal(report.totalBalanceAmount)}</dd>
                     </div>
                   </dl>
-                  <div className="finance-reading finance-reading-card">
-                    <strong>Leitura rápida</strong>
-                    <p>{explainExpense(report)}</p>
-                  </div>
                   <p className="act-evidence">
                     <a href={report.documentSourceUrl} target="_blank" rel="noreferrer">
                       Ver PDF oficial
@@ -261,22 +312,21 @@ export default async function FinancesPage() {
               </div>
             </div>
             <div className="section-heading compact">
-              <span className="eyebrow">Dados numéricos validados</span>
-              <h2 id="revenue-title">Receitas normalizadas</h2>
-            <p>
-              Exibindo {sortedRevenues.length.toLocaleString("pt-BR")} registros
-                com cálculo determinístico, versão e evidência de origem. A
-                publicação é automática quando todos os checks passam; o histórico
-                completo será paginado por período.
-            </p>
+              <span className="eyebrow">Dinheiro que entrou</span>
+              <h2 id="revenue-title">Receitas da Prefeitura</h2>
+              <p>
+                Aqui estão os lançamentos de dinheiro que entrou, com cálculo
+                determinístico e fonte oficial. A lista começa pelos registros
+                mais recentes.
+              </p>
             </div>
             <div className="finance-reading" role="note">
-              <strong>Como ler estes valores</strong>
+              <strong>Como ler esta parte</strong>
               <p>
-                Cada cartão representa um código de receita no relatório. “No período”
-                é o valor daquele intervalo; “acumulado” é o acumulado informado no
-                próprio documento. Não somamos os cartões entre si, porque códigos e
-                estágios diferentes podem representar partes da mesma conta.
+                Receita é dinheiro que entrou nos cofres públicos. “No período”
+                mostra o intervalo do lançamento; “acumulado” é o total informado
+                até aquela data. Não somamos os cartões entre si, porque códigos
+                diferentes podem representar partes da mesma conta.
               </p>
             </div>
             <div className="digest-grid">

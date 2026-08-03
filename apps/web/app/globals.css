@@ -1657,6 +1657,50 @@ footer {
   letter-spacing: -0.045em;
 }
 
+.finance-guide {
+  margin: 2.2rem 0 3.5rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(55, 91, 232, 0.16);
+  border-radius: 1.55rem;
+  background: linear-gradient(145deg, #f5f7ff, #ffffff);
+}
+
+.finance-guide .section-heading {
+  margin-bottom: 1.25rem;
+}
+
+.finance-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.finance-guide-grid article {
+  padding: 1rem;
+  border: 1px solid rgba(55, 91, 232, 0.12);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.finance-guide-grid strong {
+  color: #172a8a;
+  font-size: 0.88rem;
+}
+
+.finance-guide-grid p,
+.finance-guide-note {
+  margin: 0.45rem 0 0;
+  color: #5f6c82;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.finance-guide-note {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(55, 91, 232, 0.12);
+}
+
 .finance-reading {
   margin: 1rem 0 0;
   padding: 1rem 1.1rem;
@@ -1678,6 +1722,16 @@ footer {
   line-height: 1.55;
 }
 
+.procurement-values dt small {
+  display: block;
+  margin-top: 0.2rem;
+  color: #8a95a7;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .finance-reading-card {
   margin-top: 1rem;
   background: rgba(255, 255, 255, 0.78);
@@ -1691,6 +1745,22 @@ footer {
 .revenue-primary-value dd {
   color: #172a8a;
   font-size: 1.2rem;
+}
+
+@media (max-width: 900px) {
+  .finance-guide-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .finance-guide {
+    padding: 1.1rem;
+  }
+
+  .finance-guide-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .digest-items {
