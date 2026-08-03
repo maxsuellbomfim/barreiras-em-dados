@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
 import {
+  getPublicExpenseReports,
+  type PublicExpenseReport,
+} from "../../lib/expenses";
+import {
   financeResourceLabel,
   getPublicFinanceDocuments,
 } from "../../lib/finance-documents";
@@ -65,17 +69,31 @@ function explainRevenue(revenue: PublicRevenue): string {
   return `Este registro representa ${formatBrlDecimal(revenue.collectedAmount)} arrecadados no período. O acumulado informado no relatório é ${formatBrlDecimal(revenue.accumulatedAmount)}.`;
 }
 
+function formatPeriod(report: PublicExpenseReport): string {
+  return `${formatDate(report.periodStart)} a ${formatDate(report.periodEnd)}`;
+}
+
+function explainExpense(report: PublicExpenseReport): string {
+  return `No período de ${formatPeriod(report)}, o relatório registra ${formatBrlDecimal(report.totalPaidPeriodAmount)} pagos. O acumulado pago até o fim do relatório é ${formatBrlDecimal(report.totalPaidToDateAmount)}. Esses valores são estágios diferentes da despesa e não devem ser somados entre si.`;
+}
+
 export default async function FinancesPage() {
-  const [revenuesResult, documentsResult] = await Promise.all([
+  const [expensesResult, revenuesResult, documentsResult] = await Promise.all([
+    getPublicExpenseReports(),
     getPublicRevenues(),
     getPublicFinanceDocuments(),
   ]);
+  const expenseReports =
+    expensesResult.state === "available" ? expensesResult.reports : [];
   const revenues =
     revenuesResult.state === "available" ? revenuesResult.revenues : [];
   const documents =
     documentsResult.state === "available" ? documentsResult.documents : [];
   const sortedRevenues = sortNewest(revenues, "revenueDate");
   const sortedDocuments = sortNewest(documents, "referenceDate");
+  const sortedExpenseReports = [...expenseReports].sort((left, right) =>
+    right.periodEnd.localeCompare(left.periodEnd),
+  );
   const latestRevenue = sortedRevenues[0]?.revenueDate ?? null;
 
   return (
@@ -104,6 +122,72 @@ export default async function FinancesPage() {
             deixamos explícito que a extração numérica ainda não foi validada.
           </p>
         </div>
+
+        {sortedExpenseReports.length > 0 ? (
+          <section aria-labelledby="expense-title">
+            <div className="section-heading compact">
+              <span className="eyebrow">Despesas executadas</span>
+              <h2 id="expense-title">Quanto a Prefeitura gastou</h2>
+              <p>
+                Relatórios oficiais preservados e publicados após validação
+                determinística. Os períodos mais recentes aparecem primeiro.
+              </p>
+            </div>
+            <div className="digest-grid">
+              {sortedExpenseReports.map((report) => (
+                <article className="digest-card" key={report.expenseReportId}>
+                  <div className="track-top">
+                    <span>{report.publicBodyName}</span>
+                    <span className="track-status">{report.fiscalYear}</span>
+                  </div>
+                  <h3 className="procurement-object">
+                    Execução da despesa · {formatPeriod(report)}
+                  </h3>
+                  <dl className="procurement-values">
+                    <div className="revenue-primary-value">
+                      <dt>Total atualizado</dt>
+                      <dd>{formatBrlDecimal(report.totalUpdatedAmount)}</dd>
+                    </div>
+                    <div>
+                      <dt>Pago no período</dt>
+                      <dd>{formatBrlDecimal(report.totalPaidPeriodAmount)}</dd>
+                    </div>
+                    <div>
+                      <dt>Pago acumulado</dt>
+                      <dd>{formatBrlDecimal(report.totalPaidToDateAmount)}</dd>
+                    </div>
+                    <div>
+                      <dt>Liquidado no período</dt>
+                      <dd>{formatBrlDecimal(report.totalLiquidatedPeriodAmount)}</dd>
+                    </div>
+                    <div>
+                      <dt>Empenhado no período</dt>
+                      <dd>{formatBrlDecimal(report.totalCommittedPeriodAmount)}</dd>
+                    </div>
+                    <div>
+                      <dt>Saldo informado</dt>
+                      <dd>{formatBrlDecimal(report.totalBalanceAmount)}</dd>
+                    </div>
+                  </dl>
+                  <div className="finance-reading finance-reading-card">
+                    <strong>Leitura rápida</strong>
+                    <p>{explainExpense(report)}</p>
+                  </div>
+                  <p className="act-evidence">
+                    <a href={report.documentSourceUrl} target="_blank" rel="noreferrer">
+                      Ver PDF oficial
+                    </a>{" "}
+                    <a href={report.sourceUrl} target="_blank" rel="noreferrer">
+                      Ver resposta da API
+                    </a>{" "}
+                    · PDF preservado · hash {report.documentArtifactSha256.slice(0, 12)}…
+                    · publicado após validação determinística em {formatCollectedAt(report.collectedAt)}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {sortedRevenues.length > 0 ? (
           <section aria-labelledby="revenue-title">
