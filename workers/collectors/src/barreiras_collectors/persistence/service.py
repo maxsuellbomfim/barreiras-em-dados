@@ -6,7 +6,7 @@ import hashlib
 import json
 from typing import Any
 
-from ..connectors.direct_diary import ENDPOINT_CODE, SOURCE_CODE, DirectEdition
+from ..connectors.direct_diary import DirectEdition, ENDPOINT_CODE, SOURCE_CODE
 from ..connectors.gazette_documents import CollectedDocument
 from ..connectors.municipal_transparency import MunicipalTransparencyPage
 from ..connectors.official_diary_catalog import (

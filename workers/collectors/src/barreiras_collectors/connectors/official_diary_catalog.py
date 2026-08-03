@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import hashlib
 import html
-import logging
 import re
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 from ..http import HttpTransport, UrllibTransport, validate_https_url
 from ..resilience import (
@@ -156,7 +155,7 @@ def parse_catalog_html(
             continue
         edition = int(edition_match.group(1))
         title_match = re.search(
-            r"Di[aá]rio Oficial\s*[-–—]\s*Edi[cç][aã]o\s*\d+",
+            r"Di[aá]rio Oficial\s*-\s*Edi[cç][aã]o\s*\d+",
             text,
             re.I,
         )
