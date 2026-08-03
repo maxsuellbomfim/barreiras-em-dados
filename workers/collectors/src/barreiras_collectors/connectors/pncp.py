@@ -285,6 +285,7 @@ def fetch_contratos_page(
     """Contratos/empenhos vinculados a uma contratação, sem normalização."""
     url = (
         f"{CONTRATOS_BASE_URL}/contratacao/{ano}/{sequencial}"
+        f"?pagina=1&tamanhoPagina={COMPRAS_PAGE_SIZE}"
     )
     return _fetch_compras_array(
         url,
