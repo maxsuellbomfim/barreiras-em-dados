@@ -33,6 +33,16 @@ function text(value: unknown): string | null {
     : null;
 }
 
+function repairMojibake(value: string): string {
+  if (!/[ÃÂ]/.test(value)) return value;
+  try {
+    const bytes = Uint8Array.from(Array.from(value), (character) => character.charCodeAt(0));
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return value;
+  }
+}
+
 function decimal(value: unknown): string | null {
   if (typeof value === "string" && DECIMAL.test(value.trim())) return value.trim();
   if (
@@ -57,7 +67,8 @@ function parseClosure(row: Record<string, unknown>): PublicMonthlyFinanceClosure
   const periodStart = text(row.period_start);
   const periodEnd = text(row.period_end);
   const publicBodyName = text(row.public_body_name);
-  const coverageNote = text(row.coverage_note);
+  const coverageNoteValue = text(row.coverage_note);
+  const coverageNote = coverageNoteValue ? repairMojibake(coverageNoteValue) : null;
   const methodology = row.calculation_methodology;
   const status = row.closure_status;
   const fiscalYear = row.fiscal_year;
