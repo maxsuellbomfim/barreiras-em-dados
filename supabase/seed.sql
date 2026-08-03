@@ -368,7 +368,7 @@ values (
   true,
   '{
     "cnpj": "13654405000195",
-    "resources": ["itens", "resultados"],
+    "resources": ["itens", "resultados", "contratos-empenhos"],
     "pagination": {"tamanhoPagina": 50, "raiz": "lista JSON"},
     "observed_at": "2026-08-01",
     "discovery": "docs/reviews/STAGE_2_PNCP_DISCOVERY.md"
