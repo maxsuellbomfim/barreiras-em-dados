@@ -64,6 +64,11 @@ jobs:
         run: >-
           python -B -m barreiras_collectors.commands.collect_alba_deputies
 
+      - name: Preservar prefeito, vice e secretarias de Barreiras
+        continue-on-error: true
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_municipal_executive
+
       - name: Preservar votação recebida em Barreiras (vínculo territorial)
         continue-on-error: true
         run: >-
