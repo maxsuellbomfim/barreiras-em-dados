@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import {
+  getPublicExpenseLines,
   getPublicExpenseReports,
   type PublicExpenseReport,
 } from "../../lib/expenses";
@@ -78,13 +79,16 @@ function explainExpense(report: PublicExpenseReport): string {
 }
 
 export default async function FinancesPage() {
-  const [expensesResult, revenuesResult, documentsResult] = await Promise.all([
+  const [expensesResult, expenseLinesResult, revenuesResult, documentsResult] = await Promise.all([
     getPublicExpenseReports(),
+    getPublicExpenseLines(),
     getPublicRevenues(),
     getPublicFinanceDocuments(),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
+  const expenseLines =
+    expenseLinesResult.state === "available" ? expenseLinesResult.lines : [];
   const revenues =
     revenuesResult.state === "available" ? revenuesResult.revenues : [];
   const documents =
@@ -186,6 +190,54 @@ export default async function FinancesPage() {
                 </article>
               ))}
             </div>
+            {expenseLines.length > 0 ? (
+              <>
+                <div className="section-heading compact">
+                  <span className="eyebrow">Detalhamento determinístico</span>
+                  <h3>Maiores pagamentos registrados</h3>
+                  <p>
+                    As 25 linhas com maior pagamento no período, conforme o PDF
+                    oficial. Isso é uma ordenação contábil, não um ranking de
+                    empresas ou uma acusação.
+                  </p>
+                </div>
+                <div className="digest-grid">
+                  {expenseLines.map((line) => (
+                    <article className="digest-card" key={line.expenseLineId}>
+                      <div className="track-top">
+                        <span>Linha {line.lineNumber.toLocaleString("pt-BR")}</span>
+                        <span className="track-status">{line.expenseCode}</span>
+                      </div>
+                      <h4 className="procurement-object">{line.description}</h4>
+                      <dl className="procurement-values">
+                        <div className="revenue-primary-value">
+                          <dt>Pago no período</dt>
+                          <dd>{formatBrlDecimal(line.paidPeriodAmount)}</dd>
+                        </div>
+                        <div>
+                          <dt>Valor atualizado</dt>
+                          <dd>{formatBrlDecimal(line.updatedAmount)}</dd>
+                        </div>
+                        <div>
+                          <dt>Empenhado no período</dt>
+                          <dd>{formatBrlDecimal(line.committedPeriodAmount)}</dd>
+                        </div>
+                        <div>
+                          <dt>Liquidado no período</dt>
+                          <dd>{formatBrlDecimal(line.liquidatedPeriodAmount)}</dd>
+                        </div>
+                      </dl>
+                      <p className="act-evidence">
+                        Código-fonte {line.sourceCode} · período {formatDate(line.periodStart)} a {formatDate(line.periodEnd)} ·{" "}
+                        <a href={line.documentSourceUrl} target="_blank" rel="noreferrer">
+                          abrir documento oficial
+                        </a>
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : null}
           </section>
         ) : null}
 
