@@ -1955,6 +1955,55 @@ footer {
   font-weight: 700;
 }
 
+.procurement-filter-form {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) 7rem minmax(14rem, 1.4fr) auto;
+  align-items: end;
+  gap: 0.7rem;
+  margin: 1.5rem 0 2rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(55, 91, 232, 0.14);
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.procurement-filter-form label {
+  margin: 0;
+  color: #687286;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.procurement-filter-form input {
+  margin: 0.35rem 0 0;
+  min-height: 2.45rem;
+}
+
+.procurement-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.button-secondary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.45rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  color: #5f6c82;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.procurement-filter-active {
+  margin: -0.8rem 0 1.5rem;
+  color: #687286;
+  font-size: 0.8rem;
+}
+
 .monthly-closure-section {
   margin-bottom: 3.5rem;
 }
@@ -2176,6 +2225,14 @@ footer {
   .supplier-concentration-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .procurement-filter-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .procurement-filter-query {
+    grid-column: span 2;
+  }
 }
 
 @media (max-width: 620px) {
@@ -2203,6 +2260,14 @@ footer {
 
   .supplier-concentration-grid {
     grid-template-columns: 1fr;
+  }
+
+  .procurement-filter-form {
+    grid-template-columns: 1fr;
+  }
+
+  .procurement-filter-query {
+    grid-column: auto;
   }
 
   .supplier-history-values {

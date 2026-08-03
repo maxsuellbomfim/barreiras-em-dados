@@ -26,6 +26,12 @@ export type ProcurementsResult =
   | Readonly<{ state: "available"; procurements: readonly Procurement[] }>
   | Readonly<{ state: "unavailable" }>;
 
+export type ProcurementFilters = Readonly<{
+  supplierKey?: string;
+  fiscalYear?: number;
+  query?: string;
+}>;
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function optionalString(value: unknown): string | null {
@@ -80,7 +86,8 @@ function parseProcurement(
     !Number.isSafeInteger(row.sequencial) ||
     (dataPublicacao !== null && !ISO_DATE.test(dataPublicacao)) ||
     resultados === null ||
-    row.methodology_version !== "pncp-procurements/1.0.0"
+    row.methodology_version !== "pncp-procurements/1.0.0" &&
+    row.methodology_version !== "pncp-procurements/1.1.0"
   ) {
     return null;
   }
@@ -100,7 +107,9 @@ function parseProcurement(
   };
 }
 
-export async function getPncpProcurements(): Promise<ProcurementsResult> {
+export async function getPncpProcurements(
+  filters: ProcurementFilters = {},
+): Promise<ProcurementsResult> {
   const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
   const publishableKey =
     process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -115,7 +124,7 @@ export async function getPncpProcurements(): Promise<ProcurementsResult> {
 
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_pncp_procurements`,
+      `${supabaseUrl}/rest/v1/rpc/get_pncp_procurements_filtered`,
       {
         method: "POST",
         headers: {
@@ -125,7 +134,12 @@ export async function getPncpProcurements(): Promise<ProcurementsResult> {
           "Content-Profile": "api",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ page_size: 60 }),
+        body: JSON.stringify({
+          page_size: 60,
+          supplier_key_filter: filters.supplierKey ?? null,
+          fiscal_year_filter: filters.fiscalYear ?? null,
+          query_filter: filters.query ?? null,
+        }),
         next: { revalidate: 300 },
         signal: AbortSignal.timeout(5_000),
       },
