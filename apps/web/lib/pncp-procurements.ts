@@ -132,7 +132,8 @@ function parseProcurement(
     resultados === null ||
     row.methodology_version !== "pncp-procurements/1.0.0" &&
     row.methodology_version !== "pncp-procurements/1.1.0" &&
-    row.methodology_version !== "pncp-procurements/1.2.0"
+    row.methodology_version !== "pncp-procurements/1.2.0" &&
+    row.methodology_version !== "pncp-procurements/1.3.0"
   ) {
     return null;
   }
@@ -169,7 +170,7 @@ export async function getPncpProcurements(
 
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_pncp_procurements_structured`,
+      `${supabaseUrl}/rest/v1/rpc/get_pncp_procurements_normalized`,
       {
         method: "POST",
         headers: {
