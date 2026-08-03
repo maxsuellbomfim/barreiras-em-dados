@@ -142,7 +142,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 42);
+  assert.equal(rlsRelations.rows[0].count, 44);
 
   const originColumns = await database.query(`
     select count(*)::integer as count
