@@ -36,14 +36,25 @@ function formatCollectedAt(value: string): string {
   return Number.isNaN(parsed.getTime()) ? value : dateFormatter.format(parsed);
 }
 
+function sortableDate(value: string | null): number | null {
+  if (!value) return null;
+  const brazilianDate = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+  if (brazilianDate) {
+    const [, day, month, year] = brazilianDate;
+    return Date.UTC(Number(year), Number(month) - 1, Number(day));
+  }
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
 function sortNewest<T extends { revenueDate?: string | null; referenceDate?: string | null; collectedAt: string }>(
   rows: readonly T[],
   dateKey: "revenueDate" | "referenceDate",
 ): T[] {
   return [...rows].sort((left, right) => {
-    const leftDate = left[dateKey] ?? left.collectedAt;
-    const rightDate = right[dateKey] ?? right.collectedAt;
-    return rightDate.localeCompare(leftDate);
+    const leftDate = sortableDate(left[dateKey] ?? null) ?? sortableDate(left.collectedAt) ?? 0;
+    const rightDate = sortableDate(right[dateKey] ?? null) ?? sortableDate(right.collectedAt) ?? 0;
+    return rightDate - leftDate;
   });
 }
 
