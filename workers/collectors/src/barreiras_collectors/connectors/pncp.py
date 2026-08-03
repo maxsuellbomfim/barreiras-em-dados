@@ -285,6 +285,7 @@ def fetch_contratos_page(
     """Contratos/empenhos vinculados a uma contratação, sem normalização."""
     url = (
         f"{CONTRATOS_BASE_URL}/contratacao/{ano}/{sequencial}"
+        f"?pagina=1&tamanhoPagina={COMPRAS_PAGE_SIZE}"
     )
     return _fetch_compras_array(
         url,
@@ -352,11 +353,24 @@ def _fetch_compras_array(
                 raise PncpError(
                     f"O recurso {schema_name} não devolveu JSON válido."
                 ) from error
-            if not isinstance(payload, list):
-                raise PncpError(
-                    f"A raiz de {schema_name} deve ser uma lista JSON."
+            total_paginas = 1
+            total_registros = 0
+            if isinstance(payload, list):
+                items = payload
+            elif isinstance(payload, dict) and isinstance(
+                payload.get("data"), list
+            ):
+                items = payload["data"]
+                total_paginas = int(payload.get("totalPaginas") or 1)
+                total_registros = int(
+                    payload.get("totalRegistros") or len(items)
                 )
-            if not payload:
+            else:
+                raise PncpError(
+                    f"A raiz de {schema_name} deve ser uma lista ou objeto "
+                    "paginado JSON."
+                )
+            if not items:
                 return None
             return PncpPage(
                 schema_name=schema_name,
@@ -390,11 +404,9 @@ def _fetch_compras_array(
                 raw_body=response.body,
                 window_start=None,
                 window_end=None,
-                items=tuple(
-                    item for item in payload if isinstance(item, dict)
-                ),
-                total_paginas=1,
-                total_registros=len(payload),
+                items=tuple(item for item in items if isinstance(item, dict)),
+                total_paginas=total_paginas,
+                total_registros=total_registros or len(items),
             )
         if response.status not in RETRYABLE:
             raise PncpError(
