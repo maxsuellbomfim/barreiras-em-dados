@@ -1619,6 +1619,45 @@ footer {
     #fbfcfe;
 }
 
+.digest-card-title {
+  margin: 1rem 0 0.35rem;
+  color: var(--ink);
+  font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.digest-official-source {
+  margin: 0.85rem 0 1.2rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(55, 91, 232, 0.16);
+  border-radius: 1rem;
+  background: rgba(245, 247, 255, 0.72);
+}
+
+.digest-official-source summary {
+  color: #315fd4;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.digest-official-source p {
+  margin: 0.7rem 0 0.45rem;
+  color: #3d4b63;
+  line-height: 1.55;
+}
+
+.digest-official-source small {
+  color: #7b8596;
+  font-size: 0.72rem;
+}
+
+.digest-official-source a {
+  color: #315fd4;
+  font-weight: 650;
+}
+
 .finance-overview {
   margin: 2rem 0 1.4rem;
   display: grid;
