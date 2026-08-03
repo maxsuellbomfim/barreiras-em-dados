@@ -30,6 +30,13 @@ const evidenceMigration = await readFile(
   ),
   "utf8",
 );
+const documentEvidenceMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260807030000_pncp_document_evidence_links.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(new URL("../../apps/web/lib/pncp-procurements.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url), "utf8");
 const optionsMigration = await readFile(
@@ -97,6 +104,16 @@ test("vinculos PNCP preservam metadados de evidencia sem dados sensiveis", () =>
   assert.match(evidenceMigration, /pncp-execution-links\/1\.1\.0/);
   assert.match(client, /evidenceCount/);
   assert.match(client, /startsWith\("https:\/\/"\)/);
+});
+
+test("documento filho oficial aparece sem abrir o Storage bruto", () => {
+  assert.match(documentEvidenceMigration, /get_pncp_execution_summary_base/);
+  assert.match(documentEvidenceMigration, /artifact_kind = 'document'/);
+  assert.match(documentEvidenceMigration, /document_source_url/);
+  assert.match(documentEvidenceMigration, /document_sha256/);
+  assert.match(documentEvidenceMigration, /document_preserved/);
+  assert.match(documentEvidenceMigration, /Storage bruto permanece privado/);
+  assert.match(client, /documentSourceUrl/);
 });
 
 test("sugestões de filtros vêm de opções PNCP preservadas", () => {

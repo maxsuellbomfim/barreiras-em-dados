@@ -31,6 +31,10 @@ export type ProcurementEvidence = Readonly<{
   retrievedAt: string;
   collectorVersion: string;
   parserVersion: string;
+  documentSourceUrl: string | null;
+  documentSha256: string | null;
+  documentRetrievedAt: string | null;
+  documentPreserved: boolean;
 }>;
 
 export type Procurement = Readonly<{
@@ -190,6 +194,18 @@ function parseExecutionSummary(value: unknown): ProcurementExecutionSummary | nu
       const retrievedAt = optionalString(item.retrieved_at);
       const collectorVersion = optionalString(item.collector_version);
       const parserVersion = optionalString(item.parser_version);
+      const documentSourceUrl = item.document_source_url === null || item.document_source_url === undefined
+        ? null
+        : optionalString(item.document_source_url);
+      const documentSha256 = item.document_sha256 === null || item.document_sha256 === undefined
+        ? null
+        : optionalString(item.document_sha256);
+      const documentRetrievedAt = item.document_retrieved_at === null || item.document_retrieved_at === undefined
+        ? null
+        : optionalString(item.document_retrieved_at);
+      const documentPreserved = item.document_preserved === undefined
+        ? documentSourceUrl !== null
+        : item.document_preserved === true;
       if (
         (entityType !== "contratacao" && entityType !== "contrato" && entityType !== "empenho" && entityType !== "liquidacao" && entityType !== "pagamento") ||
         rawRecordId === null ||
@@ -200,7 +216,10 @@ function parseExecutionSummary(value: unknown): ProcurementExecutionSummary | nu
         !/^[0-9a-f]{64}$/.test(sha256) ||
         retrievedAt === null ||
         collectorVersion === null ||
-        parserVersion === null
+        parserVersion === null ||
+        (documentSourceUrl !== null && !documentSourceUrl.startsWith("https://")) ||
+        (documentSha256 !== null && !/^[0-9a-f]{64}$/.test(documentSha256)) ||
+        (documentPreserved && documentSourceUrl === null)
       ) {
         return null;
       }
@@ -213,6 +232,10 @@ function parseExecutionSummary(value: unknown): ProcurementExecutionSummary | nu
         retrievedAt,
         collectorVersion,
         parserVersion,
+        documentSourceUrl,
+        documentSha256,
+        documentRetrievedAt,
+        documentPreserved,
       });
     }
   }
