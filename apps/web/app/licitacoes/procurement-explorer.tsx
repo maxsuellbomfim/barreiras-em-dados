@@ -1,7 +1,3 @@
-"use client";
-
-import { useMemo, useState } from "react";
-
 import type { Procurement } from "../../lib/pncp-procurements";
 
 const BARREIRAS_CNPJ = "13654405000195";
@@ -41,22 +37,6 @@ function pncpUrl(procurement: Procurement) {
     "https://pncp.gov.br/app/editais/" +
     `${BARREIRAS_CNPJ}/${procurement.ano}/${procurement.sequencial}`
   );
-}
-
-function searchableText(procurement: Procurement) {
-  return [
-    procurement.objeto,
-    procurement.unidade,
-    procurement.modalidade,
-    procurement.situacao,
-    ...procurement.resultados.flatMap((resultado) => [
-      resultado.fornecedor,
-      resultado.niFornecedor,
-    ]),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLocaleLowerCase("pt-BR");
 }
 
 function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>) {
@@ -238,139 +218,24 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
 export function ProcurementExplorer({
   procurements,
 }: Readonly<{ procurements: readonly Procurement[] }>) {
-  const [query, setQuery] = useState("");
-  const [mode, setMode] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [year, setYear] = useState("all");
-
-  const modes = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          procurements
-            .map((procurement) => procurement.modalidade)
-            .filter((value): value is string => value !== null),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [procurements],
-  );
-
-  const statuses = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          procurements
-            .map((procurement) => procurement.situacao)
-            .filter((value): value is string => value !== null),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [procurements],
-  );
-
-  const years = useMemo(
-    () =>
-      Array.from(new Set(procurements.map((procurement) => procurement.ano))).sort(
-        (a, b) => b - a,
-      ),
-    [procurements],
-  );
-
-  const filtered = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
-    return procurements.filter((procurement) => {
-      if (normalizedQuery && !searchableText(procurement).includes(normalizedQuery)) {
-        return false;
-      }
-      if (mode !== "all" && procurement.modalidade !== mode) {
-        return false;
-      }
-      if (status !== "all" && procurement.situacao !== status) {
-        return false;
-      }
-      if (year !== "all" && procurement.ano !== Number(year)) {
-        return false;
-      }
-      return true;
-    });
-  }, [mode, procurements, query, status, year]);
-
-  const loadedHomologatedTotal = filtered.reduce(
+  const loadedHomologatedTotal = procurements.reduce(
     (total, procurement) => total + (procurement.valorHomologado ?? 0),
     0,
   );
 
-  function clearFilters() {
-    setQuery("");
-    setMode("all");
-    setStatus("all");
-    setYear("all");
-  }
-
   return (
     <div className="procurement-explorer">
-      <form className="procurement-filters" aria-label="Filtrar contratações">
-        <label>
-          <span>Buscar</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="objeto, fornecedor ou unidade"
-          />
-        </label>
-        <label>
-          <span>Modalidade</span>
-          <select value={mode} onChange={(event) => setMode(event.target.value)}>
-            <option value="all">Todas</option>
-            {modes.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Situação</span>
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-          >
-            <option value="all">Todas</option>
-            {statuses.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Ano</span>
-          <select value={year} onChange={(event) => setYear(event.target.value)}>
-            <option value="all">Todos</option>
-            {years.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className="filter-clear" onClick={clearFilters}>
-          Limpar filtros
-        </button>
-      </form>
-
       <div className="procurement-summary" aria-live="polite">
         <strong>
-          {filtered.length} {filtered.length === 1 ? "registro" : "registros"}
+          {procurements.length} {procurements.length === 1 ? "registro" : "registros"} carregados
         </strong>
         <span>
           Soma dos valores homologados carregados: {currencyFormatter.format(loadedHomologatedTotal)}
         </span>
       </div>
-
-      {filtered.length > 0 ? (
+      {procurements.length > 0 ? (
         <div className="digest-grid">
-          {filtered.map((procurement) => (
+          {procurements.map((procurement) => (
             <ProcurementCard
               key={procurement.controlNumber}
               procurement={procurement}
@@ -380,15 +245,12 @@ export function ProcurementExplorer({
       ) : (
         <div className="collection-unavailable" role="status">
           <div>
-            <strong>Nenhum registro corresponde aos filtros</strong>
+            <strong>Nenhuma contratação corresponde aos filtros</strong>
             <p>
-              Ajuste a busca ou limpe os filtros. Isso não significa que não
-              existam contratações na fonte oficial.
+              Ajuste os campos no painel acima. Isso não significa que não existam
+              contratações na fonte oficial.
             </p>
           </div>
-          <button type="button" className="filter-clear" onClick={clearFilters}>
-            Mostrar todos
-          </button>
         </div>
       )}
     </div>

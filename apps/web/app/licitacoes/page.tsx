@@ -185,6 +185,10 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
             {hasFilters ? <a className="button-secondary" href="/licitacoes">Limpar</a> : null}
           </div>
         </form>
+        <p className="procurement-filter-note">
+          Use este único painel para pesquisar. Os resultados abaixo já vêm filtrados pela consulta
+          oficial preservada do PNCP.
+        </p>
 
         {hasFilters ? (
           <p className="procurement-filter-active" role="status">
