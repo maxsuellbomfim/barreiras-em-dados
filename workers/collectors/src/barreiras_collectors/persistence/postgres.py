@@ -53,6 +53,33 @@ class PostgresCollectionRepository:
     def __init__(self, connection_factory: Callable[[], DatabaseConnection]) -> None:
         self.connection_factory = connection_factory
 
+    def normalize_pncp_contracts(self, limit: int = 500) -> Mapping[str, Any]:
+        """Materializa contratos PNCP já preservados, sem inferir empenhos."""
+        if not 1 <= limit <= 5000:
+            raise ValueError("limit deve estar entre 1 e 5000")
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                row = connection.execute(
+                    """
+                    select procurements_inserted,
+                           suppliers_inserted,
+                           contracts_inserted,
+                           contracts_skipped
+                      from procurement.normalize_pncp_contracts(%s)
+                    """,
+                    (limit,),
+                ).fetchone()
+            if row is None:
+                raise PersistenceContractError(
+                    "A normalização PNCP não retornou métricas."
+                )
+            return row
+        finally:
+            connection.close()
+
     @classmethod
     def from_dsn(cls, database_url: str) -> PostgresCollectionRepository:
         if not database_url.strip():

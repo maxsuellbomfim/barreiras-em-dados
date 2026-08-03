@@ -87,3 +87,8 @@ jobs:
       - name: Preservar contratos e empenhos das contratações
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratos
+
+      - name: Normalizar contratos PNCP
+        run: >-
+          python -B -m barreiras_collectors.commands.normalize_pncp_contracts
+          --limit 500
