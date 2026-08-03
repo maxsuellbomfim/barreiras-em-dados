@@ -18,6 +18,19 @@ export type ProcurementExecutionSummary = Readonly<{
   committedAmount: number;
   liquidatedAmount: number;
   paidAmount: number;
+  evidenceCount: number;
+  evidence: readonly ProcurementEvidence[];
+}>;
+
+export type ProcurementEvidence = Readonly<{
+  entityType: "contratacao" | "contrato" | "empenho" | "liquidacao" | "pagamento";
+  rawRecordId: string;
+  recordType: string;
+  sourceUrl: string;
+  sha256: string;
+  retrievedAt: string;
+  collectorVersion: string;
+  parserVersion: string;
 }>;
 
 export type Procurement = Readonly<{
@@ -162,6 +175,51 @@ function parseExecutionSummary(value: unknown): ProcurementExecutionSummary | nu
   }
   const methodologyVersion = optionalString(row.methodology_version);
   if (methodologyVersion === null) return null;
+  const rawEvidence = row.evidence;
+  const evidence: ProcurementEvidence[] = [];
+  if (rawEvidence !== undefined) {
+    if (!Array.isArray(rawEvidence)) return null;
+    for (const candidate of rawEvidence) {
+      if (typeof candidate !== "object" || candidate === null) return null;
+      const item = candidate as Record<string, unknown>;
+      const entityType = item.entity_type;
+      const rawRecordId = optionalString(item.raw_record_id);
+      const recordType = optionalString(item.record_type);
+      const sourceUrl = optionalString(item.source_url);
+      const sha256 = optionalString(item.sha256);
+      const retrievedAt = optionalString(item.retrieved_at);
+      const collectorVersion = optionalString(item.collector_version);
+      const parserVersion = optionalString(item.parser_version);
+      if (
+        (entityType !== "contratacao" && entityType !== "contrato" && entityType !== "empenho" && entityType !== "liquidacao" && entityType !== "pagamento") ||
+        rawRecordId === null ||
+        recordType === null ||
+        sourceUrl === null ||
+        !sourceUrl.startsWith("https://") ||
+        sha256 === null ||
+        !/^[0-9a-f]{64}$/.test(sha256) ||
+        retrievedAt === null ||
+        collectorVersion === null ||
+        parserVersion === null
+      ) {
+        return null;
+      }
+      evidence.push({
+        entityType,
+        rawRecordId,
+        recordType,
+        sourceUrl,
+        sha256,
+        retrievedAt,
+        collectorVersion,
+        parserVersion,
+      });
+    }
+  }
+  const evidenceCount = row.evidence_count === undefined ? evidence.length : row.evidence_count;
+  if (!Number.isSafeInteger(evidenceCount) || Number(evidenceCount) !== evidence.length) {
+    return null;
+  }
   return {
     state,
     methodologyVersion,
@@ -173,6 +231,8 @@ function parseExecutionSummary(value: unknown): ProcurementExecutionSummary | nu
     committedAmount: Number(amounts[1]),
     liquidatedAmount: Number(amounts[2]),
     paidAmount: Number(amounts[3]),
+    evidenceCount: Number(evidenceCount),
+    evidence,
   };
 }
 
@@ -196,6 +256,8 @@ function parseProcurement(
           committedAmount: 0,
           liquidatedAmount: 0,
           paidAmount: 0,
+          evidenceCount: 0,
+          evidence: [],
         }
       : parseExecutionSummary(row.execution_summary);
   if (

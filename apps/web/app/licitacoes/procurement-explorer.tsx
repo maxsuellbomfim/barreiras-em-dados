@@ -26,6 +26,16 @@ function formatCount(value: number) {
   return value.toLocaleString("pt-BR");
 }
 
+function evidenceLabel(value: string) {
+  return {
+    contratacao: "Contratação",
+    contrato: "Contrato",
+    empenho: "Empenho",
+    liquidacao: "Liquidação",
+    pagamento: "Pagamento",
+  }[value] ?? value;
+}
+
 function pncpUrl(procurement: Procurement) {
   return (
     "https://pncp.gov.br/app/editais/" +
@@ -182,6 +192,26 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
           </p>
         )}
       </details>
+      {procurement.executionSummary.evidenceCount > 0 ? (
+        <details className="procurement-evidence">
+          <summary>
+            Evidências preservadas ({formatCount(procurement.executionSummary.evidenceCount)})
+          </summary>
+          <ul>
+            {procurement.executionSummary.evidence.map((evidence) => (
+              <li key={`${evidence.entityType}-${evidence.rawRecordId}`}>
+                <strong>{evidenceLabel(evidence.entityType)}</strong>{" · "}
+                <a href={evidence.sourceUrl} target="_blank" rel="noreferrer">
+                  fonte oficial
+                </a>
+                <span className="evidence-meta">
+                  {" · coleta "}{evidence.retrievedAt}{" · hash "}{evidence.sha256}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
       <p className="act-evidence">
         <a href={pncpUrl(procurement)} target="_blank" rel="noreferrer">
           Ver no PNCP (registro oficial)
