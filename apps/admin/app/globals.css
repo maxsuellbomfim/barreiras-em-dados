@@ -473,6 +473,90 @@ a:focus-visible {
   white-space: nowrap;
 }
 
+.section-heading-admin {
+  margin: 1.4rem 0 1rem;
+}
+
+.section-heading-admin h2 {
+  margin: 0.35rem 0 0.25rem;
+  font-size: 1.45rem;
+  letter-spacing: -0.035em;
+}
+
+.section-heading-admin p {
+  max-width: 48rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.eyebrow-admin {
+  color: var(--blue);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.finance-inventory-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 1rem 0;
+}
+
+.finance-inventory-stats > div {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--glass);
+}
+
+.finance-inventory-stats dt {
+  color: var(--faint);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.finance-inventory-stats dd {
+  margin: 0.25rem 0 0;
+  font-size: 1.55rem;
+  font-weight: 720;
+  letter-spacing: -0.04em;
+}
+
+.finance-inventory-title {
+  margin: 0.2rem 0 0.8rem;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.finance-inventory-error {
+  margin: 0.7rem 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.75rem;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.82rem;
+}
+
+.finance-status-published {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.finance-status-failed {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.finance-status-queued,
+.finance-status-preserved_only {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
 /* ---------- Conteúdo dos cartões ---------- */
 dl {
   display: grid;
@@ -683,6 +767,10 @@ article:nth-of-type(3) {
 
   .topbar-tag {
     display: none;
+  }
+
+  .finance-inventory-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   dl {

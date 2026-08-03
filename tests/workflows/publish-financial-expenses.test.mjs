@@ -12,7 +12,7 @@ const workflow = await readFile(
 
 test("workflow de despesas usa o publicador versionado e limite seguro", () => {
   assert.match(workflow, /publish_expense_reports/);
-  assert.match(workflow, /default: "1"/);
+  assert.match(workflow, /default: "5"/);
   assert.match(workflow, /--fiscal-year-from/);
   assert.match(workflow, /--fiscal-year-to/);
   assert.match(workflow, /--limit/);

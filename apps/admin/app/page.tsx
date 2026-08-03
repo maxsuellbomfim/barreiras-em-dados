@@ -61,6 +61,29 @@ type HistoryState =
 
 type TypeFilter = "todos" | "nomeacao" | "exoneracao";
 type DecisionFilter = "todas" | "approved" | "rejected";
+type AdminView = "fila" | "historico" | "financas";
+
+type FinanceInventoryItem = Readonly<{
+  document_id: string;
+  resource: string;
+  document_title: string;
+  document_url: string;
+  retrieved_at: string;
+  artifact_sha256: string;
+  byte_size: number;
+  source_record_key: string | null;
+  extraction_status: "published" | "failed" | "queued" | "preserved_only";
+  latest_job_status: string | null;
+  latest_error_code: string | null;
+  latest_error_detail: string | null;
+  published_rows: number;
+  methodology_version: string;
+}>;
+
+type FinanceInventoryState =
+  | Readonly<{ kind: "loading" }>
+  | Readonly<{ kind: "error"; message: string }>
+  | Readonly<{ kind: "ready"; items: readonly FinanceInventoryItem[] }>;
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {
   person_name: "Pessoa",
@@ -98,6 +121,113 @@ function payloadSearchText(
     .join(" ");
   return normalize(
     `${candidateLabel(candidateType)} ${values} ${payload.excerpt ?? ""}`,
+  );
+}
+
+function financeResourceLabel(resource: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    "pdc-receita-tributaria": "Receita tributária",
+    "pdc-recursos-extraordinarios": "Recursos extraordinários",
+    "pdc-resumo-execucao-da-receita": "Execução da receita",
+    "pdc-resumo-execucao-da-despesa": "Execução da despesa",
+    "pdc-transferencia": "Transferências",
+    "pdc-emendas-parlamentares-receitas": "Emendas e receitas",
+    rreo: "RREO",
+    rgf: "RGF",
+  };
+  return labels[resource] ?? resource;
+}
+
+function financeStatusLabel(status: FinanceInventoryItem["extraction_status"]): string {
+  if (status === "published") return "Publicado";
+  if (status === "failed") return "Falhou — revisar";
+  if (status === "queued") return "Na fila";
+  return "Preservado — ainda não processado";
+}
+
+function formatBytes(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return "—";
+  if (value < 1024 * 1024) return `${Math.round(value / 1024).toLocaleString("pt-BR")} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
+}
+
+function FinanceInventory({
+  state,
+  search,
+  onSearchChange,
+  onReload,
+}: Readonly<{
+  state: FinanceInventoryState;
+  search: string;
+  onSearchChange: (value: string) => void;
+  onReload: () => void;
+}>) {
+  const items = state.kind === "ready" ? state.items : [];
+  const normalizedSearch = normalize(search.trim());
+  const visible = items.filter((item) => {
+    if (!normalizedSearch) return true;
+    return normalize(
+      `${financeResourceLabel(item.resource)} ${item.document_title} ${item.document_url} ${item.latest_error_detail ?? ""}`,
+    ).includes(normalizedSearch);
+  });
+  const counts = items.reduce(
+    (summary, item) => ({ ...summary, [item.extraction_status]: summary[item.extraction_status] + 1 }),
+    { published: 0, failed: 0, queued: 0, preserved_only: 0 },
+  );
+
+  return (
+    <section aria-labelledby="finance-inventory-title">
+      <div className="section-heading-admin">
+        <span className="eyebrow-admin">Mapa do pipeline</span>
+        <h2 id="finance-inventory-title">Documentos financeiros</h2>
+        <p>
+          Inventário dos PDFs preservados no portal municipal. “Preservado” significa que a cópia existe, mas ainda não virou dado normalizado.
+        </p>
+      </div>
+      {state.kind === "loading" ? <p aria-live="polite">Carregando inventário…</p> : null}
+      {state.kind === "error" ? <p className="status-error" role="alert">O inventário não pôde ser carregado: {state.message}</p> : null}
+      {state.kind === "ready" ? (
+        <>
+          <dl className="finance-inventory-stats" aria-label="Resumo do inventário financeiro">
+            <div><dt>Preservados</dt><dd>{items.length.toLocaleString("pt-BR")}</dd></div>
+            <div><dt>Publicados</dt><dd>{counts.published.toLocaleString("pt-BR")}</dd></div>
+            <div><dt>Falhas</dt><dd>{counts.failed.toLocaleString("pt-BR")}</dd></div>
+            <div><dt>A processar</dt><dd>{(counts.preserved_only + counts.queued).toLocaleString("pt-BR")}</dd></div>
+          </dl>
+          <div className="toolbar">
+            <input
+              type="search"
+              aria-label="Buscar documento financeiro"
+              placeholder="Buscar por tipo, arquivo ou erro…"
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+            />
+            <button type="button" className="secondary" onClick={onReload}>Atualizar inventário</button>
+          </div>
+          <p className="result-count">Exibindo {visible.length.toLocaleString("pt-BR")} de {items.length.toLocaleString("pt-BR")} documentos</p>
+          {visible.length === 0 ? <div className="empty-state">Nenhum documento corresponde à busca.</div> : null}
+          {visible.map((item) => (
+            <article aria-label="Documento financeiro preservado" key={item.document_id}>
+              <div className="card-top">
+                <h3>{financeResourceLabel(item.resource)}</h3>
+                <span className={`badge finance-status-${item.extraction_status}`}>{financeStatusLabel(item.extraction_status)}</span>
+              </div>
+              <p className="finance-inventory-title">{item.document_title}</p>
+              <dl>
+                <div><dt>Coletado em</dt><dd>{new Date(item.retrieved_at).toLocaleString("pt-BR")}</dd></div>
+                <div><dt>Tamanho</dt><dd>{formatBytes(item.byte_size)}</dd></div>
+                <div><dt>Linhas publicadas</dt><dd>{item.published_rows.toLocaleString("pt-BR")}</dd></div>
+                <div><dt>Parser</dt><dd>{item.methodology_version}</dd></div>
+              </dl>
+              {item.latest_error_detail ? <p className="finance-inventory-error"><strong>{item.latest_error_code ?? "Falha"}:</strong> {item.latest_error_detail}</p> : null}
+              <p className="meta">
+                <a href={item.document_url} target="_blank" rel="noreferrer">Abrir PDF oficial</a> · hash {item.artifact_sha256.slice(0, 12)}…
+              </p>
+            </article>
+          ))}
+        </>
+      ) : null}
+    </section>
   );
 }
 
@@ -491,9 +621,12 @@ export default function ReviewQueuePage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueState>({ kind: "loading" });
   const [history, setHistory] = useState<HistoryState>({ kind: "loading" });
-  const [view, setView] = useState<"fila" | "historico">("fila");
+  const [view, setView] = useState<AdminView>("fila");
   const [deciding, setDeciding] = useState(false);
   const [search, setSearch] = useState("");
+  const [financeSearch, setFinanceSearch] = useState("");
+  const [financeInventory, setFinanceInventory] =
+    useState<FinanceInventoryState>({ kind: "loading" });
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("todos");
   const [decisionFilter, setDecisionFilter] =
     useState<DecisionFilter>("todas");
@@ -541,9 +674,25 @@ export default function ReviewQueuePage() {
     setHistory({ kind: "ready", items: (data ?? []) as HistoryItem[] });
   }, [supabase]);
 
+  const loadFinanceInventory = useCallback(async () => {
+    setFinanceInventory({ kind: "loading" });
+    const { data, error } = await supabase.rpc(
+      "get_finance_ingestion_inventory",
+      { page_size: 500, status_filter: null, resource_filter: null },
+    );
+    if (error) {
+      setFinanceInventory({ kind: "error", message: error.message });
+      return;
+    }
+    setFinanceInventory({
+      kind: "ready",
+      items: (data ?? []) as FinanceInventoryItem[],
+    });
+  }, [supabase]);
+
   const reloadAll = useCallback(async () => {
-    await Promise.all([loadQueue(), loadHistory()]);
-  }, [loadQueue, loadHistory]);
+    await Promise.all([loadQueue(), loadHistory(), loadFinanceInventory()]);
+  }, [loadQueue, loadHistory, loadFinanceInventory]);
 
   useEffect(() => {
     if (session) {
@@ -746,6 +895,17 @@ export default function ReviewQueuePage() {
             </button>
             <button
               type="button"
+              className={view === "financas" ? "tab tab-active" : "tab"}
+              aria-current={view === "financas" ? "page" : undefined}
+              onClick={() => setView("financas")}
+            >
+              Finanças
+              {financeInventory.kind === "ready"
+                ? ` (${financeInventory.items.length})`
+                : ""}
+            </button>
+            <button
+              type="button"
               className="secondary"
               onClick={() => void reloadAll()}
             >
@@ -753,7 +913,7 @@ export default function ReviewQueuePage() {
             </button>
           </nav>
 
-          <div className="toolbar">
+          {view !== "financas" ? <div className="toolbar">
             <input
               type="search"
               aria-label="Buscar por pessoa, cargo, órgão ou trecho"
@@ -789,9 +949,16 @@ export default function ReviewQueuePage() {
                 ))}
               </div>
             ) : null}
-          </div>
+          </div> : null}
 
-          {view === "fila" ? (
+          {view === "financas" ? (
+            <FinanceInventory
+              state={financeInventory}
+              search={financeSearch}
+              onSearchChange={setFinanceSearch}
+              onReload={() => void loadFinanceInventory()}
+            />
+          ) : view === "fila" ? (
             <>
               {queue.kind === "loading" ? (
                 <p aria-live="polite">Carregando fila…</p>

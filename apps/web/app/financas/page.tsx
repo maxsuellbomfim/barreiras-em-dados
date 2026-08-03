@@ -14,6 +14,10 @@ import {
   getPublicRevenues,
   type PublicRevenue,
 } from "../../lib/revenues";
+import {
+  getPublicMonthlyFinanceClosures,
+  type PublicMonthlyFinanceClosure,
+} from "../../lib/monthly-finance";
 
 export const revalidate = 300;
 
@@ -84,12 +88,29 @@ function formatMonthTitle(value: string): string {
   }).format(parsed);
 }
 
+function closureStatusLabel(status: PublicMonthlyFinanceClosure["closureStatus"]): string {
+  if (status === "operational") return "Fechamento operacional disponível";
+  if (status === "needs_review") return "Fechamento aguardando reconciliação";
+  return "Fechamento parcial";
+}
+
+function explainClosure(closure: PublicMonthlyFinanceClosure): string {
+  if (closure.closureStatus === "operational" && closure.operationalDifferenceAmount) {
+    const direction = closure.operationalDifferenceAmount.startsWith("-")
+      ? "ficou abaixo"
+      : "ficou acima";
+    return `A receita total declarada no relatório ${direction} dos pagamentos efetivados em ${formatMonthTitle(closure.periodEnd)}. Esta é uma diferença operacional, não uma conclusão de superávit ou déficit fiscal.`;
+  }
+  return closure.coverageNote;
+}
+
 export default async function FinancesPage() {
-  const [expensesResult, expenseLinesResult, revenuesResult, documentsResult] = await Promise.all([
+  const [expensesResult, expenseLinesResult, revenuesResult, documentsResult, monthlyResult] = await Promise.all([
     getPublicExpenseReports(),
     getPublicExpenseLines(),
     getPublicRevenues(),
     getPublicFinanceDocuments(),
+    getPublicMonthlyFinanceClosures(),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -99,6 +120,8 @@ export default async function FinancesPage() {
     revenuesResult.state === "available" ? revenuesResult.revenues : [];
   const documents =
     documentsResult.state === "available" ? documentsResult.documents : [];
+  const monthlyClosures =
+    monthlyResult.state === "available" ? monthlyResult.closures : [];
   const sortedRevenues = sortNewest(revenues, "revenueDate");
   const sortedDocuments = sortNewest(documents, "referenceDate");
   const sortedExpenseReports = [...expenseReports].sort((left, right) =>
@@ -179,6 +202,68 @@ export default async function FinancesPage() {
           </div>
           <span className="finance-status-pill">Resultado fiscal: aguardando base comparável</span>
         </section>
+
+        {monthlyClosures.length > 0 ? (
+          <section aria-labelledby="monthly-closure-title" className="monthly-closure-section">
+            <div className="section-heading compact">
+              <span className="eyebrow">Fechamento do mês</span>
+              <h2 id="monthly-closure-title">Uma leitura única das contas</h2>
+              <p>
+                Cada cartão reúne a receita declarada e os pagamentos do mesmo mês.
+                O resultado é calculado por código e só aparece quando as fontes têm
+                cobertura comparável.
+              </p>
+            </div>
+            <div className="digest-grid">
+              {monthlyClosures.map((closure) => (
+                <article className="digest-card monthly-closure-card" key={closure.closureId}>
+                  <div className="track-top">
+                    <span>{closure.publicBodyName}</span>
+                    <span className={`finance-closure-badge finance-closure-${closure.closureStatus}`}>
+                      {closureStatusLabel(closure.closureStatus)}
+                    </span>
+                  </div>
+                  <h3 className="procurement-object finance-month-title">
+                    {formatMonthTitle(closure.periodEnd)}
+                  </h3>
+                  <p className="finance-period-note">
+                    Competência: {formatDate(closure.periodStart)} a {formatDate(closure.periodEnd)}
+                  </p>
+                  <div className="monthly-closure-reading">
+                    <strong>Comentário do mês</strong>
+                    <p>{explainClosure(closure)}</p>
+                  </div>
+                  <dl className="procurement-values finance-key-values">
+                    <div className="finance-positive-value">
+                      <dt>Receita declarada no relatório<small>não é soma das linhas hierárquicas</small></dt>
+                      <dd>{closure.revenueReportAmount ? formatBrlDecimal(closure.revenueReportAmount) : "não disponível"}</dd>
+                    </div>
+                    <div className="finance-negative-value">
+                      <dt>Pagamentos efetivados<small>dinheiro que saiu do caixa</small></dt>
+                      <dd>{closure.expensePaidAmount ? formatBrlDecimal(closure.expensePaidAmount) : "não disponível"}</dd>
+                    </div>
+                    <div>
+                      <dt>Diferença operacional<small>receita declarada menos pagamentos</small></dt>
+                      <dd>{closure.operationalDifferenceAmount ? formatBrlDecimal(closure.operationalDifferenceAmount) : "aguardando reconciliação"}</dd>
+                    </div>
+                  </dl>
+                  <details className="finance-details">
+                    <summary>Ver cobertura e memória de cálculo</summary>
+                    <p className="finance-details-note">{closure.coverageNote}</p>
+                    <dl className="procurement-values">
+                      <div><dt>Relatórios de receita usados</dt><dd>{closure.revenueReportCount.toLocaleString("pt-BR")}</dd></div>
+                      <div><dt>Linhas de receita preservadas</dt><dd>{closure.revenueLineCount.toLocaleString("pt-BR")}</dd></div>
+                      <div><dt>Relatórios de despesa usados</dt><dd>{closure.expenseReportCount.toLocaleString("pt-BR")}</dd></div>
+                      {closure.expenseCommittedAmount ? <div><dt>Empenhado no período</dt><dd>{formatBrlDecimal(closure.expenseCommittedAmount)}</dd></div> : null}
+                      {closure.expenseLiquidatedAmount ? <div><dt>Liquidado no período</dt><dd>{formatBrlDecimal(closure.expenseLiquidatedAmount)}</dd></div> : null}
+                    </dl>
+                    <p className="act-evidence">Metodologia determinística: {closure.calculationMethodology}. Receita usa o total declarado por documento; despesas usam o pagamento efetivado do relatório publicado.</p>
+                  </details>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {sortedExpenseReports.length > 0 ? (
           <section aria-labelledby="expense-title">

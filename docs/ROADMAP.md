@@ -178,6 +178,13 @@ Portais locais, SICONFI e TCM-BA:
 Estado atual: contrato determinístico de receita e projeção pública segura
 preparados; persistência normalizada e reconciliação de amostra ainda pendentes.
 
+Próxima fatia em execução: fechamento mensal operacional, com receita no nível
+do total declarado por documento e pagamentos no nível do relatório validado;
+inventário interno dos PDFs preservados, filas, falhas e publicações; e
+comentário assistido somente depois que os números determinísticos estiverem
+fechados. Empréstimos e dívidas terão entidade e evidência próprias, sem
+inferência automática a partir de uma linha fiscal.
+
 Gate:
 
 - unidade/escala contábil verificadas;
