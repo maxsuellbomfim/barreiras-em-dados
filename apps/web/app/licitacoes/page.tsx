@@ -40,10 +40,26 @@ function parseYear(value: string | undefined): number | undefined {
 }
 
 function optionsFor(
-  options: readonly { optionType: string; value: string; procurementCount: number }[],
+  options: readonly {
+    optionType: string;
+    value: string;
+    variantCount: number;
+    procurementCount: number;
+  }[],
   optionType: string,
 ) {
   return options.filter((option) => option.optionType === optionType).slice(0, 50);
+}
+
+function optionLabel(option: {
+  value: string;
+  procurementCount: number;
+  variantCount?: number;
+}): string {
+  const variants = option.variantCount && option.variantCount > 1
+    ? `, ${option.variantCount} variações de grafia`
+    : "";
+  return `${option.value} (${option.procurementCount}${variants})`;
 }
 
 function supplierSignalKind(supplier: PublicSupplierConcentration): "attention" | "monitoring" | "summary" {
@@ -142,7 +158,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
             <input list="pncp-modalidades" name="modalidade" defaultValue={filters.modality ?? ""} placeholder="Ex.: Dispensa" />
             <datalist id="pncp-modalidades">
               {optionsFor(filterOptions, "modalidade").map((option) => (
-                <option key={option.value} value={option.value} label={`${option.value} (${option.procurementCount})`} />
+                <option key={option.value} value={option.value} label={optionLabel(option)} />
               ))}
             </datalist>
           </label>
@@ -151,7 +167,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
             <input list="pncp-situacoes" name="situacao" defaultValue={filters.status ?? ""} placeholder="Ex.: Suspensa" />
             <datalist id="pncp-situacoes">
               {optionsFor(filterOptions, "situacao").map((option) => (
-                <option key={option.value} value={option.value} label={`${option.value} (${option.procurementCount})`} />
+                <option key={option.value} value={option.value} label={optionLabel(option)} />
               ))}
             </datalist>
           </label>
@@ -160,7 +176,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
             <input list="pncp-orgaos" name="orgao" defaultValue={filters.unit ?? ""} placeholder="Ex.: MUNICIPIO DE BARREIRAS-BA" />
             <datalist id="pncp-orgaos">
               {optionsFor(filterOptions, "orgao").map((option) => (
-                <option key={option.value} value={option.value} label={`${option.value} (${option.procurementCount})`} />
+                <option key={option.value} value={option.value} label={optionLabel(option)} />
               ))}
             </datalist>
           </label>

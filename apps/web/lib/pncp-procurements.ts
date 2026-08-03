@@ -29,6 +29,8 @@ export type ProcurementsResult =
 export type ProcurementFilterOption = Readonly<{
   optionType: "modalidade" | "situacao" | "orgao";
   value: string;
+  variantCount: number;
+  variants: readonly string[];
   procurementCount: number;
 }>;
 
@@ -58,10 +60,18 @@ function optionalNumber(value: unknown): number | null {
 function parseFilterOption(row: Record<string, unknown>): ProcurementFilterOption | null {
   const optionType = row.option_type;
   const value = optionalString(row.option_value);
+  const variants = row.variants;
+  const variantValues = Array.isArray(variants)
+    ? variants.filter((variant): variant is string => typeof variant === "string" && variant.trim().length > 0)
+    : [];
+  const variantCount = row.variant_count;
   const count = row.procurement_count;
   if (
     (optionType !== "modalidade" && optionType !== "situacao" && optionType !== "orgao") ||
     value === null ||
+    !Number.isSafeInteger(variantCount) ||
+    Number(variantCount) < 1 ||
+    variantValues.length !== Number(variantCount) ||
     !Number.isSafeInteger(count) ||
     Number(count) < 1
   ) {
@@ -70,6 +80,8 @@ function parseFilterOption(row: Record<string, unknown>): ProcurementFilterOptio
   return {
     optionType,
     value,
+    variantCount: Number(variantCount),
+    variants: variantValues,
     procurementCount: Number(count),
   };
 }
@@ -216,7 +228,7 @@ export async function getPncpProcurementFilterOptions(): Promise<ProcurementFilt
 
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_pncp_procurement_filter_options`,
+      `${supabaseUrl}/rest/v1/rpc/get_pncp_procurement_filter_options_normalized`,
       {
         method: "POST",
         headers: {
