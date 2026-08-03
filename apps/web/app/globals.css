@@ -1862,6 +1862,11 @@ footer {
   color: #8b5f11;
 }
 
+.supplier-signal-monitoring {
+  background: rgba(20, 122, 85, 0.12);
+  color: #147a55;
+}
+
 .supplier-signal-summary {
   background: rgba(55, 91, 232, 0.1);
   color: #334a9e;

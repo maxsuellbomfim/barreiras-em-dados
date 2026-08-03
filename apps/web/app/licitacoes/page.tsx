@@ -26,8 +26,17 @@ function formatShare(value: string): string {
     : "não calculado";
 }
 
+function supplierSignalKind(supplier: PublicSupplierConcentration): "attention" | "monitoring" | "summary" {
+  if (supplier.attentionSignal) return "attention";
+  if (supplier.procurementCount === 1 && Number(supplier.awardedShare) >= 0.5) return "monitoring";
+  return "summary";
+}
+
 function supplierSignalLabel(supplier: PublicSupplierConcentration): string {
-  return supplier.attentionSignal ? "merece contexto" : "resumo";
+  const kind = supplierSignalKind(supplier);
+  if (kind === "attention") return "merece contexto";
+  if (kind === "monitoring") return "acompanhar histórico";
+  return "resumo";
 }
 
 export default async function ProcurementsPage() {
@@ -100,7 +109,7 @@ export default async function ProcurementsPage() {
                     <article className="supplier-concentration-card" key={supplier.supplierKey}>
                       <div className="track-top">
                         <span>{supplier.supplierType === "PJ" ? "Pessoa jurídica" : "Fornecedor"}</span>
-                        <span className={`supplier-signal-badge ${supplier.attentionSignal ? "supplier-signal-attention" : "supplier-signal-summary"}`}>
+                        <span className={`supplier-signal-badge supplier-signal-${supplierSignalKind(supplier)}`}>
                           {supplierSignalLabel(supplier)}
                         </span>
                       </div>
