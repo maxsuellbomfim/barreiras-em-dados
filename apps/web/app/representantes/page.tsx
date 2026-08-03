@@ -518,7 +518,6 @@ export default async function RepresentativesPage() {
               </>
             )}
           </section> */}
-          </section>
           <div className="collection-unavailable" role="note">
             <div>
               <strong>Atos públicos ficam em uma página própria</strong>
