@@ -9,6 +9,7 @@ from datetime import date
 
 from barreiras_docproc.canonical import CanonicalTextError
 
+from ..revenue_publication import RevenuePublicationError
 from ..revenue_publisher import (
     ArtifactMismatchError,
     PostgresRevenuePublicationRepository,
@@ -79,7 +80,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     for artifact in artifacts:
         try:
             result = publisher.publish(artifact)
-        except (ArtifactMismatchError, CanonicalTextError, ValueError) as error:
+        except (
+            ArtifactMismatchError,
+            CanonicalTextError,
+            RevenuePublicationError,
+            ValueError,
+        ) as error:
             needs_review += 1
             repository.record_failure(
                 artifact,
