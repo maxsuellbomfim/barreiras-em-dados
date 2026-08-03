@@ -10,6 +10,7 @@ const workflow = await readFile(
 test("workflow PNCP preserva contratos/empenhos depois de itens e resultados", () => {
   assert.match(workflow, /collect_pncp_itens/);
   assert.match(workflow, /collect_pncp_contratos/);
+  assert.match(workflow, /normalize_pncp_contracts/);
   assert.match(workflow, /PERSISTENCE_MODE: postgres-supabase/);
   assert.match(workflow, /SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts/);
 });
