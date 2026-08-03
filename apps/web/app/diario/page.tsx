@@ -57,6 +57,7 @@ function ItemRow({ item }: Readonly<{ item: DigestItem }>) {
 }
 
 function DigestCard({ digest }: Readonly<{ digest: EditionDigest }>) {
+  const officialDate = digest.officialDate ?? digest.editionDate;
   return (
     <article className="digest-card" aria-label="Resumo de edição">
       <div className="track-top">
@@ -65,16 +66,37 @@ function DigestCard({ digest }: Readonly<{ digest: EditionDigest }>) {
           {digest.editionYear}
         </span>
         <span className="track-status">
-          {digest.editionDate
+          {officialDate
             ? `Publicada em ${new Intl.DateTimeFormat("pt-BR", {
                 day: "2-digit",
                 month: "short",
                 year: "numeric",
                 timeZone: "America/Bahia",
-              }).format(new Date(`${digest.editionDate}T12:00:00-03:00`))}`
+              }).format(new Date(`${officialDate}T12:00:00-03:00`))}`
             : "Data da edição não informada"}
         </span>
       </div>
+      {digest.officialTitle ? (
+        <h2 className="digest-card-title">{digest.officialTitle}</h2>
+      ) : null}
+      {digest.officialSummary ? (
+        <details className="digest-official-source">
+          <summary>Resumo oficial da Prefeitura</summary>
+          <p>{digest.officialSummary}</p>
+          <small>
+            Texto transcrito do catálogo oficial, sem interpretação.
+            {digest.officialPublicationUrl ? (
+              <a
+                href={digest.officialPublicationUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Abrir publicação oficial
+              </a>
+            ) : null}
+          </small>
+        </details>
+      ) : null}
       <p className="digest-card-meta">
         {digest.items.length} {digest.items.length === 1 ? "item" : "itens"}
         {digest.partial ? " · resumo parcial" : ""}

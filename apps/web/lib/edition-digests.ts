@@ -10,6 +10,10 @@ export type EditionDigest = Readonly<{
   edition: number;
   editionYear: number;
   editionDate: string | null;
+  officialTitle: string | null;
+  officialSummary: string | null;
+  officialDate: string | null;
+  officialPublicationUrl: string | null;
   items: readonly DigestItem[];
   partial: boolean;
   gazetteUrl: string | null;
@@ -76,6 +80,23 @@ function parseDigest(row: Record<string, unknown>): EditionDigest | null {
     typeof row.edition_date === "string" && ISO_DATE.test(row.edition_date)
       ? row.edition_date
       : null;
+  const officialTitle =
+    typeof row.official_title === "string" && row.official_title.trim()
+      ? row.official_title.trim()
+      : null;
+  const officialSummary =
+    typeof row.official_summary === "string" && row.official_summary.trim()
+      ? row.official_summary.trim()
+      : null;
+  const officialDate =
+    typeof row.official_date === "string" && ISO_DATE.test(row.official_date)
+      ? row.official_date
+      : null;
+  const officialPublicationUrl =
+    typeof row.official_publication_url === "string" &&
+    row.official_publication_url.startsWith("https://")
+      ? row.official_publication_url
+      : null;
   const publishedAt = row.published_at;
   const artifactSha256 = row.artifact_sha256;
   const reviewMode = row.review_mode;
@@ -101,7 +122,8 @@ function parseDigest(row: Record<string, unknown>): EditionDigest | null {
     items === null ||
     items.length === 0 ||
     row.methodology_version !== "edition-digests/1.0.0" &&
-    row.methodology_version !== "edition-digests/1.1.0"
+    row.methodology_version !== "edition-digests/1.1.0" &&
+    row.methodology_version !== "edition-digests/1.2.0"
   ) {
     return null;
   }
@@ -110,6 +132,10 @@ function parseDigest(row: Record<string, unknown>): EditionDigest | null {
     edition: Number(edition),
     editionYear: Number(editionYear),
     editionDate,
+    officialTitle,
+    officialSummary,
+    officialDate,
+    officialPublicationUrl,
     items,
     partial: stats.partial === true,
     gazetteUrl,

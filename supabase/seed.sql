@@ -188,7 +188,7 @@ values (
   '00000000-0000-4000-8000-000000000004',
   'barreiras-diario-oficial',
   'Diário Oficial do Município de Barreiras',
-  'Edições oficiais em PDF publicadas pela Prefeitura, coletadas direto da origem.',
+  'Edições oficiais em PDF e catálogo estruturado publicados pela Prefeitura.',
   'official',
   true,
   'https://barreiras.ba.gov.br/diario-oficial/',

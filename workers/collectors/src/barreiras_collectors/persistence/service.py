@@ -9,7 +9,16 @@ from typing import Any
 from ..connectors.direct_diary import ENDPOINT_CODE, SOURCE_CODE, DirectEdition
 from ..connectors.gazette_documents import CollectedDocument
 from ..connectors.municipal_transparency import MunicipalTransparencyPage
-from ..connectors.querido_diario import CollectedPage
+from ..connectors.official_diary_catalog import (
+    ENDPOINT_CODE as OFFICIAL_CATALOG_ENDPOINT_CODE,
+)
+from ..connectors.official_diary_catalog import (
+    SOURCE_CODE as OFFICIAL_CATALOG_SOURCE_CODE,
+)
+from ..connectors.official_diary_catalog import (
+    OfficialCatalogSnapshot,
+)
+from ..connectors.querido_diario import CollectedPage, GazettePage
 from .models import (
     ArtifactIntegrityError,
     DirectEditionBatch,
@@ -28,6 +37,7 @@ PARSER_VERSION = "querido-diario-gazette-page/1.0.0"
 RECORD_TYPE = "querido_diario_gazette"
 DOCUMENT_EXTENSIONS = {"pdf": "pdf", "txt": "txt"}
 DIRECT_COLLECTOR_VERSION = "barreiras-diario-collector/0.1.0"
+OFFICIAL_CATALOG_COLLECTOR_VERSION = "barreiras-diario-catalog-collector/1.0.0"
 PNCP_COLLECTOR_VERSION = "pncp-registry-collector/0.1.0"
 PNCP_CONTRATACAO_PARSER_VERSION = "pncp-contratacao-page/1.0.0"
 CAMARA_COLLECTOR_VERSION = "camara-federal-collector/0.1.0"
@@ -44,6 +54,138 @@ MUNICIPAL_TRANSPARENCY_PARSER_VERSION = "municipal-transparency-page/1.0.0"
 PNCP_ITEM_PARSER_VERSION = "pncp-item-page/1.0.0"
 PNCP_RESULTADO_PARSER_VERSION = "pncp-resultado-page/1.0.0"
 PNCP_CONTRATO_PARSER_VERSION = "pncp-contrato-page/1.0.0"
+
+
+class OfficialDiaryCatalogPersistenceService:
+    """Preserva o catálogo HTML e seus registros estruturados por edição."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, snapshot: OfficialCatalogSnapshot) -> PersistenceResult:
+        actual_hash = hashlib.sha256(snapshot.raw_body).hexdigest()
+        if (
+            actual_hash != snapshot.body_sha256
+            or len(snapshot.raw_body) != snapshot.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "O catálogo oficial não corresponde aos metadados informados."
+            )
+        object_key = (
+            "barreiras-diario/catalog/sha256/"
+            f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.html"
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=snapshot.raw_body,
+            content_type=snapshot.media_type,
+            expected_sha256=snapshot.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if hashlib.sha256(restored).hexdigest() != snapshot.body_sha256:
+            raise ArtifactIntegrityError(
+                "O catálogo oficial restaurado diverge do bruto coletado."
+            )
+
+        records: list[RawRecordInput] = []
+        for index, publication in enumerate(snapshot.publications):
+            payload = {
+                "edition": publication.edition_number,
+                "title": publication.title,
+                "summary": publication.summary,
+                "date": publication.published_date,
+                "reference": publication.reference,
+                "publication_url": publication.publication_url,
+                "summary_url": publication.summary_url,
+                "catalog_url": snapshot.final_url,
+            }
+            payload_hash = hashlib.sha256(self._canonical_json(payload)).hexdigest()
+            source_key = (
+                f"barreiras-diario:publication:{publication.edition_number}:"
+                f"{publication.published_date}"
+            )
+            records.append(
+                RawRecordInput(
+                    source_record_key=source_key,
+                    record_type="barreiras_diario_publication",
+                    record_index=index,
+                    payload=payload,
+                    payload_sha256=payload_hash,
+                    parser_version="barreiras-diario-catalog/1.0.0",
+                    idempotency_key=self._digest(
+                        f"official-diary-record:{source_key}:{payload_hash}"
+                    ),
+                )
+            )
+
+        page = CollectedPage(
+            schema_name="barreiras-diario-catalog",
+            schema_version="1.0.0",
+            source_code=OFFICIAL_CATALOG_SOURCE_CODE,
+            endpoint_code=OFFICIAL_CATALOG_ENDPOINT_CODE,
+            idempotency_key=self._digest(
+                f"official-diary-catalog:{snapshot.body_sha256}"
+            ),
+            request_url=snapshot.request_url,
+            final_url=snapshot.final_url,
+            requested_at=snapshot.requested_at,
+            received_at=snapshot.received_at,
+            attempts=snapshot.attempts,
+            http_status=snapshot.http_status,
+            collection_status="succeeded",
+            body_sha256=snapshot.body_sha256,
+            body_size_bytes=snapshot.body_size_bytes,
+            media_type=snapshot.media_type,
+            response_headers=self._safe_headers(snapshot.response_headers),
+            cursor={"offset": 0, "size": len(records)},
+            raw_body=snapshot.raw_body,
+            parsed=GazettePage(
+                total_gazettes=len(records),
+                gazettes=(),
+                source_extensions={"catalog": True},
+            ),
+        )
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,
+                object_key=object_key,
+                artifact_idempotency_key=self._digest(
+                    f"official-diary-artifact:{snapshot.body_sha256}"
+                ),
+                collector_version=OFFICIAL_CATALOG_COLLECTOR_VERSION,
+                parser_version="barreiras-diario-catalog/1.0.0",
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=snapshot.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+    @staticmethod
+    def _canonical_json(value: object) -> bytes:
+        return json.dumps(
+            value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+
+    @staticmethod
+    def _digest(value: str) -> str:
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _safe_headers(headers: dict[str, str] | Any) -> dict[str, str]:
+        blocked = {"authorization", "cookie", "set-cookie"}
+        return {
+            str(key): str(value)
+            for key, value in headers.items()
+            if str(key).lower() not in blocked
+        }
 
 
 class PncpContratacoesPersistenceService:

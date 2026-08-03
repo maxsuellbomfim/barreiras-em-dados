@@ -43,6 +43,18 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | SPU | imóveis da União em Barreiras | P4 | fonte territorial; não é patrimônio privado |
 | CNJ/DataJud | metadados processuais sem partes no schema público | bloqueada | gate jurídico |
 
+## Catálogo oficial do Diário de Barreiras
+
+- catálogo: `https://pmbarreiras.diariomtransparente.com.br/publicacoes`;
+- publicação individual: `/publicacao?referencia=<id>`;
+- o catálogo informa edição, título, resumo e data; esses campos não são
+  inferidos do PDF;
+- o HTML é preservado como `raw.raw_artifact` por SHA-256 e cada publicação
+  como `barreiras_diario_publication`, permitindo corrigir a projeção sem
+  alterar o histórico bruto;
+- o resumo da Prefeitura e a explicação assistida por IA são exibidos
+  separadamente no portal.
+
 ## Querido Diário
 
 - API base: `https://api.queridodiario.ok.org.br`;
