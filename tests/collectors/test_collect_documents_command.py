@@ -12,8 +12,7 @@ from barreiras_collectors.connectors.gazette_documents import (
     GazetteDocumentClient,
 )
 from barreiras_collectors.connectors.querido_diario import QueridoDiarioClient
-from barreiras_collectors.http import HttpResponse
-from barreiras_collectors.http import ResponseTooLargeError
+from barreiras_collectors.http import HttpResponse, ResponseTooLargeError
 
 ROOT = Path(__file__).parents[2]
 FIXTURE_PATH = ROOT / "fixtures" / "sources" / "querido_diario" / "gazettes-page-1.json"

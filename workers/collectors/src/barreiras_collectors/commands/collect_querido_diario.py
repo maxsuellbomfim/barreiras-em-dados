@@ -14,6 +14,7 @@ from ..connectors.gazette_documents import (
     SourceUnavailableError,
 )
 from ..connectors.querido_diario import QueridoDiarioClient
+from ..http import ResponseTooLargeError
 from ..logging import log_event
 from ..persistence.filesystem import FilesystemCollectionRepository
 from ..persistence.postgres import PostgresCollectionRepository
@@ -22,7 +23,6 @@ from ..persistence.storage import (
     FilesystemArtifactObjectStore,
     SupabaseStorageObjectStore,
 )
-from ..http import ResponseTooLargeError
 from ..resilience import CircuitOpenError, RetryPolicy
 from ..settings import CollectorSettings, PersistenceSettings
 
