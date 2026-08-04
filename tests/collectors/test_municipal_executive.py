@@ -65,3 +65,31 @@ class MunicipalExecutiveParserTests(unittest.TestCase):
             page_html="<div class='content'><p>Conteúdo sem responsável.</p></div>",
         )
         self.assertEqual(profiles, ())
+
+    def test_separates_prefeito_and_vice_biographies(self):
+        page = """
+        <div class='content'>
+          <h2>Prefeito</h2>
+          <h2 class='panel-title'><strong>OTONIEL NASCIMENTO TEIXEIRA</strong></h2>
+          <p>Biografia do prefeito.</p>
+          <h2>Vice-prefeito</h2>
+          <h2 class='panel-title'><strong>TÚLIO MACHADO VIANA</strong></h2>
+          <p>Biografia do vice.</p>
+        </div><div class='clear'></div>
+        """
+        prefeito = parse_official_page(
+            role="prefeito",
+            department="",
+            url="https://barreiras.ba.gov.br/prefeito-e-vice/",
+            page_html=page,
+        )[0]
+        vice = parse_official_page(
+            role="vice-prefeito",
+            department="",
+            url="https://barreiras.ba.gov.br/prefeito-e-vice/",
+            page_html=page,
+        )[0]
+        self.assertIn("Biografia do prefeito", prefeito["source_excerpt"])
+        self.assertNotIn("Biografia do vice", prefeito["source_excerpt"])
+        self.assertIn("Biografia do vice", vice["source_excerpt"])
+        self.assertNotIn("Biografia do prefeito", vice["source_excerpt"])
