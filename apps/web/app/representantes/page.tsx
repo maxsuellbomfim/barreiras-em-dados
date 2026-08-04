@@ -221,6 +221,41 @@ function StateRepresentativeCard({
         projeção. A presença na Assembleia não é tratada como representação
         exclusiva do município.
       </p>
+      {person.education || person.professionalActivity || person.electiveMandate || person.parliamentaryActivity ? (
+        <details className="person-biography">
+          <summary>Biografia oficial publicada pela ALBA</summary>
+          <dl className="person-facts">
+            {person.education ? (
+              <div>
+                <dt>Formação educacional</dt>
+                <dd>{person.education}</dd>
+              </div>
+            ) : null}
+            {person.professionalActivity ? (
+              <div>
+                <dt>Atividade profissional</dt>
+                <dd>{person.professionalActivity}</dd>
+              </div>
+            ) : null}
+            {person.electiveMandate ? (
+              <div>
+                <dt>Mandato eletivo</dt>
+                <dd>{person.electiveMandate}</dd>
+              </div>
+            ) : null}
+            {person.parliamentaryActivity ? (
+              <div>
+                <dt>Atividade parlamentar</dt>
+                <dd>{person.parliamentaryActivity}</dd>
+              </div>
+            ) : null}
+          </dl>
+          <p className="person-source-note">
+            Texto transcrito da página individual da ALBA; não é avaliação do
+            mandato nem verificação independente das declarações.
+          </p>
+        </details>
+      ) : null}
       <p className="act-evidence">
         <a href={person.profileUrl} target="_blank" rel="noreferrer">
           Perfil oficial na ALBA

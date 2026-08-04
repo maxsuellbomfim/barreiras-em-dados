@@ -74,7 +74,11 @@ class ParseDeputiesTests(unittest.TestCase):
         )
 
     def test_profile_accepts_only_official_photo_host(self) -> None:
-        html = '<meta property="og:image" content="/fserver/fotos/Modelo.jpg">'
+        html = (
+            '<meta property="og:image" content="/fserver/fotos/Modelo.jpg">'
+            '<div class="linha-cv"><strong>Formação Educacional</strong>'
+            '<span>Direito pela Universidade Modelo.</span></div>'
+        )
         payload = parse_profile(
             html,
             identifier="900002",
@@ -84,6 +88,10 @@ class ParseDeputiesTests(unittest.TestCase):
         self.assertEqual(
             payload["foto_url"],
             "https://www.al.ba.gov.br/fserver/fotos/Modelo.jpg",
+        )
+        self.assertEqual(
+            payload["formacao_educacional"],
+            "Direito pela Universidade Modelo.",
         )
 
     def test_profile_discards_external_photo(self) -> None:
