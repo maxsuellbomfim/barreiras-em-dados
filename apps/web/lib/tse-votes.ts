@@ -81,39 +81,54 @@ export async function getTseBarreirasVotes(): Promise<TseVotesResult> {
     return { state: "unavailable" };
   }
 
+  const pageSize = 500;
+  const maxPages = 20;
+  const votes: TseVote[] = [];
+
   try {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_tse_barreiras_votes`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Accept-Profile": "api",
-          apikey: publishableKey,
-          "Content-Profile": "api",
-          "Content-Type": "application/json",
+    for (let pageNumber = 0; pageNumber < maxPages; pageNumber += 1) {
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/rpc/get_tse_barreiras_votes_page`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Accept-Profile": "api",
+            apikey: publishableKey,
+            "Content-Profile": "api",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            page_size: pageSize,
+            page_offset: pageNumber * pageSize,
+          }),
+          next: { revalidate: 900 },
+          signal: AbortSignal.timeout(10_000),
         },
-        body: JSON.stringify({ page_size: 500 }),
-        next: { revalidate: 900 },
-        signal: AbortSignal.timeout(5_000),
-      },
-    );
-    if (!response.ok) {
-      return { state: "unavailable" };
-    }
-    const payload = await response.json();
-    if (!Array.isArray(payload)) {
-      return { state: "unavailable" };
-    }
-    const votes: TseVote[] = [];
-    for (const row of payload) {
-      const vote = parseVote(row as Record<string, unknown>);
-      if (vote === null) {
+      );
+      if (!response.ok) {
         return { state: "unavailable" };
       }
-      votes.push(vote);
+      const payload = await response.json();
+      if (!Array.isArray(payload)) {
+        return { state: "unavailable" };
+      }
+      for (const row of payload) {
+        const vote = parseVote(row as Record<string, unknown>);
+        if (vote === null) {
+          return { state: "unavailable" };
+        }
+        votes.push(vote);
+      }
+      if (payload.length < pageSize) {
+        return { state: "available", votes };
+      }
     }
-    return { state: "available", votes };
+
+    // A hard cap prevents an unexpectedly large source from making the page
+    // unbounded. Returning unavailable is explicit; it never presents a
+    // silently truncated election history as complete.
+    return { state: "unavailable" };
   } catch {
     return { state: "unavailable" };
   }
