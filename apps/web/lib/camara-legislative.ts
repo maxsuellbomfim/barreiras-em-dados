@@ -19,6 +19,13 @@ export type CamaraLegislativeResult =
   | Readonly<{ state: "available"; items: readonly CamaraLegislativeItem[] }>
   | Readonly<{ state: "unavailable" }>;
 
+export type CamaraLegislativePage = Readonly<{
+  items: readonly CamaraLegislativeItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}>;
+
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
@@ -51,6 +58,55 @@ function parseItem(row: Record<string, unknown>): CamaraLegislativeItem | null {
     collectedAt,
     methodologyVersion,
   };
+}
+
+function publicConfig(): { url: string; key: string } | null {
+  const url = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const key = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (!url || !key || !url.startsWith("https://") || !key.startsWith("sb_publishable_")) return null;
+  return { url, key };
+}
+
+async function fetchPage(page: number, pageSize: number): Promise<CamaraLegislativePage | null> {
+  const config = publicConfig();
+  if (!config || !Number.isSafeInteger(page) || page < 1 || page > 1000) return null;
+  const response = await fetch(`${config.url}/rest/v1/rpc/get_camara_legislative_page`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Accept-Profile": "api",
+      apikey: config.key,
+      "Content-Profile": "api",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ page_size: pageSize, page_offset: (page - 1) * pageSize }),
+    next: { revalidate: 900 },
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) return null;
+  const payload = await response.json();
+  if (!Array.isArray(payload)) return null;
+  const items: CamaraLegislativeItem[] = [];
+  let totalCount = 0;
+  for (const row of payload) {
+    const parsed = parseItem(row as Record<string, unknown>);
+    const rawTotal = (row as Record<string, unknown>).total_count;
+    if (parsed === null || (typeof rawTotal !== "number" && typeof rawTotal !== "string")) return null;
+    const numericTotal = Number(rawTotal);
+    if (!Number.isSafeInteger(numericTotal) || numericTotal < 0) return null;
+    totalCount = numericTotal;
+    items.push(parsed);
+  }
+  return { items, totalCount, page, pageSize };
+}
+
+export async function getCamaraLegislativePage(page = 1, pageSize = 50): Promise<CamaraLegislativePage | null> {
+  if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) return null;
+  try {
+    return await fetchPage(page, pageSize);
+  } catch {
+    return null;
+  }
 }
 
 export async function getCamaraLegislativeItems(): Promise<CamaraLegislativeResult> {

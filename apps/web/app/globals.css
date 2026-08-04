@@ -1642,6 +1642,35 @@ footer {
   text-align: right;
 }
 
+.legislative-pagination {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 1.5rem 0 0;
+}
+
+.legislative-pagination > :last-child { justify-self: end; }
+
+.legislative-pagination > span:not(:empty) {
+  color: #758094;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+@media (max-width: 620px) {
+  .legislative-pagination {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .legislative-pagination > span:not(:empty) {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .legislative-pagination > :last-child { justify-self: end; }
+}
+
 .acts-explorer > .collection-unavailable {
   margin-top: 0;
 }

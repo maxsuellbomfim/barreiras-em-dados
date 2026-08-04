@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { getCamaraLegislativeItems } from "../../lib/camara-legislative";
+import { getCamaraLegislativePage } from "../../lib/camara-legislative";
 import { CamaraLawsExplorer } from "./laws-explorer";
 
 export const revalidate = 900;
@@ -11,8 +11,17 @@ export const metadata: Metadata = {
     "Leis e registros legislativos de Barreiras preservados a partir da API oficial da Câmara Municipal.",
 };
 
-export default async function CamaraPage() {
-  const result = await getCamaraLegislativeItems();
+function pageNumber(value: unknown): number {
+  const parsed = typeof value === "string" ? Number(value) : 1;
+  return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 1000 ? parsed : 1;
+}
+
+export default async function CamaraPage({
+  searchParams,
+}: Readonly<{ searchParams: Promise<{ page?: string }> }>) {
+  const params = await searchParams;
+  const page = pageNumber(params.page);
+  const result = await getCamaraLegislativePage(page, 50);
   return (
     <main>
       <header className="site-header">
@@ -35,7 +44,7 @@ export default async function CamaraPage() {
             quando a fonte a informa; nenhuma associação é feita por semelhança de nome.
           </p>
         </div>
-        {result.state === "unavailable" ? (
+        {!result ? (
           <div className="collection-unavailable" role="status">
             <div>
               <strong>Atividade legislativa temporariamente indisponível</strong>
@@ -50,7 +59,12 @@ export default async function CamaraPage() {
             </div>
           </div>
         ) : (
-          <CamaraLawsExplorer items={result.items} />
+          <CamaraLawsExplorer
+            items={result.items}
+            totalCount={result.totalCount}
+            page={result.page}
+            pageSize={result.pageSize}
+          />
         )}
         <p className="hero-note">
           Fonte: <a href="https://portaldatransparencia.cmbarreiras.ba.gov.br/dados-abertos/" target="_blank" rel="noreferrer">Portal de dados abertos da Câmara</a>. Encontrou erro? <a href="https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/camara&labels=correcao" target="_blank" rel="noreferrer">Abra uma correção pública</a>.
