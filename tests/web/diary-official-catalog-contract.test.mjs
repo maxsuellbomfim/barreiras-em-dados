@@ -57,3 +57,8 @@ test("edições recentes aparecem pelo catálogo antes do PDF integral", () => {
   assert.match(diaryPage, /Explicação detalhada ainda não disponível/);
   assert.match(diaryPage, /catalogOnlyEntries/);
 });
+
+test("links do catálogo público são aceitos somente em HTTPS", () => {
+  assert.match(catalogClient, /function optionalHttpsUrl/);
+  assert.match(catalogClient, /startsWith\("https:\/\/"\)/);
+});
