@@ -17,7 +17,9 @@ jobs:
   collect:
     name: Preservar representantes federais
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The ALBA profile pass takes about 11 minutes and the TSE 2022 archive
+    # is roughly 556 MB; leave room for download, extraction and persistence.
+    timeout-minutes: 45
     env:
       APP_ENV: production
       LOG_LEVEL: INFO
