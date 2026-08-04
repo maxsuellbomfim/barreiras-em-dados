@@ -194,9 +194,22 @@ function StateRepresentativeCard({
   return (
     <article className="person-card" aria-label="Deputado estadual">
       <div className="person-head">
-        <span className="person-photo person-photo-initials" aria-hidden="true">
-          {initials}
-        </span>
+        {person.photoUrl ? (
+          // Foto oficial preservada a partir da página individual da ALBA.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            className="person-photo"
+            src={person.photoUrl}
+            alt=""
+            width={72}
+            height={96}
+            loading="lazy"
+          />
+        ) : (
+          <span className="person-photo person-photo-initials" aria-hidden="true">
+            {initials}
+          </span>
+        )}
         <div>
           <h2>{person.displayName}</h2>
           <p className="person-role">Deputado(a) estadual da Bahia</p>
@@ -214,11 +227,12 @@ function StateRepresentativeCard({
         </a>{" "}
         · coletado em {dateFormatter.format(new Date(person.collectedAt))}
       </p>
-      <p className="person-source-note">
-        A listagem pública coletada informa nome e perfil oficial. A foto não é
-        reproduzida enquanto não houver uma imagem vinculada e preservada pela
-        própria fonte.
-      </p>
+      {!person.photoUrl ? (
+        <p className="person-source-note">
+          A página individual consultada não publicou uma imagem oficial
+          preservável para este perfil.
+        </p>
+      ) : null}
     </article>
   );
 }

@@ -2,6 +2,7 @@ export type StateRepresentative = Readonly<{
   externalId: string;
   displayName: string;
   profileUrl: string;
+  photoUrl: string | null;
   collectedAt: string;
   methodologyVersion: string;
 }>;
@@ -23,6 +24,7 @@ function parseRepresentative(
   const externalId = optionalString(row.external_id);
   const displayName = optionalString(row.display_name);
   const profileUrl = optionalString(row.profile_url);
+  const photoUrl = optionalString(row.photo_url);
   const collectedAt = optionalString(row.collected_at);
   if (
     externalId === null ||
@@ -32,9 +34,10 @@ function parseRepresentative(
     !/^https:\/\/www\.al\.ba\.gov\.br\/deputados\/deputado-estadual\/\d+$/.test(
       profileUrl,
     ) ||
+    (photoUrl !== null && !/^https:\/\/www\.al\.ba\.gov\.br\/fserver\//.test(photoUrl)) ||
     collectedAt === null ||
     Number.isNaN(Date.parse(collectedAt)) ||
-    row.methodology_version !== "state-representatives/alba/1.0.0"
+    row.methodology_version !== "state-representatives/alba/1.1.0"
   ) {
     return null;
   }
@@ -42,8 +45,9 @@ function parseRepresentative(
     externalId,
     displayName,
     profileUrl,
+    photoUrl,
     collectedAt,
-    methodologyVersion: "state-representatives/alba/1.0.0",
+    methodologyVersion: "state-representatives/alba/1.1.0",
   };
 }
 

@@ -20,6 +20,7 @@ import time
 import unicodedata
 from collections.abc import Callable
 from datetime import UTC, datetime
+from urllib.parse import urljoin
 
 from ..http import HttpTransport, UrllibTransport
 from ..logging import log_event
@@ -34,6 +35,9 @@ DEPUTIES_URL = "https://www.al.ba.gov.br/deputados/deputados-estaduais"
 PROFILE_BASE = "https://www.al.ba.gov.br/deputados/deputado-estadual/"
 TIMEOUT_SECONDS = 30.0
 PARSER_VERSION = "alba-deputados/1.0.0"
+PROFILE_ENDPOINT_CODE = "deputado-estadual-profile-html"
+PROFILE_PARSER_VERSION = "alba-deputado-profile/1.0.0"
+PROFILE_DELAY_SECONDS = 5.0
 # A casa tem 63 cadeiras; um número muito menor indica página truncada.
 MIN_EXPECTED = 40
 
@@ -41,6 +45,15 @@ _OPTION = re.compile(
     r"<option[^>]+value=['\"]/deputados/deputado-estadual/(\d+)['\"][^>]*>"
     r"\s*(?:<span[^>]*>)?\s*([^<]{2,120}?)\s*(?:</span>)?\s*</option>",
     re.IGNORECASE | re.DOTALL,
+)
+
+_OG_IMAGE = re.compile(
+    r"<meta[^>]+property=['\"]og:image['\"][^>]+content=['\"]([^'\"]+)['\"]",
+    re.IGNORECASE,
+)
+_IMAGE_SRC = re.compile(
+    r"<img[^>]+src=['\"]([^'\"]+)['\"]",
+    re.IGNORECASE,
 )
 
 
@@ -65,6 +78,131 @@ def parse_deputies(page_html: str) -> tuple[dict, ...]:
     return tuple(
         sorted(seen.values(), key=lambda item: item["nome"].casefold())
     )
+
+
+def parse_profile(
+    page_html: str,
+    *,
+    identifier: str,
+    profile_url: str,
+    display_name: str,
+) -> dict:
+    """Extrai apenas a foto oficial, sem inferir biografia ou vínculo municipal."""
+    photo_url = None
+    image_sources = [
+        match.group(1) for match in _OG_IMAGE.finditer(page_html)
+    ] + [match.group(1) for match in _IMAGE_SRC.finditer(page_html)]
+    for image_source in image_sources:
+        candidate = urljoin(profile_url, html.unescape(image_source).strip())
+        if (
+            candidate.startswith("https://www.al.ba.gov.br/")
+            and "/fserver/" in candidate
+        ):
+            photo_url = candidate
+            break
+    return {
+        "id_alba": identifier,
+        "nome": display_name,
+        "perfil_url": profile_url,
+        "foto_url": photo_url,
+    }
+
+
+def fetch_profile(
+    deputy: dict,
+    *,
+    transport: HttpTransport | None = None,
+    retry_policy: RetryPolicy | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    logger: logging.Logger | None = None,
+) -> PncpPage:
+    """Preserva uma página individual da ALBA como artefato independente."""
+    identifier = deputy.get("id_alba")
+    profile_url = deputy.get("perfil_url")
+    display_name = deputy.get("nome")
+    if (
+        not isinstance(identifier, str)
+        or not identifier.isdigit()
+        or not isinstance(profile_url, str)
+        or not profile_url.startswith(PROFILE_BASE)
+        or not isinstance(display_name, str)
+    ):
+        raise AlbaError("Registro estadual inválido para consulta de perfil.")
+
+    active_transport = transport or UrllibTransport(ALLOWED_HOSTS)
+    policy = retry_policy or RetryPolicy(max_attempts=4)
+    log = logger or logging.getLogger(__name__)
+    for attempt in range(1, policy.max_attempts + 1):
+        requested_at = datetime.now(UTC).isoformat()
+        response = active_transport.get(
+            profile_url,
+            headers={
+                "Accept": "text/html",
+                "User-Agent": "BarreirasEmDados-Collector/0.1",
+            },
+            timeout_seconds=TIMEOUT_SECONDS,
+            max_body_bytes=8 * 1024 * 1024,
+        )
+        received_at = datetime.now(UTC).isoformat()
+        log_event(
+            log,
+            logging.INFO,
+            "collector_http_response",
+            source=SOURCE_CODE,
+            endpoint=PROFILE_ENDPOINT_CODE,
+            identifier=identifier,
+            status=response.status,
+            attempt=attempt,
+            body_size_bytes=len(response.body),
+        )
+        if response.status == 200:
+            try:
+                page_html = response.body.decode("utf-8")
+            except UnicodeDecodeError:
+                page_html = response.body.decode("latin-1")
+            payload = parse_profile(
+                page_html,
+                identifier=identifier,
+                profile_url=profile_url,
+                display_name=display_name,
+            )
+            body_sha256 = hashlib.sha256(response.body).hexdigest()
+            return PncpPage(
+                schema_name="alba-deputado-estadual-profile",
+                schema_version="1.0.0",
+                source_code=SOURCE_CODE,
+                endpoint_code=PROFILE_ENDPOINT_CODE,
+                idempotency_key=hashlib.sha256(
+                    json.dumps(
+                        {"url": profile_url, "body_sha256": body_sha256},
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode()
+                ).hexdigest(),
+                request_url=profile_url,
+                final_url=response.final_url,
+                requested_at=requested_at,
+                received_at=received_at,
+                attempts=attempt,
+                http_status=response.status,
+                collection_status="success",
+                body_sha256=body_sha256,
+                body_size_bytes=len(response.body),
+                media_type="text/html",
+                response_headers={},
+                cursor={"offset": 0, "size": 1},
+                raw_body=response.body,
+                window_start=None,
+                window_end=None,
+                items=(payload,),
+                total_paginas=1,
+                total_registros=1,
+            )
+        if response.status not in RETRYABLE:
+            raise AlbaError(f"A ALBA respondeu HTTP {response.status} no perfil.")
+        if attempt < policy.max_attempts:
+            sleep(policy.delay(attempt, 0.5))
+    raise AlbaError(f"A ALBA ficou indisponível no perfil {identifier}.")
 
 
 def fetch_deputies(

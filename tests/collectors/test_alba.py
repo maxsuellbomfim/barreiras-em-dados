@@ -8,6 +8,7 @@ from barreiras_collectors.connectors.alba import (
     AlbaError,
     fetch_deputies,
     parse_deputies,
+    parse_profile,
 )
 from barreiras_collectors.http import HttpResponse
 from barreiras_collectors.resilience import RetryPolicy
@@ -71,6 +72,29 @@ class ParseDeputiesTests(unittest.TestCase):
             [item["nome"] for item in deputies],
             ["Beltrana Modelo", "Fulano de Tal Exemplo", "Sicrano Terceiro"],
         )
+
+    def test_profile_accepts_only_official_photo_host(self) -> None:
+        html = '<meta property="og:image" content="/fserver/fotos/Modelo.jpg">'
+        payload = parse_profile(
+            html,
+            identifier="900002",
+            profile_url="https://www.al.ba.gov.br/deputados/deputado-estadual/900002",
+            display_name="Beltrana Modelo",
+        )
+        self.assertEqual(
+            payload["foto_url"],
+            "https://www.al.ba.gov.br/fserver/fotos/Modelo.jpg",
+        )
+
+    def test_profile_discards_external_photo(self) -> None:
+        html = '<meta property="og:image" content="https://example.com/foto.jpg">'
+        payload = parse_profile(
+            html,
+            identifier="900002",
+            profile_url="https://www.al.ba.gov.br/deputados/deputado-estadual/900002",
+            display_name="Beltrana Modelo",
+        )
+        self.assertIsNone(payload["foto_url"])
 
 
 class FetchDeputiesTests(unittest.TestCase):
