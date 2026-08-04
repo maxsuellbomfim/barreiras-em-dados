@@ -37,7 +37,10 @@ RETRYABLE = frozenset({408, 425, 429, 500, 502, 503, 504})
 BARREIRAS_TSE_CODE = "33634"
 STATE_CODE = "BA"
 TIMEOUT_SECONDS = 120.0
-MAX_PACKAGE_BYTES = 512 * 1024 * 1024
+# The 2022 national archive is currently about 556 MB. Keep headroom for
+# normal growth while still bounding memory use for an intentionally large
+# upstream response.
+MAX_PACKAGE_BYTES = 640 * 1024 * 1024
 PARSER_VERSION = "tse-votacao-munzona/1.0.0"
 
 # Colunas exigidas: ausência é falha explícita, não coluna vazia.
