@@ -1,5 +1,5 @@
 export type RepresentativeVote = Readonly<{
-  sourceKind: "federal" | "state";
+  sourceKind: "federal" | "state" | "municipal" | "executive";
   representativeExternalId: string;
   electionYear: number;
   turnNumber: number;
@@ -15,6 +15,8 @@ export type RepresentativeVote = Readonly<{
   collectedAt: string;
   evidenceUrl: string;
   matchMethod: string;
+  voteScope: "person" | "ticket";
+  scopeNote: string;
   methodologyVersion: string;
 }>;
 
@@ -41,9 +43,14 @@ function parseVote(row: Record<string, unknown>): RepresentativeVote | null {
   const zones = parseInteger(row.zones);
   const collectedAt = optionalString(row.collected_at);
   const evidenceUrl = optionalString(row.evidence_url);
+  const voteScope = optionalString(row.vote_scope);
+  const scopeNote = optionalString(row.scope_note);
   const methodologyVersion = optionalString(row.methodology_version);
   if (
-    (sourceKind !== "federal" && sourceKind !== "state") ||
+    sourceKind !== "federal" &&
+    sourceKind !== "state" &&
+    sourceKind !== "municipal" &&
+    sourceKind !== "executive" ||
     representativeExternalId === null ||
     electionYear === null ||
     electionYear < 1900 ||
@@ -59,8 +66,12 @@ function parseVote(row: Record<string, unknown>): RepresentativeVote | null {
     Number.isNaN(Date.parse(collectedAt)) ||
     evidenceUrl === null ||
     !evidenceUrl.startsWith("https://") ||
-    methodologyVersion !== "representative-tse-crosswalk/1.0.0" ||
-    row.match_method !== "exact_ballot_name_party_office"
+    (methodologyVersion !== "representative-tse-crosswalk/1.0.0" &&
+      methodologyVersion !== "representative-tse-crosswalk/1.1.0") ||
+    (row.match_method !== "exact_ballot_name_party_office" &&
+      row.match_method !== "reviewed_official_alias") ||
+    (voteScope !== "person" && voteScope !== "ticket") ||
+    scopeNote === null
   ) {
     return null;
   }
@@ -80,7 +91,9 @@ function parseVote(row: Record<string, unknown>): RepresentativeVote | null {
     zones,
     collectedAt,
     evidenceUrl,
-    matchMethod: "exact_ballot_name_party_office",
+    matchMethod: String(row.match_method),
+    voteScope,
+    scopeNote,
     methodologyVersion,
   };
 }
