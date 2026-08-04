@@ -108,14 +108,19 @@ jobs:
           --page-size 100
 
       - name: Coletar edições diretas do Diário
+        # A sonda direta e o catálogo oficial atualizam a janela recente.
+        # O backfill não deve repetir essas chamadas várias vezes por dia.
+        if: steps.window.outputs.mode != 'backfill'
         run: >-
           python -B -m barreiras_collectors.commands.collect_direct_diary
 
       - name: Preservar catálogo oficial do Diário
+        if: steps.window.outputs.mode != 'backfill'
         run: >-
           python -B -m barreiras_collectors.commands.collect_official_diary_catalog
 
       - name: OCR das páginas escaneadas
+        if: steps.window.outputs.mode != 'backfill'
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
         run: >-
@@ -124,6 +129,7 @@ jobs:
 
       - name: Extrair candidatos determinísticos
         id: extract
+        if: steps.window.outputs.mode != 'backfill'
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
         run: >-
@@ -131,6 +137,7 @@ jobs:
           --limit 30
 
       - name: Sugerir campos e resumos com IA assistida
+        if: steps.window.outputs.mode != 'backfill'
         # Defesa em profundidade: o comando já degrada sozinho, mas um
         # provedor instável nunca pode derrubar a coleta nem a publicação.
         continue-on-error: true
@@ -145,6 +152,7 @@ jobs:
           --limit 25
 
       - name: Publicar candidatos verificados por código (ADR 0012)
+        if: steps.window.outputs.mode != 'backfill'
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
         run: >-
@@ -152,6 +160,7 @@ jobs:
           --limit 20
 
       - name: Resumir edições com âncoras verificadas (ADR 0013)
+        if: steps.window.outputs.mode != 'backfill'
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
