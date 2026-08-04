@@ -215,6 +215,34 @@ class ActFieldExtractionTests(unittest.TestCase):
         payload = fields_payload(fields)
         self.assertTrue(payload["multiple_persons_detected"])
 
+    def test_keeps_people_from_numbered_list_in_same_act(self) -> None:
+        text = (
+            "RESOLVE: NOMEAR 1. Maria da Silva, para o cargo de Assessora; "
+            "2. Joana Pereira Santos, para o cargo de Coordenadora."
+        )
+
+        fields = fields_for(text)
+
+        self.assertEqual(
+            [person.value for person in fields.person_names],
+            ["Maria da Silva", "Joana Pereira Santos"],
+        )
+        payload = fields_payload(fields)
+        self.assertTrue(payload["multiple_persons_detected"])
+
+    def test_keeps_people_from_repeated_position_clauses(self) -> None:
+        text = (
+            "RESOLVE: NOMEAR Maria da Silva, para o cargo de Assessora, e "
+            "Joana Pereira Santos, para o cargo de Coordenadora."
+        )
+
+        fields = fields_for(text)
+
+        self.assertEqual(
+            [person.value for person in fields.person_names],
+            ["Maria da Silva", "Joana Pereira Santos"],
+        )
+
     def test_missing_fields_are_explicit_not_guessed(self) -> None:
         text = "Art. 1° - NOMEAR os candidatos conforme anexo único.\n"
 
