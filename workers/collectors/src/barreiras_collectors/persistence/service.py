@@ -57,7 +57,11 @@ PNCP_CONTRATO_PARSER_VERSION = "pncp-contrato-page/1.0.0"
 
 
 def executive_record_idempotency_key(
-    *, profile_key: str, payload_sha256: str, page_body_sha256: str
+    *,
+    profile_key: str,
+    payload_sha256: str,
+    page_body_sha256: str,
+    parser_version: str,
 ) -> str:
     """Identifica um perfil dentro de uma captura bruta específica.
 
@@ -68,7 +72,7 @@ def executive_record_idempotency_key(
     return hashlib.sha256(
         (
             "executive-profile:"
-            f"{page_body_sha256}:{profile_key}:{payload_sha256}"
+            f"{parser_version}:{page_body_sha256}:{profile_key}:{payload_sha256}"
         ).encode()
     ).hexdigest()
 
@@ -832,6 +836,7 @@ class MunicipalExecutivePersistenceService:
                         profile_key=profile_key,
                         payload_sha256=payload_sha256,
                         page_body_sha256=page.body_sha256,
+                        parser_version=EXECUTIVE_PARSER_VERSION,
                     ),
                 )
             )

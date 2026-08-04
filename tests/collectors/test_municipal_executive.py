@@ -12,20 +12,31 @@ class MunicipalExecutiveParserTests(unittest.TestCase):
             profile_key="prefeito:https://barreiras.ba.gov.br/prefeito-e-vice/:otoniel",
             payload_sha256="a" * 64,
             page_body_sha256="b" * 64,
+            parser_version="barreiras-executive-pages/1.1.1",
         )
         replay = executive_record_idempotency_key(
             profile_key="prefeito:https://barreiras.ba.gov.br/prefeito-e-vice/:otoniel",
             payload_sha256="a" * 64,
             page_body_sha256="b" * 64,
+            parser_version="barreiras-executive-pages/1.1.1",
         )
         next_snapshot = executive_record_idempotency_key(
             profile_key="prefeito:https://barreiras.ba.gov.br/prefeito-e-vice/:otoniel",
             payload_sha256="a" * 64,
             page_body_sha256="c" * 64,
+            parser_version="barreiras-executive-pages/1.1.1",
         )
 
         self.assertEqual(first, replay)
         self.assertNotEqual(first, next_snapshot)
+
+        next_parser = executive_record_idempotency_key(
+            profile_key="prefeito:https://barreiras.ba.gov.br/prefeito-e-vice/:otoniel",
+            payload_sha256="a" * 64,
+            page_body_sha256="b" * 64,
+            parser_version="barreiras-executive-pages/1.1.2",
+        )
+        self.assertNotEqual(first, next_parser)
 
     def test_parses_prefeito_and_photo_from_official_block(self):
         page = """
