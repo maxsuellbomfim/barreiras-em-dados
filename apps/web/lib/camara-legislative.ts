@@ -26,6 +26,11 @@ export type CamaraLegislativePage = Readonly<{
   pageSize: number;
 }>;
 
+export type CamaraLegislativeAuthorSummary = Readonly<{
+  authorName: string;
+  itemCount: number;
+}>;
+
 export type CamaraLegislativeFilters = Readonly<{
   query?: string | null;
   kind?: "lei" | "indicacao" | null;
@@ -120,6 +125,46 @@ export async function getCamaraLegislativePage(page = 1, pageSize = 50, filters:
     return await fetchPage(page, pageSize, filters);
   } catch {
     return null;
+  }
+}
+
+export async function getCamaraLegislativeAuthorSummary(filters: CamaraLegislativeFilters = {}): Promise<readonly CamaraLegislativeAuthorSummary[]> {
+  const config = publicConfig();
+  if (!config) return [];
+  try {
+    const response = await fetch(`${config.url}/rest/v1/rpc/get_camara_legislative_author_summary`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Profile": "api",
+        apikey: config.key,
+        "Content-Profile": "api",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        item_kind_filter: filters.kind ?? null,
+        year_filter: filters.year ?? null,
+        author_filter: filters.author?.trim() || null,
+        query_filter: filters.query?.trim() || null,
+      }),
+      next: { revalidate: 900 },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return [];
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return [];
+    const summaries: CamaraLegislativeAuthorSummary[] = [];
+    for (const row of payload) {
+      const record = row as Record<string, unknown>;
+      const authorName = optionalString(record.author_name);
+      const rawCount = record.item_count;
+      const itemCount = typeof rawCount === "number" || typeof rawCount === "string" ? Number(rawCount) : NaN;
+      if (!authorName || !Number.isSafeInteger(itemCount) || itemCount < 1) return [];
+      summaries.push({ authorName, itemCount });
+    }
+    return summaries;
+  } catch {
+    return [];
   }
 }
 

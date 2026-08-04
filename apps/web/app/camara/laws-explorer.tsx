@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 
-import type { CamaraLegislativeFilters, CamaraLegislativeItem } from "../../lib/camara-legislative";
+import type { CamaraLegislativeAuthorSummary, CamaraLegislativeFilters, CamaraLegislativeItem } from "../../lib/camara-legislative";
 
 function formatDate(value: string | null): string {
   if (!value || Number.isNaN(Date.parse(value))) return "data não informada";
@@ -30,23 +30,19 @@ function LegislativeCard({ item }: Readonly<{ item: CamaraLegislativeItem }>) {
   );
 }
 
-export function CamaraLawsExplorer({ items, totalCount, page, pageSize, initialFilters }: Readonly<{
+export function CamaraLawsExplorer({ items, totalCount, page, pageSize, initialFilters, authorSummary }: Readonly<{
   items: readonly CamaraLegislativeItem[];
   totalCount: number;
   page: number;
   pageSize: number;
   initialFilters: CamaraLegislativeFilters;
+  authorSummary: readonly CamaraLegislativeAuthorSummary[];
 }>) {
   const [query, setQuery] = useState(initialFilters.query ?? "");
   const [year, setYear] = useState(initialFilters.year?.toString() ?? "");
   const [kind, setKind] = useState<"all" | "lei" | "indicacao">(initialFilters.kind ?? "all");
   const [author, setAuthor] = useState(initialFilters.author ?? "");
   const filtered = items;
-  const byAuthor = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of filtered) if (item.authorName) counts.set(item.authorName, (counts.get(item.authorName) ?? 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")).slice(0, 8);
-  }, [filtered]);
   function filterQuery(targetPage?: number): string {
     const params = new URLSearchParams();
     const normalizedQuery = query.trim().slice(0, 200);
@@ -76,7 +72,7 @@ export function CamaraLawsExplorer({ items, totalCount, page, pageSize, initialF
         <button type="button" className="filter-clear" onClick={clearFilters}>Limpar filtros</button>
       </form>
       <div className="acts-filter-summary" aria-live="polite"><strong>{filtered.length.toLocaleString("pt-BR")} nesta página · {totalCount.toLocaleString("pt-BR")} no recorte filtrado</strong><span>Os filtros são aplicados no servidor sobre todo o acervo. A página mostra até {pageSize} registros por vez.</span></div>
-      {byAuthor.length > 0 ? <section className="legislative-author-summary" aria-label="Registros por autoria"><div><strong>Autoria publicada</strong><span>Amostra determinística desta página</span></div><div className="legislative-author-bars">{byAuthor.map(([name, count]) => <button type="button" key={name} onClick={() => { setAuthor(name); window.location.assign(authorQuery(name)); }} title={`Filtrar por ${name}`}><span>{name}</span><b style={{ "--bar-size": `${Math.max(8, Math.round((count / byAuthor[0][1]) * 100))}%` } as CSSProperties}>{count.toLocaleString("pt-BR")}</b></button>)}</div></section> : null}
+      {authorSummary.length > 0 ? <section className="legislative-author-summary" aria-label="Registros por autoria"><div><strong>Autoria publicada</strong><span>Contagem global no recorte atual</span></div><div className="legislative-author-bars">{authorSummary.slice(0, 8).map((summary) => <button type="button" key={summary.authorName} onClick={() => { setAuthor(summary.authorName); window.location.assign(authorQuery(summary.authorName)); }} title={`Filtrar por ${summary.authorName}`}><span>{summary.authorName}</span><b style={{ "--bar-size": `${Math.max(8, Math.round((summary.itemCount / authorSummary[0].itemCount) * 100))}%` } as CSSProperties}>{summary.itemCount.toLocaleString("pt-BR")}</b></button>)}</div></section> : null}
       {filtered.length > 0 ? <div className="digest-grid">{filtered.map((item) => <LegislativeCard key={`${item.itemKind}-${item.itemId}`} item={item} />)}</div> : <div className="collection-unavailable" role="status"><div><strong>Nenhum registro neste recorte</strong><p>Altere os filtros ou limpe a busca para consultar todo o acervo.</p></div><button type="button" className="filter-clear" onClick={clearFilters}>Limpar filtros</button></div>}
       {totalCount > pageSize ? <nav className="legislative-pagination" aria-label="Paginação da atividade legislativa">{page > 1 ? <a className="filter-clear" href={filterQuery(page - 1)}>← Mais recentes</a> : <span />}{<span>Página {page} de {Math.ceil(totalCount / pageSize).toLocaleString("pt-BR")}</span>}{page * pageSize < totalCount ? <a className="filter-clear" href={filterQuery(page + 1)}>Registros anteriores →</a> : <span />}</nav> : null}
     </div>

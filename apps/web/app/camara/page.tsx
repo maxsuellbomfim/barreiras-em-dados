@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { getCamaraLegislativePage, type CamaraLegislativeFilters } from "../../lib/camara-legislative";
+import { getCamaraLegislativeAuthorSummary, getCamaraLegislativePage, type CamaraLegislativeFilters } from "../../lib/camara-legislative";
 import { CamaraLawsExplorer } from "./laws-explorer";
 
 export const revalidate = 900;
@@ -35,7 +35,10 @@ export default async function CamaraPage({
   const params = await searchParams;
   const page = pageNumber(params.page);
   const filters = legislativeFilters(params);
-  const result = await getCamaraLegislativePage(page, 50, filters);
+  const [result, authorSummary] = await Promise.all([
+    getCamaraLegislativePage(page, 50, filters),
+    getCamaraLegislativeAuthorSummary(filters),
+  ]);
   return (
     <main>
       <header className="site-header">
@@ -79,6 +82,7 @@ export default async function CamaraPage({
             page={result.page}
             pageSize={result.pageSize}
             initialFilters={filters}
+            authorSummary={authorSummary}
           />
         )}
         <p className="hero-note">
