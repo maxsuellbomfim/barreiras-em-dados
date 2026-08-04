@@ -214,13 +214,6 @@ function CouncillorCard({
         </div>
       </div>
 
-      {person.mainAgenda ? (
-        <p className="person-link-note">
-          <strong>Principal bandeira, segundo a Câmara:</strong>{" "}
-          {person.mainAgenda}
-        </p>
-      ) : null}
-
       <RepresentativeVoteSummary votes={voteLinks} />
 
       {person.biography ? (
@@ -475,7 +468,14 @@ function CandidateVoteCard({ vote }: Readonly<{ vote: TseVote }>) {
 }
 
 export default async function RepresentativesPage() {
-  const [result, councillorsResult, stateResult, votesResult, executiveProfilesResult, representativeVotesResult] = await Promise.all([
+  const [
+    result,
+    councillorsResult,
+    stateResult,
+    votesResult,
+    executiveProfilesResult,
+    representativeVotesResult,
+  ] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
     getStateRepresentatives(),
