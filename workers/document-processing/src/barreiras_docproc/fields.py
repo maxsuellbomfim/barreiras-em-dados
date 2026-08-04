@@ -13,7 +13,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date
 
-FIELDSET_VERSION = "gazette-act-fields/1.4.0"
+FIELDSET_VERSION = "gazette-act-fields/1.5.0"
 # O ato inteiro cabe na janela: os diários quebram a frase em várias linhas
 # e o nome costuma vir depois de apostos ("a servidora ...", "o (a) ...").
 FIELD_WINDOW = 1200
@@ -87,6 +87,17 @@ _PERSON_MARKED_PATTERN = re.compile(
     r"(?i:servidor|servidora|candidato|candidata|senhor|senhora|"
     r"sr|sra|srª)\s*\(?\s*(?i:a)?\s*\)?\s*[,:]?\s+"
     rf"({_NAME})",
+)
+_NUMBERED_PERSON_PATTERN = re.compile(
+    rf"(?:^|[;\n])\s*\(?\d{{1,3}}[.)-]\)?\s+({_NAME})"
+    rf"(?=\s*,?\s+(?:para|no|do)\s+o?\s*cargo\b)",
+    re.IGNORECASE,
+)
+_PERSON_BEFORE_POSITION_PATTERN = re.compile(
+    rf"(?:^\s*|\b(?:NOMEAR|NOMEIA|NOMEIO|EXONERAR|EXONERA|EXONERO)\s+"
+    rf"|\be\s+|[;,]\s*)({_NAME})"
+    rf"(?=\s*,?\s+(?:para|no|do)\s+o?\s*cargo\b)",
+    re.IGNORECASE,
 )
 # O ponto de abreviação ("Escola Municipal Dr. Fulano") não encerra o
 # cargo; só o ponto que fecha a frase encerra.
@@ -313,8 +324,26 @@ def _extract_persons(
     for match in _PERSON_MARKED_PATTERN.finditer(window):
         add(match.group(1), "person-after-role-marker")
 
+    # Mantém a precedência histórica: quando o nome aparece imediatamente
+    # após o verbo e em caixa alta, essa é a origem mais precisa do primeiro
+    # campo (os padrões abaixo apenas acrescentam eventuais nomes seguintes).
     if not found and anchored and _plausible_person(anchored.group(1)):
         add(anchored.group(1), "person-uppercase-after-verb")
+
+    # Listas numeradas e várias cláusulas de cargo também identificam mais de
+    # uma pessoa de forma suficientemente explícita para exigir revisão.
+    for match in _NUMBERED_PERSON_PATTERN.finditer(window):
+        add(match.group(1), "person-numbered-list")
+    for match in _PERSON_BEFORE_POSITION_PATTERN.finditer(window):
+        candidate = match.group(1)
+        # Preserva a regra histórica para nomes em caixa alta; consumidores
+        # já usam esse identificador para explicar a origem da captura.
+        rule_id = (
+            "person-uppercase-in-window"
+            if candidate == candidate.upper()
+            else "person-before-position"
+        )
+        add(candidate, rule_id)
 
     if not found:
         fallback = _person_in_window(window)
