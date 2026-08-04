@@ -1,9 +1,32 @@
 import unittest
 
 from barreiras_collectors.connectors.municipal_executive import parse_official_page
+from barreiras_collectors.persistence.service import (
+    executive_record_idempotency_key,
+)
 
 
 class MunicipalExecutiveParserTests(unittest.TestCase):
+    def test_profile_idempotency_is_stable_per_snapshot(self):
+        first = executive_record_idempotency_key(
+            profile_key="prefeito:https://barreiras.ba.gov.br/prefeito-e-vice/:otoniel",
+            payload_sha256="a" * 64,
+            page_body_sha256="b" * 64,
+        )
+        replay = executive_record_idempotency_key(
+            profile_key="prefeito:https://barreiras.ba.gov.br/prefeito-e-vice/:otoniel",
+            payload_sha256="a" * 64,
+            page_body_sha256="b" * 64,
+        )
+        next_snapshot = executive_record_idempotency_key(
+            profile_key="prefeito:https://barreiras.ba.gov.br/prefeito-e-vice/:otoniel",
+            payload_sha256="a" * 64,
+            page_body_sha256="c" * 64,
+        )
+
+        self.assertEqual(first, replay)
+        self.assertNotEqual(first, next_snapshot)
+
     def test_parses_prefeito_and_photo_from_official_block(self):
         page = """
         <div class='content'>
