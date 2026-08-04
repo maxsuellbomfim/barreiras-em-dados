@@ -566,7 +566,7 @@ try {
         clean_text: "Nomeação de teste",
       },
       queue_reason: "needs_human_verification",
-      methodology_version: "extraction-review-queue/1.6.0",
+       methodology_version: "extraction-review-queue/1.7.0",
     },
   ]);
   await assert.rejects(
