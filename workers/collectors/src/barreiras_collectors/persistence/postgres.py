@@ -47,6 +47,33 @@ class DatabaseConnection(Protocol):
     def close(self) -> None: ...
 
 
+def _compatible_existing_record(
+    prior: Mapping[str, Any] | None,
+    *,
+    artifact_sha256: str,
+    source_record_key: str,
+    record_type: str,
+    payload_sha256: str,
+    parser_version: str,
+) -> bool:
+    """Aceita replay do mesmo conteúdo mesmo quando o UUID do bruto mudou.
+
+    O UUID do artefato é uma identidade interna da captura. A identidade
+    idempotente do registro é formada pelo conteúdo preservado, pela chave
+    oficial, pelo tipo e pelo parser; a posição na página pode mudar sem
+    alterar o registro.
+    """
+    if prior is None:
+        return False
+    return (
+        str(prior.get("artifact_sha256")) == artifact_sha256
+        and str(prior.get("source_record_key")) == source_record_key
+        and str(prior.get("record_type")) == record_type
+        and str(prior.get("payload_sha256")) == payload_sha256
+        and str(prior.get("parser_version")) == parser_version
+    )
+
+
 class PostgresCollectionRepository:
     """Persiste execução, observação bruta e registros com UPSERT atômico."""
 
@@ -993,28 +1020,26 @@ class PostgresCollectionRepository:
             prior = connection.execute(
                 """
                 select
-                  raw_artifact_id::text as raw_artifact_id,
-                  record_index,
-                  payload_sha256,
-                  parser_version
-                from raw.raw_records
-                where idempotency_key = %s
+                  record.source_record_key,
+                  record.record_type,
+                  record.payload_sha256,
+                  record.parser_version,
+                  artifact.sha256 as artifact_sha256
+                from raw.raw_records as record
+                join raw.raw_artifacts as artifact
+                  on artifact.id = record.raw_artifact_id
+                where record.idempotency_key = %s
                 """,
                 (record.idempotency_key,),
             ).fetchone()
-            expected = (
-                artifact_id,
-                record.record_index,
-                record.payload_sha256,
-                record.parser_version,
-            )
-            actual = (
-                str(prior["raw_artifact_id"]) if prior else None,
-                int(prior["record_index"]) if prior else None,
-                str(prior["payload_sha256"]) if prior else None,
-                str(prior["parser_version"]) if prior else None,
-            )
-            if prior is None or actual != expected:
+            if not _compatible_existing_record(
+                prior,
+                artifact_sha256=batch.page.body_sha256,
+                source_record_key=record.source_record_key,
+                record_type=record.record_type,
+                payload_sha256=record.payload_sha256,
+                parser_version=record.parser_version,
+            ):
                 raise PersistenceContractError(
                     "Conflito de idempotência em registro bruto."
                 )
