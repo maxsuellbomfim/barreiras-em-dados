@@ -85,6 +85,26 @@ type FinanceInventoryState =
   | Readonly<{ kind: "error"; message: string }>
   | Readonly<{ kind: "ready"; items: readonly FinanceInventoryItem[] }>;
 
+type AdminMonthlyClosure = Readonly<{
+  closure_id: string;
+  fiscal_year: number;
+  period_start: string;
+  period_end: string;
+  public_body_name: string;
+  revenue_report_amount: string | null;
+  expense_paid_amount: string | null;
+  expense_committed_amount: string | null;
+  expense_liquidated_amount: string | null;
+  operational_difference_amount: string | null;
+  closure_status: "operational" | "needs_data" | "needs_review";
+  coverage_note: string;
+}>;
+
+type FinanceClosureState =
+  | Readonly<{ kind: "loading" }>
+  | Readonly<{ kind: "error"; message: string }>
+  | Readonly<{ kind: "ready"; items: readonly AdminMonthlyClosure[] }>;
+
 const FIELD_LABELS: Readonly<Record<string, string>> = {
   person_name: "Pessoa",
   position: "Cargo",
@@ -151,13 +171,98 @@ function formatBytes(value: number): string {
   return `${(value / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
 }
 
+function formatDecimalAmount(value: string | null): string {
+  if (value === null || !/^-?\d+(?:\.\d{1,2})?$/.test(value)) return "—";
+  const negative = value.startsWith("-");
+  const unsigned = negative ? value.slice(1) : value;
+  const [whole, fraction = ""] = unsigned.split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return "R$ " + (negative ? "-" : "") + grouped + "," + fraction.padEnd(2, "0");
+}
+
+function formatClosureMonth(value: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Bahia",
+  }).format(new Date(value + "T12:00:00-03:00"));
+}
+
+function closureStatusLabel(status: AdminMonthlyClosure["closure_status"]): string {
+  if (status === "operational") return "Fechamento operacional";
+  if (status === "needs_review") return "Requer revisão";
+  return "Faltam dados";
+}
+
+function FinanceClosureSummary({
+  state,
+}: Readonly<{ state: FinanceClosureState }>) {
+  return (
+    <section className="finance-closure-summary" aria-labelledby="finance-closure-title">
+      <div className="section-heading-admin">
+        <span className="eyebrow-admin">Fechamento mensal determinístico</span>
+        <h2 id="finance-closure-title">Receita, pagamentos e cobertura</h2>
+        <p>
+          Valores retornados pelo fechamento oficial. O painel não recalcula
+          totais e não trata a diferença como superávit fiscal.
+        </p>
+      </div>
+      {state.kind === "loading" ? <p aria-live="polite">Carregando fechamentos…</p> : null}
+      {state.kind === "error" ? (
+        <p className="status-error" role="alert">
+          Os fechamentos não puderam ser carregados: {state.message}
+        </p>
+      ) : null}
+      {state.kind === "ready" ? (
+        state.items.length === 0 ? (
+          <div className="empty-state">Nenhum fechamento mensal disponível.</div>
+        ) : (
+          <div className="finance-closure-list">
+            {state.items.slice(0, 12).map((closure) => (
+              <article className="finance-closure-card" key={closure.closure_id}>
+                <div className="card-top">
+                  <h3>{formatClosureMonth(closure.period_start)}</h3>
+                  <span className={"badge finance-closure-" + closure.closure_status}>
+                    {closureStatusLabel(closure.closure_status)}
+                  </span>
+                </div>
+                <p className="meta">{closure.public_body_name}</p>
+                <dl>
+                  <div>
+                    <dt>Receita declarada</dt>
+                    <dd>{formatDecimalAmount(closure.revenue_report_amount)}</dd>
+                  </div>
+                  <div>
+                    <dt>Pagamentos</dt>
+                    <dd>{formatDecimalAmount(closure.expense_paid_amount)}</dd>
+                  </div>
+                  <div>
+                    <dt>Diferença operacional</dt>
+                    <dd>{formatDecimalAmount(closure.operational_difference_amount)}</dd>
+                  </div>
+                </dl>
+                <details>
+                  <summary>Como interpretar este mês</summary>
+                  <p>{closure.coverage_note}</p>
+                </details>
+              </article>
+            ))}
+          </div>
+        )
+      ) : null}
+    </section>
+  );
+}
+
 function FinanceInventory({
   state,
+  closureState,
   search,
   onSearchChange,
   onReload,
 }: Readonly<{
   state: FinanceInventoryState;
+  closureState: FinanceClosureState;
   search: string;
   onSearchChange: (value: string) => void;
   onReload: () => void;
@@ -176,7 +281,9 @@ function FinanceInventory({
   );
 
   return (
-    <section aria-labelledby="finance-inventory-title">
+    <>
+      <FinanceClosureSummary state={closureState} />
+      <section aria-labelledby="finance-inventory-title">
       <div className="section-heading-admin">
         <span className="eyebrow-admin">Mapa do pipeline</span>
         <h2 id="finance-inventory-title">Documentos financeiros</h2>
@@ -227,7 +334,8 @@ function FinanceInventory({
           ))}
         </>
       ) : null}
-    </section>
+      </section>
+    </>
   );
 }
 
@@ -627,6 +735,8 @@ export default function ReviewQueuePage() {
   const [financeSearch, setFinanceSearch] = useState("");
   const [financeInventory, setFinanceInventory] =
     useState<FinanceInventoryState>({ kind: "loading" });
+  const [financeClosures, setFinanceClosures] =
+    useState<FinanceClosureState>({ kind: "loading" });
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("todos");
   const [decisionFilter, setDecisionFilter] =
     useState<DecisionFilter>("todas");
@@ -690,9 +800,30 @@ export default function ReviewQueuePage() {
     });
   }, [supabase]);
 
+  const loadFinanceClosures = useCallback(async () => {
+    setFinanceClosures({ kind: "loading" });
+    const { data, error } = await supabase.rpc(
+      "get_public_monthly_finance_closures",
+      { page_size: 24, fiscal_year_filter: null },
+    );
+    if (error) {
+      setFinanceClosures({ kind: "error", message: error.message });
+      return;
+    }
+    setFinanceClosures({
+      kind: "ready",
+      items: (data ?? []) as AdminMonthlyClosure[],
+    });
+  }, [supabase]);
+
   const reloadAll = useCallback(async () => {
-    await Promise.all([loadQueue(), loadHistory(), loadFinanceInventory()]);
-  }, [loadQueue, loadHistory, loadFinanceInventory]);
+    await Promise.all([
+      loadQueue(),
+      loadHistory(),
+      loadFinanceInventory(),
+      loadFinanceClosures(),
+    ]);
+  }, [loadQueue, loadHistory, loadFinanceInventory, loadFinanceClosures]);
 
   useEffect(() => {
     if (session) {
@@ -954,9 +1085,12 @@ export default function ReviewQueuePage() {
           {view === "financas" ? (
             <FinanceInventory
               state={financeInventory}
+              closureState={financeClosures}
               search={financeSearch}
               onSearchChange={setFinanceSearch}
-              onReload={() => void loadFinanceInventory()}
+              onReload={() =>
+                void Promise.all([loadFinanceInventory(), loadFinanceClosures()])
+              }
             />
           ) : view === "fila" ? (
             <>

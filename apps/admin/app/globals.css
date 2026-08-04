@@ -557,6 +557,65 @@ a:focus-visible {
   color: var(--blue);
 }
 
+.finance-closure-summary {
+  margin-bottom: 2.25rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.finance-closure-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.finance-closure-card {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--glass);
+}
+
+.finance-closure-card h3 {
+  margin: 0;
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+
+.finance-closure-card dl {
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+}
+
+.finance-closure-card dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.finance-closure-card dd {
+  font-weight: 720;
+  text-align: right;
+}
+
+.finance-closure-card details {
+  margin-top: 0.8rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.finance-closure-operational {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.finance-closure-needs_data,
+.finance-closure-needs_review {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
 /* ---------- Conteúdo dos cartões ---------- */
 dl {
   display: grid;
@@ -771,6 +830,10 @@ article:nth-of-type(3) {
 
   .finance-inventory-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .finance-closure-list {
+    grid-template-columns: 1fr;
   }
 
   dl {
