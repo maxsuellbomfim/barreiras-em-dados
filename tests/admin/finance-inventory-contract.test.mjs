@@ -19,3 +19,10 @@ test("inventário financeiro é restrito a revisores e mostra o último erro", (
   assert.match(page, /Preservado — ainda não processado/);
   assert.match(page, /latest_error_detail/);
 });
+
+test("painel financeiro mostra os fechamentos mensais retornados pela API", () => {
+  assert.match(page, /get_public_monthly_finance_closures/);
+  assert.match(page, /finance-closure-list/);
+  assert.match(page, /operational_difference_amount/);
+  assert.match(page, /recalcula\s+totais/);
+});
