@@ -219,6 +219,10 @@ def parse_official_page(
             else len(content)
         )
         window = content[heading.start() : end]
+        # No HTML oficial, a foto pode estar imediatamente antes do título
+        # dentro do mesmo bloco visual. O texto continua limitado ao bloco do
+        # cargo, mas a imagem deve ser procurada também nesse prefixo curto.
+        photo_fragment = content[max(0, heading.start() - 2000) : heading.start()]
         title = re.search(
             r'<h2[^>]+class=["\'][^"\']*panel-title[^"\']*["\'][^>]*>'
             r'[\s\S]*?<strong>([^<]+)</strong>',
@@ -233,7 +237,7 @@ def parse_official_page(
                     url,
                     window,
                     _name(title.group(1)),
-                    _image_url(window),
+                    _image_url(window) or _image_url(photo_fragment),
                 )
             )
         return tuple(profiles)
