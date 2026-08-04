@@ -43,6 +43,8 @@ PNCP_CONTRATACAO_PARSER_VERSION = "pncp-contratacao-page/1.0.0"
 CAMARA_COLLECTOR_VERSION = "camara-federal-collector/0.1.0"
 ALBA_COLLECTOR_VERSION = "alba-collector/0.1.0"
 ALBA_PARSER_VERSION = "alba-deputados/1.0.0"
+ALBA_PROFILE_COLLECTOR_VERSION = "alba-profile-collector/0.1.0"
+ALBA_PROFILE_PARSER_VERSION = "alba-deputado-profile/1.0.0"
 EXECUTIVE_COLLECTOR_VERSION = "barreiras-executive-collector/1.0.0"
 EXECUTIVE_PARSER_VERSION = "barreiras-executive-pages/1.1.1"
 TSE_COLLECTOR_VERSION = "tse-collector/0.1.0"
@@ -790,6 +792,97 @@ class AlbaPersistenceService:
                 collector_version=ALBA_COLLECTOR_VERSION,
                 parser_version=ALBA_PARSER_VERSION,
                 records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=page.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+    def persist_profile(self, page) -> PersistenceResult:
+        """Preserva uma página individual da ALBA e sua foto oficial."""
+        actual = hashlib.sha256(page.raw_body).hexdigest()
+        if actual != page.body_sha256:
+            raise ArtifactIntegrityError(
+                "O perfil da Assembleia não corresponde ao hash informado."
+            )
+        if len(page.items) != 1:
+            raise PersistenceContractError(
+                "O perfil da Assembleia deve conter exatamente um registro."
+            )
+        item = page.items[0]
+        identifier = item.get("id_alba")
+        profile_url = item.get("perfil_url")
+        if (
+            not isinstance(identifier, str)
+            or not identifier.isdigit()
+            or not isinstance(profile_url, str)
+            or not profile_url.startswith(
+                "https://www.al.ba.gov.br/deputados/deputado-estadual/"
+            )
+        ):
+            raise PersistenceContractError(
+                "Perfil estadual sem identificador ou URL oficial."
+            )
+        canonical = json.dumps(
+            item,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        payload_sha256 = hashlib.sha256(canonical).hexdigest()
+        record = RawRecordInput(
+            source_record_key=f"alba:deputado-profile:{identifier}",
+            record_type="alba_deputado_estadual_profile",
+            record_index=0,
+            payload=item,
+            payload_sha256=payload_sha256,
+            parser_version=ALBA_PROFILE_PARSER_VERSION,
+            idempotency_key=hashlib.sha256(
+                ":".join(
+                    (
+                        "alba-deputado-profile",
+                        page.idempotency_key,
+                        ALBA_PROFILE_PARSER_VERSION,
+                        payload_sha256,
+                    )
+                ).encode()
+            ).hexdigest(),
+        )
+        object_key = (
+            "alba/deputados/profiles/sha256/"
+            f"{page.body_sha256[:2]}/{page.body_sha256}.html"
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=page.raw_body,
+            content_type=page.media_type,
+            expected_sha256=page.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "O perfil restaurado da ALBA diverge do coletado."
+            )
+        artifact_key = hashlib.sha256(
+            f"raw-artifact:{page.idempotency_key}".encode()
+        ).hexdigest()
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,
+                object_key=object_key,
+                artifact_idempotency_key=artifact_key,
+                collector_version=ALBA_PROFILE_COLLECTOR_VERSION,
+                parser_version=ALBA_PROFILE_PARSER_VERSION,
+                records=(record,),
             )
         )
         return PersistenceResult(

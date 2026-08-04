@@ -4,9 +4,16 @@ from __future__ import annotations
 
 import argparse
 import logging
+import time
 from collections.abc import Sequence
 
-from ..connectors.alba import SOURCE_CODE, fetch_deputies
+from ..connectors.alba import (
+    AlbaError,
+    PROFILE_DELAY_SECONDS,
+    SOURCE_CODE,
+    fetch_deputies,
+    fetch_profile,
+)
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import AlbaPersistenceService
@@ -92,6 +99,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     result = service.persist(page)
+    profiles_succeeded = 0
+    profiles_failed = 0
+    for index, deputy in enumerate(page.items):
+        if index > 0:
+            time.sleep(PROFILE_DELAY_SECONDS)
+        try:
+            profile_page = fetch_profile(deputy, logger=logger)
+            service.persist_profile(profile_page)
+            profiles_succeeded += 1
+        except AlbaError as error:
+            profiles_failed += 1
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_alba_profile_failed",
+                source=SOURCE_CODE,
+                identifier=deputy.get("id_alba"),
+                error_type=type(error).__name__,
+            )
     log_event(
         logger,
         logging.INFO,
@@ -100,6 +126,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         deputados=len(page.items),
         inserted_records=result.inserted_records,
         existing_records=result.existing_records,
+        profiles_succeeded=profiles_succeeded,
+        profiles_failed=profiles_failed,
     )
     return 0
 
