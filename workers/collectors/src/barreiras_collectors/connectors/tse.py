@@ -4,7 +4,7 @@
 cada candidatura recebeu no município. Sem esse número, chamar alguém de
 "representante da região" seria opinião.
 
-O pacote nacional é grande (48 MB em 2024) e traz um CSV por UF. Baixamos
+O pacote nacional pode ultrapassar 120 MiB e traz um CSV por UF. Baixamos
 o pacote, extraímos só o arquivo da Bahia e preservamos como artefato o
 **recorte de Barreiras** — a plataforma é municipal, e guardar o país
 inteiro seria desproporcional. O hash do pacote e o do CSV estadual ficam
@@ -37,7 +37,7 @@ RETRYABLE = frozenset({408, 425, 429, 500, 502, 503, 504})
 BARREIRAS_TSE_CODE = "33634"
 STATE_CODE = "BA"
 TIMEOUT_SECONDS = 120.0
-MAX_PACKAGE_BYTES = 120 * 1024 * 1024
+MAX_PACKAGE_BYTES = 512 * 1024 * 1024
 PARSER_VERSION = "tse-votacao-munzona/1.0.0"
 
 # Colunas exigidas: ausência é falha explícita, não coluna vazia.

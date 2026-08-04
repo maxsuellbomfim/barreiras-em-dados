@@ -6,6 +6,7 @@ import zipfile
 
 from barreiras_collectors.connectors.tse import (
     BARREIRAS_TSE_CODE,
+    MAX_PACKAGE_BYTES,
     TseError,
     aggregate_by_candidate,
     extract_state_csv,
@@ -46,6 +47,9 @@ def zip_with(name: str, content: bytes) -> bytes:
 
 
 class PackageTests(unittest.TestCase):
+    def test_package_limit_covers_current_national_archives(self) -> None:
+        self.assertGreaterEqual(MAX_PACKAGE_BYTES, 512 * 1024 * 1024)
+
     def test_url_carries_year(self) -> None:
         self.assertIn("2022", package_url(2022))
 
