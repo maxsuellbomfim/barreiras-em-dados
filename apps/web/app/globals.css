@@ -2643,6 +2643,18 @@ footer {
   display: block;
 }
 
+.person-photo-initials {
+  display: grid;
+  place-items: center;
+  color: #345fd1;
+  background:
+    linear-gradient(145deg, rgba(70, 113, 232, 0.18), rgba(70, 113, 232, 0.06)),
+    #eef3ff;
+  font-size: 1.1rem;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+}
+
 .person-head h2 {
   margin: 0 0 0.2rem;
   font-size: 1.1rem;
@@ -2668,6 +2680,13 @@ footer {
 .person-badge-active {
   background: rgba(27, 169, 108, 0.12);
   color: #158154;
+}
+
+.person-source-note {
+  margin: 0.85rem 0 0;
+  color: #7b8798;
+  font-size: 0.75rem;
+  line-height: 1.5;
 }
 
 .person-facts {

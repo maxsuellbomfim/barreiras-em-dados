@@ -184,10 +184,19 @@ function CouncillorCard({ person }: Readonly<{ person: Councillor }>) {
 function StateRepresentativeCard({
   person,
 }: Readonly<{ person: StateRepresentative }>) {
+  const initials = person.displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
   return (
     <article className="person-card" aria-label="Deputado estadual">
       <div className="person-head">
-        <span className="person-photo person-photo-empty" aria-hidden="true" />
+        <span className="person-photo person-photo-initials" aria-hidden="true">
+          {initials}
+        </span>
         <div>
           <h2>{person.displayName}</h2>
           <p className="person-role">Deputado(a) estadual da Bahia</p>
@@ -204,6 +213,11 @@ function StateRepresentativeCard({
           Perfil oficial na ALBA
         </a>{" "}
         · coletado em {dateFormatter.format(new Date(person.collectedAt))}
+      </p>
+      <p className="person-source-note">
+        A listagem pública coletada informa nome e perfil oficial. A foto não é
+        reproduzida enquanto não houver uma imagem vinculada e preservada pela
+        própria fonte.
       </p>
     </article>
   );
