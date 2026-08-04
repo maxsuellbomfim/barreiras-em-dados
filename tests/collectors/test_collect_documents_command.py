@@ -12,7 +12,7 @@ from barreiras_collectors.connectors.gazette_documents import (
     GazetteDocumentClient,
 )
 from barreiras_collectors.connectors.querido_diario import QueridoDiarioClient
-from barreiras_collectors.http import HttpResponse
+from barreiras_collectors.http import HttpResponse, ResponseTooLargeError
 
 ROOT = Path(__file__).parents[2]
 FIXTURE_PATH = ROOT / "fixtures" / "sources" / "querido_diario" / "gazettes-page-1.json"
@@ -151,6 +151,32 @@ class CollectDocumentsCommandTests(unittest.TestCase):
                 for line in captured.output
             )
         )
+
+    def test_oversized_document_is_recorded_and_does_not_abort_window(self) -> None:
+        original_fetch = GazetteDocumentClient.fetch
+
+        def fetch_with_one_oversized_pdf(client, url, *, role):
+            if role == "pdf":
+                raise ResponseTooLargeError("documento de teste excede o limite")
+            return original_fetch(client, url, role=role)
+
+        with (
+            patch.object(GazetteDocumentClient, "fetch", fetch_with_one_oversized_pdf),
+            self.assertLogs(
+                "barreiras_collectors.commands.collect_querido_diario",
+                level="WARNING",
+            ) as captured,
+        ):
+            exit_code = run_command()
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(
+            any("collector_document_failed" in line for line in captured.output)
+        )
+        self.assertTrue(
+            any("ResponseTooLargeError" in line for line in captured.output)
+        )
+        self.assertGreaterEqual(len(self.document_manifests()), 1)
 
 
 if __name__ == "__main__":

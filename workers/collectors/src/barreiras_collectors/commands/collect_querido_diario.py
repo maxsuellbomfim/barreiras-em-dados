@@ -7,8 +7,14 @@ import logging
 from collections.abc import Sequence
 from datetime import date
 
-from ..connectors.gazette_documents import GazetteDocumentClient
+from ..connectors.gazette_documents import (
+    GazetteDocumentClient,
+    PermanentHttpError,
+    SourceContractError,
+    SourceUnavailableError,
+)
 from ..connectors.querido_diario import QueridoDiarioClient
+from ..http import ResponseTooLargeError
 from ..logging import log_event
 from ..persistence.filesystem import FilesystemCollectionRepository
 from ..persistence.postgres import PostgresCollectionRepository
@@ -17,7 +23,7 @@ from ..persistence.storage import (
     FilesystemArtifactObjectStore,
     SupabaseStorageObjectStore,
 )
-from ..resilience import RetryPolicy
+from ..resilience import CircuitOpenError, RetryPolicy
 from ..settings import CollectorSettings, PersistenceSettings
 
 MAX_WINDOW_DAYS = 7
@@ -77,6 +83,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     existing_records = 0
     documents_persisted = 0
     documents_skipped = 0
+    documents_failed = 0
     for page in source.iter_gazette_pages(
         published_since=arguments.since,
         published_until=arguments.until,
@@ -108,14 +115,38 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if documents_persisted >= collector_settings.max_documents_per_run:
                     documents_skipped += 1
                     continue
-                document = documents_client.fetch(url, role=role)
-                persisted = service.persist_document(
-                    page_result=result,
-                    record=record,
-                    document=document,
-                    source_code=page.source_code,
-                    endpoint_code=page.endpoint_code,
-                )
+                try:
+                    document = documents_client.fetch(url, role=role)
+                    persisted = service.persist_document(
+                        page_result=result,
+                        record=record,
+                        document=document,
+                        source_code=page.source_code,
+                        endpoint_code=page.endpoint_code,
+                    )
+                except (
+                    CircuitOpenError,
+                    OSError,
+                    PermanentHttpError,
+                    ResponseTooLargeError,
+                    SourceContractError,
+                    SourceUnavailableError,
+                    TimeoutError,
+                    ValueError,
+                ) as error:
+                    documents_failed += 1
+                    log_event(
+                        logger,
+                        logging.WARNING,
+                        "collector_document_failed",
+                        source=page.source_code,
+                        endpoint="gazette-documents",
+                        document_role=role,
+                        document_url=url,
+                        error_type=type(error).__name__,
+                        error=str(error)[:500],
+                    )
+                    continue
                 documents_persisted += 1
                 log_event(
                     logger,
@@ -141,6 +172,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_documents_per_run=collector_settings.max_documents_per_run,
         )
 
+    if documents_failed:
+        log_event(
+            logger,
+            logging.WARNING,
+            "collector_documents_partial",
+            source="querido-diario",
+            endpoint="gazette-documents",
+            failed_documents=documents_failed,
+            documents_persisted=documents_persisted,
+        )
+
     log_event(
         logger,
         logging.INFO,
@@ -154,6 +196,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         existing_records=existing_records,
         documents_persisted=documents_persisted,
         documents_skipped=documents_skipped,
+        documents_failed=documents_failed,
         persistence_mode=persistence_settings.mode,
     )
     return 0

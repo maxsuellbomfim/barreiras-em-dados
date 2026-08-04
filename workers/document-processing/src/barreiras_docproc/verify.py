@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-VERIFIER_VERSION = "gazette-act-verifier/2.0.0"
+VERIFIER_VERSION = "gazette-act-verifier/2.1.0"
 # Sem estes verificados, nada é publicado automaticamente.
 REQUIRED_FIELDS = ("person_name", "act_number", "act_date", "position")
 OPTIONAL_FIELDS = ("position_symbol", "organization")
@@ -153,6 +153,15 @@ def verify_candidate(
                 break
         if not accepted and field in REQUIRED_FIELDS:
             missing.append(field)
+
+    # Um card com duas pessoas não pode ser publicado como se fosse um único
+    # ato individual. A revisão humana deve separar/verificar cada nome antes
+    # de qualquer publicação.
+    person_names = fields.get("person_names")
+    if fields.get("multiple_persons_detected") is True or (
+        isinstance(person_names, list) and len(person_names) > 1
+    ):
+        missing.append("multiple_persons_requires_split_review")
 
     if not (summary and summary.strip()):
         missing.append("assisted_summary")

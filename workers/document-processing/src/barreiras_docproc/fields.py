@@ -13,7 +13,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date
 
-FIELDSET_VERSION = "gazette-act-fields/1.3.0"
+FIELDSET_VERSION = "gazette-act-fields/1.4.0"
 # O ato inteiro cabe na janela: os diários quebram a frase em várias linhas
 # e o nome costuma vir depois de apostos ("a servidora ...", "o (a) ...").
 FIELD_WINDOW = 1200
@@ -136,6 +136,7 @@ class FieldExtraction:
 class ActFields:
     fieldset_version: str
     person_name: FieldExtraction
+    person_names: tuple[FieldExtraction, ...]
     position: FieldExtraction
     position_symbol: FieldExtraction
     organization: FieldExtraction
@@ -237,6 +238,7 @@ def extract_act_fields(
     )
 
     person = _PERSON_PATTERN.search(window)
+    persons = _extract_persons(person, window)
     position = _POSITION_PATTERN.search(window)
     symbol = _SYMBOL_PATTERN.search(window)
     organization = _ORGANIZATION_PATTERN.search(window)
@@ -244,7 +246,12 @@ def extract_act_fields(
 
     return ActFields(
         fieldset_version=FIELDSET_VERSION,
-        person_name=_extract_person(person, window),
+        person_name=(
+            persons[0]
+            if persons
+            else _not_found("person-uppercase-in-window")
+        ),
+        person_names=persons,
         position=_extract_position(position),
         position_symbol=(
             _matched("symbol-after-simbolo", symbol.group(1))
@@ -277,6 +284,46 @@ def _extract_person(
     return _not_found("person-uppercase-in-window")
 
 
+def _extract_persons(
+    anchored: re.Match[str] | None,
+    window: str,
+) -> tuple[FieldExtraction, ...]:
+    """Retorna pessoas explicitamente marcadas dentro do mesmo ato.
+
+    O campo legado ``person_name`` continua sendo o primeiro nome para manter
+    compatibilidade com a API. A lista adicional existe para impedir que um
+    ato que nomeia várias pessoas seja publicado como se tivesse uma só. A
+    regra é deliberadamente conservadora: só multiplica quando o texto repete
+    um marcador inequívoco (servidor(a), candidato(a), senhor(a)).
+    """
+    found: list[FieldExtraction] = []
+
+    def add(value: str, rule_id: str) -> None:
+        candidate = _normalize(value)
+        if not _plausible_person(candidate):
+            return
+        normalized = _strip_accents(candidate).casefold()
+        if any(
+            _strip_accents(existing.value or "").casefold() == normalized
+            for existing in found
+        ):
+            return
+        found.append(_matched(rule_id, candidate))
+
+    for match in _PERSON_MARKED_PATTERN.finditer(window):
+        add(match.group(1), "person-after-role-marker")
+
+    if not found and anchored and _plausible_person(anchored.group(1)):
+        add(anchored.group(1), "person-uppercase-after-verb")
+
+    if not found:
+        fallback = _person_in_window(window)
+        if fallback:
+            add(fallback, "person-uppercase-in-window")
+
+    return tuple(found)
+
+
 def _extract_organization(match: re.Match[str] | None) -> FieldExtraction:
     if match is None:
         return _not_found("organization-secretaria")
@@ -306,6 +353,8 @@ def fields_payload(fields: ActFields) -> dict[str, object]:
     return {
         "fieldset_version": fields.fieldset_version,
         "person_name": entry(fields.person_name),
+        "person_names": [entry(person) for person in fields.person_names],
+        "multiple_persons_detected": len(fields.person_names) > 1,
         "position": entry(fields.position),
         "position_symbol": entry(fields.position_symbol),
         "organization": entry(fields.organization),
