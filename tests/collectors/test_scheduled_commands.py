@@ -52,7 +52,7 @@ class ResolveCollectionWindowTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     resolve_collection_window(since, until, now=self.now)
 
-    def test_writes_only_dates_to_github_output(self) -> None:
+    def test_writes_window_and_mode_to_github_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output_path = Path(directory) / "github-output.txt"
             write_github_output(
@@ -62,7 +62,7 @@ class ResolveCollectionWindowTests(unittest.TestCase):
 
             self.assertEqual(
                 output_path.read_text(encoding="utf-8"),
-                "since=2026-07-30\nuntil=2026-07-30\n",
+                "since=2026-07-30\nuntil=2026-07-30\nmode=recent\n",
             )
 
 
@@ -90,6 +90,17 @@ class ScheduledWorkflowTests(unittest.TestCase):
         self.assertIn('QUERIDO_DIARIO_BACKFILL_HORIZON: "2021-01-01"', workflow)
         # Todo agendamento que não é a coleta da véspera é backfill.
         self.assertIn('!= "17 11 * * *"', workflow)
+
+    def test_backfill_does_not_repeat_recent_only_steps(self) -> None:
+        repository_root = Path(__file__).parents[2]
+        workflow = (
+            repository_root / ".github" / "workflows" / "collect-querido-diario.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertGreaterEqual(
+            workflow.count("steps.window.outputs.mode != 'backfill'"),
+            7,
+        )
 
 
 class FailureRecordTests(unittest.TestCase):

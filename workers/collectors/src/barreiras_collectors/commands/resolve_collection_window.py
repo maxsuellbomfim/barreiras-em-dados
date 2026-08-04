@@ -69,6 +69,7 @@ def write_github_output(
     with output_path.open("a", encoding="utf-8", newline="\n") as output:
         output.write(f"since={window.since}\n")
         output.write(f"until={window.until}\n")
+        output.write("mode=recent\n")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

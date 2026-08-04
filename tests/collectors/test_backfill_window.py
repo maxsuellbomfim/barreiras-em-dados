@@ -90,8 +90,9 @@ class ResolveBackfillWindowTests(unittest.TestCase):
 
             self.assertEqual(
                 output_path.read_text(encoding="utf-8"),
-                "since=\nuntil=\nskip=true\n"
-                "since=2026-06-03\nuntil=2026-06-09\nskip=false\n",
+                "since=\nuntil=\nskip=true\nmode=backfill\n"
+                "since=2026-06-03\nuntil=2026-06-09\nskip=false\n"
+                "mode=backfill\n",
             )
 
 

@@ -48,11 +48,12 @@ def write_github_output(
     output_path = Path(raw_path)
     with output_path.open("a", encoding="utf-8", newline="\n") as output:
         if window is None:
-            output.write("since=\nuntil=\nskip=true\n")
+            output.write("since=\nuntil=\nskip=true\nmode=backfill\n")
         else:
             output.write(f"since={window.since}\n")
             output.write(f"until={window.until}\n")
             output.write("skip=false\n")
+            output.write("mode=backfill\n")
 
 
 def coverage_anchor(repository: PostgresCollectionRepository) -> date | None:
