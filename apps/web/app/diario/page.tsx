@@ -5,6 +5,10 @@ import {
   type DigestItem,
   type EditionDigest,
 } from "../../lib/edition-digests";
+import {
+  getOfficialDiaryCatalog,
+  type OfficialDiaryCatalogEntry,
+} from "../../lib/official-diary-catalog";
 
 export const revalidate = 300;
 
@@ -126,8 +130,83 @@ function DigestCard({ digest }: Readonly<{ digest: EditionDigest }>) {
   );
 }
 
+function CatalogCard({
+  entry,
+}: Readonly<{ entry: OfficialDiaryCatalogEntry }>) {
+  return (
+    <article className="digest-card" aria-label="Edição oficial do Diário">
+      <div className="track-top">
+        <span>
+          Edição {entry.edition.toLocaleString("pt-BR")}/{entry.editionYear}
+        </span>
+        <span className="track-status">
+          Publicada em{" "}
+          {new Intl.DateTimeFormat("pt-BR", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            timeZone: "America/Bahia",
+          }).format(new Date(entry.editionDate + "T12:00:00-03:00"))}
+        </span>
+      </div>
+      <h2 className="digest-card-title">
+        {entry.officialTitle ?? "Diário Oficial de Barreiras"}
+      </h2>
+      <p className="digest-card-meta">
+        Registro oficial do catálogo da Prefeitura
+      </p>
+      {entry.officialSummary ? (
+        <details className="digest-official-source">
+          <summary>Resumo oficial da Prefeitura</summary>
+          <p>{entry.officialSummary}</p>
+        </details>
+      ) : null}
+      <details className="digest-official-source">
+        <summary>Explicação detalhada ainda não disponível</summary>
+        <p>
+          Esta edição já foi encontrada no catálogo oficial e sua data está
+          confirmada. O texto integral ainda não foi preservado ou processado;
+          por isso não inventamos uma tradução por IA. Assim que o documento
+          estiver disponível, os itens explicados e suas citações aparecerão
+          aqui automaticamente.
+        </p>
+      </details>
+      <p className="act-evidence">
+        {entry.officialPublicationUrl ? (
+          <a
+            href={entry.officialPublicationUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Abrir publicação oficial
+          </a>
+        ) : entry.catalogUrl ? (
+          <a href={entry.catalogUrl} target="_blank" rel="noreferrer">
+            Abrir catálogo oficial
+          </a>
+        ) : null}{" "}
+        · hash {entry.artifactSha256.slice(0, 12)}… · catálogo coletado em{" "}
+        {dateTimeFormatter.format(new Date(entry.collectedAt))}
+      </p>
+      <p className="act-review-mode">
+        Registro espelhado da fonte oficial, sem interpretação ou conclusão.
+      </p>
+    </article>
+  );
+}
+
 export default async function EditionDigestsPage() {
-  const result = await getEditionDigests();
+  const [result, catalogResult] = await Promise.all([
+    getEditionDigests(),
+    getOfficialDiaryCatalog(),
+  ]);
+  const digests = result.state === "available" ? result.digests : [];
+  const catalogEntries =
+    catalogResult.state === "available" ? catalogResult.entries : [];
+  const digestEditions = new Set(digests.map((digest) => digest.edition));
+  const catalogOnlyEntries = catalogEntries.filter(
+    (entry) => !digestEditions.has(entry.edition),
+  );
 
   return (
     <main>
@@ -156,7 +235,7 @@ export default async function EditionDigestsPage() {
           </p>
         </div>
 
-        {result.state === "unavailable" ? (
+        {result.state === "unavailable" && catalogResult.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
             <div>
               <strong>Resumos temporariamente indisponíveis</strong>
@@ -166,7 +245,7 @@ export default async function EditionDigestsPage() {
               </p>
             </div>
           </div>
-        ) : result.digests.length === 0 ? (
+        ) : digests.length === 0 && catalogOnlyEntries.length === 0 ? (
           <div className="collection-unavailable" role="status">
             <div>
               <strong>Os primeiros resumos estão a caminho</strong>
@@ -179,9 +258,26 @@ export default async function EditionDigestsPage() {
           </div>
         ) : (
           <div className="digest-grid">
-            {result.digests.map((digest) => (
-              <DigestCard key={digest.digestId} digest={digest} />
-            ))}
+            {[
+              ...digests.map((digest) => ({
+                kind: "digest" as const,
+                edition: digest.edition,
+                digest,
+              })),
+              ...catalogOnlyEntries.map((entry) => ({
+                kind: "catalog" as const,
+                edition: entry.edition,
+                entry,
+              })),
+            ]
+              .sort((left, right) => right.edition - left.edition)
+              .map((card) =>
+                card.kind === "digest" ? (
+                  <DigestCard key={card.digest.digestId} digest={card.digest} />
+                ) : (
+                  <CatalogCard key={card.entry.catalogId} entry={card.entry} />
+                ),
+              )}
           </div>
         )}
 
