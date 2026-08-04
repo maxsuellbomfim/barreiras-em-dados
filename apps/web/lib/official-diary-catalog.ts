@@ -26,6 +26,11 @@ function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function optionalHttpsUrl(value: unknown): string | null {
+  const url = optionalString(value);
+  return url?.startsWith("https://") ? url : null;
+}
+
 function parseEntry(
   row: Record<string, unknown>,
 ): OfficialDiaryCatalogEntry | null {
@@ -55,8 +60,8 @@ function parseEntry(
     editionDate,
     officialTitle: optionalString(row.official_title),
     officialSummary: optionalString(row.official_summary),
-    officialPublicationUrl: optionalString(row.official_publication_url),
-    catalogUrl: optionalString(row.catalog_url),
+    officialPublicationUrl: optionalHttpsUrl(row.official_publication_url),
+    catalogUrl: optionalHttpsUrl(row.catalog_url),
     artifactSha256,
     collectedAt,
     methodologyVersion: "official-diary-catalog/1.0.0",
