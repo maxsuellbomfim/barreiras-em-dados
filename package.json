@@ -17,12 +17,14 @@
     "check:migration": "node packages/database/scripts/test-foundation-migration.mjs",
     "check:sources": "node packages/data-contracts/scripts/validate-source-observations.mjs",
     "check:source-catalog": "node packages/data-contracts/scripts/validate-source-catalog.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "supabase": "node node_modules/supabase/dist/supabase.js"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.4",
     "next": "16.2.12",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "supabase": "2.111.0"
   }
 }
