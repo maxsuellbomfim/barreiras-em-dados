@@ -7,7 +7,6 @@ from barreiras_collectors.connectors.alba import (
     MIN_EXPECTED,
     AlbaError,
     fetch_deputies,
-    fetch_profile,
     parse_deputies,
     parse_profile,
 )

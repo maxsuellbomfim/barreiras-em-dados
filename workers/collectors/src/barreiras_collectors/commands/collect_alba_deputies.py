@@ -8,9 +8,9 @@ import time
 from collections.abc import Sequence
 
 from ..connectors.alba import (
-    AlbaError,
     PROFILE_DELAY_SECONDS,
     SOURCE_CODE,
+    AlbaError,
     fetch_deputies,
     fetch_profile,
 )
