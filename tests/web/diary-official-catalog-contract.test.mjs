@@ -4,14 +4,14 @@ import test from "node:test";
 
 const catalogMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260808050000_official_diary_catalog.sql",
+    "../../supabase/migrations/20260803223641_official_diary_catalog.sql",
     import.meta.url,
   ),
   "utf8",
 );
 const projectionMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260808060000_public_diary_catalog_projection.sql",
+    "../../supabase/migrations/20260803223652_public_diary_catalog_projection.sql",
     import.meta.url,
   ),
   "utf8",
@@ -33,7 +33,7 @@ const catalogClient = await readFile(
 );
 const catalogFallbackMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260808070000_public_official_diary_catalog.sql",
+    "../../supabase/migrations/20260804021751_public_official_diary_catalog.sql",
     import.meta.url,
   ),
   "utf8",

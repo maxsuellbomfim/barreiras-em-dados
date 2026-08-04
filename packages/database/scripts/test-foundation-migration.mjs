@@ -658,7 +658,7 @@ try {
       gazette_date: "2026-06-10",
       gazette_url: null,
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "approved-gazette-acts/1.5.0",
+      methodology_version: "approved-gazette-acts/1.6.0",
     },
   ]);
 
@@ -804,8 +804,8 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 9,
-    endpoints: 15,
+    sources: 10,
+    endpoints: 16,
     private_buckets: 1,
   });
 
