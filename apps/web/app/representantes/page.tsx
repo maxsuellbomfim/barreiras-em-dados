@@ -13,6 +13,7 @@ import {
   type StateRepresentative,
 } from "../../lib/state-representatives";
 import { getTseBarreirasVotes, type TseVote } from "../../lib/tse-votes";
+import TerritorialVotesStudy from "./territorial-votes-study";
 import {
   getExecutiveProfiles,
   type ExecutiveProfile,
@@ -413,6 +414,7 @@ export default async function RepresentativesPage() {
     getTseBarreirasVotes(),
     getExecutiveProfiles(),
   ]);
+  const legacyVotes = votesResult.state === "available" ? votesResult.votes : [];
 
   return (
     <main>
@@ -480,7 +482,7 @@ export default async function RepresentativesPage() {
           <a href="#vereadores">Vereadores</a>
           <a href="#estaduais">Estaduais</a>
           <a href="#federais">Federais</a>
-          <a href="#candidaturas">Candidaturas</a>
+          <a href="#vinculo">Vínculo com Barreiras</a>
         </nav>
 
         <div className="representation-overview" aria-label="Resumo da cobertura">
@@ -748,14 +750,30 @@ export default async function RepresentativesPage() {
           )}
         </section>
 
-        <details id="candidaturas" className="representation-collapsible">
+        <section id="vinculo" className="representation-block representation-block-candidates" aria-labelledby="candidates-title">
+          {votesResult.state === "available" ? (
+            <TerritorialVotesStudy votes={votesResult.votes} />
+          ) : (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Dados eleitorais temporariamente indisponíveis</strong>
+                <p>Isso representa falha de consulta, não ausência de candidaturas.</p>
+                <a href="https://divulgacandcontas.tse.jus.br/" target="_blank" rel="noreferrer">
+                  Consultar DivulgaCandContas/TSE →
+                </a>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {votesResult.state === "available" && false ? <details id="candidaturas" className="representation-collapsible">
           <summary>
             <span>
               <span className="eyebrow">Histórico eleitoral</span>
               <strong>Candidaturas e estudos</strong>
             </span>
             <span className="representation-collapsible-meta">
-              {countLabel(votesResult.state === "available" ? votesResult.votes.length : null)} registros · abrir
+              {countLabel(legacyVotes.length)} registros · abrir
             </span>
           </summary>
         <section className="representation-block representation-block-candidates" aria-labelledby="candidates-title">
@@ -781,7 +799,7 @@ export default async function RepresentativesPage() {
                 </a>
               </div>
             </div>
-          ) : votesResult.votes.length === 0 ? (
+          ) : legacyVotes.length === 0 ? (
             <div className="collection-unavailable" role="status">
               <div>
                 <strong>Votação municipal ainda não coletada</strong>
@@ -794,17 +812,17 @@ export default async function RepresentativesPage() {
           ) : (
             <>
               <p className="acts-count" role="status">
-                {votesResult.votes.length.toLocaleString("pt-BR")} registros de votação municipal
+                {legacyVotes.length.toLocaleString("pt-BR")} registros de votação municipal
               </p>
               <div className="person-grid">
-                {votesResult.votes.map((vote) => (
+                {legacyVotes.map((vote) => (
                   <CandidateVoteCard key={`${vote.electionYear}-${vote.candidateId}-${vote.turnNumber}`} vote={vote} />
                 ))}
               </div>
             </>
           )}
         </section>
-        </details>
+        </details> : null}
 
         <p className="hero-note">
           Metodologia: identidade unificada apenas por identificador oficial
