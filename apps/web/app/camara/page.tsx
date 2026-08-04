@@ -60,6 +60,13 @@ export default async function CamaraPage({
             publicada, identificador, data e documento. A autoria aparece somente
             quando a fonte a informa; nenhuma associação é feita por semelhança de nome.
           </p>
+          <p className="hero-note">
+            A maior parte das leis pode não trazer autoria individual na fonte.
+            Quando há autoria, reproduzimos o texto como publicado. Caixa alta,
+            nome de urna, coautorias e grafias diferentes podem representar
+            registros distintos; por isso não consolidamos pessoas
+            automaticamente.
+          </p>
         </div>
         {!result ? (
           <div className="collection-unavailable" role="status">

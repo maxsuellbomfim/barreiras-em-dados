@@ -31,11 +31,11 @@ test("página consulta e exibe a contagem global de autoria", () => {
   assert.match(page, /authorSummary/);
   assert.match(explorer, /Contagem global no recorte atual/);
   assert.match(explorer, /authorQuery/);
+  assert.match(page, /A maior parte das leis/);
+  assert.match(page, /não consolidamos pessoas/);
 });
 
-test("vereadores apontam para autoria legislativa somente por nome exato", () => {
-  assert.match(representativesPage, /officialNameKey/);
-  assert.match(representativesPage, /legislativeAuthorMatch/);
-  assert.match(representativesPage, /encodeURIComponent\(legislativeAuthor\.authorName\)/);
-  assert.match(representativesPage, /Nenhuma associa/);
+test("perfil de vereador não infere autoria nem promove bandeiras", () => {
+  assert.doesNotMatch(representativesPage, /legislativeAuthorMatch|officialNameKey/);
+  assert.doesNotMatch(representativesPage, /person-legislative-summary|principal bandeira/i);
 });

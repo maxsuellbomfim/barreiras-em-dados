@@ -3,7 +3,6 @@ export type Councillor = Readonly<{
   displayName: string;
   party: string | null;
   mandates: string | null;
-  mainAgenda: string | null;
   biography: string | null;
   photoUrl: string | null;
   sourceUrl: string;
@@ -42,7 +41,6 @@ function parseCouncillor(row: Record<string, unknown>): Councillor | null {
     displayName,
     party: optionalString(row.party),
     mandates: optionalString(row.mandates),
-    mainAgenda: optionalString(row.main_agenda),
     biography: optionalString(row.biography),
     photoUrl,
     sourceUrl,
