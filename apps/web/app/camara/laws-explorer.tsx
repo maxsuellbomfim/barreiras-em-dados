@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type CSSProperties } from "react";
 
-import type { CamaraLegislativeItem } from "../../lib/camara-legislative";
+import type { CamaraLegislativeFilters, CamaraLegislativeItem } from "../../lib/camara-legislative";
 
 function formatDate(value: string | null): string {
   if (!value || Number.isNaN(Date.parse(value))) return "data não informada";
@@ -30,46 +30,55 @@ function LegislativeCard({ item }: Readonly<{ item: CamaraLegislativeItem }>) {
   );
 }
 
-export function CamaraLawsExplorer({ items, totalCount, page, pageSize }: Readonly<{
+export function CamaraLawsExplorer({ items, totalCount, page, pageSize, initialFilters }: Readonly<{
   items: readonly CamaraLegislativeItem[];
   totalCount: number;
   page: number;
   pageSize: number;
+  initialFilters: CamaraLegislativeFilters;
 }>) {
-  const [query, setQuery] = useState("");
-  const [year, setYear] = useState("all");
-  const [kind, setKind] = useState("all");
-  const [author, setAuthor] = useState("all");
-  const years = useMemo(() => Array.from(new Set(items.map((item) => item.referenceYear).filter((value): value is number => value !== null))).sort((a, b) => b - a), [items]);
-  const authors = useMemo(() => Array.from(new Set(items.map((item) => item.authorName).filter((value): value is string => value !== null))).sort((a, b) => a.localeCompare(b, "pt-BR")), [items]);
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase("pt-BR");
-    return items.filter((item) => {
-      if (kind !== "all" && item.itemKind !== kind) return false;
-      if (year !== "all" && item.referenceYear !== Number(year)) return false;
-      if (author !== "all" && item.authorName !== author) return false;
-      return !needle || [item.itemId, item.protocolNumber, item.title, item.summary, item.authorName].filter(Boolean).join(" ").toLocaleLowerCase("pt-BR").includes(needle);
-    });
-  }, [author, items, kind, query, year]);
+  const [query, setQuery] = useState(initialFilters.query ?? "");
+  const [year, setYear] = useState(initialFilters.year?.toString() ?? "");
+  const [kind, setKind] = useState<"all" | "lei" | "indicacao">(initialFilters.kind ?? "all");
+  const [author, setAuthor] = useState(initialFilters.author ?? "");
+  const filtered = items;
   const byAuthor = useMemo(() => {
     const counts = new Map<string, number>();
     for (const item of filtered) if (item.authorName) counts.set(item.authorName, (counts.get(item.authorName) ?? 0) + 1);
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")).slice(0, 8);
   }, [filtered]);
-  function clearFilters() { setQuery(""); setYear("all"); setKind("all"); setAuthor("all"); }
+  function filterQuery(targetPage?: number): string {
+    const params = new URLSearchParams();
+    const normalizedQuery = query.trim().slice(0, 200);
+    const normalizedAuthor = author.trim().slice(0, 200);
+    if (normalizedQuery) params.set("q", normalizedQuery);
+    if (kind !== "all") params.set("kind", kind);
+    if (/^\d{4}$/.test(year)) params.set("year", year);
+    if (normalizedAuthor) params.set("author", normalizedAuthor);
+    if (targetPage && targetPage > 1) params.set("page", String(targetPage));
+    const queryString = params.toString();
+    return queryString ? `/camara?${queryString}` : "/camara";
+  }
+  function authorQuery(name: string): string {
+    const params = new URLSearchParams(filterQuery(1).split("?")[1] ?? "");
+    params.set("author", name);
+    return `/camara?${params.toString()}`;
+  }
+  function clearFilters() { window.location.assign("/camara"); }
   return (
     <div className="acts-explorer">
-      <form className="acts-filters" aria-label="Filtrar atividade legislativa">
-        <label><span>Buscar nesta página</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="título, ementa, protocolo ou autor" /></label>
-        <label><span>Ano</span><select value={year} onChange={(event) => setYear(event.target.value)}><option value="all">Todos</option>{years.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-        <label><span>Tipo</span><select value={kind} onChange={(event) => setKind(event.target.value)}><option value="all">Leis e indicações</option><option value="lei">Leis</option><option value="indicacao">Indicações</option></select></label>
-        <label><span>Autoria publicada</span><select value={author} onChange={(event) => setAuthor(event.target.value)}><option value="all">Todas</option>{authors.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+      <form className="acts-filters" aria-label="Filtrar atividade legislativa" onSubmit={(event) => { event.preventDefault(); window.location.assign(filterQuery(1)); }}>
+        <label><span>Buscar em todo o acervo</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="título, ementa, protocolo ou autor" /></label>
+        <label><span>Ano</span><input inputMode="numeric" pattern="\d{4}" maxLength={4} value={year} onChange={(event) => setYear(event.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="todos" aria-label="Filtrar pelo ano" /></label>
+        <label><span>Tipo</span><select value={kind} onChange={(event) => setKind(event.target.value as "all" | "lei" | "indicacao")}><option value="all">Leis e indicações</option><option value="lei">Leis</option><option value="indicacao">Indicações</option></select></label>
+        <label><span>Autoria exata</span><input type="search" value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="nome como publicado pela fonte" /></label>
+        <button type="submit" className="filter-clear">Aplicar filtros</button>
         <button type="button" className="filter-clear" onClick={clearFilters}>Limpar filtros</button>
       </form>
-      <div className="acts-filter-summary" aria-live="polite"><strong>{filtered.length.toLocaleString("pt-BR")} nesta página · {totalCount.toLocaleString("pt-BR")} no acervo</strong><span>Os filtros desta caixa atuam sobre a página atual.</span></div>
-      {byAuthor.length > 0 ? <section className="legislative-author-summary" aria-label="Registros por autoria"><div><strong>Autoria publicada</strong><span>Contagem determinística na página atual</span></div><div className="legislative-author-bars">{byAuthor.map(([name, count]) => <button type="button" key={name} onClick={() => setAuthor(name)} title={`Filtrar por ${name}`}><span>{name}</span><b style={{ "--bar-size": `${Math.max(8, Math.round((count / byAuthor[0][1]) * 100))}%` } as CSSProperties}>{count.toLocaleString("pt-BR")}</b></button>)}</div></section> : null}
-      {filtered.length > 0 ? <div className="digest-grid">{filtered.map((item) => <LegislativeCard key={`${item.itemKind}-${item.itemId}`} item={item} />)}</div> : <div className="collection-unavailable" role="status"><div><strong>Nenhum registro nesta página</strong><p>Use a navegação ou ajuste os filtros desta página.</p></div><button type="button" className="filter-clear" onClick={clearFilters}>Limpar filtros</button></div>}
-      {totalCount > pageSize ? <nav className="legislative-pagination" aria-label="Paginação da atividade legislativa">{page > 1 ? <a className="filter-clear" href={`/camara?page=${page - 1}`}>← Mais recentes</a> : <span />}{<span>Página {page} de {Math.ceil(totalCount / pageSize).toLocaleString("pt-BR")}</span>}{page * pageSize < totalCount ? <a className="filter-clear" href={`/camara?page=${page + 1}`}>Registros anteriores →</a> : <span />}</nav> : null}
+      <div className="acts-filter-summary" aria-live="polite"><strong>{filtered.length.toLocaleString("pt-BR")} nesta página · {totalCount.toLocaleString("pt-BR")} no recorte filtrado</strong><span>Os filtros são aplicados no servidor sobre todo o acervo. A página mostra até {pageSize} registros por vez.</span></div>
+      {byAuthor.length > 0 ? <section className="legislative-author-summary" aria-label="Registros por autoria"><div><strong>Autoria publicada</strong><span>Amostra determinística desta página</span></div><div className="legislative-author-bars">{byAuthor.map(([name, count]) => <button type="button" key={name} onClick={() => { setAuthor(name); window.location.assign(authorQuery(name)); }} title={`Filtrar por ${name}`}><span>{name}</span><b style={{ "--bar-size": `${Math.max(8, Math.round((count / byAuthor[0][1]) * 100))}%` } as CSSProperties}>{count.toLocaleString("pt-BR")}</b></button>)}</div></section> : null}
+      {filtered.length > 0 ? <div className="digest-grid">{filtered.map((item) => <LegislativeCard key={`${item.itemKind}-${item.itemId}`} item={item} />)}</div> : <div className="collection-unavailable" role="status"><div><strong>Nenhum registro neste recorte</strong><p>Altere os filtros ou limpe a busca para consultar todo o acervo.</p></div><button type="button" className="filter-clear" onClick={clearFilters}>Limpar filtros</button></div>}
+      {totalCount > pageSize ? <nav className="legislative-pagination" aria-label="Paginação da atividade legislativa">{page > 1 ? <a className="filter-clear" href={filterQuery(page - 1)}>← Mais recentes</a> : <span />}{<span>Página {page} de {Math.ceil(totalCount / pageSize).toLocaleString("pt-BR")}</span>}{page * pageSize < totalCount ? <a className="filter-clear" href={filterQuery(page + 1)}>Registros anteriores →</a> : <span />}</nav> : null}
     </div>
   );
 }

@@ -26,6 +26,13 @@ export type CamaraLegislativePage = Readonly<{
   pageSize: number;
 }>;
 
+export type CamaraLegislativeFilters = Readonly<{
+  query?: string | null;
+  kind?: "lei" | "indicacao" | null;
+  year?: number | null;
+  author?: string | null;
+}>;
+
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
@@ -67,7 +74,7 @@ function publicConfig(): { url: string; key: string } | null {
   return { url, key };
 }
 
-async function fetchPage(page: number, pageSize: number): Promise<CamaraLegislativePage | null> {
+async function fetchPage(page: number, pageSize: number, filters: CamaraLegislativeFilters = {}): Promise<CamaraLegislativePage | null> {
   const config = publicConfig();
   if (!config || !Number.isSafeInteger(page) || page < 1 || page > 1000) return null;
   const response = await fetch(`${config.url}/rest/v1/rpc/get_camara_legislative_page`, {
@@ -79,7 +86,14 @@ async function fetchPage(page: number, pageSize: number): Promise<CamaraLegislat
       "Content-Profile": "api",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ page_size: pageSize, page_offset: (page - 1) * pageSize }),
+    body: JSON.stringify({
+      page_size: pageSize,
+      page_offset: (page - 1) * pageSize,
+      item_kind_filter: filters.kind ?? null,
+      year_filter: filters.year ?? null,
+      author_filter: filters.author?.trim() || null,
+      query_filter: filters.query?.trim() || null,
+    }),
     next: { revalidate: 900 },
     signal: AbortSignal.timeout(5_000),
   });
@@ -100,10 +114,10 @@ async function fetchPage(page: number, pageSize: number): Promise<CamaraLegislat
   return { items, totalCount, page, pageSize };
 }
 
-export async function getCamaraLegislativePage(page = 1, pageSize = 50): Promise<CamaraLegislativePage | null> {
+export async function getCamaraLegislativePage(page = 1, pageSize = 50, filters: CamaraLegislativeFilters = {}): Promise<CamaraLegislativePage | null> {
   if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) return null;
   try {
-    return await fetchPage(page, pageSize);
+    return await fetchPage(page, pageSize, filters);
   } catch {
     return null;
   }
