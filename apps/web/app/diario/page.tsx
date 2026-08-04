@@ -240,7 +240,7 @@ export default async function EditionDigestsPage() {
           {latestCatalogCollectedAt ? (
             <p className="source-freshness" role="status">
               <span className="status-dot" aria-hidden="true" />
-              Fonte oficial consultada em{" "}
+              Catálogo oficial preservado em{" "}
               {dateTimeFormatter.format(new Date(latestCatalogCollectedAt))}
               {" "}· atualização automática ativa
             </p>
