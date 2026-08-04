@@ -77,6 +77,18 @@ def executive_record_idempotency_key(
     ).hexdigest()
 
 
+def official_catalog_record_idempotency_key(
+    *, catalog_body_sha256: str, source_record_key: str, payload_sha256: str
+) -> str:
+    """Identifica uma publicação dentro de um snapshot do catálogo."""
+    return hashlib.sha256(
+        (
+            "official-diary-record:"
+            f"{catalog_body_sha256}:{source_record_key}:{payload_sha256}"
+        ).encode()
+    ).hexdigest()
+
+
 class OfficialDiaryCatalogPersistenceService:
     """Preserva o catálogo HTML e seus registros estruturados por edição."""
 
@@ -134,8 +146,10 @@ class OfficialDiaryCatalogPersistenceService:
                     payload=payload,
                     payload_sha256=payload_hash,
                     parser_version="barreiras-diario-catalog/1.0.0",
-                    idempotency_key=self._digest(
-                        f"official-diary-record:{source_key}:{payload_hash}"
+                    idempotency_key=official_catalog_record_idempotency_key(
+                        catalog_body_sha256=snapshot.body_sha256,
+                        source_record_key=source_key,
+                        payload_sha256=payload_hash,
                     ),
                 )
             )

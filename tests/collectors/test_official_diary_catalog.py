@@ -14,10 +14,30 @@ from barreiras_collectors.persistence.models import (
 )
 from barreiras_collectors.persistence.service import (
     OfficialDiaryCatalogPersistenceService,
+    official_catalog_record_idempotency_key,
 )
 
 
 class OfficialDiaryCatalogTests(unittest.TestCase):
+    def test_catalog_record_idempotency_is_scoped_to_snapshot(self) -> None:
+        first = official_catalog_record_idempotency_key(
+            catalog_body_sha256="a" * 64,
+            source_record_key="barreiras-diario:publication:4703:2026-07-31",
+            payload_sha256="b" * 64,
+        )
+        replay = official_catalog_record_idempotency_key(
+            catalog_body_sha256="a" * 64,
+            source_record_key="barreiras-diario:publication:4703:2026-07-31",
+            payload_sha256="b" * 64,
+        )
+        next_snapshot = official_catalog_record_idempotency_key(
+            catalog_body_sha256="c" * 64,
+            source_record_key="barreiras-diario:publication:4703:2026-07-31",
+            payload_sha256="b" * 64,
+        )
+        self.assertEqual(first, replay)
+        self.assertNotEqual(first, next_snapshot)
+
     def test_parses_official_edition_fields(self) -> None:
         body = """
         <table><tbody><tr>
