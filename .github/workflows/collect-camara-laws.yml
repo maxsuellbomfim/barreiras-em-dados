@@ -1,4 +1,4 @@
-name: Coletar leis da Câmara Municipal
+name: Coletar atividade legislativa da Câmara Municipal
 
 on:
   schedule:
