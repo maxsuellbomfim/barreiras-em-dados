@@ -204,7 +204,21 @@ def parse_official_page(
         )
         if not heading:
             return ()
-        window = content[max(0, heading.start() - 1200) : heading.end() + 3500]
+        # A página oficial reúne prefeito e vice no mesmo acordeão. O recorte
+        # anterior começava antes do título atual e acabava incluindo a
+        # biografia do outro cargo. Encerramos no próximo título de liderança
+        # para que cada perfil carregue somente o texto correspondente.
+        next_heading = re.search(
+            r"<h2[^>]*>\s*(?:prefeito|vice-prefeito)\s*</h2>",
+            content[heading.end() :],
+            re.I,
+        )
+        end = (
+            heading.end() + next_heading.start()
+            if next_heading
+            else len(content)
+        )
+        window = content[heading.start() : end]
         title = re.search(
             r'<h2[^>]+class=["\'][^"\']*panel-title[^"\']*["\'][^>]*>'
             r'[\s\S]*?<strong>([^<]+)</strong>',
