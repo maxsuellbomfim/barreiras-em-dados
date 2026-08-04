@@ -1,160 +1,84 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 
-import type { CamaraLaw } from "../../lib/camara-laws";
+import type { CamaraLegislativeItem } from "../../lib/camara-legislative";
 
-function LawCard({ law }: Readonly<{ law: CamaraLaw }>) {
+function formatDate(value: string | null): string {
+  if (!value || Number.isNaN(Date.parse(value))) return "data não informada";
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: "America/Bahia" }).format(new Date(`${value.slice(0, 10)}T12:00:00Z`));
+}
+
+function itemLabel(item: CamaraLegislativeItem): string {
+  return item.itemKind === "indicacao" ? "Indicação" : "Lei municipal";
+}
+
+function LegislativeCard({ item }: Readonly<{ item: CamaraLegislativeItem }>) {
   return (
-    <article className="digest-card" aria-label="Lei municipal">
+    <article className="digest-card" aria-label={itemLabel(item)}>
       <div className="track-top">
-        <span>{law.lawType ?? "Lei municipal"}</span>
-        <span className="track-status">
-          {law.referenceYear ?? law.publicationDate ?? "ano não informado"}
-        </span>
+        <span>{itemLabel(item)}</span>
+        <span className="track-status">{formatDate(item.publicationDate)}</span>
       </div>
       <h2 className="procurement-object">
-        {law.title ?? `Registro legislativo ${law.lawId}`}
+        {item.title || (item.itemKind === "indicacao" ? `Indicação ${item.itemId}` : `Lei ${item.itemId}`)}
       </h2>
-      {law.summary ? <p>{law.summary}</p> : null}
+      {item.summary ? <p>{item.summary}</p> : null}
       <dl className="procurement-values">
-        <div>
-          <dt>Identificador na Câmara</dt>
-          <dd>{law.lawId}</dd>
-        </div>
-        <div>
-          <dt>Data publicada</dt>
-          <dd>{law.publicationDate ?? "não informado"}</dd>
-        </div>
-        <div>
-          <dt>Status informado pela fonte</dt>
-          <dd>
-            {law.active === null ? "não informado" : law.active ? "ativo" : "inativo"}
-          </dd>
-        </div>
+        <div><dt>Autoria informada pela Câmara</dt><dd>{item.authorName ?? "não informada"}</dd></div>
+        <div><dt>{item.itemKind === "indicacao" ? "Protocolo" : "Identificador"}</dt><dd>{item.protocolNumber ?? item.itemId}</dd></div>
+        {item.situation ? <div><dt>Situação na fonte</dt><dd>{item.situation}</dd></div> : null}
       </dl>
-      <p className="act-review-mode">
-        A API consultada não atribuiu autoria individual neste registro. Não
-        inferimos vereador, partido ou avaliação a partir da ementa.
-      </p>
+      {item.itemKind === "indicacao" ? (
+        <p className="act-review-mode">Indicação é uma proposição legislativa. Este registro não significa que a obra ou serviço foi executado.</p>
+      ) : item.authorName ? (
+        <p className="act-review-mode">A autoria é exibida como publicada pela Câmara; não é uma avaliação do mandato.</p>
+      ) : (
+        <p className="act-review-mode">A fonte não informou autoria individual neste registro. Nenhum vereador foi associado por semelhança de nome.</p>
+      )}
       <p className="act-evidence">
-        {law.sourceUrl ? (
-          <a href={law.sourceUrl} target="_blank" rel="noreferrer">
-            Ver arquivo oficial
-          </a>
-        ) : (
-          <span>Arquivo oficial não informado no registro</span>
-        )}{" "}
-        · coletado em {new Date(law.collectedAt).toLocaleDateString("pt-BR")}
+        {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">Ver documento oficial</a> : <span>Documento oficial não informado no registro</span>}
+        {" · "}publicado em {formatDate(item.publicationDate)} · coletado em {formatDate(item.collectedAt)}
       </p>
     </article>
   );
 }
 
-export function CamaraLawsExplorer({
-  laws,
-}: Readonly<{ laws: readonly CamaraLaw[] }>) {
+export function CamaraLawsExplorer({ items }: Readonly<{ items: readonly CamaraLegislativeItem[] }>) {
   const [query, setQuery] = useState("");
   const [year, setYear] = useState("all");
-  const [type, setType] = useState("all");
-
-  const years = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          laws
-            .map((law) => law.referenceYear)
-            .filter((value): value is number => value !== null),
-        ),
-      ).sort((a, b) => b - a),
-    [laws],
-  );
-  const types = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          laws
-            .map((law) => law.lawType)
-            .filter((value): value is string => value !== null),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [laws],
-  );
+  const [kind, setKind] = useState("all");
+  const [author, setAuthor] = useState("all");
+  const years = useMemo(() => Array.from(new Set(items.map((item) => item.referenceYear).filter((value): value is number => value !== null))).sort((a, b) => b - a), [items]);
+  const authors = useMemo(() => Array.from(new Set(items.map((item) => item.authorName).filter((value): value is string => value !== null))).sort((a, b) => a.localeCompare(b, "pt-BR")), [items]);
   const filtered = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
-    return laws.filter((law) => {
-      if (
-        normalizedQuery &&
-        ![
-          law.lawId,
-          law.title,
-          law.summary,
-          law.lawType,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLocaleLowerCase("pt-BR")
-          .includes(normalizedQuery)
-      ) {
-        return false;
-      }
-      if (year !== "all" && law.referenceYear !== Number(year)) return false;
-      if (type !== "all" && law.lawType !== type) return false;
+    const needle = query.trim().toLocaleLowerCase("pt-BR");
+    return items.filter((item) => {
+      if (kind !== "all" && item.itemKind !== kind) return false;
+      if (year !== "all" && item.referenceYear !== Number(year)) return false;
+      if (author !== "all" && item.authorName !== author) return false;
+      if (needle && ![item.itemId, item.protocolNumber, item.title, item.summary, item.authorName].filter(Boolean).join(" ").toLocaleLowerCase("pt-BR").includes(needle)) return false;
       return true;
     });
-  }, [laws, query, type, year]);
-
-  function clearFilters() {
-    setQuery("");
-    setYear("all");
-    setType("all");
-  }
-
+  }, [author, items, kind, query, year]);
+  const byAuthor = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of filtered) if (item.authorName) counts.set(item.authorName, (counts.get(item.authorName) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")).slice(0, 8);
+  }, [filtered]);
+  function clearFilters() { setQuery(""); setYear("all"); setKind("all"); setAuthor("all"); }
   return (
     <div className="acts-explorer">
-      <form className="acts-filters" aria-label="Filtrar leis municipais">
-        <label>
-          <span>Buscar</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="título, ementa ou identificador"
-          />
-        </label>
-        <label>
-          <span>Ano</span>
-          <select value={year} onChange={(event) => setYear(event.target.value)}>
-            <option value="all">Todos</option>
-            {years.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </label>
-        <label>
-          <span>Tipo</span>
-          <select value={type} onChange={(event) => setType(event.target.value)}>
-            <option value="all">Todos</option>
-            {types.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </label>
+      <form className="acts-filters" aria-label="Filtrar atividade legislativa">
+        <label><span>Buscar</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="título, ementa, protocolo ou autor" /></label>
+        <label><span>Ano</span><select value={year} onChange={(event) => setYear(event.target.value)}><option value="all">Todos</option>{years.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        <label><span>Tipo</span><select value={kind} onChange={(event) => setKind(event.target.value)}><option value="all">Leis e indicações</option><option value="lei">Leis</option><option value="indicacao">Indicações</option></select></label>
+        <label><span>Autoria publicada</span><select value={author} onChange={(event) => setAuthor(event.target.value)}><option value="all">Todas</option>{authors.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
         <button type="button" className="filter-clear" onClick={clearFilters}>Limpar filtros</button>
       </form>
-      <div className="acts-filter-summary" aria-live="polite">
-        <strong>{filtered.length.toLocaleString("pt-BR")} de {laws.length.toLocaleString("pt-BR")} registros</strong>
-        <span>Leis preservadas da API oficial da Câmara Municipal.</span>
-      </div>
-      {filtered.length > 0 ? (
-        <div className="digest-grid">
-          {filtered.map((law) => <LawCard key={law.lawId} law={law} />)}
-        </div>
-      ) : (
-        <div className="collection-unavailable" role="status">
-          <div>
-            <strong>Nenhuma lei corresponde aos filtros</strong>
-            <p>Ajuste a busca ou limpe os filtros.</p>
-          </div>
-          <button type="button" className="filter-clear" onClick={clearFilters}>Mostrar todos</button>
-        </div>
-      )}
+      <div className="acts-filter-summary" aria-live="polite"><strong>{filtered.length.toLocaleString("pt-BR")} de {items.length.toLocaleString("pt-BR")} registros</strong><span>Dados preservados do portal oficial da Câmara Municipal.</span></div>
+      {byAuthor.length > 0 ? <section className="legislative-author-summary" aria-label="Registros por autoria"><div><strong>Autoria publicada</strong><span>Contagem determinística no recorte filtrado</span></div><div className="legislative-author-bars">{byAuthor.map(([name, count]) => <button type="button" key={name} onClick={() => setAuthor(name)} title={`Filtrar por ${name}`}><span>{name}</span><b style={{ "--bar-size": `${Math.max(8, Math.round((count / byAuthor[0][1]) * 100))}%` } as CSSProperties}>{count.toLocaleString("pt-BR")}</b></button>)}</div></section> : null}
+      {filtered.length > 0 ? <div className="digest-grid">{filtered.map((item) => <LegislativeCard key={`${item.itemKind}-${item.itemId}`} item={item} />)}</div> : <div className="collection-unavailable" role="status"><div><strong>Nenhum registro corresponde aos filtros</strong><p>Ajuste a busca ou limpe os filtros.</p></div><button type="button" className="filter-clear" onClick={clearFilters}>Mostrar todos</button></div>}
     </div>
   );
 }

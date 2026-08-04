@@ -15,9 +15,13 @@ concurrency:
 
 jobs:
   collect:
-    name: Preservar leis da Câmara
+    name: Preservar atividade legislativa (${{ matrix.resource }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        resource: [leis, indicacoes]
     env:
       APP_ENV: production
       LOG_LEVEL: INFO
@@ -51,11 +55,11 @@ jobs:
           echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
           | sha256sum --check --strict
 
-      - name: Preservar leis publicadas
+      - name: Preservar registros legislativos
         run: >-
           python -B -m barreiras_collectors.commands.collect_municipal_transparency
           --source camara
-          --resource leis
+          --resource "${{ matrix.resource }}"
           --limit 50
           --max-pages 100
           --allow-partial
