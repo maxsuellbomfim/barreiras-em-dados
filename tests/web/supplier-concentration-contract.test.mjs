@@ -4,21 +4,21 @@ import test from "node:test";
 
 const migration = await readFile(
   new URL(
-    "../../supabase/migrations/20260806180000_public_supplier_concentration.sql",
+    "../../supabase/migrations/20260803130451_public_supplier_concentration.sql",
     import.meta.url,
   ),
   "utf8",
 );
 const conservativeMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260806181000_conservative_supplier_signal.sql",
+    "../../supabase/migrations/20260803130538_conservative_supplier_signal.sql",
     import.meta.url,
   ),
   "utf8",
 );
 const monitoringMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260806182000_supplier_monitoring_context.sql",
+    "../../supabase/migrations/20260803132436_supplier_monitoring_context.sql",
     import.meta.url,
   ),
   "utf8",

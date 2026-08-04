@@ -4,42 +4,42 @@ import test from "node:test";
 
 const migration = await readFile(
   new URL(
-    "../../supabase/migrations/20260806200000_pncp_structured_filters.sql",
+    "../../supabase/migrations/20260803135529_pncp_structured_filters.sql",
     import.meta.url,
   ),
   "utf8",
 );
 const normalizedMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260806230000_pncp_normalized_filtering.sql",
+    "../../supabase/migrations/20260803142610_pncp_normalized_filtering.sql",
     import.meta.url,
   ),
   "utf8",
 );
 const executionMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260807010000_pncp_execution_links.sql",
+    "../../supabase/migrations/20260803144837_pncp_execution_links.sql",
     import.meta.url,
   ),
   "utf8",
 );
 const evidenceMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260807020000_pncp_execution_evidence.sql",
+    "../../supabase/migrations/20260803145822_pncp_execution_evidence.sql",
     import.meta.url,
   ),
   "utf8",
 );
 const documentEvidenceMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260807030000_pncp_document_evidence_links.sql",
+    "../../supabase/migrations/20260803151936_pncp_document_evidence_links.sql",
     import.meta.url,
   ),
   "utf8",
 );
 const contractDetailsMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260808010000_pncp_contract_details_public.sql",
+    "../../supabase/migrations/20260803172012_pncp_contract_details_public.sql",
     import.meta.url,
   ),
   "utf8",
@@ -52,7 +52,7 @@ const explorer = await readFile(
 );
 const optionsMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260806220000_pncp_normalized_filter_options.sql",
+    "../../supabase/migrations/20260803141203_pncp_normalized_filter_options.sql",
     import.meta.url,
   ),
   "utf8",

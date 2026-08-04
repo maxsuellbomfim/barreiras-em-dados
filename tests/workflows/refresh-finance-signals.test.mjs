@@ -8,7 +8,7 @@ const workflow = await readFile(
 );
 const migration = await readFile(
   new URL(
-    "../../supabase/migrations/20260806160000_finance_deterministic_signals.sql",
+    "../../supabase/migrations/20260803124159_finance_deterministic_signals.sql",
     import.meta.url,
   ),
   "utf8",
