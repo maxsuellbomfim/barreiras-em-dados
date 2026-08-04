@@ -148,14 +148,19 @@ def parse_alias_response(
     if decision == "no_match" and external_id is not None:
         raise ValueError("no_match não pode indicar candidato")
     alias_kind = parsed.get("alias_kind")
-    if alias_kind not in {
+    allowed_alias_kinds = {
         "ballot_name",
         "nickname",
         "case_variant",
         "spacing_variant",
         "other",
-    }:
-        raise ValueError("alias_kind fora do contrato")
+    }
+    # Modelos podem devolver uma taxonomia sinônima (por exemplo, "official_name").
+    # Esse campo não decide a identidade; conservamos a sugestão e rebaixamos
+    # somente a classificação para ``other``. IDs fora da lista continuam sendo
+    # rejeitados acima, preservando o mundo fechado.
+    if alias_kind not in allowed_alias_kinds:
+        alias_kind = "other"
     confidence = parsed.get("confidence")
     if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
         raise ValueError("confidence deve ser número")

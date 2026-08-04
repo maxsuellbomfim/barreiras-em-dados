@@ -79,7 +79,22 @@ class AliasAssistTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_alias_response(json.dumps(base), allowed_external_ids=set())
 
+    def test_response_downgrades_unknown_alias_kind_without_accepting_identity(self):
+        result = parse_alias_response(
+            json.dumps(
+                {
+                    "decision": "match",
+                    "candidate_external_id": "cm-barreiras:vereador:allan",
+                    "alias_kind": "official_name",
+                    "confidence": 0.7,
+                    "rationale": "Apenas a classificação veio fora da taxonomia.",
+                    "evidence": ["registro oficial da Câmara"],
+                }
+            ),
+            allowed_external_ids={"cm-barreiras:vereador:allan"},
+        )
+        self.assertEqual(result["alias_kind"], "other")
+
 
 if __name__ == "__main__":
     unittest.main()
-
