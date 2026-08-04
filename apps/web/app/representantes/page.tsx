@@ -13,6 +13,11 @@ import {
   type StateRepresentative,
 } from "../../lib/state-representatives";
 import { getTseBarreirasVotes, type TseVote } from "../../lib/tse-votes";
+import {
+  getRepresentativeVotes,
+  votesForRepresentative,
+  type RepresentativeVote,
+} from "../../lib/representative-votes";
 import TerritorialVotesStudy from "./territorial-votes-study";
 import {
   getExecutiveProfiles,
@@ -39,9 +44,49 @@ function countLabel(count: number | null): string {
   return count === null ? "—" : count.toLocaleString("pt-BR");
 }
 
+function RepresentativeVoteSummary({
+  votes,
+}: Readonly<{ votes: readonly RepresentativeVote[] }>) {
+  return (
+    <div className="person-vote-summary" aria-label="Votação em Barreiras">
+      <div className="person-vote-summary-heading">
+        <strong>Votação em Barreiras</strong>
+        <span className="person-vote-summary-badge">
+          {votes.length > 0 ? "vínculo confirmado" : "em consolidação"}
+        </span>
+      </div>
+      {votes.length > 0 ? (
+        <ul>
+          {votes.map((vote) => (
+            <li key={`${vote.electionYear}-${vote.candidateId}-${vote.turnNumber}`}>
+              <span>
+                {vote.electionYear} · {vote.turnNumber}º turno
+                <small className="person-vote-candidate-name">
+                  {vote.ballotName ?? vote.displayName ?? "candidatura no TSE"}
+                </small>
+              </span>
+              <strong>{vote.votesInBarreiras.toLocaleString("pt-BR")} votos</strong>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>
+          Ainda não há um vínculo eleitoral aprovado por identificador oficial
+          para este perfil. O registro não é presumido por semelhança de nome.
+        </p>
+      )}
+      <a href="#vinculo">Ver o estudo territorial completo →</a>
+    </div>
+  );
+}
+
 function RepresentativeCard({
   person,
-}: Readonly<{ person: FederalRepresentative }>) {
+  voteLinks,
+}: Readonly<{
+  person: FederalRepresentative;
+  voteLinks: readonly RepresentativeVote[];
+}>) {
   const camaraUrl = `https://www.camara.leg.br/deputados/${person.externalId}`;
   return (
     <article className="person-card" aria-label="Representante">
@@ -109,12 +154,7 @@ function RepresentativeCard({
         </div>
       </dl>
 
-      <p className="person-link-note">
-        <strong>Vínculo com Barreiras:</strong> eleito(a) pelo estado da
-        Bahia. A base municipal do TSE já foi preservada; a associação
-        individual entre votação em Barreiras e este perfil ainda passa por
-        consolidação e revisão.
-      </p>
+      <RepresentativeVoteSummary votes={voteLinks} />
 
       <p className="act-evidence">
         <a href={camaraUrl} target="_blank" rel="noreferrer">
@@ -184,7 +224,11 @@ function CouncillorCard({ person }: Readonly<{ person: Councillor }>) {
 
 function StateRepresentativeCard({
   person,
-}: Readonly<{ person: StateRepresentative }>) {
+  voteLinks,
+}: Readonly<{
+  person: StateRepresentative;
+  voteLinks: readonly RepresentativeVote[];
+}>) {
   const initials = person.displayName
     .split(/\s+/)
     .filter(Boolean)
@@ -217,11 +261,7 @@ function StateRepresentativeCard({
           <span className="person-badge person-badge-active">mandato publicado pela ALBA</span>
         </div>
       </div>
-      <p className="person-link-note">
-        <strong>Vínculo com Barreiras:</strong> ainda não consolidado nesta
-        projeção. A presença na Assembleia não é tratada como representação
-        exclusiva do município.
-      </p>
+      <RepresentativeVoteSummary votes={voteLinks} />
       {person.education || person.professionalActivity || person.electiveMandate || person.parliamentaryActivity ? (
         <details className="person-biography">
           <summary>Biografia oficial publicada pela ALBA</summary>
@@ -407,14 +447,19 @@ function CandidateVoteCard({ vote }: Readonly<{ vote: TseVote }>) {
 }
 
 export default async function RepresentativesPage() {
-  const [result, councillorsResult, stateResult, votesResult, executiveProfilesResult] = await Promise.all([
+  const [result, councillorsResult, stateResult, votesResult, executiveProfilesResult, representativeVotesResult] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
     getStateRepresentatives(),
     getTseBarreirasVotes(),
     getExecutiveProfiles(),
+    getRepresentativeVotes(),
   ]);
   const legacyVotes = votesResult.state === "available" ? votesResult.votes : [];
+  const representativeVotes =
+    representativeVotesResult.state === "available"
+      ? representativeVotesResult.votes
+      : [];
 
   return (
     <main>
@@ -642,7 +687,15 @@ export default async function RepresentativesPage() {
               </summary>
               <div className="person-grid">
                 {result.representatives.map((person) => (
-                  <RepresentativeCard key={person.externalId} person={person} />
+                  <RepresentativeCard
+                    key={person.externalId}
+                    person={person}
+                    voteLinks={votesForRepresentative(
+                      representativeVotes,
+                      "federal",
+                      person.externalId,
+                    )}
+                  />
                 ))}
               </div>
             </details>
@@ -742,7 +795,15 @@ export default async function RepresentativesPage() {
                 </summary>
                 <div className="person-grid">
                   {stateResult.representatives.map((person) => (
-                    <StateRepresentativeCard key={person.externalId} person={person} />
+                    <StateRepresentativeCard
+                      key={person.externalId}
+                      person={person}
+                      voteLinks={votesForRepresentative(
+                        representativeVotes,
+                        "state",
+                        person.externalId,
+                      )}
+                    />
                   ))}
                 </div>
               </details>

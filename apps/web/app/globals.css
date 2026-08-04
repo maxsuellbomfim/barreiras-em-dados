@@ -3007,6 +3007,84 @@ footer {
   line-height: 1.5;
 }
 
+.person-vote-summary {
+  margin: 0.9rem 0;
+  padding: 0.85rem;
+  border: 1px solid rgba(75, 113, 205, 0.18);
+  border-radius: 0.95rem;
+  background: rgba(237, 243, 255, 0.8);
+  color: #4e5a6f;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.person-vote-summary-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  color: #233b78;
+}
+
+.person-vote-summary-badge {
+  padding: 0.18rem 0.48rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #5f6d86;
+  font-size: 0.67rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.person-vote-summary ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.65rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.person-vote-summary li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(78, 90, 111, 0.14);
+}
+
+.person-vote-summary li span {
+  color: #69768b;
+}
+
+.person-vote-candidate-name {
+  display: block;
+  color: #4e5a6f;
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.person-vote-summary li strong {
+  color: #17254b;
+  font-size: 0.86rem;
+}
+
+.person-vote-summary p {
+  margin: 0.65rem 0;
+  color: #657189;
+}
+
+.person-vote-summary a {
+  color: #315bc7;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.person-vote-summary a:hover,
+.person-vote-summary a:focus-visible {
+  text-decoration: underline;
+}
+
 @media (max-width: 720px) {
   .person-facts > div {
     grid-template-columns: 1fr;
