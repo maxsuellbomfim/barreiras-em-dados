@@ -4,7 +4,17 @@ on:
   schedule:
     # A API legislativa muda diariamente, mas não exige coleta contínua.
     - cron: "45 11 * * 1"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      resource:
+        description: "Recurso a coletar nesta execução manual"
+        type: choice
+        options:
+          - all
+          - leis
+          - indicacoes
+        default: all
+        required: true
 
 permissions:
   contents: read
@@ -16,8 +26,9 @@ concurrency:
 jobs:
   collect:
     name: Preservar atividade legislativa (${{ matrix.resource }})
+    if: ${{ inputs.resource == '' || inputs.resource == 'all' || inputs.resource == matrix.resource }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -61,5 +72,5 @@ jobs:
           --source camara
           --resource "${{ matrix.resource }}"
           --limit 50
-          --max-pages 100
+          --max-pages 200
           --allow-partial
