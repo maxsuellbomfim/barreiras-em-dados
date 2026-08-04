@@ -9,6 +9,7 @@ import {
   getOfficialDiaryCatalog,
   type OfficialDiaryCatalogEntry,
 } from "../../lib/official-diary-catalog";
+import { getQueridoDiarioCollectionStatus } from "../../lib/collection-status";
 
 export const revalidate = 300;
 
@@ -196,9 +197,10 @@ function CatalogCard({
 }
 
 export default async function EditionDigestsPage() {
-  const [result, catalogResult] = await Promise.all([
+  const [result, catalogResult, collectionStatus] = await Promise.all([
     getEditionDigests(),
     getOfficialDiaryCatalog(),
+    getQueridoDiarioCollectionStatus(),
   ]);
   const digests = result.state === "available" ? result.digests : [];
   const catalogEntries =
@@ -244,6 +246,38 @@ export default async function EditionDigestsPage() {
               {dateTimeFormatter.format(new Date(latestCatalogCollectedAt))}
               {" "}· atualização automática ativa
             </p>
+          ) : null}
+          {collectionStatus.state === "available" ? (
+            <details className="digest-official-source">
+              <summary>Ver estado da coleta automática</summary>
+              <p>
+                A API do Querido Diário foi consultada pela última vez em{" "}
+                {dateTimeFormatter.format(
+                  new Date(collectionStatus.data.lastSuccessfulAt),
+                )}
+                . O acervo cobre de{" "}
+                {new Intl.DateTimeFormat("pt-BR", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  timeZone: "America/Bahia",
+                }).format(
+                  new Date(`${collectionStatus.data.coverageStart}T12:00:00-03:00`),
+                )}{" "}
+                a{" "}
+                {new Intl.DateTimeFormat("pt-BR", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  timeZone: "America/Bahia",
+                }).format(
+                  new Date(`${collectionStatus.data.coverageEnd}T12:00:00-03:00`),
+                )}{" "}
+                e preserva {collectionStatus.data.preservedEditionCount} edições
+                distintas. A coleta direta do catálogo oficial roda em paralelo;
+                uma nova publicação só aparece quando a fonte a disponibiliza.
+              </p>
+            </details>
           ) : null}
         </div>
 
