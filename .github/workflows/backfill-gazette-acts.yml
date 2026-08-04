@@ -34,8 +34,11 @@ jobs:
       DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
       SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
       SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
-      SUPABASE_WORKLOAD_EMAIL: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL }}
-      SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD }}
+      # Os objetos do Diário são gravados pelo coletor com esta identidade.
+      # Reutilizá-la no processamento mantém o corredor de leitura do bucket
+      # privado alinhado às políticas de Storage e evita StorageApiError.
+      SUPABASE_WORKLOAD_EMAIL: ${{ secrets.QUERIDO_DIARIO_SUPABASE_WORKLOAD_EMAIL }}
+      SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.QUERIDO_DIARIO_SUPABASE_WORKLOAD_PASSWORD }}
       SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

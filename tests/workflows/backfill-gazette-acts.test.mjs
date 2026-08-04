@@ -11,7 +11,7 @@ test("workflow de atos processa acervo preservado e mantém publicação segura"
   assert.match(workflow, /process_gazette_acts/);
   assert.match(workflow, /assist_extraction_candidates/);
   assert.match(workflow, /publish_verified_candidates/);
-  assert.match(workflow, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD/);
+  assert.match(workflow, /QUERIDO_DIARIO_SUPABASE_WORKLOAD_PASSWORD/);
   assert.match(workflow, /PERSISTENCE_MODE: postgres-supabase/);
   assert.match(workflow, /tesseract-ocr-por/);
   assert.match(workflow, /cron: "17 23 \* \* \*"/);
