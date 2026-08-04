@@ -34,7 +34,7 @@ preservação de cada resposta.
 | `licitacoes` | atos e PDFs | `titulo`, `limit`, `offset` | preservar documentos |
 | `servidores` | catálogo de folhas em PDF | `ano`, `mes`, `tipo` | descoberta de RH |
 | `atos-oficiais` | decretos e portarias | `ano`, `mes`, `tipo` | atos da Câmara |
-| `indicacoes` | indicações legislativas | `titulo` | acompanhamento factual |
+| `indicacoes` | indicações legislativas | `titulo`, `autoria` | acompanhamento factual |
 | `sessoes-legislativo` | sessões, pauta, ata, frequência e votação | `numero` | atividade legislativa |
 | `pdc-relacao-dos-fiscais-de-contrato` | documentos de fiscais | não confirmado | controle contratual |
 
@@ -85,3 +85,12 @@ O snapshot sanitizado completo está em
 5. separar ausência de documento de documento ainda não publicado;
 6. revisar nomes de pessoas e frequência com política editorial/LGPD;
 7. reconciliar contratações com PNCP e finanças com TCM-BA.
+
+## Implementação da atividade legislativa
+
+O workflow semanal preserva `leis` e `indicacoes` em execuções independentes.
+A projeção `api.get_camara_legislative_items` unifica os dois recursos e
+normaliza autoria, protocolo, situação, data e link do documento. Links
+relativos são resolvidos apenas para o host oficial da Câmara. A autoria é
+texto declarado pela fonte: não há associação automática a um vereador por
+semelhança de nome.
