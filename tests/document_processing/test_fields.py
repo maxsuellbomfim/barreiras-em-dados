@@ -199,6 +199,22 @@ class ActFieldExtractionTests(unittest.TestCase):
 
         self.assertEqual(fields.person_name.value, "FULANO DE TAL QUEBRADO")
 
+    def test_keeps_multiple_explicit_people_in_same_act(self) -> None:
+        text = (
+            "RESOLVE: NOMEAR a servidora Maria das Dores Silva para o cargo "
+            "de Assessora, e a servidora Joana Pereira Santos para o cargo "
+            "de Coordenadora."
+        )
+
+        fields = fields_for(text)
+
+        self.assertEqual(
+            [person.value for person in fields.person_names],
+            ["Maria das Dores Silva", "Joana Pereira Santos"],
+        )
+        payload = fields_payload(fields)
+        self.assertTrue(payload["multiple_persons_detected"])
+
     def test_missing_fields_are_explicit_not_guessed(self) -> None:
         text = "Art. 1° - NOMEAR os candidatos conforme anexo único.\n"
 

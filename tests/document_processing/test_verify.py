@@ -168,6 +168,28 @@ class VerifyCandidateTests(unittest.TestCase):
         self.assertFalse(outcome.publishable)
         self.assertIn("person_name", outcome.missing)
 
+    def test_multiple_people_never_publish_as_one_card(self) -> None:
+        outcome = verify_candidate(
+            payload(
+                {
+                    "person_name": det("MARIA DAS DORES SILVA"),
+                    "person_names": [
+                        det("MARIA DAS DORES SILVA"),
+                        det("JOANA PEREIRA SANTOS"),
+                    ],
+                    "act_number": det("205"),
+                    "act_date": det("2026-06-03"),
+                    "position": det("Assessora Técnica"),
+                }
+            ),
+            None,
+            "Resumo simples do ato.",
+            EXCERPT,
+        )
+
+        self.assertFalse(outcome.publishable)
+        self.assertIn("multiple_persons_requires_split_review", outcome.missing)
+
     def test_missing_summary_keeps_candidate_for_humans(self) -> None:
         outcome = verify_candidate(
             payload(
