@@ -70,6 +70,7 @@ jobs:
           python -B -m barreiras_collectors.commands.collect_municipal_executive
 
       - name: Preservar votação recebida em Barreiras (vínculo territorial)
-        continue-on-error: true
+        # Este passo é a evidência territorial do TSE; qualquer falha precisa
+        # aparecer no workflow, em vez de ser mascarada como sucesso.
         run: >-
           python -B -m barreiras_collectors.commands.collect_tse_votes
