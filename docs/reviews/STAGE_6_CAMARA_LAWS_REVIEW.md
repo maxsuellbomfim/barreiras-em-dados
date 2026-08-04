@@ -50,3 +50,8 @@ O workflow usa uma matriz `leis`/`indicacoes` para que a falha de um recurso
 não apague o outro. Antes da primeira execução de `indicacoes`, a página
 exibirá apenas as leis já preservadas; isso significa coleta pendente, não
 ausência de indicações.
+
+O acervo público usa `api.get_camara_legislative_page`, com 50 registros por
+página e contagem total do recorte. A navegação evita enviar milhares de cards
+ao navegador de uma vez; a busca textual e os filtros da caixa são indicados
+como pertencentes à página atual.
