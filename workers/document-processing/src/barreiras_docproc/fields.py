@@ -324,6 +324,12 @@ def _extract_persons(
     for match in _PERSON_MARKED_PATTERN.finditer(window):
         add(match.group(1), "person-after-role-marker")
 
+    # Mantém a precedência histórica: quando o nome aparece imediatamente
+    # após o verbo e em caixa alta, essa é a origem mais precisa do primeiro
+    # campo (os padrões abaixo apenas acrescentam eventuais nomes seguintes).
+    if not found and anchored and _plausible_person(anchored.group(1)):
+        add(anchored.group(1), "person-uppercase-after-verb")
+
     # Listas numeradas e várias cláusulas de cargo também identificam mais de
     # uma pessoa de forma suficientemente explícita para exigir revisão.
     for match in _NUMBERED_PERSON_PATTERN.finditer(window):
@@ -338,9 +344,6 @@ def _extract_persons(
             else "person-before-position"
         )
         add(candidate, rule_id)
-
-    if not found and anchored and _plausible_person(anchored.group(1)):
-        add(anchored.group(1), "person-uppercase-after-verb")
 
     if not found:
         fallback = _person_in_window(window)
