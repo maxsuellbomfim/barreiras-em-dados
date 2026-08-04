@@ -116,3 +116,31 @@ class MunicipalExecutiveParserTests(unittest.TestCase):
         self.assertNotIn("Biografia do vice", prefeito["source_excerpt"])
         self.assertIn("Biografia do vice", vice["source_excerpt"])
         self.assertNotIn("Biografia do prefeito", vice["source_excerpt"])
+
+    def test_associates_portraits_with_the_following_executive_heading(self):
+        page = """
+        <div class='content'>
+          <div class='portrait'><img src='https://barreiras.ba.gov.br/wp-content/uploads/otoniel-scaled.jpeg'></div>
+          <h2>Prefeito</h2>
+          <h2 class='panel-title'><strong>OTONIEL NASCIMENTO TEIXEIRA</strong></h2>
+          <p>Biografia do prefeito.</p>
+          <div class='portrait'><img src='https://barreiras.ba.gov.br/wp-content/uploads/tulio.jpeg'></div>
+          <h2>Vice-prefeito</h2>
+          <h2 class='panel-title'><strong>TÚLIO MACHADO VIANA</strong></h2>
+          <p>Biografia do vice.</p>
+        </div><div class='clear'></div>
+        """
+        prefeito = parse_official_page(
+            role="prefeito",
+            department="",
+            url="https://barreiras.ba.gov.br/prefeito-e-vice/",
+            page_html=page,
+        )[0]
+        vice = parse_official_page(
+            role="vice-prefeito",
+            department="",
+            url="https://barreiras.ba.gov.br/prefeito-e-vice/",
+            page_html=page,
+        )[0]
+        self.assertTrue(prefeito["photo_url"].endswith("otoniel-scaled.jpeg"))
+        self.assertTrue(vice["photo_url"].endswith("tulio.jpeg"))
