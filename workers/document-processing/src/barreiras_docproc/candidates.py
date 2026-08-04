@@ -16,11 +16,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# 2.1.0 força o reprocessamento limpo de todo o acervo: a chave de
-# idempotência do job inclui esta versão.
-# Reprocessa o acervo quando a extração passa a sinalizar atos com mais de uma
-# pessoa, evitando que a versão antiga publique somente o primeiro nome.
-RULESET_VERSION = "gazette-act-candidates/2.2.0"
+# A chave de idempotência do job inclui esta versão. 2.3.0 força o acervo a
+# passar novamente pela extração após a detecção de listas e várias cláusulas
+# de cargo, evitando que resultados antigos mantenham só o primeiro nome.
+RULESET_VERSION = "gazette-act-candidates/2.3.0"
 EXCERPT_RADIUS = 400
 # Um ato de pessoal cabe folgado nisto; o corte só age em bloco anômalo.
 MAX_EXCERPT_CHARS = 2600
