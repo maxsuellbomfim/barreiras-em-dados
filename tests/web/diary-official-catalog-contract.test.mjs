@@ -31,6 +31,10 @@ const catalogClient = await readFile(
   new URL("../../apps/web/lib/official-diary-catalog.ts", import.meta.url),
   "utf8",
 );
+const collectionStatusClient = await readFile(
+  new URL("../../apps/web/lib/collection-status.ts", import.meta.url),
+  "utf8",
+);
 const catalogFallbackMigration = await readFile(
   new URL(
     "../../supabase/migrations/20260804021751_public_official_diary_catalog.sql",
@@ -67,4 +71,7 @@ test("diário informa quando a fonte oficial foi consultada", () => {
   assert.match(diaryPage, /latestCatalogCollectedAt/);
   assert.match(diaryPage, /source-freshness/);
   assert.match(diaryPage, /Catálogo oficial preservado em/);
+  assert.match(diaryPage, /getQueridoDiarioCollectionStatus/);
+  assert.match(diaryPage, /Ver estado da coleta automática/);
+  assert.match(collectionStatusClient, /get_querido_diario_collection_status/);
 });
