@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { getCamaraLegislativePage } from "../../lib/camara-legislative";
+import { getCamaraLegislativePage, type CamaraLegislativeFilters } from "../../lib/camara-legislative";
 import { CamaraLawsExplorer } from "./laws-explorer";
 
 export const revalidate = 900;
@@ -16,12 +16,26 @@ function pageNumber(value: unknown): number {
   return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 1000 ? parsed : 1;
 }
 
+function boundedText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim().slice(0, 200);
+  return text || null;
+}
+
+function legislativeFilters(params: Readonly<Record<string, string | undefined>>): CamaraLegislativeFilters {
+  const kind = params.kind === "lei" || params.kind === "indicacao" ? params.kind : null;
+  const parsedYear = typeof params.year === "string" ? Number(params.year) : NaN;
+  const year = Number.isSafeInteger(parsedYear) && parsedYear >= 1900 && parsedYear <= 2200 ? parsedYear : null;
+  return { query: boundedText(params.q), author: boundedText(params.author), kind, year };
+}
+
 export default async function CamaraPage({
   searchParams,
-}: Readonly<{ searchParams: Promise<{ page?: string }> }>) {
+}: Readonly<{ searchParams: Promise<{ page?: string; q?: string; kind?: string; year?: string; author?: string }> }>) {
   const params = await searchParams;
   const page = pageNumber(params.page);
-  const result = await getCamaraLegislativePage(page, 50);
+  const filters = legislativeFilters(params);
+  const result = await getCamaraLegislativePage(page, 50, filters);
   return (
     <main>
       <header className="site-header">
@@ -64,6 +78,7 @@ export default async function CamaraPage({
             totalCount={result.totalCount}
             page={result.page}
             pageSize={result.pageSize}
+            initialFilters={filters}
           />
         )}
         <p className="hero-note">
