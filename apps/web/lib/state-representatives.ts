@@ -3,6 +3,10 @@ export type StateRepresentative = Readonly<{
   displayName: string;
   profileUrl: string;
   photoUrl: string | null;
+  education: string | null;
+  professionalActivity: string | null;
+  electiveMandate: string | null;
+  parliamentaryActivity: string | null;
   collectedAt: string;
   methodologyVersion: string;
 }>;
@@ -25,6 +29,10 @@ function parseRepresentative(
   const displayName = optionalString(row.display_name);
   const profileUrl = optionalString(row.profile_url);
   const photoUrl = optionalString(row.photo_url);
+  const education = optionalString(row.education);
+  const professionalActivity = optionalString(row.professional_activity);
+  const electiveMandate = optionalString(row.elective_mandate);
+  const parliamentaryActivity = optionalString(row.parliamentary_activity);
   const collectedAt = optionalString(row.collected_at);
   if (
     externalId === null ||
@@ -37,7 +45,7 @@ function parseRepresentative(
     (photoUrl !== null && !/^https:\/\/www\.al\.ba\.gov\.br\/fserver\//.test(photoUrl)) ||
     collectedAt === null ||
     Number.isNaN(Date.parse(collectedAt)) ||
-    row.methodology_version !== "state-representatives/alba/1.1.0"
+    row.methodology_version !== "state-representatives/alba/1.2.0"
   ) {
     return null;
   }
@@ -46,8 +54,12 @@ function parseRepresentative(
     displayName,
     profileUrl,
     photoUrl,
+    education,
+    professionalActivity,
+    electiveMandate,
+    parliamentaryActivity,
     collectedAt,
-    methodologyVersion: "state-representatives/alba/1.1.0",
+    methodologyVersion: "state-representatives/alba/1.2.0",
   };
 }
 

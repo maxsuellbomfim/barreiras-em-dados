@@ -36,7 +36,7 @@ PROFILE_BASE = "https://www.al.ba.gov.br/deputados/deputado-estadual/"
 TIMEOUT_SECONDS = 30.0
 PARSER_VERSION = "alba-deputados/1.0.0"
 PROFILE_ENDPOINT_CODE = "deputado-estadual-profile-html"
-PROFILE_PARSER_VERSION = "alba-deputado-profile/1.0.0"
+PROFILE_PARSER_VERSION = "alba-deputado-profile/1.1.0"
 PROFILE_DELAY_SECONDS = 5.0
 # A casa tem 63 cadeiras; um número muito menor indica página truncada.
 MIN_EXPECTED = 40
@@ -54,6 +54,11 @@ _OG_IMAGE = re.compile(
 _IMAGE_SRC = re.compile(
     r"<img[^>]+src=['\"]([^'\"]+)['\"]",
     re.IGNORECASE,
+)
+_CV_FIELD = re.compile(
+    r'<div[^>]+class=["\'][^"\']*linha-cv[^"\']*["\'][^>]*>'
+    r"\s*<strong>\s*([^<]+?)\s*</strong>\s*<span[^>]*>(.*?)</span>",
+    re.IGNORECASE | re.DOTALL,
 )
 
 
@@ -100,11 +105,30 @@ def parse_profile(
         ):
             photo_url = candidate
             break
+    fields: dict[str, str] = {}
+    field_names = {
+        "formação educacional": "formacao_educacional",
+        "atividade profissional": "atividade_profissional",
+        "mandato eletivo": "mandato_eletivo",
+        "atividade parlamentar": "atividade_parlamentar",
+    }
+    for match in _CV_FIELD.finditer(page_html):
+        label = re.sub(
+            r"\s+", " ", html.unescape(match.group(1))
+        ).strip().casefold()
+        field_name = field_names.get(label)
+        if field_name is None:
+            continue
+        value = re.sub(r"<[^>]+>", " ", match.group(2))
+        value = re.sub(r"\s+", " ", html.unescape(value)).strip()
+        if value:
+            fields[field_name] = value
     return {
         "id_alba": identifier,
         "nome": display_name,
         "perfil_url": profile_url,
         "foto_url": photo_url,
+        **fields,
     }
 
 
