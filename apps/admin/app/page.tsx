@@ -61,7 +61,7 @@ type HistoryState =
 
 type TypeFilter = "todos" | "nomeacao" | "exoneracao";
 type DecisionFilter = "todas" | "approved" | "rejected";
-type AdminView = "fila" | "historico" | "financas";
+type AdminView = "fila" | "historico" | "financas" | "aliases";
 
 type FinanceInventoryItem = Readonly<{
   document_id: string;
@@ -104,6 +104,38 @@ type FinanceClosureState =
   | Readonly<{ kind: "loading" }>
   | Readonly<{ kind: "error"; message: string }>
   | Readonly<{ kind: "ready"; items: readonly AdminMonthlyClosure[] }>;
+
+type AliasCandidate = Readonly<{
+  representative_external_id: string;
+  candidate_id: string;
+  canonical_name: string;
+  party: string | null;
+}>;
+
+type AliasSuggestion = Readonly<{
+  id: string;
+  observed_name: string;
+  source_record_keys: readonly string[];
+  item_count: number;
+  candidates: readonly AliasCandidate[];
+  decision: "match" | "ambiguous" | "no_match";
+  candidate_external_id: string | null;
+  alias_kind: string;
+  confidence: number;
+  rationale: string;
+  evidence: readonly string[];
+  provider: string;
+  model: string;
+  prompt_version: string;
+  status: "pending" | "accepted" | "rejected" | "needs_more_evidence";
+  created_at: string;
+}>;
+
+type AliasState =
+  | Readonly<{ kind: "loading" }>
+  | Readonly<{ kind: "denied" }>
+  | Readonly<{ kind: "error"; message: string }>
+  | Readonly<{ kind: "ready"; items: readonly AliasSuggestion[] }>;
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {
   person_name: "Pessoa",
@@ -336,6 +368,171 @@ function FinanceInventory({
       ) : null}
       </section>
     </>
+  );
+}
+
+function AliasReview({
+  state,
+  onReview,
+  busy,
+}: Readonly<{
+  state: AliasState;
+  onReview: (
+    item: AliasSuggestion,
+    decision: "accepted" | "rejected" | "needs_more_evidence",
+    note: string,
+  ) => Promise<string | null>;
+  busy: boolean;
+}>) {
+  if (state.kind === "loading") {
+    return <p aria-live="polite">Carregando sugestões de aliases…</p>;
+  }
+  if (state.kind === "denied") {
+    return (
+      <p className="status-error" role="alert">
+        Sua conta não está cadastrada como revisora ativa. A fila de aliases
+        permanece restrita.
+      </p>
+    );
+  }
+  if (state.kind === "error") {
+    return (
+      <p className="status-error" role="alert">
+        A fila de aliases não pôde ser carregada: {state.message}
+      </p>
+    );
+  }
+  if (state.items.length === 0) {
+    return (
+      <div className="empty-state">
+        Nenhuma sugestão de alias pendente. A IA só cria hipóteses; nomes ainda
+        não revisados continuam separados no acervo público.
+      </div>
+    );
+  }
+  return (
+    <section aria-labelledby="alias-review-title">
+      <div className="section-heading-admin">
+        <span className="eyebrow-admin">Identidade com cautela</span>
+        <h2 id="alias-review-title">Aliases sugeridos pela IA</h2>
+        <p>
+          A sugestão não é prova e não publica nada. Aceite somente quando a
+          fonte oficial e a evidência permitirem identificar a pessoa sem
+          confundir homônimos.
+        </p>
+      </div>
+      {state.items.map((item) => (
+        <AliasSuggestionCard key={item.id} item={item} onReview={onReview} busy={busy} />
+      ))}
+    </section>
+  );
+}
+
+function AliasSuggestionCard({
+  item,
+  onReview,
+  busy,
+}: Readonly<{
+  item: AliasSuggestion;
+  onReview: (
+    item: AliasSuggestion,
+    decision: "accepted" | "rejected" | "needs_more_evidence",
+    note: string,
+  ) => Promise<string | null>;
+  busy: boolean;
+}>) {
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const selected = item.candidates.find(
+    (candidate) => candidate.representative_external_id === item.candidate_external_id,
+  );
+
+  async function decide(
+    decision: "accepted" | "rejected" | "needs_more_evidence",
+  ) {
+    setError(null);
+    const failure = await onReview(item, decision, note);
+    if (failure) setError(failure);
+  }
+
+  return (
+    <article aria-label="Sugestão de alias de representante">
+      <div className="card-top">
+        <h3>{item.observed_name}</h3>
+        <span className="badge badge-type">
+          {Math.round(item.confidence * 100)}% · {item.decision}
+        </span>
+      </div>
+      <p>
+        Aparece em <strong>{item.item_count.toLocaleString("pt-BR")}</strong>{" "}
+        registro(s) da Câmara. A IA respondeu com {item.provider}/{item.model}.
+      </p>
+      <dl>
+        <div>
+          <dt>Hipótese principal</dt>
+          <dd>
+            {selected
+              ? `${selected.canonical_name}${selected.party ? ` · ${selected.party}` : ""}`
+              : "nenhuma"}
+          </dd>
+        </div>
+        <div>
+          <dt>Justificativa da IA</dt>
+          <dd>{item.rationale}</dd>
+        </div>
+      </dl>
+      {item.evidence.length > 0 ? (
+        <details>
+          <summary>Evidências e candidatos permitidos</summary>
+          <ul>
+            {item.evidence.map((evidence) => <li key={evidence}>{evidence}</li>)}
+          </ul>
+          <p className="meta">
+            {item.candidates.map((candidate) => candidate.canonical_name).join(" · ")}
+          </p>
+        </details>
+      ) : null}
+      <label htmlFor={`alias-note-${item.id}`}>
+        Justificativa da revisão
+      </label>
+      <textarea
+        id={`alias-note-${item.id}`}
+        rows={2}
+        value={note}
+        onChange={(event) => setNote(event.target.value)}
+        placeholder="Ex.: confirmei o nome de urna no perfil oficial do TSE."
+      />
+      {error ? <p className="status-error" role="alert">{error}</p> : null}
+      <div className="actions-row">
+        <button
+          type="button"
+          disabled={busy || item.decision !== "match" || !selected}
+          onClick={() => void decide("accepted")}
+        >
+          Aceitar alias
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          disabled={busy || note.trim().length < 5}
+          onClick={() => void decide("needs_more_evidence")}
+        >
+          Pedir evidência
+        </button>
+        <button
+          type="button"
+          className="destructive"
+          disabled={busy || note.trim().length < 5}
+          onClick={() => void decide("rejected")}
+        >
+          Rejeitar
+        </button>
+      </div>
+      <p className="meta">
+        Nada é alterado na autoria original. A aceitação grava apenas um alias
+        revisado e auditável; a fonte continua sendo exibida como publicada.
+      </p>
+    </article>
   );
 }
 
@@ -737,6 +934,8 @@ export default function ReviewQueuePage() {
     useState<FinanceInventoryState>({ kind: "loading" });
   const [financeClosures, setFinanceClosures] =
     useState<FinanceClosureState>({ kind: "loading" });
+  const [aliasSuggestions, setAliasSuggestions] =
+    useState<AliasState>({ kind: "loading" });
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("todos");
   const [decisionFilter, setDecisionFilter] =
     useState<DecisionFilter>("todas");
@@ -816,14 +1015,41 @@ export default function ReviewQueuePage() {
     });
   }, [supabase]);
 
+  const loadAliasSuggestions = useCallback(async () => {
+    setAliasSuggestions({ kind: "loading" });
+    const { data, error } = await supabase.rpc(
+      "get_representative_alias_suggestions",
+      { page_size: 50 },
+    );
+    if (error) {
+      if (error.message.includes("revisores ativos")) {
+        setAliasSuggestions({ kind: "denied" });
+        return;
+      }
+      setAliasSuggestions({ kind: "error", message: error.message });
+      return;
+    }
+    setAliasSuggestions({
+      kind: "ready",
+      items: (data ?? []) as AliasSuggestion[],
+    });
+  }, [supabase]);
+
   const reloadAll = useCallback(async () => {
     await Promise.all([
       loadQueue(),
       loadHistory(),
       loadFinanceInventory(),
       loadFinanceClosures(),
+      loadAliasSuggestions(),
     ]);
-  }, [loadQueue, loadHistory, loadFinanceInventory, loadFinanceClosures]);
+  }, [
+    loadQueue,
+    loadHistory,
+    loadFinanceInventory,
+    loadFinanceClosures,
+    loadAliasSuggestions,
+  ]);
 
   useEffect(() => {
     if (session) {
@@ -875,6 +1101,32 @@ export default function ReviewQueuePage() {
       }
     },
     [supabase, reloadAll],
+  );
+
+  const reviewAlias = useCallback(
+    async (
+      item: AliasSuggestion,
+      decision: "accepted" | "rejected" | "needs_more_evidence",
+      note: string,
+    ): Promise<string | null> => {
+      setDeciding(true);
+      try {
+        const { error } = await supabase.rpc(
+          "review_representative_alias_suggestion",
+          {
+            suggestion_id: item.id,
+            review_decision: decision,
+            review_note: note,
+          },
+        );
+        if (error) return `A revisão do alias não foi registrada: ${error.message}`;
+        await loadAliasSuggestions();
+        return null;
+      } finally {
+        setDeciding(false);
+      }
+    },
+    [supabase, loadAliasSuggestions],
   );
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
@@ -1037,6 +1289,17 @@ export default function ReviewQueuePage() {
             </button>
             <button
               type="button"
+              className={view === "aliases" ? "tab tab-active" : "tab"}
+              aria-current={view === "aliases" ? "page" : undefined}
+              onClick={() => setView("aliases")}
+            >
+              Aliases
+              {aliasSuggestions.kind === "ready"
+                ? ` (${aliasSuggestions.items.length})`
+                : ""}
+            </button>
+            <button
+              type="button"
               className="secondary"
               onClick={() => void reloadAll()}
             >
@@ -1044,7 +1307,7 @@ export default function ReviewQueuePage() {
             </button>
           </nav>
 
-          {view !== "financas" ? <div className="toolbar">
+          {view !== "financas" && view !== "aliases" ? <div className="toolbar">
             <input
               type="search"
               aria-label="Buscar por pessoa, cargo, órgão ou trecho"
@@ -1082,7 +1345,13 @@ export default function ReviewQueuePage() {
             ) : null}
           </div> : null}
 
-          {view === "financas" ? (
+          {view === "aliases" ? (
+            <AliasReview
+              state={aliasSuggestions}
+              onReview={reviewAlias}
+              busy={deciding}
+            />
+          ) : view === "financas" ? (
             <FinanceInventory
               state={financeInventory}
               closureState={financeClosures}
