@@ -52,23 +52,34 @@ function RepresentativeVoteSummary({
       <div className="person-vote-summary-heading">
         <strong>Votação em Barreiras</strong>
         <span className="person-vote-summary-badge">
-          {votes.length > 0 ? "vínculo confirmado" : "em consolidação"}
+          {votes.length > 0
+            ? votes.some((vote) => vote.voteScope === "ticket")
+              ? "chapa majoritária"
+              : "vínculo confirmado"
+            : "em consolidação"}
         </span>
       </div>
       {votes.length > 0 ? (
-        <ul>
-          {votes.map((vote) => (
-            <li key={`${vote.electionYear}-${vote.candidateId}-${vote.turnNumber}`}>
-              <span>
-                {vote.electionYear} · {vote.turnNumber}º turno
-                <small className="person-vote-candidate-name">
-                  {vote.ballotName ?? vote.displayName ?? "candidatura no TSE"}
-                </small>
-              </span>
-              <strong>{vote.votesInBarreiras.toLocaleString("pt-BR")} votos</strong>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul>
+            {votes.map((vote) => (
+              <li key={`${vote.electionYear}-${vote.candidateId}-${vote.turnNumber}`}>
+                <span>
+                  {vote.electionYear} · {vote.turnNumber}º turno
+                  <small className="person-vote-candidate-name">
+                    {vote.ballotName ?? vote.displayName ?? "candidatura no TSE"}
+                  </small>
+                </span>
+                <strong>
+                  {vote.votesInBarreiras.toLocaleString("pt-BR")} {vote.voteScope === "ticket" ? "votos da chapa" : "votos"}
+                </strong>
+              </li>
+            ))}
+          </ul>
+          {votes.some((vote) => vote.voteScope === "ticket") ? (
+            <p>{votes.find((vote) => vote.voteScope === "ticket")?.scopeNote}</p>
+          ) : null}
+        </>
       ) : (
         <p>
           Ainda não há um vínculo eleitoral aprovado por identificador oficial
@@ -167,7 +178,13 @@ function RepresentativeCard({
   );
 }
 
-function CouncillorCard({ person }: Readonly<{ person: Councillor }>) {
+function CouncillorCard({
+  person,
+  voteLinks,
+}: Readonly<{
+  person: Councillor;
+  voteLinks: readonly RepresentativeVote[];
+}>) {
   return (
     <article className="person-card" aria-label="Vereador">
       <div className="person-head">
@@ -203,6 +220,8 @@ function CouncillorCard({ person }: Readonly<{ person: Councillor }>) {
           {person.mainAgenda}
         </p>
       ) : null}
+
+      <RepresentativeVoteSummary votes={voteLinks} />
 
       {person.biography ? (
         <details>
@@ -364,7 +383,13 @@ function StateRepresentativeCard({
   );
 } */
 
-function ExecutiveProfileCard({ profile }: Readonly<{ profile: ExecutiveProfile }>) {
+function ExecutiveProfileCard({
+  profile,
+  voteLinks,
+}: Readonly<{
+  profile: ExecutiveProfile;
+  voteLinks: readonly RepresentativeVote[];
+}>) {
   const roleLabel =
     profile.role === "prefeito"
       ? "Prefeito de Barreiras"
@@ -387,6 +412,9 @@ function ExecutiveProfileCard({ profile }: Readonly<{ profile: ExecutiveProfile 
           <span className="person-badge person-badge-active">perfil oficial</span>
         </div>
       </div>
+      {profile.role === "prefeito" || profile.role === "vice-prefeito" ? (
+        <RepresentativeVoteSummary votes={voteLinks} />
+      ) : null}
       {profile.sourceExcerpt ? (
         <details>
           <summary>O que a Prefeitura publicou</summary>
@@ -563,7 +591,15 @@ export default async function RepresentativesPage() {
             {executiveProfilesResult.state === "available" && executiveProfilesResult.profiles.length > 0 ? (
               <div className="person-grid">
                 {executiveProfilesResult.profiles.map((profile) => (
-                  <ExecutiveProfileCard key={profile.profileKey} profile={profile} />
+                  <ExecutiveProfileCard
+                    key={profile.profileKey}
+                    profile={profile}
+                    voteLinks={votesForRepresentative(
+                      representativeVotes,
+                      "executive",
+                      profile.profileKey,
+                    )}
+                  />
                 ))}
               </div>
             ) : (
@@ -741,7 +777,15 @@ export default async function RepresentativesPage() {
             </p>
             <div className="person-grid">
               {councillorsResult.councillors.map((person) => (
-                <CouncillorCard key={person.councillorId} person={person} />
+                <CouncillorCard
+                  key={person.councillorId}
+                  person={person}
+                  voteLinks={votesForRepresentative(
+                    representativeVotes,
+                    "municipal",
+                    person.councillorId,
+                  )}
+                />
               ))}
             </div>
           </>
