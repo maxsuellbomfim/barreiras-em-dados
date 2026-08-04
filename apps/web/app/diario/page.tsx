@@ -207,6 +207,10 @@ export default async function EditionDigestsPage() {
   const catalogOnlyEntries = catalogEntries.filter(
     (entry) => !digestEditions.has(entry.edition),
   );
+  const latestCatalogCollectedAt = catalogEntries
+    .map((entry) => entry.collectedAt)
+    .sort()
+    .at(-1);
 
   return (
     <main>
@@ -233,6 +237,14 @@ export default async function EditionDigestsPage() {
             conferida por código antes de publicar. Isto é um espelho
             traduzido do registro oficial, não uma avaliação.
           </p>
+          {latestCatalogCollectedAt ? (
+            <p className="source-freshness" role="status">
+              <span className="status-dot" aria-hidden="true" />
+              Fonte oficial consultada em{" "}
+              {dateTimeFormatter.format(new Date(latestCatalogCollectedAt))}
+              {" "}· atualização automática ativa
+            </p>
+          ) : null}
         </div>
 
         {result.state === "unavailable" && catalogResult.state === "unavailable" ? (
