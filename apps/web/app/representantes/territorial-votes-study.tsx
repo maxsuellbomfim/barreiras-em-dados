@@ -42,7 +42,12 @@ export default function TerritorialVotesStudy({
   );
   const [yearFilter, setYearFilter] = useState("todos");
   const [officeFilter, setOfficeFilter] = useState("todos");
+  const [turnFilter, setTurnFilter] = useState("todos");
   const [search, setSearch] = useState("");
+  const turns = useMemo(
+    () => [...new Set(votes.map((vote) => vote.turnNumber))].sort((left, right) => left - right),
+    [votes],
+  );
 
   const filteredVotes = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
@@ -50,34 +55,35 @@ export default function TerritorialVotesStudy({
       const matchesYear = yearFilter === "todos" || vote.electionYear === Number(yearFilter);
       const office = vote.office ?? "Cargo não informado";
       const matchesOffice = officeFilter === "todos" || office === officeFilter;
+      const matchesTurn = turnFilter === "todos" || vote.turnNumber === Number(turnFilter);
       const matchesSearch =
         normalizedSearch.length === 0 ||
         [displayName(vote), vote.party, vote.candidateNumber, vote.candidateId]
           .filter(Boolean)
           .some((value) => value!.toLocaleLowerCase("pt-BR").includes(normalizedSearch));
-      return matchesYear && matchesOffice && matchesSearch;
+      return matchesYear && matchesOffice && matchesTurn && matchesSearch;
     });
-  }, [officeFilter, search, votes, yearFilter]);
+  }, [officeFilter, search, turnFilter, votes, yearFilter]);
 
   const summary = useMemo(() => {
-    const groups = new Map<string, { year: number; office: string; candidates: number; votes: number }>();
+    const groups = new Map<string, { year: number; office: string; turn: number; candidates: number; votes: number }>();
     for (const vote of filteredVotes) {
       const office = vote.office ?? "Cargo não informado";
-      const key = `${vote.electionYear}-${office}`;
-      const current = groups.get(key) ?? { year: vote.electionYear, office, candidates: 0, votes: 0 };
+      const key = `${vote.electionYear}-${office}-${vote.turnNumber}`;
+      const current = groups.get(key) ?? { year: vote.electionYear, office, turn: vote.turnNumber, candidates: 0, votes: 0 };
       current.candidates += 1;
       current.votes += vote.votesInBarreiras;
       groups.set(key, current);
     }
     return [...groups.values()].sort(
-      (left, right) => right.year - left.year || officeSortIndex(left.office) - officeSortIndex(right.office),
+      (left, right) => right.year - left.year || officeSortIndex(left.office) - officeSortIndex(right.office) || left.turn - right.turn,
     );
   }, [filteredVotes]);
 
-  const totalVotes = useMemo(
-    () => filteredVotes.reduce((total, vote) => total + vote.votesInBarreiras, 0),
-    [filteredVotes],
-  );
+  const totalVotes = useMemo(() => {
+    if (turnFilter === "todos") return null;
+    return filteredVotes.reduce((total, vote) => total + vote.votesInBarreiras, 0);
+  }, [filteredVotes, turnFilter]);
   const topVotes = useMemo(
     () =>
       [...filteredVotes].sort(
@@ -121,6 +127,13 @@ export default function TerritorialVotesStudy({
             {offices.map((office) => <option key={office} value={office}>{office}</option>)}
           </select>
         </label>
+        <label>
+          <span>Turno</span>
+          <select value={turnFilter} onChange={(event) => setTurnFilter(event.target.value)}>
+            <option value="todos">Todos (separados)</option>
+            {turns.map((turn) => <option key={turn} value={turn}>{turn}º turno</option>)}
+          </select>
+        </label>
         <label className="territorial-search">
           <span>Pesquisar candidatura</span>
           <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="nome, partido ou número" />
@@ -129,8 +142,8 @@ export default function TerritorialVotesStudy({
 
       <div className="territorial-kpis" aria-label="Resumo filtrado">
         <div><strong>{formatNumber(filteredVotes.length)}</strong><span>candidaturas no recorte</span></div>
-        <div><strong>{formatNumber(totalVotes)}</strong><span>votos somados em Barreiras</span></div>
-        <div><strong>{formatNumber(summary.length)}</strong><span>combinações de ano e cargo</span></div>
+        <div><strong>{totalVotes === null ? "—" : formatNumber(totalVotes)}</strong><span>{totalVotes === null ? "selecione um turno para somar votos" : "votos no turno selecionado"}</span></div>
+        <div><strong>{formatNumber(summary.length)}</strong><span>combinações de ano, cargo e turno</span></div>
       </div>
 
       {filteredVotes.length === 0 ? (
@@ -147,8 +160,8 @@ export default function TerritorialVotesStudy({
             </div>
             <div className="territorial-bars">
               {summary.map((group) => (
-                <div className="territorial-bar-row" key={`${group.year}-${group.office}`}>
-                  <div className="territorial-bar-label"><strong>{group.office}</strong><span>{group.year} · {formatNumber(group.candidates)} candidaturas</span></div>
+                <div className="territorial-bar-row" key={`${group.year}-${group.office}-${group.turn}`}>
+                  <div className="territorial-bar-label"><strong>{group.office} · {group.turn}º turno</strong><span>{group.year} · {formatNumber(group.candidates)} candidaturas</span></div>
                   <div className="territorial-bar-track" aria-label={`${formatNumber(group.votes)} votos`}><span style={{ width: `${Math.max(3, (group.votes / maxGroupVotes) * 100)}%` }} /></div>
                   <strong className="territorial-bar-value">{formatNumber(group.votes)}</strong>
                 </div>
