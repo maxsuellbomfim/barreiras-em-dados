@@ -66,5 +66,5 @@ test("links do catálogo público são aceitos somente em HTTPS", () => {
 test("diário informa quando a fonte oficial foi consultada", () => {
   assert.match(diaryPage, /latestCatalogCollectedAt/);
   assert.match(diaryPage, /source-freshness/);
-  assert.match(diaryPage, /Fonte oficial consultada em/);
+  assert.match(diaryPage, /Catálogo oficial preservado em/);
 });
