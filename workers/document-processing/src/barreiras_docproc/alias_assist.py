@@ -241,9 +241,27 @@ def run_alias_assistance(
         for candidate in candidates
         if candidate.get("representative_external_id")
     }
-    return (
-        provider,
-        model,
-        parse_alias_response(content, allowed_external_ids=allowed),
-        content,
-    )
+    try:
+        result = parse_alias_response(content, allowed_external_ids=allowed)
+    except ValueError as error:
+        # A resposta continua preservada para auditoria, mas nunca pode
+        # interromper a janela inteira nem carregar um ID histórico/inventado.
+        # Quarentenamos como ambígua e sem candidato: a revisão humana verá o
+        # bruto, mas a função de aceite não poderá criar vínculo.
+        logger.warning(
+            "representative_alias_response_quarantined: %s",
+            str(error)[:240],
+        )
+        result = {
+            "decision": "ambiguous",
+            "candidate_external_id": None,
+            "alias_kind": "other",
+            "confidence": 0.0,
+            "rationale": (
+                "Resposta da IA retida para revisão: não passou pela validação "
+                "de identidade fechada. Consulte a resposta bruta e as fontes."
+            ),
+            "evidence": [],
+            "validator_version": ALIAS_ASSIST_VALIDATOR_VERSION,
+        }
+    return provider, model, result, content

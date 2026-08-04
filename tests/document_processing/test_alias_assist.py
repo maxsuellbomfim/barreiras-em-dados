@@ -1,11 +1,13 @@
 import json
 import unittest
+from unittest.mock import patch
 
 from barreiras_docproc.alias_assist import (
     build_alias_messages,
     normalize_name,
     parse_alias_response,
     rank_candidates,
+    run_alias_assistance,
 )
 
 CANDIDATES = [
@@ -98,6 +100,37 @@ class AliasAssistTests(unittest.TestCase):
         base["candidate_external_id"] = None
         with self.assertRaises(ValueError):
             parse_alias_response(json.dumps(base), allowed_external_ids=set())
+
+    def test_cascade_quarantines_invented_id_as_ambiguous(self):
+        class Logger:
+            def warning(self, *_args):
+                return None
+
+        invalid = json.dumps(
+            {
+                "decision": "match",
+                "candidate_external_id": "tse-historical:2016:old-1",
+                "alias_kind": "nickname",
+                "confidence": 0.95,
+                "rationale": "nome parecido",
+                "evidence": ["candidatura histórica"],
+            }
+        )
+        with patch(
+            "barreiras_docproc.alias_assist.run_cascade_content",
+            return_value=("groq", "model", invalid),
+        ):
+            _provider, _model, result, _raw = run_alias_assistance(
+                None,
+                {},
+                "Vereador histórico",
+                CANDIDATES,
+                source_context="registro antigo",
+                logger=Logger(),
+                attempts=[],
+            )
+        self.assertEqual(result["decision"], "ambiguous")
+        self.assertIsNone(result["candidate_external_id"])
 
     def test_response_downgrades_unknown_alias_kind_without_accepting_identity(self):
         result = parse_alias_response(
