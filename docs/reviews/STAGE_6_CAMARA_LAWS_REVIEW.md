@@ -45,4 +45,6 @@ O workflow usa uma matriz `leis`/`indicacoes` para que a falha de um recurso nã
 apague o outro. A projeção pública usa 50 registros por página e devolve a
 contagem total do recorte filtrado. O navegador recebe apenas a página corrente;
 as barras de autoria são explicitamente uma amostra dessa página, não uma
-contagem global.
+contagem global. O resumo global de autoria agora é calculado por uma RPC
+separada, com os mesmos filtros, agrupando somente a autoria publicada pela
+fonte. Ele não infere autoria ausente nem identidade de vereadores.
