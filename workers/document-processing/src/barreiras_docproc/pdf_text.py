@@ -13,7 +13,10 @@ from dataclasses import dataclass
 
 from .canonical import CanonicalTextError, sanitize_text
 
-PDF_PARSER_VERSION = "gazette-pdf-embedded-text/1.0.0"
+# 1.1.0 rederiva páginas que foram persistidas por versões anteriores do
+# parser. A versão faz parte da chave de idempotência da página: as páginas
+# 1.0.0 continuam preservadas e nunca são sobrescritas.
+PDF_PARSER_VERSION = "gazette-pdf-embedded-text/1.1.0"
 
 
 @dataclass(frozen=True)

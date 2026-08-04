@@ -5,7 +5,9 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 
-PARSER_VERSION = "gazette-canonical-text/1.0.0"
+# A nova versão permite reconstruir artefatos textuais cuja página 1.0.0
+# divergiu, mantendo ambas as derivações auditáveis no acervo.
+PARSER_VERSION = "gazette-canonical-text/1.1.0"
 
 # Alguns PDFs do Diário trazem NUL e outros controles vazados da camada
 # binária. Não são conteúdo: são ruído de extração, e o PostgreSQL recusa
