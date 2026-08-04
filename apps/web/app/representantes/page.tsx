@@ -18,6 +18,10 @@ import {
   votesForRepresentative,
   type RepresentativeVote,
 } from "../../lib/representative-votes";
+import {
+  getCamaraLegislativeAuthorSummary,
+  type CamaraLegislativeAuthorSummary,
+} from "../../lib/camara-legislative";
 import TerritorialVotesStudy from "./territorial-votes-study";
 import {
   getExecutiveProfiles,
@@ -39,6 +43,28 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   year: "numeric",
   timeZone: "America/Bahia",
 });
+
+function officialNameKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleUpperCase("pt-BR");
+}
+
+function legislativeAuthorMatch(
+  personName: string,
+  summaries: readonly CamaraLegislativeAuthorSummary[],
+): CamaraLegislativeAuthorSummary | null {
+  // A normalização só torna maiúsculas, acentos e espaços comparáveis; não
+  // transforma o nome em uma identificação civil nem resolve homônimos.
+  const personKey = officialNameKey(personName);
+  return (
+    summaries.find((summary) => officialNameKey(summary.authorName) === personKey) ??
+    null
+  );
+}
 
 function countLabel(count: number | null): string {
   return count === null ? "—" : count.toLocaleString("pt-BR");
@@ -181,9 +207,11 @@ function RepresentativeCard({
 function CouncillorCard({
   person,
   voteLinks,
+  legislativeAuthor,
 }: Readonly<{
   person: Councillor;
   voteLinks: readonly RepresentativeVote[];
+  legislativeAuthor: CamaraLegislativeAuthorSummary | null;
 }>) {
   return (
     <article className="person-card" aria-label="Vereador">
@@ -222,6 +250,29 @@ function CouncillorCard({
       ) : null}
 
       <RepresentativeVoteSummary votes={voteLinks} />
+
+      <details className="person-legislative-summary">
+        <summary>Leis e indicações atribuídas pela Câmara</summary>
+        {legislativeAuthor ? (
+          <>
+            <p>
+              O acervo legislativo informa <strong>{legislativeAuthor.itemCount}</strong>{" "}
+              registro(s) com este texto de autoria no recorte publicado. Isso
+              não confirma a identidade em caso de homônimo.
+            </p>
+            <a
+              href={`/camara?author=${encodeURIComponent(legislativeAuthor.authorName)}`}
+            >
+              Abrir pesquisa pelo nome publicado →
+            </a>
+          </>
+        ) : (
+          <p>
+            A Câmara ainda não publicou autoria com correspondência exata neste
+            acervo. Nenhuma associação foi feita por semelhança de nome.
+          </p>
+        )}
+      </details>
 
       {person.biography ? (
         <details>
@@ -475,13 +526,22 @@ function CandidateVoteCard({ vote }: Readonly<{ vote: TseVote }>) {
 }
 
 export default async function RepresentativesPage() {
-  const [result, councillorsResult, stateResult, votesResult, executiveProfilesResult, representativeVotesResult] = await Promise.all([
+  const [
+    result,
+    councillorsResult,
+    stateResult,
+    votesResult,
+    executiveProfilesResult,
+    representativeVotesResult,
+    legislativeAuthorSummary,
+  ] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
     getStateRepresentatives(),
     getTseBarreirasVotes(),
     getExecutiveProfiles(),
     getRepresentativeVotes(),
+    getCamaraLegislativeAuthorSummary(),
   ]);
   const legacyVotes = votesResult.state === "available" ? votesResult.votes : [];
   const representativeVotes =
@@ -780,6 +840,10 @@ export default async function RepresentativesPage() {
                 <CouncillorCard
                   key={person.councillorId}
                   person={person}
+                  legislativeAuthor={legislativeAuthorMatch(
+                    person.displayName,
+                    legislativeAuthorSummary,
+                  )}
                   voteLinks={votesForRepresentative(
                     representativeVotes,
                     "municipal",

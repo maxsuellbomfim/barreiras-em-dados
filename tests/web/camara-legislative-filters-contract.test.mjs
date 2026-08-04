@@ -9,6 +9,10 @@ const migration = await readFile(
 const client = await readFile(new URL("../../apps/web/lib/camara-legislative.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/camara/page.tsx", import.meta.url), "utf8");
 const explorer = await readFile(new URL("../../apps/web/app/camara/laws-explorer.tsx", import.meta.url), "utf8");
+const representativesPage = await readFile(
+  new URL("../../apps/web/app/representantes/page.tsx", import.meta.url),
+  "utf8",
+);
 
 test("resumo de autoria usa a mesma taxonomia e filtros do acervo", () => {
   assert.match(migration, /get_camara_legislative_author_summary/);
@@ -27,4 +31,11 @@ test("página consulta e exibe a contagem global de autoria", () => {
   assert.match(page, /authorSummary/);
   assert.match(explorer, /Contagem global no recorte atual/);
   assert.match(explorer, /authorQuery/);
+});
+
+test("vereadores apontam para autoria legislativa somente por nome exato", () => {
+  assert.match(representativesPage, /officialNameKey/);
+  assert.match(representativesPage, /legislativeAuthorMatch/);
+  assert.match(representativesPage, /encodeURIComponent\(legislativeAuthor\.authorName\)/);
+  assert.match(representativesPage, /Nenhuma associa/);
 });
