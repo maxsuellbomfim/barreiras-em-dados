@@ -44,7 +44,7 @@ CAMARA_COLLECTOR_VERSION = "camara-federal-collector/0.1.0"
 ALBA_COLLECTOR_VERSION = "alba-collector/0.1.0"
 ALBA_PARSER_VERSION = "alba-deputados/1.0.0"
 EXECUTIVE_COLLECTOR_VERSION = "barreiras-executive-collector/1.0.0"
-EXECUTIVE_PARSER_VERSION = "barreiras-executive-pages/1.0.0"
+EXECUTIVE_PARSER_VERSION = "barreiras-executive-pages/1.1.0"
 TSE_COLLECTOR_VERSION = "tse-collector/0.1.0"
 TSE_PARSER_VERSION = "tse-votacao-munzona/1.0.0"
 VEREADORES_COLLECTOR_VERSION = "cm-barreiras-collector/0.1.0"
@@ -54,6 +54,23 @@ MUNICIPAL_TRANSPARENCY_PARSER_VERSION = "municipal-transparency-page/1.0.0"
 PNCP_ITEM_PARSER_VERSION = "pncp-item-page/1.0.0"
 PNCP_RESULTADO_PARSER_VERSION = "pncp-resultado-page/1.0.0"
 PNCP_CONTRATO_PARSER_VERSION = "pncp-contrato-page/1.0.0"
+
+
+def executive_record_idempotency_key(
+    *, profile_key: str, payload_sha256: str, page_body_sha256: str
+) -> str:
+    """Identifica um perfil dentro de uma captura bruta específica.
+
+    O mesmo perfil pode reaparecer em uma nova página oficial. Cada captura
+    precisa manter sua própria relação com o bruto, enquanto o replay da
+    mesma captura continua idempotente.
+    """
+    return hashlib.sha256(
+        (
+            "executive-profile:"
+            f"{page_body_sha256}:{profile_key}:{payload_sha256}"
+        ).encode()
+    ).hexdigest()
 
 
 class OfficialDiaryCatalogPersistenceService:
@@ -811,9 +828,11 @@ class MunicipalExecutivePersistenceService:
                     payload=item,
                     payload_sha256=payload_sha256,
                     parser_version=EXECUTIVE_PARSER_VERSION,
-                    idempotency_key=hashlib.sha256(
-                        f"executive-profile:{profile_key}:{payload_sha256}".encode()
-                    ).hexdigest(),
+                    idempotency_key=executive_record_idempotency_key(
+                        profile_key=profile_key,
+                        payload_sha256=payload_sha256,
+                        page_body_sha256=page.body_sha256,
+                    ),
                 )
             )
 

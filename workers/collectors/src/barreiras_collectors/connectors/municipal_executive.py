@@ -23,7 +23,7 @@ ALLOWED_HOSTS = frozenset({"barreiras.ba.gov.br", "www.barreiras.ba.gov.br"})
 RETRYABLE = frozenset({408, 425, 429, 500, 502, 503, 504})
 TIMEOUT_SECONDS = 30.0
 COLLECTOR_VERSION = "barreiras-executive-collector/1.0.0"
-PARSER_VERSION = "barreiras-executive-pages/1.0.0"
+PARSER_VERSION = "barreiras-executive-pages/1.1.0"
 
 PAGE_SPECS: tuple[tuple[str, str, str], ...] = (
     ("prefeito", "Prefeito", "https://barreiras.ba.gov.br/prefeito-e-vice/"),
