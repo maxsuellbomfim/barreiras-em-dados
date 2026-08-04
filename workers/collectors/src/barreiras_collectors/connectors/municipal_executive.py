@@ -23,7 +23,7 @@ ALLOWED_HOSTS = frozenset({"barreiras.ba.gov.br", "www.barreiras.ba.gov.br"})
 RETRYABLE = frozenset({408, 425, 429, 500, 502, 503, 504})
 TIMEOUT_SECONDS = 30.0
 COLLECTOR_VERSION = "barreiras-executive-collector/1.0.0"
-PARSER_VERSION = "barreiras-executive-pages/1.1.0"
+PARSER_VERSION = "barreiras-executive-pages/1.1.1"
 
 PAGE_SPECS: tuple[tuple[str, str, str], ...] = (
     ("prefeito", "Prefeito", "https://barreiras.ba.gov.br/prefeito-e-vice/"),
@@ -125,6 +125,19 @@ def _image_url(fragment: str) -> str | None:
         r"<img[^>]+src=['\"](https://[^'\"]+)['\"]", fragment, re.I
     )
     return html.unescape(match.group(1)) if match else None
+
+
+def _last_image_url(fragment: str) -> str | None:
+    """Return the closest image in a fragment preceding a heading.
+
+    The Prefeitura page places the portrait immediately before each ``h2``.
+    A broad prefix can contain an earlier portrait, so selecting the last
+    match is the deterministic association that follows the page structure.
+    """
+    matches = re.findall(
+        r"<img[^>]+src=['\"](https://[^'\"]+)['\"]", fragment, re.I
+    )
+    return html.unescape(matches[-1]) if matches else None
 
 
 def _looks_like_name(value: str) -> bool:
@@ -237,7 +250,7 @@ def parse_official_page(
                     url,
                     window,
                     _name(title.group(1)),
-                    _image_url(window) or _image_url(photo_fragment),
+                    _last_image_url(photo_fragment) or _image_url(window),
                 )
             )
         return tuple(profiles)
