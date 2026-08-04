@@ -63,7 +63,26 @@ class RepresentativeAliasRepository:
                     on people.representative_external_id
                      = crosswalk.representative_external_id
                   where crosswalk.source_kind = 'municipal'
-                    and crosswalk.review_status = 'approved'
+                     and crosswalk.review_status = 'approved'
+                ), historical_candidates as (
+                  select distinct on (
+                    record.payload ->> 'ano',
+                    record.payload ->> 'sq_candidato'
+                  )
+                    record.payload ->> 'ano' as election_year,
+                    record.payload ->> 'sq_candidato' as candidate_id,
+                    nullif(btrim(record.payload ->> 'nome'), '') as canonical_name,
+                    nullif(btrim(record.payload ->> 'nome_urna'), '') as ballot_name,
+                    nullif(btrim(record.payload ->> 'partido'), '') as party,
+                    nullif(btrim(record.payload ->> 'cargo'), '') as office
+                  from raw.raw_records as record
+                  where record.record_type = 'tse_votacao_barreiras'
+                    and record.payload ->> 'ano' is not null
+                    and record.payload ->> 'sq_candidato' is not null
+                  order by
+                    record.payload ->> 'ano',
+                    record.payload ->> 'sq_candidato',
+                    record.collected_at desc
                 )
                 select
                   authors.author_name,
@@ -82,7 +101,23 @@ class RepresentativeAliasRepository:
                       )
                     ) filter (where candidates.representative_external_id is not null),
                     '[]'::jsonb
-                  ) as candidates
+                  ) as candidates,
+                  coalesce(
+                    (
+                      select jsonb_agg(
+                        distinct jsonb_build_object(
+                          'election_year', historical.election_year,
+                          'candidate_id', historical.candidate_id,
+                          'canonical_name', historical.canonical_name,
+                          'ballot_name', historical.ballot_name,
+                          'party', historical.party,
+                          'office', historical.office
+                        )
+                      )
+                      from historical_candidates as historical
+                    ),
+                    '[]'::jsonb
+                  ) as historical_candidates
                 from authors
                 cross join candidates
                 where authors.author_name is not null
@@ -118,6 +153,11 @@ class RepresentativeAliasRepository:
                             candidates
                             if isinstance(candidates, list)
                             else json.loads(str(candidates))
+                        ),
+                        "historical_candidates": (
+                            row["historical_candidates"]
+                            if isinstance(row["historical_candidates"], list)
+                            else json.loads(str(row["historical_candidates"]))
                         ),
                     }
                 )

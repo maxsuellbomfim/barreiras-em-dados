@@ -47,6 +47,26 @@ class AliasAssistTests(unittest.TestCase):
         self.assertIn("cm-barreiras:vereador:allan", joined)
         self.assertIn("candidate_external_id deve ser exatamente", joined)
 
+    def test_prompt_does_not_treat_current_roster_as_historical_truth(self):
+        messages = build_alias_messages(
+            "Vereador histórico",
+            CANDIDATES,
+            source_context="autoria antiga, fora da legislatura atual",
+            historical_candidates=[
+                {
+                    "election_year": 2016,
+                    "candidate_id": "old-1",
+                    "canonical_name": "VEREADOR HISTÓRICO",
+                    "ballot_name": "HISTÓRICO",
+                    "party": "PDT",
+                    "office": "Vereador",
+                }
+            ],
+        )
+        joined = " ".join(message["content"] for message in messages)
+        self.assertIn("ausência na lista eleitoral atual não prova no_match", joined)
+        self.assertIn("Candidaturas históricas informativas", joined)
+
     def test_response_accepts_only_id_from_candidate_list(self):
         result = parse_alias_response(
             json.dumps(
