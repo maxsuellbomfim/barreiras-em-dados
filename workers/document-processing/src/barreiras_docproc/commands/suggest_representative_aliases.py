@@ -10,7 +10,11 @@ from collections.abc import Sequence
 from barreiras_collectors.logging import log_event
 from barreiras_collectors.settings import PersistenceSettings
 
-from ..alias_assist import ALIAS_ASSIST_PROMPT_VERSION, run_alias_assistance
+from ..alias_assist import (
+    ALIAS_ASSIST_PROMPT_VERSION,
+    rank_candidates,
+    run_alias_assistance,
+)
 from ..alias_repository import RepresentativeAliasRepository
 from ..assist import (
     PROVIDERS,
@@ -71,7 +75,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         context = (
             f"A autoria apareceu em {alias['item_count']} registro(s) oficiais. "
             f"Chaves dos registros preservados: "
-            f"{', '.join(alias['source_record_keys'][:8])}."
+            f"{', '.join(alias['source_record_keys'][:8])}. "
+            "A lista atual de vereadores não cobre necessariamente o período "
+            "da autoria; ausência nela não é prova de inexistência."
+        )
+        historical_candidates = tuple(
+            rank_candidates(
+                alias["observed_name"],
+                alias.get("historical_candidates", ()),
+            )[:12]
         )
         try:
             provider, model, result, raw_response = run_alias_assistance(
@@ -80,6 +92,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 alias["observed_name"],
                 candidates,
                 source_context=context,
+                historical_candidates=historical_candidates,
                 logger=logger,
                 attempts=attempts,
             )
@@ -139,4 +152,3 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

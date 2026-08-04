@@ -16,7 +16,7 @@ from typing import Any
 
 from .assist import _parse_content, run_cascade_content
 
-ALIAS_ASSIST_PROMPT_VERSION = "representative-alias-assist/1.0.0"
+ALIAS_ASSIST_PROMPT_VERSION = "representative-alias-assist/1.1.0"
 ALIAS_ASSIST_VALIDATOR_VERSION = "representative-alias-literal-safe/1.0.0"
 MAX_ALIAS_NAME = 200
 MAX_RATIONALE = 800
@@ -80,6 +80,7 @@ def build_alias_messages(
     candidates: Sequence[Mapping[str, Any]],
     *,
     source_context: str,
+    historical_candidates: Sequence[Mapping[str, Any]] = (),
 ) -> list[dict[str, str]]:
     """Constrói prompt fechado: a IA só pode escolher IDs fornecidos."""
 
@@ -102,11 +103,28 @@ def build_alias_messages(
         ) + "}"
         for candidate in rank_candidates(observed_name, candidates)
     ) + "]"
+    historical_json = "[" + ",".join(
+        "{" + ",".join(
+            f'"{key}": {json.dumps(str(value), ensure_ascii=False)}'
+            for key, value in (
+                ("election_year", item.get("election_year") or ""),
+                ("candidate_id", item.get("candidate_id") or ""),
+                ("canonical_name", item.get("canonical_name") or ""),
+                ("ballot_name", item.get("ballot_name") or ""),
+                ("party", item.get("party") or ""),
+                ("office", item.get("office") or ""),
+            )
+        ) + "}"
+        for item in historical_candidates
+    ) + "]"
     system = (
         "Você é um assistente de auditoria de dados públicos de Barreiras-BA. "
         "Sugira aliases somente para revisão humana. Nunca declare que duas "
         "grafias são a mesma pessoa por conhecimento externo. Responda apenas "
         "JSON válido. Se houver ambiguidade, use ambiguous ou no_match. "
+        "A ausência na lista eleitoral atual não prova no_match: use ambiguous "
+        "quando a autoria for histórica ou faltar evidência. Use no_match somente "
+        "quando houver evidência positiva de conflito. "
         "candidate_external_id deve ser exatamente um ID da lista ou null."
     )
     user = (
@@ -120,6 +138,7 @@ def build_alias_messages(
         '"confidence":0.0, "rationale":"...", "evidence":["..."]}\n'
         f"Nome publicado: {observed_name[:MAX_ALIAS_NAME]}\n"
         f"Contexto oficial: {source_context[:1200]}\n"
+        f"Candidaturas históricas informativas (sem IDs aceitos): {historical_json}\n"
         f"Candidatos permitidos: {candidate_json}"
     )
     return [
@@ -198,6 +217,7 @@ def run_alias_assistance(
     candidates: Sequence[Mapping[str, Any]],
     *,
     source_context: str,
+    historical_candidates: Sequence[Mapping[str, Any]] = (),
     logger,
     attempts=None,
 ) -> tuple[str, str, dict[str, Any], str]:
@@ -207,6 +227,7 @@ def run_alias_assistance(
         observed_name,
         candidates,
         source_context=source_context,
+        historical_candidates=historical_candidates,
     )
     provider, model, content = run_cascade_content(
         caller,
