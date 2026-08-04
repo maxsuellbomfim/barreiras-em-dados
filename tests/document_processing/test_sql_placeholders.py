@@ -56,6 +56,13 @@ class SqlPlaceholderTests(unittest.TestCase):
                     ),
                 )
 
+    def test_gazette_processing_retries_transient_failures_with_a_cap(self) -> None:
+        source = MODULES[0].read_text(encoding="utf-8")
+        self.assertIn("job.last_error_code = 'processing_error'", source)
+        self.assertIn("job.attempt_count < job.max_attempts", source)
+        self.assertIn("status = 'succeeded'", source)
+        self.assertIn("status = 'failed'", source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -59,6 +59,13 @@ class PostgresExtractionRepository:
                         ),
                         'hex'
                       )
+                      -- Falhas transitórias (por exemplo, StorageApiError)
+                      -- podem ser tentadas novamente até o limite auditável.
+                      and not (
+                        job.status = 'failed'
+                        and job.last_error_code = 'processing_error'
+                        and job.attempt_count < job.max_attempts
+                      )
                   )
                   -- Adiado aguardando OCR: alguma página sem texto e ainda
                   -- sem linha OCR equivalente para o mesmo número de página.
@@ -152,7 +159,13 @@ class PostgresExtractionRepository:
                       last_error_detail
                     )
                     values (%s::uuid, %s, %s, 'failed', 1, %s, %s)
-                    on conflict (idempotency_key) do nothing
+                    on conflict (idempotency_key) do update set
+                      status = 'failed',
+                      attempt_count = raw.extraction_jobs.attempt_count + 1,
+                      last_error_code = excluded.last_error_code,
+                      last_error_detail = excluded.last_error_detail,
+                      updated_at = statement_timestamp()
+                    where raw.extraction_jobs.status <> 'succeeded'
                     """,
                     (
                         artifact.raw_artifact_id,
@@ -826,7 +839,15 @@ class PostgresExtractionRepository:
               attempt_count
             )
             values (%s::uuid, %s, %s, 'succeeded', 1)
-            on conflict (idempotency_key) do nothing
+            on conflict (idempotency_key) do update set
+              status = 'succeeded',
+              attempt_count = raw.extraction_jobs.attempt_count + 1,
+              last_error_code = null,
+              last_error_detail = null,
+              updated_at = statement_timestamp()
+            where raw.extraction_jobs.status = 'failed'
+              and raw.extraction_jobs.last_error_code = 'processing_error'
+              and raw.extraction_jobs.attempt_count < raw.extraction_jobs.max_attempts
             returning id::text as id
             """,
             (
