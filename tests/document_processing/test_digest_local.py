@@ -110,6 +110,21 @@ class DeterministicDigestTests(unittest.TestCase):
 
         self.assertEqual([item.title for item in items], ["Decreto nº 123."])
 
+    def test_reads_bare_decree_heading_followed_by_budget_structure(self):
+        text = (
+            "PREFEITURA MUNICIPAL DE BARREIRAS\n"
+            "Decreto Nº 118\n"
+            "Lei 1704 / 2026\n"
+            "De 27 de Julho de 2026\n"
+            "O(a) PREFEITO(A) MUNICIPAL, no uso de suas atribuições legais.\n"
+            "D E C R E T A :\n"
+            "Artigo 1º - Fica alterado o Quadro de Detalhamento de Despesa."
+        )
+
+        items = deterministic_digest_items(text)
+
+        self.assertEqual([item.title for item in items], ["Decreto nº 118"])
+
     def test_reads_numbered_editals_contract_errata_and_dispensa(self):
         text = (
             "EDITAL DE NOTIFICAÇÃO Nº 695/2026\n"
