@@ -617,6 +617,46 @@ try {
     select set_config('request.jwt.claim.sub', '${reviewerUserId}', false);
   `);
 
+  await database.exec(`
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version,
+      parser_version, collection_window_start, collection_window_end,
+      status, attempt_count, started_at, completed_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000000411', '${endpointId}',
+        '${"a".repeat(64)}', 'test/backfill', 'parser/1',
+        '2026-07-24 00:00:00+00', '2026-07-30 23:59:59+00',
+        'succeeded', 1, '2026-08-05 17:30:00+00',
+        '2026-08-05 17:31:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000000412', '${endpointId}',
+        '${"b".repeat(64)}', 'test/backfill', 'parser/1',
+        '2026-07-31 00:00:00+00', '2026-08-04 23:59:59+00',
+        'succeeded', 1, '2026-08-05 17:32:00+00',
+        '2026-08-05 17:33:00+00'
+      );
+
+    insert into source.collection_partitions (
+      id, source_endpoint_id, partition_key, period_start, period_end,
+      status, observed_records, collection_run_id, last_attempted_at,
+      completed_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000000413', '${endpointId}',
+        'published:2026-07-24:2026-07-30', '2026-07-24', '2026-07-30',
+        'empty', 0, '00000000-0000-0000-0000-000000000411',
+        '2026-08-05 17:31:00+00', '2026-08-05 17:31:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000000414', '${endpointId}',
+        'published:2026-07-31:2026-08-04', '2026-07-31', '2026-08-04',
+        'empty', 0, '00000000-0000-0000-0000-000000000412',
+        '2026-08-05 17:33:00+00', '2026-08-05 17:33:00+00'
+      );
+  `);
+
   await assert.rejects(
     database.query("select * from api.get_collection_health(501)"),
     /page_size deve estar entre 1 e 500/,
@@ -647,17 +687,51 @@ try {
   await database.exec("reset role;");
   assert.deepEqual(collectionHealth.rows, [
     {
-      latest_partition_status: "failed",
-      latest_run_status: "failed",
-      latest_collector_version: "test/2",
+      latest_partition_status: "empty",
+      latest_run_status: "succeeded",
+      latest_collector_version: "test/backfill",
       complete_partitions: 1,
       failed_partitions: 1,
       unresolved_failures: 1,
       latest_failure_type: "upstream_timeout",
       latest_failure_detail: "A fonte oficial excedeu o tempo de resposta.",
-      methodology_version: "collection-health/1.0.0",
+      methodology_version: "collection-health/1.1.0",
     },
   ]);
+
+  const queridoDiarioBackfill = await database.query(`
+    select row_to_json(health) as health
+    from api.get_collection_health(200) as health
+    where endpoint_id = '${endpointId}'
+  `);
+  assert.deepEqual(
+    {
+      backfill_horizon: queridoDiarioBackfill.rows[0].health.backfill_horizon,
+      continuous_coverage_start:
+        queridoDiarioBackfill.rows[0].health.continuous_coverage_start,
+      continuous_coverage_end:
+        queridoDiarioBackfill.rows[0].health.continuous_coverage_end,
+      next_backfill_start:
+        queridoDiarioBackfill.rows[0].health.next_backfill_start,
+      next_backfill_end: queridoDiarioBackfill.rows[0].health.next_backfill_end,
+      backfill_classified_days:
+        queridoDiarioBackfill.rows[0].health.backfill_classified_days,
+      backfill_total_days:
+        queridoDiarioBackfill.rows[0].health.backfill_total_days,
+      backfill_progress_percent:
+        queridoDiarioBackfill.rows[0].health.backfill_progress_percent,
+    },
+    {
+      backfill_horizon: "2021-01-01",
+      continuous_coverage_start: "2026-07-24",
+      continuous_coverage_end: "2026-08-04",
+      next_backfill_start: "2026-07-17",
+      next_backfill_end: "2026-07-23",
+      backfill_classified_days: 12,
+      backfill_total_days: 2042,
+      backfill_progress_percent: 0.59,
+    },
+  );
 
   const healthFunctionColumns = await database.query(`
     select pg_get_function_result(
@@ -860,6 +934,7 @@ try {
       preserved_editions::integer as preserved_editions,
       preserved_documents::integer as preserved_documents
     from source.querido_diario_daily_coverage
+    where day = date '2026-06-10'
   `);
   assert.deepEqual(dailyCoverage.rows, [
     {
