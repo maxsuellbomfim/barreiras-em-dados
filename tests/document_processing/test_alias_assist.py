@@ -78,7 +78,23 @@ class AliasAssistTests(unittest.TestCase):
         self.assertEqual(result["alias_kind"], "case_variant")
         self.assertEqual(
             result["validator_version"],
-            "representative-alias-literal-safe/1.0.0",
+            "representative-alias-literal-safe/1.1.0",
+        )
+
+    def test_editorial_role_prefix_does_not_break_identity_signal(self):
+        signals = name_match_signals(
+            "VEREADOR RIDER MENDONÇA E CASTRO",
+            CANDIDATES[1],
+        )
+        self.assertTrue(signals["first_and_surname"])
+        result = classify_alias_deterministically(
+            "VEREADOR RIDER MENDONÇA E CASTRO",
+            CANDIDATES,
+        )
+        self.assertEqual(result["decision"], "match")
+        self.assertEqual(
+            result["candidate_external_id"],
+            "cm-barreiras:vereador:rider",
         )
 
     def test_equal_first_and_surname_remains_ambiguous(self):

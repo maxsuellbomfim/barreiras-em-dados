@@ -7,7 +7,10 @@ from collections.abc import Callable
 
 from barreiras_collectors.persistence.postgres import DatabaseConnection
 
-from .alias_assist import ALIAS_ASSIST_PROMPT_VERSION
+from .alias_assist import (
+    ALIAS_ASSIST_PROMPT_VERSION,
+    ALIAS_ASSIST_VALIDATOR_VERSION,
+)
 
 
 class RepresentativeAliasRepository:
@@ -141,11 +144,20 @@ class RepresentativeAliasRepository:
                     where suggestion.source_kind = 'municipal'
                       and suggestion.observed_name = authors.author_name
                       and suggestion.prompt_version = %s
+                      and not (
+                        suggestion.status = 'pending'
+                        and suggestion.provider = 'local'
+                        and suggestion.validator_version <> %s
+                      )
                   )
                 order by authors.item_count desc, authors.author_name
                 limit %s
                 """,
-                (ALIAS_ASSIST_PROMPT_VERSION, limit),
+                (
+                    ALIAS_ASSIST_PROMPT_VERSION,
+                    ALIAS_ASSIST_VALIDATOR_VERSION,
+                    limit,
+                ),
             )
             found: list[dict] = []
             while True:

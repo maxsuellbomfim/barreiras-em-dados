@@ -17,7 +17,7 @@ from typing import Any
 from .assist import _parse_content, run_cascade_content
 
 ALIAS_ASSIST_PROMPT_VERSION = "representative-alias-assist/1.1.0"
-ALIAS_ASSIST_VALIDATOR_VERSION = "representative-alias-literal-safe/1.0.0"
+ALIAS_ASSIST_VALIDATOR_VERSION = "representative-alias-literal-safe/1.1.0"
 MAX_ALIAS_NAME = 200
 MAX_RATIONALE = 800
 MAX_EVIDENCE_ITEMS = 6
@@ -32,6 +32,16 @@ _STOPWORDS = frozenset(
         "DO",
         "DOS",
         "E",
+        # RÃ³tulos editoriais que aparecem antes do nome em indicaÃ§Ãµes e leis.
+        # Eles sÃ£o removidos somente da chave de triagem; a fonte permanece
+        # intacta e o alias continua pendente para revisÃ£o.
+        "VEREADOR",
+        "VEREADORA",
+        "DR",
+        "DRA",
+        "PROF",
+        "PROFESSOR",
+        "PROFESSORA",
     }
 )
 
