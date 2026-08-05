@@ -6,14 +6,15 @@ from barreiras_collectors.persistence.postgres import PostgresCollectionReposito
 
 
 class QueryResult:
-    def __init__(self, row):
+    def __init__(self, row=None, rows=None):
         self.row = row
+        self.rows = rows or []
 
     def fetchone(self):
         return self.row
 
     def fetchall(self):
-        return []
+        return self.rows
 
 
 class CheckpointConnection:
@@ -63,6 +64,33 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
                 partition_key="published:2026-07-01:2026-07-31",
             )
         )
+
+    def test_pncp_item_backlog_applies_checkpoint_offset(self) -> None:
+        connection = CheckpointConnection(None)
+        connection.row = None
+        repository = PostgresCollectionRepository(lambda: connection)
+
+        repository.pncp_pending_itens(
+            refresh_days=120,
+            limit=51,
+            offset=100,
+        )
+
+        self.assertIn("offset %s", connection.calls[0][0].lower())
+        self.assertEqual(connection.calls[0][1], (120, 51, 100))
+
+    def test_pncp_contract_backlog_applies_checkpoint_offset(self) -> None:
+        connection = CheckpointConnection(None)
+        repository = PostgresCollectionRepository(lambda: connection)
+
+        repository.pncp_pending_contratos(
+            refresh_days=120,
+            limit=51,
+            offset=50,
+        )
+
+        self.assertIn("offset %s", connection.calls[0][0].lower())
+        self.assertEqual(connection.calls[0][1], (120, 51, 50))
 
 
 if __name__ == "__main__":

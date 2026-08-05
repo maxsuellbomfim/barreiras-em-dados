@@ -671,6 +671,7 @@ class PostgresCollectionRepository:
         *,
         refresh_days: int,
         limit: int,
+        offset: int = 0,
     ) -> list[tuple[str, int, int]]:
         """Contratações sem itens preservados ou recentes o bastante para
         revisitar (homologação chega semanas após a publicação)."""
@@ -715,9 +716,9 @@ class PostgresCollectionRepository:
                       )::int = contratacao.sequencial
                   )
                 order by published_on desc nulls last, control
-                limit %s
+                limit %s offset %s
                 """,
-                (refresh_days, limit),
+                (refresh_days, limit, offset),
             ).fetchall()
         finally:
             connection.close()
@@ -731,6 +732,7 @@ class PostgresCollectionRepository:
         *,
         refresh_days: int,
         limit: int,
+        offset: int = 0,
     ) -> list[tuple[str, int, int]]:
         """ContrataÃ§Ãµes sem snapshot de contratos/empenhos preservado."""
         connection = self.connection_factory()
@@ -774,9 +776,9 @@ class PostgresCollectionRepository:
                       )::int = contratacao.sequencial
                   )
                 order by published_on desc nulls last, control
-                limit %s
+                limit %s offset %s
                 """,
-                (refresh_days, limit),
+                (refresh_days, limit, offset),
             ).fetchall()
         finally:
             connection.close()

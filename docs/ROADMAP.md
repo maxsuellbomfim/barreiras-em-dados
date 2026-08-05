@@ -22,8 +22,13 @@ ser visíveis como cobertura `partial`, sem apagar os dados já preservados.
 
 A terceira entrega consome automaticamente o `next_offset` das partições
 municipais parciais e integra as janelas de contratações do PNCP ao controle
-central. Modalidades truncadas ficam registradas como `partial`; o cadastro, os
-itens, os resultados e os contratos do PNCP permanecem como próximas fatias.
+central. Modalidades truncadas ficam registradas como `partial`.
+
+A quarta entrega inclui cadastro, itens, resultados e contratos do PNCP no
+mesmo contrato. Limites de backlog/página agora são `partial`, e contratos
+percorrem todas as páginas declaradas pela fonte. Backlogs retomam do
+`next_offset`, evitando inanição dos registros posteriores ao primeiro lote.
+Legislativo e Representação são as próximas fatias de estabilização.
 
 Cada coletor só entra no backfill amplo depois de registrar execução antes do
 HTTP e classificar cada partição como completa, vazia, parcial, falha ou

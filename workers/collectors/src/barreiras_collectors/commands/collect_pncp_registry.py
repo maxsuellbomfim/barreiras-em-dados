@@ -4,8 +4,16 @@ from __future__ import annotations
 
 import argparse
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+from ..collection_control import (
+    CollectionControl,
+    CollectionOutcome,
+    build_execution_idempotency_key,
+)
 from ..connectors.pncp import (
     REGISTRY_RESOURCES,
     SOURCE_CODE,
@@ -14,8 +22,49 @@ from ..connectors.pncp import (
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import PncpRegistryPersistenceService
-from ..persistence.storage import SupabaseStorageObjectStore
 from ..settings import CollectorSettings, PersistenceSettings
+from .pncp_runtime import build_authenticated_object_store
+
+MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
+
+
+@dataclass(frozen=True)
+class PncpRegistryCollectionSummary:
+    expected_resources: int
+    preserved_resources: int
+    created_resources: int
+
+    @property
+    def outcome(self) -> CollectionOutcome:
+        if self.preserved_resources < self.expected_resources:
+            return CollectionOutcome.PARTIAL
+        if self.expected_resources == 0:
+            return CollectionOutcome.EMPTY
+        return CollectionOutcome.COMPLETE
+
+
+def execute_controlled_pncp_registry(
+    *,
+    control: CollectionControl,
+    operation: Callable[[], PncpRegistryCollectionSummary],
+) -> PncpRegistryCollectionSummary:
+    """Registra a execução antes da autenticação ou requisição externa."""
+    with control:
+        summary = operation()
+        control.complete(
+            outcome=summary.outcome,
+            observed_records=summary.preserved_resources,
+            checkpoint={
+                "expected_resources": summary.expected_resources,
+                "preserved_resources": summary.preserved_resources,
+            },
+            metrics={
+                "expected_resources": summary.expected_resources,
+                "preserved_resources": summary.preserved_resources,
+                "created_resources": summary.created_resources,
+            },
+        )
+    return summary
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -38,57 +87,59 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise RuntimeError(
             "A coleta PNCP requer PERSISTENCE_MODE=postgres-supabase."
         )
-    if (
-        persistence_settings.database_url is None
-        or persistence_settings.supabase_url is None
-        or persistence_settings.supabase_publishable_key is None
-        or persistence_settings.supabase_workload_email is None
-        or persistence_settings.supabase_workload_password is None
-        or persistence_settings.raw_artifacts_bucket is None
-    ):
-        raise RuntimeError("Configuração de nuvem incompleta.")
-    try:
-        from supabase import create_client
-    except ImportError as error:
-        raise RuntimeError(
-            "Instale a dependência opcional 'storage' para coletar."
-        ) from error
-
-    supabase_client = create_client(
-        persistence_settings.supabase_url,
-        persistence_settings.supabase_publishable_key,
+    if persistence_settings.database_url is None:
+        raise RuntimeError("Configuração de banco incompleta.")
+    repository = PostgresCollectionRepository.from_dsn(
+        persistence_settings.database_url
     )
-    try:
-        authentication = supabase_client.auth.sign_in_with_password(
-            {
-                "email": persistence_settings.supabase_workload_email,
-                "password": persistence_settings.supabase_workload_password,
-            }
-        )
-    except Exception as error:
-        raise RuntimeError(
-            "Falha ao autenticar a identidade técnica do Storage."
-        ) from error
-    if authentication.session is None or authentication.user is None:
-        raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
-
-    service = PncpRegistryPersistenceService(
-        object_store=SupabaseStorageObjectStore(
-            supabase_client.storage.from_(
-                persistence_settings.raw_artifacts_bucket
-            )
-        ),
-        repository=PostgresCollectionRepository.from_dsn(
-            persistence_settings.database_url
-        ),
-    )
-
     logger = logging.getLogger(__name__)
-    preserved = 0
+    today = datetime.now(MUNICIPAL_TIMEZONE).date()
+    control = CollectionControl(
+        repository=repository,
+        source_code=SOURCE_CODE,
+        endpoint_code="registry-api",
+        idempotency_key=build_execution_idempotency_key("pncp-registry"),
+        collector_version=collector_settings.collector_version,
+        parser_version="pncp-registry/1.0.0",
+        partition_key="registry:current",
+        period_start=today,
+        period_end=today,
+    )
+
+    def operation() -> PncpRegistryCollectionSummary:
+        service = PncpRegistryPersistenceService(
+            object_store=build_authenticated_object_store(persistence_settings),
+            repository=repository,
+        )
+        return _collect_registry(service=service, logger=logger)
+
+    summary = execute_controlled_pncp_registry(
+        control=control,
+        operation=operation,
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "collector_pncp_registry_completed",
+        source=SOURCE_CODE,
+        resources=summary.preserved_resources,
+        created_resources=summary.created_resources,
+        coverage_status=summary.outcome.value,
+    )
+    return 0
+
+
+def _collect_registry(
+    *,
+    service: PncpRegistryPersistenceService,
+    logger: logging.Logger,
+) -> PncpRegistryCollectionSummary:
+    preserved = created = 0
     for resource, url in REGISTRY_RESOURCES:
         snapshot = fetch_registry_snapshot(resource, url, logger=logger)
         result = service.persist(snapshot)
         preserved += 1
+        created += int(result.created)
         log_event(
             logger,
             logging.INFO,
@@ -99,14 +150,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             created=result.created,
         )
 
-    log_event(
-        logger,
-        logging.INFO,
-        "collector_pncp_registry_completed",
-        source=SOURCE_CODE,
-        resources=preserved,
+    return PncpRegistryCollectionSummary(
+        expected_resources=len(REGISTRY_RESOURCES),
+        preserved_resources=preserved,
+        created_resources=created,
     )
-    return 0
 
 
 if __name__ == "__main__":

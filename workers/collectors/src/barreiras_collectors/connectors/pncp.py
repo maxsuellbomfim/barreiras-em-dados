@@ -277,6 +277,7 @@ def fetch_contratos_page(
     *,
     ano: int,
     sequencial: int,
+    pagina: int = 1,
     transport: HttpTransport | None = None,
     retry_policy: RetryPolicy | None = None,
     sleep: Callable[[float], None] = time.sleep,
@@ -285,18 +286,18 @@ def fetch_contratos_page(
     """Contratos/empenhos vinculados a uma contratação, sem normalização."""
     url = (
         f"{CONTRATOS_BASE_URL}/contratacao/{ano}/{sequencial}"
-        f"?pagina=1&tamanhoPagina={COMPRAS_PAGE_SIZE}"
+        f"?pagina={pagina}&tamanhoPagina={COMPRAS_PAGE_SIZE}"
     )
     return _fetch_compras_array(
         url,
         schema_name="pncp-contratos-page",
         endpoint_code=CONTRATOS_ENDPOINT_CODE,
         cursor={
-            "offset": 0,
+            "offset": (pagina - 1) * COMPRAS_PAGE_SIZE,
             "size": COMPRAS_PAGE_SIZE,
             "ano": ano,
             "sequencial": sequencial,
-            "pagina": 1,
+            "pagina": pagina,
         },
         transport=transport,
         retry_policy=retry_policy,
