@@ -201,6 +201,20 @@ Toda entidade derivada referencia `raw_records`/`raw_artifacts` por
 
 ## Resolução de identidade
 
+### Ex-vereadores e mandatos históricos
+
+Nomes encontrados em indicações e atos antigos não são comparados somente com a
+legislatura atual. Eles entram em `political.historical_representatives` como
+registro separado, com `source_pending` até que uma fonte oficial da Câmara ou
+do processo legislativo sustente o período. Variações de nome ficam em
+`political.historical_representative_aliases` e podem apontar para a sugestão
+bruta que originou a revisão.
+
+Somente registros `approved`, com URL e evidência próprias, entram na projeção
+pública. A confirmação de que uma pessoa foi vereadora orienta a triagem, mas
+não substitui a fonte oficial nem cria automaticamente um vínculo com o perfil
+atual.
+
 ### Chaves aceitas
 
 - identificador externo estável dentro da fonte;
