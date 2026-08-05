@@ -5,9 +5,18 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from hashlib import sha256
 from itertools import islice
+from zoneinfo import ZoneInfo
 
+from ..collection_control import (
+    CollectionControl,
+    CollectionOutcome,
+    build_execution_idempotency_key,
+)
 from ..connectors.gazette_documents import MunicipalTransparencyDocumentClient
 from ..connectors.municipal_transparency import (
     CAMARA_BASE_URL,
@@ -34,6 +43,7 @@ SOURCE_CONFIG = {
     ),
 }
 DEFAULT_RESOURCE = "pdc-resumo-execucao-da-receita"
+MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 FINANCIAL_DOCUMENT_RESOURCES = frozenset(
     {
         "pdc-receita-tributaria",
@@ -46,6 +56,55 @@ FINANCIAL_DOCUMENT_RESOURCES = frozenset(
         "rgf",
     }
 )
+
+
+@dataclass(frozen=True)
+class MunicipalTransparencyCollectionSummary:
+    pages: int
+    inserted_records: int
+    existing_records: int
+    documents_persisted: int
+    documents_failed: int
+    pagination_capped: bool
+    availability_partial: bool
+    next_offset: int
+
+    @property
+    def observed_records(self) -> int:
+        return self.inserted_records + self.existing_records
+
+    @property
+    def outcome(self) -> CollectionOutcome:
+        if self.documents_failed or self.pagination_capped or self.availability_partial:
+            return CollectionOutcome.PARTIAL
+        if self.observed_records == 0:
+            return CollectionOutcome.EMPTY
+        return CollectionOutcome.COMPLETE
+
+
+def execute_controlled_municipal_transparency(
+    *,
+    control: CollectionControl,
+    operation: Callable[[], MunicipalTransparencyCollectionSummary],
+) -> MunicipalTransparencyCollectionSummary:
+    """Registra a tentativa antes da autenticação e da primeira requisição."""
+    with control:
+        summary = operation()
+        control.complete(
+            outcome=summary.outcome,
+            observed_records=summary.observed_records,
+            checkpoint={"next_offset": summary.next_offset},
+            metrics={
+                "pages": summary.pages,
+                "inserted_records": summary.inserted_records,
+                "existing_records": summary.existing_records,
+                "documents_persisted": summary.documents_persisted,
+                "documents_failed": summary.documents_failed,
+                "pagination_capped": summary.pagination_capped,
+                "availability_partial": summary.availability_partial,
+            },
+        )
+    return summary
 
 
 def _bounded_env_int(name: str, *, default: int, minimum: int, maximum: int) -> int:
@@ -128,6 +187,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--offset não pode ser negativo.")
     if not 1 <= args.max_pages <= 1000:
         parser.error("--max-pages deve estar entre 1 e 1000.")
+    if args.download_documents and args.resource not in FINANCIAL_DOCUMENT_RESOURCES:
+        parser.error("--download-documents só pode ser usado em recurso financeiro.")
 
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
@@ -137,22 +198,96 @@ def main(argv: Sequence[str] | None = None) -> int:
         force=True,
     )
     logger = logging.getLogger(__name__)
-    client = _cloud_client(persistence_settings)
     source_code, base_url = SOURCE_CONFIG[args.source]
-    service = MunicipalTransparencyPersistenceService(
-        object_store=SupabaseStorageObjectStore(
-            client.storage.from_(persistence_settings.raw_artifacts_bucket)
+    if persistence_settings.database_url is None:
+        raise RuntimeError("Configuração de banco incompleta.")
+    repository = PostgresCollectionRepository.from_dsn(
+        persistence_settings.database_url
+    )
+    snapshot_date = datetime.now(MUNICIPAL_TIMEZONE).date()
+    resource_namespace = sha256(args.resource.encode("utf-8")).hexdigest()[:12]
+    control = CollectionControl(
+        repository=repository,
+        source_code=source_code,
+        endpoint_code="dados-abertos-api",
+        idempotency_key=build_execution_idempotency_key(
+            f"municipal-{resource_namespace}"
         ),
-        repository=PostgresCollectionRepository.from_dsn(
-            persistence_settings.database_url
+        collector_version=collector_settings.collector_version,
+        parser_version="municipal-transparency-api-response/1.0.0",
+        partition_key=(
+            f"snapshot:{args.resource}:{snapshot_date.isoformat()}:"
+            f"offset:{args.offset}:limit:{args.limit}:pages:{args.max_pages}"
         ),
+        period_start=snapshot_date,
+        period_end=snapshot_date,
     )
 
+    def operation() -> MunicipalTransparencyCollectionSummary:
+        client = _cloud_client(persistence_settings)
+        service = MunicipalTransparencyPersistenceService(
+            object_store=SupabaseStorageObjectStore(
+                client.storage.from_(persistence_settings.raw_artifacts_bucket)
+            ),
+            repository=repository,
+        )
+        return _collect_resource(
+            service=service,
+            source_code=source_code,
+            base_url=base_url,
+            resource=args.resource,
+            limit=args.limit,
+            offset=args.offset,
+            max_pages=args.max_pages,
+            allow_partial=args.allow_partial,
+            download_documents=args.download_documents,
+            collector_settings=collector_settings,
+            logger=logger,
+        )
+
+    summary = execute_controlled_municipal_transparency(
+        control=control,
+        operation=operation,
+    )
+
+    log_event(
+        logger,
+        logging.INFO,
+        "collector_municipal_transparency_completed",
+        source=source_code,
+        resource=args.resource,
+        pages=summary.pages,
+        inserted_records=summary.inserted_records,
+        existing_records=summary.existing_records,
+        max_pages=args.max_pages,
+        documents_persisted=summary.documents_persisted,
+        documents_failed=summary.documents_failed,
+        pagination_capped=summary.pagination_capped,
+        availability_partial=summary.availability_partial,
+        coverage_status=summary.outcome.value,
+    )
+    return 0
+
+
+def _collect_resource(
+    *,
+    service: MunicipalTransparencyPersistenceService,
+    source_code: str,
+    base_url: str,
+    resource: str,
+    limit: int,
+    offset: int,
+    max_pages: int,
+    allow_partial: bool,
+    download_documents: bool,
+    collector_settings: CollectorSettings,
+    logger: logging.Logger,
+) -> MunicipalTransparencyCollectionSummary:
     document_client = None
-    if args.download_documents:
-        if args.resource not in FINANCIAL_DOCUMENT_RESOURCES:
-            parser.error(
-                "--download-documents so pode ser usado em recurso financeiro."
+    if download_documents:
+        if resource not in FINANCIAL_DOCUMENT_RESOURCES:
+            raise ValueError(
+                "download de documentos só é permitido em recurso financeiro."
             )
         document_client = MunicipalTransparencyDocumentClient(
             max_document_bytes=_bounded_env_int(
@@ -174,9 +309,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     pages = iter_resource_pages(
         base_url=base_url,
         source_code=source_code,
-        resource=args.resource,
-        limit=args.limit,
-        offset=args.offset,
+        resource=resource,
+        limit=limit,
+        offset=offset,
         requests_per_minute=_bounded_env_int(
             "MUNICIPAL_TRANSPARENCY_REQUESTS_PER_MINUTE",
             default=10,
@@ -197,10 +332,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     existing_records = 0
     persisted_documents = 0
     failed_documents = 0
+    last_page_size = 0
+    availability_partial = False
     try:
-        for page in islice(pages, args.max_pages):
+        for page in islice(pages, max_pages):
             result = service.persist(page)
             persisted_pages += 1
+            last_page_size = len(page.items)
             inserted_records += result.inserted_records
             existing_records += result.existing_records
             if document_client is not None:
@@ -243,7 +381,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             error_type=type(error).__name__,
                             error=str(error)[:500],
                         )
-                        if not args.allow_partial:
+                        if not allow_partial:
                             raise
             log_event(
                 logger,
@@ -260,38 +398,40 @@ def main(argv: Sequence[str] | None = None) -> int:
                 documents_failed=failed_documents,
             )
     except MunicipalTransparencyAvailabilityError as error:
-        if not args.allow_partial or persisted_pages == 0:
+        if not allow_partial or persisted_pages == 0:
             raise
+        availability_partial = True
         log_event(
             logger,
             logging.WARNING,
             "collector_municipal_transparency_partial",
             source=source_code,
-            resource=args.resource,
+            resource=resource,
             pages=persisted_pages,
             inserted_records=inserted_records,
             existing_records=existing_records,
-            max_pages=args.max_pages,
+            max_pages=max_pages,
             error=str(error),
             documents_persisted=persisted_documents,
             documents_failed=failed_documents,
         )
-        return 0
 
-    log_event(
-        logger,
-        logging.INFO,
-        "collector_municipal_transparency_completed",
-        source=source_code,
-        resource=args.resource,
+    pagination_capped = persisted_pages == max_pages and last_page_size == limit
+    next_offset = (
+        offset + (persisted_pages * limit)
+        if pagination_capped or availability_partial
+        else 0
+    )
+    return MunicipalTransparencyCollectionSummary(
         pages=persisted_pages,
         inserted_records=inserted_records,
         existing_records=existing_records,
-        max_pages=args.max_pages,
         documents_persisted=persisted_documents,
         documents_failed=failed_documents,
+        pagination_capped=pagination_capped,
+        availability_partial=availability_partial,
+        next_offset=next_offset,
     )
-    return 0
 
 
 if __name__ == "__main__":

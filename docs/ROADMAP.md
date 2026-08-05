@@ -15,6 +15,11 @@ dinheiro. A primeira entrega adiciona `source.collection_partitions`,
 `identity.person_aliases`, integra o Diário direto ao controle e inclui a suíte
 Node no CI.
 
+A segunda entrega integra a janela principal do Querido Diário e os recursos
+financeiros municipais suportados. Cada execução começa antes da autenticação e
+do HTTP; orçamento de documentos, paginação limitada e falha parcial passam a
+ser visíveis como cobertura `partial`, sem apagar os dados já preservados.
+
 Cada coletor só entra no backfill amplo depois de registrar execução antes do
 HTTP e classificar cada partição como completa, vazia, parcial, falha ou
 bloqueada.

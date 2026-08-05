@@ -8,6 +8,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 from barreiras_collectors.commands import collect_querido_diario
+from barreiras_collectors.commands.collect_querido_diario import (
+    QueridoDiarioCollectionSummary,
+    execute_controlled_querido_diario,
+)
 from barreiras_collectors.connectors.gazette_documents import (
     GazetteDocumentClient,
 )
@@ -139,9 +143,7 @@ class CollectDocumentsCommandTests(unittest.TestCase):
             "barreiras_collectors.commands.collect_querido_diario",
             level="WARNING",
         ) as captured:
-            exit_code = run_command(
-                {"QUERIDO_DIARIO_MAX_DOCUMENTS_PER_RUN": "1"}
-            )
+            exit_code = run_command({"QUERIDO_DIARIO_MAX_DOCUMENTS_PER_RUN": "1"})
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(len(self.document_manifests()), 1)
@@ -177,6 +179,108 @@ class CollectDocumentsCommandTests(unittest.TestCase):
             any("ResponseTooLargeError" in line for line in captured.output)
         )
         self.assertGreaterEqual(len(self.document_manifests()), 1)
+
+
+class ControlledQueridoDiarioTests(unittest.TestCase):
+    def test_starts_before_setup_and_records_complete_window(self) -> None:
+        events: list[str] = []
+
+        class ControlProbe:
+            def __enter__(self):
+                events.append("started")
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                events.append("closed")
+                return False
+
+            def complete(self, **values):
+                events.append(f"completed:{values['outcome'].value}")
+                self.values = values
+
+        control = ControlProbe()
+
+        def operation() -> QueridoDiarioCollectionSummary:
+            self.assertEqual(events, ["started"])
+            events.append("external-setup")
+            return QueridoDiarioCollectionSummary(
+                pages=2,
+                inserted_records=3,
+                existing_records=1,
+                documents_persisted=4,
+                documents_skipped=0,
+                documents_failed=0,
+            )
+
+        summary = execute_controlled_querido_diario(
+            control=control,  # type: ignore[arg-type]
+            operation=operation,
+        )
+
+        self.assertEqual(summary.observed_records, 4)
+        self.assertEqual(
+            events,
+            ["started", "external-setup", "completed:complete", "closed"],
+        )
+        self.assertEqual(control.values["observed_records"], 4)
+
+    def test_document_budget_marks_window_partial(self) -> None:
+        completed: dict[str, object] = {}
+
+        class ControlProbe:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                return False
+
+            def complete(self, **values):
+                completed.update(values)
+
+        execute_controlled_querido_diario(
+            control=ControlProbe(),  # type: ignore[arg-type]
+            operation=lambda: QueridoDiarioCollectionSummary(
+                pages=1,
+                inserted_records=2,
+                existing_records=0,
+                documents_persisted=1,
+                documents_skipped=2,
+                documents_failed=0,
+            ),
+        )
+
+        self.assertEqual(completed["outcome"].value, "partial")
+
+    def test_setup_failure_is_recorded_by_control(self) -> None:
+        events: list[str] = []
+
+        class ControlProbe:
+            def __enter__(self):
+                events.append("started")
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del traceback
+                events.append(f"failed:{exc_type.__name__}:{exc_value}")
+                return False
+
+            def complete(self, **values):
+                raise AssertionError(f"não deveria concluir: {values}")
+
+        with self.assertRaisesRegex(RuntimeError, "autenticação"):
+            execute_controlled_querido_diario(
+                control=ControlProbe(),  # type: ignore[arg-type]
+                operation=lambda: (_ for _ in ()).throw(
+                    RuntimeError("falha de autenticação")
+                ),
+            )
+
+        self.assertEqual(
+            events,
+            ["started", "failed:RuntimeError:falha de autenticação"],
+        )
 
 
 if __name__ == "__main__":
