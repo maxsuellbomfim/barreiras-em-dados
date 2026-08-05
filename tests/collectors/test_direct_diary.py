@@ -53,6 +53,33 @@ class MapTransport:
         )
 
 
+class RedirectMapTransport(MapTransport):
+    """Simula o redirecionamento do catálogo para o nome real do PDF."""
+
+    def __init__(self, responses: dict[str, tuple[bytes, str]]) -> None:
+        super().__init__({})
+        self.responses = responses
+
+    def get(self, url, *, headers, timeout_seconds, max_body_bytes):
+        del headers, timeout_seconds, max_body_bytes
+        self.requests.append(url)
+        response = self.responses.get(url)
+        if response is None:
+            return HttpResponse(
+                status=404,
+                headers={},
+                body=b"nao encontrado",
+                final_url=url,
+            )
+        body, final_url = response
+        return HttpResponse(
+            status=200,
+            headers={"Content-Type": "application/pdf"},
+            body=body,
+            final_url=final_url,
+        )
+
+
 class NoopRateLimiter:
     def acquire(self) -> None:
         return None
@@ -201,8 +228,8 @@ class CollectEditionsTests(unittest.TestCase):
         self.assertEqual(persisted, 3)
         self.assertFalse(exhausted)
 
-    def test_catalog_targets_continue_after_a_missing_edition(self) -> None:
-        """A lacuna 4704 não pode esconder as edições oficiais 4705 e 4706."""
+    def test_catalog_target_follows_extra_edition_redirect(self) -> None:
+        """A edição 4704 existe com nome não canônico e deve ser preservada."""
         target_type = getattr(direct_diary, "DirectEditionTarget", None)
         collect_targets = getattr(direct_diary, "collect_catalog_editions", None)
         self.assertTrue(callable(target_type), "falta o contrato do alvo oficial")
@@ -222,9 +249,20 @@ class CollectEditionsTests(unittest.TestCase):
             )
             for number, reference in ((4704, "16976"), (4705, "16978"), (4706, "16980"))
         )
-        bodies = {
-            targets[1].publication_url: pdf(4705),
-            targets[2].publication_url: pdf(4706),
+        extra_edition_url = (
+            "https://barreiras.ba.gov.br/diario/pdf/2026/"
+            "diario4704-edicaoextra.pdf"
+        )
+        responses = {
+            targets[0].publication_url: (pdf(4704), extra_edition_url),
+            targets[1].publication_url: (
+                pdf(4705),
+                edition_url(2026, 4705),
+            ),
+            targets[2].publication_url: (
+                pdf(4706),
+                edition_url(2026, 4706),
+            ),
         }
         client = GazetteDocumentClient(
             max_document_bytes=1024,
@@ -234,7 +272,7 @@ class CollectEditionsTests(unittest.TestCase):
                     "barreiras.ba.gov.br",
                 }
             ),
-            transport=MapTransport(bodies),
+            transport=RedirectMapTransport(responses),
             rate_limiter=NoopRateLimiter(),  # type: ignore[arg-type]
             retry_policy=RetryPolicy(max_attempts=2),
             sleep=lambda _seconds: None,
@@ -247,12 +285,13 @@ class CollectEditionsTests(unittest.TestCase):
             logger=self.logger,
         )
 
-        self.assertEqual(persisted, 2)
-        self.assertEqual(unavailable, (4704,))
+        self.assertEqual(persisted, 3)
+        self.assertEqual(unavailable, ())
         self.assertEqual(
             [edition.edition_number for edition in self.persisted],
-            [4705, 4706],
+            [4704, 4705, 4706],
         )
+        self.assertEqual(self.persisted[0].document.final_url, extra_edition_url)
 
 
 class ControlledDirectCollectionTests(unittest.TestCase):
@@ -442,14 +481,25 @@ class DirectDiaryRunTests(unittest.TestCase):
                 ),
             ),
         )
-        bodies = {
-            targets[1].publication_url: pdf(4705),
-            targets[2].publication_url: pdf(4706),
+        responses = {
+            targets[0].publication_url: (
+                pdf(4704),
+                "https://barreiras.ba.gov.br/diario/pdf/2026/"
+                "diario4704-edicaoextra.pdf",
+            ),
+            targets[1].publication_url: (
+                pdf(4705),
+                edition_url(2026, 4705),
+            ),
+            targets[2].publication_url: (
+                pdf(4706),
+                edition_url(2026, 4706),
+            ),
         }
         client = GazetteDocumentClient(
             max_document_bytes=1024,
             allowed_hosts=direct_diary.DIRECT_DIARY_ALLOWED_HOSTS,
-            transport=MapTransport(bodies),
+            transport=RedirectMapTransport(responses),
             rate_limiter=NoopRateLimiter(),  # type: ignore[arg-type]
             retry_policy=RetryPolicy(max_attempts=2),
             sleep=lambda _seconds: None,
@@ -477,15 +527,15 @@ class DirectDiaryRunTests(unittest.TestCase):
             logger=logging.getLogger("test-direct-diary-run"),
         )
 
-        self.assertEqual(result.persisted, 2)
-        self.assertEqual(result.catalog_persisted, 2)
+        self.assertEqual(result.persisted, 3)
+        self.assertEqual(result.catalog_persisted, 3)
         self.assertEqual(result.probe_persisted, 0)
         self.assertTrue(result.cursor_exhausted)
         self.assertEqual(result.next_edition, 4707)
-        self.assertEqual(result.unavailable_catalog_editions, (4704,))
+        self.assertEqual(result.unavailable_catalog_editions, ())
         self.assertEqual(
             [edition.edition_number for edition in persisted],
-            [4705, 4706],
+            [4704, 4705, 4706],
         )
 
 

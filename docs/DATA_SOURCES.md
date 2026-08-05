@@ -57,6 +57,10 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
   posteriores conhecidas;
 - o redirecionamento da publicação individual ao PDF só é seguido entre hosts
   oficiais em allowlist, com limite de tamanho, retries e validação `%PDF-`;
+- o nome do arquivo não é inferido apenas pelo número: edições extras podem
+  usar sufixos, como a edição 4.704 (`diario4704-edicaoextra.pdf`). Por isso, o
+  coletor usa primeiro o link individual do catálogo e preserva a URL final do
+  redirecionamento como evidência;
 - PDF oficialmente anunciado mas indisponível é cobertura `partial`, nunca
   “período vazio”; a edição continua pendente para nova tentativa;
 - falha temporária do catálogo não impede OCR, extração e publicação dos
