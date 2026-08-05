@@ -63,6 +63,13 @@ A sequência de persistência é:
 3. restaurar e verificar o objeto;
 4. registrar metadados e linhas brutas em uma transação curta.
 
+Artefatos maiores que o limite operacional são preservados em partes imutáveis.
+O manifesto registra versão do formato, tamanho e SHA-256 integral, tamanho das
+partes e, para cada parte, posição, chave, tamanho e SHA-256. A restauração aceita
+somente a sequência e as chaves derivadas deterministicamente do artefato. Uma
+parte ausente ou divergente invalida a leitura; partes já gravadas permanecem
+para que o retry idempotente possa verificá-las e reutilizá-las.
+
 Falha no passo 4 não apaga o objeto. Um reconciliador futuro identifica objetos
 sem referência e decide entre recompor a referência ou mantê-los em quarentena;
 expurgo automático não é permitido.
