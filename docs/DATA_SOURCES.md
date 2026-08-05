@@ -72,7 +72,9 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 - se todas as APIs de IA estiverem sem cota, um fallback determinístico ainda
   publica explicações neutras de cabeçalhos oficiais reconhecidos (decretos,
   leis, portarias, avisos, editais, licitações e extratos), sempre com trecho
-  literal; ele não calcula valores nem completa informações ausentes;
+  literal; ele não calcula valores nem completa informações ausentes. O uso
+  bem-sucedido desse caminho é registrado em `audit.assist_diagnostics` como
+  `fallback_succeeded`, separado das tentativas dos provedores externos;
 - o resumo da Prefeitura e a explicação assistida por IA são exibidos
   separadamente no portal.
 

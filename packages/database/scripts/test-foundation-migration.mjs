@@ -90,6 +90,29 @@ try {
     await database.exec(migration);
   }
 
+  await database.exec(`
+    insert into audit.assist_diagnostics (
+      command, provider, model, outcome, detail
+    ) values (
+      'digest_gazette_editions',
+      'local-deterministic',
+      'digest-rules-v1',
+      'fallback_succeeded',
+      'external_provider_unavailable'
+    );
+  `);
+  const deterministicAssistDiagnostic = await database.query(`
+    select outcome, provider
+    from audit.assist_diagnostics
+    where command = 'digest_gazette_editions'
+  `);
+  assert.deepEqual(deterministicAssistDiagnostic.rows, [
+    {
+      outcome: 'fallback_succeeded',
+      provider: 'local-deterministic',
+    },
+  ]);
+
   const municipalWorkloads = await database.query(`
     select
       slug,
