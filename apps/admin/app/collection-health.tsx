@@ -1,5 +1,7 @@
 "use client";
 
+import { formatBackfillProgress } from "./collection-backfill.mjs";
+
 export type CollectionHealthItem = Readonly<{
   endpoint_id: string;
   source_slug: string;
@@ -37,6 +39,14 @@ export type CollectionHealthItem = Readonly<{
   latest_failure_retryable: boolean | null;
   latest_failure_next_retry_at: string | null;
   latest_failure_at: string | null;
+  backfill_horizon: string | null;
+  continuous_coverage_start: string | null;
+  continuous_coverage_end: string | null;
+  next_backfill_start: string | null;
+  next_backfill_end: string | null;
+  backfill_classified_days: number | null;
+  backfill_total_days: number | null;
+  backfill_progress_percent: number | null;
   methodology_version: string;
 }>;
 
@@ -207,6 +217,7 @@ function CollectionHealthCard({
   item,
 }: Readonly<{ item: CollectionHealthItem }>) {
   const tone = healthTone(item);
+  const backfill = formatBackfillProgress(item);
   return (
     <article className="source-health-card">
       <div className="card-top">
@@ -259,6 +270,37 @@ function CollectionHealthCard({
         {item.failed_partitions.toLocaleString("pt-BR")} falhas ·{" "}
         {item.blocked_partitions.toLocaleString("pt-BR")} bloqueadas
       </p>
+      {backfill ? (
+        <section
+          className="source-health-backfill"
+          aria-label="Progresso retroativo do Querido Diário"
+        >
+          <div className="source-health-backfill-heading">
+            <h4>Retroatividade desde {backfill.horizon}</h4>
+            <strong>{backfill.progress}</strong>
+          </div>
+          <progress
+            aria-label="Percentual de dias contínuos classificados"
+            max={100}
+            value={item.backfill_progress_percent ?? 0}
+          />
+          <dl>
+            <div>
+              <dt>Faixa contínua comprovada</dt>
+              <dd>{backfill.coverage}</dd>
+            </div>
+            <div>
+              <dt>Próxima janela pendente</dt>
+              <dd>{backfill.nextWindow}</dd>
+            </div>
+          </dl>
+          <p>
+            O progresso considera somente janelas concluídas como completas ou
+            vazias. “Vazia” significa que o agregador não retornou edições no
+            período; não significa ausência de publicação na fonte oficial.
+          </p>
+        </section>
+      ) : null}
       {item.latest_failure_detail ? (
         <details className="source-health-failure">
           <summary>Falha mais recente</summary>

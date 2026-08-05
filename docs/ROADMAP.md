@@ -46,6 +46,9 @@ bem-sucedidas até a véspera. Um registro histórico isolado não pode mais sal
 lacunas recentes nem encerrar prematuramente a cobertura desde 2021. Janelas
 antigas preservadas continuam válidas, mas só se unem à fronteira quando os
 intervalos intermediários também forem coletados ou confirmados como vazios.
+O painel administrativo passa a exibir essa faixa contínua, o progresso em dias
+e a próxima janela de sete dias, sem tratar um workflow verde como prova isolada
+de cobertura.
 
 Cada coletor só entra no backfill amplo depois de registrar execução antes do
 HTTP e classificar cada partição como completa, vazia, parcial, falha ou

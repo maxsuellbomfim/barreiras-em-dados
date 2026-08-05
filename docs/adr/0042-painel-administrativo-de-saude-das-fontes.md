@@ -23,6 +23,12 @@ execução, conteúdo de documentos, identificadores pessoais ou segredos. O
 frontend não deduz atraso por um prazo arbitrário: apenas apresenta a idade da
 última tentativa e os estados gravados pelo coletor.
 
+Para o endpoint do Querido Diário, a projeção também calcula a faixa contínua de
+partições `complete` ou `empty` associadas a execuções bem-sucedidas, desde o
+horizonte de 01/01/2021. O painel mostra a próxima janela anterior de sete dias.
+Partições isoladas não atravessam lacunas, e um vazio no agregador não é
+apresentado como ausência de publicação na fonte oficial direta.
+
 ## Consequências
 
 - “Vazio confirmado” e “sem execução controlada” tornam-se estados visivelmente
@@ -31,5 +37,7 @@ frontend não deduz atraso por um prazo arbitrário: apenas apresenta a idade da
   banco de produção.
 - Novos coletores devem aderir ao controle central para deixarem de aparecer
   como sem cobertura.
+- O avanço retroativo do Diário pode ser acompanhado sem consultar logs ou o
+  banco, e a próxima janela permanece derivada de evidência persistida.
 - Alertas por atraso dependerão de SLAs documentados por fonte em decisão
   futura.
