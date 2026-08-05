@@ -1604,6 +1604,36 @@ footer {
 
 .legislative-author-summary > div:first-child strong { color: var(--ink); }
 
+.legislative-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.legislative-kpis > div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(45, 102, 227, 0.07);
+}
+
+.legislative-kpis b {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legislative-kpis span {
+  color: #758094;
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
 .legislative-author-bars {
   display: grid;
   gap: 0.45rem;
@@ -1640,6 +1670,11 @@ footer {
   color: var(--ink);
   font-size: 0.75rem;
   text-align: right;
+}
+
+@media (max-width: 640px) {
+  .legislative-kpis { grid-template-columns: 1fr; }
+  .legislative-author-summary > div:first-child { display: grid; }
 }
 
 .legislative-pagination {
