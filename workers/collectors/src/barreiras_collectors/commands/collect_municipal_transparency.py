@@ -27,7 +27,10 @@ from ..connectors.municipal_transparency import (
 from ..connectors.querido_diario import QueridoDiarioError
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
-from ..persistence.service import MunicipalTransparencyPersistenceService
+from ..persistence.service import (
+    MUNICIPAL_TRANSPARENCY_COLLECTOR_VERSION,
+    MunicipalTransparencyPersistenceService,
+)
 from ..persistence.storage import SupabaseStorageObjectStore
 from ..resilience import CircuitOpenError
 from ..settings import CollectorSettings, PersistenceSettings
@@ -232,7 +235,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         idempotency_key=build_execution_idempotency_key(
             f"municipal-{resource_namespace}"
         ),
-        collector_version=collector_settings.collector_version,
+        collector_version=MUNICIPAL_TRANSPARENCY_COLLECTOR_VERSION,
         parser_version="municipal-transparency-api-response/1.0.0",
         partition_key=partition_key,
         period_start=snapshot_date,
