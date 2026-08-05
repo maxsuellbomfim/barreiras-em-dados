@@ -22,8 +22,8 @@ from ..assist import (
 from ..candidates import defragment
 from ..digest import (
     ANCHOR_VERIFIER_VERSION,
-    DIGEST_PROMPT_VERSION,
     DETERMINISTIC_DIGEST_VERSION,
+    DIGEST_PROMPT_VERSION,
     MAX_CHUNKS_PER_EDITION,
     build_digest_messages,
     chunk_text,
