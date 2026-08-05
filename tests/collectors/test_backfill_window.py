@@ -6,6 +6,8 @@ from datetime import date
 from pathlib import Path
 
 from barreiras_collectors.commands.resolve_backfill_window import (
+    contiguous_coverage_anchor,
+    coverage_anchor,
     resolve_backfill_window,
     write_github_output,
 )
@@ -18,6 +20,55 @@ TODAY = date(2026, 7, 31)
 
 
 class ResolveBackfillWindowTests(unittest.TestCase):
+    def test_isolated_old_run_does_not_hide_a_more_recent_gap(self) -> None:
+        anchor = contiguous_coverage_anchor(
+            horizon=date(2021, 1, 1),
+            today=date(2026, 8, 5),
+            covered_intervals=(
+                (date(2021, 1, 1), date(2021, 1, 7)),
+                (date(2026, 7, 31), date(2026, 8, 4)),
+            ),
+        )
+
+        self.assertEqual(anchor, date(2026, 7, 31))
+
+    def test_repository_anchor_uses_contiguous_successful_windows(self) -> None:
+        class Result:
+            def fetchone(self) -> dict[str, date]:
+                return {"anchor": date(2021, 1, 1)}
+
+            def fetchall(self) -> list[dict[str, date]]:
+                return [
+                    {
+                        "period_start": date(2021, 1, 1),
+                        "period_end": date(2021, 1, 7),
+                    },
+                    {
+                        "period_start": date(2026, 7, 31),
+                        "period_end": date(2026, 8, 4),
+                    },
+                ]
+
+        class Connection:
+            def execute(self, _query: str) -> Result:
+                return Result()
+
+            def close(self) -> None:
+                return None
+
+        class Repository:
+            @staticmethod
+            def connection_factory() -> Connection:
+                return Connection()
+
+        anchor = coverage_anchor(
+            Repository(),  # type: ignore[arg-type]
+            horizon=date(2021, 1, 1),
+            today=date(2026, 8, 5),
+        )
+
+        self.assertEqual(anchor, date(2026, 7, 31))
+
     def test_walks_back_seven_days_from_anchor(self) -> None:
         window = resolve_backfill_window(
             horizon=HORIZON,
