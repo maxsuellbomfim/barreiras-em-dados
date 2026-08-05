@@ -150,7 +150,7 @@ class SupabaseStorageObjectStore:
             self._upload(
                 object_key,
                 manifest,
-                "application/vnd.barreiras360.chunks+json",
+                "application/json",
             )
         except Exception as upload_error:
             created = False

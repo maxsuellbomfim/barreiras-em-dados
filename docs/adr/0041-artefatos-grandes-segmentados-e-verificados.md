@@ -18,7 +18,8 @@ workers existentes.
 2. Artefatos maiores são divididos em partes determinísticas de até 32 MiB.
 3. Cada parte usa chave derivada da chave canônica, posição e SHA-256 próprios.
 4. A chave canônica guarda um manifesto JSON versionado, nunca os bytes
-   truncados.
+   truncados. O manifesto usa `application/json`, tipo já autorizado pela
+   allowlist do bucket privado.
 5. O adaptador recompõe o conteúdo e verifica ordem, caminhos, tamanhos, hashes
    das partes e hash integral antes de entregá-lo a qualquer consumidor.
 6. Replays não sobrescrevem partes ou manifestos: verificam e reutilizam o que
