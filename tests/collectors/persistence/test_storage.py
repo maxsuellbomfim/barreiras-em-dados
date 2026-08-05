@@ -8,9 +8,10 @@ from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
 
 
 class FakeBucket:
-    def __init__(self) -> None:
+    def __init__(self, allowed_content_types: set[str] | None = None) -> None:
         self.objects: dict[str, bytes] = {}
         self.uploaded_sizes: list[int] = []
+        self.allowed_content_types = allowed_content_types
 
     def upload(
         self,
@@ -21,6 +22,11 @@ class FakeBucket:
     ) -> object:
         if file_options["upsert"] != "false":
             raise AssertionError("O teste exige objetos imutáveis.")
+        if (
+            self.allowed_content_types is not None
+            and file_options["content-type"] not in self.allowed_content_types
+        ):
+            raise RuntimeError("invalid_mime_type")
         if path in self.objects:
             raise RuntimeError("Duplicate")
         self.objects[path] = file
@@ -32,6 +38,25 @@ class FakeBucket:
 
 
 class SupabaseStorageObjectStoreTests(unittest.TestCase):
+    def test_chunk_manifest_uses_a_mime_type_allowed_by_the_bucket(self) -> None:
+        bucket = FakeBucket(
+            allowed_content_types={"application/json", "application/octet-stream"}
+        )
+        store = SupabaseStorageObjectStore(bucket, chunk_size_bytes=16)
+        body = b"pdf-oficial-grande-" * 8
+        digest = hashlib.sha256(body).hexdigest()
+        object_key = f"querido-diario/documents/sha256/{digest[:2]}/{digest}.pdf"
+
+        stored = store.put_if_absent(
+            object_key=object_key,
+            body=body,
+            content_type="application/pdf",
+            expected_sha256=digest,
+        )
+
+        self.assertTrue(stored.created)
+        self.assertEqual(store.read(object_key), body)
+
     def test_existing_small_object_remains_backward_compatible(self) -> None:
         bucket = FakeBucket()
         store = SupabaseStorageObjectStore(bucket, chunk_size_bytes=64)
