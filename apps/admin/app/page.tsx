@@ -855,11 +855,11 @@ function StatsRow({
         <dd>{pending ?? "—"}</dd>
       </div>
       <div className="stat-card">
-        <dt>Aprovados e públicos</dt>
+        <dt>Aprovados carregados</dt>
         <dd>{approved ?? "—"}</dd>
       </div>
       <div className="stat-card">
-        <dt>Rejeitados</dt>
+        <dt>Rejeitados carregados</dt>
         <dd>{rejected ?? "—"}</dd>
       </div>
       <div className="stat-card">
@@ -1282,7 +1282,7 @@ export default function ReviewQueuePage() {
               aria-current={view === "historico" ? "page" : undefined}
               onClick={() => setView("historico")}
             >
-              Histórico
+              Histórico (lote)
               {history.kind === "ready" ? ` (${history.items.length})` : ""}
             </button>
             <button
@@ -1302,7 +1302,7 @@ export default function ReviewQueuePage() {
               aria-current={view === "aliases" ? "page" : undefined}
               onClick={() => setView("aliases")}
             >
-              Aliases
+              Aliases (lote)
               {aliasSuggestions.kind === "ready"
                 ? ` (${aliasSuggestions.items.length})`
                 : ""}
@@ -1315,6 +1315,11 @@ export default function ReviewQueuePage() {
               Atualizar
             </button>
           </nav>
+          <p className="meta panel-scope-note">
+            Os contadores de histórico e aliases mostram apenas o lote carregado
+            nesta tela. Finanças são o inventário de documentos preservados; a
+            fila de revisão é somente a aba "Fila".
+          </p>
 
           {view !== "financas" && view !== "aliases" ? <div className="toolbar">
             <input
