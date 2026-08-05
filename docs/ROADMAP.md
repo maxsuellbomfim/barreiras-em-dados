@@ -28,13 +28,18 @@ A quarta entrega inclui cadastro, itens, resultados e contratos do PNCP no
 mesmo contrato. Limites de backlog/página agora são `partial`, e contratos
 percorrem todas as páginas declaradas pela fonte. Backlogs retomam do
 `next_offset`, evitando inanição dos registros posteriores ao primeiro lote.
-Legislativo e Representação são as próximas fatias de estabilização.
+Legislativo e Representação eram as próximas fatias de estabilização.
 
 A quinta entrega torna o plano de controle visível no painel administrativo.
 Revisores passam a enxergar endpoints ainda sem cobertura, períodos completos
 ou comprovadamente vazios, partições parciais/bloqueadas e falhas pendentes,
-sem receber dados brutos sensíveis. O próximo incremento é levar Legislativo e
-Representação ao mesmo contrato antes de iniciar o backfill amplo desde 2021.
+sem receber dados brutos sensíveis.
+
+A sexta entrega leva Legislativo e Representação ao mesmo contrato. Leis,
+indicações, composição federal e municipal, Executivo, lista e perfis da ALBA e
+votação do TSE passam a registrar execução antes da autenticação e do HTTP. A
+próxima fatia é usar essa cobertura observada para abrir o backfill amplo desde
+2021, começando pelos recursos com período oficial bem definido.
 
 Cada coletor só entra no backfill amplo depois de registrar execução antes do
 HTTP e classificar cada partição como completa, vazia, parcial, falha ou

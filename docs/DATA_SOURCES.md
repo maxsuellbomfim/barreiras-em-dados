@@ -182,6 +182,13 @@ oficial.
 Cada declaração será vinculada à eleição e candidatura; não será tratada como
 patrimônio atual.
 
+O controle operacional mantém partições distintas para composição da Câmara
+Federal, vereadores da legislatura atual, Executivo municipal, listagem da ALBA,
+perfis estaduais e cada ano eleitoral do TSE. Uma fonte indisponível ou arquivo
+ainda não publicado não é apresentado como zero representantes. Na API da
+Câmara Municipal, `leis` e `indicacoes` alimentam endpoints de cobertura
+separados para que uma coleção saudável não esconda o atraso da outra.
+
 A prestação de contas eleitoral disponibiliza receitas e despesas de campanha.
 Doadores devem ser ligados pelo identificador da candidatura, nunca apenas por
 nome+UF. CPF, endereço, conta e outros dados de pessoa natural não entram na

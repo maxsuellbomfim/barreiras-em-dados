@@ -94,6 +94,7 @@ def iter_resource_pages(
     *,
     base_url: str,
     source_code: str,
+    endpoint_code: str = "dados-abertos-api",
     resource: str,
     limit: int = 50,
     offset: int = 0,
@@ -132,6 +133,7 @@ def iter_resource_pages(
         )
         response, requested_at, received_at, attempts = _get_with_retries(
             request_url,
+            endpoint_code=endpoint_code,
             transport=active_transport,
             retry_policy=policy,
             circuit_breaker=breaker,
@@ -154,7 +156,7 @@ def iter_resource_pages(
             schema_name="municipal-transparency-api-response",
             schema_version="1.0.0",
             source_code=source_code,
-            endpoint_code="dados-abertos-api",
+            endpoint_code=endpoint_code,
             resource=resource,
             idempotency_key=hashlib.sha256(
                 f"{request_url}:{body_sha256}".encode()
@@ -220,6 +222,7 @@ def _build_url(
 def _get_with_retries(
     request_url: str,
     *,
+    endpoint_code: str,
     transport: HttpTransport,
     retry_policy: RetryPolicy,
     circuit_breaker: CircuitBreaker,
@@ -238,7 +241,7 @@ def _get_with_retries(
             logging.WARNING,
             "collector_circuit_open",
             source="municipal-transparency",
-            endpoint="dados-abertos-api",
+            endpoint=endpoint_code,
         )
         raise
 
@@ -270,7 +273,7 @@ def _get_with_retries(
             logging.INFO,
             "collector_http_response",
             source="municipal-transparency",
-            endpoint="dados-abertos-api",
+            endpoint=endpoint_code,
             status=response.status,
             attempt=attempt,
             body_size_bytes=len(response.body),

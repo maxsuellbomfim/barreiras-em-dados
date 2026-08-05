@@ -262,14 +262,17 @@ esperado e observado no período, distinguindo `complete`, `empty`, `partial`,
 `failed` e `blocked`. `source.collection_failures` preserva falhas sanitizadas,
 tentativas e destino de retry/DLQ; falha nunca é convertida em resultado vazio.
 
-O Diário direto, a API do Querido Diário e os recursos financeiros municipais
-são os primeiros consumidores desse contrato. No Diário, falha ou esgotamento
+O Diário direto, a API do Querido Diário, os recursos financeiros municipais,
+o PNCP, o Legislativo e a Representação consomem esse contrato. No Diário,
+falha ou esgotamento
 do orçamento de documentos marca a janela como `partial`; nas finanças, uma
 paginação interrompida pelo limite, indisponibilidade após páginas preservadas
 ou PDF não baixado também impede o falso estado `complete`. Autenticação no
 Storage e chamadas HTTP acontecem somente depois que a execução central foi
-aberta. Compras, Legislativo e Representação entram nas fatias seguintes, sem
-criar uma segunda implementação concorrente.
+aberta. Leis e indicações usam endpoints próprios; Câmara Federal, Câmara
+Municipal, Executivo, ALBA e TSE registram snapshots independentes. Perfis da
+ALBA não são confundidos com a listagem da casa, e cada eleição do TSE mantém
+partição própria.
 
 O painel administrativo consulta esse plano de controle exclusivamente pela
 RPC `api.get_collection_health`. A projeção exige revisor ativo e retorna apenas

@@ -5,22 +5,30 @@ from __future__ import annotations
 import argparse
 import logging
 from collections.abc import Sequence
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+from ..collection_control import CollectionOutcome
 from ..connectors.camara import (
+    DEPUTIES_ENDPOINT_CODE,
     SOURCE_CODE,
     fetch_deputies_page,
     fetch_deputy_detail,
 )
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
-from ..persistence.service import CamaraPersistenceService
+from ..persistence.service import CAMARA_COLLECTOR_VERSION, CamaraPersistenceService
 from ..persistence.storage import SupabaseStorageObjectStore
 from ..settings import CollectorSettings, PersistenceSettings
+from .representation_control import (
+    RepresentationCollectionSummary,
+    build_representation_control,
+    execute_controlled_representation,
+)
 
 MAX_PAGES = 10
-# ponytail: teto por execução; o restante entra na próxima e o corte é
-# sempre registrado em log.
 MAX_DETAILS_PER_RUN = 60
+MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -44,14 +52,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise RuntimeError(
             "A coleta da Câmara requer PERSISTENCE_MODE=postgres-supabase."
         )
-    if (
-        persistence_settings.database_url is None
-        or persistence_settings.supabase_url is None
-        or persistence_settings.supabase_publishable_key is None
-        or persistence_settings.supabase_workload_email is None
-        or persistence_settings.supabase_workload_password is None
-        or persistence_settings.raw_artifacts_bucket is None
-    ):
+    required = (
+        persistence_settings.database_url,
+        persistence_settings.supabase_url,
+        persistence_settings.supabase_publishable_key,
+        persistence_settings.supabase_workload_email,
+        persistence_settings.supabase_workload_password,
+        persistence_settings.raw_artifacts_bucket,
+    )
+    if any(value is None for value in required):
         raise RuntimeError("Configuração de nuvem incompleta.")
     try:
         from supabase import create_client
@@ -60,85 +69,122 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Instale a dependência opcional 'storage' para coletar."
         ) from error
 
-    supabase_client = create_client(
-        persistence_settings.supabase_url,
-        persistence_settings.supabase_publishable_key,
-    )
-    try:
-        authentication = supabase_client.auth.sign_in_with_password(
-            {
-                "email": persistence_settings.supabase_workload_email,
-                "password": persistence_settings.supabase_workload_password,
-            }
-        )
-    except Exception as error:
-        raise RuntimeError(
-            "Falha ao autenticar a identidade técnica do Storage."
-        ) from error
-    if authentication.session is None or authentication.user is None:
-        raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
-
     repository = PostgresCollectionRepository.from_dsn(
         persistence_settings.database_url
     )
-    service = CamaraPersistenceService(
-        object_store=SupabaseStorageObjectStore(
-            supabase_client.storage.from_(
-                persistence_settings.raw_artifacts_bucket
-            )
-        ),
+    control = build_representation_control(
         repository=repository,
+        source_code=SOURCE_CODE,
+        endpoint_code=DEPUTIES_ENDPOINT_CODE,
+        namespace="camara-federal-deputies",
+        collector_version=CAMARA_COLLECTOR_VERSION,
+        parser_version="camara_deputado/1.0.0",
+        partition_key="snapshot:current-composition",
+        snapshot_date=datetime.now(MUNICIPAL_TIMEZONE).date(),
     )
 
-    deputy_ids: list[int] = []
-    pagina = 1
-    while pagina <= MAX_PAGES:
-        page = fetch_deputies_page(pagina, logger=logger)
-        if page is None:
-            break
-        service.persist(page, record_type="camara_deputado")
-        for item in page.items:
-            identifier = item.get("id")
-            if isinstance(identifier, int):
-                deputy_ids.append(identifier)
+    def operation() -> RepresentationCollectionSummary:
+        supabase_client = create_client(
+            persistence_settings.supabase_url,
+            persistence_settings.supabase_publishable_key,
+        )
+        try:
+            authentication = supabase_client.auth.sign_in_with_password(
+                {
+                    "email": persistence_settings.supabase_workload_email,
+                    "password": persistence_settings.supabase_workload_password,
+                }
+            )
+        except Exception as error:
+            raise RuntimeError(
+                "Falha ao autenticar a identidade técnica do Storage."
+            ) from error
+        if authentication.session is None or authentication.user is None:
+            raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
+        service = CamaraPersistenceService(
+            object_store=SupabaseStorageObjectStore(
+                supabase_client.storage.from_(
+                    persistence_settings.raw_artifacts_bucket
+                )
+            ),
+            repository=repository,
+        )
+
+        deputy_ids: list[int] = []
+        pagina = 1
+        while pagina <= MAX_PAGES:
+            page = fetch_deputies_page(pagina, logger=logger)
+            if page is None:
+                break
+            service.persist(page, record_type="camara_deputado")
+            deputy_ids.extend(
+                identifier
+                for item in page.items
+                if isinstance((identifier := item.get("id")), int)
+            )
+            log_event(
+                logger,
+                logging.INFO,
+                "collector_camara_page_persisted",
+                source=SOURCE_CODE,
+                pagina=pagina,
+                deputados=len(page.items),
+            )
+            if len(page.items) < 100:
+                break
+            pagina += 1
+
+        truncated = len(deputy_ids) > MAX_DETAILS_PER_RUN
+        if truncated:
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_camara_details_truncated",
+                source=SOURCE_CODE,
+                max_details=MAX_DETAILS_PER_RUN,
+            )
+        details = 0
+        for deputy_id in deputy_ids[:MAX_DETAILS_PER_RUN]:
+            detail = fetch_deputy_detail(deputy_id, logger=logger)
+            if detail is None:
+                continue
+            service.persist(detail, record_type="camara_deputado_detalhe")
+            details += 1
+
         log_event(
             logger,
             logging.INFO,
-            "collector_camara_page_persisted",
+            "collector_camara_completed",
             source=SOURCE_CODE,
-            pagina=pagina,
-            deputados=len(page.items),
+            deputados=len(deputy_ids),
+            detalhes=details,
+            truncated=truncated,
         )
-        if len(page.items) < 100:
-            break
-        pagina += 1
-
-    truncated = len(deputy_ids) > MAX_DETAILS_PER_RUN
-    if truncated:
-        log_event(
-            logger,
-            logging.WARNING,
-            "collector_camara_details_truncated",
-            source=SOURCE_CODE,
-            max_details=MAX_DETAILS_PER_RUN,
+        if not deputy_ids:
+            outcome = CollectionOutcome.BLOCKED
+        elif truncated or details < len(deputy_ids):
+            outcome = CollectionOutcome.PARTIAL
+        else:
+            outcome = CollectionOutcome.COMPLETE
+        return RepresentationCollectionSummary(
+            observed_records=len(deputy_ids),
+            outcome=outcome,
+            metrics={
+                "deputies": len(deputy_ids),
+                "details": details,
+                "details_truncated": truncated,
+            },
+            checkpoint={
+                "remaining_details": max(0, len(deputy_ids) - details),
+            },
+            block_reason=(
+                "composição federal não retornada pela fonte"
+                if outcome is CollectionOutcome.BLOCKED
+                else None
+            ),
         )
-    details = 0
-    for deputy_id in deputy_ids[:MAX_DETAILS_PER_RUN]:
-        detail = fetch_deputy_detail(deputy_id, logger=logger)
-        if detail is None:
-            continue
-        service.persist(detail, record_type="camara_deputado_detalhe")
-        details += 1
 
-    log_event(
-        logger,
-        logging.INFO,
-        "collector_camara_completed",
-        source=SOURCE_CODE,
-        deputados=len(deputy_ids),
-        detalhes=details,
-        truncated=truncated,
-    )
+    execute_controlled_representation(control=control, operation=operation)
     return 0
 
 

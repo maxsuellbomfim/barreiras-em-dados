@@ -9,11 +9,27 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
     MunicipalTransparencyCollectionSummary,
     _bounded_env_int,
     execute_controlled_municipal_transparency,
+    resolve_endpoint_code,
     resolve_resume_offset,
 )
 
 
 class MunicipalTransparencyCommandTests(unittest.TestCase):
+    def test_resolves_specific_legislative_endpoints(self) -> None:
+        self.assertEqual(resolve_endpoint_code("camara", "leis"), "leis-api")
+        self.assertEqual(
+            resolve_endpoint_code("camara", "indicacoes"),
+            "indicacoes-api",
+        )
+        self.assertEqual(
+            resolve_endpoint_code("camara", "requerimentos"),
+            "dados-abertos-api",
+        )
+        self.assertEqual(
+            resolve_endpoint_code("prefeitura", "leis"),
+            "dados-abertos-api",
+        )
+
     def test_partial_checkpoint_resumes_from_next_offset(self) -> None:
         self.assertEqual(
             resolve_resume_offset(

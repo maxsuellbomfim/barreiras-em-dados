@@ -59,6 +59,18 @@ FINANCIAL_DOCUMENT_RESOURCES = frozenset(
         "rgf",
     }
 )
+LEGISLATIVE_ENDPOINTS = {
+    "leis": "leis-api",
+    "indicacoes": "indicacoes-api",
+}
+
+
+def resolve_endpoint_code(source: str, resource: str) -> str:
+    """Relaciona recursos legislativos aos endpoints inventariados."""
+
+    if source == "camara":
+        return LEGISLATIVE_ENDPOINTS.get(resource, "dados-abertos-api")
+    return "dados-abertos-api"
 
 
 @dataclass(frozen=True)
@@ -218,6 +230,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     logger = logging.getLogger(__name__)
     source_code, base_url = SOURCE_CONFIG[args.source]
+    endpoint_code = resolve_endpoint_code(args.source, args.resource)
     if persistence_settings.database_url is None:
         raise RuntimeError("Configuração de banco incompleta.")
     repository = PostgresCollectionRepository.from_dsn(
@@ -231,7 +244,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     control = CollectionControl(
         repository=repository,
         source_code=source_code,
-        endpoint_code="dados-abertos-api",
+        endpoint_code=endpoint_code,
         idempotency_key=build_execution_idempotency_key(
             f"municipal-{resource_namespace}"
         ),
@@ -245,7 +258,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     def operation() -> MunicipalTransparencyCollectionSummary:
         checkpoint = repository.collection_partition_checkpoint(
             source_code=source_code,
-            endpoint_code="dados-abertos-api",
+            endpoint_code=endpoint_code,
             partition_key=partition_key,
         )
         effective_offset = resolve_resume_offset(
@@ -262,6 +275,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _collect_resource(
             service=service,
             source_code=source_code,
+            endpoint_code=endpoint_code,
             base_url=base_url,
             resource=args.resource,
             limit=args.limit,
@@ -303,6 +317,7 @@ def _collect_resource(
     *,
     service: MunicipalTransparencyPersistenceService,
     source_code: str,
+    endpoint_code: str,
     base_url: str,
     resource: str,
     limit: int,
@@ -339,6 +354,7 @@ def _collect_resource(
     pages = iter_resource_pages(
         base_url=base_url,
         source_code=source_code,
+        endpoint_code=endpoint_code,
         resource=resource,
         limit=limit,
         offset=offset,
@@ -390,7 +406,7 @@ def _collect_resource(
                             ),
                             document=document,
                             source_code=source_code,
-                            endpoint_code="dados-abertos-api",
+                            endpoint_code=endpoint_code,
                         )
                         persisted_documents += 1
                     except (
