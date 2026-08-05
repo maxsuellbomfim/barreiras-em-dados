@@ -13,11 +13,11 @@ from barreiras_collectors.logging import log_event
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
 from ..assist import (
+    PROMPT_VERSION,
+    PROVIDERS,
     AttemptRecord,
     CascadeUnavailableError,
     ContractViolationError,
-    PROMPT_VERSION,
-    PROVIDERS,
     UrllibJsonCaller,
     build_messages,
     run_cascade,

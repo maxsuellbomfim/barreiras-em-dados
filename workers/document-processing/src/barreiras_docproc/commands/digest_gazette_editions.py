@@ -12,18 +12,18 @@ from barreiras_collectors.logging import log_event
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
 from ..assist import (
+    PROVIDERS,
     AttemptRecord,
     CascadeUnavailableError,
     ContractViolationError,
-    PROVIDERS,
     UrllibJsonCaller,
     run_cascade_content,
 )
 from ..candidates import defragment
 from ..digest import (
     ANCHOR_VERIFIER_VERSION,
-    DETERMINISTIC_DIGEST_VERSION,
     DIGEST_PROMPT_VERSION,
+    DETERMINISTIC_DIGEST_VERSION,
     MAX_CHUNKS_PER_EDITION,
     build_digest_messages,
     chunk_text,
