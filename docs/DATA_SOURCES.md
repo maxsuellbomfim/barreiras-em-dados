@@ -69,6 +69,10 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 - a fila de processamento prioriza as edições diretas mais recentes e depois
   continua drenando o acervo histórico; PDFs escaneados passam por extração,
   OCR e nova extração na mesma execução;
+- se todas as APIs de IA estiverem sem cota, um fallback determinístico ainda
+  publica explicações neutras de cabeçalhos oficiais reconhecidos (decretos,
+  leis, portarias, avisos, editais, licitações e extratos), sempre com trecho
+  literal; ele não calcula valores nem completa informações ausentes;
 - o resumo da Prefeitura e a explicação assistida por IA são exibidos
   separadamente no portal.
 

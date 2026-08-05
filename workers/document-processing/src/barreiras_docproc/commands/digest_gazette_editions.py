@@ -32,7 +32,7 @@ LOCAL_RATIONALE = (
     "Resumo por regras determinísticas, sem IA: cada item foi derivado de um "
     "candidato de ato de pessoal e preserva uma âncora do texto oficial."
 )
-LOCAL_DIGEST_VERSION = "edition-digest-deterministic/1.0.0"
+LOCAL_DIGEST_VERSION = digest_module.DETERMINISTIC_DIGEST_VERSION
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -206,9 +206,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
             chunks_failed=chunks_failed,
             items_dropped=items_dropped,
             partial=(
-                partial
-                or chunks_failed > 0
-                or providers == ["local-deterministic"]
+                partial or chunks_failed > 0 or providers == ["local-deterministic"]
             ),
             providers=providers,
             prompt_version=(
@@ -219,9 +217,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
         )
         result_id = repository.persist_digest(
             artifact_id=artifact["artifact_id"],
-            job_idempotency_key=digest_module.job_idempotency_key(
-                artifact["sha256"]
-            ),
+            job_idempotency_key=digest_module.job_idempotency_key(artifact["sha256"]),
             extractor_version=(
                 LOCAL_DIGEST_VERSION
                 if providers == ["local-deterministic"]
@@ -234,9 +230,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
         repository.record_automated_review(
             result_id=result_id,
             rationale=(
-                LOCAL_RATIONALE
-                if providers == ["local-deterministic"]
-                else RATIONALE
+                LOCAL_RATIONALE if providers == ["local-deterministic"] else RATIONALE
             ),
             verification={
                 "verifier": digest_module.ANCHOR_VERIFIER_VERSION,

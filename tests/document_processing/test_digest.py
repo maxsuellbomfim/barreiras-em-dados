@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import unittest
 
@@ -152,6 +153,14 @@ class PayloadTests(unittest.TestCase):
             job_idempotency_key("a" * 64),
             job_idempotency_key("b" * 64),
         )
+
+    def test_expanded_fallback_reprocesses_legacy_partial_digest(self) -> None:
+        document_hash = "a" * 64
+        legacy_key = hashlib.sha256(
+            f"edition-digest:{document_hash}:edition-digest/1.0.0".encode()
+        ).hexdigest()
+
+        self.assertNotEqual(job_idempotency_key(document_hash), legacy_key)
 
 
 if __name__ == "__main__":

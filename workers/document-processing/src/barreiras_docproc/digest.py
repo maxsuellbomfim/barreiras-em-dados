@@ -9,6 +9,7 @@ qualquer publicação automática.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,7 +17,8 @@ from .assist import ContractViolationError, _parse_content
 from .verify import value_in_excerpt
 
 DIGEST_PROMPT_VERSION = "edition-digest/1.0.0"
-DETERMINISTIC_DIGEST_VERSION = "edition-digest-deterministic/1.0.0"
+DETERMINISTIC_DIGEST_VERSION = "edition-digest-deterministic/1.1.0"
+DIGEST_PIPELINE_VERSION = "edition-digest-pipeline/1.1.0"
 ANCHOR_VERIFIER_VERSION = "edition-digest-anchor-check/1.0.0"
 ITEM_TYPES = frozenset(
     {
@@ -38,6 +40,38 @@ MAX_ITEMS_PER_CHUNK = 30
 MIN_ANCHOR_CHARS = 20
 MAX_TITLE_CHARS = 120
 MAX_SUMMARY_CHARS = 400
+
+_NUMBERED_HEADING = re.compile(
+    r"(?im)^[ \t]*(?P<kind>DECRETO|LEI|PORTARIA)\s+N[^\d\n]{0,4}"
+    r"(?P<number>\d[\d./-]*)[^\n]{0,80}$"
+)
+_PUBLIC_HEADING = re.compile(
+    r"(?m)^[ \t]*(?P<heading>"
+    r"AVISO(?:\s+DE\s+[A-ZÀ-Ü0-9 /.-]+)?|"
+    r"EDITAL(?:\s+DE\s+[A-ZÀ-Ü0-9 /.-]+)?|"
+    r"EXTRATO(?:\s+DE\s+[A-ZÀ-Ü0-9 /.-]+)?"
+    r")[ \t]*$"
+)
+_PERSONNEL_DEVICE = re.compile(
+    r"\b(?:NOMEAR|NOMEIA|NOMEIO|EXONERAR|EXONERA|EXONERO)\b",
+    re.IGNORECASE,
+)
+_DATE_LINE = re.compile(
+    r"^(?:DE\s+)?\d{1,2}(?:/|\s+DE\s+)"
+    r"(?:\d{1,2}/|[A-ZÀ-Üa-zà-ü]+\s+DE\s+)\d{4}\.?$",
+    re.IGNORECASE,
+)
+_NON_DESCRIPTION_LINE = re.compile(
+    r"^(?:LEI\s+\d|O(?:\(?A\)?)?\s+PREFEITO|"
+    r"D\s*E\s*C\s*R\s*E\s*T\s*A|"
+    r"DECRETA\s*:|ART(?:IGO|\.)\s*\d)",
+    re.IGNORECASE,
+)
+_DESCRIPTION_ACTION = re.compile(
+    r"^(?:ALTERA|ABRE|DISPÕE|INSTITUI|REGULAMENTA|CONVOCA|"
+    r"TORNA\s+PÚBLICO|PRORROGA|DESIGNA|NOMEIA|EXONERA|AUTORIZA|DECLARA)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -116,11 +150,11 @@ def parse_digest_items(
 
 
 def deterministic_digest_items(text: str) -> list[DigestItem]:
-    """Resume somente atos de pessoal reconhecidos pelas regras locais."""
+    """Resume atos com cabeçalho oficial reconhecido por regras locais."""
     from .candidates import clean_excerpt, find_candidates
     from .fields import extract_act_fields
 
-    items: list[DigestItem] = []
+    positioned_items: list[tuple[int, DigestItem]] = []
     for candidate in find_candidates(text):
         fields = extract_act_fields(
             text,
@@ -133,27 +167,104 @@ def deterministic_digest_items(text: str) -> list[DigestItem]:
             continue
         kind = "Nomeação" if candidate.act_type == "nomeacao" else "Exoneração"
         relation = (
-            "para o cargo de"
-            if candidate.act_type == "nomeacao"
-            else "do cargo de"
+            "para o cargo de" if candidate.act_type == "nomeacao" else "do cargo de"
         )
-        anchor = clean_excerpt(
-            text[candidate.excerpt_start : candidate.excerpt_end]
-        )[:240].strip()
+        anchor = clean_excerpt(text[candidate.excerpt_start : candidate.excerpt_end])[
+            :240
+        ].strip()
         if len(anchor) < MIN_ANCHOR_CHARS:
             continue
-        items.append(
-            DigestItem(
-                item_type=candidate.act_type,
-                title=f"{kind}: {person}"[:MAX_TITLE_CHARS],
-                summary=(
-                    f"O ato registra a {kind.casefold()} de {person} "
-                    f"{relation} {position}."
-                )[:MAX_SUMMARY_CHARS],
-                anchor=anchor,
+        positioned_items.append(
+            (
+                candidate.excerpt_start,
+                DigestItem(
+                    item_type=candidate.act_type,
+                    title=f"{kind}: {person}"[:MAX_TITLE_CHARS],
+                    summary=(
+                        f"O ato registra a {kind.casefold()} de {person} "
+                        f"{relation} {position}."
+                    )[:MAX_SUMMARY_CHARS],
+                    anchor=anchor,
+                ),
             )
         )
-    return items
+    headings: list[tuple[int, int, str, str]] = []
+    for match in _NUMBERED_HEADING.finditer(text):
+        kind = match.group("kind").casefold()
+        number = match.group("number")
+        item_type = kind if kind in {"decreto", "portaria"} else "outro"
+        headings.append(
+            (
+                match.start(),
+                match.end(),
+                item_type,
+                f"{kind.capitalize()} nº {number}",
+            )
+        )
+    for match in _PUBLIC_HEADING.finditer(text):
+        heading = " ".join(match.group("heading").split())
+        folded = heading.casefold()
+        if "licita" in folded or "pregão" in folded:
+            item_type = "licitacao"
+        elif "contrato" in folded:
+            item_type = "contrato"
+        elif folded.startswith("aviso") or folded.startswith("edital"):
+            item_type = "aviso"
+        else:
+            item_type = "outro"
+        headings.append(
+            (
+                match.start(),
+                match.end(),
+                item_type,
+                heading[:1].upper() + heading[1:].lower(),
+            )
+        )
+
+    headings.sort(key=lambda entry: entry[0])
+    for index, (start, heading_end, item_type, title) in enumerate(headings):
+        end = headings[index + 1][0] if index + 1 < len(headings) else len(text)
+        segment = text[start:end]
+        if item_type == "portaria" and _PERSONNEL_DEVICE.search(segment):
+            continue
+        anchor = segment[:240].strip()
+        if len(anchor) < MIN_ANCHOR_CHARS:
+            continue
+        description = _first_official_description(text[heading_end:end])
+        summary = (
+            f"O texto oficial informa: {description}"
+            if description
+            else f"A edição publica {title}."
+        )
+        positioned_items.append(
+            (
+                start,
+                DigestItem(
+                    item_type=item_type,
+                    title=title[:MAX_TITLE_CHARS],
+                    summary=summary[:MAX_SUMMARY_CHARS],
+                    anchor=anchor,
+                ),
+            )
+        )
+    positioned_items.sort(key=lambda entry: entry[0])
+    return [item for _position, item in positioned_items]
+
+
+def _first_official_description(body: str) -> str | None:
+    """Seleciona uma ementa literal próxima sem interpretar números."""
+    fallback: str | None = None
+    for raw_line in body.splitlines():
+        line = " ".join(raw_line.split()).strip()
+        if not line or _DATE_LINE.match(line) or _NON_DESCRIPTION_LINE.match(line):
+            continue
+        if line.casefold().startswith(("prefeitura municipal", "estado da bahia")):
+            continue
+        if _DESCRIPTION_ACTION.match(line):
+            return line[:300]
+        if fallback is None:
+            fallback = line[:300]
+    return fallback
 
 
 def _validated_item(raw: Any, chunk: str) -> DigestItem | None:
@@ -225,5 +336,5 @@ def job_idempotency_key(sha256: str) -> str:
     import hashlib
 
     return hashlib.sha256(
-        f"edition-digest:{sha256}:{DIGEST_PROMPT_VERSION}".encode()
+        f"edition-digest:{sha256}:{DIGEST_PIPELINE_VERSION}".encode()
     ).hexdigest()
