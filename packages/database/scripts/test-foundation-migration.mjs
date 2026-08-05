@@ -126,7 +126,7 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  assert.equal(relations.rows[0].count, 45);
+  assert.equal(relations.rows[0].count, 47);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -142,7 +142,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 45);
+  assert.equal(rlsRelations.rows[0].count, 47);
 
   const originColumns = await database.query(`
     select count(*)::integer as count
@@ -797,6 +797,65 @@ try {
     authenticated_can_read: false,
   });
 
+  const controlPlaneTables = await database.query(`
+    select
+      to_regclass('source.collection_partitions') is not null as partitions,
+      to_regclass('source.collection_failures') is not null as failures,
+      to_regclass('private.person_identifiers') is not null as identifiers
+  `);
+  assert.deepEqual(controlPlaneTables.rows[0], {
+    partitions: true,
+    failures: true,
+    identifiers: true,
+  });
+
+  const privateIdentityPrivileges = await database.query(`
+    select
+      has_schema_privilege('anon', 'private', 'USAGE') as anon_schema,
+      has_schema_privilege('authenticated', 'private', 'USAGE') as auth_schema,
+      has_table_privilege(
+        'collector_worker', 'private.person_identifiers', 'SELECT'
+      ) as collector_select,
+      has_schema_privilege('identity_worker', 'private', 'USAGE')
+        as identity_schema,
+      has_table_privilege(
+        'identity_worker', 'private.person_identifiers', 'SELECT'
+      ) as identity_select,
+      has_table_privilege(
+        'identity_worker', 'private.person_identifiers', 'INSERT'
+      ) as identity_insert,
+      has_table_privilege(
+        'identity_worker', 'private.person_identifiers', 'UPDATE'
+      ) as identity_update
+  `);
+  assert.deepEqual(privateIdentityPrivileges.rows[0], {
+    anon_schema: false,
+    auth_schema: false,
+    collector_select: false,
+    identity_schema: true,
+    identity_select: true,
+    identity_insert: true,
+    identity_update: false,
+  });
+
+  const controlPlanePrivileges = await database.query(`
+    select
+      has_table_privilege(
+        'collector_worker', 'source.collection_partitions', 'INSERT'
+      ) as partition_insert,
+      has_table_privilege(
+        'collector_worker', 'source.collection_failures', 'INSERT'
+      ) as failure_insert,
+      has_table_privilege(
+        'anon', 'source.collection_partitions', 'SELECT'
+      ) as anon_partition_select
+  `);
+  assert.deepEqual(controlPlanePrivileges.rows[0], {
+    partition_insert: true,
+    failure_insert: true,
+    anon_partition_select: false,
+  });
+
   const seeded = await database.query(`
     select
       (select count(*)::integer from source.data_sources) as sources,
@@ -852,7 +911,7 @@ try {
   );
 
   console.log(
-    "Migrations e seed executados: 42 tabelas, origem e acesso mínimos.",
+    "Migrations e seed executados: controle de coleta e acesso mínimo.",
   );
 } finally {
   await database.close();

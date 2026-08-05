@@ -83,9 +83,13 @@ para revisão/DLQ; não são descartados silenciosamente.
 
 ## Pessoas e minimização
 
-- pessoa não é identificada internamente por CPF publicado;
-- documento fiscal, quando indispensável para reconciliação autorizada, fica
-  cifrado/restrito e deriva apenas marcador/últimos dígitos necessários;
+- CPF fornecido por fonte oficial pode ser usado internamente como sinal forte
+  de reconciliação, mas nunca como identificador público ou prova isolada;
+- o valor indispensável fica cifrado no schema `private`; comparações usam
+  HMAC-SHA-256 com chave separada, e o diagnóstico comum vê no máximo os quatro
+  últimos dígitos;
+- secretários sem CPF em fonte oficial continuam reconciliáveis por cargo,
+  órgão, vigência e evidências; fontes obscuras ou vazamentos são proibidos;
 - folha pública prioriza remuneração bruta agregada e componentes permitidos;
 - descontos pessoais detalhados não entram em projeções públicas;
 - documentos brutos são classificados antes de receber acesso público;
@@ -96,6 +100,8 @@ para revisão/DLQ; não são descartados silenciosamente.
 - nome semelhante nunca confirma pessoa ou empresa;
 - CNPJ exato pode confirmar pessoa jurídica dentro da validade e da fonte;
 - CPF completo não é chave pública e não aparece em projeções;
+- divergência entre fingerprints de CPF impede fusão automática e gera
+  `source_conflicts` para revisão;
 - associação de pessoa natural exige identificador permitido ou revisão humana
   com duas evidências independentes quando houver impacto reputacional;
 - toda aresta de relacionamento possui evidência própria, data e validade;

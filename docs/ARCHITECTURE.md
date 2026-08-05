@@ -247,6 +247,22 @@ prefixo `querido-diario/gazettes/` e somente às operações `SELECT` e `INSERT`
 Não existe política de `UPDATE` ou `DELETE`. O coletor recusa chaves
 secret/service role, que ignorariam RLS.
 
+## Plano de controle das coletas
+
+Toda janela controlada abre uma linha em `source.collection_runs` antes da
+primeira chamada à fonte. `source.collection_partitions` registra o que era
+esperado e observado no período, distinguindo `complete`, `empty`, `partial`,
+`failed` e `blocked`. `source.collection_failures` preserva falhas sanitizadas,
+tentativas e destino de retry/DLQ; falha nunca é convertida em resultado vazio.
+
+O Diário direto é o primeiro consumidor desse contrato. Os demais coletores
+serão migrados por fatias, sem criar uma segunda implementação concorrente.
+
+Identificadores pessoais necessários à reconciliação usam um papel separado,
+`identity_worker`, que não é herdado pelo coletor comum. O schema `private`
+não integra a Data API; guarda somente valor cifrado, nonce, tag de autenticação,
+versão da chave, últimos quatro dígitos e HMAC com chave independente.
+
 ## Referências
 
 - [API pública do Querido Diário](https://docs.queridodiario.ok.org.br/pt-br/latest/utilizando/api-publica.html)

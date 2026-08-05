@@ -47,6 +47,9 @@ jobs:
       - name: Testar migrations e seed
         run: pnpm run check:migration
 
+      - name: Testar Node
+        run: pnpm test
+
       - name: Verificar tipos
         run: |
           pnpm --filter @barreiras-em-dados/web typecheck
