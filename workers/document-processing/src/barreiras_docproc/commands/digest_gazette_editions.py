@@ -13,9 +13,9 @@ from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
 from ..assist import (
     PROVIDERS,
-    AttemptRecord,
     CascadeUnavailableError,
     ContractViolationError,
+    AttemptRecord,
     UrllibJsonCaller,
     run_cascade_content,
 )
