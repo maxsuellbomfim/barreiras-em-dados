@@ -128,11 +128,14 @@ export async function getCamaraLegislativePage(page = 1, pageSize = 50, filters:
   }
 }
 
-export async function getCamaraLegislativeAuthorSummary(filters: CamaraLegislativeFilters = {}): Promise<readonly CamaraLegislativeAuthorSummary[]> {
+async function getAuthorSummary(
+  endpoint: "get_camara_legislative_author_summary" | "get_camara_current_author_summary",
+  filters: CamaraLegislativeFilters = {},
+): Promise<readonly CamaraLegislativeAuthorSummary[]> {
   const config = publicConfig();
   if (!config) return [];
   try {
-    const response = await fetch(`${config.url}/rest/v1/rpc/get_camara_legislative_author_summary`, {
+    const response = await fetch(`${config.url}/rest/v1/rpc/${endpoint}`, {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -166,6 +169,14 @@ export async function getCamaraLegislativeAuthorSummary(filters: CamaraLegislati
   } catch {
     return [];
   }
+}
+
+export async function getCamaraLegislativeAuthorSummary(filters: CamaraLegislativeFilters = {}): Promise<readonly CamaraLegislativeAuthorSummary[]> {
+  return getAuthorSummary("get_camara_legislative_author_summary", filters);
+}
+
+export async function getCamaraCurrentAuthorSummary(filters: CamaraLegislativeFilters = {}): Promise<readonly CamaraLegislativeAuthorSummary[]> {
+  return getAuthorSummary("get_camara_current_author_summary", filters);
 }
 
 export async function getCamaraLegislativeItems(): Promise<CamaraLegislativeResult> {

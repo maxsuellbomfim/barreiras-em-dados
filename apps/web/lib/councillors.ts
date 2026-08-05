@@ -74,7 +74,7 @@ export async function getMunicipalCouncillors(): Promise<CouncillorsResult> {
           "Content-Profile": "api",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ page_size: 60 }),
+        body: JSON.stringify({ page_size: 19 }),
         next: { revalidate: 300 },
         signal: AbortSignal.timeout(5_000),
       },

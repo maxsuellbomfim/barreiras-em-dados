@@ -6,11 +6,19 @@ const migration = await readFile(
   new URL("../../supabase/migrations/20260808140000_camara_legislative_author_summary.sql", import.meta.url),
   "utf8",
 );
+const currentSummaryMigration = await readFile(
+  new URL("../../supabase/migrations/20260808210000_current_legislature_author_summary.sql", import.meta.url),
+  "utf8",
+);
 const client = await readFile(new URL("../../apps/web/lib/camara-legislative.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/camara/page.tsx", import.meta.url), "utf8");
 const explorer = await readFile(new URL("../../apps/web/app/camara/laws-explorer.tsx", import.meta.url), "utf8");
 const representativesPage = await readFile(
   new URL("../../apps/web/app/representantes/page.tsx", import.meta.url),
+  "utf8",
+);
+const councillorsClient = await readFile(
+  new URL("../../apps/web/lib/councillors.ts", import.meta.url),
   "utf8",
 );
 
@@ -24,12 +32,25 @@ test("resumo de autoria usa a mesma taxonomia e filtros do acervo", () => {
   assert.match(migration, /raw\.raw_records/);
 });
 
+test("gráfico de autoria usa somente a composição municipal atual", () => {
+  assert.match(currentSummaryMigration, /get_camara_current_author_summary/);
+  assert.match(currentSummaryMigration, /cm_barreiras_vereador/);
+  assert.match(currentSummaryMigration, /representative_aliases/);
+  assert.match(currentSummaryMigration, /where resolved\.current_author_name is not null/);
+  assert.match(client, /get_camara_current_author_summary/);
+  assert.match(page, /getCamaraCurrentAuthorSummary/);
+  assert.match(explorer, /Somente os 19 nomes da composição atual/);
+  assert.match(explorer, /authorSummary\.slice\(0, 19\)/);
+  assert.match(explorer, /Autores históricos continuam no acervo/);
+  assert.match(councillorsClient, /page_size: 19/);
+});
+
 test("página consulta e exibe a contagem global de autoria", () => {
   assert.match(client, /get_camara_legislative_author_summary/);
   assert.match(client, /item_count/);
-  assert.match(page, /getCamaraLegislativeAuthorSummary/);
+  assert.match(page, /getCamaraCurrentAuthorSummary/);
   assert.match(page, /authorSummary/);
-  assert.match(explorer, /Contagem global no recorte atual/);
+  assert.match(explorer, /contagem global no recorte atual/);
   assert.match(explorer, /authorQuery/);
   assert.match(page, /A maior parte das leis/);
   assert.match(page, /não consolidamos pessoas/);
