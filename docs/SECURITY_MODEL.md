@@ -79,6 +79,9 @@
 - download público via proxy/signed URL depois de decisão editorial;
 - verificação de SHA-256 após upload;
 - object key derivada do hash, sem dados pessoais;
+- objetos acima de 32 MiB divididos em partes imutáveis, com manifesto
+  versionado, caminhos derivados e verificação de hash por parte e integral;
+- leitores rejeitam manifesto, ordem, tamanho, caminho ou parte divergente;
 - operações pelo Storage API, sem editar tabelas `storage` diretamente.
 - coletor autenticado por usuário Auth técnico e chave publicável;
 - allowlist interna por UUID, bucket, prefixo, operação, estado e validade;

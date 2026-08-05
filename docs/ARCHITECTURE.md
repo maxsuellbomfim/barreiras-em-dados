@@ -85,6 +85,13 @@ o objeto e verifica hash/tamanho antes de abrir a curta transação que registra
 execução, observação e registros brutos. Se o banco falhar, o objeto permanece
 como órfão seguro e o retry reutiliza a mesma chave.
 
+Quando um artefato ultrapassa 32 MiB, o adaptador do Storage o divide em partes
+imutáveis endereçadas pelo SHA-256 de cada parte. A chave canônica do artefato
+guarda um manifesto versionado; toda leitura recompõe os bytes e verifica tamanho
+e hash do documento integral. Essa representação é interna e transparente para
+coletores, OCR e normalizadores. Objetos antigos, não segmentados, continuam
+legíveis pelo mesmo adaptador.
+
 O mesmo objeto pode ser referenciado por várias observações. `raw_artifacts`
 representa a observação — URL, horário e execução — e não impõe unicidade à
 `object_key`. `raw_records` permite uma versão por
