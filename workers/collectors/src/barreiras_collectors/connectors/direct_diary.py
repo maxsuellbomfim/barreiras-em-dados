@@ -14,10 +14,14 @@ from datetime import date
 
 from ..logging import log_event
 from .gazette_documents import CollectedDocument, GazetteDocumentClient
+from .official_diary_catalog import ALLOWED_HOSTS as CATALOG_ALLOWED_HOSTS
 from .querido_diario import PermanentHttpError
 
 SOURCE_CODE = "barreiras-diario-oficial"
 ENDPOINT_CODE = "pdf-direto"
+DIRECT_DIARY_ALLOWED_HOSTS = CATALOG_ALLOWED_HOSTS | frozenset(
+    {"barreiras.ba.gov.br", "www.barreiras.ba.gov.br"}
+)
 
 
 class EditionNotFoundError(RuntimeError):
@@ -29,6 +33,15 @@ class DirectEdition:
     edition_number: int
     year: int
     document: CollectedDocument
+
+
+@dataclass(frozen=True)
+class DirectEditionTarget:
+    """Edição que o catálogo oficial afirma existir, com URL verificável."""
+
+    edition_number: int
+    year: int
+    publication_url: str
 
 
 def edition_url(year: int, edition_number: int) -> str:
@@ -103,3 +116,50 @@ def collect_editions(
             artifact_hash=edition.document.body_sha256,
         )
     return persisted, False
+
+
+def collect_catalog_editions(
+    client: GazetteDocumentClient,
+    persist: Callable[[DirectEdition], object],
+    *,
+    targets: tuple[DirectEditionTarget, ...],
+    logger: logging.Logger,
+) -> tuple[int, tuple[int, ...]]:
+    """Preserva alvos explícitos sem deixar uma lacuna ocultar os seguintes."""
+    persisted = 0
+    unavailable: list[int] = []
+    for target in targets:
+        try:
+            document = client.fetch(target.publication_url, role="pdf")
+        except PermanentHttpError as error:
+            if error.status_code != 404:
+                raise
+            unavailable.append(target.edition_number)
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_catalog_edition_unavailable",
+                source=SOURCE_CODE,
+                edition=target.edition_number,
+                year=target.year,
+                status=error.status_code,
+            )
+            continue
+        edition = DirectEdition(
+            edition_number=target.edition_number,
+            year=target.year,
+            document=document,
+        )
+        persist(edition)
+        persisted += 1
+        log_event(
+            logger,
+            logging.INFO,
+            "collector_direct_edition_persisted",
+            source=SOURCE_CODE,
+            edition=edition.edition_number,
+            year=edition.year,
+            artifact_hash=edition.document.body_sha256,
+            discovery="official-catalog",
+        )
+    return persisted, tuple(unavailable)

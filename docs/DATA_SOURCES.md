@@ -23,7 +23,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | Fonte | Escopo pretendido | Prioridade | Estado |
 |---|---|---:|---|
 | Querido Diário | Diário Oficial do Executivo | P0 | descoberta concluída |
-| Diário Oficial da Prefeitura | PDF original e metadados | P0 | via QD; origem direta a validar |
+| Diário Oficial da Prefeitura | PDF original e metadados | P0 | catálogo e PDF direto ativos |
 | Transparência da Prefeitura | contratos, processos, documentos, RH, fiscal e PDC | P1 | API catalogada |
 | Transparência da Câmara | contratos, documentos, RH, atos e atividade legislativa | P1 | API catalogada |
 | PNCP | contratações, itens, resultados, contratos, documentos | P1 | documentação inicial |
@@ -52,6 +52,19 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 - o HTML é preservado como `raw.raw_artifact` por SHA-256 e cada publicação
   como `barreiras_diario_publication`, permitindo corrigir a projeção sem
   alterar o histórico bruto;
+- cada publicação do catálogo ainda sem documento preservado vira um alvo
+  explícito de coleta. Uma numeração ausente não interrompe as edições
+  posteriores conhecidas;
+- o redirecionamento da publicação individual ao PDF só é seguido entre hosts
+  oficiais em allowlist, com limite de tamanho, retries e validação `%PDF-`;
+- PDF oficialmente anunciado mas indisponível é cobertura `partial`, nunca
+  “período vazio”; a edição continua pendente para nova tentativa;
+- falha temporária do catálogo não impede OCR, extração e publicação dos
+  artefatos que já foram preservados, mas permanece visível como falha da
+  execução;
+- a fila de processamento prioriza as edições diretas mais recentes e depois
+  continua drenando o acervo histórico; PDFs escaneados passam por extração,
+  OCR e nova extração na mesma execução;
 - o resumo da Prefeitura e a explicação assistida por IA são exibidos
   separadamente no portal.
 

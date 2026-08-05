@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -14,9 +15,11 @@ from ..collection_control import (
     build_execution_idempotency_key,
 )
 from ..connectors.direct_diary import (
+    DIRECT_DIARY_ALLOWED_HOSTS,
     ENDPOINT_CODE,
     SOURCE_CODE,
     DirectEdition,
+    collect_catalog_editions,
     collect_editions,
 )
 from ..connectors.gazette_documents import GazetteDocumentClient
@@ -33,6 +36,16 @@ from ..settings import CollectorSettings, PersistenceSettings
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 # Cortesia com o servidor da prefeitura, alinhada ao endpoint no seed.
 DIRECT_REQUESTS_PER_MINUTE = 10
+
+
+@dataclass(frozen=True)
+class DirectDiaryRunResult:
+    persisted: int
+    catalog_persisted: int
+    probe_persisted: int
+    cursor_exhausted: bool
+    next_edition: int
+    unavailable_catalog_editions: tuple[int, ...]
 
 
 def collect_direct_diary_window(
@@ -55,15 +68,69 @@ def collect_direct_diary_window(
     )
 
 
+def collect_direct_diary_run(
+    *,
+    repository: PostgresCollectionRepository,
+    client: GazetteDocumentClient,
+    persist: Callable[[DirectEdition], object],
+    first_edition: int,
+    limit: int,
+    today: date,
+    logger: logging.Logger,
+) -> DirectDiaryRunResult:
+    """Preserva alvos do catálogo e só então sonda a próxima numeração."""
+    if limit < 1:
+        raise ValueError("O limite de edições deve ser positivo.")
+    targets = repository.pending_direct_catalog_editions(limit)
+    catalog_persisted, unavailable = collect_catalog_editions(
+        client,
+        persist,
+        targets=targets,
+        logger=logger,
+    )
+
+    start_edition = repository.next_direct_edition_number(first_edition)
+    probe_limit = max(0, limit - len(targets))
+    if probe_limit:
+        probe_persisted, cursor_exhausted = collect_direct_diary_window(
+            client=client,
+            persist=persist,
+            start_edition=start_edition,
+            limit=probe_limit,
+            today=today,
+            logger=logger,
+        )
+    else:
+        probe_persisted, cursor_exhausted = 0, False
+    return DirectDiaryRunResult(
+        persisted=catalog_persisted + probe_persisted,
+        catalog_persisted=catalog_persisted,
+        probe_persisted=probe_persisted,
+        cursor_exhausted=cursor_exhausted,
+        next_edition=start_edition + probe_persisted,
+        unavailable_catalog_editions=unavailable,
+    )
+
+
 def execute_controlled_direct_diary(
     *,
     control: CollectionControl,
-    operation: Callable[[], tuple[int, bool, int]],
+    operation: Callable[[], tuple[int, bool, int] | DirectDiaryRunResult],
 ) -> tuple[int, bool, int]:
     """Abre o controle antes do setup externo e registra a cobertura."""
     with control:
-        persisted, cursor_exhausted, next_edition = operation()
-        if cursor_exhausted and persisted == 0:
+        operation_result = operation()
+        if isinstance(operation_result, DirectDiaryRunResult):
+            persisted = operation_result.persisted
+            cursor_exhausted = operation_result.cursor_exhausted
+            next_edition = operation_result.next_edition
+            unavailable = operation_result.unavailable_catalog_editions
+        else:
+            persisted, cursor_exhausted, next_edition = operation_result
+            unavailable = ()
+        if unavailable:
+            outcome = CollectionOutcome.PARTIAL
+        elif cursor_exhausted and persisted == 0:
             outcome = CollectionOutcome.EMPTY
         elif cursor_exhausted:
             outcome = CollectionOutcome.COMPLETE
@@ -76,6 +143,7 @@ def execute_controlled_direct_diary(
             metrics={
                 "persisted_editions": persisted,
                 "cursor_exhausted": cursor_exhausted,
+                "unavailable_catalog_editions": list(unavailable),
             },
         )
     return persisted, cursor_exhausted, next_edition
@@ -126,7 +194,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         period_end=today,
     )
 
-    def operation() -> tuple[int, bool, int]:
+    def operation() -> DirectDiaryRunResult:
         try:
             from supabase import create_client
         except ImportError as error:
@@ -161,6 +229,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         client = GazetteDocumentClient(
             max_document_bytes=collector_settings.max_document_bytes,
+            allowed_hosts=DIRECT_DIARY_ALLOWED_HOSTS,
             requests_per_minute=DIRECT_REQUESTS_PER_MINUTE,
             timeout_seconds=(
                 collector_settings.connect_timeout_seconds
@@ -168,18 +237,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             retry_policy=RetryPolicy(max_attempts=collector_settings.max_attempts),
         )
-        start_edition = repository.next_direct_edition_number(
-            collector_settings.direct_diary_first_edition
-        )
-        persisted, cursor_exhausted = collect_direct_diary_window(
+        return collect_direct_diary_run(
+            repository=repository,
             client=client,
             persist=service.persist,
-            start_edition=start_edition,
+            first_edition=collector_settings.direct_diary_first_edition,
             limit=collector_settings.direct_diary_max_editions_per_run,
             today=today,
             logger=logger,
         )
-        return persisted, cursor_exhausted, start_edition + persisted
 
     persisted, cursor_exhausted, next_edition = execute_controlled_direct_diary(
         control=control,
@@ -190,7 +256,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         logging.INFO,
         "collector_direct_diary_completed",
         source=SOURCE_CODE,
-        start_edition=next_edition - persisted,
+        next_edition=next_edition,
         persisted=persisted,
         cursor_exhausted=cursor_exhausted,
         max_editions_per_run=(

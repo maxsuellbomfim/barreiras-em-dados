@@ -102,6 +102,47 @@ class ScheduledWorkflowTests(unittest.TestCase):
             7,
         )
 
+    def test_catalog_failure_does_not_skip_preserved_document_processing(self) -> None:
+        repository_root = Path(__file__).parents[2]
+        workflow = (
+            repository_root / ".github" / "workflows" / "collect-querido-diario.yml"
+        ).read_text(encoding="utf-8")
+
+        catalog = workflow.index("- name: Preservar catálogo oficial do Diário")
+        direct = workflow.index("- name: Coletar edições diretas do Diário")
+        ocr = workflow.index("- name: OCR das páginas escaneadas")
+        digest = workflow.index("- name: Resumir edições com âncoras verificadas")
+        failure_gate = workflow.find("- name: Sinalizar falha do catálogo oficial")
+
+        self.assertGreaterEqual(failure_gate, 0)
+        self.assertLess(catalog, direct)
+        self.assertLess(direct, ocr)
+        self.assertLess(digest, failure_gate)
+        catalog_block = workflow[catalog:direct]
+        self.assertIn("id: official_catalog", catalog_block)
+        self.assertIn("continue-on-error: true", catalog_block)
+        self.assertIn("steps.official_catalog.outcome == 'failure'", workflow)
+
+    def test_new_scanned_pdf_can_be_extracted_after_ocr_in_the_same_run(self) -> None:
+        repository_root = Path(__file__).parents[2]
+        workflow = (
+            repository_root / ".github" / "workflows" / "collect-querido-diario.yml"
+        ).read_text(encoding="utf-8")
+
+        first_extraction = workflow.find(
+            "- name: Preparar texto e candidatos determinísticos"
+        )
+        ocr = workflow.find("- name: OCR das páginas escaneadas")
+        second_extraction = workflow.find(
+            "- name: Extrair candidatos determinísticos após OCR"
+        )
+
+        self.assertGreaterEqual(first_extraction, 0)
+        self.assertGreaterEqual(ocr, 0)
+        self.assertGreaterEqual(second_extraction, 0)
+        self.assertLess(first_extraction, ocr)
+        self.assertLess(ocr, second_extraction)
+
 
 class FailureRecordTests(unittest.TestCase):
     def setUp(self) -> None:

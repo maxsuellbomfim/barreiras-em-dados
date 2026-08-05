@@ -107,17 +107,32 @@ jobs:
           --until "${COLLECTION_UNTIL}"
           --page-size 100
 
+      - name: Preservar catálogo oficial do Diário
+        id: official_catalog
+        # A indisponibilidade do catálogo não pode impedir OCR e publicação
+        # de artefatos já preservados. A falha volta a ser sinalizada no fim.
+        continue-on-error: true
+        if: steps.window.outputs.mode != 'backfill'
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_official_diary_catalog
+
       - name: Coletar edições diretas do Diário
-        # A sonda direta e o catálogo oficial atualizam a janela recente.
+        # O catálogo fornece os números existentes; a sonda direta completa a
+        # descoberta sem presumir que todas as numerações sejam contíguas.
         # O backfill não deve repetir essas chamadas várias vezes por dia.
         if: steps.window.outputs.mode != 'backfill'
         run: >-
           python -B -m barreiras_collectors.commands.collect_direct_diary
 
-      - name: Preservar catálogo oficial do Diário
+      - name: Preparar texto e candidatos determinísticos
+        # PDFs com texto são concluídos aqui; PDFs escaneados registram as
+        # páginas pendentes para o OCR logo abaixo, ainda nesta execução.
         if: steps.window.outputs.mode != 'backfill'
+        env:
+          PYTHONPATH: workers/collectors/src:workers/document-processing/src
         run: >-
-          python -B -m barreiras_collectors.commands.collect_official_diary_catalog
+          python -B -m barreiras_docproc.commands.process_gazette_acts
+          --limit 30
 
       - name: OCR das páginas escaneadas
         if: steps.window.outputs.mode != 'backfill'
@@ -127,7 +142,7 @@ jobs:
           python -B -m barreiras_docproc.commands.ocr_gazette_pages
           --limit-pages 30
 
-      - name: Extrair candidatos determinísticos
+      - name: Extrair candidatos determinísticos após OCR
         id: extract
         if: steps.window.outputs.mode != 'backfill'
         env:
@@ -170,6 +185,15 @@ jobs:
         run: >-
           python -B -m barreiras_docproc.commands.digest_gazette_editions
           --limit 6
+
+      - name: Sinalizar falha do catálogo oficial
+        if: >-
+          always() &&
+          steps.window.outputs.mode != 'backfill' &&
+          steps.official_catalog.outcome == 'failure'
+        run: |
+          echo "O catálogo oficial falhou, mas os artefatos preservados foram processados."
+          exit 1
 
       - name: Registrar falha sanitizada
         if: failure()

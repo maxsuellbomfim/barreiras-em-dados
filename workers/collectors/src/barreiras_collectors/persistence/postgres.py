@@ -7,6 +7,9 @@ from collections.abc import Callable, Mapping
 from datetime import date, datetime
 from typing import Any, Protocol
 
+from ..connectors.direct_diary import DirectEditionTarget
+from ..connectors.official_diary_catalog import ALLOWED_HOSTS as CATALOG_ALLOWED_HOSTS
+from ..http import validate_https_url
 from .models import (
     DirectEditionBatch,
     DocumentBatch,
@@ -478,6 +481,73 @@ class PostgresCollectionRepository:
                 "Não foi possível derivar o cursor de edições."
             )
         return int(row["next_edition"])
+
+    def pending_direct_catalog_editions(
+        self,
+        limit: int,
+    ) -> tuple[DirectEditionTarget, ...]:
+        """Edições oficiais conhecidas que ainda não possuem PDF preservado."""
+        if limit < 1:
+            raise ValueError("O limite deve ser positivo.")
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                with latest_publications as (
+                  select distinct on (
+                    (record.payload ->> 'edition')::integer,
+                    (record.payload ->> 'date')::date
+                  )
+                    (record.payload ->> 'edition')::integer as edition_number,
+                    extract(
+                      year from (record.payload ->> 'date')::date
+                    )::integer as edition_year,
+                    record.payload ->> 'publication_url' as publication_url
+                  from raw.raw_records as record
+                  where record.record_type = 'barreiras_diario_publication'
+                    and record.payload ->> 'edition' ~ '^[0-9]+$'
+                    and record.payload ->> 'date'
+                        ~ '^\\d{4}-\\d{2}-\\d{2}$'
+                    and record.payload ->> 'publication_url' is not null
+                  order by
+                    (record.payload ->> 'edition')::integer,
+                    (record.payload ->> 'date')::date,
+                    record.collected_at desc
+                )
+                select
+                  publication.edition_number,
+                  publication.edition_year,
+                  publication.publication_url
+                from latest_publications as publication
+                where not exists (
+                  select 1
+                  from raw.raw_artifacts as artifact
+                  where artifact.metadata ->> 'schema_name'
+                      = 'gazette-direct-edition'
+                    and artifact.metadata ->> 'edition'
+                        = publication.edition_number::text
+                    and artifact.metadata ->> 'year'
+                        = publication.edition_year::text
+                )
+                order by publication.edition_number desc
+                limit %s
+                """,
+                (limit,),
+            )
+            targets: list[DirectEditionTarget] = []
+            while (row := rows.fetchone()) is not None:
+                publication_url = str(row["publication_url"])
+                validate_https_url(publication_url, CATALOG_ALLOWED_HOSTS)
+                targets.append(
+                    DirectEditionTarget(
+                        edition_number=int(row["edition_number"]),
+                        year=int(row["edition_year"]),
+                        publication_url=publication_url,
+                    )
+                )
+            return tuple(targets)
+        finally:
+            connection.close()
 
     def persist_direct_edition(
         self,

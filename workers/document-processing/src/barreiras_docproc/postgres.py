@@ -82,7 +82,19 @@ class PostgresExtractionRepository:
                           and supplemental.text_content is not null
                       )
                   )
-                order by artifact.created_at
+                order by
+                  case
+                    when artifact.metadata ->> 'schema_name'
+                        = 'gazette-direct-edition'
+                    then 0 else 1
+                  end,
+                  case
+                    when artifact.metadata ->> 'schema_name'
+                        = 'gazette-direct-edition'
+                     and artifact.metadata ->> 'edition' ~ '^[0-9]+$'
+                    then (artifact.metadata ->> 'edition')::integer
+                  end desc nulls last,
+                  artifact.created_at
                 limit %s
                 """,
                 (self._ruleset_version(), limit),
@@ -711,7 +723,21 @@ class PostgresExtractionRepository:
                       and supplemental.page_number = page.page_number
                       and supplemental.text_content is not null
                   )
-                order by artifact.created_at, artifact.id, page.page_number
+                order by
+                  case
+                    when artifact.metadata ->> 'schema_name'
+                        = 'gazette-direct-edition'
+                    then 0 else 1
+                  end,
+                  case
+                    when artifact.metadata ->> 'schema_name'
+                        = 'gazette-direct-edition'
+                     and artifact.metadata ->> 'edition' ~ '^[0-9]+$'
+                    then (artifact.metadata ->> 'edition')::integer
+                  end desc nulls last,
+                  artifact.created_at,
+                  artifact.id,
+                  page.page_number
                 limit %s
                 """,
                 (limit_pages,),
