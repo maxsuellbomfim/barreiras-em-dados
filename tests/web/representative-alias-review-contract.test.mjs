@@ -44,6 +44,13 @@ const aliasIndexes = await readFile(
   ),
   "utf8",
 );
+const aliasReviewFix = await readFile(
+  new URL(
+    "../../supabase/migrations/20260808190000_fix_alias_review_note_rpc.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("aliases de representantes ficam pendentes e auditáveis", () => {
   assert.match(migration, /representative_alias_suggestions/);
@@ -76,4 +83,11 @@ test("fila de aliases tem consulta limitada e evita multiplicação cartesiana",
   assert.doesNotMatch(aliasRepository, /cross join candidates/);
   assert.match(aliasIndexes, /raw_records_alias_assist_type_idx/);
   assert.match(aliasIndexes, /raw_records_alias_assist_author_idx/);
+});
+
+test("revisão de alias não confunde parâmetro e coluna review_note", () => {
+  assert.match(aliasReviewFix, /drop function if exists api\.review_representative_alias_suggestion/);
+  assert.match(aliasReviewFix, /p_review_note text default null/);
+  assert.match(aliasReviewFix, /review_note = nullif\(btrim\(p_review_note\), ''\)/);
+  assert.match(aliasReviewFix, /update political\.representative_alias_suggestions as suggestion_row/);
 });
