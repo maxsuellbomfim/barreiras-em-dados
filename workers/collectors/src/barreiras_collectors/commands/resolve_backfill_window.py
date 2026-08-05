@@ -23,6 +23,39 @@ from .resolve_collection_window import MAX_WINDOW_DAYS, CollectionWindow
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
 
+def contiguous_coverage_anchor(
+    *,
+    horizon: date,
+    today: date,
+    covered_intervals: Sequence[tuple[date, date]],
+) -> date:
+    """Início da faixa contínua coberta que termina na véspera."""
+    target = today - timedelta(days=1)
+    if target < horizon:
+        return horizon
+
+    clipped = sorted(
+        (
+            (max(start, horizon), min(end, target))
+            for start, end in covered_intervals
+            if start <= target and end >= horizon
+        ),
+        key=lambda interval: interval[0],
+    )
+    merged: list[tuple[date, date]] = []
+    for start, end in clipped:
+        if not merged or start > merged[-1][1] + timedelta(days=1):
+            merged.append((start, end))
+            continue
+        previous_start, previous_end = merged[-1]
+        merged[-1] = (previous_start, max(previous_end, end))
+
+    for start, end in reversed(merged):
+        if start <= target <= end:
+            return start
+    return today
+
+
 def resolve_backfill_window(
     *,
     horizon: date,
@@ -56,40 +89,56 @@ def write_github_output(
             output.write("mode=backfill\n")
 
 
-def coverage_anchor(repository: PostgresCollectionRepository) -> date | None:
-    """Data mais antiga já coberta pela coleta do Querido Diário."""
+def coverage_anchor(
+    repository: PostgresCollectionRepository,
+    *,
+    horizon: date = date(2000, 1, 1),
+    today: date | None = None,
+) -> date:
+    """Início da faixa contínua comprovada por execuções bem-sucedidas."""
     connection = repository.connection_factory()
     try:
-        row = connection.execute(
+        rows = connection.execute(
             """
-            select least(
-              (
-                select min(run.collection_window_start)::date
-                from source.collection_runs as run
-                join source.source_endpoints as endpoint
-                  on endpoint.id = run.source_endpoint_id
-                join source.data_sources as data_source
-                  on data_source.id = endpoint.data_source_id
-                where data_source.slug = 'querido-diario'
-                  and run.status = 'succeeded'
-                  and run.collection_window_start is not null
-              ),
-              (
-                select min((record.payload ->> 'date')::date)
-                from raw.raw_records as record
-                where record.record_type = 'querido_diario_gazette'
-              )
-            ) as anchor
+            select distinct
+              run.collection_window_start::date as period_start,
+              run.collection_window_end::date as period_end
+            from source.collection_runs as run
+            join source.source_endpoints as endpoint
+              on endpoint.id = run.source_endpoint_id
+            join source.data_sources as data_source
+              on data_source.id = endpoint.data_source_id
+            where data_source.slug = 'querido-diario'
+              and run.status = 'succeeded'
+              and run.collection_window_start is not null
+              and run.collection_window_end is not null
             """
-        ).fetchone()
+        ).fetchall()
     finally:
         connection.close()
-    if row is None or row["anchor"] is None:
-        return None
-    value = row["anchor"]
-    if isinstance(value, date):
-        return value
-    return date.fromisoformat(str(value))
+
+    intervals: list[tuple[date, date]] = []
+    for row in rows:
+        raw_start = row["period_start"]
+        raw_end = row["period_end"]
+        start = (
+            raw_start
+            if isinstance(raw_start, date)
+            else date.fromisoformat(str(raw_start))
+        )
+        end = (
+            raw_end
+            if isinstance(raw_end, date)
+            else date.fromisoformat(str(raw_end))
+        )
+        intervals.append((start, end))
+
+    effective_today = today or datetime.now(MUNICIPAL_TIMEZONE).date()
+    return contiguous_coverage_anchor(
+        horizon=horizon,
+        today=effective_today,
+        covered_intervals=intervals,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -106,8 +155,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     repository = PostgresCollectionRepository.from_dsn(
         persistence_settings.database_url
     )
-    anchor = coverage_anchor(repository)
     today = datetime.now(MUNICIPAL_TIMEZONE).date()
+    anchor = coverage_anchor(
+        repository,
+        horizon=collector_settings.backfill_horizon,
+        today=today,
+    )
     window = resolve_backfill_window(
         horizon=collector_settings.backfill_horizon,
         anchor=anchor,

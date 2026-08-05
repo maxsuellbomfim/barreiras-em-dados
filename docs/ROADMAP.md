@@ -41,6 +41,12 @@ votação do TSE passam a registrar execução antes da autenticação e do HTTP
 próxima fatia é usar essa cobertura observada para abrir o backfill amplo desde
 2021, começando pelos recursos com período oficial bem definido.
 
+O backfill do Diário agora calcula a fronteira pela faixa contínua de execuções
+bem-sucedidas até a véspera. Um registro histórico isolado não pode mais saltar
+lacunas recentes nem encerrar prematuramente a cobertura desde 2021. Janelas
+antigas preservadas continuam válidas, mas só se unem à fronteira quando os
+intervalos intermediários também forem coletados ou confirmados como vazios.
+
 Cada coletor só entra no backfill amplo depois de registrar execução antes do
 HTTP e classificar cada partição como completa, vazia, parcial, falha ou
 bloqueada.
