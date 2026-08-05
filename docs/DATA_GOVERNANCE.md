@@ -33,6 +33,11 @@ registram quais contratações precisam continuar. Uma releitura idempotente sem
 novas inserções não é confundida com ausência de dados. O cursor de backlog
 evita que as primeiras 50 contratações impeçam indefinidamente a visita das
 demais.
+Snapshots de representação são separados por casa, endpoint e eleição. Uma
+lista incompleta de perfis gera `partial`; arquivo eleitoral ainda não publicado
+gera `blocked`; falha de transporte ou autenticação gera `failed`, nunca uma
+composição pública falsamente vazia. Leis e indicações possuem cobertura
+distinta mesmo quando compartilham a mesma API municipal.
 Checkpoints são consumidos somente por workers autorizados. Retomadas automáticas
 aceitam cursores tipados e não negativos; valor inválido reinicia a paginação de
 forma segura, e uma intervenção explícita do operador prevalece sobre o cursor.

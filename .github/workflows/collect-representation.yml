@@ -52,27 +52,58 @@ jobs:
           | sha256sum --check --strict
 
       - name: Preservar deputados federais da Bahia
+        id: federal
+        continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_camara_deputies
 
       - name: Preservar vereadores de Barreiras
-        # Falha aqui não pode apagar a coleta federal já preservada.
+        id: municipal
         continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_vereadores
 
       - name: Preservar deputados estaduais da Bahia
+        id: state
         continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_alba_deputies
 
       - name: Preservar prefeito, vice e secretarias de Barreiras
+        id: executive
         continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_municipal_executive
 
       - name: Preservar votação recebida em Barreiras (vínculo territorial)
-        # Este passo é a evidência territorial do TSE; qualquer falha precisa
-        # aparecer no workflow, em vez de ser mascarada como sucesso.
+        id: elections
+        continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_tse_votes
+
+      - name: Consolidar resultado sem ocultar falhas
+        if: ${{ always() }}
+        env:
+          FEDERAL_OUTCOME: ${{ steps.federal.outcome }}
+          MUNICIPAL_OUTCOME: ${{ steps.municipal.outcome }}
+          STATE_OUTCOME: ${{ steps.state.outcome }}
+          EXECUTIVE_OUTCOME: ${{ steps.executive.outcome }}
+          ELECTIONS_OUTCOME: ${{ steps.elections.outcome }}
+        shell: bash
+        run: |
+          failed=0
+          for outcome in \
+            "$FEDERAL_OUTCOME" \
+            "$MUNICIPAL_OUTCOME" \
+            "$STATE_OUTCOME" \
+            "$EXECUTIVE_OUTCOME" \
+            "$ELECTIONS_OUTCOME"
+          do
+            if [ "$outcome" != "success" ]; then
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "Uma ou mais fontes de representação falharam; consulte a saúde das fontes."
+            exit 1
+          fi
