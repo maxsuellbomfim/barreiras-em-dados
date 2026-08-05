@@ -255,8 +255,14 @@ esperado e observado no período, distinguindo `complete`, `empty`, `partial`,
 `failed` e `blocked`. `source.collection_failures` preserva falhas sanitizadas,
 tentativas e destino de retry/DLQ; falha nunca é convertida em resultado vazio.
 
-O Diário direto é o primeiro consumidor desse contrato. Os demais coletores
-serão migrados por fatias, sem criar uma segunda implementação concorrente.
+O Diário direto, a API do Querido Diário e os recursos financeiros municipais
+são os primeiros consumidores desse contrato. No Diário, falha ou esgotamento
+do orçamento de documentos marca a janela como `partial`; nas finanças, uma
+paginação interrompida pelo limite, indisponibilidade após páginas preservadas
+ou PDF não baixado também impede o falso estado `complete`. Autenticação no
+Storage e chamadas HTTP acontecem somente depois que a execução central foi
+aberta. Compras, Legislativo e Representação entram nas fatias seguintes, sem
+criar uma segunda implementação concorrente.
 
 Identificadores pessoais necessários à reconciliação usam um papel separado,
 `identity_worker`, que não é herdado pelo coletor comum. O schema `private`

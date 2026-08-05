@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import argparse
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import date
 
+from ..collection_control import (
+    CollectionControl,
+    CollectionOutcome,
+    build_execution_idempotency_key,
+)
 from ..connectors.gazette_documents import (
     GazetteDocumentClient,
     PermanentHttpError,
@@ -27,6 +33,51 @@ from ..resilience import CircuitOpenError, RetryPolicy
 from ..settings import CollectorSettings, PersistenceSettings
 
 MAX_WINDOW_DAYS = 7
+
+
+@dataclass(frozen=True)
+class QueridoDiarioCollectionSummary:
+    pages: int
+    inserted_records: int
+    existing_records: int
+    documents_persisted: int
+    documents_skipped: int
+    documents_failed: int
+
+    @property
+    def observed_records(self) -> int:
+        return self.inserted_records + self.existing_records
+
+    @property
+    def outcome(self) -> CollectionOutcome:
+        if self.documents_skipped or self.documents_failed:
+            return CollectionOutcome.PARTIAL
+        if self.observed_records == 0:
+            return CollectionOutcome.EMPTY
+        return CollectionOutcome.COMPLETE
+
+
+def execute_controlled_querido_diario(
+    *,
+    control: CollectionControl,
+    operation: Callable[[], QueridoDiarioCollectionSummary],
+) -> QueridoDiarioCollectionSummary:
+    """Abre o controle antes de autenticação, HTTP e persistência externa."""
+    with control:
+        summary = operation()
+        control.complete(
+            outcome=summary.outcome,
+            observed_records=summary.observed_records,
+            checkpoint={"pages": summary.pages},
+            metrics={
+                "inserted_records": summary.inserted_records,
+                "existing_records": summary.existing_records,
+                "documents_persisted": summary.documents_persisted,
+                "documents_skipped": summary.documents_skipped,
+                "documents_failed": summary.documents_failed,
+            },
+        )
+    return summary
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -55,29 +106,102 @@ def main(argv: Sequence[str] | None = None) -> int:
         format="%(message)s",
         force=True,
     )
-    service = _build_persistence_service(persistence_settings)
-    source = QueridoDiarioClient(
-        base_url=collector_settings.querido_diario_base_url,
-        territory_id=collector_settings.querido_diario_territory_id,
-        requests_per_minute=collector_settings.requests_per_minute,
-        timeout_seconds=(
-            collector_settings.connect_timeout_seconds
-            + collector_settings.read_timeout_seconds
-        ),
-        retry_policy=RetryPolicy(max_attempts=collector_settings.max_attempts),
-    )
-
-    documents_client = GazetteDocumentClient(
-        max_document_bytes=collector_settings.max_document_bytes,
-        requests_per_minute=collector_settings.requests_per_minute,
-        timeout_seconds=(
-            collector_settings.connect_timeout_seconds
-            + collector_settings.read_timeout_seconds
-        ),
-        retry_policy=RetryPolicy(max_attempts=collector_settings.max_attempts),
-    )
-
     logger = logging.getLogger(__name__)
+    repository = None
+    if persistence_settings.mode == "postgres-supabase":
+        if persistence_settings.database_url is None:
+            raise RuntimeError("Configuração de banco incompleta.")
+        repository = PostgresCollectionRepository.from_dsn(
+            persistence_settings.database_url
+        )
+
+    def operation() -> QueridoDiarioCollectionSummary:
+        service = _build_persistence_service(
+            persistence_settings,
+            repository=repository,
+        )
+        source = QueridoDiarioClient(
+            base_url=collector_settings.querido_diario_base_url,
+            territory_id=collector_settings.querido_diario_territory_id,
+            requests_per_minute=collector_settings.requests_per_minute,
+            timeout_seconds=(
+                collector_settings.connect_timeout_seconds
+                + collector_settings.read_timeout_seconds
+            ),
+            retry_policy=RetryPolicy(max_attempts=collector_settings.max_attempts),
+        )
+        documents_client = GazetteDocumentClient(
+            max_document_bytes=collector_settings.max_document_bytes,
+            requests_per_minute=collector_settings.requests_per_minute,
+            timeout_seconds=(
+                collector_settings.connect_timeout_seconds
+                + collector_settings.read_timeout_seconds
+            ),
+            retry_policy=RetryPolicy(max_attempts=collector_settings.max_attempts),
+        )
+        return _collect_window(
+            service=service,
+            source=source,
+            documents_client=documents_client,
+            since=arguments.since,
+            until=arguments.until,
+            page_size=arguments.page_size,
+            max_documents=collector_settings.max_documents_per_run,
+            logger=logger,
+        )
+
+    if repository is None:
+        summary = operation()
+    else:
+        control = CollectionControl(
+            repository=repository,
+            source_code="querido-diario",
+            endpoint_code="gazettes-api",
+            idempotency_key=build_execution_idempotency_key("querido-diario"),
+            collector_version=collector_settings.collector_version,
+            parser_version="querido-diario-gazette-page/1.0.0",
+            partition_key=(
+                f"published:{arguments.since.isoformat()}:{arguments.until.isoformat()}"
+            ),
+            period_start=arguments.since,
+            period_end=arguments.until,
+        )
+        summary = execute_controlled_querido_diario(
+            control=control,
+            operation=operation,
+        )
+
+    log_event(
+        logger,
+        logging.INFO,
+        "collector_window_completed",
+        source="querido-diario",
+        territory_id=collector_settings.querido_diario_territory_id,
+        window_start=arguments.since.isoformat(),
+        window_end=arguments.until.isoformat(),
+        pages=summary.pages,
+        inserted_records=summary.inserted_records,
+        existing_records=summary.existing_records,
+        documents_persisted=summary.documents_persisted,
+        documents_skipped=summary.documents_skipped,
+        documents_failed=summary.documents_failed,
+        coverage_status=summary.outcome.value,
+        persistence_mode=persistence_settings.mode,
+    )
+    return 0
+
+
+def _collect_window(
+    *,
+    service: QueridoDiarioPersistenceService,
+    source: QueridoDiarioClient,
+    documents_client: GazetteDocumentClient,
+    since: date,
+    until: date,
+    page_size: int,
+    max_documents: int,
+    logger: logging.Logger,
+) -> QueridoDiarioCollectionSummary:
     pages = 0
     inserted_records = 0
     existing_records = 0
@@ -85,9 +209,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     documents_skipped = 0
     documents_failed = 0
     for page in source.iter_gazette_pages(
-        published_since=arguments.since,
-        published_until=arguments.until,
-        page_size=arguments.page_size,
+        published_since=since,
+        published_until=until,
+        page_size=page_size,
     ):
         result = service.persist(page)
         pages += 1
@@ -112,7 +236,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ):
                 if not isinstance(url, str) or not url:
                     continue
-                if documents_persisted >= collector_settings.max_documents_per_run:
+                if documents_persisted >= max_documents:
                     documents_skipped += 1
                     continue
                 try:
@@ -169,7 +293,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             source="querido-diario",
             endpoint="gazette-documents",
             skipped_documents=documents_skipped,
-            max_documents_per_run=collector_settings.max_documents_per_run,
+            max_documents_per_run=max_documents,
         )
 
     if documents_failed:
@@ -183,27 +307,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             documents_persisted=documents_persisted,
         )
 
-    log_event(
-        logger,
-        logging.INFO,
-        "collector_window_completed",
-        source="querido-diario",
-        territory_id=collector_settings.querido_diario_territory_id,
-        window_start=arguments.since.isoformat(),
-        window_end=arguments.until.isoformat(),
+    return QueridoDiarioCollectionSummary(
         pages=pages,
         inserted_records=inserted_records,
         existing_records=existing_records,
         documents_persisted=documents_persisted,
         documents_skipped=documents_skipped,
         documents_failed=documents_failed,
-        persistence_mode=persistence_settings.mode,
     )
-    return 0
 
 
 def _build_persistence_service(
     settings: PersistenceSettings,
+    *,
+    repository: PostgresCollectionRepository | None = None,
 ) -> QueridoDiarioPersistenceService:
     if settings.mode == "filesystem":
         if settings.local_data_directory is None:
@@ -251,7 +368,11 @@ def _build_persistence_service(
     bucket_client = supabase_client.storage.from_(settings.raw_artifacts_bucket)
     return QueridoDiarioPersistenceService(
         object_store=SupabaseStorageObjectStore(bucket_client),
-        repository=PostgresCollectionRepository.from_dsn(settings.database_url),
+        repository=(
+            repository
+            if repository is not None
+            else PostgresCollectionRepository.from_dsn(settings.database_url)
+        ),
     )
 
 
