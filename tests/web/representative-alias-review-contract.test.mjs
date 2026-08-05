@@ -30,6 +30,20 @@ const aliasCommand = await readFile(
   ),
   "utf8",
 );
+const aliasRepository = await readFile(
+  new URL(
+    "../../workers/document-processing/src/barreiras_docproc/alias_repository.py",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const aliasIndexes = await readFile(
+  new URL(
+    "../../supabase/migrations/20260808170000_alias_assist_query_indexes.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("aliases de representantes ficam pendentes e auditáveis", () => {
   assert.match(migration, /representative_alias_suggestions/);
@@ -53,4 +67,13 @@ test("cota esgotada usa regras locais e continua pendente", () => {
   assert.match(aliasCommand, /using_local_rules/);
   assert.match(aliasCommand, /provider = "local"/);
   assert.match(aliasCommand, /persist_suggestion/);
+});
+
+test("fila de aliases tem consulta limitada e evita multiplicação cartesiana", () => {
+  assert.match(aliasRepository, /set statement_timeout = '30s'/);
+  assert.match(aliasRepository, /candidate_options/);
+  assert.match(aliasRepository, /historical_options/);
+  assert.doesNotMatch(aliasRepository, /cross join candidates/);
+  assert.match(aliasIndexes, /raw_records_alias_assist_type_idx/);
+  assert.match(aliasIndexes, /raw_records_alias_assist_author_idx/);
 });

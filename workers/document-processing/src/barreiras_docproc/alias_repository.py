@@ -28,6 +28,9 @@ class RepresentativeAliasRepository:
     def pending_author_aliases(self, limit: int) -> tuple[dict, ...]:
         connection = self.connection_factory()
         try:
+            # A consulta percorre o acervo histÃ³rico; limite o tempo para
+            # evitar que a fila consuma o workflow inteiro sem diagnÃ³stico.
+            connection.execute("set statement_timeout = '30s'")
             rows = connection.execute(
                 """
                 with authors as (
@@ -37,12 +40,17 @@ class RepresentativeAliasRepository:
                       record.payload ->> 'autor',
                       record.payload ->> 'author'
                     )), '') as author_name,
-                    record.source_record_key
+                    array_agg(distinct record.source_record_key)
+                      filter (where record.source_record_key is not null)
+                      as source_record_keys,
+                    count(distinct record.source_record_key)::integer
+                      as item_count
                   from raw.raw_records as record
                   where record.record_type in (
                     'municipal_transparency_leis',
                     'municipal_transparency_indicacoes'
                   )
+                  group by 1
                 ), people as (
                   select distinct on (record.source_record_key)
                     record.source_record_key as representative_external_id,
@@ -62,8 +70,22 @@ class RepresentativeAliasRepository:
                   join people
                     on people.representative_external_id
                      = crosswalk.representative_external_id
-                  where crosswalk.source_kind = 'municipal'
+                where crosswalk.source_kind = 'municipal'
                      and crosswalk.review_status = 'approved'
+                ), candidate_options as (
+                  select coalesce(
+                    jsonb_agg(
+                      distinct jsonb_build_object(
+                        'representative_external_id',
+                        candidates.representative_external_id,
+                        'candidate_id', candidates.candidate_id,
+                        'canonical_name', candidates.canonical_name,
+                        'party', candidates.party
+                      )
+                    ),
+                    '[]'::jsonb
+                  ) as candidates
+                  from candidates
                 ), historical_candidates as (
                   select distinct on (
                     record.payload ->> 'ano',
@@ -83,48 +105,35 @@ class RepresentativeAliasRepository:
                     record.payload ->> 'ano',
                     record.payload ->> 'sq_candidato',
                     record.collected_at desc
-                )
-                select
+                 ), historical_options as (
+                   select coalesce(
+                     jsonb_agg(
+                       distinct jsonb_build_object(
+                         'election_year', historical.election_year,
+                         'candidate_id', historical.candidate_id,
+                         'canonical_name', historical.canonical_name,
+                         'ballot_name', historical.ballot_name,
+                         'party', historical.party,
+                         'office', historical.office
+                       )
+                     ),
+                     '[]'::jsonb
+                   ) as historical_candidates
+                   from historical_candidates as historical
+                 )
+                 select
                   authors.author_name,
-                  array_agg(distinct authors.source_record_key)
-                    filter (where authors.source_record_key is not null)
-                    as source_record_keys,
+                   authors.source_record_keys,
                   -- O cross join abaixo expande as opções de candidatos para
                   -- a IA. Contar linhas aqui multiplicaria a incidência pelo
                   -- número de candidatos; a métrica pública é por registro
                   -- oficial distinto.
-                  count(distinct authors.source_record_key)::integer
-                    as item_count,
-                  coalesce(
-                    jsonb_agg(
-                      distinct jsonb_build_object(
-                        'representative_external_id',
-                        candidates.representative_external_id,
-                        'candidate_id', candidates.candidate_id,
-                        'canonical_name', candidates.canonical_name,
-                        'party', candidates.party
-                      )
-                    ) filter (where candidates.representative_external_id is not null),
-                    '[]'::jsonb
-                  ) as candidates,
-                  coalesce(
-                    (
-                      select jsonb_agg(
-                        distinct jsonb_build_object(
-                          'election_year', historical.election_year,
-                          'candidate_id', historical.candidate_id,
-                          'canonical_name', historical.canonical_name,
-                          'ballot_name', historical.ballot_name,
-                          'party', historical.party,
-                          'office', historical.office
-                        )
-                      )
-                      from historical_candidates as historical
-                    ),
-                    '[]'::jsonb
-                  ) as historical_candidates
+                   authors.item_count,
+                   candidate_options.candidates,
+                   historical_options.historical_candidates
                 from authors
-                cross join candidates
+                cross join candidate_options
+                cross join historical_options
                 where authors.author_name is not null
                   and not exists (
                     select 1
@@ -133,8 +142,7 @@ class RepresentativeAliasRepository:
                       and suggestion.observed_name = authors.author_name
                       and suggestion.prompt_version = %s
                   )
-                group by authors.author_name
-                order by count(*) desc, authors.author_name
+                order by authors.item_count desc, authors.author_name
                 limit %s
                 """,
                 (ALIAS_ASSIST_PROMPT_VERSION, limit),
