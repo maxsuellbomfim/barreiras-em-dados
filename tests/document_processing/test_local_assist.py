@@ -12,7 +12,10 @@ class LocalAssistTests(unittest.TestCase):
         outcome = build_local_act_assist(
             "nomeacao",
             {
-                "excerpt": "PORTARIA N 10, DE 3 DE JUNHO DE 2026. Nomear MARIA SILVA para o cargo de Assessora.",
+                "excerpt": (
+                    "PORTARIA N 10, DE 3 DE JUNHO DE 2026. "
+                    "Nomear MARIA SILVA para o cargo de Assessora."
+                ),
                 "fields": {
                     "person_name": field("MARIA SILVA"),
                     "position": field("Assessora"),
@@ -47,7 +50,10 @@ class LocalAssistTests(unittest.TestCase):
         self.assertIsNone(
             build_local_act_assist(
                 "nomeacao",
-                {"excerpt": "Nomear MARIA SILVA.", "fields": {"person_name": field("MARIA SILVA")}},
+                {
+                    "excerpt": "Nomear MARIA SILVA.",
+                    "fields": {"person_name": field("MARIA SILVA")},
+                },
             )
         )
 

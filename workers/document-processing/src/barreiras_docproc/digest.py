@@ -132,7 +132,11 @@ def deterministic_digest_items(text: str) -> list[DigestItem]:
         if not person or not position:
             continue
         kind = "Nomeação" if candidate.act_type == "nomeacao" else "Exoneração"
-        relation = "para o cargo de" if candidate.act_type == "nomeacao" else "do cargo de"
+        relation = (
+            "para o cargo de"
+            if candidate.act_type == "nomeacao"
+            else "do cargo de"
+        )
         anchor = clean_excerpt(
             text[candidate.excerpt_start : candidate.excerpt_end]
         )[:240].strip()

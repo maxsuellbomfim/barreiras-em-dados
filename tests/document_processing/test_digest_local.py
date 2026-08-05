@@ -18,7 +18,9 @@ class DeterministicDigestTests(unittest.TestCase):
 
     def test_does_not_invent_non_personnel_items(self):
         self.assertEqual(
-            deterministic_digest_items("AVISO de licitação para aquisição de materiais."),
+            deterministic_digest_items(
+                "AVISO de licitação para aquisição de materiais."
+            ),
             [],
         )
 

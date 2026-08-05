@@ -13,17 +13,17 @@ from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
 from ..assist import (
     AttemptRecord,
-    PROVIDERS,
     CascadeUnavailableError,
     ContractViolationError,
+    PROVIDERS,
     UrllibJsonCaller,
     run_cascade_content,
 )
 from ..candidates import defragment
 from ..digest import (
     ANCHOR_VERIFIER_VERSION,
-    DIGEST_PROMPT_VERSION,
     DETERMINISTIC_DIGEST_VERSION,
+    DIGEST_PROMPT_VERSION,
     MAX_CHUNKS_PER_EDITION,
     build_digest_messages,
     chunk_text,
@@ -215,7 +215,11 @@ def _run(argv: Sequence[str] | None = None) -> int:
             chunks_total=len(chunks),
             chunks_failed=chunks_failed,
             items_dropped=items_dropped,
-            partial=partial or chunks_failed > 0 or providers == ["local-deterministic"],
+            partial=(
+                partial
+                or chunks_failed > 0
+                or providers == ["local-deterministic"]
+            ),
             providers=providers,
             prompt_version=(
                 DETERMINISTIC_DIGEST_VERSION
