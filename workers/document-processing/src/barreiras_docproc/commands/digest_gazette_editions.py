@@ -7,10 +7,12 @@ import json
 import logging
 import os
 from collections.abc import Sequence
+from types import SimpleNamespace
 
 from barreiras_collectors.logging import log_event
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
+from .. import digest as digest_module
 from ..assist import (
     PROVIDERS,
     CascadeUnavailableError,
@@ -19,23 +21,18 @@ from ..assist import (
     run_cascade_content,
 )
 from ..candidates import defragment
-from ..digest import (
-    ANCHOR_VERIFIER_VERSION,
-    DIGEST_PROMPT_VERSION,
-    MAX_CHUNKS_PER_EDITION,
-    build_digest_messages,
-    chunk_text,
-    digest_payload,
-    job_idempotency_key,
-    parse_digest_items,
-)
 from ..postgres import PostgresExtractionRepository
 
 RATIONALE = (
     "Resumo por edição publicado automaticamente: cada item tem citação "
-    f"literal conferida no texto oficial pelo {ANCHOR_VERIFIER_VERSION} "
+    f"literal conferida no texto oficial pelo {digest_module.ANCHOR_VERIFIER_VERSION} "
     "(ADR 0013); itens sem âncora foram descartados."
 )
+LOCAL_RATIONALE = (
+    "Resumo por regras determinísticas, sem IA: cada item foi derivado de um "
+    "candidato de ato de pessoal e preserva uma âncora do texto oficial."
+)
+LOCAL_DIGEST_VERSION = "edition-digest-deterministic/1.0.0"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -88,16 +85,15 @@ def _run(argv: Sequence[str] | None = None) -> int:
         logging.INFO,
         "digest_levels_available",
         providers=available,
-        prompt_version=DIGEST_PROMPT_VERSION,
+        prompt_version=digest_module.DIGEST_PROMPT_VERSION,
     )
     if not available:
         log_event(
             logger,
             logging.WARNING,
             "digest_cascade_unavailable",
-            reason="no_keys_configured",
+            reason="no_keys_configured_local_fallback_enabled",
         )
-        return 0
     if persistence_settings.database_url is None:
         raise RuntimeError(
             "O resumo por edição requer PERSISTENCE_MODE=postgres-supabase."
@@ -117,9 +113,10 @@ def _run(argv: Sequence[str] | None = None) -> int:
 
     digested = 0
     attempts: list = []
+    cascade_disabled = not available
     for artifact in repository.pending_digest_artifacts(
         arguments.limit,
-        job_idempotency_key,
+        digest_module.job_idempotency_key,
     ):
         # A IA recebe o texto já reconstituído: pedir citação literal sobre
         # texto fragmentado ("MUN ICÍPIO") fazia a âncora nunca bater e
@@ -127,9 +124,9 @@ def _run(argv: Sequence[str] | None = None) -> int:
         text = defragment(repository.edition_pages_text(artifact["artifact_id"]))
         if not text.strip():
             continue
-        chunks = chunk_text(text)
-        partial = len(chunks) > MAX_CHUNKS_PER_EDITION
-        chunks = chunks[:MAX_CHUNKS_PER_EDITION]
+        chunks = digest_module.chunk_text(text)
+        partial = len(chunks) > digest_module.MAX_CHUNKS_PER_EDITION
+        chunks = chunks[: digest_module.MAX_CHUNKS_PER_EDITION]
 
         items = []
         providers: list[str] = []
@@ -137,11 +134,13 @@ def _run(argv: Sequence[str] | None = None) -> int:
         items_dropped = 0
         cascade_exhausted = False
         for chunk in chunks:
+            if cascade_disabled:
+                break
             try:
                 provider, _model, content = run_cascade_content(
                     caller,
                     os.environ,
-                    build_digest_messages(chunk),
+                    digest_module.build_digest_messages(chunk),
                     logger,
                     attempts,
                 )
@@ -149,7 +148,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
                 cascade_exhausted = True
                 break
             try:
-                accepted, dropped = parse_digest_items(content, chunk)
+                accepted, dropped = digest_module.parse_digest_items(content, chunk)
             except ContractViolationError as error:
                 chunks_failed += 1
                 log_event(
@@ -164,18 +163,30 @@ def _run(argv: Sequence[str] | None = None) -> int:
             items.extend(accepted)
             items_dropped += dropped
 
-        if cascade_exhausted:
-            # Sem provedores agora: nada é persistido e a edição volta na
-            # próxima execução — estado explícito, não meio-resumo.
+        if cascade_exhausted or cascade_disabled:
+            cascade_disabled = True
+            items = digest_module.deterministic_digest_items(text)
+            providers = ["local-deterministic"]
+            attempts.append(
+                SimpleNamespace(
+                    provider="local-deterministic",
+                    model="digest-rules-v1",
+                    outcome="fallback_succeeded",
+                    http_status=None,
+                    detail="external_provider_unavailable",
+                )
+            )
+            # O recorte local é deliberadamente parcial: o documento integral
+            # continua preservado e itens não reconhecidos não são inventados.
             log_event(
                 logger,
                 logging.WARNING,
-                "digest_cascade_unavailable",
+                "digest_local_fallback_used",
                 reason="all_levels_exhausted",
                 edition=artifact["edition"],
+                items=len(items),
                 digested=digested,
             )
-            break
 
         if not items:
             log_event(
@@ -187,29 +198,48 @@ def _run(argv: Sequence[str] | None = None) -> int:
             )
             continue
 
-        payload = digest_payload(
+        payload = digest_module.digest_payload(
             edition=artifact["edition"],
             year=artifact["year"],
             items=items,
             chunks_total=len(chunks),
             chunks_failed=chunks_failed,
             items_dropped=items_dropped,
-            partial=partial or chunks_failed > 0,
+            partial=(
+                partial
+                or chunks_failed > 0
+                or providers == ["local-deterministic"]
+            ),
             providers=providers,
+            prompt_version=(
+                LOCAL_DIGEST_VERSION
+                if providers == ["local-deterministic"]
+                else digest_module.DIGEST_PROMPT_VERSION
+            ),
         )
         result_id = repository.persist_digest(
             artifact_id=artifact["artifact_id"],
-            job_idempotency_key=job_idempotency_key(artifact["sha256"]),
-            extractor_version=DIGEST_PROMPT_VERSION,
+            job_idempotency_key=digest_module.job_idempotency_key(
+                artifact["sha256"]
+            ),
+            extractor_version=(
+                LOCAL_DIGEST_VERSION
+                if providers == ["local-deterministic"]
+                else digest_module.DIGEST_PROMPT_VERSION
+            ),
             payload=payload,
         )
         if result_id is None:
             continue
         repository.record_automated_review(
             result_id=result_id,
-            rationale=RATIONALE,
+            rationale=(
+                LOCAL_RATIONALE
+                if providers == ["local-deterministic"]
+                else RATIONALE
+            ),
             verification={
-                "verifier": ANCHOR_VERIFIER_VERSION,
+                "verifier": digest_module.ANCHOR_VERIFIER_VERSION,
                 "items_total": len(items),
                 "items_dropped": items_dropped,
                 "chunks_failed": chunks_failed,
@@ -245,7 +275,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
         "digest_batch_completed",
         digested=digested,
         attempts=len(attempts),
-        prompt_version=DIGEST_PROMPT_VERSION,
+        prompt_version=digest_module.DIGEST_PROMPT_VERSION,
     )
     return 0
 

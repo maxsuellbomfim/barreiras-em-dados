@@ -67,7 +67,9 @@ function ActCard({ act }: Readonly<{ act: ApprovedGazetteAct }>) {
         <p className="act-summary">
           <strong>Em palavras simples:</strong> {act.assistedSummary}
           <span className="act-summary-label">
-            Resumo gerado com IA e conferido na revisão humana.
+            {act.assistedProvider === "local-deterministic"
+              ? "Resumo por regras determinísticas, sem IA; conferido pelo verificador."
+              : "Resumo gerado com IA e conferido na revisão humana."}
           </span>
         </p>
       ) : null}

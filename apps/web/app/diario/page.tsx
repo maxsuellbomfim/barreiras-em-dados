@@ -123,9 +123,9 @@ function DigestCard({ digest }: Readonly<{ digest: EditionDigest }>) {
         {dateTimeFormatter.format(new Date(digest.publishedAt))}
       </p>
       <p className="act-review-mode">
-        Resumo gerado com IA e verificado por código: cada item traz uma
-        citação literal conferida no texto oficial; itens sem citação são
-        descartados. Sujeito a correção — e toda correção fica registrada.
+        {digest.assistMethod === "local"
+          ? "Resumo por regras determinísticas, sem IA: cada item vem de um ato de pessoal reconhecido no texto oficial."
+          : "Resumo gerado com IA e verificado por código: cada item traz uma citação literal conferida no texto oficial; itens sem citação são descartados."} Sujeito a correção — e toda correção fica registrada.
       </p>
     </article>
   );

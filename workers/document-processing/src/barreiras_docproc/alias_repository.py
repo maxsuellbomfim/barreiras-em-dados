@@ -89,7 +89,12 @@ class RepresentativeAliasRepository:
                   array_agg(distinct authors.source_record_key)
                     filter (where authors.source_record_key is not null)
                     as source_record_keys,
-                  count(*)::integer as item_count,
+                  -- O cross join abaixo expande as opções de candidatos para
+                  -- a IA. Contar linhas aqui multiplicaria a incidência pelo
+                  -- número de candidatos; a métrica pública é por registro
+                  -- oficial distinto.
+                  count(distinct authors.source_record_key)::integer
+                    as item_count,
                   coalesce(
                     jsonb_agg(
                       distinct jsonb_build_object(

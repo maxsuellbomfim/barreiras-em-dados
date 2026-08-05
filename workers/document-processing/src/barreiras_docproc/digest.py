@@ -16,6 +16,7 @@ from .assist import ContractViolationError, _parse_content
 from .verify import value_in_excerpt
 
 DIGEST_PROMPT_VERSION = "edition-digest/1.0.0"
+DETERMINISTIC_DIGEST_VERSION = "edition-digest-deterministic/1.0.0"
 ANCHOR_VERIFIER_VERSION = "edition-digest-anchor-check/1.0.0"
 ITEM_TYPES = frozenset(
     {
@@ -114,6 +115,47 @@ def parse_digest_items(
     return accepted, dropped
 
 
+def deterministic_digest_items(text: str) -> list[DigestItem]:
+    """Resume somente atos de pessoal reconhecidos pelas regras locais."""
+    from .candidates import clean_excerpt, find_candidates
+    from .fields import extract_act_fields
+
+    items: list[DigestItem] = []
+    for candidate in find_candidates(text):
+        fields = extract_act_fields(
+            text,
+            match_start=candidate.match_start,
+            match_end=candidate.match_end,
+        )
+        person = fields.person_name.value
+        position = fields.position.value
+        if not person or not position:
+            continue
+        kind = "Nomeação" if candidate.act_type == "nomeacao" else "Exoneração"
+        relation = (
+            "para o cargo de"
+            if candidate.act_type == "nomeacao"
+            else "do cargo de"
+        )
+        anchor = clean_excerpt(
+            text[candidate.excerpt_start : candidate.excerpt_end]
+        )[:240].strip()
+        if len(anchor) < MIN_ANCHOR_CHARS:
+            continue
+        items.append(
+            DigestItem(
+                item_type=candidate.act_type,
+                title=f"{kind}: {person}"[:MAX_TITLE_CHARS],
+                summary=(
+                    f"O ato registra a {kind.casefold()} de {person} "
+                    f"{relation} {position}."
+                )[:MAX_SUMMARY_CHARS],
+                anchor=anchor,
+            )
+        )
+    return items
+
+
 def _validated_item(raw: Any, chunk: str) -> DigestItem | None:
     if not isinstance(raw, dict):
         return None
@@ -152,11 +194,12 @@ def digest_payload(
     items_dropped: int,
     partial: bool,
     providers: list[str],
+    prompt_version: str = DIGEST_PROMPT_VERSION,
 ) -> dict[str, Any]:
     return {
         "schema_name": "edition-digest",
         "schema_version": "1.0.0",
-        "prompt_version": DIGEST_PROMPT_VERSION,
+        "prompt_version": prompt_version,
         "edition": edition,
         "year": year,
         "items": [
