@@ -162,6 +162,14 @@ class PayloadTests(unittest.TestCase):
 
         self.assertNotEqual(job_idempotency_key(document_hash), legacy_key)
 
+    def test_boundary_fix_reprocesses_version_1_1_digest(self) -> None:
+        document_hash = "a" * 64
+        previous_key = hashlib.sha256(
+            (f"edition-digest:{document_hash}:edition-digest-pipeline/1.1.0").encode()
+        ).hexdigest()
+
+        self.assertNotEqual(job_idempotency_key(document_hash), previous_key)
+
 
 if __name__ == "__main__":
     unittest.main()

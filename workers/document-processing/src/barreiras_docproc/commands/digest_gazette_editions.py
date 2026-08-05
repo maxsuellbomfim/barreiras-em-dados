@@ -30,7 +30,8 @@ RATIONALE = (
 )
 LOCAL_RATIONALE = (
     "Resumo por regras determinísticas, sem IA: cada item foi derivado de um "
-    "candidato de ato de pessoal e preserva uma âncora do texto oficial."
+    "cabeçalho oficial validado ou de um ato de pessoal, com âncora preservada "
+    "no texto oficial e duplicatas literais removidas."
 )
 LOCAL_DIGEST_VERSION = digest_module.DETERMINISTIC_DIGEST_VERSION
 
