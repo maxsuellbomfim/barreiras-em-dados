@@ -454,6 +454,50 @@ try {
   `);
   assert.deepEqual(replay.rows[0], { artifacts: 1, records: 2 });
 
+  const failedRunId = "00000000-0000-0000-0000-000000000405";
+  await database.exec(`
+    insert into source.collection_partitions (
+      id, source_endpoint_id, partition_key, period_start, period_end,
+      status, expected_records, observed_records, collection_run_id,
+      last_attempted_at, completed_at
+    ) values (
+      '00000000-0000-0000-0000-000000000406', '${endpointId}',
+      '2026-06-10', '2026-06-10', '2026-06-10', 'complete', 1, 1,
+      '${runId}', '2026-06-10 12:00:00+00', '2026-06-10 12:00:00+00'
+    );
+
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version,
+      parser_version, status, attempt_count, started_at, completed_at,
+      error_code, error_detail
+    ) values (
+      '${failedRunId}', '${endpointId}', '${"9".repeat(64)}',
+      'test/2', 'parser/2', 'failed', 2,
+      '2026-06-11 12:00:00+00', '2026-06-11 12:01:00+00',
+      'upstream_timeout', 'detalhe interno que não deve sair pela RPC'
+    );
+
+    insert into source.collection_partitions (
+      id, source_endpoint_id, partition_key, period_start, period_end,
+      status, observed_records, collection_run_id, last_attempted_at
+    ) values (
+      '00000000-0000-0000-0000-000000000407', '${endpointId}',
+      '2026-06-11', '2026-06-11', '2026-06-11', 'failed', 0,
+      '${failedRunId}', '2026-06-11 12:01:00+00'
+    );
+
+    insert into source.collection_failures (
+      id, collection_run_id, source_endpoint_id, partition_key, status,
+      error_type, error_detail, attempt_count, retryable, next_retry_at,
+      failed_at
+    ) values (
+      '00000000-0000-0000-0000-000000000408', '${failedRunId}',
+      '${endpointId}', '2026-06-11', 'retry_scheduled',
+      'upstream_timeout', 'A fonte oficial excedeu o tempo de resposta.',
+      2, true, '2026-06-11 13:00:00+00', '2026-06-11 12:01:00+00'
+    );
+  `);
+
   const anonymousRawPrivilege = await database.query(`
     select has_table_privilege(
       'anon',
@@ -536,6 +580,10 @@ try {
     database.query("select * from api.get_extraction_review_queue(20)"),
     /acesso restrito a revisores ativos/,
   );
+  await assert.rejects(
+    database.query("select * from api.get_collection_health(200)"),
+    /acesso restrito a revisores ativos/,
+  );
 
   await database.exec(`
     insert into audit.reviewer_identities (
@@ -545,6 +593,56 @@ try {
     );
     select set_config('request.jwt.claim.sub', '${reviewerUserId}', false);
   `);
+
+  await assert.rejects(
+    database.query("select * from api.get_collection_health(501)"),
+    /page_size deve estar entre 1 e 500/,
+  );
+
+  await database.exec("set role anon;");
+  await assert.rejects(
+    database.query("select * from api.get_collection_health(200)"),
+    /permission denied/,
+  );
+  await database.exec("reset role;");
+
+  await database.exec("set role authenticated;");
+  const collectionHealth = await database.query(`
+    select
+      latest_partition_status,
+      latest_run_status,
+      latest_collector_version,
+      complete_partitions::integer as complete_partitions,
+      failed_partitions::integer as failed_partitions,
+      unresolved_failures::integer as unresolved_failures,
+      latest_failure_type,
+      latest_failure_detail,
+      methodology_version
+    from api.get_collection_health(200)
+    where endpoint_id = '${endpointId}'
+  `);
+  await database.exec("reset role;");
+  assert.deepEqual(collectionHealth.rows, [
+    {
+      latest_partition_status: "failed",
+      latest_run_status: "failed",
+      latest_collector_version: "test/2",
+      complete_partitions: 1,
+      failed_partitions: 1,
+      unresolved_failures: 1,
+      latest_failure_type: "upstream_timeout",
+      latest_failure_detail: "A fonte oficial excedeu o tempo de resposta.",
+      methodology_version: "collection-health/1.0.0",
+    },
+  ]);
+
+  const healthFunctionColumns = await database.query(`
+    select pg_get_function_result(
+      'api.get_collection_health(integer)'::regprocedure
+    ) as result
+  `);
+  assert.doesNotMatch(String(healthFunctionColumns.rows[0].result), /checkpoint|metrics/);
+
   const reviewQueue = await database.query(`
     select
       candidate_type,

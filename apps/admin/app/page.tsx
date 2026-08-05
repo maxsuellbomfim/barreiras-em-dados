@@ -3,6 +3,12 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  CollectionHealth,
+  type CollectionHealthItem,
+  type CollectionHealthState,
+} from "./collection-health";
+
 type FieldEntry = Readonly<{
   value: string | null;
   status: string;
@@ -62,7 +68,7 @@ type HistoryState =
 
 type TypeFilter = "todos" | "nomeacao" | "exoneracao";
 type DecisionFilter = "todas" | "approved" | "rejected";
-type AdminView = "fila" | "historico" | "financas" | "aliases";
+type AdminView = "fila" | "historico" | "financas" | "aliases" | "saude";
 
 type FinanceInventoryItem = Readonly<{
   document_id: string;
@@ -939,12 +945,15 @@ export default function ReviewQueuePage() {
   const [deciding, setDeciding] = useState(false);
   const [search, setSearch] = useState("");
   const [financeSearch, setFinanceSearch] = useState("");
+  const [healthSearch, setHealthSearch] = useState("");
   const [financeInventory, setFinanceInventory] =
     useState<FinanceInventoryState>({ kind: "loading" });
   const [financeClosures, setFinanceClosures] =
     useState<FinanceClosureState>({ kind: "loading" });
   const [aliasSuggestions, setAliasSuggestions] =
     useState<AliasState>({ kind: "loading" });
+  const [collectionHealth, setCollectionHealth] =
+    useState<CollectionHealthState>({ kind: "loading" });
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("todos");
   const [decisionFilter, setDecisionFilter] =
     useState<DecisionFilter>("todas");
@@ -1044,6 +1053,22 @@ export default function ReviewQueuePage() {
     });
   }, [supabase]);
 
+  const loadCollectionHealth = useCallback(async () => {
+    setCollectionHealth({ kind: "loading" });
+    const { data, error } = await supabase.rpc(
+      "get_collection_health",
+      { page_size: 200 },
+    );
+    if (error) {
+      setCollectionHealth({ kind: "error", message: error.message });
+      return;
+    }
+    setCollectionHealth({
+      kind: "ready",
+      items: (data ?? []) as CollectionHealthItem[],
+    });
+  }, [supabase]);
+
   const reloadAll = useCallback(async () => {
     await Promise.all([
       loadQueue(),
@@ -1051,6 +1076,7 @@ export default function ReviewQueuePage() {
       loadFinanceInventory(),
       loadFinanceClosures(),
       loadAliasSuggestions(),
+      loadCollectionHealth(),
     ]);
   }, [
     loadQueue,
@@ -1058,6 +1084,7 @@ export default function ReviewQueuePage() {
     loadFinanceInventory,
     loadFinanceClosures,
     loadAliasSuggestions,
+    loadCollectionHealth,
   ]);
 
   useEffect(() => {
@@ -1309,6 +1336,17 @@ export default function ReviewQueuePage() {
             </button>
             <button
               type="button"
+              className={view === "saude" ? "tab tab-active" : "tab"}
+              aria-current={view === "saude" ? "page" : undefined}
+              onClick={() => setView("saude")}
+            >
+              Saúde das fontes
+              {collectionHealth.kind === "ready"
+                ? ` (${collectionHealth.items.length})`
+                : ""}
+            </button>
+            <button
+              type="button"
               className="secondary"
               onClick={() => void reloadAll()}
             >
@@ -1317,11 +1355,12 @@ export default function ReviewQueuePage() {
           </nav>
           <p className="meta panel-scope-note">
             Os contadores de histórico e aliases mostram apenas o lote carregado
-            nesta tela. Finanças são o inventário de documentos preservados; a
-            fila de revisão é somente a aba "Fila".
+            nesta tela. Finanças são o inventário de documentos preservados;
+            Saúde das fontes acompanha coletores e cobertura; a fila de revisão
+            é somente a aba "Fila".
           </p>
 
-          {view !== "financas" && view !== "aliases" ? <div className="toolbar">
+          {view !== "financas" && view !== "aliases" && view !== "saude" ? <div className="toolbar">
             <input
               type="search"
               aria-label="Buscar por pessoa, cargo, órgão ou trecho"
@@ -1359,7 +1398,14 @@ export default function ReviewQueuePage() {
             ) : null}
           </div> : null}
 
-          {view === "aliases" ? (
+          {view === "saude" ? (
+            <CollectionHealth
+              state={collectionHealth}
+              search={healthSearch}
+              onSearchChange={setHealthSearch}
+              onReload={() => void loadCollectionHealth()}
+            />
+          ) : view === "aliases" ? (
             <AliasReview
               state={aliasSuggestions}
               onReview={reviewAlias}

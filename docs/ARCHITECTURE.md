@@ -271,6 +271,13 @@ Storage e chamadas HTTP acontecem somente depois que a execução central foi
 aberta. Compras, Legislativo e Representação entram nas fatias seguintes, sem
 criar uma segunda implementação concorrente.
 
+O painel administrativo consulta esse plano de controle exclusivamente pela
+RPC `api.get_collection_health`. A projeção exige revisor ativo e retorna apenas
+estado de cobertura, contagens e falhas já sanitizadas. Não expõe cursores,
+métricas brutas da execução, conteúdo de artefatos, identificadores pessoais ou
+segredos. Endpoints sem partição aparecem como “sem execução controlada”, nunca
+como “fonte vazia”.
+
 As consultas municipais paginadas mantêm uma chave de partição estável por
 recurso e configuração de página. Quando uma execução termina `partial`, o
 `next_offset` é lido dentro da próxima execução controlada e a coleta recomeça
