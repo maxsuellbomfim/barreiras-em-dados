@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import unittest
 from datetime import date
+from urllib.error import URLError
 
 import barreiras_collectors.commands.collect_direct_diary as direct_diary_command
 import barreiras_collectors.connectors.direct_diary as direct_diary
@@ -78,6 +79,15 @@ class RedirectMapTransport(MapTransport):
             body=body,
             final_url=final_url,
         )
+
+
+class TimeoutTransport(MapTransport):
+    """Simula indisponibilidade transitória do servidor do Diário."""
+
+    def get(self, url, *, headers, timeout_seconds, max_body_bytes):
+        del headers, timeout_seconds, max_body_bytes
+        self.requests.append(url)
+        raise URLError(TimeoutError("timed out"))
 
 
 class NoopRateLimiter:
@@ -227,6 +237,28 @@ class CollectEditionsTests(unittest.TestCase):
 
         self.assertEqual(persisted, 3)
         self.assertFalse(exhausted)
+
+    def test_transient_timeout_defers_probe_without_aborting_pipeline(self) -> None:
+        client = GazetteDocumentClient(
+            max_document_bytes=1024,
+            transport=TimeoutTransport({}),
+            rate_limiter=NoopRateLimiter(),  # type: ignore[arg-type]
+            retry_policy=RetryPolicy(max_attempts=1),
+            sleep=lambda _seconds: None,
+        )
+
+        persisted, exhausted = collect_editions(
+            client,
+            self.persist,
+            start_edition=4707,
+            limit=3,
+            today=TODAY,
+            logger=self.logger,
+        )
+
+        self.assertEqual(persisted, 0)
+        self.assertFalse(exhausted)
+        self.assertEqual(self.persisted, [])
 
     def test_catalog_target_follows_extra_edition_redirect(self) -> None:
         """A edição 4704 existe com nome não canônico e deve ser preservada."""

@@ -2,7 +2,8 @@
 
 O cursor caminha para frente a partir da última edição conhecida no banco.
 "Edição seguinte não existe" (404 nos anos candidatos) é o fim explícito da
-janela, nunca uma falha; qualquer outro erro interrompe com exceção.
+janela. Uma indisponibilidade transitória adia a sondagem sem impedir que os
+documentos já preservados sigam para processamento.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from datetime import date
 from ..logging import log_event
 from .gazette_documents import CollectedDocument, GazetteDocumentClient
 from .official_diary_catalog import ALLOWED_HOSTS as CATALOG_ALLOWED_HOSTS
-from .querido_diario import PermanentHttpError
+from .querido_diario import PermanentHttpError, SourceUnavailableError
 
 SOURCE_CODE = "barreiras-diario-oficial"
 ENDPOINT_CODE = "pdf-direto"
@@ -104,6 +105,17 @@ def collect_editions(
                 persisted=persisted,
             )
             return persisted, True
+        except SourceUnavailableError as error:
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_direct_diary_probe_deferred",
+                source=SOURCE_CODE,
+                edition=edition_number,
+                persisted=persisted,
+                error_type=type(error).__name__,
+            )
+            return persisted, False
         persist(edition)
         persisted += 1
         log_event(
