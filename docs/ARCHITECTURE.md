@@ -269,8 +269,13 @@ recurso e configuração de página. Quando uma execução termina `partial`, o
 `next_offset` é lido dentro da próxima execução controlada e a coleta recomeça
 desse ponto; um `--offset` informado por operador tem precedência auditável. A
 janela de contratações do PNCP também usa o controle central e nunca declara
-`complete` quando alguma modalidade excede o teto de páginas. Cadastro, itens,
-resultados e contratos do PNCP serão migrados nas próximas fatias.
+`complete` quando alguma modalidade excede o teto de páginas. Cadastro,
+itens/resultados e contratos também abrem a execução antes da autenticação e
+mantêm partições estáveis de backlog. O limite de contratações ou de páginas
+gera `partial`, com os controles truncados preservados no checkpoint. Contratos
+percorrem `totalPaginas`; a antiga leitura exclusiva da primeira página foi
+eliminada. Backlogs maiores que o teto gravam `next_offset`; a execução
+seguinte retoma do cursor e volta a zero ao completar a volta pelo recorte.
 
 Identificadores pessoais necessários à reconciliação usam um papel separado,
 `identity_worker`, que não é herdado pelo coletor comum. O schema `private`

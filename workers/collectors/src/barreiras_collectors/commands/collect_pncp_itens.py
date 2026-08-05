@@ -4,8 +4,16 @@ from __future__ import annotations
 
 import argparse
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+from ..collection_control import (
+    CollectionControl,
+    CollectionOutcome,
+    build_execution_idempotency_key,
+)
 from ..connectors.pncp import (
     SOURCE_CODE,
     fetch_itens_page,
@@ -14,8 +22,11 @@ from ..connectors.pncp import (
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import PncpComprasPersistenceService
-from ..persistence.storage import SupabaseStorageObjectStore
 from ..settings import CollectorSettings, PersistenceSettings
+from .pncp_runtime import (
+    build_authenticated_object_store,
+    resolve_checkpoint_offset,
+)
 
 # Homologação costuma chegar semanas depois da publicação; contratações
 # publicadas nesta janela são revisitadas mesmo já tendo itens preservados.
@@ -24,6 +35,100 @@ REFRESH_WINDOW_DAYS = 120
 # e é sempre registrado em log — nunca truncamos em silêncio.
 MAX_CONTRATACOES_PER_RUN = 50
 MAX_ITENS_PAGES = 30
+MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
+
+
+@dataclass(frozen=True)
+class PncpItensPageBatch:
+    pages: tuple
+    truncated: bool
+
+
+@dataclass(frozen=True)
+class PncpItensCollectionSummary:
+    contratacoes_processed: int
+    itens_inserted: int
+    resultados_inserted: int
+    pending_truncated: bool
+    item_pages_truncated_controls: tuple[str, ...]
+    start_offset: int
+    next_offset: int
+
+    @property
+    def observed_records(self) -> int:
+        return self.contratacoes_processed
+
+    @property
+    def outcome(self) -> CollectionOutcome:
+        if self.pending_truncated or self.item_pages_truncated_controls:
+            return CollectionOutcome.PARTIAL
+        if self.observed_records == 0:
+            return CollectionOutcome.EMPTY
+        return CollectionOutcome.COMPLETE
+
+
+def execute_controlled_pncp_itens(
+    *,
+    control: CollectionControl,
+    operation: Callable[[], PncpItensCollectionSummary],
+) -> PncpItensCollectionSummary:
+    """Controla o backlog de itens/resultados desde antes da autenticação."""
+    with control:
+        summary = operation()
+        checkpoint = {
+            "pending_truncated": summary.pending_truncated,
+            "item_pages_truncated_controls": list(
+                summary.item_pages_truncated_controls
+            ),
+            "next_offset": summary.next_offset,
+        }
+        control.complete(
+            outcome=summary.outcome,
+            observed_records=summary.observed_records,
+            checkpoint=checkpoint,
+            metrics={
+                "contratacoes_processed": summary.contratacoes_processed,
+                "itens_inserted": summary.itens_inserted,
+                "resultados_inserted": summary.resultados_inserted,
+                "start_offset": summary.start_offset,
+                **checkpoint,
+            },
+        )
+    return summary
+
+
+def collect_itens_batch(
+    *,
+    ano: int,
+    sequencial: int,
+    logger: logging.Logger,
+    transport=None,
+) -> PncpItensPageBatch:
+    """Percorre itens e informa quando o teto impediu confirmar o fim."""
+    pages = []
+    seen_itens: set[int] = set()
+    for pagina in range(1, MAX_ITENS_PAGES + 1):
+        page = fetch_itens_page(
+            ano=ano,
+            sequencial=sequencial,
+            pagina=pagina,
+            transport=transport,
+            logger=logger,
+        )
+        if page is None:
+            return PncpItensPageBatch(tuple(pages), False)
+        numeros = {
+            item.get("numeroItem")
+            for item in page.items
+            if isinstance(item.get("numeroItem"), int)
+        }
+        if numeros and numeros <= seen_itens:
+            return PncpItensPageBatch(tuple(pages), False)
+        seen_itens.update(numeros)
+        pages.append(page)
+        if len(page.items) < page.cursor["size"]:
+            return PncpItensPageBatch(tuple(pages), False)
+    return PncpItensPageBatch(tuple(pages), bool(pages))
 
 
 def collect_itens_pages(
@@ -34,33 +139,14 @@ def collect_itens_pages(
     transport=None,
 ) -> list:
     """Todas as páginas de itens, com guarda contra API sem paginação."""
-    pages = []
-    seen_itens: set[int] = set()
-    pagina = 1
-    while pagina <= MAX_ITENS_PAGES:
-        page = fetch_itens_page(
+    return list(
+        collect_itens_batch(
             ano=ano,
             sequencial=sequencial,
-            pagina=pagina,
-            transport=transport,
             logger=logger,
-        )
-        if page is None:
-            break
-        numeros = {
-            item.get("numeroItem")
-            for item in page.items
-            if isinstance(item.get("numeroItem"), int)
-        }
-        if numeros and numeros <= seen_itens:
-            # A API repetiu a página anterior: não há paginação real aqui.
-            break
-        seen_itens.update(numeros)
-        pages.append(page)
-        if len(page.items) < page.cursor["size"]:
-            break
-        pagina += 1
-    return pages
+            transport=transport,
+        ).pages
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -83,56 +169,78 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise RuntimeError(
             "A coleta PNCP requer PERSISTENCE_MODE=postgres-supabase."
         )
-    if (
-        persistence_settings.database_url is None
-        or persistence_settings.supabase_url is None
-        or persistence_settings.supabase_publishable_key is None
-        or persistence_settings.supabase_workload_email is None
-        or persistence_settings.supabase_workload_password is None
-        or persistence_settings.raw_artifacts_bucket is None
-    ):
-        raise RuntimeError("Configuração de nuvem incompleta.")
-    try:
-        from supabase import create_client
-    except ImportError as error:
-        raise RuntimeError(
-            "Instale a dependência opcional 'storage' para coletar."
-        ) from error
-
-    supabase_client = create_client(
-        persistence_settings.supabase_url,
-        persistence_settings.supabase_publishable_key,
-    )
-    try:
-        authentication = supabase_client.auth.sign_in_with_password(
-            {
-                "email": persistence_settings.supabase_workload_email,
-                "password": persistence_settings.supabase_workload_password,
-            }
-        )
-    except Exception as error:
-        raise RuntimeError(
-            "Falha ao autenticar a identidade técnica do Storage."
-        ) from error
-    if authentication.session is None or authentication.user is None:
-        raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
-
+    if persistence_settings.database_url is None:
+        raise RuntimeError("Configuração de banco incompleta.")
     repository = PostgresCollectionRepository.from_dsn(
         persistence_settings.database_url
     )
-    service = PncpComprasPersistenceService(
-        object_store=SupabaseStorageObjectStore(
-            supabase_client.storage.from_(
-                persistence_settings.raw_artifacts_bucket
-            )
-        ),
+    logger = logging.getLogger(__name__)
+    today = datetime.now(MUNICIPAL_TIMEZONE).date()
+    partition_key = "backlog:itens-resultados"
+    control = CollectionControl(
         repository=repository,
+        source_code=SOURCE_CODE,
+        endpoint_code="compras-api",
+        idempotency_key=build_execution_idempotency_key("pncp-itens-resultados"),
+        collector_version=collector_settings.collector_version,
+        parser_version="pncp-itens-resultados/1.0.0",
+        partition_key=partition_key,
+        period_start=today,
+        period_end=today,
     )
 
-    logger = logging.getLogger(__name__)
+    def operation() -> PncpItensCollectionSummary:
+        checkpoint = repository.collection_partition_checkpoint(
+            source_code=SOURCE_CODE,
+            endpoint_code="compras-api",
+            partition_key=partition_key,
+        )
+        start_offset = resolve_checkpoint_offset(checkpoint)
+        service = PncpComprasPersistenceService(
+            object_store=build_authenticated_object_store(persistence_settings),
+            repository=repository,
+        )
+        return _collect_pending(
+            service=service,
+            repository=repository,
+            logger=logger,
+            start_offset=start_offset,
+        )
+
+    summary = execute_controlled_pncp_itens(
+        control=control,
+        operation=operation,
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "collector_pncp_itens_completed",
+        source=SOURCE_CODE,
+        contratacoes=summary.contratacoes_processed,
+        pending_truncated=summary.pending_truncated,
+        item_pages_truncated_controls=list(
+            summary.item_pages_truncated_controls
+        ),
+        itens_inserted=summary.itens_inserted,
+        resultados_inserted=summary.resultados_inserted,
+        start_offset=summary.start_offset,
+        next_offset=summary.next_offset,
+        coverage_status=summary.outcome.value,
+    )
+    return 0
+
+
+def _collect_pending(
+    *,
+    service: PncpComprasPersistenceService,
+    repository: PostgresCollectionRepository,
+    logger: logging.Logger,
+    start_offset: int,
+) -> PncpItensCollectionSummary:
     pending = repository.pncp_pending_itens(
         refresh_days=REFRESH_WINDOW_DAYS,
         limit=MAX_CONTRATACOES_PER_RUN + 1,
+        offset=start_offset,
     )
     truncated = len(pending) > MAX_CONTRATACOES_PER_RUN
     if truncated:
@@ -148,13 +256,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     contratacoes_processed = 0
     itens_inserted = 0
     resultados_inserted = 0
+    item_pages_truncated_controls: list[str] = []
     for control, ano, sequencial in pending:
         itens: list[dict] = []
-        for page in collect_itens_pages(
+        batch = collect_itens_batch(
             ano=ano,
             sequencial=sequencial,
             logger=logger,
-        ):
+        )
+        if batch.truncated:
+            item_pages_truncated_controls.append(control)
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_pncp_itens_pages_truncated",
+                source=SOURCE_CODE,
+                control=control,
+                max_pages=MAX_ITENS_PAGES,
+            )
+        for page in batch.pages:
             result = service.persist_itens(page, control=control)
             itens_inserted += result.inserted_records
             itens.extend(page.items)
@@ -193,17 +313,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             itens=len(itens),
         )
 
-    log_event(
-        logger,
-        logging.INFO,
-        "collector_pncp_itens_completed",
-        source=SOURCE_CODE,
-        contratacoes=contratacoes_processed,
-        pending_truncated=truncated,
+    return PncpItensCollectionSummary(
+        contratacoes_processed=contratacoes_processed,
         itens_inserted=itens_inserted,
         resultados_inserted=resultados_inserted,
+        pending_truncated=truncated,
+        item_pages_truncated_controls=tuple(item_pages_truncated_controls),
+        start_offset=start_offset,
+        next_offset=(
+            start_offset + contratacoes_processed if truncated else 0
+        ),
     )
-    return 0
 
 
 if __name__ == "__main__":

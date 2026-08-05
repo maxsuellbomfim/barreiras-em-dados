@@ -3,18 +3,132 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+from ..collection_control import (
+    CollectionControl,
+    CollectionOutcome,
+    build_execution_idempotency_key,
+)
 from ..connectors.pncp import SOURCE_CODE, fetch_contratos_page
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import PncpComprasPersistenceService
-from ..persistence.storage import SupabaseStorageObjectStore
 from ..settings import CollectorSettings, PersistenceSettings
+from .pncp_runtime import (
+    build_authenticated_object_store,
+    resolve_checkpoint_offset,
+)
 
 REFRESH_WINDOW_DAYS = 120
 MAX_CONTRATACOES_PER_RUN = 50
+MAX_CONTRATOS_PAGES = 30
+MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
+
+
+@dataclass(frozen=True)
+class PncpContratosPageBatch:
+    pages: tuple
+    truncated: bool
+
+
+@dataclass(frozen=True)
+class PncpContratosCollectionSummary:
+    contratacoes_processed: int
+    pages: int
+    inserted_records: int
+    existing_records: int
+    pending_truncated: bool
+    contract_pages_truncated_controls: tuple[str, ...]
+    start_offset: int
+    next_offset: int
+
+    @property
+    def observed_records(self) -> int:
+        return self.contratacoes_processed
+
+    @property
+    def outcome(self) -> CollectionOutcome:
+        if self.pending_truncated or self.contract_pages_truncated_controls:
+            return CollectionOutcome.PARTIAL
+        if self.observed_records == 0:
+            return CollectionOutcome.EMPTY
+        return CollectionOutcome.COMPLETE
+
+
+def execute_controlled_pncp_contratos(
+    *,
+    control: CollectionControl,
+    operation: Callable[[], PncpContratosCollectionSummary],
+) -> PncpContratosCollectionSummary:
+    """Controla o backlog de contratos desde antes da autenticação."""
+    with control:
+        summary = operation()
+        control.complete(
+            outcome=summary.outcome,
+            observed_records=summary.observed_records,
+            checkpoint={
+                "pending_truncated": summary.pending_truncated,
+                "contract_pages_truncated_controls": list(
+                    summary.contract_pages_truncated_controls
+                ),
+                "next_offset": summary.next_offset,
+            },
+            metrics={
+                "contratacoes_processed": summary.contratacoes_processed,
+                "pages": summary.pages,
+                "inserted_records": summary.inserted_records,
+                "existing_records": summary.existing_records,
+                "pending_truncated": summary.pending_truncated,
+                "start_offset": summary.start_offset,
+                "contract_pages_truncated_controls": list(
+                    summary.contract_pages_truncated_controls
+                ),
+            },
+        )
+    return summary
+
+
+def collect_contratos_batch(
+    *,
+    ano: int,
+    sequencial: int,
+    logger: logging.Logger,
+    transport=None,
+) -> PncpContratosPageBatch:
+    """Percorre contratos e informa quando o teto impede confirmar o fim."""
+    pages = []
+    list_page_hashes: set[str] = set()
+    for pagina in range(1, MAX_CONTRATOS_PAGES + 1):
+        page = fetch_contratos_page(
+            ano=ano,
+            sequencial=sequencial,
+            pagina=pagina,
+            logger=logger,
+            transport=transport,
+        )
+        if page is None:
+            return PncpContratosPageBatch(tuple(pages), False)
+        try:
+            root = json.loads(page.raw_body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            root = None
+        paginated_root = isinstance(root, dict)
+        if not paginated_root and page.body_sha256 in list_page_hashes:
+            return PncpContratosPageBatch(tuple(pages), False)
+        if not paginated_root:
+            list_page_hashes.add(page.body_sha256)
+        pages.append(page)
+        if paginated_root and pagina >= page.total_paginas:
+            return PncpContratosPageBatch(tuple(pages), False)
+        if not paginated_root and len(page.items) < page.cursor["size"]:
+            return PncpContratosPageBatch(tuple(pages), False)
+    return PncpContratosPageBatch(tuple(pages), bool(pages))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -35,57 +149,79 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     if persistence_settings.mode != "postgres-supabase":
         raise RuntimeError("A coleta PNCP requer PERSISTENCE_MODE=postgres-supabase.")
-    if (
-        persistence_settings.database_url is None
-        or persistence_settings.supabase_url is None
-        or persistence_settings.supabase_publishable_key is None
-        or persistence_settings.supabase_workload_email is None
-        or persistence_settings.supabase_workload_password is None
-        or persistence_settings.raw_artifacts_bucket is None
-    ):
-        raise RuntimeError("Configuração de nuvem incompleta.")
-    try:
-        from supabase import create_client
-    except ImportError as error:
-        raise RuntimeError(
-            "Instale a dependência opcional 'storage' para coletar."
-        ) from error
-
-    supabase_client = create_client(
-        persistence_settings.supabase_url,
-        persistence_settings.supabase_publishable_key,
-    )
-    try:
-        authentication = supabase_client.auth.sign_in_with_password(
-            {
-                "email": persistence_settings.supabase_workload_email,
-                "password": persistence_settings.supabase_workload_password,
-            }
-        )
-    except Exception as error:
-        raise RuntimeError(
-            "Falha ao autenticar a identidade técnica do Storage."
-        ) from error
-    if authentication.session is None or authentication.user is None:
-        raise RuntimeError(
-            "O Storage não forneceu uma sessão autenticada."
-        )
-
+    if persistence_settings.database_url is None:
+        raise RuntimeError("Configuração de banco incompleta.")
     repository = PostgresCollectionRepository.from_dsn(
         persistence_settings.database_url
     )
-    service = PncpComprasPersistenceService(
-        object_store=SupabaseStorageObjectStore(
-            supabase_client.storage.from_(
-                persistence_settings.raw_artifacts_bucket
-            )
-        ),
-        repository=repository,
-    )
     logger = logging.getLogger(__name__)
+    today = datetime.now(MUNICIPAL_TIMEZONE).date()
+    partition_key = "backlog:contratos"
+    control = CollectionControl(
+        repository=repository,
+        source_code=SOURCE_CODE,
+        endpoint_code="contratos-api",
+        idempotency_key=build_execution_idempotency_key("pncp-contratos"),
+        collector_version=collector_settings.collector_version,
+        parser_version="pncp-contratos/1.0.0",
+        partition_key=partition_key,
+        period_start=today,
+        period_end=today,
+    )
+
+    def operation() -> PncpContratosCollectionSummary:
+        checkpoint = repository.collection_partition_checkpoint(
+            source_code=SOURCE_CODE,
+            endpoint_code="contratos-api",
+            partition_key=partition_key,
+        )
+        start_offset = resolve_checkpoint_offset(checkpoint)
+        service = PncpComprasPersistenceService(
+            object_store=build_authenticated_object_store(persistence_settings),
+            repository=repository,
+        )
+        return _collect_pending(
+            service=service,
+            repository=repository,
+            logger=logger,
+            start_offset=start_offset,
+        )
+
+    summary = execute_controlled_pncp_contratos(
+        control=control,
+        operation=operation,
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "collector_pncp_contratos_completed",
+        source=SOURCE_CODE,
+        contratacoes=summary.contratacoes_processed,
+        pages=summary.pages,
+        pending_truncated=summary.pending_truncated,
+        contract_pages_truncated_controls=list(
+            summary.contract_pages_truncated_controls
+        ),
+        inserted_records=summary.inserted_records,
+        existing_records=summary.existing_records,
+        start_offset=summary.start_offset,
+        next_offset=summary.next_offset,
+        coverage_status=summary.outcome.value,
+    )
+    return 0
+
+
+def _collect_pending(
+    *,
+    service: PncpComprasPersistenceService,
+    repository: PostgresCollectionRepository,
+    logger: logging.Logger,
+    start_offset: int,
+) -> PncpContratosCollectionSummary:
     pending = repository.pncp_pending_contratos(
         refresh_days=REFRESH_WINDOW_DAYS,
         limit=MAX_CONTRATACOES_PER_RUN + 1,
+        offset=start_offset,
     )
     truncated = len(pending) > MAX_CONTRATACOES_PER_RUN
     if truncated:
@@ -102,13 +238,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     pages_persisted = 0
     records_inserted = 0
     records_existing = 0
+    contract_pages_truncated_controls: list[str] = []
     for control, ano, sequencial in pending:
-        page = fetch_contratos_page(
+        batch = collect_contratos_batch(
             ano=ano,
             sequencial=sequencial,
             logger=logger,
         )
-        if page is None:
+        if not batch.pages:
             processed += 1
             log_event(
                 logger,
@@ -118,34 +255,47 @@ def main(argv: Sequence[str] | None = None) -> int:
                 control=control,
             )
             continue
-        result = service.persist_contratos(page, control=control)
-        pages_persisted += 1
-        records_inserted += result.inserted_records
-        records_existing += result.existing_records
+        if batch.truncated:
+            contract_pages_truncated_controls.append(control)
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_pncp_contratos_pages_truncated",
+                source=SOURCE_CODE,
+                control=control,
+                max_pages=MAX_CONTRATOS_PAGES,
+            )
+        for page in batch.pages:
+            result = service.persist_contratos(page, control=control)
+            pages_persisted += 1
+            records_inserted += result.inserted_records
+            records_existing += result.existing_records
+            log_event(
+                logger,
+                logging.INFO,
+                "collector_pncp_contratos_persisted",
+                source=SOURCE_CODE,
+                control=control,
+                pagina=page.cursor["pagina"],
+                total_paginas=page.total_paginas,
+                records=len(page.items),
+                inserted_records=result.inserted_records,
+                existing_records=result.existing_records,
+            )
         processed += 1
-        log_event(
-            logger,
-            logging.INFO,
-            "collector_pncp_contratos_persisted",
-            source=SOURCE_CODE,
-            control=control,
-            records=len(page.items),
-            inserted_records=result.inserted_records,
-            existing_records=result.existing_records,
-        )
 
-    log_event(
-        logger,
-        logging.INFO,
-        "collector_pncp_contratos_completed",
-        source=SOURCE_CODE,
-        contratacoes=processed,
+    return PncpContratosCollectionSummary(
+        contratacoes_processed=processed,
         pages=pages_persisted,
-        pending_truncated=truncated,
         inserted_records=records_inserted,
         existing_records=records_existing,
+        pending_truncated=truncated,
+        contract_pages_truncated_controls=tuple(
+            contract_pages_truncated_controls
+        ),
+        start_offset=start_offset,
+        next_offset=(start_offset + processed if truncated else 0),
     )
-    return 0
 
 
 if __name__ == "__main__":

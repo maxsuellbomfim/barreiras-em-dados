@@ -27,7 +27,12 @@ Cada coleta registra:
 Além do manifesto bruto, a partição lógica registra período, quantidade
 observada, checkpoint e um estado explícito: `complete`, `empty`, `partial`,
 `failed` ou `blocked`. Limite operacional não significa cobertura completa;
-zero linhas só significa vazio quando a consulta terminou normalmente.
+zero linhas só significa vazio quando a consulta terminou normalmente. No
+PNCP, tetos de backlog ou paginação de itens e contratos produzem `partial` e
+registram quais contratações precisam continuar. Uma releitura idempotente sem
+novas inserções não é confundida com ausência de dados. O cursor de backlog
+evita que as primeiras 50 contratações impeçam indefinidamente a visita das
+demais.
 Checkpoints são consumidos somente por workers autorizados. Retomadas automáticas
 aceitam cursores tipados e não negativos; valor inválido reinicia a paginação de
 forma segura, e uma intervenção explícita do operador prevalece sobre o cursor.
