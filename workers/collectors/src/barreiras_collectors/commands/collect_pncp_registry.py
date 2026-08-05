@@ -21,7 +21,7 @@ from ..connectors.pncp import (
 )
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
-from ..persistence.service import PncpRegistryPersistenceService
+from ..persistence.service import PNCP_COLLECTOR_VERSION, PncpRegistryPersistenceService
 from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import build_authenticated_object_store
 
@@ -99,7 +99,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_code=SOURCE_CODE,
         endpoint_code="registry-api",
         idempotency_key=build_execution_idempotency_key("pncp-registry"),
-        collector_version=collector_settings.collector_version,
+        collector_version=PNCP_COLLECTOR_VERSION,
         parser_version="pncp-registry/1.0.0",
         partition_key="registry:current",
         period_start=today,

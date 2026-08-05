@@ -18,7 +18,7 @@ from ..collection_control import (
 from ..connectors.pncp import SOURCE_CODE, fetch_contratos_page
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
-from ..persistence.service import PncpComprasPersistenceService
+from ..persistence.service import PNCP_COLLECTOR_VERSION, PncpComprasPersistenceService
 from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import (
     build_authenticated_object_store,
@@ -162,7 +162,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_code=SOURCE_CODE,
         endpoint_code="contratos-api",
         idempotency_key=build_execution_idempotency_key("pncp-contratos"),
-        collector_version=collector_settings.collector_version,
+        collector_version=PNCP_COLLECTOR_VERSION,
         parser_version="pncp-contratos/1.0.0",
         partition_key=partition_key,
         period_start=today,

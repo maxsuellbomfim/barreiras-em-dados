@@ -21,7 +21,10 @@ from ..connectors.pncp import (
 )
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
-from ..persistence.service import PncpContratacoesPersistenceService
+from ..persistence.service import (
+    PNCP_COLLECTOR_VERSION,
+    PncpContratacoesPersistenceService,
+)
 from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import build_authenticated_object_store
 
@@ -169,7 +172,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_code=SOURCE_CODE,
         endpoint_code="consulta-contratacoes",
         idempotency_key=build_execution_idempotency_key("pncp-contratacoes"),
-        collector_version=collector_settings.collector_version,
+        collector_version=PNCP_COLLECTOR_VERSION,
         parser_version="pncp-contratacao-page/1.0.0",
         partition_key=(
             f"published:{period_start.isoformat()}:{period_end.isoformat()}"

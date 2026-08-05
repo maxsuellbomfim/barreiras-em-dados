@@ -24,7 +24,7 @@ from ..http import ResponseTooLargeError
 from ..logging import log_event
 from ..persistence.filesystem import FilesystemCollectionRepository
 from ..persistence.postgres import PostgresCollectionRepository
-from ..persistence.service import QueridoDiarioPersistenceService
+from ..persistence.service import COLLECTOR_VERSION, QueridoDiarioPersistenceService
 from ..persistence.storage import (
     FilesystemArtifactObjectStore,
     SupabaseStorageObjectStore,
@@ -158,7 +158,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             source_code="querido-diario",
             endpoint_code="gazettes-api",
             idempotency_key=build_execution_idempotency_key("querido-diario"),
-            collector_version=collector_settings.collector_version,
+            collector_version=COLLECTOR_VERSION,
             parser_version="querido-diario-gazette-page/1.0.0",
             partition_key=(
                 f"published:{arguments.since.isoformat()}:{arguments.until.isoformat()}"

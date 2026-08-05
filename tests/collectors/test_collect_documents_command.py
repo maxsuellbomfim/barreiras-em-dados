@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,6 +18,7 @@ from barreiras_collectors.connectors.gazette_documents import (
 )
 from barreiras_collectors.connectors.querido_diario import QueridoDiarioClient
 from barreiras_collectors.http import HttpResponse, ResponseTooLargeError
+from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
 ROOT = Path(__file__).parents[2]
 FIXTURE_PATH = ROOT / "fixtures" / "sources" / "querido_diario" / "gazettes-page-1.json"
@@ -182,6 +184,65 @@ class CollectDocumentsCommandTests(unittest.TestCase):
 
 
 class ControlledQueridoDiarioTests(unittest.TestCase):
+    def test_cloud_control_uses_the_source_collector_version(self) -> None:
+        captured: dict[str, object] = {}
+        collector_settings = CollectorSettings.from_env({"APP_ENV": "test"})
+        workload_password = secrets.token_urlsafe(24)
+        persistence_settings = PersistenceSettings(
+            mode="postgres-supabase",
+            local_data_directory=None,
+            database_url="postgresql://collector@example/postgres?sslmode=require",
+            supabase_url="https://project.supabase.co",
+            supabase_publishable_key="sb_publishable_test",
+            supabase_workload_email="collector@example.org",
+            supabase_workload_password=workload_password,
+            raw_artifacts_bucket="raw-artifacts",
+        )
+
+        def execute(*, control, operation):
+            del operation
+            captured["collector_version"] = control.collector_version
+            return QueridoDiarioCollectionSummary(
+                pages=1,
+                inserted_records=1,
+                existing_records=0,
+                documents_persisted=1,
+                documents_skipped=0,
+                documents_failed=0,
+            )
+
+        with (
+            patch.object(
+                collect_querido_diario.CollectorSettings,
+                "from_env",
+                return_value=collector_settings,
+            ),
+            patch.object(
+                collect_querido_diario.PersistenceSettings,
+                "from_env",
+                return_value=persistence_settings,
+            ),
+            patch.object(
+                collect_querido_diario.PostgresCollectionRepository,
+                "from_dsn",
+                return_value=object(),
+            ),
+            patch.object(
+                collect_querido_diario,
+                "execute_controlled_querido_diario",
+                side_effect=execute,
+            ),
+        ):
+            exit_code = collect_querido_diario.main(
+                ["--since", "2026-02-04", "--until", "2026-02-10"]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            captured["collector_version"],
+            "querido-diario-collector/0.1.0",
+        )
+
     def test_starts_before_setup_and_records_complete_window(self) -> None:
         events: list[str] = []
 

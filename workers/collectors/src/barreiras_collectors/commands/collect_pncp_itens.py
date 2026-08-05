@@ -21,7 +21,7 @@ from ..connectors.pncp import (
 )
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
-from ..persistence.service import PncpComprasPersistenceService
+from ..persistence.service import PNCP_COLLECTOR_VERSION, PncpComprasPersistenceService
 from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import (
     build_authenticated_object_store,
@@ -182,7 +182,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_code=SOURCE_CODE,
         endpoint_code="compras-api",
         idempotency_key=build_execution_idempotency_key("pncp-itens-resultados"),
-        collector_version=collector_settings.collector_version,
+        collector_version=PNCP_COLLECTOR_VERSION,
         parser_version="pncp-itens-resultados/1.0.0",
         partition_key=partition_key,
         period_start=today,
