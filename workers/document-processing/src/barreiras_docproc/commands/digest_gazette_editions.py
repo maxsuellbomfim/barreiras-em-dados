@@ -22,7 +22,6 @@ from ..assist import (
 from ..candidates import defragment
 from ..digest import (
     ANCHOR_VERIFIER_VERSION,
-    DETERMINISTIC_DIGEST_VERSION,
     DIGEST_PROMPT_VERSION,
     MAX_CHUNKS_PER_EDITION,
     build_digest_messages,
@@ -43,6 +42,7 @@ LOCAL_RATIONALE = (
     "Resumo por regras determinísticas, sem IA: cada item foi derivado de um "
     "candidato de ato de pessoal e preserva uma âncora do texto oficial."
 )
+LOCAL_DIGEST_VERSION = "edition-digest-deterministic/1.0.0"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -222,7 +222,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
             ),
             providers=providers,
             prompt_version=(
-                DETERMINISTIC_DIGEST_VERSION
+                LOCAL_DIGEST_VERSION
                 if providers == ["local-deterministic"]
                 else DIGEST_PROMPT_VERSION
             ),
@@ -231,7 +231,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
             artifact_id=artifact["artifact_id"],
             job_idempotency_key=job_idempotency_key(artifact["sha256"]),
             extractor_version=(
-                DETERMINISTIC_DIGEST_VERSION
+                LOCAL_DIGEST_VERSION
                 if providers == ["local-deterministic"]
                 else DIGEST_PROMPT_VERSION
             ),

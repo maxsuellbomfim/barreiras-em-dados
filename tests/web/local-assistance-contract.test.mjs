@@ -29,6 +29,6 @@ test("cota esgotada mantém explicação factual local e auditável", async () =
 test("Diário local só resume atos reconhecidos e marca cobertura parcial", async () => {
   const command = await readFile(digestCommand, "utf8");
   assert.match(command, /deterministic_digest_items/);
-  assert.match(command, /DETERMINISTIC_DIGEST_VERSION/);
+  assert.match(command, /LOCAL_DIGEST_VERSION/);
   assert.match(command, /providers == \["local-deterministic"\]/);
 });
