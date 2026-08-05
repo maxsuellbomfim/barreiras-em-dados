@@ -17,7 +17,8 @@ from .assist import ContractViolationError, _parse_content
 from .verify import value_in_excerpt
 
 DIGEST_PROMPT_VERSION = "edition-digest/1.0.0"
-DETERMINISTIC_DIGEST_VERSION = "edition-digest-deterministic/1.0.0"
+DETERMINISTIC_DIGEST_VERSION = "edition-digest-deterministic/1.1.0"
+DIGEST_PIPELINE_VERSION = "edition-digest-pipeline/1.1.0"
 ANCHOR_VERIFIER_VERSION = "edition-digest-anchor-check/1.0.0"
 ITEM_TYPES = frozenset(
     {
@@ -335,5 +336,5 @@ def job_idempotency_key(sha256: str) -> str:
     import hashlib
 
     return hashlib.sha256(
-        f"edition-digest:{sha256}:{DIGEST_PROMPT_VERSION}".encode()
+        f"edition-digest:{sha256}:{DIGEST_PIPELINE_VERSION}".encode()
     ).hexdigest()
