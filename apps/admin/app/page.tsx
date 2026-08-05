@@ -23,6 +23,7 @@ type QueueItem = Readonly<{
   assisted_payload?: {
     provider?: string;
     model?: string;
+    fallback_kind?: string | null;
     summary?: string | null;
     clean_text?: string | null;
     suggestions?: Record<string, string | null>;
@@ -465,7 +466,9 @@ function AliasSuggestionCard({
       </div>
       <p>
         Aparece em <strong>{item.item_count.toLocaleString("pt-BR")}</strong>{" "}
-        registro(s) da Câmara. A IA respondeu com {item.provider}/{item.model}.
+        registro(s) da Câmara. {item.provider === "local"
+          ? "A triagem foi feita por regras locais; a decisão continua humana."
+          : `A IA respondeu com ${item.provider}/${item.model}.`}
       </p>
       <dl>
         <div>
@@ -573,8 +576,9 @@ function ReviewCard({
           <p className="act-reading-head">
             O que está escrito no ato
             <span>
-              recomposto por IA ({item.assisted_payload.provider}) a partir do
-              texto oficial — confira no original antes de decidir
+              {item.assisted_payload.fallback_kind === "deterministic-rules"
+                ? "recomposto por regras determinísticas (sem IA) a partir do texto oficial"
+                : `recomposto por IA (${item.assisted_payload.provider}) a partir do texto oficial`} — confira no original antes de decidir
             </span>
           </p>
           <p className="act-reading-body">
@@ -586,7 +590,7 @@ function ReviewCard({
           <p className="act-reading-head">
             Leitura assistida indisponível
             <span>
-              A IA ainda não recompôs este ato. O texto abaixo é o extraído do
+              Nenhuma assistência recompôs este ato. O texto abaixo é o extraído do
               PDF e pode vir fragmentado.
             </span>
           </p>
@@ -599,9 +603,14 @@ function ReviewCard({
         </p>
       ) : null}
       <FieldList payload={item.result_payload} />
-      {item.assisted_payload?.suggestions ? (
+      {item.assisted_payload?.suggestions &&
+      Object.values(item.assisted_payload.suggestions).some(Boolean) ? (
         <details className="assisted">
-          <summary>Sugestões de campo pela IA (confira antes de usar)</summary>
+          <summary>
+            {item.assisted_payload.provider === "local-deterministic"
+              ? "Campos sugeridos por regras locais (confira antes de usar)"
+              : "Sugestões de campo pela IA (confira antes de usar)"}
+          </summary>
           <dl>
             {Object.entries(FIELD_LABELS).map(([key, label]) => {
               const value = item.assisted_payload?.suggestions?.[key];

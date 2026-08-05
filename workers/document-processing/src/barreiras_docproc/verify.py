@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-VERIFIER_VERSION = "gazette-act-verifier/2.1.0"
+VERIFIER_VERSION = "gazette-act-verifier/2.2.0"
 # Sem estes verificados, nada é publicado automaticamente.
 REQUIRED_FIELDS = ("person_name", "act_number", "act_date", "position")
 OPTIONAL_FIELDS = ("position_symbol", "organization")
@@ -67,7 +67,13 @@ def value_in_excerpt(value: str, excerpt: str) -> bool:
     normalized_value = _normalize(value)
     if not normalized_value:
         return False
-    return normalized_value in _normalize(excerpt)
+    normalized_excerpt = _normalize(excerpt)
+    # Evita aceitar um número/nome que seja apenas substring de outro token
+    # (por exemplo, 205 dentro de 1205), sem perder pontuação do documento.
+    return re.search(
+        rf"(?<![a-z0-9]){re.escape(normalized_value)}(?![a-z0-9])",
+        normalized_excerpt,
+    ) is not None
 
 
 def date_in_excerpt(iso_value: str, excerpt: str) -> bool:

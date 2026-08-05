@@ -12,6 +12,7 @@ from barreiras_collectors.logging import log_event
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
 from ..assist import (
+    AttemptRecord,
     PROVIDERS,
     CascadeUnavailableError,
     ContractViolationError,
@@ -22,10 +23,12 @@ from ..candidates import defragment
 from ..digest import (
     ANCHOR_VERIFIER_VERSION,
     DIGEST_PROMPT_VERSION,
+    DETERMINISTIC_DIGEST_VERSION,
     MAX_CHUNKS_PER_EDITION,
     build_digest_messages,
     chunk_text,
     digest_payload,
+    deterministic_digest_items,
     job_idempotency_key,
     parse_digest_items,
 )
@@ -35,6 +38,10 @@ RATIONALE = (
     "Resumo por edição publicado automaticamente: cada item tem citação "
     f"literal conferida no texto oficial pelo {ANCHOR_VERIFIER_VERSION} "
     "(ADR 0013); itens sem âncora foram descartados."
+)
+LOCAL_RATIONALE = (
+    "Resumo por regras determinísticas, sem IA: cada item foi derivado de um "
+    "candidato de ato de pessoal e preserva uma âncora do texto oficial."
 )
 
 
@@ -95,9 +102,8 @@ def _run(argv: Sequence[str] | None = None) -> int:
             logger,
             logging.WARNING,
             "digest_cascade_unavailable",
-            reason="no_keys_configured",
+            reason="no_keys_configured_local_fallback_enabled",
         )
-        return 0
     if persistence_settings.database_url is None:
         raise RuntimeError(
             "O resumo por edição requer PERSISTENCE_MODE=postgres-supabase."
@@ -117,6 +123,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
 
     digested = 0
     attempts: list = []
+    cascade_disabled = not available
     for artifact in repository.pending_digest_artifacts(
         arguments.limit,
         job_idempotency_key,
@@ -137,6 +144,8 @@ def _run(argv: Sequence[str] | None = None) -> int:
         items_dropped = 0
         cascade_exhausted = False
         for chunk in chunks:
+            if cascade_disabled:
+                break
             try:
                 provider, _model, content = run_cascade_content(
                     caller,
@@ -164,18 +173,30 @@ def _run(argv: Sequence[str] | None = None) -> int:
             items.extend(accepted)
             items_dropped += dropped
 
-        if cascade_exhausted:
-            # Sem provedores agora: nada é persistido e a edição volta na
-            # próxima execução — estado explícito, não meio-resumo.
+        if cascade_exhausted or cascade_disabled:
+            cascade_disabled = True
+            items = deterministic_digest_items(text)
+            providers = ["local-deterministic"]
+            attempts.append(
+                AttemptRecord(
+                    "local-deterministic",
+                    "digest-rules-v1",
+                    "fallback_succeeded",
+                    None,
+                    "external_provider_unavailable",
+                )
+            )
+            # O recorte local é deliberadamente parcial: o documento integral
+            # continua preservado e itens não reconhecidos não são inventados.
             log_event(
                 logger,
                 logging.WARNING,
-                "digest_cascade_unavailable",
+                "digest_local_fallback_used",
                 reason="all_levels_exhausted",
                 edition=artifact["edition"],
+                items=len(items),
                 digested=digested,
             )
-            break
 
         if not items:
             log_event(
@@ -194,20 +215,33 @@ def _run(argv: Sequence[str] | None = None) -> int:
             chunks_total=len(chunks),
             chunks_failed=chunks_failed,
             items_dropped=items_dropped,
-            partial=partial or chunks_failed > 0,
+            partial=partial or chunks_failed > 0 or providers == ["local-deterministic"],
             providers=providers,
+            prompt_version=(
+                DETERMINISTIC_DIGEST_VERSION
+                if providers == ["local-deterministic"]
+                else DIGEST_PROMPT_VERSION
+            ),
         )
         result_id = repository.persist_digest(
             artifact_id=artifact["artifact_id"],
             job_idempotency_key=job_idempotency_key(artifact["sha256"]),
-            extractor_version=DIGEST_PROMPT_VERSION,
+            extractor_version=(
+                DETERMINISTIC_DIGEST_VERSION
+                if providers == ["local-deterministic"]
+                else DIGEST_PROMPT_VERSION
+            ),
             payload=payload,
         )
         if result_id is None:
             continue
         repository.record_automated_review(
             result_id=result_id,
-            rationale=RATIONALE,
+            rationale=(
+                LOCAL_RATIONALE
+                if providers == ["local-deterministic"]
+                else RATIONALE
+            ),
             verification={
                 "verifier": ANCHOR_VERIFIER_VERSION,
                 "items_total": len(items),

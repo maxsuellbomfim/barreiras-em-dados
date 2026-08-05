@@ -23,6 +23,13 @@ const aliasAssist = await readFile(
   ),
   "utf8",
 );
+const aliasCommand = await readFile(
+  new URL(
+    "../../workers/document-processing/src/barreiras_docproc/commands/suggest_representative_aliases.py",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("aliases de representantes ficam pendentes e auditáveis", () => {
   assert.match(migration, /representative_alias_suggestions/);
@@ -40,3 +47,10 @@ test("a cascata de aliases usa mundo fechado e não publica", () => {
   assert.match(workflow, /sem publicação automática/);
 });
 
+test("cota esgotada usa regras locais e continua pendente", () => {
+  assert.match(aliasAssist, /classify_alias_deterministically/);
+  assert.match(aliasAssist, /first_and_surname/);
+  assert.match(aliasCommand, /using_local_rules/);
+  assert.match(aliasCommand, /provider = "local"/);
+  assert.match(aliasCommand, /persist_suggestion/);
+});

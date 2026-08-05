@@ -4,6 +4,8 @@ from unittest.mock import patch
 
 from barreiras_docproc.alias_assist import (
     build_alias_messages,
+    classify_alias_deterministically,
+    name_match_signals,
     normalize_name,
     parse_alias_response,
     rank_candidates,
@@ -37,6 +39,64 @@ class AliasAssistTests(unittest.TestCase):
             {candidate["representative_external_id"] for candidate in ranked},
             {candidate["representative_external_id"] for candidate in CANDIDATES},
         )
+
+    def test_parenthetical_name_is_a_signal_not_published_text(self):
+        signals = name_match_signals(
+            "Allan Kardec (Allan do Allanbick)",
+            CANDIDATES[0],
+        )
+        self.assertTrue(signals["first_and_surname"])
+        self.assertIn("KARDEC", signals["surname_overlap"])
+        result = classify_alias_deterministically(
+            "Allan Kardec (Allan do Allanbick)",
+            CANDIDATES,
+        )
+        self.assertEqual(result["decision"], "match")
+        self.assertEqual(
+            result["candidate_external_id"],
+            "cm-barreiras:vereador:allan",
+        )
+        self.assertEqual(result["alias_kind"], "ballot_name")
+        self.assertLess(result["confidence"], 0.8)
+
+    def test_nickname_without_name_base_does_not_identify_a_person(self):
+        result = classify_alias_deterministically("Allan do Allanbick", CANDIDATES)
+        self.assertEqual(result["decision"], "ambiguous")
+        self.assertIsNone(result["candidate_external_id"])
+
+    def test_case_variants_are_classified_without_accepting_them(self):
+        result = classify_alias_deterministically(
+            "silma rocha alves",
+            [
+                {
+                    "representative_external_id": "cm-barreiras:vereador:silma",
+                    "canonical_name": "SILMA ROCHA ALVES",
+                }
+            ],
+        )
+        self.assertEqual(result["decision"], "match")
+        self.assertEqual(result["alias_kind"], "case_variant")
+        self.assertEqual(
+            result["validator_version"],
+            "representative-alias-literal-safe/1.0.0",
+        )
+
+    def test_equal_first_and_surname_remains_ambiguous(self):
+        result = classify_alias_deterministically(
+            "Maria Silva",
+            [
+                {
+                    "representative_external_id": "cm-barreiras:vereador:one",
+                    "canonical_name": "MARIA SILVA SOUZA",
+                },
+                {
+                    "representative_external_id": "cm-barreiras:vereador:two",
+                    "canonical_name": "MARIA SILVA SANTOS",
+                },
+            ],
+        )
+        self.assertEqual(result["decision"], "ambiguous")
+        self.assertIsNone(result["candidate_external_id"])
 
     def test_prompt_is_closed_world_and_review_only(self):
         messages = build_alias_messages(

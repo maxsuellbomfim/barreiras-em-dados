@@ -54,6 +54,245 @@ def candidate_tokens(value: str) -> frozenset[str]:
     )
 
 
+def _name_parts(value: str, *, strip_parenthetical: bool = False) -> tuple[str, ...]:
+    """Retorna partes de nome para triagem, sem alterar o texto publicado.
+
+    Conteúdo entre parênteses costuma ser nome de urna, apelido ou partido.
+    Ele é mantido como sinal separado; nunca é descartado do registro de
+    origem nem usado sozinho para aceitar um vínculo.
+    """
+
+    text = value
+    if strip_parenthetical:
+        text = re.sub(r"\([^)]*\)", " ", text)
+    return tuple(
+        token
+        for token in normalize_name(text).split()
+        if len(token) >= 2 and token not in _STOPWORDS
+    )
+
+
+def _parenthetical_parts(value: str) -> tuple[str, ...]:
+    return tuple(
+        normalized
+        for normalized in (
+            normalize_name(match)
+            for match in re.findall(r"\(([^)]*)\)", value)
+        )
+        if normalized
+    )
+
+
+def name_match_signals(
+    observed_name: str,
+    candidate: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Calcula sinais explicáveis para ordenar uma hipótese de alias.
+
+    A função é deliberadamente fechada no conjunto de candidatos oficiais. O
+    sinal ``first_and_surname`` é apenas uma boa pista (primeiro nome e pelo
+    menos um sobrenome em comum), não uma prova de identidade.
+    """
+
+    canonical = str(candidate.get("canonical_name") or "").strip()
+    observed_normalized = normalize_name(observed_name)
+    canonical_normalized = normalize_name(canonical)
+    observed_base = normalize_name(
+        re.sub(r"\([^)]*\)", " ", observed_name)
+    )
+    canonical_base = normalize_name(
+        re.sub(r"\([^)]*\)", " ", canonical)
+    )
+    observed_parts = _name_parts(observed_name, strip_parenthetical=True)
+    canonical_parts = _name_parts(canonical, strip_parenthetical=True)
+    observed_aliases = set(_parenthetical_parts(observed_name))
+    candidate_aliases: set[str] = set()
+    for key in ("ballot_name", "alias_text", "nickname"):
+        value = str(candidate.get(key) or "").strip()
+        if value:
+            candidate_aliases.add(normalize_name(value))
+
+    first_and_surname = False
+    surname_overlap: frozenset[str] = frozenset()
+    if len(observed_parts) >= 2 and len(canonical_parts) >= 2:
+        surname_overlap = frozenset(observed_parts[1:]) & frozenset(
+            canonical_parts[1:]
+        )
+        first_and_surname = (
+            observed_parts[0] == canonical_parts[0]
+            and bool(surname_overlap)
+        )
+    parenthetical_match = bool(observed_aliases & candidate_aliases)
+    exact_normalized = bool(observed_normalized) and (
+        observed_normalized == canonical_normalized
+    )
+    base_normalized = bool(observed_base) and (observed_base == canonical_base)
+    token_overlap = len(candidate_tokens(observed_name) & candidate_tokens(canonical))
+
+    # Pontuação é somente para ordenar a lista fechada enviada à revisão.
+    # Distâncias fortes ficam bem acima do simples número de tokens comuns.
+    if exact_normalized:
+        score = 100
+    elif base_normalized:
+        score = 96
+    elif parenthetical_match:
+        score = 90
+    elif first_and_surname:
+        score = 72
+    else:
+        score = min(token_overlap, 5)
+    score += min(len(surname_overlap), 2)
+    return {
+        "score": score,
+        "exact_normalized": exact_normalized,
+        "base_normalized": base_normalized,
+        "parenthetical_match": parenthetical_match,
+        "first_and_surname": first_and_surname,
+        "surname_overlap": tuple(sorted(surname_overlap)),
+        "token_overlap": token_overlap,
+    }
+
+
+def _variant_kind(observed_name: str, canonical_name: str) -> str:
+    if observed_name.strip() == canonical_name.strip():
+        return "other"
+    observed_casefold = " ".join(observed_name.split()).casefold()
+    canonical_casefold = " ".join(canonical_name.split()).casefold()
+    return (
+        "case_variant"
+        if observed_casefold == canonical_casefold
+        else "spacing_variant"
+    )
+
+
+def classify_alias_deterministically(
+    observed_name: str,
+    candidates: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Produz uma hipótese local, sempre adequada a ``status=pending``.
+
+    A regra aceita como *match de revisão* somente uma correspondência exata,
+    uma correspondência do nome-base sem parênteses ou um único candidato com
+    primeiro nome e sobrenome em comum. O último caso recebe confiança menor e
+    rationale explícito. Empates permanecem ambíguos e sem ID.
+    """
+
+    if not observed_name.strip() or not candidates:
+        return {
+            "decision": "ambiguous",
+            "candidate_external_id": None,
+            "alias_kind": "other",
+            "confidence": 0.0,
+            "rationale": "Não há nome observado ou candidatos oficiais suficientes.",
+            "evidence": ["triagem local sem decisão de identidade"],
+            "validator_version": ALIAS_ASSIST_VALIDATOR_VERSION,
+        }
+
+    scored = [
+        (name_match_signals(observed_name, candidate), candidate)
+        for candidate in candidates
+    ]
+    scored.sort(
+        key=lambda pair: (
+            int(pair[0]["score"]),
+            str(pair[1].get("representative_external_id") or ""),
+        ),
+        reverse=True,
+    )
+    top_signals, top_candidate = scored[0]
+    top_score = int(top_signals["score"])
+    strong = [
+        pair
+        for pair in scored
+        if pair[0]["exact_normalized"]
+        or pair[0]["base_normalized"]
+        or pair[0]["parenthetical_match"]
+        or pair[0]["first_and_surname"]
+    ]
+    tied_ids = {
+        str(candidate.get("representative_external_id") or "")
+        for signals, candidate in strong
+        if int(signals["score"]) == top_score
+    }
+    if not strong or not top_candidate.get("representative_external_id"):
+        return {
+            "decision": "ambiguous",
+            "candidate_external_id": None,
+            "alias_kind": "other",
+            "confidence": 0.0,
+            "rationale": (
+                "A triagem local encontrou apenas sobreposição parcial de palavras; "
+                "a identidade permanece sem evidência suficiente."
+            ),
+            "evidence": [
+                f"maior sobreposição de tokens: {top_signals['token_overlap']}"
+            ],
+            "validator_version": ALIAS_ASSIST_VALIDATOR_VERSION,
+        }
+    if len(tied_ids) != 1:
+        return {
+            "decision": "ambiguous",
+            "candidate_external_id": None,
+            "alias_kind": "other",
+            "confidence": 0.0,
+            "rationale": (
+                "Mais de um candidato oficial recebeu a mesma pontuação; "
+                "a hipótese exige revisão humana."
+            ),
+            "evidence": [
+                "empate entre candidatos do conjunto oficial",
+                f"pontuação local: {top_score}",
+            ],
+            "validator_version": ALIAS_ASSIST_VALIDATOR_VERSION,
+        }
+
+    if top_signals["exact_normalized"]:
+        confidence = 0.96
+        alias_kind = _variant_kind(
+            observed_name,
+            str(top_candidate.get("canonical_name") or ""),
+        )
+        rationale = "Nome normalizado coincide integralmente com o candidato oficial."
+        evidence = ["igualdade após normalização de caixa, acentos e pontuação"]
+    elif top_signals["base_normalized"]:
+        confidence = 0.9
+        alias_kind = "nickname" if _parenthetical_parts(observed_name) else "other"
+        rationale = (
+            "Nome-base coincide; conteúdo entre parênteses foi tratado apenas como "
+            "possível apelido ou nome de urna."
+        )
+        evidence = ["nome-base igual após separar conteúdo entre parênteses"]
+    elif top_signals["parenthetical_match"]:
+        confidence = 0.82
+        alias_kind = "nickname"
+        rationale = (
+            "O conteúdo entre parênteses coincide com alias informado no registro "
+            "oficial do candidato; a confirmação continua humana."
+        )
+        evidence = ["alias entre parênteses coincide com candidato permitido"]
+    else:
+        confidence = 0.72
+        alias_kind = "ballot_name"
+        surnames = ", ".join(top_signals["surname_overlap"])
+        rationale = (
+            "Primeiro nome e pelo menos um sobrenome coincidem; isso é uma pista "
+            "forte, mas não prova que se trata da mesma pessoa."
+        )
+        evidence = [
+            "primeiro nome coincidente",
+            f"sobrenome(s) coincidente(s): {surnames}",
+        ]
+    return {
+        "decision": "match",
+        "candidate_external_id": str(top_candidate["representative_external_id"]),
+        "alias_kind": alias_kind,
+        "confidence": confidence,
+        "rationale": rationale,
+        "evidence": evidence,
+        "validator_version": ALIAS_ASSIST_VALIDATOR_VERSION,
+    }
+
+
 def rank_candidates(
     observed_name: str,
     candidates: Sequence[Mapping[str, Any]],
@@ -69,8 +308,11 @@ def rank_candidates(
     scored: list[tuple[int, int, Mapping[str, Any]]] = []
     for index, candidate in enumerate(candidates):
         name = str(candidate.get("canonical_name") or "")
+        signals = name_match_signals(observed_name, candidate)
+        # Inclui o overlap legado para preservar uma ordem útil quando nenhum
+        # sinal forte existe; o primeiro componente é sempre determinístico.
         overlap = len(observed_tokens & candidate_tokens(name))
-        scored.append((overlap, -index, candidate))
+        scored.append((max(int(signals["score"]), overlap), -index, candidate))
     scored.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
     return tuple(dict(candidate) for _score, _order, candidate in scored)
 

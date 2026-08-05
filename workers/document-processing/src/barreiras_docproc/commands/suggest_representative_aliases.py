@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 from collections.abc import Sequence
@@ -12,6 +13,7 @@ from barreiras_collectors.settings import PersistenceSettings
 
 from ..alias_assist import (
     ALIAS_ASSIST_PROMPT_VERSION,
+    classify_alias_deterministically,
     rank_candidates,
     run_alias_assistance,
 )
@@ -50,14 +52,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         providers=available,
         prompt_version=ALIAS_ASSIST_PROMPT_VERSION,
     )
+    local_only = not available
     if not available:
         log_event(
             logger,
             logging.WARNING,
             "representative_alias_assist_unavailable",
-            reason="no_keys_configured",
+            reason="no_keys_configured; using_local_rules",
         )
-        return 0
 
     persistence = PersistenceSettings.from_env()
     if persistence.database_url is None:
@@ -69,6 +71,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     caller = UrllibJsonCaller()
     suggested = 0
     failures = 0
+    local_fallbacks = 0
+    cascade_exhausted = local_only
     attempts: list = []
     for alias in pending:
         candidates = alias["candidates"]
@@ -85,35 +89,66 @@ def main(argv: Sequence[str] | None = None) -> int:
                 alias.get("historical_candidates", ()),
             )[:12]
         )
-        try:
-            provider, model, result, raw_response = run_alias_assistance(
-                caller,
-                os.environ,
+        result = None
+        provider = ""
+        model = ""
+        raw_response = ""
+        if not cascade_exhausted:
+            try:
+                provider, model, result, raw_response = run_alias_assistance(
+                    caller,
+                    os.environ,
+                    alias["observed_name"],
+                    candidates,
+                    source_context=context,
+                    historical_candidates=historical_candidates,
+                    logger=logger,
+                    attempts=attempts,
+                )
+            except CascadeUnavailableError:
+                cascade_exhausted = True
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "representative_alias_assist_exhausted",
+                    processed=suggested,
+                    fallback="local_rules",
+                )
+            except ContractViolationError as error:
+                failures += 1
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "representative_alias_assist_contract_failure",
+                    observed_name=alias["observed_name"],
+                    detail=str(error)[:240],
+                    fallback="local_rules",
+                )
+
+        if result is None:
+            result = classify_alias_deterministically(
                 alias["observed_name"],
                 candidates,
-                source_context=context,
-                historical_candidates=historical_candidates,
-                logger=logger,
-                attempts=attempts,
             )
-        except CascadeUnavailableError:
+            provider = "local"
+            model = "alias-rules/1.0.0"
+            raw_response = json.dumps(
+                {
+                    "source": "deterministic-local-rules",
+                    "observed_name": alias["observed_name"],
+                    "result": result,
+                },
+                ensure_ascii=False,
+            )
+            local_fallbacks += 1
             log_event(
                 logger,
-                logging.WARNING,
-                "representative_alias_assist_exhausted",
-                processed=suggested,
-            )
-            break
-        except ContractViolationError as error:
-            failures += 1
-            log_event(
-                logger,
-                logging.WARNING,
-                "representative_alias_assist_contract_failure",
+                logging.INFO,
+                "representative_alias_local_fallback",
                 observed_name=alias["observed_name"],
-                detail=str(error)[:240],
+                decision=result["decision"],
+                candidate_external_id=result["candidate_external_id"],
             )
-            continue
 
         repository.persist_suggestion(
             observed_name=alias["observed_name"],
@@ -145,6 +180,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         suggested=suggested,
         contract_failures=failures,
         attempts=len(attempts),
+        local_fallbacks=local_fallbacks,
         prompt_version=ALIAS_ASSIST_PROMPT_VERSION,
     )
     return 0

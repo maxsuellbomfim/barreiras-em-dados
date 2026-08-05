@@ -23,6 +23,12 @@ calculado; a sugestão precisa apontar para um trecho literal e permanece como
 3. Gemini, como último nível;
 4. estado explícito `assisted_inference_unavailable` quando todos falharem.
 
+Quando todos os provedores estiverem sem cota, o worker pode usar o fallback
+`local-deterministic`: templates neutros e `clean_excerpt` derivados de regras
+versionadas. Esse resultado não é IA, registra hash e versão do ruleset e não
+preenche campos ausentes. Casos incompletos ou com múltiplas pessoas continuam
+na revisão humana (ADR 0038).
+
 Cada tentativa registra provedor, modelo, prompt, versão, hash da entrada,
 resposta bruta, status e custo conhecido. Chaves vivem somente no worker; o
 browser nunca chama um provedor diretamente.

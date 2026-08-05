@@ -13,6 +13,7 @@ from barreiras_collectors.logging import log_event
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
 from ..assist import (
+    AttemptRecord,
     PROMPT_VERSION,
     PROVIDERS,
     CascadeUnavailableError,
@@ -21,6 +22,7 @@ from ..assist import (
     build_messages,
     run_cascade,
 )
+from ..local_assist import build_local_act_assist
 from ..postgres import PostgresExtractionRepository
 
 
@@ -87,9 +89,8 @@ def _run(argv: Sequence[str] | None = None) -> int:
             logger,
             logging.WARNING,
             "assist_cascade_unavailable",
-            reason="no_keys_configured",
+            reason="no_keys_configured_local_fallback_enabled",
         )
-        return 0
 
     if persistence_settings.database_url is None:
         raise RuntimeError(
@@ -104,6 +105,7 @@ def _run(argv: Sequence[str] | None = None) -> int:
     suggested = 0
     contract_failures = 0
     attempts: list = []
+    cascade_disabled = not available
     for candidate in pending:
         payload = candidate["payload"]
         excerpt = str(payload.get("excerpt") or "")
@@ -115,33 +117,58 @@ def _run(argv: Sequence[str] | None = None) -> int:
             excerpt,
             fields if isinstance(fields, dict) else {},
         )
-        try:
-            outcome = run_cascade(
-                caller,
-                os.environ,
-                messages,
-                logger,
-                attempts,
+        outcome = None
+        if not cascade_disabled:
+            try:
+                outcome = run_cascade(
+                    caller,
+                    os.environ,
+                    messages,
+                    logger,
+                    attempts,
+                )
+            except CascadeUnavailableError:
+                cascade_disabled = True
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "assist_cascade_unavailable",
+                    reason="all_levels_exhausted_local_fallback_enabled",
+                    suggested=suggested,
+                )
+            except ContractViolationError as error:
+                contract_failures += 1
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "assist_contract_violation",
+                    source_result_id=candidate["result_id"],
+                    detail=str(error)[:200],
+                )
+
+        if outcome is None:
+            outcome = build_local_act_assist(
+                candidate["candidate_type"],
+                payload,
             )
-        except CascadeUnavailableError:
-            log_event(
-                logger,
-                logging.WARNING,
-                "assist_cascade_unavailable",
-                reason="all_levels_exhausted",
-                suggested=suggested,
+            if outcome is None:
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "assist_local_fallback_skipped",
+                    source_result_id=candidate["result_id"],
+                    reason="incomplete_or_multiple_person_candidate",
+                )
+                continue
+            attempts.append(
+                AttemptRecord(
+                    "local-deterministic",
+                    "ruleset-v1",
+                    "fallback_succeeded",
+                    None,
+                    "external_provider_unavailable",
+                )
             )
-            break
-        except ContractViolationError as error:
-            contract_failures += 1
-            log_event(
-                logger,
-                logging.WARNING,
-                "assist_contract_violation",
-                source_result_id=candidate["result_id"],
-                detail=str(error)[:200],
-            )
-            continue
 
         repository.persist_enrichment(
             source_result_id=candidate["result_id"],
@@ -161,6 +188,11 @@ def _run(argv: Sequence[str] | None = None) -> int:
                 "summary": outcome.summary,
                 "clean_text": outcome.clean_text,
                 "raw_response": outcome.raw_response,
+                "fallback_kind": (
+                    "deterministic-rules"
+                    if outcome.provider == "local-deterministic"
+                    else None
+                ),
             },
         )
         suggested += 1

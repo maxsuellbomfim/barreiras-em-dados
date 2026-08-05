@@ -21,6 +21,7 @@ export type EditionDigest = Readonly<{
   publishedAt: string;
   reviewMode: "human" | "automated";
   methodologyVersion: string;
+  assistMethod: "local" | "ai";
 }>;
 
 export type EditionDigestsResult =
@@ -110,6 +111,9 @@ function parseDigest(row: Record<string, unknown>): EditionDigest | null {
     typeof row.stats === "object" && row.stats !== null
       ? (row.stats as Record<string, unknown>)
       : {};
+  const providers = Array.isArray(stats.providers)
+    ? stats.providers.filter((value): value is string => typeof value === "string")
+    : [];
   if (
     typeof digestId !== "string" ||
     !Number.isSafeInteger(edition) ||
@@ -143,6 +147,7 @@ function parseDigest(row: Record<string, unknown>): EditionDigest | null {
     publishedAt,
     reviewMode,
     methodologyVersion: String(row.methodology_version),
+    assistMethod: providers.includes("local-deterministic") ? "local" : "ai",
   };
 }
 
