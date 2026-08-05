@@ -29,7 +29,7 @@ test("fila administrativa deduplica o mesmo ato entre artefatos", () => {
 test("incidência de alias conta registros oficiais distintos", () => {
   assert.match(
     aliasRepository,
-    /count\(distinct authors\.source_record_key\)::integer\s+as item_count/s,
+    /count\(distinct record\.source_record_key\)::integer\s+as item_count/s,
   );
   assert.doesNotMatch(
     aliasRepository,
