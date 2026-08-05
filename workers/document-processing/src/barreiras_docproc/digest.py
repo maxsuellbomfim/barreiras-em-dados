@@ -17,8 +17,8 @@ from .assist import ContractViolationError, _parse_content
 from .verify import value_in_excerpt
 
 DIGEST_PROMPT_VERSION = "edition-digest/1.0.0"
-DETERMINISTIC_DIGEST_VERSION = "edition-digest-deterministic/1.2.0"
-DIGEST_PIPELINE_VERSION = "edition-digest-pipeline/1.2.0"
+DETERMINISTIC_DIGEST_VERSION = "edition-digest-deterministic/1.3.0"
+DIGEST_PIPELINE_VERSION = "edition-digest-pipeline/1.3.0"
 ANCHOR_VERIFIER_VERSION = "edition-digest-anchor-check/1.0.0"
 ITEM_TYPES = frozenset(
     {
@@ -294,6 +294,17 @@ def _is_numbered_heading(match: re.Match[str], text: str) -> bool:
     ][:10]
     if not following_lines:
         return False
+    has_official_date = any(_DATE_LINE.match(line) for line in following_lines)
+    has_enacting_context = any(
+        re.match(
+            r"^(?:O(?:\(?A\)?)?\s+PREFEITO|D\s*E\s*C\s*R\s*E\s*T\s*A)",
+            line,
+            re.IGNORECASE,
+        )
+        for line in following_lines
+    )
+    if has_official_date and has_enacting_context:
+        return True
     for line in following_lines:
         if re.match(
             r"^(?:DECRETO|LEI|PORTARIA)\s*N[^\d\n]{0,4}\d",

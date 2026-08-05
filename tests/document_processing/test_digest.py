@@ -170,6 +170,14 @@ class PayloadTests(unittest.TestCase):
 
         self.assertNotEqual(job_idempotency_key(document_hash), previous_key)
 
+    def test_bare_decree_fix_reprocesses_version_1_2_digest(self) -> None:
+        document_hash = "a" * 64
+        previous_key = hashlib.sha256(
+            (f"edition-digest:{document_hash}:edition-digest-pipeline/1.2.0").encode()
+        ).hexdigest()
+
+        self.assertNotEqual(job_idempotency_key(document_hash), previous_key)
+
 
 if __name__ == "__main__":
     unittest.main()
