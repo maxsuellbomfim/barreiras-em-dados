@@ -30,6 +30,12 @@ percorrem todas as páginas declaradas pela fonte. Backlogs retomam do
 `next_offset`, evitando inanição dos registros posteriores ao primeiro lote.
 Legislativo e Representação são as próximas fatias de estabilização.
 
+A quinta entrega torna o plano de controle visível no painel administrativo.
+Revisores passam a enxergar endpoints ainda sem cobertura, períodos completos
+ou comprovadamente vazios, partições parciais/bloqueadas e falhas pendentes,
+sem receber dados brutos sensíveis. O próximo incremento é levar Legislativo e
+Representação ao mesmo contrato antes de iniciar o backfill amplo desde 2021.
+
 Cada coletor só entra no backfill amplo depois de registrar execução antes do
 HTTP e classificar cada partição como completa, vazia, parcial, falha ou
 bloqueada.
