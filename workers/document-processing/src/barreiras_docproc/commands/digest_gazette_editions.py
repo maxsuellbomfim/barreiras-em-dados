@@ -7,6 +7,7 @@ import json
 import logging
 import os
 from collections.abc import Sequence
+from types import SimpleNamespace
 
 from barreiras_collectors.logging import log_event
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
@@ -15,7 +16,6 @@ from ..assist import (
     PROVIDERS,
     CascadeUnavailableError,
     ContractViolationError,
-    AttemptRecord,
     UrllibJsonCaller,
     run_cascade_content,
 )
@@ -178,12 +178,12 @@ def _run(argv: Sequence[str] | None = None) -> int:
             items = deterministic_digest_items(text)
             providers = ["local-deterministic"]
             attempts.append(
-                AttemptRecord(
-                    "local-deterministic",
-                    "digest-rules-v1",
-                    "fallback_succeeded",
-                    None,
-                    "external_provider_unavailable",
+                SimpleNamespace(
+                    provider="local-deterministic",
+                    model="digest-rules-v1",
+                    outcome="fallback_succeeded",
+                    http_status=None,
+                    detail="external_provider_unavailable",
                 )
             )
             # O recorte local é deliberadamente parcial: o documento integral
