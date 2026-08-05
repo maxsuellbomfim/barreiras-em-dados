@@ -16,6 +16,10 @@ const aliasRepository = await readFile(
   ),
   "utf8",
 );
+const adminPage = await readFile(
+  new URL("../../apps/admin/app/page.tsx", import.meta.url),
+  "utf8",
+);
 
 test("fila administrativa deduplica o mesmo ato entre artefatos", () => {
   assert.match(
@@ -35,4 +39,11 @@ test("incidência de alias conta registros oficiais distintos", () => {
     aliasRepository,
     /count\(\*\)::integer as item_count/,
   );
+});
+
+test("painel deixa claro que contadores de abas são lotes carregados", () => {
+  assert.match(adminPage, /Aprovados carregados/);
+  assert.match(adminPage, /Histórico \(lote\)/);
+  assert.match(adminPage, /Aliases \(lote\)/);
+  assert.match(adminPage, /apenas o lote carregado/);
 });
