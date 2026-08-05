@@ -7,6 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).parents[2]
 CONTROLLED_COMMANDS = (
     "collect_querido_diario.py",
+    "collect_direct_diary.py",
+    "collect_municipal_transparency.py",
     "collect_pncp_registry.py",
     "collect_pncp_contratacoes.py",
     "collect_pncp_itens.py",

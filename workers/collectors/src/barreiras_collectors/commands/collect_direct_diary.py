@@ -22,7 +22,10 @@ from ..connectors.direct_diary import (
 from ..connectors.gazette_documents import GazetteDocumentClient
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
-from ..persistence.service import DirectDiaryPersistenceService
+from ..persistence.service import (
+    DIRECT_COLLECTOR_VERSION,
+    DirectDiaryPersistenceService,
+)
 from ..persistence.storage import SupabaseStorageObjectStore
 from ..resilience import RetryPolicy
 from ..settings import CollectorSettings, PersistenceSettings
@@ -117,7 +120,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_code=SOURCE_CODE,
         endpoint_code=ENDPOINT_CODE,
         idempotency_key=build_execution_idempotency_key("direct-diary"),
-        collector_version=collector_settings.collector_version,
+        collector_version=DIRECT_COLLECTOR_VERSION,
         partition_key=f"daily-probe:{today.isoformat()}",
         period_start=today,
         period_end=today,
