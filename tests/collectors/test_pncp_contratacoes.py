@@ -4,6 +4,8 @@ import json
 import unittest
 
 from barreiras_collectors.commands.collect_pncp_contratacoes import (
+    PncpContratacoesCollectionSummary,
+    execute_controlled_pncp_contratacoes,
     resolve_window,
 )
 from barreiras_collectors.connectors.pncp import (
@@ -100,6 +102,74 @@ class WindowTests(unittest.TestCase):
             resolve_window("2026-01-01", "")
         with self.assertRaises(ValueError):
             resolve_window("2026-01-01", "2026-03-15")
+
+
+class ControlledPncpContratacoesTests(unittest.TestCase):
+    def test_truncated_modality_marks_window_partial(self) -> None:
+        completed: dict[str, object] = {}
+
+        class ControlProbe:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                return False
+
+            def complete(self, **values):
+                completed.update(values)
+
+        execute_controlled_pncp_contratacoes(
+            control=ControlProbe(),  # type: ignore[arg-type]
+            operation=lambda: PncpContratacoesCollectionSummary(
+                pages=30,
+                inserted_records=450,
+                existing_records=0,
+                truncated_modalities=(6,),
+            ),
+        )
+
+        self.assertEqual(completed["outcome"].value, "partial")
+        self.assertEqual(
+            completed["checkpoint"],
+            {"truncated_modalities": [6]},
+        )
+
+    def test_control_starts_before_external_setup(self) -> None:
+        events: list[str] = []
+
+        class ControlProbe:
+            def __enter__(self):
+                events.append("started")
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                events.append("closed")
+                return False
+
+            def complete(self, **values):
+                events.append(f"completed:{values['outcome'].value}")
+
+        def operation() -> PncpContratacoesCollectionSummary:
+            self.assertEqual(events, ["started"])
+            events.append("external-setup")
+            return PncpContratacoesCollectionSummary(
+                pages=0,
+                inserted_records=0,
+                existing_records=0,
+                truncated_modalities=(),
+            )
+
+        execute_controlled_pncp_contratacoes(
+            control=ControlProbe(),  # type: ignore[arg-type]
+            operation=operation,
+        )
+
+        self.assertEqual(
+            events,
+            ["started", "external-setup", "completed:empty", "closed"],
+        )
 
 
 if __name__ == "__main__":

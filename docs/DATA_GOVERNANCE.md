@@ -28,6 +28,9 @@ Além do manifesto bruto, a partição lógica registra período, quantidade
 observada, checkpoint e um estado explícito: `complete`, `empty`, `partial`,
 `failed` ou `blocked`. Limite operacional não significa cobertura completa;
 zero linhas só significa vazio quando a consulta terminou normalmente.
+Checkpoints são consumidos somente por workers autorizados. Retomadas automáticas
+aceitam cursores tipados e não negativos; valor inválido reinicia a paginação de
+forma segura, e uma intervenção explícita do operador prevalece sobre o cursor.
 
 Um registro derivado só é elegível à publicação quando `evidence_items` aponta
 para origem bruta preservada e, em atos documentais, para página/trecho.

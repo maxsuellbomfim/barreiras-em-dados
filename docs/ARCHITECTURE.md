@@ -264,6 +264,14 @@ Storage e chamadas HTTP acontecem somente depois que a execução central foi
 aberta. Compras, Legislativo e Representação entram nas fatias seguintes, sem
 criar uma segunda implementação concorrente.
 
+As consultas municipais paginadas mantêm uma chave de partição estável por
+recurso e configuração de página. Quando uma execução termina `partial`, o
+`next_offset` é lido dentro da próxima execução controlada e a coleta recomeça
+desse ponto; um `--offset` informado por operador tem precedência auditável. A
+janela de contratações do PNCP também usa o controle central e nunca declara
+`complete` quando alguma modalidade excede o teto de páginas. Cadastro, itens,
+resultados e contratos do PNCP serão migrados nas próximas fatias.
+
 Identificadores pessoais necessários à reconciliação usam um papel separado,
 `identity_worker`, que não é herdado pelo coletor comum. O schema `private`
 não integra a Data API; guarda somente valor cifrado, nonce, tag de autenticação,

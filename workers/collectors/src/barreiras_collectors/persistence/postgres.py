@@ -80,6 +80,36 @@ class PostgresCollectionRepository:
     def __init__(self, connection_factory: Callable[[], DatabaseConnection]) -> None:
         self.connection_factory = connection_factory
 
+    def collection_partition_checkpoint(
+        self,
+        *,
+        source_code: str,
+        endpoint_code: str,
+        partition_key: str,
+    ) -> dict[str, object] | None:
+        """Lê o último checkpoint da partição sem expor tabelas ao frontend."""
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select partition.checkpoint
+                from source.collection_partitions as partition
+                join source.source_endpoints as endpoint
+                  on endpoint.id = partition.source_endpoint_id
+                join source.data_sources as source
+                  on source.id = endpoint.data_source_id
+                where source.slug = %s
+                  and endpoint.slug = %s
+                  and partition.partition_key = %s
+                """,
+                (source_code, endpoint_code, partition_key),
+            ).fetchone()
+            if row is None or not isinstance(row.get("checkpoint"), Mapping):
+                return None
+            return dict(row["checkpoint"])
+        finally:
+            connection.close()
+
     def start_controlled_run(
         self,
         *,
@@ -97,9 +127,7 @@ class PostgresCollectionRepository:
             with connection.transaction():
                 connection.execute("set local statement_timeout = '15s'")
                 connection.execute("set local lock_timeout = '5s'")
-                endpoint_id = self._endpoint_id(
-                    connection, source_code, endpoint_code
-                )
+                endpoint_id = self._endpoint_id(connection, source_code, endpoint_code)
                 row = connection.execute(
                     """
                     insert into source.collection_runs (
