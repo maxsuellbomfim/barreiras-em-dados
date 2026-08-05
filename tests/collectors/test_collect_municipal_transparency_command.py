@@ -9,10 +9,38 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
     MunicipalTransparencyCollectionSummary,
     _bounded_env_int,
     execute_controlled_municipal_transparency,
+    resolve_resume_offset,
 )
 
 
 class MunicipalTransparencyCommandTests(unittest.TestCase):
+    def test_partial_checkpoint_resumes_from_next_offset(self) -> None:
+        self.assertEqual(
+            resolve_resume_offset(
+                explicit_offset=None,
+                checkpoint={"next_offset": 150},
+            ),
+            150,
+        )
+
+    def test_explicit_offset_overrides_checkpoint(self) -> None:
+        self.assertEqual(
+            resolve_resume_offset(
+                explicit_offset=25,
+                checkpoint={"next_offset": 150},
+            ),
+            25,
+        )
+
+    def test_malformed_checkpoint_restarts_safely(self) -> None:
+        self.assertEqual(
+            resolve_resume_offset(
+                explicit_offset=None,
+                checkpoint={"next_offset": "150"},
+            ),
+            0,
+        )
+
     def test_sources_are_official_and_have_distinct_codes(self) -> None:
         self.assertEqual(
             set(SOURCE_CONFIG),

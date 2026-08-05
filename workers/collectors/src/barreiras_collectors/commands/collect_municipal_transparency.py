@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
@@ -68,6 +68,7 @@ class MunicipalTransparencyCollectionSummary:
     pagination_capped: bool
     availability_partial: bool
     next_offset: int
+    start_offset: int = 0
 
     @property
     def observed_records(self) -> int:
@@ -102,9 +103,24 @@ def execute_controlled_municipal_transparency(
                 "documents_failed": summary.documents_failed,
                 "pagination_capped": summary.pagination_capped,
                 "availability_partial": summary.availability_partial,
+                "start_offset": summary.start_offset,
             },
         )
     return summary
+
+
+def resolve_resume_offset(
+    *,
+    explicit_offset: int | None,
+    checkpoint: Mapping[str, object] | None,
+) -> int:
+    """Prefere intervenção explícita e aceita só checkpoint inteiro não negativo."""
+    if explicit_offset is not None:
+        return explicit_offset
+    value = checkpoint.get("next_offset") if checkpoint else None
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return 0
 
 
 def _bounded_env_int(name: str, *, default: int, minimum: int, maximum: int) -> int:
@@ -168,7 +184,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--source", choices=sorted(SOURCE_CONFIG), default="prefeitura")
     parser.add_argument("--resource", default=DEFAULT_RESOURCE)
     parser.add_argument("--limit", type=int, default=1)
-    parser.add_argument("--offset", type=int, default=0)
+    parser.add_argument("--offset", type=int, default=None)
     parser.add_argument("--max-pages", type=int, default=1)
     parser.add_argument(
         "--allow-partial",
@@ -183,7 +199,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 500:
         parser.error("--limit deve estar entre 1 e 500.")
-    if args.offset < 0:
+    if args.offset is not None and args.offset < 0:
         parser.error("--offset não pode ser negativo.")
     if not 1 <= args.max_pages <= 1000:
         parser.error("--max-pages deve estar entre 1 e 1000.")
@@ -206,6 +222,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     snapshot_date = datetime.now(MUNICIPAL_TIMEZONE).date()
     resource_namespace = sha256(args.resource.encode("utf-8")).hexdigest()[:12]
+    partition_key = (
+        f"snapshot:{args.resource}:limit:{args.limit}:pages:{args.max_pages}"
+    )
     control = CollectionControl(
         repository=repository,
         source_code=source_code,
@@ -215,15 +234,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         collector_version=collector_settings.collector_version,
         parser_version="municipal-transparency-api-response/1.0.0",
-        partition_key=(
-            f"snapshot:{args.resource}:{snapshot_date.isoformat()}:"
-            f"offset:{args.offset}:limit:{args.limit}:pages:{args.max_pages}"
-        ),
+        partition_key=partition_key,
         period_start=snapshot_date,
         period_end=snapshot_date,
     )
 
     def operation() -> MunicipalTransparencyCollectionSummary:
+        checkpoint = repository.collection_partition_checkpoint(
+            source_code=source_code,
+            endpoint_code="dados-abertos-api",
+            partition_key=partition_key,
+        )
+        effective_offset = resolve_resume_offset(
+            explicit_offset=args.offset,
+            checkpoint=checkpoint,
+        )
         client = _cloud_client(persistence_settings)
         service = MunicipalTransparencyPersistenceService(
             object_store=SupabaseStorageObjectStore(
@@ -237,7 +262,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             base_url=base_url,
             resource=args.resource,
             limit=args.limit,
-            offset=args.offset,
+            offset=effective_offset,
             max_pages=args.max_pages,
             allow_partial=args.allow_partial,
             download_documents=args.download_documents,
@@ -264,6 +289,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         documents_failed=summary.documents_failed,
         pagination_capped=summary.pagination_capped,
         availability_partial=summary.availability_partial,
+        start_offset=summary.start_offset,
+        next_offset=summary.next_offset,
         coverage_status=summary.outcome.value,
     )
     return 0
@@ -431,6 +458,7 @@ def _collect_resource(
         pagination_capped=pagination_capped,
         availability_partial=availability_partial,
         next_offset=next_offset,
+        start_offset=offset,
     )
 
 

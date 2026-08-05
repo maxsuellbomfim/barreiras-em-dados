@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import argparse
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from ..collection_control import (
+    CollectionControl,
+    CollectionOutcome,
+    build_execution_idempotency_key,
+)
 from ..connectors.pncp import (
     CONTRATACAO_MODALIDADES,
     SOURCE_CODE,
@@ -24,6 +30,50 @@ MAX_WINDOW_DAYS = 31
 MAX_PAGES_PER_MODALIDADE = 30
 # Barreiras foi validada no PNCP em 2021-07-28; nada existe antes.
 BACKFILL_HORIZON = date(2021, 7, 1)
+
+
+@dataclass(frozen=True)
+class PncpContratacoesCollectionSummary:
+    pages: int
+    inserted_records: int
+    existing_records: int
+    truncated_modalities: tuple[int, ...]
+
+    @property
+    def observed_records(self) -> int:
+        return self.inserted_records + self.existing_records
+
+    @property
+    def outcome(self) -> CollectionOutcome:
+        if self.truncated_modalities:
+            return CollectionOutcome.PARTIAL
+        if self.observed_records == 0:
+            return CollectionOutcome.EMPTY
+        return CollectionOutcome.COMPLETE
+
+
+def execute_controlled_pncp_contratacoes(
+    *,
+    control: CollectionControl,
+    operation: Callable[[], PncpContratacoesCollectionSummary],
+) -> PncpContratacoesCollectionSummary:
+    """Abre o controle antes da autenticação e da primeira chamada ao PNCP."""
+    with control:
+        summary = operation()
+        control.complete(
+            outcome=summary.outcome,
+            observed_records=summary.observed_records,
+            checkpoint={
+                "truncated_modalities": list(summary.truncated_modalities),
+            },
+            metrics={
+                "pages": summary.pages,
+                "inserted_records": summary.inserted_records,
+                "existing_records": summary.existing_records,
+                "truncated_modalities": list(summary.truncated_modalities),
+            },
+        )
+    return summary
 
 
 def resolve_backfill_window(
@@ -89,56 +139,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         force=True,
     )
     if persistence_settings.mode != "postgres-supabase":
-        raise RuntimeError(
-            "A coleta PNCP requer PERSISTENCE_MODE=postgres-supabase."
-        )
-    if (
-        persistence_settings.database_url is None
-        or persistence_settings.supabase_url is None
-        or persistence_settings.supabase_publishable_key is None
-        or persistence_settings.supabase_workload_email is None
-        or persistence_settings.supabase_workload_password is None
-        or persistence_settings.raw_artifacts_bucket is None
-    ):
-        raise RuntimeError("Configuração de nuvem incompleta.")
-    try:
-        from supabase import create_client
-    except ImportError as error:
-        raise RuntimeError(
-            "Instale a dependência opcional 'storage' para coletar."
-        ) from error
-
-    supabase_client = create_client(
-        persistence_settings.supabase_url,
-        persistence_settings.supabase_publishable_key,
-    )
-    try:
-        authentication = supabase_client.auth.sign_in_with_password(
-            {
-                "email": persistence_settings.supabase_workload_email,
-                "password": persistence_settings.supabase_workload_password,
-            }
-        )
-    except Exception as error:
-        raise RuntimeError(
-            "Falha ao autenticar a identidade técnica do Storage."
-        ) from error
-    if authentication.session is None or authentication.user is None:
-        raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
-
+        raise RuntimeError("A coleta PNCP requer PERSISTENCE_MODE=postgres-supabase.")
+    logger = logging.getLogger(__name__)
+    if persistence_settings.database_url is None:
+        raise RuntimeError("Configuração de banco incompleta.")
     repository = PostgresCollectionRepository.from_dsn(
         persistence_settings.database_url
     )
-    service = PncpContratacoesPersistenceService(
-        object_store=SupabaseStorageObjectStore(
-            supabase_client.storage.from_(
-                persistence_settings.raw_artifacts_bucket
-            )
-        ),
-        repository=repository,
-    )
-
-    logger = logging.getLogger(__name__)
     if arguments.backfill:
         window = resolve_backfill_window(
             anchor=repository.pncp_backfill_anchor(),
@@ -154,6 +161,104 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 0
         since, until = window
+
+    period_start = datetime.strptime(since, "%Y%m%d").date()
+    period_end = datetime.strptime(until, "%Y%m%d").date()
+    control = CollectionControl(
+        repository=repository,
+        source_code=SOURCE_CODE,
+        endpoint_code="consulta-contratacoes",
+        idempotency_key=build_execution_idempotency_key("pncp-contratacoes"),
+        collector_version=collector_settings.collector_version,
+        parser_version="pncp-contratacao-page/1.0.0",
+        partition_key=(
+            f"published:{period_start.isoformat()}:{period_end.isoformat()}"
+        ),
+        period_start=period_start,
+        period_end=period_end,
+    )
+
+    def operation() -> PncpContratacoesCollectionSummary:
+        service = _build_cloud_service(
+            settings=persistence_settings,
+            repository=repository,
+        )
+        return _collect_window(
+            service=service,
+            since=since,
+            until=until,
+            logger=logger,
+        )
+
+    summary = execute_controlled_pncp_contratacoes(
+        control=control,
+        operation=operation,
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "collector_pncp_contratacoes_completed",
+        source=SOURCE_CODE,
+        window_start=since,
+        window_end=until,
+        pages=summary.pages,
+        inserted_records=summary.inserted_records,
+        existing_records=summary.existing_records,
+        coverage_status=summary.outcome.value,
+    )
+    return 0
+
+
+def _build_cloud_service(
+    *,
+    settings: PersistenceSettings,
+    repository: PostgresCollectionRepository,
+) -> PncpContratacoesPersistenceService:
+    required = (
+        settings.supabase_url,
+        settings.supabase_publishable_key,
+        settings.supabase_workload_email,
+        settings.supabase_workload_password,
+        settings.raw_artifacts_bucket,
+    )
+    if any(value is None for value in required):
+        raise RuntimeError("Configuração de nuvem incompleta.")
+    try:
+        from supabase import create_client
+    except ImportError as error:
+        raise RuntimeError(
+            "Instale a dependência opcional 'storage' para coletar."
+        ) from error
+
+    client = create_client(settings.supabase_url, settings.supabase_publishable_key)
+    try:
+        authentication = client.auth.sign_in_with_password(
+            {
+                "email": settings.supabase_workload_email,
+                "password": settings.supabase_workload_password,
+            }
+        )
+    except Exception as error:
+        raise RuntimeError(
+            "Falha ao autenticar a identidade técnica do Storage."
+        ) from error
+    if authentication.session is None or authentication.user is None:
+        raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
+    return PncpContratacoesPersistenceService(
+        object_store=SupabaseStorageObjectStore(
+            client.storage.from_(settings.raw_artifacts_bucket)
+        ),
+        repository=repository,
+    )
+
+
+def _collect_window(
+    *,
+    service: PncpContratacoesPersistenceService,
+    since: str,
+    until: str,
+    logger: logging.Logger,
+) -> PncpContratacoesCollectionSummary:
     pages_persisted = 0
     records_inserted = 0
     records_existing = 0
@@ -202,18 +307,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_pages=MAX_PAGES_PER_MODALIDADE,
         )
 
-    log_event(
-        logger,
-        logging.INFO,
-        "collector_pncp_contratacoes_completed",
-        source=SOURCE_CODE,
-        window_start=since,
-        window_end=until,
+    return PncpContratacoesCollectionSummary(
         pages=pages_persisted,
         inserted_records=records_inserted,
         existing_records=records_existing,
+        truncated_modalities=tuple(truncated_modalities),
     )
-    return 0
 
 
 if __name__ == "__main__":
