@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import {
+  enrichEditionDigestsWithCatalog,
   getEditionDigests,
   type DigestItem,
   type EditionDigest,
@@ -202,9 +203,10 @@ export default async function EditionDigestsPage() {
     getOfficialDiaryCatalog(),
     getQueridoDiarioCollectionStatus(),
   ]);
-  const digests = result.state === "available" ? result.digests : [];
+  const rawDigests = result.state === "available" ? result.digests : [];
   const catalogEntries =
     catalogResult.state === "available" ? catalogResult.entries : [];
+  const digests = enrichEditionDigestsWithCatalog(rawDigests, catalogEntries);
   const digestEditions = new Set(digests.map((digest) => digest.edition));
   const catalogOnlyEntries = catalogEntries.filter(
     (entry) => !digestEditions.has(entry.edition),

@@ -1,3 +1,5 @@
+import type { OfficialDiaryCatalogEntry } from "./official-diary-catalog";
+
 export type DigestItem = Readonly<{
   tipo: string;
   titulo: string;
@@ -27,6 +29,32 @@ export type EditionDigest = Readonly<{
 export type EditionDigestsResult =
   | Readonly<{ state: "available"; digests: readonly EditionDigest[] }>
   | Readonly<{ state: "unavailable" }>;
+
+export function enrichEditionDigestsWithCatalog(
+  digests: readonly EditionDigest[],
+  catalogEntries: readonly OfficialDiaryCatalogEntry[],
+): readonly EditionDigest[] {
+  const catalogByEdition = new Map(
+    catalogEntries.map((catalog) => [
+      `${catalog.editionYear}:${catalog.edition}`,
+      catalog,
+    ]),
+  );
+  return digests.map((digest) => {
+    const catalog = catalogByEdition.get(
+      `${digest.editionYear}:${digest.edition}`,
+    );
+    if (!catalog) return digest;
+    return {
+      ...digest,
+      officialDate: digest.officialDate ?? catalog.editionDate,
+      officialTitle: digest.officialTitle ?? catalog.officialTitle,
+      officialSummary: digest.officialSummary ?? catalog.officialSummary,
+      officialPublicationUrl:
+        digest.officialPublicationUrl ?? catalog.officialPublicationUrl,
+    };
+  });
+}
 
 const SHA256 = /^[0-9a-f]{64}$/;
 const ITEM_TYPES = new Set([
