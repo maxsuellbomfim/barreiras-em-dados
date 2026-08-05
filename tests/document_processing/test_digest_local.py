@@ -81,6 +81,112 @@ class DeterministicDigestTests(unittest.TestCase):
             [],
         )
 
+    def test_ignores_legal_references_and_signing_portarias(self):
+        text = (
+            "PORTARIA Nº 261, DE 29 DE JULHO DE 2026.\n"
+            "Designa servidor responsável pela fiscalização do contrato.\n"
+            "Decreto nº 45/2024 e nos termos do art. 117 da Lei nº 14.133/2021.\n"
+            "Larissa Gomes Barbosa\n"
+            "Secretária Municipal de Saúde\n"
+            "Portaria 34/2025\n\n"
+            "PORTARIA Nº 262, DE 29 DE JULHO DE 2026.\n"
+            "Designa servidor responsável pela fiscalização de outra ata."
+        )
+
+        items = deterministic_digest_items(text)
+
+        self.assertEqual(
+            [item.title for item in items],
+            ["Portaria nº 261", "Portaria nº 262"],
+        )
+
+    def test_reads_numbered_heading_with_trailing_punctuation(self):
+        text = (
+            "DECRETO Nº 123.\n"
+            "Constitui Comissão Especial para acompanhamento das execuções."
+        )
+
+        items = deterministic_digest_items(text)
+
+        self.assertEqual([item.title for item in items], ["Decreto nº 123."])
+
+    def test_reads_numbered_editals_contract_errata_and_dispensa(self):
+        text = (
+            "EDITAL DE NOTIFICAÇÃO Nº 695/2026\n"
+            "Procedimento de regularização fundiária destinado a Tereza Silva.\n\n"
+            "ERRATA\n"
+            "REPUBLICAÇÃO\n"
+            "PREGÃO ELETRÔNICO Nº 028/2026\n"
+            "Republica a sessão de abertura para 18/08/2026.\n\n"
+            "EXTRATO DO CONTRATO Nº 152/2026\n"
+            "Contratada MOVTERRA CONSTRUTORA LTDA. Valor R$ 13.269.960,00.\n\n"
+            "AVISO DE DISPENSA DE LICITAÇÃO Nº 009/2026\n"
+            "Aquisição de vestuários para o Serviço de Convivência."
+        )
+
+        items = deterministic_digest_items(text)
+
+        self.assertEqual(len(items), 4)
+        self.assertEqual(
+            [item.item_type for item in items],
+            ["aviso", "licitacao", "contrato", "licitacao"],
+        )
+        self.assertIn("695/2026", items[0].title)
+        self.assertIn("152/2026", items[2].title)
+
+    def test_reads_decision_environmental_extract_and_contract_amendment(self):
+        text = (
+            "DECISÃO SOBRE IMPUGNAÇÃO AO EDITAL\n"
+            "PREGÃO ELETRÔNICO Nº 031/2026\n"
+            "A impugnação foi conhecida e indeferida.\n\n"
+            "EXTRATO DA PORTARIA SEMMAS Nº 000049/2026\n"
+            "Concede Licença de Operação à SEMENTES OILEMA LTDA.\n\n"
+            "EXTRATO DO TERCEIRO TERMO ADITIVO AO CONTRATO Nº 006-FMS/2023\n"
+            "Prorroga o prazo e acrescenta 25% ao valor contratado."
+        )
+
+        items = deterministic_digest_items(text)
+
+        self.assertEqual(len(items), 3)
+        self.assertEqual(
+            [item.item_type for item in items],
+            ["licitacao", "portaria", "contrato"],
+        )
+
+    def test_deduplicates_identical_publication_repeated_in_the_pdf(self):
+        edital = (
+            "EDITAL DE INTIMAÇÃO\nGERALDO RIBEIRO NEVES - TIAF 67/2026 e 68/2026.\n"
+        )
+
+        items = deterministic_digest_items(f"{edital}\n{edital}")
+
+        self.assertEqual(len(items), 1)
+
+    def test_ignores_edital_reference_inside_contract_fiscal_portaria(self):
+        text = (
+            "PORTARIA Nº 023, DE 30 DE JULHO DE 2026.\n"
+            "Designa servidor responsável pela fiscalização do contrato.\n"
+            "Edital de Pregão Eletrônico para Registro de Preços nº 040/2025 e/ou "
+            "no Termo\n"
+            "responsável pelo acompanhamento e fiscalização da execução."
+        )
+
+        items = deterministic_digest_items(text)
+
+        self.assertEqual([item.title for item in items], ["Portaria nº 023"])
+
+    def test_classifies_ocr_damaged_price_registry_notice_as_procurement(self):
+        text = (
+            "Aviso de Republicação de Ata de Regist111 de Preços Compartilhada "
+            "Estadual\n"
+            "Processo Administrativo Nº 12248/2026. Contratada: CM HOSPITALAR S.A."
+        )
+
+        items = deterministic_digest_items(text)
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].item_type, "licitacao")
+
 
 if __name__ == "__main__":
     unittest.main()

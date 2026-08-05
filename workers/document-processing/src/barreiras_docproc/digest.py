@@ -17,8 +17,8 @@ from .assist import ContractViolationError, _parse_content
 from .verify import value_in_excerpt
 
 DIGEST_PROMPT_VERSION = "edition-digest/1.0.0"
-DETERMINISTIC_DIGEST_VERSION = "edition-digest-deterministic/1.1.0"
-DIGEST_PIPELINE_VERSION = "edition-digest-pipeline/1.1.0"
+DETERMINISTIC_DIGEST_VERSION = "edition-digest-deterministic/1.2.0"
+DIGEST_PIPELINE_VERSION = "edition-digest-pipeline/1.2.0"
 ANCHOR_VERIFIER_VERSION = "edition-digest-anchor-check/1.0.0"
 ITEM_TYPES = frozenset(
     {
@@ -42,14 +42,16 @@ MAX_TITLE_CHARS = 120
 MAX_SUMMARY_CHARS = 400
 
 _NUMBERED_HEADING = re.compile(
-    r"(?im)^[ \t]*(?P<kind>DECRETO|LEI|PORTARIA)\s+N[^\d\n]{0,4}"
-    r"(?P<number>\d[\d./-]*)[^\n]{0,80}$"
+    r"(?im)^[ \t]*(?P<kind>DECRETO|LEI|PORTARIA)\s*N[^\d\n]{0,4}"
+    r"(?P<number>\d[\d./-]*)(?P<suffix>[^\n]{0,140})$"
 )
 _PUBLIC_HEADING = re.compile(
-    r"(?m)^[ \t]*(?P<heading>"
-    r"AVISO(?:\s+DE\s+[A-ZÀ-Ü0-9 /.-]+)?|"
-    r"EDITAL(?:\s+DE\s+[A-ZÀ-Ü0-9 /.-]+)?|"
-    r"EXTRATO(?:\s+DE\s+[A-ZÀ-Ü0-9 /.-]+)?"
+    r"(?im)^[ \t]*(?P<heading>"
+    r"AVISO(?:\s+DE\s+[^\n]{2,140})?|"
+    r"EDITAL(?:\s+DE\s+[^\n]{2,140})?|"
+    r"EXTRATO\s+(?:DA|DE|DO)\s+[^\n]{2,140}|"
+    r"DECISÃO\s+SOBRE\s+IMPUGNAÇÃO\s+AO\s+EDITAL[^\n]{0,80}|"
+    r"ERRATA(?:[^\n]{0,80})?"
     r")[ \t]*$"
 )
 _PERSONNEL_DEVICE = re.compile(
@@ -68,8 +70,12 @@ _NON_DESCRIPTION_LINE = re.compile(
     re.IGNORECASE,
 )
 _DESCRIPTION_ACTION = re.compile(
-    r"^(?:ALTERA|ABRE|DISPÕE|INSTITUI|REGULAMENTA|CONVOCA|"
+    r"^(?:ALTERA|ABRE|CONSTITUI|DISPÕE|INSTITUI|REGULAMENTA|CONVOCA|"
     r"TORNA\s+PÚBLICO|PRORROGA|DESIGNA|NOMEIA|EXONERA|AUTORIZA|DECLARA)\b",
+    re.IGNORECASE,
+)
+_HEADING_DATE = re.compile(
+    r"^(?:,)?DE(?:\d{1,2}/\d{1,2}/\d{4}|\d{1,2}DE[A-ZÀ-Ü]+DE\d{4})\.?$",
     re.IGNORECASE,
 )
 
@@ -190,6 +196,8 @@ def deterministic_digest_items(text: str) -> list[DigestItem]:
         )
     headings: list[tuple[int, int, str, str]] = []
     for match in _NUMBERED_HEADING.finditer(text):
+        if not _is_numbered_heading(match, text):
+            continue
         kind = match.group("kind").casefold()
         number = match.group("number")
         item_type = kind if kind in {"decreto", "portaria"} else "outro"
@@ -203,11 +211,25 @@ def deterministic_digest_items(text: str) -> list[DigestItem]:
         )
     for match in _PUBLIC_HEADING.finditer(text):
         heading = " ".join(match.group("heading").split())
+        if " e/ou " in heading.casefold():
+            continue
         folded = heading.casefold()
-        if "licita" in folded or "pregão" in folded:
-            item_type = "licitacao"
-        elif "contrato" in folded:
+        if "contrato" in folded or "termo aditivo" in folded:
             item_type = "contrato"
+        elif folded.startswith("extrato da portaria"):
+            item_type = "portaria"
+        elif any(
+            marker in folded
+            for marker in (
+                "licita",
+                "pregão",
+                "impugnação",
+                "dispensa",
+                "registro de preços",
+                "ata de regist",
+            )
+        ):
+            item_type = "licitacao"
         elif folded.startswith("aviso") or folded.startswith("edital"):
             item_type = "aviso"
         else:
@@ -225,6 +247,9 @@ def deterministic_digest_items(text: str) -> list[DigestItem]:
     for index, (start, heading_end, item_type, title) in enumerate(headings):
         end = headings[index + 1][0] if index + 1 < len(headings) else len(text)
         segment = text[start:end]
+        if item_type == "outro" and title.casefold().startswith("errata"):
+            if re.search(r"\b(?:PREGÃO|LICITAÇÃO)\b", segment, re.IGNORECASE):
+                item_type = "licitacao"
         if item_type == "portaria" and _PERSONNEL_DEVICE.search(segment):
             continue
         anchor = segment[:240].strip()
@@ -248,7 +273,54 @@ def deterministic_digest_items(text: str) -> list[DigestItem]:
             )
         )
     positioned_items.sort(key=lambda entry: entry[0])
-    return [item for _position, item in positioned_items]
+    return _deduplicate_items([item for _position, item in positioned_items])
+
+
+def _is_numbered_heading(match: re.Match[str], text: str) -> bool:
+    """Rejeita citações legais que apenas começam por Decreto/Portaria."""
+    suffix = " ".join(match.group("suffix").split()).strip()
+    compact_suffix = re.sub(r"\s+", "", suffix)
+    action_suffix = suffix.lstrip(" ,.;:-")
+    if suffix.strip(" ,.;:-"):
+        return bool(
+            _DESCRIPTION_ACTION.match(action_suffix)
+            or _HEADING_DATE.match(compact_suffix)
+        )
+
+    following_lines = [
+        " ".join(line.split()).strip()
+        for line in text[match.end() : match.end() + 600].splitlines()
+        if line.strip()
+    ][:10]
+    if not following_lines:
+        return False
+    for line in following_lines:
+        if re.match(
+            r"^(?:DECRETO|LEI|PORTARIA)\s*N[^\d\n]{0,4}\d",
+            line,
+            re.IGNORECASE,
+        ):
+            return False
+        if _DESCRIPTION_ACTION.match(line):
+            return True
+    return False
+
+
+def _deduplicate_items(items: list[DigestItem]) -> list[DigestItem]:
+    """Remove a mesma publicação repetida no PDF sem fundir atos distintos."""
+    unique: list[DigestItem] = []
+    seen: set[tuple[str, str, str]] = set()
+    for item in items:
+        key = (
+            item.item_type,
+            " ".join(item.title.casefold().split()),
+            " ".join(item.anchor.casefold().split()),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
 
 
 def _first_official_description(body: str) -> str | None:
