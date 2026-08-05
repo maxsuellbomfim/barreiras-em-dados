@@ -6,6 +6,19 @@ Uma fase só termina quando testes, segurança, qualidade de dados, documentaç�
 limitações e recuperação de falhas estiverem estáveis. “Código escrito” não é
 critério de saída.
 
+## Programa transversal de estabilização e expansão (iniciado em 05/08/2026)
+
+Ordem aprovada: plano central de cobertura/falhas; backfill classificado desde
+2021; identidade privada; normalização das fontes ainda brutas; e rastro do
+dinheiro. A primeira entrega adiciona `source.collection_partitions`,
+`source.collection_failures`, `private.person_identifiers` e
+`identity.person_aliases`, integra o Diário direto ao controle e inclui a suíte
+Node no CI.
+
+Cada coletor só entra no backfill amplo depois de registrar execução antes do
+HTTP e classificar cada partição como completa, vazia, parcial, falha ou
+bloqueada.
+
 ### Portal público de pré-lançamento
 
 Uma página institucional pode permanecer no ar durante a etapa 1A para explicar

@@ -184,6 +184,13 @@ Inventário e classificação precedem a publicação. Dados sensíveis,
 identificadores completos, contatos e descontos individuais são bloqueados por
 padrão. Acesso interno é justificado, limitado e auditado.
 
+CPF autorizado para reconciliação é cifrado pela aplicação com AES-256-GCM;
+a comparação determinística usa HMAC-SHA-256 com outra chave. Chaves não ficam
+no PostgreSQL, no frontend ou em variáveis `NEXT_PUBLIC_*`. O schema `private`
+não é exposto pelo PostgREST, nega `anon`, `authenticated` e
+`collector_worker`, e aceita somente `SELECT`/`INSERT` do papel sem login
+`identity_worker`. Correção cria nova evidência; não há `UPDATE` ou `DELETE`.
+
 ## Checklist por etapa
 
 - modelagem de ameaça atualizada;

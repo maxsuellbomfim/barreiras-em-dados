@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Protocol
 
 from .models import (
@@ -79,6 +79,265 @@ class PostgresCollectionRepository:
 
     def __init__(self, connection_factory: Callable[[], DatabaseConnection]) -> None:
         self.connection_factory = connection_factory
+
+    def start_controlled_run(
+        self,
+        *,
+        source_code: str,
+        endpoint_code: str,
+        idempotency_key: str,
+        collector_version: str,
+        parser_version: str,
+        period_start: date,
+        period_end: date,
+        started_at: datetime,
+    ) -> str:
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                endpoint_id = self._endpoint_id(
+                    connection, source_code, endpoint_code
+                )
+                row = connection.execute(
+                    """
+                    insert into source.collection_runs (
+                      source_endpoint_id, idempotency_key, collector_version,
+                      parser_version, collection_window_start,
+                      collection_window_end, status, attempt_count,
+                      started_at, heartbeat_at, metrics
+                    ) values (
+                      %s::uuid, %s, %s, %s, %s::date, %s::date,
+                      'running', 1, %s::timestamptz, %s::timestamptz,
+                      '{"control_plane":true}'::jsonb
+                    )
+                    on conflict (idempotency_key) do nothing
+                    returning id::text as id
+                    """,
+                    (
+                        endpoint_id,
+                        idempotency_key,
+                        collector_version,
+                        parser_version,
+                        period_start,
+                        period_end,
+                        started_at,
+                        started_at,
+                    ),
+                ).fetchone()
+                if row is not None:
+                    return str(row["id"])
+                existing = connection.execute(
+                    """
+                    select id::text as id, source_endpoint_id::text as endpoint_id
+                    from source.collection_runs
+                    where idempotency_key = %s
+                    """,
+                    (idempotency_key,),
+                ).fetchone()
+                if existing is None or str(existing["endpoint_id"]) != endpoint_id:
+                    raise PersistenceContractError(
+                        "Conflito de idempotência no controle da coleta."
+                    )
+                return str(existing["id"])
+        finally:
+            connection.close()
+
+    def complete_controlled_run(
+        self,
+        *,
+        run_id: str,
+        partition_key: str,
+        period_start: date,
+        period_end: date,
+        outcome: str,
+        observed_records: int,
+        checkpoint: Mapping[str, object],
+        metrics: Mapping[str, object],
+        block_reason: str | None,
+        completed_at: datetime,
+    ) -> None:
+        run_status = "partial" if outcome in {"partial", "blocked"} else "succeeded"
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                run = connection.execute(
+                    """
+                    update source.collection_runs
+                    set status = %s,
+                        cursor_after = %s::jsonb,
+                        completed_at = %s::timestamptz,
+                        heartbeat_at = %s::timestamptz,
+                        metrics = metrics || %s::jsonb,
+                        error_code = null,
+                        error_detail = null
+                    where id = %s::uuid
+                    returning source_endpoint_id::text as endpoint_id
+                    """,
+                    (
+                        run_status,
+                        self._json(checkpoint),
+                        completed_at,
+                        completed_at,
+                        self._json({**metrics, "collection_outcome": outcome}),
+                        run_id,
+                    ),
+                ).fetchone()
+                if run is None:
+                    raise PersistenceContractError("Execução controlada inexistente.")
+                connection.execute(
+                    """
+                    insert into source.collection_partitions (
+                      source_endpoint_id, partition_key, period_start, period_end,
+                      status, observed_records, collection_run_id, checkpoint,
+                      last_attempted_at, completed_at, block_reason
+                    ) values (
+                      %s::uuid, %s, %s::date, %s::date, %s, %s, %s::uuid,
+                      %s::jsonb, %s::timestamptz, %s::timestamptz, %s
+                    )
+                    on conflict (source_endpoint_id, partition_key) do update
+                    set period_start = excluded.period_start,
+                        period_end = excluded.period_end,
+                        status = excluded.status,
+                        observed_records = excluded.observed_records,
+                        collection_run_id = excluded.collection_run_id,
+                        checkpoint = excluded.checkpoint,
+                        last_attempted_at = excluded.last_attempted_at,
+                        completed_at = excluded.completed_at,
+                        block_reason = excluded.block_reason
+                    """,
+                    (
+                        str(run["endpoint_id"]),
+                        partition_key,
+                        period_start,
+                        period_end,
+                        outcome,
+                        observed_records,
+                        run_id,
+                        self._json(checkpoint),
+                        completed_at,
+                        completed_at,
+                        block_reason,
+                    ),
+                )
+                connection.execute(
+                    """
+                    update source.collection_failures
+                    set status = 'resolved',
+                        resolved_at = %s::timestamptz,
+                        resolution_run_id = %s::uuid
+                    where source_endpoint_id = %s::uuid
+                      and partition_key = %s
+                      and status <> 'resolved'
+                    """,
+                    (
+                        completed_at,
+                        run_id,
+                        str(run["endpoint_id"]),
+                        partition_key,
+                    ),
+                )
+        finally:
+            connection.close()
+
+    def fail_controlled_run(
+        self,
+        *,
+        run_id: str,
+        partition_key: str,
+        period_start: date,
+        period_end: date,
+        error_type: str,
+        error_detail: str,
+        retryable: bool,
+        failed_at: datetime,
+    ) -> None:
+        failure_status = "retry_scheduled" if retryable else "open"
+        run_status = "retry_scheduled" if retryable else "failed"
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                run = connection.execute(
+                    """
+                    update source.collection_runs
+                    set status = %s,
+                        completed_at = %s::timestamptz,
+                        heartbeat_at = %s::timestamptz,
+                        error_code = %s,
+                        error_detail = %s
+                    where id = %s::uuid
+                    returning source_endpoint_id::text as endpoint_id,
+                              attempt_count
+                    """,
+                    (
+                        run_status,
+                        failed_at,
+                        failed_at,
+                        error_type,
+                        error_detail,
+                        run_id,
+                    ),
+                ).fetchone()
+                if run is None:
+                    raise PersistenceContractError("Execução controlada inexistente.")
+                connection.execute(
+                    """
+                    insert into source.collection_failures (
+                      collection_run_id, source_endpoint_id, partition_key,
+                      status, error_type, error_detail, attempt_count,
+                      retryable, failed_at
+                    ) values (
+                      %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s,
+                      %s::timestamptz
+                    )
+                    on conflict (collection_run_id) do nothing
+                    """,
+                    (
+                        run_id,
+                        str(run["endpoint_id"]),
+                        partition_key,
+                        failure_status,
+                        error_type,
+                        error_detail,
+                        int(run["attempt_count"]),
+                        retryable,
+                        failed_at,
+                    ),
+                )
+                connection.execute(
+                    """
+                    insert into source.collection_partitions (
+                      source_endpoint_id, partition_key, period_start, period_end,
+                      status, observed_records, collection_run_id,
+                      last_attempted_at, completed_at, block_reason
+                    ) values (
+                      %s::uuid, %s, %s::date, %s::date, 'failed', 0,
+                      %s::uuid, %s::timestamptz, null, %s
+                    )
+                    on conflict (source_endpoint_id, partition_key) do update
+                    set status = 'failed',
+                        collection_run_id = excluded.collection_run_id,
+                        last_attempted_at = excluded.last_attempted_at,
+                        completed_at = null,
+                        block_reason = excluded.block_reason
+                    """,
+                    (
+                        str(run["endpoint_id"]),
+                        partition_key,
+                        period_start,
+                        period_end,
+                        run_id,
+                        failed_at,
+                        error_type,
+                    ),
+                )
+        finally:
+            connection.close()
 
     def normalize_pncp_contracts(self, limit: int = 500) -> Mapping[str, Any]:
         """Materializa contratos PNCP já preservados, sem inferir empenhos."""

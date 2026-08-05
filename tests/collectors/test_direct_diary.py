@@ -4,6 +4,9 @@ import logging
 import unittest
 from datetime import date
 
+from barreiras_collectors.commands.collect_direct_diary import (
+    execute_controlled_direct_diary,
+)
 from barreiras_collectors.connectors.direct_diary import (
     DirectEdition,
     EditionNotFoundError,
@@ -174,6 +177,71 @@ class CollectEditionsTests(unittest.TestCase):
 
         self.assertEqual(persisted, 3)
         self.assertFalse(exhausted)
+
+
+class ControlledDirectCollectionTests(unittest.TestCase):
+    def test_control_starts_before_external_setup_and_records_coverage(self) -> None:
+        events: list[str] = []
+
+        class ControlProbe:
+            def __enter__(self):
+                events.append("started")
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                events.append("closed")
+                return False
+
+            def complete(self, **values):
+                events.append(f"completed:{values['outcome'].value}")
+
+        def operation() -> tuple[int, bool, int]:
+            if events != ["started"]:
+                raise AssertionError("controle deve iniciar antes do setup externo")
+            events.append("external-setup")
+            return (0, True, 4704)
+
+        result = execute_controlled_direct_diary(
+            control=ControlProbe(),  # type: ignore[arg-type]
+            operation=operation,
+        )
+
+        self.assertEqual(result, (0, True, 4704))
+        self.assertEqual(
+            events,
+            ["started", "external-setup", "completed:empty", "closed"],
+        )
+
+    def test_external_setup_failure_is_seen_by_control(self) -> None:
+        events: list[str] = []
+
+        class ControlProbe:
+            def __enter__(self):
+                events.append("started")
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del traceback
+                events.append(f"failed:{exc_type.__name__}:{exc_value}")
+                return False
+
+            def complete(self, **values):
+                raise AssertionError(f"não deveria concluir: {values}")
+
+        def failing_setup() -> tuple[int, bool, int]:
+            raise RuntimeError("falha de autenticação")
+
+        with self.assertRaisesRegex(RuntimeError, "autenticação"):
+            execute_controlled_direct_diary(
+                control=ControlProbe(),  # type: ignore[arg-type]
+                operation=failing_setup,
+            )
+
+        self.assertEqual(
+            events,
+            ["started", "failed:RuntimeError:falha de autenticação"],
+        )
 
 
 if __name__ == "__main__":
