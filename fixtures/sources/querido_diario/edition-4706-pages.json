@@ -1,0 +1,47 @@
+{
+  "edition": 4706,
+  "year": 2026,
+  "source": "Diário Oficial do Município de Barreiras",
+  "scope": "Amostra literal de regressão; não representa a edição completa",
+  "pages": [
+    {
+      "page_number": 3,
+      "blocks": [
+        {
+          "block_order": 0,
+          "text": "PORTARIA Nº 261, DE 29 DE JULHO DE 2026.\nDesigna, em atenção ao disposto no Decreto Municipal nº 45/2024 e nos termos do inciso III, do art. 104, combinado com o art. 117, ambos da Lei Federal nº 14.133/2021, servidor responsável pelo acompanhamento e fiscalização da execução do contrato indicado, e dá outras providências."
+        },
+        {
+          "block_order": 1,
+          "text": "Art. 1º Designar servidor responsável pelo acompanhamento e fiscalização da execução contratual.\nArt. 2º Esta Portaria entra em vigor na data de sua publicação."
+        }
+      ]
+    },
+    {
+      "page_number": 4,
+      "blocks": [
+        {
+          "block_order": 0,
+          "text": "PORTARIA Nº 262, DE 29 DE JULHO DE 2026.\nDesigna servidor responsável pelo acompanhamento e fiscalização de outra ata."
+        },
+        {
+          "block_order": 1,
+          "text": "Art. 1º Designar os responsáveis indicados no processo administrativo.\nArt. 2º Esta Portaria entra em vigor na data de sua publicação."
+        }
+      ]
+    },
+    {
+      "page_number": 5,
+      "blocks": [
+        {
+          "block_order": 0,
+          "text": "EDITAL DE NOTIFICAÇÃO Nº 695/2026\nPROCEDIMENTO ADMINISTRATIVO DE REGULARIZAÇÃO FUNDIÁRIA DE INTERESSE ESPECÍFICO – REURB – E."
+        },
+        {
+          "block_order": 1,
+          "text": "AO (À) SENHOR (A) TEREZA CRISTINA DA SILVA e MILTON ANDRADE DE MATOS.\nO Município de Barreiras - Bahia, por meio deste edital, dá ciência do procedimento indicado."
+        }
+      ]
+    }
+  ]
+}
