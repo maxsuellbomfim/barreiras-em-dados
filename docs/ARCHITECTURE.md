@@ -92,6 +92,12 @@ e hash do documento integral. Essa representação é interna e transparente par
 coletores, OCR e normalizadores. Objetos antigos, não segmentados, continuam
 legíveis pelo mesmo adaptador.
 
+Após um upload imutável ou uma resposta de objeto duplicado, o Storage pode
+demorar alguns milissegundos para tornar a leitura visível. O adaptador faz
+tentativas curtas e limitadas com backoff antes de declarar falha, sempre
+verificando o SHA-256; divergência de bytes nunca é tratada como consistência
+eventual.
+
 O mesmo objeto pode ser referenciado por várias observações. `raw_artifacts`
 representa a observação — URL, horário e execução — e não impõe unicidade à
 `object_key`. `raw_records` permite uma versão por
@@ -273,6 +279,11 @@ aberta. Leis e indicações usam endpoints próprios; Câmara Federal, Câmara
 Municipal, Executivo, ALBA e TSE registram snapshots independentes. Perfis da
 ALBA não são confundidos com a listagem da casa, e cada eleição do TSE mantém
 partição própria.
+
+Timeouts, falhas de resolução e conexões interrompidas nas fontes HTTP passam
+pela mesma política limitada de retry e backoff. Cada tentativa é registrada
+sem URL sensível ou corpo de resposta; depois do limite, o conector produz erro
+de domínio e a execução controlada registra a falha, sem convertê-la em vazio.
 
 O painel administrativo consulta esse plano de controle exclusivamente pela
 RPC `api.get_collection_health`. A projeção exige revisor ativo e retorna apenas

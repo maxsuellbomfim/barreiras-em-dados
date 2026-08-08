@@ -22,7 +22,11 @@ import unicodedata
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from ..http import HttpTransport, UrllibTransport
+from ..http import (
+    RETRYABLE_TRANSPORT_EXCEPTIONS,
+    HttpTransport,
+    UrllibTransport,
+)
 from ..logging import log_event
 from ..resilience import RetryPolicy
 from .pncp import PncpPage
@@ -121,15 +125,32 @@ def fetch_councillors(
 
     for attempt in range(1, policy.max_attempts + 1):
         requested_at = datetime.now(UTC).isoformat()
-        response = active_transport.get(
-            COUNCILLORS_URL,
-            headers={
-                "Accept": "text/html",
-                "User-Agent": "BarreirasEmDados-Collector/0.1",
-            },
-            timeout_seconds=TIMEOUT_SECONDS,
-            max_body_bytes=8 * 1024 * 1024,
-        )
+        try:
+            response = active_transport.get(
+                COUNCILLORS_URL,
+                headers={
+                    "Accept": "text/html",
+                    "User-Agent": "BarreirasEmDados-Collector/0.1",
+                },
+                timeout_seconds=TIMEOUT_SECONDS,
+                max_body_bytes=8 * 1024 * 1024,
+            )
+        except RETRYABLE_TRANSPORT_EXCEPTIONS as error:
+            log_event(
+                log,
+                logging.WARNING,
+                "collector_transport_failure",
+                source=SOURCE_CODE,
+                endpoint=ENDPOINT_CODE,
+                attempt=attempt,
+                error_type=type(error).__name__,
+            )
+            if attempt < policy.max_attempts:
+                sleep(policy.delay(attempt, 0.5))
+                continue
+            raise CamaraMunicipalError(
+                "O portal da Câmara Municipal ficou indisponível."
+            ) from error
         received_at = datetime.now(UTC).isoformat()
         log_event(
             log,
@@ -164,9 +185,7 @@ def fetch_councillors(
                     json.dumps(
                         {
                             "url": COUNCILLORS_URL,
-                            "body_sha256": hashlib.sha256(
-                                response.body
-                            ).hexdigest(),
+                            "body_sha256": hashlib.sha256(response.body).hexdigest(),
                         },
                         sort_keys=True,
                         separators=(",", ":"),
@@ -198,6 +217,4 @@ def fetch_councillors(
         if attempt < policy.max_attempts:
             sleep(policy.delay(attempt, 0.5))
 
-    raise CamaraMunicipalError(
-        "O portal da Câmara Municipal ficou indisponível."
-    )
+    raise CamaraMunicipalError("O portal da Câmara Municipal ficou indisponível.")

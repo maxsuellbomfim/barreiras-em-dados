@@ -266,6 +266,53 @@ class QueridoDiarioClientTests(unittest.TestCase):
         with self.assertRaises(SourceContractError):
             list(client.iter_gazette_pages())
 
+    def test_canonicalizes_migration_bucket_and_preserves_origin(self) -> None:
+        migrated_item = {
+            **self.items[0],
+            "url": (
+                "s3://okbr-qd-migration//2903201/2025-12-31/"
+                "9f09140a1df56c925536a91070298ae96e814bd1.pdf"
+            ),
+            "txt_url": (
+                "s3://okbr-qd-migration//2903201/2025-12-31/"
+                "9f09140a1df56c925536a91070298ae96e814bd1.txt"
+            ),
+        }
+        response = response_for(1, [migrated_item])
+        client, _, _ = self.make_client([response])
+
+        page = next(client.iter_gazette_pages())
+        item = page.parsed.gazettes[0]
+
+        self.assertEqual(page.raw_body, response.body)
+        self.assertEqual(
+            item.url,
+            "https://data.queridodiario.ok.org.br/2903201/2025-12-31/"
+            "9f09140a1df56c925536a91070298ae96e814bd1.pdf",
+        )
+        self.assertEqual(
+            item.source_extensions["source_url_original"],
+            migrated_item["url"],
+        )
+        self.assertEqual(
+            item.source_extensions["source_txt_url_original"],
+            migrated_item["txt_url"],
+        )
+        self.assertEqual(
+            item.source_extensions["url_canonicalization"],
+            "okbr-qd-migration-s3-v1",
+        )
+
+    def test_rejects_unrecognized_s3_bucket(self) -> None:
+        unsafe_item = {
+            **self.items[0],
+            "url": "s3://outro-bucket/2903201/documento.pdf",
+        }
+        client, _, _ = self.make_client([response_for(1, [unsafe_item])])
+
+        with self.assertRaises(SourceContractError):
+            list(client.iter_gazette_pages())
+
 
 if __name__ == "__main__":
     unittest.main()

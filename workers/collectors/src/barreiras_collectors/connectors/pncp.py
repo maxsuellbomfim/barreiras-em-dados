@@ -15,7 +15,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from ..http import HttpTransport, UrllibTransport
+from ..http import (
+    RETRYABLE_TRANSPORT_EXCEPTIONS,
+    HttpTransport,
+    UrllibTransport,
+)
 from ..logging import log_event
 from ..resilience import RetryPolicy
 
@@ -51,9 +55,7 @@ CONTRATACOES_TIMEOUT_SECONDS = 60.0
 
 COMPRAS_ENDPOINT_CODE = "compras-api"
 COMPRAS_PAGE_SIZE = 50
-COMPRAS_BASE_URL = (
-    f"https://pncp.gov.br/api/pncp/v1/orgaos/{BARREIRAS_CNPJ}/compras"
-)
+COMPRAS_BASE_URL = f"https://pncp.gov.br/api/pncp/v1/orgaos/{BARREIRAS_CNPJ}/compras"
 CONTRATOS_ENDPOINT_CODE = "contratos-api"
 CONTRATOS_BASE_URL = (
     f"https://pncp.gov.br/api/pncp/v1/orgaos/{BARREIRAS_CNPJ}/contratos"
@@ -114,15 +116,30 @@ def fetch_contratacoes_page(
 
     for attempt in range(1, policy.max_attempts + 1):
         requested_at = datetime.now(UTC).isoformat()
-        response = active_transport.get(
-            url,
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "BarreirasEmDados-Collector/0.1",
-            },
-            timeout_seconds=CONTRATACOES_TIMEOUT_SECONDS,
-            max_body_bytes=8 * 1024 * 1024,
-        )
+        try:
+            response = active_transport.get(
+                url,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "BarreirasEmDados-Collector/0.1",
+                },
+                timeout_seconds=CONTRATACOES_TIMEOUT_SECONDS,
+                max_body_bytes=8 * 1024 * 1024,
+            )
+        except RETRYABLE_TRANSPORT_EXCEPTIONS as error:
+            log_event(
+                log,
+                logging.WARNING,
+                "collector_transport_failure",
+                source=SOURCE_CODE,
+                endpoint=CONTRATACOES_ENDPOINT_CODE,
+                attempt=attempt,
+                error_type=type(error).__name__,
+            )
+            if attempt < policy.max_attempts:
+                sleep(policy.delay(attempt, 0.5))
+                continue
+            raise PncpError("O PNCP ficou indisponível para contratações.") from error
         received_at = datetime.now(UTC).isoformat()
         log_event(
             log,
@@ -148,8 +165,7 @@ def fetch_contratacoes_page(
             # Gate da Etapa 2: HTTP 200 com raiz de erro é falha, não dado.
             if payload.get("error") or payload.get("status") in (400, 500):
                 raise PncpError(
-                    "O PNCP devolveu erro dentro de HTTP 200: "
-                    f"{str(payload)[:200]}"
+                    f"O PNCP devolveu erro dentro de HTTP 200: {str(payload)[:200]}"
                 )
             data = payload.get("data") or []
             if not isinstance(data, list):
@@ -167,9 +183,7 @@ def fetch_contratacoes_page(
                     json.dumps(
                         {
                             "url": url,
-                            "body_sha256": hashlib.sha256(
-                                response.body
-                            ).hexdigest(),
+                            "body_sha256": hashlib.sha256(response.body).hexdigest(),
                         },
                         sort_keys=True,
                         separators=(",", ":"),
@@ -195,9 +209,7 @@ def fetch_contratacoes_page(
                 raw_body=response.body,
                 window_start=since,
                 window_end=until,
-                items=tuple(
-                    item for item in data if isinstance(item, dict)
-                ),
+                items=tuple(item for item in data if isinstance(item, dict)),
                 total_paginas=int(total_paginas),
                 total_registros=int(total_registros),
             )
@@ -324,15 +336,30 @@ def _fetch_compras_array(
 
     for attempt in range(1, policy.max_attempts + 1):
         requested_at = datetime.now(UTC).isoformat()
-        response = active_transport.get(
-            url,
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "BarreirasEmDados-Collector/0.1",
-            },
-            timeout_seconds=CONTRATACOES_TIMEOUT_SECONDS,
-            max_body_bytes=8 * 1024 * 1024,
-        )
+        try:
+            response = active_transport.get(
+                url,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "BarreirasEmDados-Collector/0.1",
+                },
+                timeout_seconds=CONTRATACOES_TIMEOUT_SECONDS,
+                max_body_bytes=8 * 1024 * 1024,
+            )
+        except RETRYABLE_TRANSPORT_EXCEPTIONS as error:
+            log_event(
+                log,
+                logging.WARNING,
+                "collector_transport_failure",
+                source=SOURCE_CODE,
+                endpoint=endpoint_code,
+                attempt=attempt,
+                error_type=type(error).__name__,
+            )
+            if attempt < policy.max_attempts:
+                sleep(policy.delay(attempt, 0.5))
+                continue
+            raise PncpError(f"O PNCP ficou indisponível para {schema_name}.") from error
         received_at = datetime.now(UTC).isoformat()
         log_event(
             log,
@@ -358,14 +385,10 @@ def _fetch_compras_array(
             total_registros = 0
             if isinstance(payload, list):
                 items = payload
-            elif isinstance(payload, dict) and isinstance(
-                payload.get("data"), list
-            ):
+            elif isinstance(payload, dict) and isinstance(payload.get("data"), list):
                 items = payload["data"]
                 total_paginas = int(payload.get("totalPaginas") or 1)
-                total_registros = int(
-                    payload.get("totalRegistros") or len(items)
-                )
+                total_registros = int(payload.get("totalRegistros") or len(items))
             else:
                 raise PncpError(
                     f"A raiz de {schema_name} deve ser uma lista ou objeto "
@@ -382,9 +405,7 @@ def _fetch_compras_array(
                     json.dumps(
                         {
                             "url": url,
-                            "body_sha256": hashlib.sha256(
-                                response.body
-                            ).hexdigest(),
+                            "body_sha256": hashlib.sha256(response.body).hexdigest(),
                         },
                         sort_keys=True,
                         separators=(",", ":"),
@@ -447,15 +468,30 @@ def fetch_registry_snapshot(
 
     last_status: int | None = None
     for attempt in range(1, policy.max_attempts + 1):
-        response = active_transport.get(
-            url,
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "BarreirasEmDados-Collector/0.1",
-            },
-            timeout_seconds=35.0,
-            max_body_bytes=8 * 1024 * 1024,
-        )
+        try:
+            response = active_transport.get(
+                url,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "BarreirasEmDados-Collector/0.1",
+                },
+                timeout_seconds=35.0,
+                max_body_bytes=8 * 1024 * 1024,
+            )
+        except RETRYABLE_TRANSPORT_EXCEPTIONS as error:
+            log_event(
+                log,
+                logging.WARNING,
+                "collector_transport_failure",
+                source=SOURCE_CODE,
+                endpoint=resource,
+                attempt=attempt,
+                error_type=type(error).__name__,
+            )
+            if attempt < policy.max_attempts:
+                sleep(policy.delay(attempt, 0.5))
+                continue
+            raise PncpError(f"O PNCP ficou indisponível para {resource}.") from error
         log_event(
             log,
             logging.INFO,
@@ -485,13 +521,10 @@ def fetch_registry_snapshot(
             )
         last_status = response.status
         if response.status not in RETRYABLE:
-            raise PncpError(
-                f"O PNCP respondeu HTTP {response.status} em {resource}."
-            )
+            raise PncpError(f"O PNCP respondeu HTTP {response.status} em {resource}.")
         if attempt < policy.max_attempts:
             sleep(policy.delay(attempt, 0.5))
 
     raise PncpError(
-        f"O PNCP ficou indisponível para {resource} "
-        f"(último HTTP {last_status})."
+        f"O PNCP ficou indisponível para {resource} (último HTTP {last_status})."
     )

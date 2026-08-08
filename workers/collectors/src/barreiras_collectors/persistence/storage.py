@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import Protocol
 
@@ -37,11 +39,21 @@ class SupabaseStorageObjectStore:
         bucket_client: SupabaseBucketClient,
         *,
         chunk_size_bytes: int = _DEFAULT_CHUNK_SIZE_BYTES,
+        consistency_attempts: int = 3,
+        consistency_base_delay_seconds: float = 0.1,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         if not 1 <= chunk_size_bytes <= self._MAX_CHUNK_SIZE_BYTES:
             raise ValueError("O tamanho das partes do Storage é inválido.")
+        if consistency_attempts < 1:
+            raise ValueError("A quantidade de tentativas do Storage é inválida.")
+        if consistency_base_delay_seconds < 0:
+            raise ValueError("O atraso de consistência do Storage é inválido.")
         self.bucket_client = bucket_client
         self.chunk_size_bytes = chunk_size_bytes
+        self.consistency_attempts = consistency_attempts
+        self.consistency_base_delay_seconds = consistency_base_delay_seconds
+        self.sleep = sleep
 
     def put_if_absent(
         self,
@@ -78,7 +90,7 @@ class SupabaseStorageObjectStore:
         except Exception as upload_error:
             created = False
             try:
-                existing = self.read(object_key)
+                existing = self._read_with_consistency_retries(object_key)
             except Exception:
                 raise PersistenceError(
                     "Falha no upload e o objeto não pôde ser restaurado."
@@ -88,7 +100,7 @@ class SupabaseStorageObjectStore:
                     "A chave de conteúdo já existe com bytes divergentes."
                 ) from upload_error
 
-        restored = self.read(object_key)
+        restored = self._read_with_consistency_retries(object_key)
         restored_hash = hashlib.sha256(restored).hexdigest()
         if restored_hash != expected_sha256:
             raise ArtifactIntegrityError(
@@ -155,7 +167,7 @@ class SupabaseStorageObjectStore:
         except Exception as upload_error:
             created = False
             try:
-                existing = self.read(object_key)
+                existing = self._read_with_consistency_retries(object_key)
             except ArtifactIntegrityError:
                 raise
             except Exception:
@@ -167,7 +179,7 @@ class SupabaseStorageObjectStore:
                     "A chave de conteúdo já existe com bytes divergentes."
                 ) from upload_error
 
-        restored = self.read(object_key)
+        restored = self._read_with_consistency_retries(object_key)
         restored_hash = hashlib.sha256(restored).hexdigest()
         if restored_hash != expected_sha256:
             raise ArtifactIntegrityError(
@@ -190,7 +202,7 @@ class SupabaseStorageObjectStore:
             self._upload(object_key, body, "application/octet-stream")
         except Exception as upload_error:
             try:
-                existing = self._download(object_key)
+                existing = self._download_with_consistency_retries(object_key)
             except Exception:
                 raise PersistenceError(
                     "Falha no upload de uma parte e ela não pôde ser restaurada."
@@ -200,7 +212,7 @@ class SupabaseStorageObjectStore:
                     "Uma parte existente possui bytes divergentes."
                 ) from upload_error
 
-        restored = self._download(object_key)
+        restored = self._download_with_consistency_retries(object_key)
         if hashlib.sha256(restored).hexdigest() != expected_sha256:
             raise ArtifactIntegrityError(
                 "A verificação pós-upload de uma parte encontrou hash divergente."
@@ -296,6 +308,29 @@ class SupabaseStorageObjectStore:
         if not isinstance(value, bytes):
             raise PersistenceError("O Storage não retornou bytes.")
         return value
+
+    def _read_with_consistency_retries(self, object_key: str) -> bytes:
+        return self._with_consistency_retries(lambda: self.read(object_key))
+
+    def _download_with_consistency_retries(self, object_key: str) -> bytes:
+        return self._with_consistency_retries(lambda: self._download(object_key))
+
+    def _with_consistency_retries(self, operation: Callable[[], bytes]) -> bytes:
+        last_error: PersistenceError | None = None
+        for attempt in range(1, self.consistency_attempts + 1):
+            try:
+                return operation()
+            except ArtifactIntegrityError:
+                raise
+            except PersistenceError as error:
+                last_error = error
+                if attempt < self.consistency_attempts:
+                    self.sleep(
+                        self.consistency_base_delay_seconds * (2 ** (attempt - 1))
+                    )
+        if last_error is None:
+            raise PersistenceError("A leitura do Storage não foi executada.")
+        raise last_error
 
     @staticmethod
     def _chunk_object_key(object_key: str, index: int, sha256: str) -> str:

@@ -34,6 +34,25 @@ class OneShotTransport:
         )
 
 
+class SequenceTransport:
+    def __init__(self, responses: list[HttpResponse | BaseException]) -> None:
+        self.responses = list(responses)
+        self.calls = 0
+
+    def get(self, url, *, headers, timeout_seconds, max_body_bytes):
+        del headers, timeout_seconds, max_body_bytes
+        self.calls += 1
+        result = self.responses.pop(0)
+        if isinstance(result, BaseException):
+            raise result
+        return HttpResponse(
+            status=result.status,
+            headers=result.headers,
+            body=result.body,
+            final_url=url,
+        )
+
+
 def envelope(dados) -> bytes:
     return json.dumps({"dados": dados}).encode()
 
@@ -89,6 +108,45 @@ class CamaraFetchTests(unittest.TestCase):
     def test_non_json_is_explicit_failure(self) -> None:
         with self.assertRaises(CamaraError):
             fetch_page(200, b"<html>bloqueio</html>")
+
+    def test_timeout_is_retried_before_success(self) -> None:
+        transport = SequenceTransport(
+            [
+                TimeoutError("tempo esgotado"),
+                HttpResponse(200, {}, envelope([{"id": 204560}]), "unused"),
+            ]
+        )
+        sleeps: list[float] = []
+
+        page = fetch_deputies_page(
+            1,
+            transport=transport,
+            retry_policy=RetryPolicy(
+                max_attempts=2,
+                base_delay_seconds=1,
+                max_delay_seconds=2,
+            ),
+            sleep=sleeps.append,
+        )
+
+        assert page is not None
+        self.assertEqual(page.attempts, 2)
+        self.assertEqual(transport.calls, 2)
+        self.assertEqual(sleeps, [0.5])
+
+    def test_persistent_transport_failure_raises_domain_error(self) -> None:
+        transport = SequenceTransport([TimeoutError("um"), TimeoutError("dois")])
+
+        with self.assertRaises(CamaraError) as captured:
+            fetch_deputies_page(
+                1,
+                transport=transport,
+                retry_policy=RetryPolicy(max_attempts=2),
+                sleep=lambda _seconds: None,
+            )
+
+        self.assertIn("indisponível", str(captured.exception))
+        self.assertEqual(transport.calls, 2)
 
 
 class FakeObjectStore:
