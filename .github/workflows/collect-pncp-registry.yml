@@ -17,6 +17,17 @@ on:
           - full
           - backfill
           - contracts_only
+          - replay_window
+      replay_since:
+        description: "Início da janela manual para replay (YYYY-MM-DD)"
+        required: false
+        default: ""
+        type: string
+      replay_until:
+        description: "Fim da janela manual para replay (YYYY-MM-DD)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -78,6 +89,18 @@ jobs:
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratacoes
           --backfill
+
+      - name: Reprocessar janela PNCP
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'replay_window'
+        env:
+          PNCP_REPLAY_SINCE: ${{ inputs.replay_since }}
+          PNCP_REPLAY_UNTIL: ${{ inputs.replay_until }}
+        run: |
+          test -n "$PNCP_REPLAY_SINCE"
+          test -n "$PNCP_REPLAY_UNTIL"
+          python -B -m barreiras_collectors.commands.collect_pncp_contratacoes \
+            --since "$PNCP_REPLAY_SINCE" \
+            --until "$PNCP_REPLAY_UNTIL"
 
       - name: Preservar itens e resultados das contratações
         if: github.event_name != 'workflow_dispatch' || inputs.mode != 'contracts_only'
