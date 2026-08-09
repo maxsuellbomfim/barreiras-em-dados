@@ -33,6 +33,41 @@ def load_blocks() -> tuple[DocumentBlock, ...]:
 
 
 class GazetteSegmentationTests(unittest.TestCase):
+    def test_finds_heading_after_repeated_municipal_header(self) -> None:
+        blocks = (
+            DocumentBlock.create(
+                page_number=1,
+                block_order=0,
+                text=(
+                    "PREFEITURA MUNICIPAL DE BARREIRAS\n"
+                    "Rua Edigar de Deus Pitta\n"
+                    "BARREIRAS - BA\n"
+                    "CNPJ: 13.654.405/0001-95\n"
+                    "PORTARIA NÂº 263, DE 03 DE AGOSTO DE 2026.\n"
+                    "Designa servidor responsável."
+                ),
+            ),
+            DocumentBlock.create(
+                page_number=2,
+                block_order=0,
+                text=(
+                    "PREFEITURA MUNICIPAL DE BARREIRAS\n"
+                    "Rua Edigar de Deus Pitta\n"
+                    "PORTARIA NÂº 264, DE 03 DE AGOSTO DE 2026.\n"
+                    "Designa outra servidora."
+                ),
+            ),
+        )
+
+        proposals = propose_boundaries(blocks)
+        documents = build_document_drafts(blocks, proposals)
+
+        self.assertEqual([proposal.start_block for proposal in proposals], [0, 1])
+        self.assertEqual([document.literal_title for document in documents], [
+            "PORTARIA NÂº 263, DE 03 DE AGOSTO DE 2026.",
+            "PORTARIA NÂº 264, DE 03 DE AGOSTO DE 2026.",
+        ])
+
     def test_separates_only_complete_headings_at_structural_page_starts(self) -> None:
         blocks = load_blocks()
 

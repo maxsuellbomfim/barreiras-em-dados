@@ -17,7 +17,7 @@ from .gazette_documents import (
     ordered_blocks,
 )
 
-SEGMENTER_VERSION = "gazette-structural-segmenter/1.0.0"
+SEGMENTER_VERSION = "gazette-structural-segmenter/1.1.0"
 BoundarySource = Literal["layout", "deterministic", "ai_assist"]
 
 _NUMBER = r"(?:N(?:O|\.|º|°)?\s*)?\d"
@@ -46,6 +46,35 @@ _HEADING_PATTERNS = (
             rf"^AVISO(?:\s+DE\s+[A-Z][A-Z ]{{2,60}})?\s+{_NUMBER}", re.IGNORECASE
         ),
     ),
+    (
+        "convocacao",
+        re.compile(rf"^CONVOCACAO(?:\s+PUBLICA)?\s+{_NUMBER}", re.IGNORECASE),
+    ),
+    (
+        "notificacao",
+        re.compile(
+            rf"^NOTIFICACAO(?:\s+DE\s+[A-Z][A-Z ]{{2,60}})?\s+{_NUMBER}",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "justificativa",
+        re.compile(
+            r"^(?:EXPOSICAO\s+DE\s+)?JUSTIFICATIVA(?:\s+DA|\s+DO|\s+DE)?",
+            re.IGNORECASE,
+        ),
+    ),
+)
+
+_GENERIC_HEADING_PATTERNS = (
+    ("portaria", re.compile(r"^PORTARIA\b.*\d", re.IGNORECASE)),
+    ("decreto", re.compile(r"^DECRETO\b.*\d", re.IGNORECASE)),
+    ("lei", re.compile(r"^LEI\b.*\d", re.IGNORECASE)),
+    ("resolucao", re.compile(r"^RESOLUCAO\b.*\d", re.IGNORECASE)),
+    ("edital", re.compile(r"^EDITAL\b.*\d", re.IGNORECASE)),
+    ("aviso", re.compile(r"^AVISO\b.*\d", re.IGNORECASE)),
+    ("convocacao", re.compile(r"^CONVOCACAO\b.*\d", re.IGNORECASE)),
+    ("notificacao", re.compile(r"^NOTIFICACAO\b.*\d", re.IGNORECASE)),
 )
 
 
@@ -72,6 +101,35 @@ def _document_type(title: str) -> str | None:
     return None
 
 
+def _heading_from_text(text: str) -> tuple[str, str] | None:
+    """Encontra um título forte no início do bloco, sem interpretar o corpo.
+
+    Os PDFs municipais repetem o cabeçalho institucional antes do título. O
+    título pode, portanto, estar algumas linhas abaixo da primeira linha. A
+    janela curta reduz falsos cortes em artigos que mencionam outro decreto.
+    """
+    for line_number, raw_line in enumerate(text.splitlines()):
+        if line_number >= 24:
+            break
+        candidate = raw_line.strip()
+        if not candidate:
+            continue
+        folded = _fold(candidate)
+        for document_type, pattern in (*_HEADING_PATTERNS, *_GENERIC_HEADING_PATTERNS):
+            # Algumas extrações conservam ``Nº``/``N°`` e outras entregam
+            # variantes já decompostas. Testamos a linha literal e a forma
+            # sem acentos; nenhuma normalização é aplicada ao texto salvo.
+            if pattern.match(candidate) or pattern.match(folded):
+                return candidate, document_type
+    return None
+
+
+def document_title(text: str) -> str:
+    """Retorna o título da matéria quando houver, mantendo a linha literal."""
+    heading = _heading_from_text(text)
+    return heading[0] if heading else literal_title(text)
+
+
 def propose_boundaries(
     blocks: Sequence[DocumentBlock],
 ) -> tuple[BoundaryProposal, ...]:
@@ -88,8 +146,8 @@ def propose_boundaries(
         )
     ]
     for index, block in enumerate(ordered[1:], start=1):
-        title = literal_title(block.text)
-        document_type = _document_type(title)
+        heading = _heading_from_text(block.text)
+        document_type = heading[1] if heading else None
         if block.block_order != 0 or document_type is None:
             continue
         proposals.append(
@@ -126,7 +184,7 @@ def build_document_drafts(
         )
         document_blocks = ordered[start : end + 1]
         text = join_literal_blocks(document_blocks)
-        title = literal_title(document_blocks[0].text)
+        title = document_title(document_blocks[0].text)
         documents.append(
             GazetteDocumentDraft(
                 first_block=start,

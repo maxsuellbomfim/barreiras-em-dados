@@ -91,10 +91,10 @@ def process_pending(
                 # Uma fronteira inconsistente jamais bloqueia a publicação do
                 # texto literal: ela é rebaixada ao fallback integral.
                 drafts = ()
-            # Um bloco por página não prova fronteiras internas. A primeira
-            # versão conserva a edição inteira, mesmo diante de propostas.
+            # Cada documento proposto é publicado apenas se a validação provar
+            # cobertura exata; qualquer lacuna volta ao fallback da edição.
             proposed_documents = len(drafts)
-            documents, report = validate_or_fallback(blocks, ())
+            documents, report = validate_or_fallback(blocks, drafts)
             batch = GazetteDocumentBatch(
                 artifact=artifact,
                 pages=pages,
