@@ -3521,6 +3521,14 @@ footer {
   margin-block: 0.5rem;
 }
 
+.procurement-price-context {
+  display: inline-block;
+  margin-top: 0.2rem;
+  color: #315fd4;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .procurement-results ul {
   margin: 0.4rem 0 0.6rem;
   padding-left: 1.1rem;

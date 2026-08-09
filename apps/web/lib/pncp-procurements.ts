@@ -16,6 +16,15 @@ export type ProcurementItem = Readonly<{
   valorTotal: number | null;
   situacao: string | null;
   catalogoCodigo: string | null;
+  contextoPreco: ProcurementPriceContext | null;
+}>;
+
+export type ProcurementPriceContext = Readonly<{
+  observacoes: number;
+  minimo: number;
+  mediana: number;
+  maximo: number;
+  methodologyVersion: "pncp-price-context/1.0.0";
 }>;
 
 export type ProcurementExecutionSummary = Readonly<{
@@ -115,6 +124,29 @@ function optionalNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function parsePriceContext(value: unknown): ProcurementPriceContext | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  if (
+    row.methodology_version !== "pncp-price-context/1.0.0" ||
+    !Number.isSafeInteger(row.observacoes) ||
+    Number(row.observacoes) < 2
+  ) {
+    return null;
+  }
+  const amounts = [row.minimo, row.mediana, row.maximo];
+  if (!amounts.every((amount) => typeof amount === "number" && Number.isFinite(amount) && amount > 0)) {
+    return null;
+  }
+  return {
+    observacoes: Number(row.observacoes),
+    minimo: Number(amounts[0]),
+    mediana: Number(amounts[1]),
+    maximo: Number(amounts[2]),
+    methodologyVersion: "pncp-price-context/1.0.0",
+  };
+}
+
 function parseFilterOption(row: Record<string, unknown>): ProcurementFilterOption | null {
   const optionType = row.option_type;
   const value = optionalString(row.option_value);
@@ -196,9 +228,73 @@ function parseItems(value: unknown): readonly ProcurementItem[] | null {
       valorTotal: optionalNumber(row.valor_total),
       situacao: optionalString(row.situacao),
       catalogoCodigo: optionalString(row.catalogo_codigo),
+      contextoPreco: parsePriceContext(row.contexto_preco),
     });
   }
   return items;
+}
+
+function priceContextKey(descricao: string, unidade: string | null): string {
+  return `${descricao}\u0000${unidade ?? ""}`;
+}
+
+async function fetchPriceContexts(
+  supabaseUrl: string,
+  publishableKey: string,
+): Promise<ReadonlyMap<string, ProcurementPriceContext>> {
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/get_pncp_item_price_context`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Profile": "api",
+          apikey: publishableKey,
+          "Content-Profile": "api",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ page_size: 1000 }),
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) return new Map();
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return new Map();
+    const contexts = new Map<string, ProcurementPriceContext>();
+    for (const candidate of payload) {
+      if (typeof candidate !== "object" || candidate === null) continue;
+      const row = candidate as Record<string, unknown>;
+      const descricao = optionalString(row.descricao);
+      const unidade = optionalString(row.unidade);
+      const contextoPreco = parsePriceContext({
+        observacoes: row.observacoes,
+        minimo: row.minimo,
+        mediana: row.mediana,
+        maximo: row.maximo,
+        methodology_version: row.methodology_version,
+      });
+      if (descricao === null || contextoPreco === null) continue;
+      contexts.set(priceContextKey(descricao, unidade), contextoPreco);
+    }
+    return contexts;
+  } catch {
+    return new Map();
+  }
+}
+
+function attachPriceContexts(
+  procurements: readonly Procurement[],
+  contexts: ReadonlyMap<string, ProcurementPriceContext>,
+): readonly Procurement[] {
+  return procurements.map((procurement) => ({
+    ...procurement,
+    itens: procurement.itens.map((item) => ({
+      ...item,
+      contextoPreco: contexts.get(priceContextKey(item.descricao, item.unidade)) ?? null,
+    })),
+  }));
 }
 
 function parseContracts(value: unknown): readonly ProcurementContract[] | null {
@@ -480,7 +576,8 @@ export async function getPncpProcurements(
       }
       procurements.push(procurement);
     }
-    return { state: "available", procurements };
+    const contexts = await fetchPriceContexts(supabaseUrl, publishableKey);
+    return { state: "available", procurements: attachPriceContexts(procurements, contexts) };
   } catch {
     return { state: "unavailable" };
   }
