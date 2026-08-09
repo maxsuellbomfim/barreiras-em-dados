@@ -11,7 +11,9 @@ import hashlib
 from dataclasses import dataclass
 
 ANYDOC_PARSER_VERSION = "firecrawl-anydoc/0.1.2"
-MAX_INPUT_BYTES = 64 * 1024 * 1024
+# Acompanha o limite do coletor para que o adaptador opcional não descarte
+# PDFs oficiais já preservados por serem maiores que 64 MiB.
+MAX_INPUT_BYTES = 256 * 1024 * 1024
 
 
 class AnyDocUnavailable(RuntimeError):

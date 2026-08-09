@@ -101,7 +101,11 @@ class CollectorSettings:
             "QUERIDO_DIARIO_MAX_DOCUMENT_BYTES",
             default=32 * 1024 * 1024,
             minimum=1024,
-            maximum=64 * 1024 * 1024,
+            # Algumas edições oficiais são PDFs escaneados muito grandes. O
+            # Storage preserva objetos maiores em partes de até 64 MiB; o
+            # limite de leitura deve permitir a edição inteira antes do
+            # particionamento, sem aceitar respostas arbitrariamente grandes.
+            maximum=256 * 1024 * 1024,
         )
         max_documents_per_run = _bounded_int(
             values,
