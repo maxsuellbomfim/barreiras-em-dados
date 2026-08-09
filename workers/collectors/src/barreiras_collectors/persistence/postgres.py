@@ -397,6 +397,31 @@ class PostgresCollectionRepository:
         finally:
             connection.close()
 
+    def normalize_pncp_items(self, limit: int = 500) -> Mapping[str, Any]:
+        """Materializa itens PNCP preservados, mantendo o vínculo oficial."""
+        if not 1 <= limit <= 5000:
+            raise ValueError("limit deve estar entre 1 e 5000")
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                row = connection.execute(
+                    """
+                    select items_inserted,
+                           items_skipped
+                      from procurement.normalize_pncp_items(%s)
+                    """,
+                    (limit,),
+                ).fetchone()
+            if row is None:
+                raise PersistenceContractError(
+                    "A normalização dos itens PNCP não retornou métricas."
+                )
+            return row
+        finally:
+            connection.close()
+
     @classmethod
     def from_dsn(cls, database_url: str) -> PostgresCollectionRepository:
         if not database_url.strip():
