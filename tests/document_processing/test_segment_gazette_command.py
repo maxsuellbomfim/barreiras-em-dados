@@ -10,12 +10,17 @@ from barreiras_docproc.gazette_repository import GazetteArtifact
 from barreiras_docproc.processing import PageInput, integral_gazette_idempotency_key
 
 
-def artifact(edition: int, artifact_id: str) -> GazetteArtifact:
+def artifact(
+    edition: int,
+    artifact_id: str,
+    *,
+    edition_year: int = 2026,
+) -> GazetteArtifact:
     return GazetteArtifact(
         raw_artifact_id=artifact_id,
         sha256=hashlib.sha256(f"edition-{edition}".encode()).hexdigest(),
         edition=edition,
-        edition_year=2026,
+        edition_year=edition_year,
         edition_date="2026-08-08",
         created_at="2026-08-08T12:00:00+00:00",
     )
@@ -148,7 +153,11 @@ class SegmentGazetteCommandTests(unittest.TestCase):
         self.assertEqual(repository.batches[0].artifact.edition_year, 2027)
 
     def test_can_target_one_edition_for_retroactive_replay(self) -> None:
-        target = artifact(4563, "00000000-0000-0000-0000-000000004563")
+        target = artifact(
+            4563,
+            "00000000-0000-0000-0000-000000004563",
+            edition_year=2025,
+        )
         newer = artifact(4707, "00000000-0000-0000-0000-000000000707")
         repository = InMemoryRepository((newer, target))
         repository.pages[target.raw_artifact_id] = (
