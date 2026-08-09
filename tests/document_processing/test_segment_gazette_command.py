@@ -100,7 +100,7 @@ class SegmentGazetteCommandTests(unittest.TestCase):
         self.assertEqual(len(repository.batches), 2)
         self.assertEqual(
             repository.batches[0].segmenter_version,
-            "gazette-structural-segmenter/1.0.0",
+            "gazette-structural-segmenter/1.1.0",
         )
         self.assertEqual(
             repository.batches[0].validator_version, "gazette-integrity/1.0.0"
@@ -154,7 +154,7 @@ class SegmentGazetteCommandTests(unittest.TestCase):
         self.assertEqual(persisted[0].status, "edition_fallback")
         self.assertIn("Continuação literal", persisted[0].full_text)
 
-    def test_page_granularity_never_publishes_partial_segmentation(self) -> None:
+    def test_page_granularity_publishes_complete_page_documents(self) -> None:
         current = artifact(4707, "00000000-0000-0000-0000-000000000707")
         repository = InMemoryRepository((current,))
         repository.pages[current.raw_artifact_id] = (
@@ -166,8 +166,12 @@ class SegmentGazetteCommandTests(unittest.TestCase):
 
         self.assertEqual(result.processed, 1)
         persisted = repository.batches[0].documents
-        self.assertEqual(len(persisted), 1)
-        self.assertEqual(persisted[0].status, "edition_fallback")
+        self.assertEqual(len(persisted), 2)
+        self.assertTrue(all(document.status == "validated" for document in persisted))
+        self.assertEqual(
+            [document.literal_title for document in persisted],
+            ["PORTARIA N 2", "DECRETO N 3"],
+        )
 
     def test_failure_is_isolated_and_sanitized(self) -> None:
         broken = artifact(4708, "00000000-0000-0000-0000-000000000708")
@@ -203,13 +207,13 @@ class SegmentGazetteCommandTests(unittest.TestCase):
                 integral_gazette_idempotency_key(
                     newest.sha256,
                     ((1, "parser/1"),),
-                    "gazette-structural-segmenter/1.0.0",
+                    "gazette-structural-segmenter/1.1.0",
                     "gazette-integrity/1.0.0",
                 ),
                 integral_gazette_idempotency_key(
                     skipped.sha256,
                     ((1, "parser/1"),),
-                    "gazette-structural-segmenter/1.0.0",
+                    "gazette-structural-segmenter/1.1.0",
                     "gazette-integrity/1.0.0",
                 ),
             }
