@@ -12,3 +12,11 @@ test("coleta financeira respeita o orçamento de conexões", () => {
   assert.match(workflow, /QUERIDO_DIARIO_DATABASE_URL/);
   assert.match(workflow, /--download-documents/);
 });
+
+test("coleta financeira permite backfill por recurso e documentos grandes", () => {
+  assert.match(workflow, /resource:/);
+  assert.match(workflow, /pdc-resumo-execucao-da-despesa/);
+  assert.match(workflow, /max_pages:[\s\S]*- \"50\"/);
+  assert.match(workflow, /inputs\.resource == 'all'/);
+  assert.match(workflow, /MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES: \"268435456\"/);
+});

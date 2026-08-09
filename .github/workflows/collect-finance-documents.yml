@@ -24,6 +24,23 @@ on:
           - "1"
           - "3"
           - "5"
+          - "20"
+          - "50"
+      resource:
+        description: "Recurso a coletar (all executa todos)"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "pdc-receita-tributaria"
+          - "pdc-recursos-extraordinarios"
+          - "pdc-resumo-execucao-da-receita"
+          - "pdc-resumo-execucao-da-despesa"
+          - "pdc-transferencia"
+          - "pdc-emendas-parlamentares-receitas"
+          - "rreo"
+          - "rgf"
 
 permissions:
   contents: read
@@ -35,6 +52,7 @@ concurrency:
 jobs:
   collect:
     name: Preservar catalogo financeiro (${{ matrix.resource }})
+    if: ${{ inputs.resource == 'all' || inputs.resource == matrix.resource || inputs.resource == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -68,7 +86,9 @@ jobs:
       MUNICIPAL_TRANSPARENCY_REQUESTS_PER_MINUTE: "10"
       MUNICIPAL_TRANSPARENCY_MAX_BODY_BYTES: "16777216"
       MUNICIPAL_TRANSPARENCY_DOCUMENT_REQUESTS_PER_MINUTE: "6"
-      MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES: "67108864"
+      # RelatÃ³rios fiscais podem exceder 64 MiB; o limite continua explÃ­cito
+      # e abaixo do mÃ¡ximo defensivo do coletor (256 MiB).
+      MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES: "268435456"
     steps:
       - name: Baixar código
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
