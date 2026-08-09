@@ -37,7 +37,10 @@ jobs:
   publish:
     name: Publicar despesas determinísticas
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # PDFs grandes são extraídos sequencialmente e podem levar vários minutos.
+    # A publicação é idempotente; o timeout maior permite concluir o lote sem
+    # descartar o progresso já confirmado.
+    timeout-minutes: 120
     env:
       APP_ENV: production
       LOG_LEVEL: INFO
