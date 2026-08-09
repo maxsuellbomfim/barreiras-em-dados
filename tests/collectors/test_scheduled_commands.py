@@ -111,13 +111,13 @@ class ScheduledWorkflowTests(unittest.TestCase):
         catalog = workflow.index("- name: Preservar catálogo oficial do Diário")
         direct = workflow.index("- name: Coletar edições diretas do Diário")
         ocr = workflow.index("- name: OCR das páginas escaneadas")
-        digest = workflow.index("- name: Resumir edições com âncoras verificadas")
+        integral = workflow.index("- name: Organizar edições em documentos integrais")
         failure_gate = workflow.find("- name: Sinalizar falha do catálogo oficial")
 
         self.assertGreaterEqual(failure_gate, 0)
         self.assertLess(catalog, direct)
         self.assertLess(direct, ocr)
-        self.assertLess(digest, failure_gate)
+        self.assertLess(integral, failure_gate)
         catalog_block = workflow[catalog:direct]
         self.assertIn("id: official_catalog", catalog_block)
         self.assertIn("continue-on-error: true", catalog_block)
