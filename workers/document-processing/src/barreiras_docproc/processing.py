@@ -95,6 +95,28 @@ def job_idempotency_key(artifact_sha256: str, ruleset_version: str) -> str:
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
+def integral_gazette_idempotency_key(
+    artifact_sha256: str,
+    page_extractor_versions: tuple[tuple[int, str], ...],
+    segmenter_version: str,
+    validator_version: str,
+) -> str:
+    """Vincula a versão pública integral ao artefato e a cada transformador."""
+    material = ":".join(
+        (
+            "integral-gazette-documents",
+            artifact_sha256,
+            ";".join(
+                f"{page_number}:{parser_version}"
+                for page_number, parser_version in page_extractor_versions
+            ),
+            segmenter_version,
+            validator_version,
+        )
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
 def candidate_payload(
     candidate: ActCandidate,
     canonical: CanonicalText,
@@ -162,8 +184,7 @@ class GazetteActExtractionService:
                 missing = [
                     page.page_number
                     for page in pdf.pages
-                    if page.text is None
-                    and page.page_number not in supplemental
+                    if page.text is None and page.page_number not in supplemental
                 ]
                 if missing:
                     # Não extrair de texto parcial: registra as páginas (o
@@ -180,14 +201,10 @@ class GazetteActExtractionService:
                     else supplemental[page.page_number]
                     for page in pdf.pages
                 ]
-                merged_text = "\n\n".join(
-                    part for part in merged_parts if part
-                )
+                merged_text = "\n\n".join(part for part in merged_parts if part)
                 canonical = CanonicalText(
                     text=merged_text,
-                    sha256=hashlib.sha256(
-                        merged_text.encode("utf-8")
-                    ).hexdigest(),
+                    sha256=hashlib.sha256(merged_text.encode("utf-8")).hexdigest(),
                     parser_version="gazette-merged-text/1.0.0",
                 )
             else:
