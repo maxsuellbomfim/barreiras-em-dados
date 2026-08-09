@@ -51,6 +51,13 @@ const itemProjectionMigration = await readFile(
   ),
   "utf8",
 );
+const priceContextMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260809110000_pncp_item_price_context.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(new URL("../../apps/web/lib/pncp-procurements.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url), "utf8");
 const explorer = await readFile(
@@ -162,7 +169,17 @@ test("itens PNCP normalizados aparecem recolhidos com vínculo oficial", () => {
   assert.match(client, /parseItems/);
   assert.match(client, /pncp-procurements\/1\.5\.0/);
   assert.match(explorer, /Itens da contratação/);
-  assert.match(explorer, /Não comparamos preços/);
+  assert.match(explorer, /contexto estatístico/);
+});
+
+test("contexto de preço é estatístico, literal e não reputacional", () => {
+  assert.match(priceContextMigration, /get_pncp_item_price_context/);
+  assert.match(priceContextMigration, /having count\(distinct item\.procurement_id\) >= 2/);
+  assert.match(priceContextMigration, /pncp-price-context\/1\.0\.0/);
+  assert.match(client, /fetchPriceContexts/);
+  assert.match(client, /contextoPreco/);
+  assert.match(explorer, /observações literalmente iguais/);
+  assert.match(explorer, /não[\s\S]*conclusão de irregularidade/);
 });
 
 test("sugestões de filtros vêm de opções PNCP preservadas", () => {

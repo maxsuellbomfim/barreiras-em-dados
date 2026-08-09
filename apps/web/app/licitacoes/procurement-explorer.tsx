@@ -115,12 +115,21 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
                   ? ` · total ${currencyFormatter.format(item.valorTotal)}`
                   : " · valor total não informado"}
                 {item.situacao ? ` · ${item.situacao}` : ""}
+                {item.contextoPreco ? (
+                  <span className="procurement-price-context">
+                    <br />
+                    Contexto de {item.contextoPreco.observacoes} observações literalmente iguais:
+                    intervalo de {currencyFormatter.format(item.contextoPreco.minimo)} a {currencyFormatter.format(item.contextoPreco.maximo)},
+                    mediana {currencyFormatter.format(item.contextoPreco.mediana)}.
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>
           <p className="meta-note">
-            Itens e valores são os informados pelo PNCP. Não comparamos preços nem
-            inferimos irregularidade a partir deste registro.
+            Itens e valores são os informados pelo PNCP. O intervalo acima é apenas
+            contexto estatístico de descrições e unidades literalmente iguais; não
+            é comparação de mercado nem conclusão de irregularidade.
           </p>
         </details>
       ) : (
