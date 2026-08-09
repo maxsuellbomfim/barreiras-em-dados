@@ -42,15 +42,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if persistence_settings.database_url is None:
         raise RuntimeError("DATABASE_URL é obrigatória para normalizar PNCP.")
 
-    metrics = PostgresCollectionRepository.from_dsn(
+    repository = PostgresCollectionRepository.from_dsn(
         persistence_settings.database_url
-    ).normalize_pncp_contracts(args.limit)
+    )
+    metrics = repository.normalize_pncp_contracts(args.limit)
+    item_metrics = repository.normalize_pncp_items(args.limit)
     log_event(
         logging.getLogger(__name__),
         logging.INFO,
         "normalizer_pncp_contracts_completed",
         limit=args.limit,
         **{key: int(value) for key, value in metrics.items()},
+        **{f"{key}": int(value) for key, value in item_metrics.items()},
     )
     return 0
 
