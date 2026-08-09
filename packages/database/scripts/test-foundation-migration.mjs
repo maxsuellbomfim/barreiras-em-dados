@@ -149,7 +149,7 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  assert.equal(relations.rows[0].count, 47);
+  assert.equal(relations.rows[0].count, 50);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -165,7 +165,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 47);
+  assert.equal(rlsRelations.rows[0].count, 50);
 
   const originColumns = await database.query(`
     select count(*)::integer as count
@@ -245,7 +245,7 @@ try {
     where tgname = 'reject_mutation'
       and not tgisinternal
   `);
-  assert.equal(immutableTriggers.rows[0].count, 5);
+  assert.equal(immutableTriggers.rows[0].count, 8);
 
   const extensionSchema = await database.query(`
     select namespace.nspname as schema_name
