@@ -11,8 +11,13 @@ test("workflow de atos processa acervo preservado e mantém publicação segura"
   assert.match(workflow, /process_gazette_acts/);
   assert.match(workflow, /assist_extraction_candidates/);
   assert.match(workflow, /publish_verified_candidates/);
+  assert.match(workflow, /segment_gazette_editions/);
+  assert.match(workflow, /integral_limit/);
   assert.match(workflow, /QUERIDO_DIARIO_SUPABASE_WORKLOAD_PASSWORD/);
   assert.match(workflow, /PERSISTENCE_MODE: postgres-supabase/);
   assert.match(workflow, /tesseract-ocr-por/);
   assert.match(workflow, /cron: "17 23 \* \* \*"/);
+  assert.match(workflow, /PROCESS_LIMIT: \$\{\{ inputs\.limit \|\| '100' \}\}/);
+  assert.match(workflow, /--limit "\$\{PROCESS_LIMIT\}"/);
+  assert.doesNotMatch(workflow, /--limit "\$\{\{ inputs\./);
 });
