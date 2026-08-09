@@ -6,8 +6,12 @@ const digestMigration = await readFile(
   new URL("../../supabase/migrations/20260808030000_public_diary_edition_dates.sql", import.meta.url),
   "utf8",
 );
-const digestClient = await readFile(
-  new URL("../../apps/web/lib/edition-digests.ts", import.meta.url),
+const integralClient = await readFile(
+  new URL("../../apps/web/lib/integral-gazette-documents.ts", import.meta.url),
+  "utf8",
+);
+const explorer = await readFile(
+  new URL("../../apps/web/app/diario/integral-gazette-explorer.tsx", import.meta.url),
   "utf8",
 );
 const diaryPage = await readFile(
@@ -27,12 +31,12 @@ const finance = await readFile(
   "utf8",
 );
 
-test("diário publica a data da fonte e mantém as explicações recolhidas", () => {
+test("diário publica a data da fonte e mantém os documentos recolhidos", () => {
   assert.match(digestMigration, /edition_date date/);
   assert.match(digestMigration, /querido_diario_gazette/);
-  assert.match(digestClient, /editionDate/);
-  assert.match(diaryPage, /Explicação em palavras simples/);
-  assert.match(diaryPage, /Data da edição não informada/);
+  assert.match(integralClient, /editionDate/);
+  assert.match(diaryPage, /IntegralGazetteExplorer/);
+  assert.match(explorer, /Data da edição não informada/);
 });
 
 test("atos padronizam título e data sem esconder a evidência", () => {
