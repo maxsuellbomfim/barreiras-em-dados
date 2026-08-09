@@ -7,6 +7,17 @@ export type ProcurementResult = Readonly<{
   dataResultado: string | null;
 }>;
 
+export type ProcurementItem = Readonly<{
+  numeroItem: number;
+  descricao: string;
+  quantidade: number | null;
+  unidade: string | null;
+  valorUnitarioEstimado: number | null;
+  valorTotal: number | null;
+  situacao: string | null;
+  catalogoCodigo: string | null;
+}>;
+
 export type ProcurementExecutionSummary = Readonly<{
   state: "linked" | "no_linked_execution" | "not_normalized" | "not_available";
   methodologyVersion: string;
@@ -63,6 +74,7 @@ export type Procurement = Readonly<{
   valorEstimado: number | null;
   valorHomologado: number | null;
   dataPublicacao: string | null;
+  itens: readonly ProcurementItem[];
   resultados: readonly ProcurementResult[];
   executionSummary: ProcurementExecutionSummary;
   methodologyVersion: string;
@@ -160,6 +172,33 @@ function parseResults(value: unknown): readonly ProcurementResult[] | null {
     });
   }
   return results;
+}
+
+function parseItems(value: unknown): readonly ProcurementItem[] | null {
+  if (!Array.isArray(value)) return null;
+  const items: ProcurementItem[] = [];
+  for (const raw of value) {
+    if (typeof raw !== "object" || raw === null) return null;
+    const row = raw as Record<string, unknown>;
+    const descricao = optionalString(row.descricao);
+    if (!Number.isSafeInteger(row.numero_item) || descricao === null) return null;
+    const amounts = [row.quantidade, row.valor_unitario_estimado, row.valor_total];
+    if (amounts.some((amount) => amount !== null && amount !== undefined &&
+      (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0))) {
+      return null;
+    }
+    items.push({
+      numeroItem: Number(row.numero_item),
+      descricao,
+      quantidade: optionalNumber(row.quantidade),
+      unidade: optionalString(row.unidade),
+      valorUnitarioEstimado: optionalNumber(row.valor_unitario_estimado),
+      valorTotal: optionalNumber(row.valor_total),
+      situacao: optionalString(row.situacao),
+      catalogoCodigo: optionalString(row.catalogo_codigo),
+    });
+  }
+  return items;
 }
 
 function parseContracts(value: unknown): readonly ProcurementContract[] | null {
@@ -330,6 +369,7 @@ function parseProcurement(
   const controlNumber = optionalString(row.control_number);
   const objeto = optionalString(row.objeto);
   const dataPublicacao = optionalString(row.data_publicacao);
+  const itens = row.itens === undefined ? [] : parseItems(row.itens);
   const resultados = parseResults(row.resultados);
   const executionSummary =
     row.execution_summary === undefined
@@ -356,11 +396,13 @@ function parseProcurement(
     !Number.isSafeInteger(row.sequencial) ||
     (dataPublicacao !== null && !ISO_DATE.test(dataPublicacao)) ||
     resultados === null ||
+    itens === null ||
     (row.methodology_version !== "pncp-procurements/1.0.0" &&
       row.methodology_version !== "pncp-procurements/1.1.0" &&
       row.methodology_version !== "pncp-procurements/1.2.0" &&
       row.methodology_version !== "pncp-procurements/1.3.0" &&
-      row.methodology_version !== "pncp-procurements/1.4.0") ||
+      row.methodology_version !== "pncp-procurements/1.4.0" &&
+      row.methodology_version !== "pncp-procurements/1.5.0") ||
     executionSummary === null
   ) {
     return null;
@@ -376,6 +418,7 @@ function parseProcurement(
     valorEstimado: optionalNumber(row.valor_estimado),
     valorHomologado: optionalNumber(row.valor_homologado),
     dataPublicacao,
+    itens,
     resultados,
     executionSummary,
     methodologyVersion: String(row.methodology_version),

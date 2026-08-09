@@ -96,6 +96,36 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
           avançar, o próximo registro coletado poderá preencher esse campo.
         </p>
       ) : null}
+      {procurement.itens.length > 0 ? (
+        <details className="procurement-items">
+          <summary>
+            Itens da contratação ({formatCount(procurement.itens.length)})
+          </summary>
+          <ul>
+            {procurement.itens.map((item) => (
+              <li key={`${procurement.controlNumber}-${item.numeroItem}`}>
+                <strong>Item {item.numeroItem}</strong> · {item.descricao}
+                <br />
+                {item.quantidade !== null ? `Quantidade: ${item.quantidade}` : "Quantidade não informada"}
+                {item.unidade ? ` ${item.unidade}` : ""}
+                {item.valorUnitarioEstimado !== null
+                  ? ` · unitário ${currencyFormatter.format(item.valorUnitarioEstimado)}`
+                  : " · valor unitário não informado"}
+                {item.valorTotal !== null
+                  ? ` · total ${currencyFormatter.format(item.valorTotal)}`
+                  : " · valor total não informado"}
+                {item.situacao ? ` · ${item.situacao}` : ""}
+              </li>
+            ))}
+          </ul>
+          <p className="meta-note">
+            Itens e valores são os informados pelo PNCP. Não comparamos preços nem
+            inferimos irregularidade a partir deste registro.
+          </p>
+        </details>
+      ) : (
+        <p className="meta-note">Nenhum item normalizado foi publicado para esta contratação.</p>
+      )}
       {procurement.resultados.length > 0 ? (
         <details className="procurement-results">
           <summary>
