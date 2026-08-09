@@ -77,7 +77,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         fiscal_year_from=args.fiscal_year_from,
         fiscal_year_to=args.fiscal_year_to,
     )
-    for artifact in artifacts:
+    logger = logging.getLogger(__name__)
+    for index, artifact in enumerate(artifacts, start=1):
+        logger.info(
+            "expense_report_start artifact=%s progress=%s/%s source=%s",
+            artifact.id,
+            index,
+            len(artifacts),
+            artifact.source_url,
+        )
         try:
             result = publisher.publish(artifact)
         except (
@@ -92,7 +100,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 error_code=type(error).__name__,
                 error_detail=str(error),
             )
-            logging.getLogger(__name__).error(
+            logger.error(
                 "expense_report_needs_review artifact=%s error=%s",
                 artifact.id,
                 str(error)[:500],
@@ -103,7 +111,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             already_published += 1
 
-    logging.getLogger(__name__).info(
+    logger.info(
         "expense_publication_completed artifacts=%s published_lines=%s "
         "already_published=%s needs_review=%s",
         len(artifacts),
