@@ -50,16 +50,16 @@ test("catálogo oficial preserva bruto e publica campos oficiais separados da IA
   assert.match(projectionMigration, /barreiras_diario_publication/);
   assert.match(projectionMigration, /edition-digests\/1\.2\.0/);
   assert.match(workflow, /collect_official_diary_catalog/);
-  assert.match(diaryPage, /Resumo oficial da Prefeitura/);
-  assert.match(diaryPage, /officialPublicationUrl/);
+  assert.match(diaryPage, /getIntegralGazetteEditions/);
+  assert.match(diaryPage, /IntegralGazetteExplorer/);
 });
 
-test("edições recentes aparecem pelo catálogo antes do PDF integral", () => {
+test("edições sem texto integral ficam explicitamente pendentes", () => {
   assert.match(catalogFallbackMigration, /get_official_diary_catalog/);
   assert.match(catalogFallbackMigration, /barreiras_diario_publication/);
   assert.match(catalogClient, /get_official_diary_catalog/);
-  assert.match(diaryPage, /Explicação detalhada ainda não disponível/);
-  assert.match(diaryPage, /catalogOnlyEntries/);
+  assert.match(diaryPage, /preservação integral/);
+  assert.match(diaryPage, /CatalogPendingNotice/);
 });
 
 test("links do catálogo público são aceitos somente em HTTPS", () => {

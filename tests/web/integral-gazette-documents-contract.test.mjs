@@ -1,0 +1,50 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const client = await readFile(
+  new URL("../../apps/web/lib/integral-gazette-documents.ts", import.meta.url),
+  "utf8",
+);
+const page = await readFile(
+  new URL("../../apps/web/app/diario/page.tsx", import.meta.url),
+  "utf8",
+);
+const explorer = await readFile(
+  new URL(
+    "../../apps/web/app/diario/integral-gazette-explorer.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+
+test("contrato público usa a RPC integral e rejeita payload incompleto", () => {
+  assert.match(client, /get_integral_gazette_editions/);
+  assert.match(client, /function parseIntegralGazetteEdition/);
+  assert.match(client, /textSha256/);
+  assert.match(client, /pageStart/);
+  assert.match(client, /pageEnd/);
+  assert.match(client, /publicationStatus/);
+  assert.match(client, /return \{ state: "unavailable" \}/);
+  assert.match(client, /documents\.length === 0/);
+});
+
+test("interface mostra texto literal completo e não usa digest ou paráfrase", () => {
+  assert.match(page, /getIntegralGazetteEditions/);
+  assert.match(page, /IntegralGazetteExplorer/);
+  assert.match(explorer, /<pre/);
+  assert.match(explorer, /fullText/);
+  assert.match(explorer, /Edição integral — separação segura indisponível/);
+  assert.match(explorer, /type="search"/);
+  assert.match(explorer, /document\.literalTitle/);
+  assert.doesNotMatch(page, /Resumo oficial|Explicação em palavras simples|Diário Oficial traduzido/);
+  assert.doesNotMatch(explorer, /Resumo oficial|Explicação em palavras simples|gerado com IA/);
+});
+
+test("documentos ficam recolhidos e a evidência da fonte permanece visível", () => {
+  assert.match(explorer, /<details/);
+  assert.match(explorer, /pageStart/);
+  assert.match(explorer, /formatHash\(document\.textSha256\)/);
+  assert.match(explorer, /officialPublicationUrl/);
+  assert.match(explorer, /preservado/);
+});

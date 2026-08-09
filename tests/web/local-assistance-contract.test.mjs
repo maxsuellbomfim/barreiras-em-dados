@@ -14,6 +14,10 @@ const localAssist = new URL(
   "../../workers/document-processing/src/barreiras_docproc/local_assist.py",
   import.meta.url,
 );
+const diaryPage = new URL(
+  "../../apps/web/app/diario/page.tsx",
+  import.meta.url,
+);
 
 test("cota esgotada mantém explicação factual local e auditável", async () => {
   const [command, module] = await Promise.all([
@@ -31,4 +35,11 @@ test("Diário local só resume atos reconhecidos e marca cobertura parcial", asy
   assert.match(command, /deterministic_digest_items/);
   assert.match(command, /LOCAL_DIGEST_VERSION/);
   assert.match(command, /providers == \["local-deterministic"\]/);
+});
+
+test("a página pública não depende de assistência para mostrar texto integral", async () => {
+  const page = await readFile(diaryPage, "utf8");
+  assert.match(page, /IntegralGazetteExplorer/);
+  assert.doesNotMatch(page, /DigestCard|ItemRow|assistMethod/);
+  assert.doesNotMatch(page, /Resumo oficial da Prefeitura|Diário Oficial traduzido/);
 });

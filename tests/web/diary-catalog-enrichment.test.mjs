@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const digestClient = await readFile(
-  new URL("../../apps/web/lib/edition-digests.ts", import.meta.url),
+const integralClient = await readFile(
+  new URL("../../apps/web/lib/integral-gazette-documents.ts", import.meta.url),
   "utf8",
 );
 const diaryPage = await readFile(
@@ -11,11 +11,9 @@ const diaryPage = await readFile(
   "utf8",
 );
 
-test("resumo recebe metadados oficiais do catálogo da mesma edição", () => {
-  assert.match(digestClient, /enrichEditionDigestsWithCatalog/);
-  assert.match(digestClient, /catalog\.editionDate/);
-  assert.match(digestClient, /catalog\.officialTitle/);
-  assert.match(digestClient, /catalog\.officialSummary/);
-  assert.match(diaryPage, /enrichEditionDigestsWithCatalog\(/);
+test("edição integral recebe data e fonte oficial do catálogo", () => {
+  assert.match(integralClient, /enrichIntegralGazetteEditions/);
+  assert.match(integralClient, /catalog\.editionDate/);
+  assert.match(integralClient, /officialPublicationUrl/);
+  assert.match(diaryPage, /enrichIntegralGazetteEditions\(/);
 });
-
