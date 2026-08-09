@@ -15,6 +15,8 @@ test("coleta diária organiza o integral sem depender de IA", () => {
   assert.match(collectWorkflow, /segment_gazette_editions/);
   assert.doesNotMatch(collectWorkflow, /digest_gazette_editions/);
   assert.match(collectWorkflow, /INTEGRAL_LIMIT: \$\{\{ inputs\.integral_limit \|\| '6' \}\}/);
+  assert.match(collectWorkflow, /INTEGRAL_EDITION: \$\{\{ inputs\.integral_edition \}\}/);
+  assert.match(collectWorkflow, /INTEGRAL_YEAR: \$\{\{ inputs\.integral_year \}\}/);
   assert.match(collectWorkflow, /--limit "\$\{INTEGRAL_LIMIT\}"/);
   const segmentStart = collectWorkflow.indexOf("segment_gazette_editions");
   const segmentBlock = collectWorkflow.slice(Math.max(0, segmentStart - 300), segmentStart + 300);

@@ -65,11 +65,21 @@ def process_pending(
     repository,
     *,
     limit: int,
+    edition: int | None = None,
+    edition_year: int | None = None,
     boundary_proposer: Callable = propose_boundaries,
 ) -> SegmentRunResult:
     """Isola uma falha por edição e persiste somente dados já validados."""
+    if edition is None and edition_year is None:
+        pending = repository.pending_artifacts(limit)
+    else:
+        pending = repository.pending_artifacts(
+            limit,
+            edition=edition,
+            edition_year=edition_year,
+        )
     artifacts = sorted(
-        repository.pending_artifacts(limit),
+        pending,
         key=lambda item: (item.edition_year, item.edition, item.created_at),
         reverse=True,
     )
@@ -141,9 +151,13 @@ def process_pending(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Organiza edições integrais sem IA.")
     parser.add_argument("--limit", type=int, default=6)
+    parser.add_argument("--edition", type=int)
+    parser.add_argument("--edition-year", type=int)
     arguments = parser.parse_args(argv)
     if not 1 <= arguments.limit <= 20:
         parser.error("--limit deve estar entre 1 e 20.")
+    if (arguments.edition is None) != (arguments.edition_year is None):
+        parser.error("--edition e --edition-year devem ser informados juntos.")
     collector_settings = CollectorSettings.from_env()
     persistence = PersistenceSettings.from_env()
     logging.basicConfig(
@@ -156,6 +170,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     result = process_pending(
         GazetteDocumentRepository.from_dsn(persistence.database_url),
         limit=arguments.limit,
+        edition=arguments.edition,
+        edition_year=arguments.edition_year,
     )
     log_event(
         logging.getLogger(__name__),

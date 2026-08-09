@@ -21,6 +21,14 @@ on:
         required: false
         default: "6"
         type: string
+      integral_edition:
+        description: EdiÃ§Ã£o especÃ­fica para replay integral (opcional)
+        required: false
+        type: string
+      integral_year:
+        description: Ano da ediÃ§Ã£o especÃ­fica para replay integral (opcional)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -186,9 +194,22 @@ jobs:
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
           INTEGRAL_LIMIT: ${{ inputs.integral_limit || '6' }}
-        run: >-
-          python -B -m barreiras_docproc.commands.segment_gazette_editions
-          --limit "${INTEGRAL_LIMIT}"
+          INTEGRAL_EDITION: ${{ inputs.integral_edition }}
+          INTEGRAL_YEAR: ${{ inputs.integral_year }}
+        run: |
+          if [ -n "${INTEGRAL_EDITION}" ] || [ -n "${INTEGRAL_YEAR}" ]; then
+            if [ -z "${INTEGRAL_EDITION}" ] || [ -z "${INTEGRAL_YEAR}" ]; then
+              echo "integral_edition e integral_year devem ser informados juntos."
+              exit 2
+            fi
+            python -B -m barreiras_docproc.commands.segment_gazette_editions \
+              --limit "${INTEGRAL_LIMIT}" \
+              --edition "${INTEGRAL_EDITION}" \
+              --edition-year "${INTEGRAL_YEAR}"
+          else
+            python -B -m barreiras_docproc.commands.segment_gazette_editions \
+              --limit "${INTEGRAL_LIMIT}"
+          fi
 
       - name: Sinalizar falha do catálogo oficial
         if: >-

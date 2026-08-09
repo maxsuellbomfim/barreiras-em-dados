@@ -29,8 +29,21 @@ class InMemoryRepository:
         self.failures: list[tuple[str, str, str]] = []
         self.persisted_keys: set[str] = set()
 
-    def pending_artifacts(self, limit: int) -> tuple[GazetteArtifact, ...]:
+    def pending_artifacts(
+        self,
+        limit: int,
+        *,
+        edition: int | None = None,
+        edition_year: int | None = None,
+    ) -> tuple[GazetteArtifact, ...]:
         del limit
+        if edition is not None:
+            return tuple(
+                artifact
+                for artifact in self.artifacts
+                if artifact.edition == edition
+                and artifact.edition_year == edition_year
+            )
         return self.artifacts
 
     def batch_exists(self, artifact_id: str, idempotency_key: str) -> bool:
@@ -133,6 +146,27 @@ class SegmentGazetteCommandTests(unittest.TestCase):
 
         self.assertEqual(result.processed, 1)
         self.assertEqual(repository.batches[0].artifact.edition_year, 2027)
+
+    def test_can_target_one_edition_for_retroactive_replay(self) -> None:
+        target = artifact(4563, "00000000-0000-0000-0000-000000004563")
+        newer = artifact(4707, "00000000-0000-0000-0000-000000000707")
+        repository = InMemoryRepository((newer, target))
+        repository.pages[target.raw_artifact_id] = (
+            PageInput(1, "parser/1", "PORTARIA N 1\nTexto integral", None),
+        )
+        repository.pages[newer.raw_artifact_id] = (
+            PageInput(1, "parser/1", "PORTARIA N 2\nTexto integral", None),
+        )
+
+        result = process_pending(
+            repository,
+            limit=1,
+            edition=4563,
+            edition_year=2025,
+        )
+
+        self.assertEqual(result.processed, 1)
+        self.assertEqual(repository.batches[0].artifact.edition, 4563)
 
     def test_invalid_segmentation_persists_only_the_integral_fallback(self) -> None:
         current = artifact(4707, "00000000-0000-0000-0000-000000000707")

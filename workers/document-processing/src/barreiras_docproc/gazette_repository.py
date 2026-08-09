@@ -50,7 +50,13 @@ class GazetteDocumentRepository:
 
         return cls(lambda: connect(database_url, row_factory=dict_row))
 
-    def pending_artifacts(self, limit: int) -> Sequence[GazetteArtifact]:
+    def pending_artifacts(
+        self,
+        limit: int,
+        *,
+        edition: int | None = None,
+        edition_year: int | None = None,
+    ) -> Sequence[GazetteArtifact]:
         del limit
         connection = self.connection_factory()
         try:
@@ -128,6 +134,8 @@ class GazetteDocumentRepository:
                 from candidate_editions as edition
                 join raw.document_pages as page
                   on page.raw_artifact_id = edition.id
+                where (%s is null or edition.edition = %s)
+                  and (%s is null or edition.edition_year = %s)
                 group by edition.id, edition.sha256, edition.edition,
                   edition.edition_year, edition.edition_date, edition.created_at,
                   edition.source_priority
@@ -138,7 +146,7 @@ class GazetteDocumentRepository:
                 order by edition.edition_year desc, edition.edition desc,
                   edition.source_priority asc, edition.created_at desc
                 """,
-                (),
+                (edition, edition, edition_year, edition_year),
             )
             found = []
             while (row := rows.fetchone()) is not None:
