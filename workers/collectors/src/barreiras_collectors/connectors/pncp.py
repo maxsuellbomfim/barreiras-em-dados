@@ -11,9 +11,10 @@ import hashlib
 import json
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 
 from ..http import (
     RETRYABLE_TRANSPORT_EXCEPTIONS,
@@ -52,6 +53,7 @@ CONTRATACOES_PAGE_SIZE = 50
 # API de consulta degradada respondeu 200 em 31,5s em 01/08/2026; 35s
 # derrubava coleta válida. A API pncp/v1 responde em <1s e usa o mesmo teto.
 CONTRATACOES_TIMEOUT_SECONDS = 60.0
+RATE_LIMIT_MIN_DELAY_SECONDS = 10.0
 
 COMPRAS_ENDPOINT_CODE = "compras-api"
 COMPRAS_PAGE_SIZE = 50
@@ -218,9 +220,32 @@ def fetch_contratacoes_page(
                 f"O PNCP respondeu HTTP {response.status} nas contratações."
             )
         if attempt < policy.max_attempts:
-            sleep(policy.delay(attempt, 0.5))
+            retry_after = _retry_after_seconds(response.headers)
+            if response.status == 429 and retry_after is None:
+                retry_after = RATE_LIMIT_MIN_DELAY_SECONDS
+            sleep(max(policy.delay(attempt, 0.5), retry_after or 0.0))
 
     raise PncpError("O PNCP ficou indisponível para contratações.")
+
+
+def _retry_after_seconds(headers: Mapping[str, str]) -> float | None:
+    """Interpreta Retry-After em segundos ou HTTP-date."""
+    raw = next(
+        (value for key, value in headers.items() if key.lower() == "retry-after"),
+        None,
+    )
+    if not raw:
+        return None
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        try:
+            retry_at = parsedate_to_datetime(raw)
+            if retry_at.tzinfo is None:
+                retry_at = retry_at.replace(tzinfo=UTC)
+            return max(0.0, (retry_at - datetime.now(UTC)).total_seconds())
+        except (TypeError, ValueError, OverflowError):
+            return None
 
 
 def fetch_itens_page(

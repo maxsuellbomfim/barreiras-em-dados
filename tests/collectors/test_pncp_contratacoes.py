@@ -143,6 +143,70 @@ class ContratacoesFetchTests(unittest.TestCase):
         self.assertEqual(transport.calls, 2)
         self.assertEqual(sleeps, [0.5])
 
+    def test_respects_retry_after_for_rate_limited_response(self) -> None:
+        body = json.dumps(
+            {
+                "totalRegistros": 1,
+                "totalPaginas": 1,
+                "data": [{"numeroControlePNCP": "controle"}],
+            }
+        ).encode()
+        transport = SequenceTransport(
+            [
+                HttpResponse(429, {"Retry-After": "7"}, b"rate limited", "unused"),
+                HttpResponse(200, {}, body, "unused"),
+            ]
+        )
+        sleeps: list[float] = []
+
+        page = fetch_contratacoes_page(
+            since="20260101",
+            until="20260131",
+            modalidade=6,
+            pagina=1,
+            transport=transport,
+            retry_policy=RetryPolicy(
+                max_attempts=2,
+                base_delay_seconds=1,
+                max_delay_seconds=2,
+            ),
+            sleep=sleeps.append,
+        )
+
+        assert page is not None
+        self.assertEqual(page.attempts, 2)
+        self.assertEqual(transport.calls, 2)
+        self.assertEqual(sleeps, [7.0])
+
+    def test_uses_conservative_floor_when_rate_limit_omits_retry_after(self) -> None:
+        body = json.dumps(
+            {
+                "totalRegistros": 1,
+                "totalPaginas": 1,
+                "data": [{"numeroControlePNCP": "controle"}],
+            }
+        ).encode()
+        transport = SequenceTransport(
+            [
+                HttpResponse(429, {}, b"rate limited", "unused"),
+                HttpResponse(200, {}, body, "unused"),
+            ]
+        )
+        sleeps: list[float] = []
+
+        page = fetch_contratacoes_page(
+            since="20260101",
+            until="20260131",
+            modalidade=6,
+            pagina=1,
+            transport=transport,
+            retry_policy=RetryPolicy(max_attempts=2),
+            sleep=sleeps.append,
+        )
+
+        assert page is not None
+        self.assertEqual(sleeps, [10.0])
+
     def test_persistent_transport_failure_raises_domain_error(self) -> None:
         transport = SequenceTransport([TimeoutError("um"), TimeoutError("dois")])
 
