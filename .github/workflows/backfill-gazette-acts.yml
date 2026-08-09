@@ -12,6 +12,11 @@ on:
         required: false
         default: "100"
         type: string
+      integral_limit:
+        description: "Máximo de edições integrais por execução"
+        required: false
+        default: "6"
+        type: string
 
 permissions:
   contents: read
@@ -40,10 +45,6 @@ jobs:
       SUPABASE_WORKLOAD_EMAIL: ${{ secrets.QUERIDO_DIARIO_SUPABASE_WORKLOAD_EMAIL }}
       SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.QUERIDO_DIARIO_SUPABASE_WORKLOAD_PASSWORD }}
       SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
-      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
     steps:
       - name: Baixar código
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -74,17 +75,33 @@ jobs:
           --limit-pages 60
 
       - name: Extrair atos desde 2021 preservados
+        env:
+          PROCESS_LIMIT: ${{ inputs.limit || '100' }}
         run: >-
           python -B -m barreiras_docproc.commands.process_gazette_acts
-          --limit "${{ inputs.limit || '100' }}"
+          --limit "${PROCESS_LIMIT}"
 
       - name: Sugerir leitura em cascata
         continue-on-error: true
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: >-
           python -B -m barreiras_docproc.commands.assist_extraction_candidates
           --limit 50
 
       - name: Publicar somente campos conferidos literalmente
+        env:
+          PROCESS_LIMIT: ${{ inputs.limit || '100' }}
         run: >-
           python -B -m barreiras_docproc.commands.publish_verified_candidates
-          --limit 50
+          --limit "${PROCESS_LIMIT}"
+
+      - name: Organizar edições em documentos integrais
+        env:
+          INTEGRAL_LIMIT: ${{ inputs.integral_limit || '6' }}
+        run: >-
+          python -B -m barreiras_docproc.commands.segment_gazette_editions
+          --limit "${INTEGRAL_LIMIT}"

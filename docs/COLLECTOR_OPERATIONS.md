@@ -2,10 +2,10 @@
 
 ## Escopo
 
-Este runbook cobre somente a aquisição diária dos metadados de edições do
+Este runbook cobre a aquisição e o processamento integral das edições do
 Querido Diário para o território IBGE `2903201` (Barreiras). O job preserva a
-resposta bruta no bucket privado e registra a coleta no PostgreSQL. Ele não
-extrai atos, não normaliza pessoas e não publica conteúdo.
+resposta bruta no bucket privado, registra a coleta no PostgreSQL, extrai as
+páginas e organiza o texto integral. A publicação pública não depende de IA.
 
 Workflow: `.github/workflows/collect-querido-diario.yml`.
 
@@ -61,6 +61,10 @@ gh workflow run collect-querido-diario.yml `
   -f until=2026-06-10
 ```
 
+Para limitar o processamento integral em uma execução manual, informe também
+`-f integral_limit=6`. O limite é por edição; a operação é idempotente e pode
+ser repetida até que o acervo pendente seja esgotado.
+
 Repetir a mesma janela é esperado: o resultado deve informar registros
 existentes, sem criar duplicatas ou sobrescrever o objeto bruto.
 
@@ -86,6 +90,31 @@ O artifact de falha é uma DLQ operacional temporária. Os artefatos públicos
 brutos bem-sucedidos seguem a política de retenção e versionamento de
 `docs/DATA_GOVERNANCE.md`; não são apagados ao expirar a DLQ.
 
+## Processamento integral e backfill
+
+Depois de preservar páginas com texto, OCR e extração determinística, os
+workflows chamam:
+
+```powershell
+python -B -m barreiras_docproc.commands.segment_gazette_editions --limit 6
+```
+
+O comando grava blocos literais, versões append-only e a sequência dos blocos.
+Quando não é possível provar as fronteiras entre documentos dentro de uma
+página, ele publica a edição inteira como `edition_fallback`; não corta,
+resume ou reescreve o conteúdo. O status público vem de
+`api.get_integral_gazette_editions`.
+
+O workflow **Processar atos do Diário Oficial** pode ser executado manualmente
+com `integral_limit` separado do limite de atos. O workflow antigo de digest
+não deve ser reativado: os resumos anteriores não são a fonte da página
+integral.
+
+Após cada lote, conferir no Supabase as contagens de
+`editorial.gazette_document_versions` e
+`editorial.gazette_document_version_blocks`, além da resposta da RPC. Zero
+registros significa “ainda não processado”, nunca “edição vazia”.
+
 ## Verificações antes de alterar o workflow
 
 ```powershell
@@ -106,8 +135,10 @@ Também devem ser confirmados:
 
 ## Limitações atuais
 
-- a rotina preserva páginas JSON de metadados, ainda não PDFs/TXT;
-- o estado da coleta ainda não é uma projeção pública no portal;
+- a segmentação interna ainda é conservadora: a edição pode aparecer como um
+  único documento quando as fronteiras não forem comprováveis;
+- o backfill histórico depende de existirem artefatos preservados ou de uma
+  nova coleta das janelas faltantes;
 - alertas externos ainda dependem da observação do GitHub Actions;
 - backup e restauração completa do Storage ainda precisam de exercício
   documentado.
