@@ -121,6 +121,8 @@ class GazetteRepositoryContractTests(unittest.TestCase):
         self.assertIn("join raw.raw_records as record", query)
         self.assertIn("record.record_type = 'querido_diario_gazette'", query)
         self.assertIn("record.payload ->> 'edition'", query)
+        self.assertIn("from ( select distinct on (artifact.id)", query)
+        self.assertIn(") as querido", query)
 
     def test_pending_direct_artifacts_enriches_date_from_matching_publication(
         self,

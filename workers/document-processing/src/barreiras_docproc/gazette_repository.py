@@ -88,23 +88,35 @@ class GazetteDocumentRepository:
                     and coalesce(artifact.metadata ->> 'edition', '') ~ '^[0-9]+$'
                     and coalesce(artifact.metadata ->> 'year', '') ~ '^[0-9]{4}$'
                   union all
-                  select distinct on (artifact.id)
-                    artifact.id,
-                    artifact.sha256,
-                    artifact.created_at,
-                    (record.payload ->> 'edition')::integer as edition,
-                    extract(year from (record.payload ->> 'date')::date)::integer,
-                    (record.payload ->> 'date')::date,
-                    1 as source_priority
-                  from raw.raw_artifacts as artifact
-                  join raw.raw_records as record
-                    on record.record_type = 'querido_diario_gazette'
-                   and record.source_record_key
-                     = artifact.metadata ->> 'source_record_key'
-                  where artifact.metadata ->> 'document_role' = 'txt'
-                    and record.payload ->> 'edition' ~ '^[0-9]+$'
-                    and record.payload ->> 'date' ~ '^\\d{4}-\\d{2}-\\d{2}$'
-                  order by artifact.id, record.collected_at desc
+                  select
+                    querido.id,
+                    querido.sha256,
+                    querido.created_at,
+                    querido.edition,
+                    querido.edition_year,
+                    querido.edition_date,
+                    querido.source_priority
+                  from (
+                    select distinct on (artifact.id)
+                      artifact.id,
+                      artifact.sha256,
+                      artifact.created_at,
+                      (record.payload ->> 'edition')::integer as edition,
+                      extract(year from (record.payload ->> 'date')::date)::integer
+                        as edition_year,
+                      (record.payload ->> 'date')::date as edition_date,
+                      1 as source_priority,
+                      record.collected_at
+                    from raw.raw_artifacts as artifact
+                    join raw.raw_records as record
+                      on record.record_type = 'querido_diario_gazette'
+                     and record.source_record_key
+                       = artifact.metadata ->> 'source_record_key'
+                    where artifact.metadata ->> 'document_role' = 'txt'
+                      and record.payload ->> 'edition' ~ '^[0-9]+$'
+                      and record.payload ->> 'date' ~ '^\\d{4}-\\d{2}-\\d{2}$'
+                    order by artifact.id, record.collected_at desc
+                  ) as querido
                 )
                 select
                   edition.id::text as id,
