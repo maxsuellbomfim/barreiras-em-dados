@@ -339,7 +339,7 @@ def _collect_resource(
                 "MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES",
                 default=64 * 1024 * 1024,
                 minimum=1024,
-                maximum=128 * 1024 * 1024,
+                maximum=256 * 1024 * 1024,
             ),
             requests_per_minute=_bounded_env_int(
                 "MUNICIPAL_TRANSPARENCY_DOCUMENT_REQUESTS_PER_MINUTE",
