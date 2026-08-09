@@ -50,6 +50,18 @@ class CollectorSettingsTests(unittest.TestCase):
         with self.assertRaises(EnvironmentValidationError):
             CollectorSettings.from_env({"QUERIDO_DIARIO_REQUESTS_PER_MINUTE": "61"})
 
+    def test_accepts_large_official_pdf_limit_within_safe_cap(self) -> None:
+        settings = CollectorSettings.from_env(
+            {"QUERIDO_DIARIO_MAX_DOCUMENT_BYTES": str(128 * 1024 * 1024)}
+        )
+        self.assertEqual(settings.max_document_bytes, 128 * 1024 * 1024)
+
+    def test_rejects_unbounded_official_pdf_limit(self) -> None:
+        with self.assertRaises(EnvironmentValidationError):
+            CollectorSettings.from_env(
+                {"QUERIDO_DIARIO_MAX_DOCUMENT_BYTES": str(256 * 1024 * 1024 + 1)}
+            )
+
     def test_rejects_server_secret_with_public_prefix(self) -> None:
         with self.assertRaises(EnvironmentValidationError):
             CollectorSettings.from_env(
