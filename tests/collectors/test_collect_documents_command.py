@@ -61,10 +61,15 @@ class DocumentTransport:
         )
 
 
-def run_command(extra_environment: dict[str, str] | None = None) -> int:
+def run_command(
+    extra_environment: dict[str, str] | None = None,
+    *,
+    page_response: dict[str, object] | None = None,
+    document_transport: DocumentTransport | None = None,
+) -> int:
     fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     page_body = json.dumps(
-        fixture["response"],
+        page_response or fixture["response"],
         ensure_ascii=False,
         separators=(",", ":"),
     ).encode("utf-8")
@@ -78,7 +83,7 @@ def run_command(extra_environment: dict[str, str] | None = None) -> int:
 
     def make_document_client(**kwargs):
         kwargs.update(
-            transport=DocumentTransport(),
+            transport=document_transport or DocumentTransport(),
             rate_limiter=NoopRateLimiter(),
         )
         return GazetteDocumentClient(**kwargs)
@@ -181,6 +186,50 @@ class CollectDocumentsCommandTests(unittest.TestCase):
             any("ResponseTooLargeError" in line for line in captured.output)
         )
         self.assertGreaterEqual(len(self.document_manifests()), 1)
+
+    def test_migrated_s3_urls_are_downloaded_from_canonical_https_host(self) -> None:
+        fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        migrated_item = {
+            **fixture["response"]["gazettes"][0],
+            "url": (
+                "s3://okbr-qd-migration//2903201/2025-12-31/"
+                "9f09140a1df56c925536a91070298ae96e814bd1.pdf"
+            ),
+            "txt_url": (
+                "s3://okbr-qd-migration//2903201/2025-12-31/"
+                "9f09140a1df56c925536a91070298ae96e814bd1.txt"
+            ),
+        }
+
+        class RecordingDocumentTransport(DocumentTransport):
+            def __init__(self) -> None:
+                self.urls: list[str] = []
+
+            def get(self, url, *, headers, timeout_seconds, max_body_bytes):
+                self.urls.append(url)
+                return super().get(
+                    url,
+                    headers=headers,
+                    timeout_seconds=timeout_seconds,
+                    max_body_bytes=max_body_bytes,
+                )
+
+        transport = RecordingDocumentTransport()
+
+        exit_code = run_command(
+            page_response={"total_gazettes": 1, "gazettes": [migrated_item]},
+            document_transport=transport,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(len(self.document_manifests()), 2)
+        self.assertEqual(len(transport.urls), 2)
+        self.assertTrue(
+            all(
+                url.startswith("https://data.queridodiario.ok.org.br/2903201/")
+                for url in transport.urls
+            )
+        )
 
 
 class ControlledQueridoDiarioTests(unittest.TestCase):

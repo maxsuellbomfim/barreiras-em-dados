@@ -229,10 +229,11 @@ def _collect_window(
             existing_records=result.existing_records,
         )
 
-        for record in service.gazette_records(page):
+        raw_records = service.gazette_records(page)
+        for record, gazette in zip(raw_records, page.parsed.gazettes, strict=True):
             for role, url in (
-                ("txt", record.payload.get("txt_url")),
-                ("pdf", record.payload.get("url")),
+                ("txt", gazette.txt_url),
+                ("pdf", gazette.url),
             ):
                 if not isinstance(url, str) or not url:
                     continue
