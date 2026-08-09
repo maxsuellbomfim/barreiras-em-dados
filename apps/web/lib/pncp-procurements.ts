@@ -24,7 +24,7 @@ export type ProcurementPriceContext = Readonly<{
   minimo: number;
   mediana: number;
   maximo: number;
-  methodologyVersion: "pncp-price-context/1.0.0";
+  methodologyVersion: "pncp-price-context/1.1.0";
 }>;
 
 export type ProcurementExecutionSummary = Readonly<{
@@ -128,7 +128,7 @@ function parsePriceContext(value: unknown): ProcurementPriceContext | null {
   if (typeof value !== "object" || value === null) return null;
   const row = value as Record<string, unknown>;
   if (
-    row.methodology_version !== "pncp-price-context/1.0.0" ||
+    row.methodology_version !== "pncp-price-context/1.1.0" ||
     !Number.isSafeInteger(row.observacoes) ||
     Number(row.observacoes) < 2
   ) {
@@ -143,7 +143,7 @@ function parsePriceContext(value: unknown): ProcurementPriceContext | null {
     minimo: Number(amounts[0]),
     mediana: Number(amounts[1]),
     maximo: Number(amounts[2]),
-    methodologyVersion: "pncp-price-context/1.0.0",
+    methodologyVersion: "pncp-price-context/1.1.0",
   };
 }
 
@@ -234,8 +234,12 @@ function parseItems(value: unknown): readonly ProcurementItem[] | null {
   return items;
 }
 
+function normalizePriceDescription(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toUpperCase();
+}
+
 function priceContextKey(descricao: string, unidade: string | null): string {
-  return `${descricao}\u0000${unidade ?? ""}`;
+  return `${normalizePriceDescription(descricao)}\u0000${unidade?.trim() ?? ""}`;
 }
 
 async function fetchPriceContexts(
@@ -266,7 +270,7 @@ async function fetchPriceContexts(
     for (const candidate of payload) {
       if (typeof candidate !== "object" || candidate === null) continue;
       const row = candidate as Record<string, unknown>;
-      const descricao = optionalString(row.descricao);
+      const descricao = optionalString(row.descricao_normalizada);
       const unidade = optionalString(row.unidade);
       const contextoPreco = parsePriceContext({
         observacoes: row.observacoes,

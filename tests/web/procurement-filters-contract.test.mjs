@@ -182,6 +182,20 @@ test("contexto de preço é estatístico, literal e não reputacional", () => {
   assert.match(explorer, /não[\s\S]*conclusão de irregularidade/);
 });
 
+test("contexto de preço acompanha a normalização determinística do coletor", async () => {
+  const normalizedMigration = await readFile(
+    new URL(
+      "../../supabase/migrations/20260809120000_pncp_item_price_context_normalized.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(normalizedMigration, /normalized_description/);
+  assert.match(normalizedMigration, /pncp-price-context\/1\.1\.0/);
+  assert.match(client, /replace\(\/\\s\+\/g, " "\)\.toUpperCase\(\)/);
+  assert.match(client, /descricao_normalizada/);
+});
+
 test("sugestões de filtros vêm de opções PNCP preservadas", () => {
   assert.match(optionsMigration, /get_pncp_procurement_filter_options_normalized/);
   assert.match(optionsMigration, /modalidade/);
