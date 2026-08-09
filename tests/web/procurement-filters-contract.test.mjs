@@ -44,6 +44,13 @@ const contractDetailsMigration = await readFile(
   ),
   "utf8",
 );
+const itemProjectionMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260809100000_public_pncp_items.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(new URL("../../apps/web/lib/pncp-procurements.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url), "utf8");
 const explorer = await readFile(
@@ -145,6 +152,17 @@ test("detalhes do contrato aparecem separados de empenho e pagamento", () => {
   assert.match(client, /supplierRegistrationNumber/);
   assert.match(explorer, /Detalhes dos contratos/);
   assert.match(explorer, /representa, sozinho, empenho ou pagamento/);
+});
+
+test("itens PNCP normalizados aparecem recolhidos com vínculo oficial", () => {
+  assert.match(itemProjectionMigration, /procurement\.procurement_items/);
+  assert.match(itemProjectionMigration, /pncp-procurements\/1\.5\.0/);
+  assert.match(itemProjectionMigration, /external_item_number/);
+  assert.match(itemProjectionMigration, /not exists \(\s*select 1 from procurement\.procurement_items/);
+  assert.match(client, /parseItems/);
+  assert.match(client, /pncp-procurements\/1\.5\.0/);
+  assert.match(explorer, /Itens da contratação/);
+  assert.match(explorer, /Não comparamos preços/);
 });
 
 test("sugestões de filtros vêm de opções PNCP preservadas", () => {
