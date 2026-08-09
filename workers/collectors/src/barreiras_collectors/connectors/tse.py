@@ -24,7 +24,11 @@ import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from ..http import HttpTransport, UrllibTransport
+from ..http import (
+    RETRYABLE_TRANSPORT_EXCEPTIONS,
+    HttpTransport,
+    UrllibTransport,
+)
 from ..logging import log_event
 from ..resilience import RetryPolicy
 from .pncp import PncpPage
@@ -81,9 +85,7 @@ def extract_state_csv(package: bytes, year: int) -> bytes:
     for name in archive.namelist():
         if name.upper().endswith(expected.upper()):
             return archive.read(name)
-    raise TseError(
-        f"O pacote de {year} não contém o arquivo da Bahia ({expected})."
-    )
+    raise TseError(f"O pacote de {year} não contém o arquivo da Bahia ({expected}).")
 
 
 def rows_for_barreiras(state_csv: bytes) -> tuple[list[dict], int]:
@@ -95,13 +97,9 @@ def rows_for_barreiras(state_csv: bytes) -> tuple[list[dict], int]:
     except StopIteration as error:
         raise TseError("O CSV estadual do TSE está vazio.") from error
     index = {column: position for position, column in enumerate(header)}
-    missing = [
-        column for column in REQUIRED_COLUMNS if column not in index
-    ]
+    missing = [column for column in REQUIRED_COLUMNS if column not in index]
     if missing:
-        raise TseError(
-            f"O layout do TSE mudou: faltam as colunas {missing}."
-        )
+        raise TseError(f"O layout do TSE mudou: faltam as colunas {missing}.")
 
     found: list[dict] = []
     total = 0
@@ -176,15 +174,30 @@ def fetch_votes(
 
     for attempt in range(1, policy.max_attempts + 1):
         requested_at = datetime.now(UTC).isoformat()
-        response = active_transport.get(
-            url,
-            headers={
-                "Accept": "application/zip",
-                "User-Agent": "BarreirasEmDados-Collector/0.1",
-            },
-            timeout_seconds=TIMEOUT_SECONDS,
-            max_body_bytes=MAX_PACKAGE_BYTES,
-        )
+        try:
+            response = active_transport.get(
+                url,
+                headers={
+                    "Accept": "application/zip",
+                    "User-Agent": "BarreirasEmDados-Collector/0.1",
+                },
+                timeout_seconds=TIMEOUT_SECONDS,
+                max_body_bytes=MAX_PACKAGE_BYTES,
+            )
+        except RETRYABLE_TRANSPORT_EXCEPTIONS as error:
+            log_event(
+                log,
+                logging.WARNING,
+                "collector_transport_failure",
+                source=SOURCE_CODE,
+                endpoint=ENDPOINT_CODE,
+                attempt=attempt,
+                error_type=type(error).__name__,
+            )
+            if attempt < policy.max_attempts:
+                sleep(policy.delay(attempt, 1.0))
+                continue
+            raise TseError("O repositório do TSE ficou indisponível.") from error
         received_at = datetime.now(UTC).isoformat()
         log_event(
             log,
@@ -229,9 +242,7 @@ def fetch_votes(
                         {
                             "url": url,
                             "year": year,
-                            "recorte_sha256": hashlib.sha256(
-                                recorte
-                            ).hexdigest(),
+                            "recorte_sha256": hashlib.sha256(recorte).hexdigest(),
                         },
                         sort_keys=True,
                         separators=(",", ":"),
@@ -249,12 +260,8 @@ def fetch_votes(
                 media_type="application/json",
                 response_headers={
                     # Rastreabilidade até a fonte, sem guardar o país todo.
-                    "x-package-sha256": hashlib.sha256(
-                        response.body
-                    ).hexdigest(),
-                    "x-state-csv-sha256": hashlib.sha256(
-                        state_csv
-                    ).hexdigest(),
+                    "x-package-sha256": hashlib.sha256(response.body).hexdigest(),
+                    "x-state-csv-sha256": hashlib.sha256(state_csv).hexdigest(),
                 },
                 cursor={"offset": 0, "size": len(candidates), "ano": year},
                 raw_body=recorte,

@@ -22,7 +22,11 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from urllib.parse import urljoin
 
-from ..http import HttpTransport, UrllibTransport
+from ..http import (
+    RETRYABLE_TRANSPORT_EXCEPTIONS,
+    HttpTransport,
+    UrllibTransport,
+)
 from ..logging import log_event
 from ..resilience import RetryPolicy
 from .pncp import PncpPage
@@ -80,9 +84,7 @@ def parse_deputies(page_html: str) -> tuple[dict, ...]:
             "nome": name,
             "perfil_url": f"{PROFILE_BASE}{identifier}",
         }
-    return tuple(
-        sorted(seen.values(), key=lambda item: item["nome"].casefold())
-    )
+    return tuple(sorted(seen.values(), key=lambda item: item["nome"].casefold()))
 
 
 def parse_profile(
@@ -94,9 +96,9 @@ def parse_profile(
 ) -> dict:
     """Extrai apenas a foto oficial, sem inferir biografia ou vínculo municipal."""
     photo_url = None
-    image_sources = [
-        match.group(1) for match in _OG_IMAGE.finditer(page_html)
-    ] + [match.group(1) for match in _IMAGE_SRC.finditer(page_html)]
+    image_sources = [match.group(1) for match in _OG_IMAGE.finditer(page_html)] + [
+        match.group(1) for match in _IMAGE_SRC.finditer(page_html)
+    ]
     for image_source in image_sources:
         candidate = urljoin(profile_url, html.unescape(image_source).strip())
         if (
@@ -113,9 +115,7 @@ def parse_profile(
         "atividade parlamentar": "atividade_parlamentar",
     }
     for match in _CV_FIELD.finditer(page_html):
-        label = re.sub(
-            r"\s+", " ", html.unescape(match.group(1))
-        ).strip().casefold()
+        label = re.sub(r"\s+", " ", html.unescape(match.group(1))).strip().casefold()
         field_name = field_names.get(label)
         if field_name is None:
             continue
@@ -158,15 +158,32 @@ def fetch_profile(
     log = logger or logging.getLogger(__name__)
     for attempt in range(1, policy.max_attempts + 1):
         requested_at = datetime.now(UTC).isoformat()
-        response = active_transport.get(
-            profile_url,
-            headers={
-                "Accept": "text/html",
-                "User-Agent": "BarreirasEmDados-Collector/0.1",
-            },
-            timeout_seconds=TIMEOUT_SECONDS,
-            max_body_bytes=8 * 1024 * 1024,
-        )
+        try:
+            response = active_transport.get(
+                profile_url,
+                headers={
+                    "Accept": "text/html",
+                    "User-Agent": "BarreirasEmDados-Collector/0.1",
+                },
+                timeout_seconds=TIMEOUT_SECONDS,
+                max_body_bytes=8 * 1024 * 1024,
+            )
+        except RETRYABLE_TRANSPORT_EXCEPTIONS as error:
+            log_event(
+                log,
+                logging.WARNING,
+                "collector_transport_failure",
+                source=SOURCE_CODE,
+                endpoint=PROFILE_ENDPOINT_CODE,
+                attempt=attempt,
+                error_type=type(error).__name__,
+            )
+            if attempt < policy.max_attempts:
+                sleep(policy.delay(attempt, 0.5))
+                continue
+            raise AlbaError(
+                f"A ALBA ficou indisponível no perfil {identifier}."
+            ) from error
         received_at = datetime.now(UTC).isoformat()
         log_event(
             log,
@@ -243,15 +260,30 @@ def fetch_deputies(
 
     for attempt in range(1, policy.max_attempts + 1):
         requested_at = datetime.now(UTC).isoformat()
-        response = active_transport.get(
-            DEPUTIES_URL,
-            headers={
-                "Accept": "text/html",
-                "User-Agent": "BarreirasEmDados-Collector/0.1",
-            },
-            timeout_seconds=TIMEOUT_SECONDS,
-            max_body_bytes=8 * 1024 * 1024,
-        )
+        try:
+            response = active_transport.get(
+                DEPUTIES_URL,
+                headers={
+                    "Accept": "text/html",
+                    "User-Agent": "BarreirasEmDados-Collector/0.1",
+                },
+                timeout_seconds=TIMEOUT_SECONDS,
+                max_body_bytes=8 * 1024 * 1024,
+            )
+        except RETRYABLE_TRANSPORT_EXCEPTIONS as error:
+            log_event(
+                log,
+                logging.WARNING,
+                "collector_transport_failure",
+                source=SOURCE_CODE,
+                endpoint=ENDPOINT_CODE,
+                attempt=attempt,
+                error_type=type(error).__name__,
+            )
+            if attempt < policy.max_attempts:
+                sleep(policy.delay(attempt, 0.5))
+                continue
+            raise AlbaError("O portal da Assembleia ficou indisponível.") from error
         received_at = datetime.now(UTC).isoformat()
         log_event(
             log,
@@ -286,9 +318,7 @@ def fetch_deputies(
                     json.dumps(
                         {
                             "url": DEPUTIES_URL,
-                            "body_sha256": hashlib.sha256(
-                                response.body
-                            ).hexdigest(),
+                            "body_sha256": hashlib.sha256(response.body).hexdigest(),
                         },
                         sort_keys=True,
                         separators=(",", ":"),
@@ -314,9 +344,7 @@ def fetch_deputies(
                 total_registros=len(deputies),
             )
         if response.status not in RETRYABLE:
-            raise AlbaError(
-                f"A Assembleia respondeu HTTP {response.status}."
-            )
+            raise AlbaError(f"A Assembleia respondeu HTTP {response.status}.")
         if attempt < policy.max_attempts:
             sleep(policy.delay(attempt, 0.5))
 

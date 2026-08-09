@@ -82,6 +82,11 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 
 - API base: `https://api.queridodiario.ok.org.br`;
 - host atual de documentos observado: `https://data.queridodiario.ok.org.br`;
+- registros históricos podem apontar para
+  `s3://okbr-qd-migration//<território>/<data>/<arquivo>`; somente esse bucket,
+  com o território `2903201` e caminho sem travessia, é convertido para o host
+  HTTPS oficial. A URL S3 original permanece nos metadados derivados e na
+  resposta JSON bruta imutável;
 - outros hosts de artefato aceitos são cadastrados em allowlist, nunca
   derivados automaticamente da resposta;
 - OpenAPI verificada em 30/07/2026: versão `0.19.0`;

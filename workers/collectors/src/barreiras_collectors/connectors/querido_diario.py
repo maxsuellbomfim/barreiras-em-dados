@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, unquote, urlencode, urlparse
 
 from ..http import HttpResponse, HttpTransport, UrllibTransport, validate_https_url
 from ..logging import log_event
@@ -36,6 +36,9 @@ ALLOWED_ARTIFACT_HOSTS = frozenset(
         "querido-diario.nyc3.cdn.digitaloceanspaces.com",
     }
 )
+MIGRATION_BUCKET = "okbr-qd-migration"
+MIGRATION_HTTPS_HOST = "data.queridodiario.ok.org.br"
+MIGRATION_CANONICALIZATION_VERSION = "okbr-qd-migration-s3-v1"
 RETRYABLE_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
 EXPECTED_ITEM_FIELDS = frozenset(
     {
@@ -246,12 +249,8 @@ class QueridoDiarioClient:
                 cursor={"offset": offset, "size": page_size},
                 raw_body=result.response.body,
                 parsed=parsed,
-                window_start=(
-                    published_since.isoformat() if published_since else None
-                ),
-                window_end=(
-                    published_until.isoformat() if published_until else None
-                ),
+                window_start=(published_since.isoformat() if published_since else None),
+                window_end=(published_until.isoformat() if published_until else None),
             )
 
             if observed >= parsed.total_gazettes:
@@ -445,7 +444,11 @@ class QueridoDiarioClient:
             ) from error
         if item["state_code"] != "BA":
             raise SourceContractError(f"gazettes[{index}] tem UF inesperada.")
-        self._validate_artifact_url(item["url"], index=index, field="url")
+        artifact_url, original_artifact_url = self._canonicalize_artifact_url(
+            item["url"],
+            index=index,
+            field="url",
+        )
 
         excerpts = item["excerpts"]
         if not isinstance(excerpts, list) or not all(
@@ -458,10 +461,12 @@ class QueridoDiarioClient:
             item["is_extra_edition"], bool
         ):
             raise SourceContractError(f"gazettes[{index}].is_extra_edition inválida.")
-        if item["txt_url"] is not None:
+        txt_url = item["txt_url"]
+        original_txt_url: str | None = None
+        if txt_url is not None:
             self._require_string(item, "txt_url", index)
-            self._validate_artifact_url(
-                item["txt_url"],
+            txt_url, original_txt_url = self._canonicalize_artifact_url(
+                txt_url,
                 index=index,
                 field="txt_url",
             )
@@ -469,28 +474,71 @@ class QueridoDiarioClient:
         extensions = {
             key: value for key, value in item.items() if key not in EXPECTED_ITEM_FIELDS
         }
+        if original_artifact_url is not None:
+            extensions["source_url_original"] = original_artifact_url
+        if original_txt_url is not None:
+            extensions["source_txt_url_original"] = original_txt_url
+        if original_artifact_url is not None or original_txt_url is not None:
+            extensions["url_canonicalization"] = MIGRATION_CANONICALIZATION_VERSION
         return GazetteItem(
             territory_id=item["territory_id"],
             published_date=item["date"],
             scraped_at=item["scraped_at"],
-            url=item["url"],
+            url=artifact_url,
             territory_name=item["territory_name"],
             state_code=item["state_code"],
             excerpts=tuple(excerpts),
             edition=item["edition"],
             is_extra_edition=item["is_extra_edition"],
-            txt_url=item["txt_url"],
+            txt_url=txt_url,
             source_extensions=extensions,
         )
 
-    @staticmethod
-    def _validate_artifact_url(url: str, *, index: int, field: str) -> None:
+    def _canonicalize_artifact_url(
+        self,
+        url: str,
+        *,
+        index: int,
+        field: str,
+    ) -> tuple[str, str | None]:
         try:
             validate_https_url(url, ALLOWED_ARTIFACT_HOSTS)
+            return url, None
         except ValueError as error:
-            raise SourceContractError(
-                f"gazettes[{index}].{field} aponta para URL não permitida."
-            ) from error
+            parsed = urlparse(url)
+            if (
+                parsed.scheme != "s3"
+                or parsed.netloc != MIGRATION_BUCKET
+                or parsed.username
+                or parsed.password
+                or parsed.query
+                or parsed.fragment
+            ):
+                raise SourceContractError(
+                    f"gazettes[{index}].{field} aponta para URL não permitida."
+                ) from error
+
+            decoded_path = unquote(parsed.path).lstrip("/")
+            parts = decoded_path.split("/")
+            if (
+                not decoded_path
+                or any(not part or part in {".", ".."} for part in parts)
+                or any("\\" in part for part in parts)
+                or parts[0] != self.territory_id
+            ):
+                raise SourceContractError(
+                    f"gazettes[{index}].{field} tem caminho S3 inválido."
+                ) from error
+
+            safe_path = "/".join(quote(part, safe="-._~") for part in parts)
+            canonical_url = f"https://{MIGRATION_HTTPS_HOST}/{safe_path}"
+            try:
+                validate_https_url(canonical_url, ALLOWED_ARTIFACT_HOSTS)
+            except ValueError as canonical_error:
+                raise SourceContractError(
+                    f"gazettes[{index}].{field} não pôde ser normalizada."
+                ) from canonical_error
+            return canonical_url, url
 
     @staticmethod
     def _require_string(item: Mapping[str, Any], field: str, index: int) -> None:

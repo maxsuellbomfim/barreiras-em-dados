@@ -33,6 +33,25 @@ class OneShotTransport:
         )
 
 
+class SequenceTransport:
+    def __init__(self, responses: list[HttpResponse | BaseException]) -> None:
+        self.responses = list(responses)
+        self.calls = 0
+
+    def get(self, url, *, headers, timeout_seconds, max_body_bytes):
+        del headers, timeout_seconds, max_body_bytes
+        self.calls += 1
+        result = self.responses.pop(0)
+        if isinstance(result, BaseException):
+            raise result
+        return HttpResponse(
+            status=result.status,
+            headers=result.headers,
+            body=result.body,
+            final_url=url,
+        )
+
+
 def fetch(status: int, body: bytes):
     return fetch_contratacoes_page(
         since="20260101",
@@ -88,6 +107,58 @@ class ContratacoesFetchTests(unittest.TestCase):
     def test_non_json_is_explicit_failure(self) -> None:
         with self.assertRaises(PncpError):
             fetch(200, b"<html>bloqueio</html>")
+
+    def test_timeout_is_retried_before_success(self) -> None:
+        body = json.dumps(
+            {
+                "totalRegistros": 1,
+                "totalPaginas": 1,
+                "data": [{"numeroControlePNCP": "controle"}],
+            }
+        ).encode()
+        transport = SequenceTransport(
+            [
+                TimeoutError("tempo esgotado"),
+                HttpResponse(200, {}, body, "unused"),
+            ]
+        )
+        sleeps: list[float] = []
+
+        page = fetch_contratacoes_page(
+            since="20260101",
+            until="20260131",
+            modalidade=6,
+            pagina=1,
+            transport=transport,
+            retry_policy=RetryPolicy(
+                max_attempts=2,
+                base_delay_seconds=1,
+                max_delay_seconds=2,
+            ),
+            sleep=sleeps.append,
+        )
+
+        assert page is not None
+        self.assertEqual(page.attempts, 2)
+        self.assertEqual(transport.calls, 2)
+        self.assertEqual(sleeps, [0.5])
+
+    def test_persistent_transport_failure_raises_domain_error(self) -> None:
+        transport = SequenceTransport([TimeoutError("um"), TimeoutError("dois")])
+
+        with self.assertRaises(PncpError) as captured:
+            fetch_contratacoes_page(
+                since="20260101",
+                until="20260131",
+                modalidade=6,
+                pagina=1,
+                transport=transport,
+                retry_policy=RetryPolicy(max_attempts=2),
+                sleep=lambda _seconds: None,
+            )
+
+        self.assertIn("indisponível", str(captured.exception))
+        self.assertEqual(transport.calls, 2)
 
 
 class WindowTests(unittest.TestCase):

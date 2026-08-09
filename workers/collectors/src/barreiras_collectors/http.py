@@ -29,6 +29,13 @@ class HttpTransport(Protocol):
     ) -> HttpResponse: ...
 
 
+RETRYABLE_TRANSPORT_EXCEPTIONS = (
+    OSError,
+    TimeoutError,
+    urllib.error.URLError,
+)
+
+
 def validate_https_url(url: str, allowed_hosts: frozenset[str]) -> None:
     parsed = urlparse(url)
     if parsed.scheme != "https":

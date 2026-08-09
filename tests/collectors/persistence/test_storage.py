@@ -37,6 +37,20 @@ class FakeBucket:
         return self.objects[path]
 
 
+class EventuallyConsistentBucket(FakeBucket):
+    def __init__(self, *, hidden_downloads: int) -> None:
+        super().__init__()
+        self.hidden_downloads = hidden_downloads
+        self.download_attempts = 0
+
+    def download(self, path: str) -> bytes:
+        self.download_attempts += 1
+        if self.hidden_downloads > 0:
+            self.hidden_downloads -= 1
+            raise RuntimeError("object_not_visible_yet")
+        return super().download(path)
+
+
 class SupabaseStorageObjectStoreTests(unittest.TestCase):
     def test_chunk_manifest_uses_a_mime_type_allowed_by_the_bucket(self) -> None:
         bucket = FakeBucket(
@@ -74,6 +88,34 @@ class SupabaseStorageObjectStoreTests(unittest.TestCase):
 
         self.assertFalse(stored.created)
         self.assertEqual(store.read(object_key), body)
+
+    def test_duplicate_upload_waits_for_eventual_storage_visibility(self) -> None:
+        bucket = EventuallyConsistentBucket(hidden_downloads=2)
+        body = b"objeto-ja-existente-mas-ainda-nao-visivel"
+        digest = hashlib.sha256(body).hexdigest()
+        object_key = f"querido-diario/documents/sha256/{digest[:2]}/{digest}.txt"
+        bucket.objects[object_key] = body
+        sleeps: list[float] = []
+        store = SupabaseStorageObjectStore(
+            bucket,
+            chunk_size_bytes=64,
+            consistency_attempts=3,
+            consistency_base_delay_seconds=0.1,
+            sleep=sleeps.append,
+        )
+
+        stored = store.put_if_absent(
+            object_key=object_key,
+            body=body,
+            content_type="text/plain",
+            expected_sha256=digest,
+        )
+
+        self.assertFalse(stored.created)
+        self.assertEqual(stored.sha256, digest)
+        # Duas leituras aguardam visibilidade; a quarta é a verificação final.
+        self.assertEqual(bucket.download_attempts, 4)
+        self.assertEqual(sleeps, [0.1, 0.2])
 
     def test_large_object_is_chunked_and_restored_as_original_bytes(self) -> None:
         bucket = FakeBucket()

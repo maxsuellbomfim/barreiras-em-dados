@@ -12,7 +12,11 @@ import unicodedata
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from ..http import HttpTransport, UrllibTransport
+from ..http import (
+    RETRYABLE_TRANSPORT_EXCEPTIONS,
+    HttpTransport,
+    UrllibTransport,
+)
 from ..logging import log_event
 from ..resilience import RetryPolicy
 from .pncp import PncpPage
@@ -121,9 +125,7 @@ def _name(value: str) -> str:
 
 
 def _image_url(fragment: str) -> str | None:
-    match = re.search(
-        r"<img[^>]+src=['\"](https://[^'\"]+)['\"]", fragment, re.I
-    )
+    match = re.search(r"<img[^>]+src=['\"](https://[^'\"]+)['\"]", fragment, re.I)
     return html.unescape(match.group(1)) if match else None
 
 
@@ -134,9 +136,7 @@ def _last_image_url(fragment: str) -> str | None:
     A broad prefix can contain an earlier portrait, so selecting the last
     match is the deterministic association that follows the page structure.
     """
-    matches = re.findall(
-        r"<img[^>]+src=['\"](https://[^'\"]+)['\"]", fragment, re.I
-    )
+    matches = re.findall(r"<img[^>]+src=['\"](https://[^'\"]+)['\"]", fragment, re.I)
     return html.unescape(matches[-1]) if matches else None
 
 
@@ -171,9 +171,7 @@ def _first_name(content: str) -> str | None:
                 candidate = candidate.split(" - ", 1)[0].strip()
             if _looks_like_name(candidate):
                 return candidate
-        for strong in re.findall(
-            r"<strong[^>]*>([\s\S]*?)</strong>", paragraph, re.I
-        ):
+        for strong in re.findall(r"<strong[^>]*>([\s\S]*?)</strong>", paragraph, re.I):
             candidate = _name(strong)
             if _looks_like_name(candidate):
                 return candidate
@@ -212,9 +210,7 @@ def parse_official_page(
     profiles: list[dict] = []
 
     if role in {"prefeito", "vice-prefeito"}:
-        heading = re.search(
-            rf"<h2[^>]*>\s*{re.escape(role)}\s*</h2>", content, re.I
-        )
+        heading = re.search(rf"<h2[^>]*>\s*{re.escape(role)}\s*</h2>", content, re.I)
         if not heading:
             return ()
         # A página oficial reúne prefeito e vice no mesmo acordeão. O recorte
@@ -226,11 +222,7 @@ def parse_official_page(
             content[heading.end() :],
             re.I,
         )
-        end = (
-            heading.end() + next_heading.start()
-            if next_heading
-            else len(content)
-        )
+        end = heading.end() + next_heading.start() if next_heading else len(content)
         window = content[heading.start() : end]
         # No HTML oficial, a foto pode estar imediatamente antes do título
         # dentro do mesmo bloco visual. O texto continua limitado ao bloco do
@@ -238,7 +230,7 @@ def parse_official_page(
         photo_fragment = content[max(0, heading.start() - 2000) : heading.start()]
         title = re.search(
             r'<h2[^>]+class=["\'][^"\']*panel-title[^"\']*["\'][^>]*>'
-            r'[\s\S]*?<strong>([^<]+)</strong>',
+            r"[\s\S]*?<strong>([^<]+)</strong>",
             window,
             re.I,
         )
@@ -285,15 +277,32 @@ def fetch_executive_profiles(
 
     for role, department, url in PAGE_SPECS:
         for attempt in range(1, policy.max_attempts + 1):
-            response = active_transport.get(
-                url,
-                headers={
-                    "Accept": "text/html",
-                    "User-Agent": "BarreirasEmDados-Collector/0.1",
-                },
-                timeout_seconds=TIMEOUT_SECONDS,
-                max_body_bytes=8 * 1024 * 1024,
-            )
+            try:
+                response = active_transport.get(
+                    url,
+                    headers={
+                        "Accept": "text/html",
+                        "User-Agent": "BarreirasEmDados-Collector/0.1",
+                    },
+                    timeout_seconds=TIMEOUT_SECONDS,
+                    max_body_bytes=8 * 1024 * 1024,
+                )
+            except RETRYABLE_TRANSPORT_EXCEPTIONS as error:
+                log_event(
+                    log,
+                    logging.WARNING,
+                    "collector_transport_failure",
+                    source=SOURCE_CODE,
+                    endpoint=ENDPOINT_CODE,
+                    attempt=attempt,
+                    error_type=type(error).__name__,
+                )
+                if attempt < policy.max_attempts:
+                    sleep(policy.delay(attempt, 0.5))
+                    continue
+                raise MunicipalExecutiveError(
+                    f"A página oficial ficou indisponível: {url}"
+                ) from error
             log_event(
                 log,
                 logging.INFO,
