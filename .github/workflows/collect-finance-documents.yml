@@ -52,6 +52,10 @@ concurrency:
 jobs:
   collect:
     name: Preservar catalogo financeiro (${{ matrix.resource }})
+    # Skip non-selected matrix entries entirely for a directed run. Keeping
+    # this guard at job level avoids provisioning runners and opening database
+    # connections for resources that the operator did not request.
+    if: ${{ github.event_name == 'schedule' || inputs.resource == 'all' || inputs.resource == matrix.resource || inputs.resource == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
