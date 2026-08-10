@@ -101,6 +101,14 @@ class GazetteRepositoryContractTests(unittest.TestCase):
             "order by edition.edition_year desc, edition.edition desc,",
             query,
         )
+        self.assertIn(
+            "where (%s::integer is null or edition.edition = %s::integer)",
+            query,
+        )
+        self.assertIn(
+            "and (%s::integer is null or edition.edition_year = %s::integer)",
+            query,
+        )
 
     def test_pending_artifacts_includes_querido_diario_record_metadata(self) -> None:
         self.connection.pending_rows = [
