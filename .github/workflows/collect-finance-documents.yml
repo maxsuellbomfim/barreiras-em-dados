@@ -52,10 +52,6 @@ concurrency:
 jobs:
   collect:
     name: Preservar catalogo financeiro (${{ matrix.resource }})
-    # Skip non-selected matrix entries entirely for a directed run. Keeping
-    # this guard at job level avoids provisioning runners and opening database
-    # connections for resources that the operator did not request.
-    if: ${{ github.event_name == 'schedule' || inputs.resource == 'all' || inputs.resource == matrix.resource || inputs.resource == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -68,15 +64,15 @@ jobs:
       # uma conexÃ£o de coleta por vez para respeitar o plano gratuito.
       max-parallel: ${{ (inputs.resource == 'all' || inputs.resource == '') && 1 || 8 }}
       matrix:
-        resource:
-          - pdc-receita-tributaria
-          - pdc-recursos-extraordinarios
-          - pdc-resumo-execucao-da-receita
-          - pdc-resumo-execucao-da-despesa
-          - pdc-transferencia
-          - pdc-emendas-parlamentares-receitas
-          - rreo
-          - rgf
+        # GitHub does not expose `matrix` inside jobs.<job>.if. Build the
+        # matrix from the dispatch input instead, so a directed run creates
+        # exactly one job while schedules still cover every resource.
+        resource: >-
+          ${{ fromJSON(
+            (inputs.resource == '' || inputs.resource == 'all')
+              && '["pdc-receita-tributaria","pdc-recursos-extraordinarios","pdc-resumo-execucao-da-receita","pdc-resumo-execucao-da-despesa","pdc-transferencia","pdc-emendas-parlamentares-receitas","rreo","rgf"]'
+              || format('["{0}"]', inputs.resource)
+          ) }}
     env:
       APP_ENV: production
       LOG_LEVEL: INFO
@@ -114,7 +110,6 @@ jobs:
           | sha256sum --check --strict
 
       - name: Preservar documento financeiro
-        if: ${{ inputs.resource == 'all' || inputs.resource == matrix.resource || inputs.resource == '' }}
         run: >-
           python -B -m barreiras_collectors.commands.collect_municipal_transparency
           --source prefeitura
