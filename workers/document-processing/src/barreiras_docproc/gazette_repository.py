@@ -134,8 +134,8 @@ class GazetteDocumentRepository:
                 from candidate_editions as edition
                 join raw.document_pages as page
                   on page.raw_artifact_id = edition.id
-                where (%s is null or edition.edition = %s)
-                  and (%s is null or edition.edition_year = %s)
+                where (%s::integer is null or edition.edition = %s::integer)
+                  and (%s::integer is null or edition.edition_year = %s::integer)
                 group by edition.id, edition.sha256, edition.edition,
                   edition.edition_year, edition.edition_date, edition.created_at,
                   edition.source_priority
