@@ -159,7 +159,7 @@ def iter_resource_pages(
             endpoint_code=endpoint_code,
             resource=resource,
             idempotency_key=hashlib.sha256(
-                f"{request_url}:{body_sha256}".encode()
+                f"{source_code}:{endpoint_code}:{request_url}:{body_sha256}".encode()
             ).hexdigest(),
             request_url=request_url,
             final_url=response.final_url,

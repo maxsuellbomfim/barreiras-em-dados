@@ -95,6 +95,28 @@ class MunicipalTransparencyTests(unittest.TestCase):
 
         self.assertEqual(page.endpoint_code, "leis-api")
 
+    def test_idempotency_key_is_scoped_to_endpoint(self) -> None:
+        body = json.dumps(
+            {"resource": "leis", "count": 1, "data": [{"id": "lei-1"}]}
+        ).encode()
+        common = {
+            "base_url": "https://portaldatransparencia.cmbarreiras.ba.gov.br/api",
+            "source_code": "camara-barreiras-transparencia",
+            "resource": "leis",
+            "transport": SequenceTransport([body]),
+            "requests_per_minute": 600,
+            "sleep": lambda _seconds: None,
+        }
+        legacy = next(iter_resource_pages(**common, endpoint_code="dados-abertos-api"))
+        current = next(
+            iter_resource_pages(
+                **{**common, "transport": SequenceTransport([body])},
+                endpoint_code="leis-api",
+            )
+        )
+
+        self.assertNotEqual(legacy.idempotency_key, current.idempotency_key)
+
     def test_http_200_error_root_is_not_empty_data(self) -> None:
         body = json.dumps({"error": "resource inexistente"}).encode()
         with self.assertRaises(MunicipalTransparencyContractError):
