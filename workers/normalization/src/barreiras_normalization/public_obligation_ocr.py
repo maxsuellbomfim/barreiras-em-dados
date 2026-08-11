@@ -42,6 +42,16 @@ def _has_section_heading(text: str | None) -> bool:
     )
 
 
+def _has_section_totals_footer(text: str | None) -> bool:
+    if not text:
+        return False
+    return any(
+        " ".join(_fold(line).split())
+        == "TOTAL EXTRA, RESTOS A PAGAR E TRANSFERENCIA FINANCEIRA"
+        for line in text.splitlines()
+    )
+
+
 def _diagnostic_excerpt(text: str) -> str:
     """Expõe somente o fim da seção pública, sem bytes ou credenciais."""
     lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
@@ -94,18 +104,35 @@ class PublicObligationOcrExtractor:
             for page in pdf.pages
             if _has_section_heading(page.text)
         ]
-        if len(section_pages) != 1:
-            raise ValueError(
-                "OCR exige exatamente uma página com o título RESTOS A PAGAR."
+        if len(section_pages) == 1:
+            section_page = section_pages[0]
+            last_page = len(pdf.pages)
+            page_numbers = tuple(
+                number
+                for number in (section_page, section_page + 1)
+                if number <= last_page
             )
+        else:
+            footer_pages = [
+                page.page_number
+                for page in pdf.pages
+                if _has_section_totals_footer(page.text)
+            ]
+            if len(section_pages) != 0 or len(footer_pages) != 1:
+                raise ValueError(
+                    "OCR exige uma seção RESTOS A PAGAR inequívoca."
+                )
+            footer_page = footer_pages[0]
+            if footer_page <= 1:
+                raise ValueError(
+                    "OCR exige uma seção RESTOS A PAGAR inequívoca."
+                )
+            page_numbers = (footer_page - 1, footer_page)
 
-        section_page = section_pages[0]
-        last_page = len(pdf.pages)
-        page_numbers = tuple(
-            number
-            for number in (section_page, section_page + 1)
-            if number <= last_page
-        )
+        if not page_numbers:
+            raise ValueError(
+                "OCR exige uma seção RESTOS A PAGAR inequívoca."
+            )
         successes: list[PublicObligationExtraction] = []
         errors: list[str] = []
         for rotation in _ROTATIONS:

@@ -16,8 +16,8 @@ from .public_obligation_pdf import (
 )
 from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
 
-PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.2.0"
-PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.2.0"
+PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.3.0"
+PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.3.0"
 
 
 @dataclass(frozen=True)
@@ -241,6 +241,8 @@ class PostgresPublicObligationPublicationRepository:
                     and document.source_url = record.payload ->> 'url'
                     and record.record_type
                       = 'municipal_transparency_balancetes'
+                    and lower(btrim(coalesce(record.payload ->> 'titulo', '')))
+                      like 'balancete %'
                     and coalesce(
                       record.payload ->> 'ano', record.payload ->> 'ano_ref'
                     )
@@ -271,7 +273,7 @@ class PostgresPublicObligationPublicationRepository:
                 select id, sha256, object_key, byte_size, parent_record_id,
                   source_url, fiscal_year, reference_month
                 from candidates
-                order by created_at, id
+                order by fiscal_year asc, reference_month asc, created_at asc, id
                 limit %s
                 """,
                 (

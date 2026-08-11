@@ -105,6 +105,80 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
                 reference_month=1,
             )
 
+    def test_uses_unique_totals_footer_to_locate_legacy_restos_pages(self):
+        pages = tuple(
+            FakePage(
+                number,
+                (
+                    "Total Extra, Restos a Pagar e Transferência Financeira"
+                    if number == 73
+                    else "outra pagina"
+                ),
+            )
+            for number in range(1, 74)
+        )
+        calls: list[tuple[int, int]] = []
+
+        def page_ocr(_engine, _body, page_number, *, rotation_degrees=0):
+            calls.append((page_number, rotation_degrees))
+            if rotation_degrees == 270 and page_number == 72:
+                text = "RESTOS A PAGAR\nlinhas de contas\nTotal"
+            elif rotation_degrees == 270 and page_number == 73:
+                text = (
+                    "19.859.849,88 0,00 19.859.849,88\n"
+                    "TRANSFERÊNCIA FINANCEIRA"
+                )
+            else:
+                text = "texto ilegivel"
+            return FakeOcrResult(page_number=page_number, text=text)
+
+        extractor = PublicObligationOcrExtractor(
+            engine=FakeEngine(),
+            pdf_text_deriver=lambda _body: FakePdf(pages),
+            page_ocr=page_ocr,
+        )
+
+        extraction = extractor.extract(
+            b"%PDF fixture",
+            fiscal_year=2025,
+            reference_month=10,
+        )
+
+        self.assertEqual(
+            extraction.summary.payments_to_date_amount,
+            Decimal("19859849.88"),
+        )
+        self.assertEqual(extraction.provenance.page_numbers, (72, 73))
+        self.assertEqual(
+            calls,
+            [(72, 270), (73, 270), (72, 90), (73, 90), (72, 0), (73, 0)],
+        )
+
+    def test_rejects_ambiguous_legacy_totals_footers_without_running_ocr(self):
+        extractor = PublicObligationOcrExtractor(
+            engine=FakeEngine(),
+            pdf_text_deriver=lambda _body: FakePdf(
+                (
+                    FakePage(
+                        4,
+                        "Total Extra, Restos a Pagar e Transferência Financeira",
+                    ),
+                    FakePage(
+                        8,
+                        "Total Extra, Restos a Pagar e Transferência Financeira",
+                    ),
+                )
+            ),
+            page_ocr=lambda *_args, **_kwargs: self.fail("OCR nao deveria rodar"),
+        )
+
+        with self.assertRaisesRegex(ValueError, "inequívoca"):
+            extractor.extract(
+                b"%PDF fixture",
+                fiscal_year=2025,
+                reference_month=10,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
