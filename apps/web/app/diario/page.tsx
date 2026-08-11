@@ -31,6 +31,13 @@ const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Bahia",
 });
 
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  timeZone: "America/Bahia",
+});
+
 function CatalogPendingNotice({
   entries,
 }: Readonly<{ entries: readonly OfficialDiaryCatalogEntry[] }>) {
@@ -164,6 +171,12 @@ export default async function IntegralDiaryPage({
                 {collectionStatus.data.preservedEditionCount} edições
                 distintas. A coleta direta do catálogo oficial roda em
                 paralelo.
+                <br />Faixa de publicações preservadas pela API: {dateFormatter.format(
+                  new Date(`${collectionStatus.data.coverageStart}T12:00:00-03:00`),
+                )} a {dateFormatter.format(
+                  new Date(`${collectionStatus.data.coverageEnd}T12:00:00-03:00`),
+                )}. Essa é uma faixa mínima e máxima de registros, não uma
+                garantia de que todos os dias tenham edição.
               </p>
             </details>
           ) : null}
