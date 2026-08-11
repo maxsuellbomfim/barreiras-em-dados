@@ -103,6 +103,18 @@ function formatPeriod(item: CollectionHealthItem): string {
   return startLabel === endLabel ? startLabel : `${startLabel} a ${endLabel}`;
 }
 
+function formatLag(item: CollectionHealthItem): string {
+  if (!item.latest_period_end || !item.latest_attempted_at) return "Sem período comparável";
+  const periodEnd = new Date(`${item.latest_period_end}T23:59:59-03:00`).getTime();
+  const attemptedAt = new Date(item.latest_attempted_at).getTime();
+  if (!Number.isFinite(periodEnd) || !Number.isFinite(attemptedAt)) {
+    return "Sem período comparável";
+  }
+  const days = Math.max(0, Math.floor((attemptedAt - periodEnd) / 86_400_000));
+  if (days === 0) return "Sem atraso mensurável";
+  return `${days.toLocaleString("pt-BR")} dia${days === 1 ? "" : "s"} após o fim do período`;
+}
+
 export function CollectionHealth({
   state,
   search,
@@ -252,6 +264,10 @@ function CollectionHealthCard({
               ? new Date(item.latest_attempted_at).toLocaleString("pt-BR")
               : "—"}
           </dd>
+        </div>
+        <div>
+          <dt>Defasagem da fonte</dt>
+          <dd>{formatLag(item)}</dd>
         </div>
         <div>
           <dt>Execução</dt>
