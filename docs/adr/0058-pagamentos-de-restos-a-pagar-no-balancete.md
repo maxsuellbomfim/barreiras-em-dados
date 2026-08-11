@@ -35,6 +35,18 @@ Falhas de hash, ambiguidade, extração ou aritmética serão registradas na fil
 processamento e farão o job terminar com erro visível. A indisponibilidade da
 explicação assistida por IA não impedirá a publicação do fato validado.
 
+### Adendo: PDFs rotacionados
+
+Balancetes cujo texto embutido não preserva a linha da tabela usam fallback OCR
+Tesseract em português, restrito à página da seção `RESTOS A PAGAR` e à sua
+continuação. O extrator testa orientações fixas, mantém a fronteira anterior a
+`TRANSFERÊNCIA FINANCEIRA` e só aceita um resultado aritmeticamente fechado.
+
+Método, versão do OCR, páginas e rotação entram no localizador da evidência.
+Uma divergência aritmética encontrada no texto embutido não aciona OCR. O
+workflow oferece ensaio explícito sem persistência para validar um novo layout
+contra o PDF oficial antes de autorizar a publicação.
+
 ## Consequências
 
 A população passa a enxergar um fluxo de caixa relevante de compromissos de
@@ -53,3 +65,4 @@ reconciliação próprios.
 - teste PGlite de aritmética, privilégios e vínculo com o PDF exato;
 - contrato estrito da RPC e teste de linguagem pública;
 - testes Python, Node, typecheck, build, Ruff e segurança.
+- ensaio remoto sem escrita nos PDFs oficiais de janeiro e fevereiro de 2026.

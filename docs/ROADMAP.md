@@ -224,10 +224,12 @@ Portais locais, SICONFI e TCM-BA:
 - conflitos entre fontes.
 
 Estado atual: contratos determinísticos de receita e obrigações, projeções
-públicas com evidência e persistência normalizada preparados. A primeira
-família real de obrigações foi validada no balancete de junho de 2026:
-pagamentos de restos a pagar, com acumulado anterior, pagamento do mês e
-acumulado atual reconciliados por código e ligados ao PDF oficial exato.
+públicas com evidência e persistência normalizada preparados. Pagamentos de
+restos a pagar de março a junho de 2026 estão publicados com acumulado anterior,
+pagamento do mês e acumulado atual reconciliados por código e ligados ao PDF
+oficial exato. Janeiro e fevereiro passaram por ensaio OCR remoto sem escrita:
+as duas competências fecharam aritmeticamente e a progressão fevereiro-março
+coincidiu; a persistência aguarda a mesclagem e o replay controlado.
 
 Próxima fatia em execução: fechamento mensal operacional, com receita no nível
 do total declarado por documento e pagamentos no nível do relatório validado;
