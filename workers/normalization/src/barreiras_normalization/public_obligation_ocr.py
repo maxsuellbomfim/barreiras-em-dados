@@ -38,6 +38,22 @@ def _has_section_heading(text: str | None) -> bool:
     )
 
 
+def _diagnostic_excerpt(text: str) -> str:
+    """Expõe somente o fim da seção pública, sem bytes ou credenciais."""
+    lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
+    folded = [_fold(line) for line in lines]
+    starts = [index for index, line in enumerate(folded) if line == "RESTOS A PAGAR"]
+    start = starts[-1] if starts else 0
+    boundaries = [
+        index
+        for index in range(start + 1, len(lines))
+        if folded[index] == "TRANSFERENCIA FINANCEIRA"
+    ]
+    end = boundaries[0] if boundaries else len(lines)
+    excerpt = " | ".join(lines[max(start, end - 16) : end])
+    return excerpt[-500:]
+
+
 class PublicObligationOcrExtractor:
     """Faz OCR apenas da seção-alvo e aceita somente um total que fecha."""
 
@@ -89,14 +105,18 @@ class PublicObligationOcrExtractor:
                 )
                 for page_number in page_numbers
             ]
+            recognized_text = "\n".join(result.text for result in results)
             try:
                 summary = parse_restos_a_pagar_summary(
-                    "\n".join(result.text for result in results),
+                    recognized_text,
                     fiscal_year=fiscal_year,
                     reference_month=reference_month,
                 )
             except PublicObligationPdfContractError as error:
-                errors.append(f"{rotation}: {error}")
+                errors.append(
+                    f"{rotation}: {error}; "
+                    f"trecho={_diagnostic_excerpt(recognized_text)}"
+                )
                 continue
             parser_versions = {result.parser_version for result in results}
             if len(parser_versions) != 1:
