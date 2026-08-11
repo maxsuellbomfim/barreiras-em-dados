@@ -48,6 +48,50 @@ class PublicObligationPdfTests(unittest.TestCase):
                 reference_month=6,
             )
 
+    def test_parses_total_prefixed_line_from_march_balancete(self):
+        text = """\
+RESTOS A PAGAR
+213110101020802 RP Processados - FMC_Fonte 1500 173.584,72 0,00 173.584,72
+Total 35.936.198,97 4.782.988,29 40.719.187,26
+TRANSFERÊNCIA FINANCEIRA
+351120200000001 Repasse Concedido ao FMS 18.585.649,70 10.536.855,72 29.122.505,42
+"""
+
+        summary = parse_restos_a_pagar_summary(
+            text,
+            fiscal_year=2026,
+            reference_month=3,
+        )
+
+        self.assertEqual(summary.payments_prior_amount, Decimal("35936198.97"))
+        self.assertEqual(summary.payments_period_amount, Decimal("4782988.29"))
+        self.assertEqual(summary.payments_to_date_amount, Decimal("40719187.26"))
+
+    def test_reconstructs_interleaved_total_from_may_balancete(self):
+        text = """\
+RESTOS A PAGAR
+213110101020802
+Total
+TRANSFERÊNCIA FINANCEIRA
+RP Processados - FMC_Fonte 1500 173.584,72
+44.697.475,81
+0,00
+667.168,25
+173.584,72
+45.364.644,06
+351120200000001 Repasse Concedido ao FMS 38.980.428,98 8.324.365,84 47.304.794,82
+"""
+
+        summary = parse_restos_a_pagar_summary(
+            text,
+            fiscal_year=2026,
+            reference_month=5,
+        )
+
+        self.assertEqual(summary.payments_prior_amount, Decimal("44697475.81"))
+        self.assertEqual(summary.payments_period_amount, Decimal("667168.25"))
+        self.assertEqual(summary.payments_to_date_amount, Decimal("45364644.06"))
+
     def test_does_not_capture_transfer_total_after_section_boundary(self):
         text = FIXTURE.read_text(encoding="utf-8").replace(
             "49.047.866,03 3.683.221,97 45.364.644,06\n",
