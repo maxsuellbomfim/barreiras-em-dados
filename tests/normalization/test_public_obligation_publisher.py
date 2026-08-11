@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 from barreiras_normalization.public_obligation_publisher import (
@@ -43,6 +44,10 @@ class FakeRepository:
         self.inserted.append((artifact, summary, provenance))
         return 1
 
+    def previous_month_to_date(self, artifact):
+        del artifact
+        return None
+
 
 class FakeRows:
     def __init__(self, rows) -> None:
@@ -50,6 +55,9 @@ class FakeRows:
 
     def fetchall(self):
         return self.rows
+
+    def fetchone(self):
+        return self.rows[0] if self.rows else None
 
 
 class CapturingConnection:
@@ -185,6 +193,22 @@ class PublicObligationPublisherTests(unittest.TestCase):
         self.assertIn("'succeeded'", normalized_query)
         self.assertIn("insert into raw.extraction_results", normalized_query)
         self.assertIn("public_obligation_section_absent", normalized_query)
+        self.assertTrue(connection.closed)
+
+    def test_reads_previous_month_accumulated_value_for_reconciliation(self):
+        connection = CapturingConnection(
+            [{"payments_to_date_amount": Decimal("24003976.26")}]
+        )
+        repository = PostgresPublicObligationPublicationRepository(
+            lambda: connection
+        )
+
+        value = repository.previous_month_to_date(artifact_for())
+
+        self.assertEqual(value, Decimal("24003976.26"))
+        normalized_query = " ".join(connection.query.lower().split())
+        self.assertIn("period_end = %s::date", normalized_query)
+        self.assertIn("obligation_type = 'restos_a_pagar_total'", normalized_query)
         self.assertTrue(connection.closed)
 
     def test_rejects_tampered_pdf_before_persisting(self):

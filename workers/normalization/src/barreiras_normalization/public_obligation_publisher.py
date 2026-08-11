@@ -7,12 +7,15 @@ import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date, timedelta
+from decimal import Decimal
 from typing import Protocol
 
 from .public_obligation_pdf import (
     PublicObligationStructuralError,
     RestosAPagarSummary,
     parse_restos_a_pagar_summary,
+    validate_restos_a_pagar_progression,
 )
 from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
 
@@ -72,6 +75,11 @@ class PublicObligationPublicationRepository(Protocol):
         provenance: PublicObligationExtractionProvenance,
     ) -> int: ...
 
+    def previous_month_to_date(
+        self,
+        artifact: PublicObligationArtifact,
+    ) -> Decimal | None: ...
+
     def record_failure(
         self,
         artifact: PublicObligationArtifact,
@@ -112,6 +120,10 @@ class PublicObligationPublisher:
     ) -> PublicObligationPublishResult:
         extraction = self.validate(artifact)
         summary = extraction.summary
+        validate_restos_a_pagar_progression(
+            summary,
+            previous_month_to_date=self.repository.previous_month_to_date(artifact),
+        )
         inserted = self.repository.persist_validated_summary(
             artifact,
             summary,
@@ -410,6 +422,38 @@ class PostgresPublicObligationPublicationRepository:
                     ),
                 )
                 return 1
+        finally:
+            connection.close()
+
+    def previous_month_to_date(
+        self,
+        artifact: PublicObligationArtifact,
+    ) -> Decimal | None:
+        if artifact.reference_month == 1:
+            return None
+        previous_period_end = date(
+            artifact.fiscal_year,
+            artifact.reference_month,
+            1,
+        ) - timedelta(days=1)
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select payments_to_date_amount
+                from finance.public_obligations
+                where fiscal_year = %s
+                  and period_end = %s::date
+                  and obligation_type = 'restos_a_pagar_total'
+                  and validation_state in ('validated', 'reconciled')
+                order by version desc, validated_at desc, id desc
+                limit 1
+                """,
+                (artifact.fiscal_year, previous_period_end.isoformat()),
+            ).fetchone()
+            if row is None:
+                return None
+            return Decimal(str(row["payments_to_date_amount"]))
         finally:
             connection.close()
 

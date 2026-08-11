@@ -15,6 +15,8 @@ from ..public_obligation_ocr import PublicObligationOcrExtractor
 from ..public_obligation_pdf import (
     PublicObligationPdfContractError,
     PublicObligationSectionAbsentError,
+    RestosAPagarSummary,
+    validate_restos_a_pagar_progression,
 )
 from ..public_obligation_publisher import (
     PostgresPublicObligationPublicationRepository,
@@ -69,6 +71,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     validated = 0
     source_absent = 0
     failed = 0
+    previous_dry_run_summary: RestosAPagarSummary | None = None
     artifacts = repository.pending_documents(
         limit=args.limit,
         fiscal_year_from=args.fiscal_year_from,
@@ -87,6 +90,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.dry_run:
                 extraction = publisher.validate(artifact)
                 summary = extraction.summary
+                if (
+                    previous_dry_run_summary is not None
+                    and previous_dry_run_summary.fiscal_year == summary.fiscal_year
+                    and previous_dry_run_summary.period_end.month + 1
+                    == summary.period_end.month
+                ):
+                    validate_restos_a_pagar_progression(
+                        summary,
+                        previous_month_to_date=(
+                            previous_dry_run_summary.payments_to_date_amount
+                        ),
+                    )
+                previous_dry_run_summary = summary
                 validated += 1
                 logger.info(
                     "public_obligation_dry_run_validated artifact=%s period=%s "
@@ -103,6 +119,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 continue
             result = publisher.publish(artifact)
         except PublicObligationSectionAbsentError as error:
+            previous_dry_run_summary = None
             source_absent += 1
             if not args.dry_run:
                 repository.record_section_absent(artifact, detail=str(error))
@@ -123,6 +140,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             PublicObligationPdfContractError,
             ValueError,
         ) as error:
+            previous_dry_run_summary = None
             failed += 1
             if not args.dry_run:
                 repository.record_failure(
