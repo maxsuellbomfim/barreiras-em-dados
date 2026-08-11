@@ -33,7 +33,8 @@ try {
     insert into auth.users (id) values
       ('1575c740-fcff-4b1a-89a9-e8e5a314880a'),
       ('27b3add6-f788-48e5-bf6f-50dfbd8cf198'),
-      ('c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a');
+      ('c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a'),
+      ('00000000-0000-4000-8000-000000000001');
     create function auth.uid() returns uuid language sql stable set search_path = ''
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     create schema storage;
@@ -390,6 +391,61 @@ try {
     resolved_conflicts: 1,
   }]);
 
+  await database.exec(`
+    insert into audit.reviewer_identities (
+      auth_user_id,
+      display_name,
+      status,
+      activated_at
+    ) values (
+      '00000000-0000-4000-8000-000000000001',
+      'Revisor financeiro de teste',
+      'active',
+      statement_timestamp()
+    ) on conflict (auth_user_id) do update
+      set status = 'active', activated_at = excluded.activated_at;
+    set role authenticated;
+    set request.jwt.claim.sub = '00000000-0000-4000-8000-000000000001';
+  `);
+  const adminFinanceIntegrity = await database.query(`
+    select
+      revenue_document_count,
+      revenue_row_count,
+      revenue_direct_count,
+      revenue_reconciled_count,
+      revenue_pending_count,
+      expense_document_count,
+      expense_report_count,
+      expense_line_count,
+      expense_direct_count,
+      expense_reconciled_count,
+      expense_pending_count,
+      diagnostic_status,
+      methodology_version
+    from api.get_admin_finance_integrity(
+      120,
+      2026::smallint,
+      2026::smallint
+    )
+    where period_start = '2026-06-01'
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(adminFinanceIntegrity.rows, [{
+    revenue_document_count: 2,
+    revenue_row_count: 2,
+    revenue_direct_count: 1,
+    revenue_reconciled_count: 1,
+    revenue_pending_count: 0,
+    expense_document_count: 2,
+    expense_report_count: 2,
+    expense_line_count: 2,
+    expense_direct_count: 1,
+    expense_reconciled_count: 1,
+    expense_pending_count: 0,
+    diagnostic_status: "needs_review",
+    methodology_version: "admin-finance-integrity/1.0.0",
+  }]);
+
   await database.exec("set role anon");
   await rejects("select * from finance.public_obligations", /permission denied/);
   await rejects(
@@ -398,6 +454,10 @@ try {
   );
   await rejects("select * from finance.document_lineage_versions", /permission denied/);
   await rejects("select * from audit.finance_lineage_repairs", /permission denied/);
+  await rejects(
+    "select * from api.get_admin_finance_integrity(120, 2026::smallint, 2026::smallint)",
+    /permission denied/,
+  );
   const projection = await database.query(`
     select * from api.get_public_obligations(20, 2026, null)
   `);
