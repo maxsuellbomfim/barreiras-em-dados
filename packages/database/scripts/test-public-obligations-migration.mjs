@@ -107,13 +107,52 @@ try {
     insert into raw.raw_records (
       id, raw_artifact_id, source_record_key, record_type, record_index,
       payload, payload_sha256, parser_version, idempotency_key, collected_at
-    ) values (
-      '00000000-0000-0000-0000-000000008003',
-      '00000000-0000-0000-0000-000000008002', 'balancete-2026-06',
-      'municipal_transparency_balancetes', 0,
-      '{"titulo":"BALANCETE JUNHO 2026"}'::jsonb, '${"b".repeat(64)}',
-      'test/1', 'public-obligation-record-fixture', '2026-08-11 16:40:00+00'
-    );
+    ) values
+      (
+        '00000000-0000-0000-0000-000000008003',
+        '00000000-0000-0000-0000-000000008002', 'balancete-2026-06',
+        'municipal_transparency_balancetes', 0,
+        '{"titulo":"BALANCETE JUNHO 2026","ano":"2026","mes":"6","url":"https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-junho-2026.pdf"}'::jsonb,
+        '${"b".repeat(64)}', 'test/1', 'public-obligation-record-fixture',
+        '2026-08-11 16:40:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000008008',
+        '00000000-0000-0000-0000-000000008002', 'balancete-2026-05',
+        'municipal_transparency_balancetes', 1,
+        '{"titulo":"BALANCETE MAIO 2026","ano":"2026","mes":"5","url":"https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-maio-2026.pdf"}'::jsonb,
+        '${"c".repeat(64)}', 'test/1', 'public-obligation-record-fixture-may',
+        '2026-08-11 16:40:00+00'
+      );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, parent_artifact_id,
+      idempotency_key, artifact_kind, source_url, retrieved_at, byte_size,
+      sha256, object_key, collector_version, metadata, created_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000008009',
+        '00000000-0000-0000-0000-000000008001',
+        '00000000-0000-4000-8000-000000000102',
+        '00000000-0000-0000-0000-000000008002',
+        'public-obligation-document-june', 'document',
+        'https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-junho-2026.pdf',
+        '2026-08-11 16:41:00+00', 200, '${"d".repeat(64)}',
+        'fixtures/balancete-junho-2026.pdf', 'test/1',
+        '{"schema_name":"municipal-transparency-document","source_record_key":"balancete-2026-06"}'::jsonb,
+        '2026-08-11 16:41:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000008010',
+        '00000000-0000-0000-0000-000000008001',
+        '00000000-0000-4000-8000-000000000102',
+        '00000000-0000-0000-0000-000000008002',
+        'public-obligation-document-may', 'document',
+        'https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-maio-2026.pdf',
+        '2026-08-11 16:42:00+00', 300, '${"e".repeat(64)}',
+        'fixtures/balancete-maio-2026.pdf', 'test/1',
+        '{"schema_name":"municipal-transparency-document","source_record_key":"balancete-2026-05"}'::jsonb,
+        '2026-08-11 16:42:00+00'
+      );
     insert into org.public_bodies (
       id, origin_raw_record_id, ibge_code, name, body_type, state_code
     ) values
@@ -179,6 +218,24 @@ try {
     methodology_version: "public-obligations/1.0.0",
   });
   assert.equal("total_debt" in projection.rows[0], false);
+
+  const financeDocuments = await database.query(`
+    select document_id, reference_month, document_artifact_sha256
+    from api.get_public_finance_documents(20, 'balancetes')
+    order by reference_month
+  `);
+  assert.deepEqual(financeDocuments.rows, [
+    {
+      document_id: "00000000-0000-0000-0000-000000008008",
+      reference_month: 5,
+      document_artifact_sha256: "e".repeat(64),
+    },
+    {
+      document_id: "00000000-0000-0000-0000-000000008003",
+      reference_month: 6,
+      document_artifact_sha256: "d".repeat(64),
+    },
+  ]);
 
   await rejects(
     "select * from api.get_public_obligations(0, null, null)",

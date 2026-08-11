@@ -23,3 +23,10 @@ test("publicadores financeiros selecionam cada PDF uma única vez", () => {
   assert.match(revenuePublisher, /order by document\.id, record\.created_at desc/);
   assert.match(expensePublisher, /order by document\.id, record\.created_at desc/);
 });
+
+test("publicadores vinculam o PDF ao registro exato da resposta da API", () => {
+  const exactRecordLink =
+    /document\.metadata ->> 'source_record_key'\s*= record\.source_record_key/;
+  assert.match(revenuePublisher, exactRecordLink);
+  assert.match(expensePublisher, exactRecordLink);
+});

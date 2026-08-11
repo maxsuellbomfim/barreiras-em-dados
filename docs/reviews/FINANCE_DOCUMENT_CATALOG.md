@@ -27,6 +27,9 @@ validada → revisão → finance.revenues → projeção pública
 - preservação do PDF apontado por cada registro como artefato filho imutável,
   com allowlist exclusiva de `barreiras.mtransparente.com.br`, hash e vínculo
   ao artefato JSON pai;
+- associação exata entre registro e PDF por `source_record_key`, impedindo que
+  relatórios distintos de uma mesma resposta da API compartilhem por engano o
+  artefato filho mais recente;
 - parser determinístico inicial para o `Demonstrativo de Receita Orçamentária
   Sintético`, com suporte a valores negativos de deduções e testes unitários;
 - contrato de assistência em cascata para classificar o relatório e sugerir
@@ -44,6 +47,10 @@ O workflow preserva a resposta da API e o PDF oficial quando o endpoint entrega
 um link válido. O publicador grava somente linhas com validação determinística,
 preserva a direção contábil das deduções e liga cada linha ao JSON pai e ao PDF
 filho.
+
+Versões publicadas antes do vínculo exato são mantidas imutáveis e entram em
+auditoria de evidência. Qualquer correção será uma nova versão rastreável, nunca
+uma atualização silenciosa do registro histórico.
 
 O parser inicial reconhece o layout textual desse demonstrativo quando o PDF
 passa pelo extrator de texto. Páginas sem texto embutido permanecem fora da
