@@ -18,6 +18,16 @@ const explorer = await readFile(
   "utf8",
 );
 
+test("paginacao do diario integral usa RPC com offset e navegacao publica", () => {
+  assert.match(client, /get_integral_gazette_editions_page/);
+  assert.match(client, /page_offset/);
+  assert.match(client, /hasMore/);
+  assert.match(client, /pageSize \+ 1/);
+  assert.match(page, /searchParams/);
+  assert.match(page, /pageNumber/);
+  assert.match(page, /Edi/);
+});
+
 test("contrato público usa a RPC integral e rejeita payload incompleto", () => {
   assert.match(client, /get_integral_gazette_editions/);
   assert.match(client, /function parseIntegralGazetteEdition/);

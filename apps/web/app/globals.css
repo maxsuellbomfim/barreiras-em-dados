@@ -1994,6 +1994,44 @@ footer {
   font-weight: 650;
 }
 
+.diary-pagination {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1.25rem;
+  color: #657188;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.diary-pagination a {
+  color: #315fd4;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.diary-pagination a:first-child {
+  text-align: left;
+}
+
+.diary-pagination a:last-child {
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .diary-pagination {
+    grid-template-columns: 1fr 1fr;
+    text-align: left;
+  }
+
+  .diary-pagination span {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    text-align: center;
+  }
+}
+
 .finance-overview {
   margin: 2rem 0 1.4rem;
   display: grid;
