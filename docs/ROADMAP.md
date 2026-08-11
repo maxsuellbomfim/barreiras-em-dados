@@ -224,8 +224,10 @@ Portais locais, SICONFI e TCM-BA:
 - conflitos entre fontes.
 
 Estado atual: contratos determinísticos de receita e obrigações, projeções
-públicas com evidência e persistência normalizada preparados; a reconciliação
-de uma amostra real de obrigações ainda está pendente.
+públicas com evidência e persistência normalizada preparados. A primeira
+família real de obrigações foi validada no balancete de junho de 2026:
+pagamentos de restos a pagar, com acumulado anterior, pagamento do mês e
+acumulado atual reconciliados por código e ligados ao PDF oficial exato.
 
 Próxima fatia em execução: fechamento mensal operacional, com receita no nível
 do total declarado por documento e pagamentos no nível do relatório validado;
@@ -241,9 +243,9 @@ direto, correção versionada de proveniência e pendência documental sem usar 
 ou recalcular valores. A explicação chegou ao detalhe público de cada mês, com
 estágios contábeis separados, diferença operacional condicionada à
 reconciliação e links para os documentos e hashes que sustentam receita e
-despesa. A próxima menor fatia é normalizar uma família real de dívidas ou
-empréstimos e relacioná-la às competências sem confundir saldo de obrigação com
-despesa paga no mês.
+despesa. A próxima menor fatia é executar o backfill idempotente dos balancetes
+desde 2021 e, em seguida, normalizar empréstimos e saldos de obrigações sem
+confundir dívida, pagamento e despesa do mês.
 
 Gate:
 

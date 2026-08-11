@@ -85,3 +85,18 @@ jobs:
             --limit "$limit" \
             --fiscal-year-from "$year_from" \
             --fiscal-year-to "$year_to"
+
+      - name: Publicar pagamentos de restos a pagar dos balancetes
+        shell: bash
+        env:
+          INPUT_FISCAL_YEAR_FROM: ${{ inputs.fiscal_year_from }}
+          INPUT_FISCAL_YEAR_TO: ${{ inputs.fiscal_year_to }}
+          INPUT_LIMIT: ${{ inputs.limit }}
+        run: |
+          year_from="${INPUT_FISCAL_YEAR_FROM:-2021}"
+          year_to="${INPUT_FISCAL_YEAR_TO:-$(date +%Y)}"
+          limit="${INPUT_LIMIT:-1}"
+          python -B -m barreiras_normalization.commands.publish_public_obligations \
+            --limit "$limit" \
+            --fiscal-year-from "$year_from" \
+            --fiscal-year-to "$year_to"

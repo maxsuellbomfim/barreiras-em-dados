@@ -168,27 +168,43 @@ try {
         'Câmara Municipal de Barreiras', 'legislative', 'BA'
       );
     insert into finance.public_obligations (
-      id, origin_raw_record_id, public_body_id, obligation_key,
+      id, origin_raw_record_id, source_document_artifact_id, public_body_id,
+      obligation_key,
       obligation_type, description, fiscal_year, period_start, period_end,
-      opening_balance, additions_amount, reductions_amount, payments_amount,
+      opening_balance, additions_amount, reductions_amount,
+      payments_prior_amount, payments_amount, payments_to_date_amount,
       closing_balance, status, validation_state, methodology_version, validated_at
     ) values
       (
         '00000000-0000-0000-0000-000000008005',
         '00000000-0000-0000-0000-000000008003',
+        '00000000-0000-0000-0000-000000008009',
         '00000000-0000-0000-0000-000000008004', 'loan-hospital-2026',
         'loan', 'Empréstimo para conclusão do hospital', 2026,
         '2026-01-01', '2026-06-30', 10000000.00, 1000000.00,
-        500000.00, 250000.00, 10250000.00, 'active', 'reconciled',
+        500000.00, null, 250000.00, null, 10250000.00, 'active', 'reconciled',
         'public-obligations/1.0.0', '2026-08-11 16:45:00+00'
       ),
       (
         '00000000-0000-0000-0000-000000008006',
         '00000000-0000-0000-0000-000000008003',
+        '00000000-0000-0000-0000-000000008009',
         '00000000-0000-0000-0000-000000008004', 'precat-2026',
         'precatorio', 'Precatório ainda não reconciliado', 2026,
-        '2026-01-01', '2026-06-30', null, null, null, null, 500000.00,
+        '2026-01-01', '2026-06-30', null, null, null, null, null, null,
+        500000.00,
         'reported', 'extracted', 'public-obligations/1.0.0', null
+      ),
+      (
+        '00000000-0000-0000-0000-000000008020',
+        '00000000-0000-0000-0000-000000008003',
+        '00000000-0000-0000-0000-000000008009',
+        '00000000-0000-0000-0000-000000008004',
+        'restos-a-pagar-total:2026-06', 'restos_a_pagar_total',
+        'Pagamentos de restos a pagar informados no balancete mensal', 2026,
+        '2026-06-01', '2026-06-30', null, null, null, 45364644.06,
+        3683221.97, 49047866.03, null, 'reported', 'validated',
+        'public-obligations-balancete/1.0.0', '2026-08-11 16:45:00+00'
       );
     insert into finance.revenues (
       id, origin_raw_record_id, public_body_id, version, external_id,
@@ -462,8 +478,14 @@ try {
     select * from api.get_public_obligations(20, 2026, null)
   `);
   await database.exec("reset role");
-  assert.equal(projection.rows.length, 1);
-  assert.deepEqual(projection.rows[0], {
+  assert.equal(projection.rows.length, 2);
+  const loan = projection.rows.find(
+    (row) => row.obligation_id === "00000000-0000-0000-0000-000000008005",
+  );
+  const restos = projection.rows.find(
+    (row) => row.obligation_id === "00000000-0000-0000-0000-000000008020",
+  );
+  assert.deepEqual(loan, {
     obligation_id: "00000000-0000-0000-0000-000000008005",
     obligation_type: "loan",
     description: "Empréstimo para conclusão do hospital",
@@ -473,16 +495,47 @@ try {
     opening_balance: "10000000.00",
     additions_amount: "1000000.00",
     reductions_amount: "500000.00",
+    payments_prior_amount: null,
     payments_amount: "250000.00",
+    payments_to_date_amount: null,
     closing_balance: "10250000.00",
     status: "active",
     validation_state: "reconciled",
     source_url: "https://portaldatransparencia.barreiras.ba.gov.br/api?resource=balancetes",
     artifact_sha256: "a".repeat(64),
     source_retrieved_at: new Date("2026-08-11T16:40:00.000Z"),
+    document_source_url:
+      "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-junho-2026.pdf",
+    document_artifact_sha256: "d".repeat(64),
+    document_retrieved_at: new Date("2026-08-11T16:41:00.000Z"),
     methodology_version: "public-obligations/1.0.0",
   });
-  assert.equal("total_debt" in projection.rows[0], false);
+  assert.deepEqual(restos, {
+    obligation_id: "00000000-0000-0000-0000-000000008020",
+    obligation_type: "restos_a_pagar_total",
+    description: "Pagamentos de restos a pagar informados no balancete mensal",
+    fiscal_year: 2026,
+    period_start: "2026-06-01",
+    period_end: "2026-06-30",
+    opening_balance: null,
+    additions_amount: null,
+    reductions_amount: null,
+    payments_prior_amount: "45364644.06",
+    payments_amount: "3683221.97",
+    payments_to_date_amount: "49047866.03",
+    closing_balance: null,
+    status: "reported",
+    validation_state: "validated",
+    source_url: "https://portaldatransparencia.barreiras.ba.gov.br/api?resource=balancetes",
+    artifact_sha256: "a".repeat(64),
+    source_retrieved_at: new Date("2026-08-11T16:40:00.000Z"),
+    document_source_url:
+      "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-junho-2026.pdf",
+    document_artifact_sha256: "d".repeat(64),
+    document_retrieved_at: new Date("2026-08-11T16:41:00.000Z"),
+    methodology_version: "public-obligations-balancete/1.0.0",
+  });
+  assert.equal("total_debt" in loan, false);
 
   const financeDocuments = await database.query(`
     select document_id, reference_month, document_artifact_sha256
@@ -653,13 +706,22 @@ try {
     "select * from api.get_public_obligations(20, null, 'cpf')",
     /obligation_type_filter nao permitido/,
   );
+  const invalidLineage = await database.query(`
+    select finance.has_exact_document_lineage(
+      '00000000-0000-0000-0000-000000008003',
+      '00000000-0000-0000-0000-000000008002'
+    ) as matches
+  `);
+  assert.deepEqual(invalidLineage.rows, [{ matches: false }]);
   await rejects(`
     insert into finance.public_obligations (
-      origin_raw_record_id, public_body_id, obligation_key, obligation_type,
+      origin_raw_record_id, source_document_artifact_id, public_body_id,
+      obligation_key, obligation_type,
       description, fiscal_year, period_end, closing_balance, status,
       validation_state, methodology_version, validated_at
     ) values (
       '00000000-0000-0000-0000-000000008003',
+      '00000000-0000-0000-0000-000000008009',
       '00000000-0000-0000-0000-000000008004', 'invalid-negative', 'loan',
       'Saldo inválido', 2026, '2026-06-30', -1, 'active', 'validated',
       'public-obligations/1.0.0', '2026-08-11 16:45:00+00'
@@ -667,11 +729,13 @@ try {
   `, /public_obligations_closing_balance_check/);
   await rejects(`
     insert into finance.public_obligations (
-      origin_raw_record_id, public_body_id, supersedes_id, version,
+      origin_raw_record_id, source_document_artifact_id, public_body_id,
+      supersedes_id, version,
       obligation_key, obligation_type, description, fiscal_year, period_end,
       closing_balance, status, validation_state, methodology_version
     ) values (
       '00000000-0000-0000-0000-000000008003',
+      '00000000-0000-0000-0000-000000008009',
       '00000000-0000-0000-0000-000000008007',
       '00000000-0000-0000-0000-000000008005', 2,
       'loan-hospital-2026', 'loan', 'Retificação atribuída ao órgão errado',
@@ -679,6 +743,36 @@ try {
       'public-obligations/1.0.0'
     )
   `, /public_obligations_supersedes_same_body/);
+  await rejects(`
+    insert into finance.public_obligations (
+      origin_raw_record_id, source_document_artifact_id, public_body_id,
+      obligation_key, obligation_type, description, fiscal_year, period_end,
+      payments_prior_amount, payments_amount, payments_to_date_amount, status,
+      validation_state, methodology_version, validated_at
+    ) values (
+      '00000000-0000-0000-0000-000000008003',
+      '00000000-0000-0000-0000-000000008002',
+      '00000000-0000-0000-0000-000000008004',
+      'invalid-lineage', 'restos_a_pagar_total', 'Documento de outro mês',
+      2026, '2026-06-30', 10, 5, 15, 'reported', 'validated',
+      'public-obligations-balancete/1.0.0', '2026-08-11 16:45:00+00'
+    )
+  `, /documento nao corresponde ao registro bruto/);
+  await rejects(`
+    insert into finance.public_obligations (
+      origin_raw_record_id, source_document_artifact_id, public_body_id,
+      obligation_key, obligation_type, description, fiscal_year, period_end,
+      payments_prior_amount, payments_amount, payments_to_date_amount, status,
+      validation_state, methodology_version, validated_at
+    ) values (
+      '00000000-0000-0000-0000-000000008003',
+      '00000000-0000-0000-0000-000000008009',
+      '00000000-0000-0000-0000-000000008004',
+      'invalid-arithmetic', 'restos_a_pagar_total', 'Total divergente',
+      2026, '2026-06-30', 10, 5, 16, 'reported', 'validated',
+      'public-obligations-balancete/1.0.0', '2026-08-11 16:45:00+00'
+    )
+  `, /public_obligations_payment_progression/);
   await rejects(
     "update finance.public_obligations set description = 'alterado' where id = '00000000-0000-0000-0000-000000008005'",
     /immutable relation/,
