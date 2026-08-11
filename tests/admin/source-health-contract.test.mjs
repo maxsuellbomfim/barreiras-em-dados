@@ -42,3 +42,8 @@ test("painel distingue ausência de cobertura de fonte comprovadamente vazia", (
   assert.match(component, /não\s+significa que a fonte não tenha dados/i);
   assert.match(component, /Falha mais recente/);
 });
+test("painel informa a defasagem entre periodo da fonte e tentativa", () => {
+  assert.match(component, /formatLag/);
+  assert.match(component, /Defasagem/);
+  assert.match(component, /Sem atraso/);
+});
