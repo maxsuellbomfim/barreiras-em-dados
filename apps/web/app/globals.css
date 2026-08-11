@@ -2060,7 +2060,38 @@ footer {
   cursor: pointer;
 }
 
+.diary-coverage-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+}
+
+.diary-coverage-summary div {
+  padding: 0.85rem 1rem;
+  border: 1px solid #e0e6f0;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.diary-coverage-summary dt {
+  color: #728099;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.diary-coverage-summary dd {
+  margin: 0.25rem 0 0;
+  color: #172035;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
 @media (max-width: 640px) {
+  .diary-coverage-summary {
+    grid-template-columns: 1fr;
+  }
+
   .diary-pagination {
     grid-template-columns: 1fr 1fr;
     text-align: left;
