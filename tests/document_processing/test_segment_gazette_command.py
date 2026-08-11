@@ -300,6 +300,36 @@ class SegmentGazetteCommandTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 1)
 
+    def test_main_returns_nonzero_for_missing_target_edition(self) -> None:
+        repository = InMemoryRepository(())
+        persistence = SimpleNamespace(
+            mode="postgres-supabase", database_url="postgres://example"
+        )
+        collector = SimpleNamespace(log_level="INFO")
+
+        with (
+            patch(
+                "barreiras_docproc.commands.segment_gazette_editions."
+                "CollectorSettings.from_env",
+                return_value=collector,
+            ),
+            patch(
+                "barreiras_docproc.commands.segment_gazette_editions."
+                "PersistenceSettings.from_env",
+                return_value=persistence,
+            ),
+            patch(
+                "barreiras_docproc.commands.segment_gazette_editions."
+                "GazetteDocumentRepository.from_dsn",
+                return_value=repository,
+            ),
+        ):
+            exit_code = main(
+                ["--limit", "1", "--edition", "4709", "--edition-year", "2026"]
+            )
+
+        self.assertEqual(exit_code, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
