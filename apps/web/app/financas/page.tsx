@@ -58,6 +58,10 @@ function sortableDate(value: string | null): number | null {
   return Number.isNaN(timestamp) ? null : timestamp;
 }
 
+function isFiscalDocument(document: { sourceResource: string }): boolean {
+  return document.sourceResource === "rreo" || document.sourceResource === "rgf";
+}
+
 function sortNewest<T extends { revenueDate?: string | null; referenceDate?: string | null; collectedAt: string }>(
   rows: readonly T[],
   dateKey: "revenueDate" | "referenceDate",
@@ -154,6 +158,8 @@ export default async function FinancesPage() {
   const missingMonths = coverageRows.filter((row) => row.coverageStatus === "missing").length;
   const sortedRevenues = sortNewest(revenues, "revenueDate");
   const sortedDocuments = sortNewest(documents, "referenceDate");
+  const fiscalDocuments = sortedDocuments.filter(isFiscalDocument);
+  const operationalDocuments = sortedDocuments.filter((document) => !isFiscalDocument(document));
   const sortedExpenseReports = [...expenseReports].sort((left, right) =>
     right.periodEnd.localeCompare(left.periodEnd),
   );
@@ -678,20 +684,20 @@ export default async function FinancesPage() {
             <span className="eyebrow">Documentos oficiais</span>
             <h2 id="document-title">O que a Prefeitura publicou</h2>
             <p>
-              {sortedDocuments.length > 0
-                ? `Exibindo ${sortedDocuments.length.toLocaleString("pt-BR")} documentos financeiros, do mais recente ao mais antigo. O histórico completo será paginado por período.`
-                : "A coleta dos documentos financeiros ainda não está disponível."}
+              {operationalDocuments.length > 0
+                ? `Exibindo ${operationalDocuments.length.toLocaleString("pt-BR")} documentos de execução e arrecadação, do mais recente ao mais antigo.`
+                : "Ainda não há documentos mensais de execução ou arrecadação disponíveis."}
             </p>
           </div>
 
-          {documents.length === 0 ? (
+          {operationalDocuments.length === 0 ? (
             <div className="collection-unavailable" role="status">
               <div>
-                <strong>Nenhum documento financeiro preservado ainda</strong>
+                <strong>Nenhum documento mensal preservado ainda</strong>
                 <p>
-                  Isso não significa receita zero. A API oficial publica parte
-                  das informações como PDFs; o coletor precisa preservar o
-                  documento antes de extrair números.
+                  Isso não significa receita ou despesa zero. Os demonstrativos
+                  fiscais RREO/RGF aparecem em uma seção separada porque não são
+                  fechamentos mensais.
                 </p>
                 <a
                   href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
@@ -704,7 +710,7 @@ export default async function FinancesPage() {
             </div>
           ) : (
             <div className="digest-grid">
-              {sortedDocuments.map((document) => (
+              {operationalDocuments.map((document) => (
                 <article className="digest-card" key={document.documentId}>
                   <div className="track-top">
                     <span>{financeResourceLabel(document.sourceResource)}</span>
@@ -739,6 +745,58 @@ export default async function FinancesPage() {
             </div>
           )}
         </section>
+
+        {fiscalDocuments.length > 0 ? (
+          <section aria-labelledby="fiscal-document-title" className="finance-documents finance-fiscal-documents">
+            <div className="section-heading compact">
+              <span className="eyebrow">Demonstrativos fiscais</span>
+              <h2 id="fiscal-document-title">RREO e RGF: a visão fiscal mais ampla</h2>
+              <p>
+                Estes relatórios mostram metas fiscais, resultados e limites em
+                períodos bimestrais ou quadrimestrais. Eles ajudam a acompanhar
+                2021 e anos anteriores, mas não substituem o fechamento mensal de
+                receitas e despesas.
+              </p>
+            </div>
+            <details className="finance-details">
+              <summary>
+                Ver {fiscalDocuments.length.toLocaleString("pt-BR")} demonstrativos fiscais
+              </summary>
+              <div className="digest-grid">
+                {fiscalDocuments.map((document) => (
+                  <article className="digest-card" key={document.documentId}>
+                    <div className="track-top">
+                      <span>{financeResourceLabel(document.sourceResource)}</span>
+                      <span className="track-status">{document.fiscalYear ?? "ano não informado"}</span>
+                    </div>
+                    <h3 className="procurement-object">{document.title}</h3>
+                    <dl className="procurement-values">
+                      <div>
+                        <dt>Data de referência</dt>
+                        <dd>{document.referenceDate ?? "não informada"}</dd>
+                      </div>
+                      {document.description ? (
+                        <div>
+                          <dt>Descrição</dt>
+                          <dd>{document.description}</dd>
+                        </div>
+                      ) : null}
+                    </dl>
+                    <p className="act-evidence">
+                      <a href={document.documentUrl} target="_blank" rel="noreferrer">
+                        Abrir documento oficial →
+                      </a>{" "}
+                      · resposta da API preservada · {document.documentPreserved
+                        ? "PDF preservado"
+                        : "PDF ainda não preservado"}{" "}
+                      · hash {document.artifactSha256.slice(0, 12)}…
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </details>
+          </section>
+        ) : null}
 
         <p className="hero-note">
           Metodologia: empenho, liquidação, pagamento e receita são estágios
