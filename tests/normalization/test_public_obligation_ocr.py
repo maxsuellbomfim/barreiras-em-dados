@@ -86,7 +86,7 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
         )
         self.assertEqual(
             calls,
-            [(74, 0), (75, 0), (74, 90), (75, 90), (74, 270), (75, 270)],
+            [(74, 270), (75, 270), (74, 90), (75, 90), (74, 0), (75, 0)],
         )
 
     def test_requires_exactly_one_page_with_restos_heading(self):

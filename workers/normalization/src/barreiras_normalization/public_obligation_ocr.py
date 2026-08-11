@@ -17,7 +17,9 @@ from .public_obligation_publisher import (
     PublicObligationExtractionProvenance,
 )
 
-_ROTATIONS = (0, 90, 270)
+# Os balancetes problemáticos conhecidos estão rotacionados para a direita.
+# Começar por 270° também mantém o diagnóstico útil dentro do limite do log.
+_ROTATIONS = (270, 90, 0)
 
 
 def _fold(value: str) -> str:
