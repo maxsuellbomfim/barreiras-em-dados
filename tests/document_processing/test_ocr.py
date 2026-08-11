@@ -4,6 +4,7 @@ import hashlib
 import io
 import shutil
 import unittest
+from unittest.mock import patch
 
 from barreiras_docproc.ocr import (
     OCR_PARSER_VERSION,
@@ -71,6 +72,18 @@ class OcrPageTests(unittest.TestCase):
         self.assertEqual(
             result.sha256,
             hashlib.sha256(b"").hexdigest(),
+        )
+
+    def test_tesseract_psm_is_declared_in_extraction_version(self) -> None:
+        with patch(
+            "barreiras_docproc.ocr.shutil.which",
+            return_value="/usr/bin/tesseract",
+        ):
+            engine = TesseractEngine(page_segmentation_mode=6)
+
+        self.assertEqual(
+            engine.parser_version,
+            f"{OCR_PARSER_VERSION}+tesseract-psm6",
         )
 
 

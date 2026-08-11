@@ -41,7 +41,14 @@ class OcrEngine(Protocol):
 class TesseractEngine:
     """Chama o binário tesseract com idioma português via stdin/stdout."""
 
-    def __init__(self, language: str = OCR_LANGUAGE) -> None:
+    def __init__(
+        self,
+        language: str = OCR_LANGUAGE,
+        *,
+        page_segmentation_mode: int | None = None,
+    ) -> None:
+        if page_segmentation_mode is not None and not 0 <= page_segmentation_mode <= 13:
+            raise OcrError("Modo de segmentação do Tesseract deve estar entre 0 e 13.")
         binary = shutil.which("tesseract")
         if binary is None:
             raise OcrError(
@@ -50,10 +57,16 @@ class TesseractEngine:
             )
         self.binary = binary
         self.language = language
+        self.page_segmentation_mode = page_segmentation_mode
+        mode = page_segmentation_mode if page_segmentation_mode is not None else 3
+        self.parser_version = f"{OCR_PARSER_VERSION}+tesseract-psm{mode}"
 
     def image_to_text(self, png_bytes: bytes) -> str:
+        arguments = [self.binary, "stdin", "stdout", "-l", self.language]
+        if self.page_segmentation_mode is not None:
+            arguments.extend(["--psm", str(self.page_segmentation_mode)])
         completed = subprocess.run(  # noqa: S603 - argumentos fixos.
-            [self.binary, "stdin", "stdout", "-l", self.language],
+            arguments,
             input=png_bytes,
             capture_output=True,
             timeout=120,
@@ -126,5 +139,5 @@ def ocr_page(
         page_number=page_number,
         text=normalized,
         sha256=hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
-        parser_version=OCR_PARSER_VERSION,
+        parser_version=getattr(engine, "parser_version", OCR_PARSER_VERSION),
     )

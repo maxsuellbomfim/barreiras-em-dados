@@ -54,7 +54,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         object_reader=reader,
         repository=repository,
         ocr_extractor=PublicObligationOcrExtractor(
-            engine=TesseractEngine(),
+            engine=TesseractEngine(page_segmentation_mode=6),
         ).extract,
     )
 
