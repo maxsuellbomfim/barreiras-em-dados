@@ -21,6 +21,10 @@ import {
 import { monthlyFinanceHref } from "../../lib/monthly-finance-detail.mjs";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
 import { getPublicFinanceCoverage, type PublicFinanceCoverageRow } from "../../lib/finance-coverage";
+import {
+  getPublicObligations,
+  type PublicObligation,
+} from "../../lib/public-obligations.mjs";
 
 export const revalidate = 300;
 
@@ -176,7 +180,16 @@ function formatAmount(value: string | null, unavailable = "não disponível"): s
 }
 
 export default async function FinancesPage() {
-  const [expensesResult, expenseLinesResult, revenuesResult, documentsResult, monthlyResult, signalsResult, coverageResult] = await Promise.all([
+  const [
+    expensesResult,
+    expenseLinesResult,
+    revenuesResult,
+    documentsResult,
+    monthlyResult,
+    signalsResult,
+    coverageResult,
+    obligationsResult,
+  ] = await Promise.all([
     getPublicExpenseReports(),
     getPublicExpenseLines(),
     getPublicRevenues(),
@@ -184,6 +197,7 @@ export default async function FinancesPage() {
     getPublicMonthlyFinanceClosures(),
     getPublicFinanceSignals(),
     getPublicFinanceCoverage(),
+    getPublicObligations(),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -197,6 +211,12 @@ export default async function FinancesPage() {
     monthlyResult.state === "available" ? monthlyResult.closures : [];
   const financeSignals = signalsResult.state === "available" ? signalsResult.signals : [];
   const coverageRows = coverageResult.state === "available" ? coverageResult.rows : [];
+  const publicObligations =
+    obligationsResult.state === "available"
+      ? obligationsResult.obligations.filter(
+          (obligation) => obligation.obligationType === "restos_a_pagar_total",
+        )
+      : [];
   const comparableMonths = coverageRows.filter((row) => row.coverageStatus === "complete").length;
   const missingMonths = coverageRows.filter((row) => row.coverageStatus === "missing").length;
   const sortedRevenues = sortNewest(revenues, "revenueDate");
@@ -731,6 +751,91 @@ export default async function FinancesPage() {
               ))}
               </div>
             </details>
+          </section>
+        ) : null}
+
+        {publicObligations.length > 0 ? (
+          <section
+            aria-labelledby="public-obligation-title"
+            className="finance-documents finance-obligation-documents"
+          >
+            <div className="section-heading compact">
+              <span className="eyebrow">Compromissos de outros períodos</span>
+              <h2 id="public-obligation-title">Restos a pagar pagos pela Prefeitura</h2>
+              <p>
+                Restos a pagar são despesas empenhadas em período anterior e pagas
+                depois. O valor abaixo é o que o balancete declara como pago no mês;
+                não é o total da dívida municipal nem deve ser somado novamente às
+                despesas do mesmo relatório.
+              </p>
+            </div>
+            <div className="digest-grid">
+              {publicObligations.map((obligation: PublicObligation) => (
+                <article
+                  className="digest-card finance-negative-card"
+                  key={obligation.obligationId}
+                >
+                  <div className="track-top">
+                    <span>Restos a pagar</span>
+                    <span className="track-status">
+                      {formatMonthTitle(obligation.periodStart ?? obligation.periodEnd)}
+                    </span>
+                  </div>
+                  <h3 className="procurement-object">
+                    Pagamentos realizados no mês
+                  </h3>
+                  <dl className="procurement-values">
+                    <div className="revenue-primary-value">
+                      <dt>Saiu do caixa no mês</dt>
+                      <dd>
+                        {obligation.paymentsPeriodAmount
+                          ? formatBrlDecimal(obligation.paymentsPeriodAmount)
+                          : "valor não informado"}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="finance-reading finance-reading-card">
+                    <strong>Em palavras simples</strong>
+                    <p>
+                      Este valor saiu dos cofres no mês para quitar despesas que já
+                      haviam sido empenhadas antes. Ele mostra pagamento realizado,
+                      não quanto ainda falta pagar.
+                    </p>
+                  </div>
+                  <details className="finance-details">
+                    <summary>Ver acumulados e fonte oficial</summary>
+                    <dl className="procurement-values">
+                      <div>
+                        <dt>Pago até o mês anterior</dt>
+                        <dd>
+                          {obligation.paymentsPriorAmount
+                            ? formatBrlDecimal(obligation.paymentsPriorAmount)
+                            : "não informado"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Pago até o fim deste mês</dt>
+                        <dd>
+                          {obligation.paymentsToDateAmount
+                            ? formatBrlDecimal(obligation.paymentsToDateAmount)
+                            : "não informado"}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p className="act-evidence">
+                      <a
+                        href={obligation.documentSourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Abrir balancete oficial →
+                      </a>{" "}
+                      · PDF preservado · hash {obligation.documentArtifactSha256.slice(0, 12)}…
+                    </p>
+                  </details>
+                </article>
+              ))}
+            </div>
           </section>
         ) : null}
 

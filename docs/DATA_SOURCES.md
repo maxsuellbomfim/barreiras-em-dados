@@ -62,6 +62,13 @@ As linhas extraídas desses documentos passam pelo contrato
 e não calcula dívida consolidada. Um documento preservado sem linha validada
 continua visível como evidência em apuração, nunca como obrigação de valor zero.
 
+No balancete mensal, o `Demonstrativo de Despesa Extra` informa os pagamentos
+de restos a pagar em três valores: pago até o mês anterior, pago no mês e pago
+até o mês atual. O publicador valida deterministicamente a identidade
+`anterior + mês = acumulado`, mantém o vínculo com o PDF exato e rejeita a
+linha se a seção for ambígua ou se a conta não fechar. Esses valores medem
+pagamentos realizados e não o saldo ainda devido pelo Município.
+
 ## Catálogo oficial do Diário de Barreiras
 
 - catálogo: `https://pmbarreiras.diariomtransparente.com.br/publicacoes`;

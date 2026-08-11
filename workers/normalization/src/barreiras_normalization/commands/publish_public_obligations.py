@@ -1,0 +1,105 @@
+"""Publica pagamentos de restos a pagar extraídos de balancetes preservados."""
+
+from __future__ import annotations
+
+import argparse
+import logging
+from collections.abc import Sequence
+from datetime import date
+
+from barreiras_docproc.canonical import CanonicalTextError
+
+from ..public_obligation_pdf import PublicObligationPdfContractError
+from ..public_obligation_publisher import (
+    PostgresPublicObligationPublicationRepository,
+    PublicObligationPublisher,
+)
+from ..revenue_publisher import ArtifactMismatchError
+from .publish_expense_reports import _cloud_client
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Publica pagamentos de restos a pagar declarados em balancetes."
+    )
+    parser.add_argument("--limit", type=int, default=1)
+    parser.add_argument("--fiscal-year-from", type=int, default=2021)
+    parser.add_argument("--fiscal-year-to", type=int, default=date.today().year)
+    args = parser.parse_args(argv)
+    if not 1 <= args.limit <= 20:
+        parser.error("--limit deve estar entre 1 e 20")
+    if not 1900 <= args.fiscal_year_from <= args.fiscal_year_to <= 2200:
+        parser.error("intervalo fiscal inválido")
+
+    from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
+    from barreiras_collectors.settings import PersistenceSettings
+
+    settings = PersistenceSettings.from_env()
+    logging.basicConfig(level="INFO", format="%(message)s", force=True)
+    client = _cloud_client(settings)
+    repository = PostgresPublicObligationPublicationRepository.from_dsn(
+        settings.database_url
+    )
+    reader = SupabaseStorageObjectStore(
+        client.storage.from_(settings.raw_artifacts_bucket)
+    )
+    publisher = PublicObligationPublisher(
+        object_reader=reader,
+        repository=repository,
+    )
+
+    published = 0
+    already_published = 0
+    failed = 0
+    artifacts = repository.pending_documents(
+        limit=args.limit,
+        fiscal_year_from=args.fiscal_year_from,
+        fiscal_year_to=args.fiscal_year_to,
+    )
+    logger = logging.getLogger(__name__)
+    for index, artifact in enumerate(artifacts, start=1):
+        logger.info(
+            "public_obligation_start artifact=%s progress=%s/%s source=%s",
+            artifact.id,
+            index,
+            len(artifacts),
+            artifact.source_url,
+        )
+        try:
+            result = publisher.publish(artifact)
+        except (
+            ArtifactMismatchError,
+            CanonicalTextError,
+            PublicObligationPdfContractError,
+            ValueError,
+        ) as error:
+            failed += 1
+            repository.record_failure(
+                artifact,
+                error_code=type(error).__name__,
+                error_detail=str(error),
+            )
+            logger.error(
+                "public_obligation_failed artifact=%s error=%s",
+                artifact.id,
+                str(error)[:500],
+            )
+            continue
+        if result.status == "published":
+            published += 1
+        else:
+            already_published += 1
+
+    logger.info(
+        "public_obligation_publication_completed artifacts=%s published=%s "
+        "already_published=%s failed=%s",
+        len(artifacts),
+        published,
+        already_published,
+        failed,
+    )
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
