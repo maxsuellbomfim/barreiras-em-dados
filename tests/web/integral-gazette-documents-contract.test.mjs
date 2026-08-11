@@ -17,6 +17,10 @@ const explorer = await readFile(
   ),
   "utf8",
 );
+const coverage = await readFile(
+  new URL("../../apps/web/lib/public-diary-coverage.ts", import.meta.url),
+  "utf8",
+);
 
 test("paginacao do diario integral usa RPC com offset e navegacao publica", () => {
   assert.match(client, /get_integral_gazette_editions_page/);
@@ -48,6 +52,13 @@ test("diario informa a faixa da API sem prometer cobertura diária", () => {
   assert.match(page, /coverageEnd/);
   assert.match(page, /Faixa de publicações preservadas pela API/);
   assert.match(page, /não uma\s+garantia de que todos os dias/);
+});
+
+test("cobertura pública classifica janela coletada sem chamar ausência de vazio", () => {
+  assert.match(coverage, /get_public_querido_diario_coverage/);
+  assert.match(coverage, /unclassified/);
+  assert.match(page, /DiaryCoverageDetails/);
+  assert.match(page, /Sem classificação/);
 });
 
 test("contrato público usa a RPC integral e rejeita payload incompleto", () => {
