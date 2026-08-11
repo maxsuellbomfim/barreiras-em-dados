@@ -12,6 +12,10 @@ import {
   getOfficialDiaryCatalog,
   type OfficialDiaryCatalogEntry,
 } from "../../lib/official-diary-catalog";
+import {
+  getPublicDiaryCoverage,
+  type PublicDiaryCoverageResult,
+} from "../../lib/public-diary-coverage";
 import { IntegralGazetteExplorer } from "./integral-gazette-explorer";
 
 export const revalidate = 300;
@@ -90,6 +94,37 @@ function DiaryCoverageSummary({
   );
 }
 
+function DiaryCoverageDetails({
+  result,
+}: Readonly<{ result: PublicDiaryCoverageResult }>) {
+  if (result.state !== "available" || result.items.length === 0) return null;
+  const labels = {
+    complete: "janela coletada com edição preservada",
+    empty: "janela coletada sem edição retornada",
+    unclassified: "sem janela de coleta classificável",
+  } as const;
+  return (
+    <details className="diary-coverage-detail">
+      <summary>Ver classificação diária recente</summary>
+      <p>
+        A classificação abaixo usa somente janelas registradas pelo coletor.
+        “Sem classificação” não significa que o Diário não exista.
+      </p>
+      <ul>
+        {result.items.map((item) => (
+          <li key={item.coverageDay}>
+            <strong>
+              {dateFormatter.format(new Date(`${item.coverageDay}T12:00:00-03:00`))}
+            </strong>{" "}
+            · {labels[item.status]} · {item.preservedEditions.toLocaleString("pt-BR")} edição
+            {item.preservedEditions === 1 ? "" : "ões"}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 type DiaryPageProps = Readonly<{
   searchParams: Promise<{ pagina?: string; q?: string }>;
 }>;
@@ -107,7 +142,7 @@ export default async function IntegralDiaryPage({
   const pageSize = 20;
   const query = typeof params.q === "string" ? params.q.trim().slice(0, 120) : "";
   const querySuffix = query ? `&q=${encodeURIComponent(query)}` : "";
-  const [integralResult, catalogResult, collectionStatus] = await Promise.all([
+  const [integralResult, catalogResult, collectionStatus, coverageResult] = await Promise.all([
     getIntegralGazetteEditions({
       pageSize,
       offset: (pageNumber - 1) * pageSize,
@@ -115,6 +150,7 @@ export default async function IntegralDiaryPage({
     }),
     getOfficialDiaryCatalog(),
     getQueridoDiarioCollectionStatus(),
+    getPublicDiaryCoverage(),
   ]);
   const catalogEntries =
     catalogResult.state === "available" ? catalogResult.entries : [];
@@ -202,6 +238,7 @@ export default async function IntegralDiaryPage({
           catalogCount={catalogEntries.length}
           pageCount={editions.length}
         />
+        <DiaryCoverageDetails result={coverageResult} />
 
         {editions.length === 0 && catalogEntries.length > 0 ? (
           <CatalogPendingNotice entries={catalogEntries} />

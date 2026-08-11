@@ -2087,6 +2087,36 @@ footer {
   font-weight: 800;
 }
 
+.diary-coverage-detail {
+  margin: 1rem 0 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid #e0e6f0;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.diary-coverage-detail summary {
+  color: #315fd4;
+  font-size: 0.82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.diary-coverage-detail p {
+  color: #657188;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.diary-coverage-detail ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1rem;
+  color: #4f5d73;
+  font-size: 0.76rem;
+}
+
 @media (max-width: 640px) {
   .diary-coverage-summary {
     grid-template-columns: 1fr;
