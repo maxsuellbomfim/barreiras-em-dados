@@ -149,7 +149,7 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  assert.equal(relations.rows[0].count, 50);
+  assert.equal(relations.rows[0].count, 51);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -165,7 +165,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 50);
+  assert.equal(rlsRelations.rows[0].count, 51);
 
   const originColumns = await database.query(`
     select count(*)::integer as count
@@ -173,7 +173,7 @@ try {
     where column_name = 'origin_raw_record_id'
       and table_schema in ('org', 'hr', 'procurement', 'finance', 'analysis', 'editorial')
   `);
-  assert.equal(originColumns.rows[0].count, 27);
+  assert.equal(originColumns.rows[0].count, 28);
 
   const nullableOrigins = await database.query(`
     select count(*)::integer as count
@@ -245,7 +245,7 @@ try {
     where tgname = 'reject_mutation'
       and not tgisinternal
   `);
-  assert.equal(immutableTriggers.rows[0].count, 8);
+  assert.equal(immutableTriggers.rows[0].count, 9);
 
   const extensionSchema = await database.query(`
     select namespace.nspname as schema_name
