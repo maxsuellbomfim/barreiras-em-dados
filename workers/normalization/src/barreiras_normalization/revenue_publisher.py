@@ -174,6 +174,8 @@ class PostgresRevenuePublicationRepository:
                   where document.artifact_kind = 'document'
                   and document.metadata ->> 'schema_name'
                     = 'municipal-transparency-document'
+                  and document.metadata ->> 'source_record_key'
+                    = record.source_record_key
                   and record.record_type
                     = 'municipal_transparency_pdc-resumo-execucao-da-receita'
                   and record.payload ->> 'ano' ~ '^[0-9]{4}$'

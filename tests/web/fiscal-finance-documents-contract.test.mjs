@@ -11,7 +11,7 @@ const migration = await readFile(
 );
 const obligationMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260811161731_public_financial_obligation_documents.sql",
+    "../../supabase/migrations/20260811171816_repair_finance_document_evidence_link.sql",
     import.meta.url,
   ),
   "utf8",
@@ -27,15 +27,16 @@ test("catalogo fiscal usa ano_ref e informacoes de RREO/RGF", () => {
 });
 
 test("cliente valida a nova versao do catalogo fiscal", () => {
-  assert.match(client, /public-finance-documents\/1\.3\.0/);
+  assert.match(client, /public-finance-documents\/1\.4\.0/);
 });
 
 test("projecao publica inclui RGF e documentos de obrigacoes sem inferir saldo", () => {
   assert.match(obligationMigration, /municipal_transparency_rgf/);
   assert.match(obligationMigration, /municipal_transparency_balancetes/);
   assert.match(obligationMigration, /municipal_transparency_pdc-contas-anuais/);
-  assert.match(obligationMigration, /public-finance-documents\/1\.3\.0/);
-  assert.match(client, /public-finance-documents\/1\.3\.0/);
+  assert.match(obligationMigration, /public-finance-documents\/1\.4\.0/);
+  assert.match(obligationMigration, /source_record_key/);
+  assert.match(client, /public-finance-documents\/1\.4\.0/);
   assert.match(page, /Dívidas e obrigações em apuração/);
   assert.match(page, /não\s+representa o total da dívida municipal/);
 });
