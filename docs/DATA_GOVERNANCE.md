@@ -108,6 +108,9 @@ para revisão/DLQ; não são descartados silenciosamente.
 - receitas, despesas, fechamentos, cobertura e sinais só entram na projeção
   pública quando o `source_record_key` do registro bruto coincide com o do PDF
   filho e ambos pertencem à mesma resposta oficial preservada;
+- correções de proveniência financeira exigem também igualdade da URL oficial
+  do PDF, criam uma nova versão do vínculo de origem, preservam a versão
+  anterior e registram o conflito resolvido com evidências dos dois vínculos;
 - ausência de linha publicada significa “ainda não reconciliada”, nunca dívida
   zero;
 - um total municipal só será elegível depois de eliminar duplicidade entre

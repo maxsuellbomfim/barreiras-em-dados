@@ -293,8 +293,111 @@ try {
       );
   `);
 
+  const firstLineageRepair = await database.query(`
+    select * from finance.repair_historical_document_lineage()
+  `);
+  assert.deepEqual(firstLineageRepair.rows, [{
+    repaired_lineages: 1,
+    affected_revenues: 1,
+    affected_expense_reports: 1,
+    affected_expense_lines: 1,
+    conflicts_recorded: 1,
+  }]);
+
+  const secondLineageRepair = await database.query(`
+    select * from finance.repair_historical_document_lineage()
+  `);
+  assert.deepEqual(secondLineageRepair.rows, [{
+    repaired_lineages: 0,
+    affected_revenues: 0,
+    affected_expense_reports: 0,
+    affected_expense_lines: 0,
+    conflicts_recorded: 0,
+  }]);
+
+  const repairedHistory = await database.query(`
+    select original_lineage_version_id, corrected_lineage_version_id,
+      original_raw_record_id, corrected_raw_record_id,
+      document_artifact_id, document_source_record_key,
+      document_artifact_sha256, affected_revenue_count,
+      affected_expense_report_count, affected_expense_line_count,
+      repair_methodology
+    from audit.finance_lineage_repairs
+  `);
+  assert.equal(repairedHistory.rows.length, 1);
+  assert.deepEqual({
+    original_raw_record_id: repairedHistory.rows[0].original_raw_record_id,
+    corrected_raw_record_id: repairedHistory.rows[0].corrected_raw_record_id,
+    document_artifact_id: repairedHistory.rows[0].document_artifact_id,
+    document_source_record_key: repairedHistory.rows[0].document_source_record_key,
+    document_artifact_sha256: repairedHistory.rows[0].document_artifact_sha256,
+    affected_revenue_count: repairedHistory.rows[0].affected_revenue_count,
+    affected_expense_report_count: repairedHistory.rows[0].affected_expense_report_count,
+    affected_expense_line_count: repairedHistory.rows[0].affected_expense_line_count,
+    repair_methodology: repairedHistory.rows[0].repair_methodology,
+  }, {
+    original_raw_record_id: "00000000-0000-0000-0000-000000008003",
+    corrected_raw_record_id: "00000000-0000-0000-0000-000000008008",
+    document_artifact_id: "00000000-0000-0000-0000-000000008010",
+    document_source_record_key: "balancete-2026-05",
+    document_artifact_sha256: "e".repeat(64),
+    affected_revenue_count: 1,
+    affected_expense_report_count: 1,
+    affected_expense_line_count: 1,
+    repair_methodology: "finance-lineage-repair/1.0.0",
+  });
+  assert.equal(
+    repairedHistory.rows[0].corrected_lineage_version_id !==
+      repairedHistory.rows[0].original_lineage_version_id,
+    true,
+  );
+
+  const preservedAndCorrected = await database.query(`
+    select
+      (select count(*)::integer from finance.revenues
+       where id = '00000000-0000-0000-0000-000000008012') as old_revenue,
+      (select count(*)::integer from finance.revenues
+       where supersedes_id = '00000000-0000-0000-0000-000000008012')
+         as cloned_revenue,
+      (select count(*)::integer from finance.expense_reports
+       where id = '00000000-0000-0000-0000-000000008014') as old_report,
+      (select count(*)::integer from finance.expense_reports
+       where supersedes_id = '00000000-0000-0000-0000-000000008014')
+         as cloned_report,
+      (select count(*)::integer from finance.expense_lines
+       where report_id <> '00000000-0000-0000-0000-000000008014'
+         and description = 'Linha com evidÃªncia trocada') as cloned_lines,
+      finance.resolve_document_origin(
+        '00000000-0000-0000-0000-000000008003',
+        '00000000-0000-0000-0000-000000008010'
+      ) as resolved_origin,
+      finance.has_exact_document_lineage(
+        '00000000-0000-0000-0000-000000008003',
+        '00000000-0000-0000-0000-000000008010'
+      ) as reconciled,
+      (select count(*)::integer from evidence.source_conflicts
+       where field_name = 'origin_raw_record_id'
+         and status = 'resolved') as resolved_conflicts
+  `);
+  assert.deepEqual(preservedAndCorrected.rows, [{
+    old_revenue: 1,
+    cloned_revenue: 0,
+    old_report: 1,
+    cloned_report: 0,
+    cloned_lines: 0,
+    resolved_origin: "00000000-0000-0000-0000-000000008008",
+    reconciled: true,
+    resolved_conflicts: 1,
+  }]);
+
   await database.exec("set role anon");
   await rejects("select * from finance.public_obligations", /permission denied/);
+  await rejects(
+    "select * from finance.repair_historical_document_lineage()",
+    /permission denied/,
+  );
+  await rejects("select * from finance.document_lineage_versions", /permission denied/);
+  await rejects("select * from audit.finance_lineage_repairs", /permission denied/);
   const projection = await database.query(`
     select * from api.get_public_obligations(20, 2026, null)
   `);
@@ -340,28 +443,32 @@ try {
   ]);
 
   const publicRevenues = await database.query(`
-    select revenue_id from api.get_public_revenues(20, 2026::smallint)
-    order by revenue_id
+    select description from api.get_public_revenues(20, 2026::smallint)
+    order by description
   `);
-  assert.deepEqual(publicRevenues.rows, [{
-    revenue_id: "00000000-0000-0000-0000-000000008011",
-  }]);
+  assert.deepEqual(publicRevenues.rows, [
+    { description: "Receita com evidência exata" },
+    { description: "Receita com evidência trocada" },
+  ]);
 
   const publicExpenseReports = await database.query(`
-    select expense_report_id from api.get_public_expense_reports(20, 2026::smallint)
-    order by expense_report_id
+    select total_paid_period_amount
+    from api.get_public_expense_reports(20, 2026::smallint)
+    order by total_paid_period_amount
   `);
-  assert.deepEqual(publicExpenseReports.rows, [{
-    expense_report_id: "00000000-0000-0000-0000-000000008013",
-  }]);
+  assert.deepEqual(publicExpenseReports.rows, [
+    { total_paid_period_amount: "600.00" },
+    { total_paid_period_amount: "1200.00" },
+  ]);
 
   const publicExpenseLines = await database.query(`
-    select expense_line_id from api.get_public_expense_lines(null, 20, 0)
-    order by expense_line_id
+    select description from api.get_public_expense_lines(null, 20, 0)
+    order by description
   `);
-  assert.deepEqual(publicExpenseLines.rows, [{
-    expense_line_id: "00000000-0000-0000-0000-000000008015",
-  }]);
+  assert.deepEqual(publicExpenseLines.rows, [
+    { description: "Linha com evidência exata" },
+    { description: "Linha com evidência trocada" },
+  ]);
 
   const publicMonthlyClosure = await database.query(`
     select
@@ -376,12 +483,12 @@ try {
     where period_start = '2026-06-01'
   `);
   assert.deepEqual(publicMonthlyClosure.rows, [{
-    revenue_report_amount: "900.00",
-    revenue_report_count: 1,
-    revenue_line_count: 1,
-    expense_paid_amount: "600.00",
-    expense_report_count: 1,
-    closure_status: "operational",
+    revenue_report_amount: "2700.00",
+    revenue_report_count: 2,
+    revenue_line_count: 2,
+    expense_paid_amount: "1200.00",
+    expense_report_count: 2,
+    closure_status: "needs_review",
     calculation_methodology: "monthly-finance-closure/1.1.0",
   }]);
 
@@ -399,9 +506,9 @@ try {
     where period_start = '2026-06-01'
   `);
   assert.deepEqual(publicFinanceCoverage.rows, [{
-    revenue_report_count: 1,
-    expense_report_count: 1,
-    coverage_status: "complete",
+    revenue_report_count: 2,
+    expense_report_count: 2,
+    coverage_status: "needs_review",
     calculation_methodology: "finance-coverage/1.1.0",
   }]);
 
@@ -409,9 +516,10 @@ try {
     select finding_id from api.get_public_finance_signals(20)
     order by finding_id
   `);
-  assert.deepEqual(publicFinanceSignals.rows, [{
-    finding_id: "00000000-0000-0000-0000-000000008017",
-  }]);
+  assert.deepEqual(publicFinanceSignals.rows, [
+    { finding_id: "00000000-0000-0000-0000-000000008017" },
+    { finding_id: "00000000-0000-0000-0000-000000008018" },
+  ]);
 
   const internalLineageAcl = await database.query(`
     select
@@ -424,11 +532,23 @@ try {
         'authenticated',
         'finance.has_exact_document_lineage(uuid,uuid)',
         'execute'
-      ) as authenticated_can_execute
+      ) as authenticated_can_execute,
+      has_function_privilege(
+        'anon',
+        'finance.resolve_document_origin(uuid,uuid)',
+        'execute'
+      ) as anon_can_resolve,
+      has_function_privilege(
+        'authenticated',
+        'finance.has_direct_document_lineage(uuid,uuid)',
+        'execute'
+      ) as authenticated_can_check_direct
   `);
   assert.deepEqual(internalLineageAcl.rows, [{
     anon_can_execute: false,
     authenticated_can_execute: false,
+    anon_can_resolve: false,
+    authenticated_can_check_direct: false,
   }]);
 
   await rejects(
