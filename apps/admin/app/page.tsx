@@ -8,6 +8,11 @@ import {
   type CollectionHealthItem,
   type CollectionHealthState,
 } from "./collection-health";
+import {
+  financeIntegrityStatusLabel,
+  summarizeFinanceIntegrity,
+  type FinanceIntegrityStatus,
+} from "./finance-integrity.mjs";
 
 type FieldEntry = Readonly<{
   value: string | null;
@@ -111,6 +116,33 @@ type FinanceClosureState =
   | Readonly<{ kind: "loading" }>
   | Readonly<{ kind: "error"; message: string }>
   | Readonly<{ kind: "ready"; items: readonly AdminMonthlyClosure[] }>;
+
+type FinanceIntegrityItem = Readonly<{
+  integrity_id: string;
+  fiscal_year: number;
+  period_start: string;
+  period_end: string;
+  public_body_name: string;
+  revenue_document_count: number;
+  revenue_row_count: number;
+  revenue_direct_count: number;
+  revenue_reconciled_count: number;
+  revenue_pending_count: number;
+  expense_document_count: number;
+  expense_report_count: number;
+  expense_line_count: number;
+  expense_direct_count: number;
+  expense_reconciled_count: number;
+  expense_pending_count: number;
+  diagnostic_status: FinanceIntegrityStatus;
+  diagnostic_note: string;
+  methodology_version: string;
+}>;
+
+type FinanceIntegrityState =
+  | Readonly<{ kind: "loading" }>
+  | Readonly<{ kind: "error"; message: string }>
+  | Readonly<{ kind: "ready"; items: readonly FinanceIntegrityItem[] }>;
 
 type AliasCandidate = Readonly<{
   representative_external_id: string;
@@ -233,6 +265,141 @@ function closureStatusLabel(status: AdminMonthlyClosure["closure_status"]): stri
   return "Faltam dados";
 }
 
+function FinanceIntegrityPanel({
+  state,
+}: Readonly<{ state: FinanceIntegrityState }>) {
+  const items = state.kind === "ready" ? state.items : [];
+  const summary = summarizeFinanceIntegrity(items);
+
+  return (
+    <section
+      className="finance-integrity-panel"
+      aria-labelledby="finance-integrity-title"
+    >
+      <div className="section-heading-admin">
+        <span className="eyebrow-admin">Confiança antes do número</span>
+        <h2 id="finance-integrity-title">O mês está realmente completo?</h2>
+        <p>
+          O diagnóstico confere cobertura, versões duplicadas e o vínculo de
+          cada registro com a resposta bruta e o PDF oficial. Ele não soma
+          valores e não usa IA para decidir se um mês está íntegro.
+        </p>
+      </div>
+      {state.kind === "loading" ? (
+        <p aria-live="polite">Verificando a integridade por competência…</p>
+      ) : null}
+      {state.kind === "error" ? (
+        <p className="status-error" role="alert">
+          O diagnóstico financeiro não pôde ser carregado: {state.message}
+        </p>
+      ) : null}
+      {state.kind === "ready" ? (
+        <>
+          <dl
+            className="finance-integrity-summary"
+            aria-label="Resumo da integridade financeira"
+          >
+            <div>
+              <dt>Meses mapeados</dt>
+              <dd>{summary.totalMonths.toLocaleString("pt-BR")}</dd>
+            </div>
+            <div>
+              <dt>Prontos</dt>
+              <dd>{summary.readyMonths.toLocaleString("pt-BR")}</dd>
+            </div>
+            <div>
+              <dt>Faltam dados</dt>
+              <dd>{summary.needsDataMonths.toLocaleString("pt-BR")}</dd>
+            </div>
+            <div>
+              <dt>Revisar ou bloquear</dt>
+              <dd>
+                {(summary.needsReviewMonths + summary.blockedMonths)
+                  .toLocaleString("pt-BR")}
+              </dd>
+            </div>
+            <div>
+              <dt>Registros reconciliados</dt>
+              <dd>{summary.reconciledValues.toLocaleString("pt-BR")}</dd>
+            </div>
+            <div>
+              <dt>Vínculos pendentes</dt>
+              <dd>{summary.pendingValues.toLocaleString("pt-BR")}</dd>
+            </div>
+          </dl>
+          {items.length === 0 ? (
+            <div className="empty-state">
+              Nenhuma competência financeira foi mapeada.
+            </div>
+          ) : (
+            <div className="finance-integrity-list">
+              {items.slice(0, 24).map((item) => (
+                <article
+                  className="finance-integrity-card"
+                  key={item.integrity_id}
+                >
+                  <div className="card-top">
+                    <div>
+                      <h3>{formatClosureMonth(item.period_start)}</h3>
+                      <p className="meta">{item.public_body_name}</p>
+                    </div>
+                    <span
+                      className={`badge finance-integrity-${item.diagnostic_status}`}
+                    >
+                      {financeIntegrityStatusLabel(item.diagnostic_status)}
+                    </span>
+                  </div>
+                  <p>{item.diagnostic_note}</p>
+                  <dl className="finance-integrity-domains">
+                    <div>
+                      <dt>Receitas</dt>
+                      <dd>
+                        {item.revenue_row_count.toLocaleString("pt-BR")} linhas
+                        em {item.revenue_document_count.toLocaleString("pt-BR")}{" "}
+                        {item.revenue_document_count === 1 ? "PDF" : "PDFs"}
+                      </dd>
+                      <dd className="meta">
+                        {item.revenue_direct_count.toLocaleString("pt-BR")} diretas ·{" "}
+                        {item.revenue_reconciled_count.toLocaleString("pt-BR")} reconciliadas ·{" "}
+                        {item.revenue_pending_count.toLocaleString("pt-BR")} pendentes
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Despesas</dt>
+                      <dd>
+                        {item.expense_report_count.toLocaleString("pt-BR")}{" "}
+                        {item.expense_report_count === 1 ? "relatório" : "relatórios"},{" "}
+                        {item.expense_line_count.toLocaleString("pt-BR")} linhas
+                        em {item.expense_document_count.toLocaleString("pt-BR")}{" "}
+                        {item.expense_document_count === 1 ? "PDF" : "PDFs"}
+                      </dd>
+                      <dd className="meta">
+                        {item.expense_direct_count.toLocaleString("pt-BR")} diretas ·{" "}
+                        {item.expense_reconciled_count.toLocaleString("pt-BR")} reconciliadas ·{" "}
+                        {item.expense_pending_count.toLocaleString("pt-BR")} pendentes
+                      </dd>
+                    </div>
+                  </dl>
+                  <details>
+                    <summary>O que significa “reconciliado”?</summary>
+                    <p>
+                      O valor original foi preservado, mas o vínculo com a
+                      fonte ganhou uma nova versão auditável porque o PDF
+                      pertencia a outro registro da mesma resposta oficial.
+                      “Pendente” permanece fora da publicação pública.
+                    </p>
+                    <p className="meta">Método: {item.methodology_version}</p>
+                  </details>
+                </article>
+              ))}
+            </div>
+          )}
+        </>
+      ) : null}
+    </section>
+  );
+}
+
 function FinanceClosureSummary({
   state,
 }: Readonly<{ state: FinanceClosureState }>) {
@@ -296,12 +463,14 @@ function FinanceClosureSummary({
 function FinanceInventory({
   state,
   closureState,
+  integrityState,
   search,
   onSearchChange,
   onReload,
 }: Readonly<{
   state: FinanceInventoryState;
   closureState: FinanceClosureState;
+  integrityState: FinanceIntegrityState;
   search: string;
   onSearchChange: (value: string) => void;
   onReload: () => void;
@@ -321,6 +490,7 @@ function FinanceInventory({
 
   return (
     <>
+      <FinanceIntegrityPanel state={integrityState} />
       <FinanceClosureSummary state={closureState} />
       <section aria-labelledby="finance-inventory-title">
       <div className="section-heading-admin">
@@ -950,6 +1120,8 @@ export default function ReviewQueuePage() {
     useState<FinanceInventoryState>({ kind: "loading" });
   const [financeClosures, setFinanceClosures] =
     useState<FinanceClosureState>({ kind: "loading" });
+  const [financeIntegrity, setFinanceIntegrity] =
+    useState<FinanceIntegrityState>({ kind: "loading" });
   const [aliasSuggestions, setAliasSuggestions] =
     useState<AliasState>({ kind: "loading" });
   const [collectionHealth, setCollectionHealth] =
@@ -1033,6 +1205,26 @@ export default function ReviewQueuePage() {
     });
   }, [supabase]);
 
+  const loadFinanceIntegrity = useCallback(async () => {
+    setFinanceIntegrity({ kind: "loading" });
+    const { data, error } = await supabase.rpc(
+      "get_admin_finance_integrity",
+      {
+        page_size: 120,
+        fiscal_year_from: 2021,
+        fiscal_year_to: null,
+      },
+    );
+    if (error) {
+      setFinanceIntegrity({ kind: "error", message: error.message });
+      return;
+    }
+    setFinanceIntegrity({
+      kind: "ready",
+      items: (data ?? []) as FinanceIntegrityItem[],
+    });
+  }, [supabase]);
+
   const loadAliasSuggestions = useCallback(async () => {
     setAliasSuggestions({ kind: "loading" });
     const { data, error } = await supabase.rpc(
@@ -1075,6 +1267,7 @@ export default function ReviewQueuePage() {
       loadHistory(),
       loadFinanceInventory(),
       loadFinanceClosures(),
+      loadFinanceIntegrity(),
       loadAliasSuggestions(),
       loadCollectionHealth(),
     ]);
@@ -1083,6 +1276,7 @@ export default function ReviewQueuePage() {
     loadHistory,
     loadFinanceInventory,
     loadFinanceClosures,
+    loadFinanceIntegrity,
     loadAliasSuggestions,
     loadCollectionHealth,
   ]);
@@ -1415,10 +1609,15 @@ export default function ReviewQueuePage() {
             <FinanceInventory
               state={financeInventory}
               closureState={financeClosures}
+              integrityState={financeIntegrity}
               search={financeSearch}
               onSearchChange={setFinanceSearch}
               onReload={() =>
-                void Promise.all([loadFinanceInventory(), loadFinanceClosures()])
+                void Promise.all([
+                  loadFinanceInventory(),
+                  loadFinanceClosures(),
+                  loadFinanceIntegrity(),
+                ])
               }
             />
           ) : view === "fila" ? (

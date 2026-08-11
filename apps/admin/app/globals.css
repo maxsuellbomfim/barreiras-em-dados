@@ -13,6 +13,8 @@
   --blue-soft: rgba(23, 105, 224, 0.1);
   --green: #158154;
   --green-soft: rgba(22, 163, 106, 0.12);
+  --integrity-ready-ink: #0b6b42;
+  --integrity-attention-ink: #0d4ea9;
   --danger: #b91c1c;
   --danger-soft: rgba(185, 28, 28, 0.1);
   --shadow-soft: 0 24px 80px rgba(33, 46, 79, 0.11);
@@ -38,6 +40,8 @@
     --blue-soft: rgba(110, 166, 255, 0.14);
     --green: #5ad197;
     --green-soft: rgba(74, 222, 128, 0.13);
+    --integrity-ready-ink: #5ad197;
+    --integrity-attention-ink: #8db9ff;
     --danger: #fb9a9a;
     --danger-soft: rgba(248, 113, 113, 0.13);
     --shadow-soft: 0 24px 80px rgba(0, 0, 0, 0.4);
@@ -341,7 +345,8 @@ button.destructive:hover:not(:disabled) {
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
-a:focus-visible {
+a:focus-visible,
+summary:focus-visible {
   outline: 3px solid rgba(23, 105, 224, 0.42);
   outline-offset: 2px;
   border-radius: 0.5rem;
@@ -775,6 +780,86 @@ a:focus-visible {
   color: var(--blue);
 }
 
+.finance-integrity-panel {
+  margin-bottom: 2.25rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.finance-integrity-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.finance-integrity-summary > div {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--glass);
+}
+
+.finance-integrity-summary dd {
+  margin-top: 0.3rem;
+  font-size: 1.2rem;
+  font-weight: 760;
+}
+
+.finance-integrity-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.finance-integrity-card {
+  padding: 1rem;
+}
+
+.finance-integrity-card h3,
+.finance-integrity-card .meta {
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.finance-integrity-card > p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.finance-integrity-domains {
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+.finance-integrity-domains > div {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--inset);
+}
+
+.finance-integrity-card details {
+  margin-top: 0.8rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.finance-integrity-ready {
+  background: var(--green-soft);
+  color: var(--integrity-ready-ink);
+}
+
+.finance-integrity-needs_data,
+.finance-integrity-needs_review {
+  background: var(--blue-soft);
+  color: var(--integrity-attention-ink);
+}
+
+.finance-integrity-blocked {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 /* ---------- Conteúdo dos cartões ---------- */
 dl {
   display: grid;
@@ -811,6 +896,9 @@ pre {
 }
 
 details summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   cursor: pointer;
   margin-block: 0.5rem;
   color: var(--muted);
@@ -997,6 +1085,14 @@ article:nth-of-type(3) {
   }
 
   .finance-closure-list {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-integrity-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .finance-integrity-list {
     grid-template-columns: 1fr;
   }
 

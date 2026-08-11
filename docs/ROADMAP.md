@@ -235,6 +235,12 @@ fechados. Empréstimos e dívidas já possuem entidade e evidência próprias; a
 próxima fatia é normalizar uma família documental real e reconciliar as linhas
 antes de publicar qualquer consolidação.
 
+O painel administrativo passa a diagnosticar cada competência desde 2021 como
+pronta, incompleta, duplicada ou bloqueada. O diagnóstico distingue vínculo
+direto, correção versionada de proveniência e pendência documental sem usar IA
+ou recalcular valores. A próxima menor fatia é levar essa explicação ao detalhe
+público do mês, com links para os documentos que sustentam receita e despesa.
+
 Gate:
 
 - unidade/escala contábil verificadas;
