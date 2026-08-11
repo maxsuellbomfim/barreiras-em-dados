@@ -20,6 +20,15 @@ test("fechamento mensal mantém a receita no nível do relatório", () => {
   assert.match(page, /Diferença operacional/);
 });
 
+test("resultado do ultimo fechamento e explicado sem afirmar superavit fiscal", () => {
+  assert.match(page, /financeStatusHeading\(latestClosure\)/);
+  assert.match(page, /financeStatusDescription\(latestClosure\)/);
+  assert.match(page, /financeStatusPill\(latestClosure\)/);
+  assert.match(page, /financeDifferenceClass\(closure\.operationalDifferenceAmount\)/);
+  assert.match(page, /finance-negative-value/);
+  assert.match(page, /diferença operacional calculada por código/);
+});
+
 test("fechamento não aparece como saldo quando falta uma das fontes", () => {
   assert.match(migration, /when revenue\.report_count is null or expense\.report_count is null/);
   assert.match(migration, /then 'needs_data'/);

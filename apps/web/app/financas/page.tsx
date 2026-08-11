@@ -103,6 +103,41 @@ function closureStatusLabel(status: PublicMonthlyFinanceClosure["closureStatus"]
   return "Fechamento parcial";
 }
 
+function financeStatusHeading(closure: PublicMonthlyFinanceClosure | null): string {
+  if (!closure) return "Ainda não há um fechamento mensal publicado";
+  if (closure.closureStatus === "needs_review") return "O último mês ainda precisa de reconciliação";
+  if (closure.closureStatus === "needs_data") return "O último mês tem dados parciais";
+  if (!closure.operationalDifferenceAmount) {
+    return "O último mês foi fechado, mas a diferença ainda não foi calculada";
+  }
+  return closure.operationalDifferenceAmount.startsWith("-")
+    ? "No último mês, os pagamentos ficaram acima da receita declarada"
+    : "No último mês, a receita declarada ficou acima dos pagamentos";
+}
+
+function financeStatusDescription(closure: PublicMonthlyFinanceClosure | null): string {
+  if (!closure) {
+    return "Quando houver relatórios de receita e pagamento do mesmo período, o fechamento aparecerá aqui.";
+  }
+  if (closure.closureStatus !== "operational") return closure.coverageNote;
+  return "Esta é uma diferença operacional calculada por código, não uma conclusão de superávit ou déficit fiscal. Ela não inclui ainda todas as dívidas, restos a pagar e demais obrigações.";
+}
+
+function financeStatusPill(closure: PublicMonthlyFinanceClosure | null): string {
+  if (!closure) return "Fechamento aguardando dados";
+  if (closure.closureStatus === "needs_review") return "Requer reconciliação";
+  if (closure.closureStatus === "needs_data") return "Dados parciais";
+  if (!closure.operationalDifferenceAmount) return "Diferença indisponível";
+  return closure.operationalDifferenceAmount.startsWith("-")
+    ? "Diferença operacional negativa"
+    : "Diferença operacional positiva";
+}
+
+function financeDifferenceClass(value: string | null): string {
+  if (!value) return "";
+  return value.startsWith("-") ? "finance-negative-value" : "finance-positive-value";
+}
+
 function explainClosure(closure: PublicMonthlyFinanceClosure): string {
   if (closure.closureStatus === "operational" && closure.operationalDifferenceAmount) {
     const direction = closure.operationalDifferenceAmount.startsWith("-")
@@ -235,15 +270,10 @@ export default async function FinancesPage() {
         <section className="finance-status-panel" aria-labelledby="finance-status-title">
           <div>
             <span className="eyebrow">Resultado das contas</span>
-            <h2 id="finance-status-title">Ainda não classificamos como “no azul” ou “no vermelho”</h2>
-            <p>
-              Para afirmar déficit ou superávit, precisamos comparar todas as
-              receitas e todas as despesas do mesmo período e pelo mesmo critério.
-              Hoje temos relatórios de receitas e de pagamentos, mas eles ainda não
-              formam um balanço fiscal completo.
-            </p>
+            <h2 id="finance-status-title">{financeStatusHeading(latestClosure)}</h2>
+            <p>{financeStatusDescription(latestClosure)}</p>
           </div>
-          <span className="finance-status-pill">Resultado fiscal: aguardando base comparável</span>
+          <span className="finance-status-pill">{financeStatusPill(latestClosure)}</span>
         </section>
 
         <section className="finance-at-a-glance" aria-labelledby="finance-glance-title">
@@ -358,7 +388,7 @@ export default async function FinancesPage() {
                       <dt>Pagamentos efetivados<small>dinheiro que saiu do caixa</small></dt>
                       <dd>{formatAmount(closure.expensePaidAmount)}</dd>
                     </div>
-                    <div>
+                    <div className={financeDifferenceClass(closure.operationalDifferenceAmount)}>
                       <dt>Diferença operacional<small>receita declarada menos pagamentos</small></dt>
                       <dd>{formatAmount(closure.operationalDifferenceAmount, "aguardando reconciliação")}</dd>
                     </div>
