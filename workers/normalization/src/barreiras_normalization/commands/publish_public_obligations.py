@@ -112,7 +112,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             logger.error(
                 "public_obligation_failed artifact=%s error=%s",
                 artifact.id,
-                str(error)[:500],
+                str(error)[:2400] if args.dry_run else str(error)[:500],
             )
             continue
         if result.status == "published":
