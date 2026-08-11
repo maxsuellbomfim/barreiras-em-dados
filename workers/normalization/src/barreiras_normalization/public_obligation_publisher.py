@@ -149,8 +149,14 @@ class PostgresPublicObligationPublicationRepository:
                     document.byte_size,
                     record.id::text as parent_record_id,
                     document.source_url,
-                    (record.payload ->> 'ano')::integer as fiscal_year,
-                    (record.payload ->> 'mes')::integer as reference_month,
+                    coalesce(
+                      record.payload ->> 'ano',
+                      record.payload ->> 'ano_ref'
+                    )::integer as fiscal_year,
+                    coalesce(
+                      record.payload ->> 'mes',
+                      record.payload ->> 'mes_ref'
+                    )::integer as reference_month,
                     document.created_at
                   from raw.raw_artifacts as document
                   join raw.raw_artifacts as parent_artifact
@@ -165,9 +171,17 @@ class PostgresPublicObligationPublicationRepository:
                     and document.source_url = record.payload ->> 'url'
                     and record.record_type
                       = 'municipal_transparency_balancetes'
-                    and record.payload ->> 'ano' ~ '^[0-9]{4}$'
-                    and record.payload ->> 'mes' ~ '^(?:[1-9]|1[0-2])$'
-                    and (record.payload ->> 'ano')::integer between %s and %s
+                    and coalesce(
+                      record.payload ->> 'ano', record.payload ->> 'ano_ref'
+                    )
+                      ~ '^[0-9]{4}$'
+                    and coalesce(
+                      record.payload ->> 'mes', record.payload ->> 'mes_ref'
+                    )
+                      ~ '^(?:[1-9]|1[0-2])$'
+                    and coalesce(
+                      record.payload ->> 'ano', record.payload ->> 'ano_ref'
+                    )::integer between %s and %s
                     and not exists (
                       select 1
                       from finance.public_obligations as obligation

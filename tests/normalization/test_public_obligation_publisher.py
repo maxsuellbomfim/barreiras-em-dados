@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 
 from barreiras_normalization.public_obligation_publisher import (
+    PUBLIC_OBLIGATION_JOB_TYPE,
+    PostgresPublicObligationPublicationRepository,
     PublicObligationArtifact,
     PublicObligationPublisher,
 )
@@ -39,6 +41,30 @@ class FakeRepository:
         return 1
 
 
+class FakeRows:
+    def __init__(self, rows) -> None:
+        self.rows = rows
+
+    def fetchall(self):
+        return self.rows
+
+
+class CapturingConnection:
+    def __init__(self, rows) -> None:
+        self.rows = rows
+        self.query = ""
+        self.parameters = ()
+        self.closed = False
+
+    def execute(self, query, parameters):
+        self.query = query
+        self.parameters = parameters
+        return FakeRows(self.rows)
+
+    def close(self):
+        self.closed = True
+
+
 def artifact_for(body: bytes = PDF_BODY) -> PublicObligationArtifact:
     return PublicObligationArtifact(
         id="00000000-0000-4000-8000-000000000921",
@@ -53,6 +79,56 @@ def artifact_for(body: bytes = PDF_BODY) -> PublicObligationArtifact:
 
 
 class PublicObligationPublisherTests(unittest.TestCase):
+    def test_pending_documents_accepts_reference_keys_from_current_api(self):
+        connection = CapturingConnection(
+            [
+                {
+                    "id": "00000000-0000-4000-8000-000000000923",
+                    "sha256": "a" * 64,
+                    "object_key": "municipal-transparency/documents/junho.pdf",
+                    "byte_size": 5034253,
+                    "parent_record_id": "00000000-0000-4000-8000-000000000924",
+                    "source_url": (
+                        "https://barreiras.mtransparente.com.br/admin/data/"
+                        "BALANCETE030826185954.pdf"
+                    ),
+                    "fiscal_year": 2026,
+                    "reference_month": 6,
+                }
+            ]
+        )
+        repository = PostgresPublicObligationPublicationRepository(
+            lambda: connection
+        )
+
+        documents = repository.pending_documents(
+            limit=1,
+            fiscal_year_from=2026,
+            fiscal_year_to=2026,
+        )
+
+        self.assertEqual(len(documents), 1)
+        self.assertEqual(documents[0].fiscal_year, 2026)
+        self.assertEqual(documents[0].reference_month, 6)
+        normalized_query = (
+            " ".join(connection.query.split())
+            .replace("( ", "(")
+            .replace(" )", ")")
+        )
+        self.assertIn(
+            "coalesce(record.payload ->> 'ano', record.payload ->> 'ano_ref')",
+            normalized_query,
+        )
+        self.assertIn(
+            "coalesce(record.payload ->> 'mes', record.payload ->> 'mes_ref')",
+            normalized_query,
+        )
+        self.assertEqual(
+            connection.parameters,
+            (2026, 2026, PUBLIC_OBLIGATION_JOB_TYPE, 1),
+        )
+        self.assertTrue(connection.closed)
+
     def test_rejects_tampered_pdf_before_persisting(self):
         repository = FakeRepository()
         publisher = PublicObligationPublisher(
