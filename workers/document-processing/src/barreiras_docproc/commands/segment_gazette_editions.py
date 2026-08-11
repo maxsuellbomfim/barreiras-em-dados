@@ -26,6 +26,8 @@ from ..processing import PageInput, integral_gazette_idempotency_key
 class SegmentRunResult:
     processed: int
     failed: int
+    matched: int = 0
+    skipped: int = 0
 
 
 def version_idempotency_key(artifact_sha256: str, pages: Sequence[PageInput]) -> str:
@@ -85,6 +87,7 @@ def process_pending(
     )
     processed = 0
     failed = 0
+    skipped = 0
     for artifact in artifacts:
         if processed >= limit:
             break
@@ -92,6 +95,7 @@ def process_pending(
             pages = tuple(repository.page_inputs(artifact.raw_artifact_id))
             idempotency_key = version_idempotency_key(artifact.sha256, pages)
             if repository.batch_exists(artifact.raw_artifact_id, idempotency_key):
+                skipped += 1
                 continue
             blocks = page_blocks(pages)
             proposals = boundary_proposer(blocks)
@@ -145,7 +149,12 @@ def process_pending(
                 "segment_processing_error",
                 f"Falha documental classificada como {type(error).__name__}.",
             )
-    return SegmentRunResult(processed=processed, failed=failed)
+    return SegmentRunResult(
+        processed=processed,
+        failed=failed,
+        matched=len(artifacts),
+        skipped=skipped,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -179,10 +188,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         "integral_gazette_batch_completed",
         processed=result.processed,
         failed=result.failed,
+        matched=result.matched,
+        skipped=result.skipped,
         segmenter_version=SEGMENTER_VERSION,
         validator_version=VALIDATOR_VERSION,
     )
-    return 1 if result.failed else 0
+    if result.failed:
+        return 1
+    if (
+        arguments.edition is not None
+        and arguments.edition_year is not None
+        and result.matched == 0
+    ):
+        log_event(
+            logging.getLogger(__name__),
+            logging.ERROR,
+            "integral_gazette_target_not_found",
+            edition=arguments.edition,
+            edition_year=arguments.edition_year,
+        )
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
