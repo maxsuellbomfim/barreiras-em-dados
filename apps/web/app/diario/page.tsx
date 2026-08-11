@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 
-import { getQueridoDiarioCollectionStatus } from "../../lib/collection-status";
+import {
+  getQueridoDiarioCollectionStatus,
+  type CollectionStatusResult,
+} from "../../lib/collection-status";
 import {
   enrichIntegralGazetteEditions,
   getIntegralGazetteEditions,
@@ -46,6 +49,37 @@ function CatalogPendingNotice({
         </p>
       </div>
     </div>
+  );
+}
+
+function DiaryCoverageSummary({
+  collectionStatus,
+  catalogCount,
+  pageCount,
+}: Readonly<{
+  collectionStatus: CollectionStatusResult;
+  catalogCount: number;
+  pageCount: number;
+}>) {
+  return (
+    <dl className="diary-coverage-summary" aria-label="Resumo da cobertura do Diário">
+      <div>
+        <dt>Acervo integral preservado</dt>
+        <dd>
+          {collectionStatus.state === "available"
+            ? collectionStatus.data.preservedEditionCount.toLocaleString("pt-BR")
+            : "—"}
+        </dd>
+      </div>
+      <div>
+        <dt>Catálogo oficial consultado</dt>
+        <dd>{catalogCount.toLocaleString("pt-BR")}</dd>
+      </div>
+      <div>
+        <dt>Nesta página</dt>
+        <dd>{pageCount.toLocaleString("pt-BR")}</dd>
+      </div>
+    </dl>
   );
 }
 
@@ -149,6 +183,12 @@ export default async function IntegralDiaryPage({
           </div>
           {pageNumber > 1 ? <input type="hidden" name="pagina" value="1" /> : null}
         </form>
+
+        <DiaryCoverageSummary
+          collectionStatus={collectionStatus}
+          catalogCount={catalogEntries.length}
+          pageCount={editions.length}
+        />
 
         {editions.length === 0 && catalogEntries.length > 0 ? (
           <CatalogPendingNotice entries={catalogEntries} />

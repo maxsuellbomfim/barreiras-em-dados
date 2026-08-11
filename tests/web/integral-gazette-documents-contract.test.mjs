@@ -36,6 +36,13 @@ test("busca global mantém o termo e pagina sem expor tabelas brutas", () => {
   assert.match(explorer, /initialQuery/);
 });
 
+test("diario explica cobertura sem confundir pagina com acervo total", () => {
+  assert.match(page, /DiaryCoverageSummary/);
+  assert.match(page, /Acervo integral preservado/);
+  assert.match(page, /Catálogo oficial consultado/);
+  assert.match(page, /Nesta página/);
+});
+
 test("contrato público usa a RPC integral e rejeita payload incompleto", () => {
   assert.match(client, /get_integral_gazette_editions/);
   assert.match(client, /function parseIntegralGazetteEdition/);
