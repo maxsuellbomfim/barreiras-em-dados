@@ -156,8 +156,8 @@ class PublicObligationPublisherTests(unittest.TestCase):
 
         normalized_query = " ".join(connection.query.lower().split())
         self.assertIn(
-            "lower(btrim(coalesce(record.payload ->> 'titulo', ''))) "
-            "like 'balancete %'",
+            "btrim(coalesce(record.payload ->> 'titulo', '')) "
+            "~* '^balancete[[:space:]]'",
             normalized_query,
         )
         self.assertIn(

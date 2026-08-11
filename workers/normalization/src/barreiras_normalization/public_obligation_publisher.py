@@ -241,8 +241,8 @@ class PostgresPublicObligationPublicationRepository:
                     and document.source_url = record.payload ->> 'url'
                     and record.record_type
                       = 'municipal_transparency_balancetes'
-                    and lower(btrim(coalesce(record.payload ->> 'titulo', '')))
-                      like 'balancete %'
+                    and btrim(coalesce(record.payload ->> 'titulo', ''))
+                      ~* '^balancete[[:space:]]'
                     and coalesce(
                       record.payload ->> 'ano', record.payload ->> 'ano_ref'
                     )
