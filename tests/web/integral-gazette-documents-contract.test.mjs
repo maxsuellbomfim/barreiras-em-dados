@@ -43,6 +43,13 @@ test("diario explica cobertura sem confundir pagina com acervo total", () => {
   assert.match(page, /Nesta página/);
 });
 
+test("diario informa a faixa da API sem prometer cobertura diária", () => {
+  assert.match(page, /coverageStart/);
+  assert.match(page, /coverageEnd/);
+  assert.match(page, /Faixa de publicações preservadas pela API/);
+  assert.match(page, /não uma\s+garantia de que todos os dias/);
+});
+
 test("contrato público usa a RPC integral e rejeita payload incompleto", () => {
   assert.match(client, /get_integral_gazette_editions/);
   assert.match(client, /function parseIntegralGazetteEdition/);
