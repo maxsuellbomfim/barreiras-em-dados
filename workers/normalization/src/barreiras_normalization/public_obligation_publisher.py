@@ -10,13 +10,14 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from .public_obligation_pdf import (
+    PublicObligationStructuralError,
     RestosAPagarSummary,
     parse_restos_a_pagar_summary,
 )
 from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
 
-PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.1.0"
-PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.1.0"
+PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.2.0"
+PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.2.0"
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,20 @@ class PublicObligationPublishResult:
     status: str
 
 
+@dataclass(frozen=True)
+class PublicObligationExtractionProvenance:
+    extraction_method: str
+    extraction_parser_version: str
+    page_numbers: tuple[int, ...] = ()
+    rotation_degrees: int | None = None
+
+
+@dataclass(frozen=True)
+class PublicObligationExtraction:
+    summary: RestosAPagarSummary
+    provenance: PublicObligationExtractionProvenance
+
+
 class ObjectReader(Protocol):
     def read(self, object_key: str) -> bytes: ...
 
@@ -54,6 +69,7 @@ class PublicObligationPublicationRepository(Protocol):
         self,
         artifact: PublicObligationArtifact,
         summary: RestosAPagarSummary,
+        provenance: PublicObligationExtractionProvenance,
     ) -> int: ...
 
     def record_failure(
@@ -74,29 +90,26 @@ class PublicObligationPublisher:
         object_reader: ObjectReader,
         repository: PublicObligationPublicationRepository,
         text_extractor: Callable[[bytes], str] = default_pdf_text_extractor,
+        ocr_extractor: Callable[..., PublicObligationExtraction] | None = None,
         logger: logging.Logger | None = None,
     ) -> None:
         self.object_reader = object_reader
         self.repository = repository
         self.text_extractor = text_extractor
+        self.ocr_extractor = ocr_extractor
         self.logger = logger or logging.getLogger(__name__)
 
     def publish(
         self,
         artifact: PublicObligationArtifact,
     ) -> PublicObligationPublishResult:
-        raw_body = self.object_reader.read(artifact.object_key)
-        actual_hash = hashlib.sha256(raw_body).hexdigest()
-        if actual_hash != artifact.sha256 or len(raw_body) != artifact.byte_size:
-            raise ArtifactMismatchError(
-                f"Artefato {artifact.id} diverge do hash ou tamanho catalogado."
-            )
-        summary = parse_restos_a_pagar_summary(
-            self.text_extractor(raw_body),
-            fiscal_year=artifact.fiscal_year,
-            reference_month=artifact.reference_month,
+        extraction = self.validate(artifact)
+        summary = extraction.summary
+        inserted = self.repository.persist_validated_summary(
+            artifact,
+            summary,
+            extraction.provenance,
         )
-        inserted = self.repository.persist_validated_summary(artifact, summary)
         self.logger.info(
             "public_obligation_summary_published",
             extra={
@@ -104,11 +117,68 @@ class PublicObligationPublisher:
                 "period_end": summary.period_end.isoformat(),
                 "inserted": inserted,
                 "methodology_version": PUBLIC_OBLIGATION_METHODOLOGY,
+                "extraction_method": extraction.provenance.extraction_method,
             },
         )
         return PublicObligationPublishResult(
             artifact_id=artifact.id,
             status="published" if inserted else "already_published",
+        )
+
+    def validate(
+        self,
+        artifact: PublicObligationArtifact,
+    ) -> PublicObligationExtraction:
+        """Valida bytes e valores sem persistir, para ensaios auditáveis."""
+        raw_body = self.object_reader.read(artifact.object_key)
+        actual_hash = hashlib.sha256(raw_body).hexdigest()
+        if actual_hash != artifact.sha256 or len(raw_body) != artifact.byte_size:
+            raise ArtifactMismatchError(
+                f"Artefato {artifact.id} diverge do hash ou tamanho catalogado."
+            )
+        return self._extract(raw_body, artifact)
+
+    def _extract(
+        self,
+        raw_body: bytes,
+        artifact: PublicObligationArtifact,
+    ) -> PublicObligationExtraction:
+        try:
+            embedded_text = self.text_extractor(raw_body)
+        except ValueError:
+            return self._extract_with_ocr(raw_body, artifact)
+        try:
+            summary = parse_restos_a_pagar_summary(
+                embedded_text,
+                fiscal_year=artifact.fiscal_year,
+                reference_month=artifact.reference_month,
+            )
+        except PublicObligationStructuralError:
+            return self._extract_with_ocr(raw_body, artifact)
+
+        from barreiras_docproc.pdf_text import PDF_PARSER_VERSION
+
+        return PublicObligationExtraction(
+            summary=summary,
+            provenance=PublicObligationExtractionProvenance(
+                extraction_method="embedded_text",
+                extraction_parser_version=PDF_PARSER_VERSION,
+            ),
+        )
+
+    def _extract_with_ocr(
+        self,
+        raw_body: bytes,
+        artifact: PublicObligationArtifact,
+    ) -> PublicObligationExtraction:
+        if self.ocr_extractor is None:
+            raise PublicObligationStructuralError(
+                "Texto embutido incompleto e fallback OCR indisponível."
+            )
+        return self.ocr_extractor(
+            raw_body,
+            fiscal_year=artifact.fiscal_year,
+            reference_month=artifact.reference_month,
         )
 
 
@@ -231,6 +301,7 @@ class PostgresPublicObligationPublicationRepository:
         self,
         artifact: PublicObligationArtifact,
         summary: RestosAPagarSummary,
+        provenance: PublicObligationExtractionProvenance,
     ) -> int:
         connection = self.connection_factory()
         try:
@@ -315,6 +386,12 @@ class PostgresPublicObligationPublicationRepository:
                             {
                                 "section": "RESTOS A PAGAR",
                                 "period_end": summary.period_end.isoformat(),
+                                "extraction_method": provenance.extraction_method,
+                                "extraction_parser_version": (
+                                    provenance.extraction_parser_version
+                                ),
+                                "page_numbers": list(provenance.page_numbers),
+                                "rotation_degrees": provenance.rotation_degrees,
                             },
                             ensure_ascii=False,
                             separators=(",", ":"),

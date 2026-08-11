@@ -21,4 +21,9 @@ test("workflow de despesas usa o publicador versionado e limite seguro", () => {
   assert.match(workflow, /QUERIDO_DIARIO_DATABASE_URL/);
   assert.match(workflow, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD/);
   assert.match(workflow, /PERSISTENCE_MODE: postgres-supabase/);
+  assert.match(workflow, /tesseract-ocr-por/);
+  assert.match(workflow, /\[postgres,storage,pdf,ocr\]/);
+  assert.match(workflow, /dry_run_public_obligations:/);
+  assert.match(workflow, /inputs\.dry_run_public_obligations != true/);
+  assert.match(workflow, /--dry-run/);
 });

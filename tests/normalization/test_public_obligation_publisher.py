@@ -8,6 +8,8 @@ from barreiras_normalization.public_obligation_publisher import (
     PUBLIC_OBLIGATION_JOB_TYPE,
     PostgresPublicObligationPublicationRepository,
     PublicObligationArtifact,
+    PublicObligationExtraction,
+    PublicObligationExtractionProvenance,
     PublicObligationPublisher,
 )
 from barreiras_normalization.revenue_publisher import ArtifactMismatchError
@@ -34,10 +36,10 @@ class FakeRepository:
     def __init__(self) -> None:
         self.inserted = []
 
-    def persist_validated_summary(self, artifact, summary) -> int:
+    def persist_validated_summary(self, artifact, summary, provenance) -> int:
         if self.inserted:
             return 0
-        self.inserted.append((artifact, summary))
+        self.inserted.append((artifact, summary, provenance))
         return 1
 
 
@@ -82,7 +84,7 @@ class PublicObligationPublisherTests(unittest.TestCase):
     def test_failure_job_type_is_versioned_for_auditable_retry(self):
         self.assertEqual(
             PUBLIC_OBLIGATION_JOB_TYPE,
-            "public_obligation_balancete_publication/1.1.0",
+            "public_obligation_balancete_publication/1.2.0",
         )
 
     def test_pending_documents_accepts_reference_keys_from_current_api(self):
@@ -161,9 +163,86 @@ class PublicObligationPublisherTests(unittest.TestCase):
         self.assertEqual(first.status, "published")
         self.assertEqual(second.status, "already_published")
         self.assertEqual(len(repository.inserted), 1)
-        _, summary = repository.inserted[0]
+        _, summary, provenance = repository.inserted[0]
         self.assertEqual(summary.period_end.isoformat(), "2026-06-30")
         self.assertEqual(str(summary.payments_period_amount), "3683221.97")
+        self.assertEqual(provenance.extraction_method, "embedded_text")
+
+    def test_validate_checks_artifact_and_extracts_without_persisting(self):
+        repository = FakeRepository()
+        publisher = PublicObligationPublisher(
+            object_reader=FakeReader(PDF_BODY),
+            repository=repository,
+            text_extractor=lambda _body: FIXTURE_TEXT,
+        )
+
+        extraction = publisher.validate(artifact_for())
+
+        self.assertEqual(
+            str(extraction.summary.payments_to_date_amount),
+            "49047866.03",
+        )
+        self.assertEqual(repository.inserted, [])
+
+    def test_uses_ocr_fallback_for_structurally_incomplete_embedded_text(self):
+        repository = FakeRepository()
+        ocr_calls = []
+
+        def ocr_extractor(body, *, fiscal_year, reference_month):
+            ocr_calls.append((body, fiscal_year, reference_month))
+            from barreiras_normalization.public_obligation_pdf import (
+                parse_restos_a_pagar_summary,
+            )
+
+            return PublicObligationExtraction(
+                summary=parse_restos_a_pagar_summary(
+                    FIXTURE_TEXT,
+                    fiscal_year=fiscal_year,
+                    reference_month=reference_month,
+                ),
+                provenance=PublicObligationExtractionProvenance(
+                    extraction_method="ocr",
+                    extraction_parser_version="gazette-ocr-text/1.0.0",
+                    page_numbers=(74, 75),
+                    rotation_degrees=270,
+                ),
+            )
+
+        publisher = PublicObligationPublisher(
+            object_reader=FakeReader(PDF_BODY),
+            repository=repository,
+            text_extractor=lambda _body: "RESTOS A PAGAR\ntexto truncado",
+            ocr_extractor=ocr_extractor,
+        )
+
+        result = publisher.publish(artifact_for())
+
+        self.assertEqual(result.status, "published")
+        self.assertEqual(ocr_calls, [(PDF_BODY, 2026, 6)])
+        self.assertEqual(repository.inserted[0][2].extraction_method, "ocr")
+
+    def test_does_not_use_ocr_to_override_arithmetic_mismatch(self):
+        repository = FakeRepository()
+        ocr_calls = []
+        bad_text = FIXTURE_TEXT.replace(
+            "49.047.866,03 3.683.221,97 45.364.644,06",
+            "49.047.866,04 3.683.221,97 45.364.644,06",
+        )
+        publisher = PublicObligationPublisher(
+            object_reader=FakeReader(PDF_BODY),
+            repository=repository,
+            text_extractor=lambda _body: bad_text,
+            ocr_extractor=lambda *_args, **_kwargs: ocr_calls.append(True),
+        )
+
+        from barreiras_normalization.public_obligation_pdf import (
+            PublicObligationArithmeticError,
+        )
+
+        with self.assertRaises(PublicObligationArithmeticError):
+            publisher.publish(artifact_for())
+        self.assertEqual(ocr_calls, [])
+        self.assertEqual(repository.inserted, [])
 
 
 if __name__ == "__main__":
