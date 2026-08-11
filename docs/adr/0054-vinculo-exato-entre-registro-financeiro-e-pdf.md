@@ -27,7 +27,11 @@ Todo consumo de `municipal-transparency-document` deve exigir simultaneamente:
 
 A projeção `api.get_public_finance_documents` passa à metodologia
 `public-finance-documents/1.4.0`. Os publicadores de receitas e despesas aplicam
-o mesmo predicado antes de analisar um PDF.
+o mesmo predicado antes de analisar um PDF. As projeções públicas de receitas,
+relatórios e linhas de despesa, fechamento mensal, cobertura e sinais também
+exigem esse vínculo exato. Enquanto o histórico não for reprocessado de forma
+versionada, registros com associação divergente ficam fora do portal sem serem
+apagados ou alterados.
 
 ## Consequências
 
@@ -41,5 +45,8 @@ o mesmo predicado antes de analisar um PDF.
 ## Verificação
 
 O teste de migration cria dois registros e dois PDFs sob a mesma resposta HTTP,
-com chaves e hashes distintos. A projeção só é aceita quando cada mês retorna o
-hash do seu próprio documento.
+com chaves e hashes distintos. Ele injeta uma versão com vínculo correto e
+outra com o PDF do mês vizinho. Catálogo, receitas, relatórios, linhas,
+fechamento, cobertura e sinais só são aceitos quando a chave do registro bruto
+coincide com a chave do PDF. A função interna de conferência não pode ser
+executada diretamente pelos papéis públicos.

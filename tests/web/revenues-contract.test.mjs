@@ -12,7 +12,7 @@ const page = await readFile(
 );
 
 test("contrato público exige receita validada e documento filho", () => {
-  assert.match(source, /public-revenues\/1\.2\.0/);
+  assert.match(source, /public-revenues\/1\.3\.0/);
   assert.match(source, /validation_status/);
   assert.match(source, /document_artifact_sha256/);
   assert.match(source, /collection_direction/);
