@@ -23,6 +23,14 @@ class PublicObligationPdfContractError(RevenueNormalizationError):
     """O balancete não contém uma linha inequívoca de restos a pagar."""
 
 
+class PublicObligationStructuralError(PublicObligationPdfContractError):
+    """Estrutura ausente ou incompleta pode justificar uma nova extração."""
+
+
+class PublicObligationArithmeticError(PublicObligationPdfContractError):
+    """Valores declarados foram encontrados, mas não fecham aritmeticamente."""
+
+
 @dataclass(frozen=True)
 class RestosAPagarSummary:
     fiscal_year: int
@@ -119,17 +127,17 @@ def parse_restos_a_pagar_summary(
     """Lê o total declarado da seção, usando Decimal e período informado pela API."""
 
     if not isinstance(text, str) or not text.strip():
-        raise PublicObligationPdfContractError("texto do balancete vazio")
+        raise PublicObligationStructuralError("texto do balancete vazio")
     if not 1988 <= fiscal_year <= 9999:
-        raise PublicObligationPdfContractError("ano fiscal fora do intervalo permitido")
+        raise PublicObligationStructuralError("ano fiscal fora do intervalo permitido")
     if not 1 <= reference_month <= 12:
-        raise PublicObligationPdfContractError("mes de referencia invalido")
+        raise PublicObligationStructuralError("mes de referencia invalido")
 
     lines = [" ".join(line.split()) for line in text.splitlines()]
     folded = [_fold(line) for line in lines]
     headings = [index for index, line in enumerate(folded) if line == "RESTOS A PAGAR"]
     if len(headings) != 1:
-        raise PublicObligationPdfContractError(
+        raise PublicObligationStructuralError(
             "secao RESTOS A PAGAR ausente ou ambigua"
         )
     start = headings[0] + 1
@@ -140,7 +148,7 @@ def parse_restos_a_pagar_summary(
             if folded[index] == "TRANSFERENCIA FINANCEIRA"
         )
     except StopIteration as error:
-        raise PublicObligationPdfContractError(
+        raise PublicObligationStructuralError(
             "limite da secao RESTOS A PAGAR nao encontrado"
         ) from error
 
@@ -159,7 +167,7 @@ def parse_restos_a_pagar_summary(
             total.group("third"),
         )
         if total_values is None:
-            raise PublicObligationPdfContractError(
+            raise PublicObligationArithmeticError(
                 "total de restos a pagar nao fecha: anterior + mes diverge do acumulado"
             )
     else:
@@ -170,7 +178,7 @@ def parse_restos_a_pagar_summary(
             boundary=end,
         )
     if total_values is None:
-        raise PublicObligationPdfContractError(
+        raise PublicObligationStructuralError(
             "total de restos a pagar nao encontrado antes da proxima secao"
         )
     payments_prior, payments_period, payments_to_date = total_values

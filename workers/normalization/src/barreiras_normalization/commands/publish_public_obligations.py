@@ -8,7 +8,9 @@ from collections.abc import Sequence
 from datetime import date
 
 from barreiras_docproc.canonical import CanonicalTextError
+from barreiras_docproc.ocr import OcrError, TesseractEngine
 
+from ..public_obligation_ocr import PublicObligationOcrExtractor
 from ..public_obligation_pdf import PublicObligationPdfContractError
 from ..public_obligation_publisher import (
     PostgresPublicObligationPublicationRepository,
@@ -25,6 +27,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=1)
     parser.add_argument("--fiscal-year-from", type=int, default=2021)
     parser.add_argument("--fiscal-year-to", type=int, default=date.today().year)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Valida e registra os valores no log sem escrever no banco.",
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 20:
         parser.error("--limit deve estar entre 1 e 20")
@@ -46,10 +53,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     publisher = PublicObligationPublisher(
         object_reader=reader,
         repository=repository,
+        ocr_extractor=PublicObligationOcrExtractor(
+            engine=TesseractEngine(),
+        ).extract,
     )
 
     published = 0
     already_published = 0
+    validated = 0
     failed = 0
     artifacts = repository.pending_documents(
         limit=args.limit,
@@ -66,19 +77,38 @@ def main(argv: Sequence[str] | None = None) -> int:
             artifact.source_url,
         )
         try:
+            if args.dry_run:
+                extraction = publisher.validate(artifact)
+                summary = extraction.summary
+                validated += 1
+                logger.info(
+                    "public_obligation_dry_run_validated artifact=%s period=%s "
+                    "prior=%s month=%s to_date=%s method=%s pages=%s rotation=%s",
+                    artifact.id,
+                    summary.period_end.isoformat(),
+                    summary.payments_prior_amount,
+                    summary.payments_period_amount,
+                    summary.payments_to_date_amount,
+                    extraction.provenance.extraction_method,
+                    extraction.provenance.page_numbers,
+                    extraction.provenance.rotation_degrees,
+                )
+                continue
             result = publisher.publish(artifact)
         except (
             ArtifactMismatchError,
             CanonicalTextError,
+            OcrError,
             PublicObligationPdfContractError,
             ValueError,
         ) as error:
             failed += 1
-            repository.record_failure(
-                artifact,
-                error_code=type(error).__name__,
-                error_detail=str(error),
-            )
+            if not args.dry_run:
+                repository.record_failure(
+                    artifact,
+                    error_code=type(error).__name__,
+                    error_detail=str(error),
+                )
             logger.error(
                 "public_obligation_failed artifact=%s error=%s",
                 artifact.id,
@@ -92,11 +122,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     logger.info(
         "public_obligation_publication_completed artifacts=%s published=%s "
-        "already_published=%s failed=%s",
+        "already_published=%s validated=%s failed=%s dry_run=%s",
         len(artifacts),
         published,
         already_published,
+        validated,
         failed,
+        args.dry_run,
     )
     return 1 if failed else 0
 

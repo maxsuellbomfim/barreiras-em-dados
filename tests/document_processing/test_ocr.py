@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import shutil
 import unittest
 
@@ -11,6 +12,7 @@ from barreiras_docproc.ocr import (
     ocr_page,
     rasterize_page,
 )
+from PIL import Image
 
 from .test_pdf_processing import build_pdf
 
@@ -37,6 +39,14 @@ class RasterizeTests(unittest.TestCase):
     def test_invalid_pdf_raises_explicit_error(self) -> None:
         with self.assertRaises(OcrError):
             rasterize_page(b"nao eh pdf", 1)
+
+    def test_can_rotate_landscape_report_before_ocr(self) -> None:
+        body = build_pdf(["Conteúdo de teste"])
+
+        rotated = rasterize_page(body, 1, rotation_degrees=90)
+
+        image = Image.open(io.BytesIO(rotated))
+        self.assertGreater(image.width, image.height)
 
 
 class OcrPageTests(unittest.TestCase):

@@ -67,8 +67,15 @@ class TesseractEngine:
         return completed.stdout.decode("utf-8", "replace")
 
 
-def rasterize_page(pdf_bytes: bytes, page_number: int) -> bytes:
+def rasterize_page(
+    pdf_bytes: bytes,
+    page_number: int,
+    *,
+    rotation_degrees: int = 0,
+) -> bytes:
     """Renderiza uma página (1-indexada) do PDF em PNG a ~300 DPI."""
+    if rotation_degrees not in {0, 90, 180, 270}:
+        raise OcrError("Rotação do OCR deve ser 0, 90, 180 ou 270 graus.")
     try:
         import pypdfium2
     except ImportError as error:
@@ -82,6 +89,8 @@ def rasterize_page(pdf_bytes: bytes, page_number: int) -> bytes:
             page = document[page_number - 1]
             bitmap = page.render(scale=RENDER_SCALE)
             image = bitmap.to_pil()
+            if rotation_degrees:
+                image = image.rotate(rotation_degrees, expand=True)
         finally:
             document.close()
         buffer = io.BytesIO()
@@ -99,9 +108,17 @@ def ocr_page(
     engine: OcrEngine,
     pdf_bytes: bytes,
     page_number: int,
+    *,
+    rotation_degrees: int = 0,
 ) -> OcrPageResult:
     """OCR de uma página; página em branco vira texto vazio explícito."""
-    recognized = engine.image_to_text(rasterize_page(pdf_bytes, page_number))
+    recognized = engine.image_to_text(
+        rasterize_page(
+            pdf_bytes,
+            page_number,
+            rotation_degrees=rotation_degrees,
+        )
+    )
     normalized = sanitize_text(
         recognized.replace("\r\n", "\n").replace("\r", "\n")
     ).strip()
