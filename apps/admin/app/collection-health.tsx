@@ -103,14 +103,19 @@ function formatPeriod(item: CollectionHealthItem): string {
   return startLabel === endLabel ? startLabel : `${startLabel} a ${endLabel}`;
 }
 
-function formatLag(item: CollectionHealthItem): string {
-  if (!item.latest_period_end || !item.latest_attempted_at) return "Sem período comparável";
+function collectionLagDays(item: CollectionHealthItem): number | null {
+  if (!item.latest_period_end || !item.latest_attempted_at) return null;
   const periodEnd = new Date(`${item.latest_period_end}T23:59:59-03:00`).getTime();
   const attemptedAt = new Date(item.latest_attempted_at).getTime();
   if (!Number.isFinite(periodEnd) || !Number.isFinite(attemptedAt)) {
-    return "Sem período comparável";
+    return null;
   }
-  const days = Math.max(0, Math.floor((attemptedAt - periodEnd) / 86_400_000));
+  return Math.max(0, Math.floor((attemptedAt - periodEnd) / 86_400_000));
+}
+
+function formatLag(item: CollectionHealthItem): string {
+  const days = collectionLagDays(item);
+  if (days === null) return "Sem período comparável";
   if (days === 0) return "Sem atraso mensurável";
   return `${days.toLocaleString("pt-BR")} dia${days === 1 ? "" : "s"} após o fim do período`;
 }
@@ -140,6 +145,15 @@ export function CollectionHealth({
       ].join(" "),
     ).includes(term),
   );
+  const prioritized = [...visible].sort((left, right) => {
+    const toneRank = (item: CollectionHealthItem): number => {
+      const tone = healthTone(item);
+      return tone === "failed" ? 0 : tone === "attention" ? 1 : tone === "unknown" ? 2 : 3;
+    };
+    const toneDifference = toneRank(left) - toneRank(right);
+    if (toneDifference !== 0) return toneDifference;
+    return (collectionLagDays(right) ?? -1) - (collectionLagDays(left) ?? -1);
+  });
   const withoutCoverage = items.filter(
     (item) => item.latest_partition_status === null,
   ).length;
@@ -215,7 +229,7 @@ export function CollectionHealth({
             <div className="empty-state">Nenhuma fonte corresponde à busca.</div>
           ) : null}
           <div className="source-health-list">
-            {visible.map((item) => (
+            {prioritized.map((item) => (
               <CollectionHealthCard item={item} key={item.endpoint_id} />
             ))}
           </div>
