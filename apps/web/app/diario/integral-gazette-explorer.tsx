@@ -71,8 +71,12 @@ function DocumentDetails({
 
 export function IntegralGazetteExplorer({
   editions,
-}: Readonly<{ editions: readonly IntegralGazetteEdition[] }>) {
-  const [query, setQuery] = useState("");
+  initialQuery = "",
+}: Readonly<{
+  editions: readonly IntegralGazetteEdition[];
+  initialQuery?: string;
+}>) {
+  const [query, setQuery] = useState(initialQuery);
   const visibleEditions = useMemo(
     () =>
       editions
