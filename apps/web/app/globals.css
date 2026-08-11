@@ -2019,6 +2019,47 @@ footer {
   text-align: right;
 }
 
+.diary-global-search {
+  margin: 1.5rem 0 0;
+  padding: 1rem;
+  border: 1px solid rgba(55, 91, 232, 0.16);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.diary-global-search label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #4f5d73;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.diary-global-search div {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.diary-global-search input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #d7dfed;
+  border-radius: 0.7rem;
+  padding: 0.72rem 0.85rem;
+  color: #182033;
+  background: #fff;
+}
+
+.diary-global-search button {
+  border: 0;
+  border-radius: 0.7rem;
+  padding: 0.72rem 1rem;
+  color: #fff;
+  background: #315fd4;
+  font-weight: 750;
+  cursor: pointer;
+}
+
 @media (max-width: 640px) {
   .diary-pagination {
     grid-template-columns: 1fr 1fr;

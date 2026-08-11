@@ -50,7 +50,7 @@ function CatalogPendingNotice({
 }
 
 type DiaryPageProps = Readonly<{
-  searchParams: Promise<{ pagina?: string }>;
+  searchParams: Promise<{ pagina?: string; q?: string }>;
 }>;
 
 function pageNumberFromSearchParams(value: string | undefined): number {
@@ -64,10 +64,13 @@ export default async function IntegralDiaryPage({
   const params = await searchParams;
   const pageNumber = pageNumberFromSearchParams(params.pagina);
   const pageSize = 20;
+  const query = typeof params.q === "string" ? params.q.trim().slice(0, 120) : "";
+  const querySuffix = query ? `&q=${encodeURIComponent(query)}` : "";
   const [integralResult, catalogResult, collectionStatus] = await Promise.all([
     getIntegralGazetteEditions({
       pageSize,
       offset: (pageNumber - 1) * pageSize,
+      query,
     }),
     getOfficialDiaryCatalog(),
     getQueridoDiarioCollectionStatus(),
@@ -132,6 +135,21 @@ export default async function IntegralDiaryPage({
           ) : null}
         </div>
 
+        <form className="diary-global-search" method="get">
+          <label htmlFor="diary-global-query">Buscar em todo o acervo integral</label>
+          <div>
+            <input
+              id="diary-global-query"
+              name="q"
+              type="search"
+              defaultValue={query}
+              placeholder="nome, número, órgão ou palavra"
+            />
+            <button type="submit">Buscar</button>
+          </div>
+          {pageNumber > 1 ? <input type="hidden" name="pagina" value="1" /> : null}
+        </form>
+
         {editions.length === 0 && catalogEntries.length > 0 ? (
           <CatalogPendingNotice entries={catalogEntries} />
         ) : editions.length === 0 ? (
@@ -146,14 +164,14 @@ export default async function IntegralDiaryPage({
           </div>
         ) : (
           <>
-            <IntegralGazetteExplorer editions={editions} />
+            <IntegralGazetteExplorer editions={editions} initialQuery={query} />
             {integralResult.state === "available" ? (
               <nav
                 className="diary-pagination"
                 aria-label="Paginação do Diário Oficial"
               >
                 {pageNumber > 1 ? (
-                  <a href={`/diario?pagina=${pageNumber - 1}`}>
+                  <a href={`/diario?pagina=${pageNumber - 1}${querySuffix}`}>
                     ← Edições mais recentes
                   </a>
                 ) : (
@@ -164,7 +182,7 @@ export default async function IntegralDiaryPage({
                   {integralResult.offset + editions.length}
                 </span>
                 {integralResult.hasMore ? (
-                  <a href={`/diario?pagina=${pageNumber + 1}`}>
+                  <a href={`/diario?pagina=${pageNumber + 1}${querySuffix}`}>
                     Edições anteriores →
                   </a>
                 ) : (

@@ -37,6 +37,7 @@ export type IntegralGazetteResult =
 export type IntegralGazettePageOptions = Readonly<{
   pageSize?: number;
   offset?: number;
+  query?: string;
 }>;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -180,11 +181,13 @@ export async function getIntegralGazetteEditions(
 ): Promise<IntegralGazetteResult> {
   const pageSize = options.pageSize ?? 20;
   const offset = options.offset ?? 0;
+  const query = options.query?.trim() ?? "";
   if (
     !positiveInteger(pageSize) ||
     pageSize > 100 ||
     !Number.isSafeInteger(offset) ||
-    offset < 0
+    offset < 0 ||
+    query.length > 120
   ) {
     return { state: "unavailable" };
   }
@@ -204,7 +207,7 @@ export async function getIntegralGazetteEditions(
   }
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_integral_gazette_editions_page`,
+      `${supabaseUrl}/rest/v1/rpc/${query ? "search_integral_gazette_editions" : "get_integral_gazette_editions_page"}`,
       {
         method: "POST",
         headers: {
@@ -214,10 +217,18 @@ export async function getIntegralGazetteEditions(
           "Content-Profile": "api",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          page_size: requestPageSize,
-          page_offset: offset,
-        }),
+        body: JSON.stringify(
+          query
+            ? {
+                query_text: query,
+                page_size: requestPageSize,
+                page_offset: offset,
+              }
+            : {
+                page_size: requestPageSize,
+                page_offset: offset,
+              },
+        ),
         next: { revalidate: 300 },
         signal: AbortSignal.timeout(5_000),
       },

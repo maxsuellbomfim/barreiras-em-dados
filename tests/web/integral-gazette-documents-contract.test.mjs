@@ -28,6 +28,14 @@ test("paginacao do diario integral usa RPC com offset e navegacao publica", () =
   assert.match(page, /Edi/);
 });
 
+test("busca global mantém o termo e pagina sem expor tabelas brutas", () => {
+  assert.match(client, /search_integral_gazette_editions/);
+  assert.match(client, /query_text/);
+  assert.match(page, /diary-global-query/);
+  assert.match(page, /querySuffix/);
+  assert.match(explorer, /initialQuery/);
+});
+
 test("contrato público usa a RPC integral e rejeita payload incompleto", () => {
   assert.match(client, /get_integral_gazette_editions/);
   assert.match(client, /function parseIntegralGazetteEdition/);
