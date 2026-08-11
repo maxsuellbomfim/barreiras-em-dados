@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from collections.abc import Callable
 
@@ -20,6 +21,7 @@ from .public_obligation_publisher import (
 # Os balancetes problemáticos conhecidos estão rotacionados para a direita.
 # Começar por 270° também mantém o diagnóstico útil dentro do limite do log.
 _ROTATIONS = (270, 90, 0)
+_AMOUNTISH = re.compile(r"\d[\d.]*,\d{1,2}")
 
 
 def _fold(value: str) -> str:
@@ -52,7 +54,12 @@ def _diagnostic_excerpt(text: str) -> str:
         if folded[index] == "TRANSFERENCIA FINANCEIRA"
     ]
     end = boundaries[0] if boundaries else len(lines)
-    excerpt = " | ".join(lines[max(start, end - 16) : end])
+    selected = [
+        line
+        for line in lines[start:end]
+        if _AMOUNTISH.search(line) or _fold(line) == "TOTAL"
+    ]
+    excerpt = " | ".join(selected)
     return excerpt[-500:]
 
 
