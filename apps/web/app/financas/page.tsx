@@ -275,6 +275,13 @@ export default async function FinancesPage() {
             A leitura principal é “Pago”: ela responde quanto saiu do caixa. Os
             demais números ajudam a acompanhar o caminho da despesa.
           </p>
+          <p className="finance-guide-note">
+            <strong>Como conferimos:</strong> cada valor precisa apontar para o
+            mesmo registro e a mesma URL do PDF oficial. Se esse vínculo não
+            puder ser provado, o valor fica fora dos totais até a correção.
+            A versão anterior permanece no histórico de auditoria; ausência de
+            valor nunca significa arrecadação ou gasto zero.
+          </p>
         </section>
 
         <section className="finance-status-panel" aria-labelledby="finance-status-title">

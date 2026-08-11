@@ -10,6 +10,7 @@ const migration = await readFile(
   "utf8",
 );
 const client = await readFile(new URL("../../apps/web/lib/finance-coverage.ts", import.meta.url), "utf8");
+const page = await readFile(new URL("../../apps/web/app/financas/page.tsx", import.meta.url), "utf8");
 
 test("projeção de cobertura separa ausência de zero", () => {
   assert.match(migration, /get_public_finance_coverage/);
@@ -24,4 +25,11 @@ test("cliente público valida a metodologia e estados", () => {
   assert.match(client, /finance-coverage\/1\.1\.0/);
   assert.match(client, /PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY/);
   assert.match(client, /coverageStatus/);
+});
+
+test("página explica ao cidadão como fonte, correção e ausência são tratadas", () => {
+  assert.match(page, /mesmo registro e a mesma URL do PDF oficial/);
+  assert.match(page, /fica fora dos totais até a correção/);
+  assert.match(page, /A versão anterior permanece no histórico de auditoria/);
+  assert.match(page, /nunca significa arrecadação ou gasto zero/);
 });
