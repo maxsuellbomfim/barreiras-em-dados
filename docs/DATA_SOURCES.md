@@ -43,6 +43,19 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | SPU | imóveis da União em Barreiras | P4 | fonte territorial; não é patrimônio privado |
 | CNJ/DataJud | metadados processuais sem partes no schema público | bloqueada | gate jurídico |
 
+## Fontes para dívidas e obrigações municipais
+
+O Portal da Transparência da Prefeitura publica `balancetes`,
+`pdc-contas-anuais`, `rreo` e `rgf`. Esses recursos são preservados como
+documentos-base para localizar empréstimos, precatórios, restos a pagar e
+outros passivos.
+
+Nenhum desses documentos, isoladamente, representa o total da dívida do
+Município. A consolidação futura exigirá natureza da obrigação, competência,
+saldo inicial e final, baixas, retificações e reconciliação com SICONFI e
+prestações do TCM-BA. `pdc-relacao-de-divida-ativa` não entra nesse total:
+dívida ativa é crédito a receber pelo Município, não obrigação a pagar.
+
 ## Catálogo oficial do Diário de Barreiras
 
 - catálogo: `https://pmbarreiras.diariomtransparente.com.br/publicacoes`;

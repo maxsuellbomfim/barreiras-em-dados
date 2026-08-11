@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
 from itertools import islice
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from ..collection_control import (
@@ -49,6 +50,8 @@ DEFAULT_RESOURCE = "pdc-resumo-execucao-da-receita"
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 FINANCIAL_DOCUMENT_RESOURCES = frozenset(
     {
+        "balancetes",
+        "pdc-contas-anuais",
         "pdc-receita-tributaria",
         "pdc-recursos-extraordinarios",
         "pdc-resumo-execucao-da-receita",
@@ -73,6 +76,15 @@ def resolve_endpoint_code(source: str, resource: str) -> str:
     return "dados-abertos-api"
 
 
+def resolve_municipal_document_role(url: str) -> str | None:
+    """Aceita somente formatos cuja integridade já é validada pelo coletor."""
+
+    path = urlsplit(url).path.lower()
+    if path.endswith(".pdf"):
+        return "pdf"
+    return None
+
+
 @dataclass(frozen=True)
 class MunicipalTransparencyCollectionSummary:
     pages: int
@@ -80,6 +92,7 @@ class MunicipalTransparencyCollectionSummary:
     existing_records: int
     documents_persisted: int
     documents_failed: int
+    documents_skipped: int
     pagination_capped: bool
     availability_partial: bool
     next_offset: int
@@ -91,7 +104,12 @@ class MunicipalTransparencyCollectionSummary:
 
     @property
     def outcome(self) -> CollectionOutcome:
-        if self.documents_failed or self.pagination_capped or self.availability_partial:
+        if (
+            self.documents_failed
+            or self.documents_skipped
+            or self.pagination_capped
+            or self.availability_partial
+        ):
             return CollectionOutcome.PARTIAL
         if self.observed_records == 0:
             return CollectionOutcome.EMPTY
@@ -116,6 +134,7 @@ def execute_controlled_municipal_transparency(
                 "existing_records": summary.existing_records,
                 "documents_persisted": summary.documents_persisted,
                 "documents_failed": summary.documents_failed,
+                "documents_skipped": summary.documents_skipped,
                 "pagination_capped": summary.pagination_capped,
                 "availability_partial": summary.availability_partial,
                 "start_offset": summary.start_offset,
@@ -304,6 +323,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_pages=args.max_pages,
         documents_persisted=summary.documents_persisted,
         documents_failed=summary.documents_failed,
+        documents_skipped=summary.documents_skipped,
         pagination_capped=summary.pagination_capped,
         availability_partial=summary.availability_partial,
         start_offset=summary.start_offset,
@@ -378,6 +398,7 @@ def _collect_resource(
     existing_records = 0
     persisted_documents = 0
     failed_documents = 0
+    skipped_documents = 0
     last_page_size = 0
     availability_partial = False
     try:
@@ -392,10 +413,22 @@ def _collect_resource(
                     document_url = item.get("url")
                     if not isinstance(document_url, str) or not document_url.strip():
                         continue
+                    document_role = resolve_municipal_document_role(document_url)
+                    if document_role is None:
+                        skipped_documents += 1
+                        log_event(
+                            logger,
+                            logging.INFO,
+                            "collector_municipal_transparency_document_skipped",
+                            source=source_code,
+                            resource=page.resource,
+                            reason="unsupported_document_format",
+                        )
+                        continue
                     try:
                         document = document_client.fetch(
                             document_url.strip(),
-                            role="pdf",
+                            role=document_role,
                         )
                         service.persist_document(
                             page_result=result,
@@ -442,6 +475,7 @@ def _collect_resource(
                 existing_records=result.existing_records,
                 documents_persisted=persisted_documents,
                 documents_failed=failed_documents,
+                documents_skipped=skipped_documents,
             )
     except MunicipalTransparencyAvailabilityError as error:
         if not allow_partial or persisted_pages == 0:
@@ -460,6 +494,7 @@ def _collect_resource(
             error=str(error),
             documents_persisted=persisted_documents,
             documents_failed=failed_documents,
+            documents_skipped=skipped_documents,
         )
 
     pagination_capped = persisted_pages == max_pages and last_page_size == limit
@@ -474,6 +509,7 @@ def _collect_resource(
         existing_records=existing_records,
         documents_persisted=persisted_documents,
         documents_failed=failed_documents,
+        documents_skipped=skipped_documents,
         pagination_capped=pagination_capped,
         availability_partial=availability_partial,
         next_offset=next_offset,

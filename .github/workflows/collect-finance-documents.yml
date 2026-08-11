@@ -33,6 +33,8 @@ on:
         type: choice
         options:
           - "all"
+          - "balancetes"
+          - "pdc-contas-anuais"
           - "pdc-receita-tributaria"
           - "pdc-recursos-extraordinarios"
           - "pdc-resumo-execucao-da-receita"
@@ -70,7 +72,7 @@ jobs:
         resource: >-
           ${{ fromJSON(
             (inputs.resource == '' || inputs.resource == 'all')
-              && '["pdc-receita-tributaria","pdc-recursos-extraordinarios","pdc-resumo-execucao-da-receita","pdc-resumo-execucao-da-despesa","pdc-transferencia","pdc-emendas-parlamentares-receitas","rreo","rgf"]'
+              && '["balancetes","pdc-contas-anuais","pdc-receita-tributaria","pdc-recursos-extraordinarios","pdc-resumo-execucao-da-receita","pdc-resumo-execucao-da-despesa","pdc-transferencia","pdc-emendas-parlamentares-receitas","rreo","rgf"]'
               || format('["{0}"]', inputs.resource)
           ) }}
     env:

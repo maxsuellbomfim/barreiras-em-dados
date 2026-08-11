@@ -62,6 +62,13 @@ function isFiscalDocument(document: { sourceResource: string }): boolean {
   return document.sourceResource === "rreo" || document.sourceResource === "rgf";
 }
 
+function isObligationDocument(document: { sourceResource: string }): boolean {
+  return (
+    document.sourceResource === "balancetes" ||
+    document.sourceResource === "pdc-contas-anuais"
+  );
+}
+
 function sortNewest<T extends { revenueDate?: string | null; referenceDate?: string | null; collectedAt: string }>(
   rows: readonly T[],
   dateKey: "revenueDate" | "referenceDate",
@@ -194,7 +201,10 @@ export default async function FinancesPage() {
   const sortedRevenues = sortNewest(revenues, "revenueDate");
   const sortedDocuments = sortNewest(documents, "referenceDate");
   const fiscalDocuments = sortedDocuments.filter(isFiscalDocument);
-  const operationalDocuments = sortedDocuments.filter((document) => !isFiscalDocument(document));
+  const obligationDocuments = sortedDocuments.filter(isObligationDocument);
+  const operationalDocuments = sortedDocuments.filter(
+    (document) => !isFiscalDocument(document) && !isObligationDocument(document),
+  );
   const sortedExpenseReports = [...expenseReports].sort((left, right) =>
     right.periodEnd.localeCompare(left.periodEnd),
   );
@@ -299,8 +309,12 @@ export default async function FinancesPage() {
             </article>
             <article className="finance-glance-card finance-debt-card">
               <span>Dívida registrada</span>
-              <strong>Ainda não publicada</strong>
-              <small>Estamos integrando empréstimos, precatórios e restos a pagar.</small>
+              <strong>
+                {obligationDocuments.length > 0
+                  ? `${obligationDocuments.length.toLocaleString("pt-BR")} documentos em apuração`
+                  : "Fontes em integração"}
+              </strong>
+              <small>Nenhum total é publicado antes da reconciliação das obrigações.</small>
             </article>
           </div>
         </section>
@@ -708,6 +722,78 @@ export default async function FinancesPage() {
             </details>
           </section>
         ) : null}
+
+        <section aria-labelledby="obligation-document-title" className="finance-documents finance-obligation-documents">
+          <div className="section-heading compact">
+            <span className="eyebrow">Passivos públicos</span>
+            <h2 id="obligation-document-title">Dívidas e obrigações em apuração</h2>
+            <p>
+              Balancetes, contas anuais e RGF são fontes para identificar empréstimos,
+              precatórios, restos a pagar e outras obrigações. Um documento isolado não
+              representa o total da dívida municipal; os valores só serão consolidados
+              depois de reconciliar período, natureza, saldo e retificações.
+            </p>
+          </div>
+          {obligationDocuments.length === 0 ? (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Documentos-base ainda não preservados nesta projeção</strong>
+                <p>
+                  A coleta foi preparada para balancetes e contas anuais. Enquanto os
+                  artefatos não forem preservados e validados, o portal não exibirá um
+                  número de dívida sem sustentação.
+                </p>
+                <a
+                  href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Consultar a fonte oficial →
+                </a>
+              </div>
+            </div>
+          ) : (
+            <details className="finance-details">
+              <summary>
+                Ver {obligationDocuments.length.toLocaleString("pt-BR")} documentos-base
+              </summary>
+              <div className="digest-grid">
+                {obligationDocuments.map((document) => (
+                  <article className="digest-card finance-debt-card" key={document.documentId}>
+                    <div className="track-top">
+                      <span>{financeResourceLabel(document.sourceResource)}</span>
+                      <span className="track-status">
+                        {document.fiscalYear ?? "ano não informado"}
+                      </span>
+                    </div>
+                    <h3 className="procurement-object">{document.title}</h3>
+                    <dl className="procurement-values">
+                      <div>
+                        <dt>Referência</dt>
+                        <dd>{document.referenceDate ?? "não informada"}</dd>
+                      </div>
+                      {document.description ? (
+                        <div>
+                          <dt>Descrição</dt>
+                          <dd>{document.description}</dd>
+                        </div>
+                      ) : null}
+                    </dl>
+                    <p className="act-evidence">
+                      <a href={document.documentUrl} target="_blank" rel="noreferrer">
+                        Abrir documento oficial →
+                      </a>{" "}
+                      · resposta da API preservada · {document.documentPreserved
+                        ? "documento preservado"
+                        : "documento ainda não preservado"}{" "}
+                      · hash {document.artifactSha256.slice(0, 12)}…
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </details>
+          )}
+        </section>
 
         <section aria-labelledby="document-title" className="finance-documents">
           <div className="section-heading compact">

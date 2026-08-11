@@ -23,3 +23,9 @@ test("coleta financeira permite backfill por recurso e documentos grandes", () =
   assert.doesNotMatch(workflow, /jobs:[\s\S]*if: \$\{\{[^\n]*matrix\.resource/);
   assert.match(workflow, /MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES: \"268435456\"/);
 });
+
+test("coleta financeira preserva fontes oficiais de dividas e obrigacoes", () => {
+  assert.match(workflow, /balancetes/);
+  assert.match(workflow, /pdc-contas-anuais/);
+  assert.match(workflow, /rgf/);
+});
