@@ -552,6 +552,40 @@ try {
     calculation_methodology: "monthly-finance-closure/1.1.0",
   }]);
 
+  await database.exec("set role anon");
+  const publicMonthlyDetail = await database.query(`
+    select
+      closure_status,
+      operational_difference_amount,
+      jsonb_array_length(revenue_documents) as revenue_document_count,
+      jsonb_array_length(expense_documents) as expense_document_count,
+      revenue_documents #>> '{0,document_url}' as first_revenue_document_url,
+      revenue_documents #>> '{0,artifact_sha256}' as first_revenue_hash,
+      expense_documents #>> '{0,document_url}' as first_expense_document_url,
+      expense_documents #>> '{0,artifact_sha256}' as first_expense_hash,
+      evidence_methodology
+    from api.get_public_monthly_finance_detail('2026-06-01'::date)
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(publicMonthlyDetail.rows, [{
+    closure_status: "needs_review",
+    operational_difference_amount: null,
+    revenue_document_count: 2,
+    expense_document_count: 2,
+    first_revenue_document_url:
+      "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-junho-2026.pdf",
+    first_revenue_hash: "d".repeat(64),
+    first_expense_document_url:
+      "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-junho-2026.pdf",
+    first_expense_hash: "d".repeat(64),
+    evidence_methodology: "public-monthly-finance-detail/1.0.0",
+  }]);
+
+  await rejects(
+    "select * from api.get_public_monthly_finance_detail('2026-06-15'::date)",
+    /primeiro dia do mes/,
+  );
+
   const publicFinanceCoverage = await database.query(`
     select
       revenue_report_count,

@@ -238,8 +238,12 @@ antes de publicar qualquer consolidação.
 O painel administrativo passa a diagnosticar cada competência desde 2021 como
 pronta, incompleta, duplicada ou bloqueada. O diagnóstico distingue vínculo
 direto, correção versionada de proveniência e pendência documental sem usar IA
-ou recalcular valores. A próxima menor fatia é levar essa explicação ao detalhe
-público do mês, com links para os documentos que sustentam receita e despesa.
+ou recalcular valores. A explicação chegou ao detalhe público de cada mês, com
+estágios contábeis separados, diferença operacional condicionada à
+reconciliação e links para os documentos e hashes que sustentam receita e
+despesa. A próxima menor fatia é normalizar uma família real de dívidas ou
+empréstimos e relacioná-la às competências sem confundir saldo de obrigação com
+despesa paga no mês.
 
 Gate:
 
