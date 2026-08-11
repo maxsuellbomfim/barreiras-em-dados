@@ -16,8 +16,8 @@ from .public_obligation_pdf import (
 )
 from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
 
-PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.3.0"
-PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.3.0"
+PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.4.0"
+PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.4.0"
 
 
 @dataclass(frozen=True)
@@ -78,6 +78,13 @@ class PublicObligationPublicationRepository(Protocol):
         *,
         error_code: str,
         error_detail: str,
+    ) -> None: ...
+
+    def record_section_absent(
+        self,
+        artifact: PublicObligationArtifact,
+        *,
+        detail: str,
     ) -> None: ...
 
 
@@ -266,7 +273,7 @@ class PostgresPublicObligationPublicationRepository:
                       from raw.extraction_jobs as job
                       where job.raw_artifact_id = document.id
                         and job.job_type = %s
-                        and job.status = 'failed'
+                        and job.status in ('failed', 'succeeded', 'dead_lettered')
                     )
                   order by document.id, record.created_at desc, record.id desc
                 )
@@ -436,6 +443,74 @@ class PostgresPublicObligationPublicationRepository:
                     _failure_key(artifact.sha256),
                     error_code,
                     error_detail[:1000],
+                ),
+            )
+        finally:
+            connection.close()
+
+    def record_section_absent(
+        self,
+        artifact: PublicObligationArtifact,
+        *,
+        detail: str,
+    ) -> None:
+        """Registra ausência comprovada como resultado terminal, não como zero."""
+        connection = self.connection_factory()
+        try:
+            connection.execute(
+                """
+                with terminal_job as (
+                  insert into raw.extraction_jobs (
+                    raw_artifact_id, job_type, idempotency_key, status,
+                    attempt_count
+                  ) values (
+                    %s::uuid, %s, %s, 'succeeded', 1
+                  )
+                  on conflict (idempotency_key) do update set
+                    status = 'succeeded',
+                    attempt_count = raw.extraction_jobs.attempt_count + 1,
+                    last_error_code = null,
+                    last_error_detail = null,
+                    updated_at = statement_timestamp()
+                  returning id
+                )
+                insert into raw.extraction_results (
+                  extraction_job_id, candidate_type, extractor_version,
+                  validator_version, result_payload, confidence,
+                  validation_status, validation_errors
+                )
+                select
+                  terminal_job.id, 'public_obligation_section_absent', %s, %s,
+                  %s::jsonb, 1.0, 'valid', '[]'::jsonb
+                from terminal_job
+                where not exists (
+                  select 1
+                  from raw.extraction_results as existing
+                  where existing.extraction_job_id = terminal_job.id
+                    and existing.candidate_type
+                      = 'public_obligation_section_absent'
+                    and existing.extractor_version = %s
+                )
+                """,
+                (
+                    artifact.id,
+                    PUBLIC_OBLIGATION_JOB_TYPE,
+                    _failure_key(artifact.sha256),
+                    PUBLIC_OBLIGATION_METHODOLOGY,
+                    PUBLIC_OBLIGATION_METHODOLOGY,
+                    json.dumps(
+                        {
+                            "classification": "absent_in_source_document",
+                            "detail": detail[:500],
+                            "fiscal_year": artifact.fiscal_year,
+                            "reference_month": artifact.reference_month,
+                            "source_url": artifact.source_url,
+                            "content_sha256": artifact.sha256,
+                        },
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ),
+                    PUBLIC_OBLIGATION_METHODOLOGY,
                 ),
             )
         finally:

@@ -7,6 +7,9 @@ from decimal import Decimal
 from barreiras_normalization.public_obligation_ocr import (
     PublicObligationOcrExtractor,
 )
+from barreiras_normalization.public_obligation_pdf import (
+    PublicObligationSectionAbsentError,
+)
 
 
 @dataclass(frozen=True)
@@ -105,6 +108,44 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
                 b"%PDF fixture",
                 fiscal_year=2026,
                 reference_month=1,
+            )
+
+    def test_classifies_section_as_absent_when_every_page_has_embedded_text(self):
+        extractor = PublicObligationOcrExtractor(
+            engine=FakeEngine(),
+            pdf_text_deriver=lambda _body: FakePdf(
+                (
+                    FakePage(1, "demonstrativo orcamentario"),
+                    FakePage(2, "assinaturas e encerramento"),
+                )
+            ),
+            page_ocr=lambda *_args, **_kwargs: self.fail("OCR nao deveria rodar"),
+        )
+
+        with self.assertRaisesRegex(
+            PublicObligationSectionAbsentError,
+            "fonte oficial",
+        ):
+            extractor.extract(
+                b"%PDF fixture",
+                fiscal_year=2021,
+                reference_month=3,
+            )
+
+    def test_does_not_classify_absence_when_a_page_has_no_embedded_text(self):
+        extractor = PublicObligationOcrExtractor(
+            engine=FakeEngine(),
+            pdf_text_deriver=lambda _body: FakePdf(
+                (FakePage(1, "capa"), FakePage(2, None))
+            ),
+            page_ocr=lambda *_args, **_kwargs: self.fail("OCR nao deveria rodar"),
+        )
+
+        with self.assertRaisesRegex(ValueError, "RESTOS A PAGAR"):
+            extractor.extract(
+                b"%PDF fixture",
+                fiscal_year=2021,
+                reference_month=3,
             )
 
     def test_uses_unique_totals_footer_to_locate_legacy_restos_pages(self):

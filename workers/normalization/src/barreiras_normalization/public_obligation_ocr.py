@@ -11,6 +11,7 @@ from barreiras_docproc.pdf_text import PdfCanonicalText, derive_pdf_text
 
 from .public_obligation_pdf import (
     PublicObligationPdfContractError,
+    PublicObligationSectionAbsentError,
     PublicObligationStructuralError,
     parse_restos_a_pagar_summary,
 )
@@ -123,6 +124,15 @@ class PublicObligationOcrExtractor:
                 for page in pdf.pages
                 if _has_section_totals_footer(page.text)
             ]
+            if (
+                not section_pages
+                and not footer_pages
+                and pdf.pages
+                and all(page.text for page in pdf.pages)
+            ):
+                raise PublicObligationSectionAbsentError(
+                    "A fonte oficial integral não contém a seção RESTOS A PAGAR."
+                )
             if len(section_pages) != 0 or len(footer_pages) != 1:
                 raise ValueError(
                     "OCR exige uma seção RESTOS A PAGAR inequívoca."

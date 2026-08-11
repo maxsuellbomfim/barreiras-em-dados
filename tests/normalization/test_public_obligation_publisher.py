@@ -85,11 +85,11 @@ class PublicObligationPublisherTests(unittest.TestCase):
     def test_failure_job_type_is_versioned_for_auditable_retry(self):
         self.assertEqual(
             PUBLIC_OBLIGATION_JOB_TYPE,
-            "public_obligation_balancete_publication/1.3.0",
+            "public_obligation_balancete_publication/1.4.0",
         )
         self.assertEqual(
             PUBLIC_OBLIGATION_METHODOLOGY,
-            "public-obligations-balancete/1.3.0",
+            "public-obligations-balancete/1.4.0",
         )
 
     def test_pending_documents_accepts_reference_keys_from_current_api(self):
@@ -141,6 +141,10 @@ class PublicObligationPublisherTests(unittest.TestCase):
             (2026, 2026, PUBLIC_OBLIGATION_JOB_TYPE, 1),
         )
         self.assertTrue(connection.closed)
+        self.assertIn(
+            "job.status in ('failed', 'succeeded', 'dead_lettered')",
+            normalized_query,
+        )
 
     def test_pending_documents_selects_only_monthly_reports_in_period_order(self):
         connection = CapturingConnection([])
@@ -164,6 +168,24 @@ class PublicObligationPublisherTests(unittest.TestCase):
             "order by fiscal_year asc, reference_month asc, created_at asc, id",
             normalized_query,
         )
+
+    def test_records_source_section_absence_as_terminal_valid_result(self):
+        connection = CapturingConnection([])
+        repository = PostgresPublicObligationPublicationRepository(
+            lambda: connection
+        )
+
+        repository.record_section_absent(
+            artifact_for(),
+            detail="O balancete oficial nao contem a secao RESTOS A PAGAR.",
+        )
+
+        normalized_query = " ".join(connection.query.lower().split())
+        self.assertIn("insert into raw.extraction_jobs", normalized_query)
+        self.assertIn("'succeeded'", normalized_query)
+        self.assertIn("insert into raw.extraction_results", normalized_query)
+        self.assertIn("public_obligation_section_absent", normalized_query)
+        self.assertTrue(connection.closed)
 
     def test_rejects_tampered_pdf_before_persisting(self):
         repository = FakeRepository()

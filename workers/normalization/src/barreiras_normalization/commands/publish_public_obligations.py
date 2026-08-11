@@ -12,7 +12,10 @@ from barreiras_docproc.ocr import OcrError, TesseractEngine
 from barreiras_docproc.pdf_text import derive_pdf_layout_text
 
 from ..public_obligation_ocr import PublicObligationOcrExtractor
-from ..public_obligation_pdf import PublicObligationPdfContractError
+from ..public_obligation_pdf import (
+    PublicObligationPdfContractError,
+    PublicObligationSectionAbsentError,
+)
 from ..public_obligation_publisher import (
     PostgresPublicObligationPublicationRepository,
     PublicObligationPublisher,
@@ -64,6 +67,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     published = 0
     already_published = 0
     validated = 0
+    source_absent = 0
     failed = 0
     artifacts = repository.pending_documents(
         limit=args.limit,
@@ -98,6 +102,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 continue
             result = publisher.publish(artifact)
+        except PublicObligationSectionAbsentError as error:
+            source_absent += 1
+            if not args.dry_run:
+                repository.record_section_absent(artifact, detail=str(error))
+            logger.info(
+                "public_obligation_section_absent artifact=%s period=%04d-%02d "
+                "source=%s detail=%s",
+                artifact.id,
+                artifact.fiscal_year,
+                artifact.reference_month,
+                artifact.source_url,
+                str(error)[:500],
+            )
+            continue
         except (
             ArtifactMismatchError,
             CanonicalTextError,
@@ -125,11 +143,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     logger.info(
         "public_obligation_publication_completed artifacts=%s published=%s "
-        "already_published=%s validated=%s failed=%s dry_run=%s",
+        "already_published=%s validated=%s source_absent=%s failed=%s dry_run=%s",
         len(artifacts),
         published,
         already_published,
         validated,
+        source_absent,
         failed,
         args.dry_run,
     )

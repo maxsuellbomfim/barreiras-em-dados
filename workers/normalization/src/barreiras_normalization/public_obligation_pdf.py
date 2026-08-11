@@ -27,6 +27,10 @@ class PublicObligationStructuralError(PublicObligationPdfContractError):
     """Estrutura ausente ou incompleta pode justificar uma nova extração."""
 
 
+class PublicObligationSectionAbsentError(PublicObligationStructuralError):
+    """O documento integral legível não contém o demonstrativo procurado."""
+
+
 class PublicObligationArithmeticError(PublicObligationPdfContractError):
     """Valores declarados foram encontrados, mas não fecham aritmeticamente."""
 
@@ -118,6 +122,50 @@ def _interleaved_total_after_boundary(
     return max(candidates, key=lambda candidate: candidate[2])
 
 
+def _columnar_total_before_boundary(
+    lines: list[str],
+    folded: list[str],
+    *,
+    section_start: int,
+    boundary: int,
+) -> tuple[Decimal, Decimal, Decimal] | None:
+    """Reconstrói o total quando o PDF exporta cada coluna em um bloco.
+
+    Alguns balancetes rotacionados emitem primeiro todas as descrições, depois
+    todos os valores da coluna anterior, todos os valores do mês e, por fim,
+    todos os acumulados. O acumulado total é o último valor antes da próxima
+    seção. Aceitamos somente quando existe um marcador ``Total`` e há uma única
+    dupla ordenada cuja soma fecha exatamente nesse último valor.
+    """
+    total_markers = [
+        index
+        for index in range(section_start, boundary)
+        if folded[index] == "TOTAL"
+    ]
+    if len(total_markers) != 1:
+        return None
+
+    tokens = [
+        token
+        for line in lines[total_markers[0] + 1 : boundary]
+        for token in _AMOUNT_TOKEN.findall(line)
+    ]
+    if len(tokens) < 3:
+        return None
+
+    values = [parse_brl_amount(token) for token in tokens]
+    accumulated = values[-1]
+    matches = [
+        (prior, period, accumulated)
+        for prior_index, prior in enumerate(values[:-2])
+        for period in values[prior_index + 1 : -1]
+        if prior + period == accumulated
+    ]
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
 def parse_restos_a_pagar_summary(
     text: str,
     *,
@@ -177,6 +225,13 @@ def parse_restos_a_pagar_summary(
             section_start=start,
             boundary=end,
         )
+        if total_values is None:
+            total_values = _columnar_total_before_boundary(
+                lines,
+                folded,
+                section_start=start,
+                boundary=end,
+            )
     if total_values is None:
         raise PublicObligationStructuralError(
             "total de restos a pagar nao encontrado antes da proxima secao"

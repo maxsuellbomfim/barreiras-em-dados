@@ -92,6 +92,60 @@ RP Processados - FMC_Fonte 1500 173.584,72
         self.assertEqual(summary.payments_period_amount, Decimal("667168.25"))
         self.assertEqual(summary.payments_to_date_amount, Decimal("45364644.06"))
 
+    def test_reconstructs_total_exported_as_three_column_blocks(self):
+        text = """\
+RESTOS A PAGAR
+213110101020214
+213110101020215
+Total
+2020 - Fonte 6102 RP Nao Processados - FMS
+2020 - Fonte 0214 RP Nao Processados - FMS
+422.276,40
+1.311.396,80
+22.354.323,42
+0,00
+705.359,18
+1.445.172,84
+422.276,40
+2.016.755,98
+23.799.496,26
+TRANSFERENCIA FINANCEIRA
+18.779.474,03 4.578.939,29 23.358.413,32
+"""
+
+        summary = parse_restos_a_pagar_summary(
+            text,
+            fiscal_year=2021,
+            reference_month=5,
+        )
+
+        self.assertEqual(summary.payments_prior_amount, Decimal("22354323.42"))
+        self.assertEqual(summary.payments_period_amount, Decimal("1445172.84"))
+        self.assertEqual(summary.payments_to_date_amount, Decimal("23799496.26"))
+
+    def test_rejects_ambiguous_column_block_totals(self):
+        text = """\
+RESTOS A PAGAR
+Total
+5,00
+7,00
+12,00
+5,00
+7,00
+12,00
+TRANSFERENCIA FINANCEIRA
+"""
+
+        with self.assertRaisesRegex(
+            PublicObligationPdfContractError,
+            "total de restos a pagar",
+        ):
+            parse_restos_a_pagar_summary(
+                text,
+                fiscal_year=2021,
+                reference_month=5,
+            )
+
     def test_does_not_capture_transfer_total_after_section_boundary(self):
         text = FIXTURE.read_text(encoding="utf-8").replace(
             "49.047.866,03 3.683.221,97 45.364.644,06\n",
