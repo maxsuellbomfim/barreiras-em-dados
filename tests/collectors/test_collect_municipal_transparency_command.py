@@ -5,11 +5,13 @@ from unittest.mock import patch
 
 from barreiras_collectors.commands.collect_municipal_transparency import (
     DEFAULT_RESOURCE,
+    FINANCIAL_DOCUMENT_RESOURCES,
     SOURCE_CONFIG,
     MunicipalTransparencyCollectionSummary,
     _bounded_env_int,
     execute_controlled_municipal_transparency,
     resolve_endpoint_code,
+    resolve_municipal_document_role,
     resolve_resume_offset,
 )
 
@@ -65,6 +67,24 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
         self.assertNotEqual(SOURCE_CONFIG["prefeitura"][0], SOURCE_CONFIG["camara"][0])
         self.assertEqual(DEFAULT_RESOURCE, "pdc-resumo-execucao-da-receita")
 
+    def test_financial_sources_include_obligation_evidence(self) -> None:
+        self.assertIn("balancetes", FINANCIAL_DOCUMENT_RESOURCES)
+        self.assertIn("pdc-contas-anuais", FINANCIAL_DOCUMENT_RESOURCES)
+        self.assertIn("rgf", FINANCIAL_DOCUMENT_RESOURCES)
+
+    def test_only_validated_pdf_format_is_downloaded(self) -> None:
+        self.assertEqual(
+            resolve_municipal_document_role(
+                "https://barreiras.mtransparente.com.br/contas.PDF?download=1"
+            ),
+            "pdf",
+        )
+        self.assertIsNone(
+            resolve_municipal_document_role(
+                "https://barreiras.mtransparente.com.br/contas.docx"
+            )
+        )
+
     def test_bounded_env_int_rejects_values_outside_safe_window(self) -> None:
         with patch.dict("os.environ", {"TEST_MUNICIPAL_LIMIT": "61"}, clear=False):
             with self.assertRaises(RuntimeError):
@@ -102,6 +122,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 existing_records=0,
                 documents_persisted=0,
                 documents_failed=0,
+                documents_skipped=0,
                 pagination_capped=False,
                 availability_partial=False,
                 next_offset=0,
@@ -137,6 +158,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 existing_records=30,
                 documents_persisted=4,
                 documents_failed=1,
+                documents_skipped=0,
                 pagination_capped=True,
                 availability_partial=False,
                 next_offset=150,
@@ -146,6 +168,21 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
         self.assertEqual(completed["outcome"].value, "partial")
         self.assertEqual(completed["observed_records"], 150)
         self.assertEqual(completed["checkpoint"], {"next_offset": 150})
+
+    def test_unsupported_document_keeps_collection_partial(self) -> None:
+        summary = MunicipalTransparencyCollectionSummary(
+            pages=1,
+            inserted_records=1,
+            existing_records=0,
+            documents_persisted=0,
+            documents_failed=0,
+            documents_skipped=1,
+            pagination_capped=False,
+            availability_partial=False,
+            next_offset=0,
+        )
+
+        self.assertEqual(summary.outcome.value, "partial")
 
 
 if __name__ == "__main__":
