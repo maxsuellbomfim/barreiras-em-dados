@@ -59,8 +59,12 @@ def _diagnostic_excerpt(text: str) -> str:
         for line in lines[start:end]
         if _AMOUNTISH.search(line) or _fold(line) == "TOTAL"
     ]
-    excerpt = " | ".join(selected)
-    return excerpt[-500:]
+    if len(selected) > 1:
+        return " | ".join(selected)[-1800:]
+    section = " | ".join(lines[start:end])
+    if len(section) <= 1800:
+        return section
+    return f"{section[:900]} | ... | {section[-900:]}"
 
 
 class PublicObligationOcrExtractor:
@@ -143,7 +147,7 @@ class PublicObligationOcrExtractor:
             )
 
         if not successes:
-            detail = "; ".join(errors)[:600]
+            detail = errors[0][:2200]
             raise ValueError(f"OCR não produziu total validado: {detail}")
         distinct = {extraction.summary for extraction in successes}
         if len(distinct) != 1:
