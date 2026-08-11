@@ -9,6 +9,7 @@ from datetime import date
 
 from barreiras_docproc.canonical import CanonicalTextError
 from barreiras_docproc.ocr import OcrError, TesseractEngine
+from barreiras_docproc.pdf_text import derive_pdf_layout_text
 
 from ..public_obligation_ocr import PublicObligationOcrExtractor
 from ..public_obligation_pdf import PublicObligationPdfContractError
@@ -55,6 +56,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         repository=repository,
         ocr_extractor=PublicObligationOcrExtractor(
             engine=TesseractEngine(page_segmentation_mode=6),
+            alternative_engines=(TesseractEngine(page_segmentation_mode=3),),
+            layout_text_deriver=derive_pdf_layout_text,
         ).extract,
     )
 

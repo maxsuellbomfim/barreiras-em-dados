@@ -11,6 +11,7 @@ from barreiras_docproc.pdf_text import PdfCanonicalText, derive_pdf_text
 
 from .public_obligation_pdf import (
     PublicObligationPdfContractError,
+    PublicObligationStructuralError,
     parse_restos_a_pagar_summary,
 )
 from .public_obligation_publisher import (
@@ -84,11 +85,15 @@ class PublicObligationOcrExtractor:
         self,
         *,
         engine: OcrEngine,
+        alternative_engines: tuple[OcrEngine, ...] = (),
         pdf_text_deriver: Callable[[bytes], PdfCanonicalText] = derive_pdf_text,
+        layout_text_deriver: Callable[[bytes], PdfCanonicalText] | None = None,
         page_ocr: Callable[..., OcrPageResult] = ocr_page,
     ) -> None:
         self.engine = engine
+        self.alternative_engines = alternative_engines
         self.pdf_text_deriver = pdf_text_deriver
+        self.layout_text_deriver = layout_text_deriver
         self.page_ocr = page_ocr
 
     def extract(
@@ -133,45 +138,72 @@ class PublicObligationOcrExtractor:
             raise ValueError(
                 "OCR exige uma seção RESTOS A PAGAR inequívoca."
             )
-        successes: list[PublicObligationExtraction] = []
-        errors: list[str] = []
-        for rotation in _ROTATIONS:
-            results = [
-                self.page_ocr(
-                    self.engine,
-                    raw_body,
-                    page_number,
-                    rotation_degrees=rotation,
-                )
-                for page_number in page_numbers
-            ]
-            recognized_text = "\n".join(result.text for result in results)
+
+        if self.layout_text_deriver is not None:
+            layout_pdf = self.layout_text_deriver(raw_body)
+            layout_text = "\n".join(
+                page.text or ""
+                for page in layout_pdf.pages
+                if page.page_number in page_numbers
+            )
             try:
                 summary = parse_restos_a_pagar_summary(
-                    recognized_text,
+                    layout_text,
                     fiscal_year=fiscal_year,
                     reference_month=reference_month,
                 )
-            except PublicObligationPdfContractError as error:
-                errors.append(
-                    f"{rotation}: {error}; "
-                    f"trecho={_diagnostic_excerpt(recognized_text)}"
-                )
-                continue
-            parser_versions = {result.parser_version for result in results}
-            if len(parser_versions) != 1:
-                raise ValueError("Páginas OCR usam versões de parser divergentes.")
-            successes.append(
-                PublicObligationExtraction(
+            except PublicObligationStructuralError:
+                pass
+            else:
+                return PublicObligationExtraction(
                     summary=summary,
                     provenance=PublicObligationExtractionProvenance(
-                        extraction_method="ocr",
-                        extraction_parser_version=parser_versions.pop(),
+                        extraction_method="embedded_layout",
+                        extraction_parser_version=layout_pdf.parser_version,
                         page_numbers=page_numbers,
-                        rotation_degrees=rotation,
                     ),
                 )
-            )
+
+        successes: list[PublicObligationExtraction] = []
+        errors: list[str] = []
+        for engine in (self.engine, *self.alternative_engines):
+            for rotation in _ROTATIONS:
+                results = [
+                    self.page_ocr(
+                        engine,
+                        raw_body,
+                        page_number,
+                        rotation_degrees=rotation,
+                    )
+                    for page_number in page_numbers
+                ]
+                recognized_text = "\n".join(result.text for result in results)
+                try:
+                    summary = parse_restos_a_pagar_summary(
+                        recognized_text,
+                        fiscal_year=fiscal_year,
+                        reference_month=reference_month,
+                    )
+                except PublicObligationPdfContractError as error:
+                    errors.append(
+                        f"{rotation}: {error}; "
+                        f"trecho={_diagnostic_excerpt(recognized_text)}"
+                    )
+                    continue
+                parser_versions = {result.parser_version for result in results}
+                if len(parser_versions) != 1:
+                    raise ValueError("Páginas OCR usam versões de parser divergentes.")
+                successes.append(
+                    PublicObligationExtraction(
+                        summary=summary,
+                        provenance=PublicObligationExtractionProvenance(
+                            extraction_method="ocr",
+                            extraction_parser_version=parser_versions.pop(),
+                            page_numbers=page_numbers,
+                            rotation_degrees=rotation,
+                        ),
+                    )
+                )
 
         if not successes:
             detail = errors[0][:2200]

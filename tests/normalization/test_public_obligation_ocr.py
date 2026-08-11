@@ -18,6 +18,7 @@ class FakePage:
 @dataclass(frozen=True)
 class FakePdf:
     pages: tuple[FakePage, ...]
+    parser_version: str = "gazette-pdf-embedded-text/1.1.0"
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,8 @@ class FakeOcrResult:
 
 
 class FakeEngine:
-    pass
+    def __init__(self, name: str = "primary") -> None:
+        self.name = name
 
 
 class PublicObligationOcrExtractorTests(unittest.TestCase):
@@ -178,6 +180,106 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
                 fiscal_year=2025,
                 reference_month=10,
             )
+
+    def test_uses_validated_layout_text_before_ocr(self):
+        canonical = FakePdf(
+            (
+                FakePage(1, "capa"),
+                FakePage(2, "RESTOS A PAGAR\ntexto em ordem inadequada"),
+                FakePage(3, "TRANSFERÊNCIA FINANCEIRA"),
+            )
+        )
+        layout = FakePdf(
+            (
+                FakePage(1, "capa"),
+                FakePage(2, "RESTOS A PAGAR\ncontas"),
+                FakePage(
+                    3,
+                    "0,00 18.542.319,37 18.542.319,37\n"
+                    "TRANSFERÊNCIA FINANCEIRA",
+                ),
+            ),
+            parser_version="public-obligation-pdf-layout-text/1.0.0",
+        )
+        extractor = PublicObligationOcrExtractor(
+            engine=FakeEngine(),
+            pdf_text_deriver=lambda _body: canonical,
+            layout_text_deriver=lambda _body: layout,
+            page_ocr=lambda *_args, **_kwargs: self.fail("OCR nao deveria rodar"),
+        )
+
+        extraction = extractor.extract(
+            b"%PDF fixture",
+            fiscal_year=2021,
+            reference_month=1,
+        )
+
+        self.assertEqual(extraction.provenance.extraction_method, "embedded_layout")
+        self.assertEqual(extraction.provenance.page_numbers, (2, 3))
+        self.assertEqual(
+            extraction.provenance.extraction_parser_version,
+            "public-obligation-pdf-layout-text/1.0.0",
+        )
+        self.assertEqual(
+            extraction.summary.payments_to_date_amount,
+            Decimal("18542319.37"),
+        )
+
+    def test_retries_ocr_with_alternative_segmentation_engine(self):
+        primary = FakeEngine("primary")
+        alternative = FakeEngine("alternative")
+        calls: list[tuple[str, int, int]] = []
+
+        def page_ocr(engine, _body, page_number, *, rotation_degrees=0):
+            calls.append((engine.name, page_number, rotation_degrees))
+            if engine is alternative and rotation_degrees == 0:
+                if page_number == 105:
+                    text = "RESTOS A PAGAR\ncontas"
+                else:
+                    text = (
+                        "22.354.323,42 1.445.172,84 23.799.496,26\n"
+                        "TRANSFERÊNCIA FINANCEIRA"
+                    )
+                return FakeOcrResult(
+                    page_number=page_number,
+                    text=text,
+                    parser_version="gazette-ocr-text/1.0.0+tesseract-psm3",
+                )
+            return FakeOcrResult(page_number=page_number, text="texto ilegivel")
+
+        extractor = PublicObligationOcrExtractor(
+            engine=primary,
+            alternative_engines=(alternative,),
+            pdf_text_deriver=lambda _body: FakePdf(
+                tuple(
+                    FakePage(
+                        number,
+                        "RESTOS A PAGAR" if number == 105 else "outra pagina",
+                    )
+                    for number in range(1, 108)
+                )
+            ),
+            layout_text_deriver=lambda _body: FakePdf(
+                tuple(FakePage(number, None) for number in range(1, 108)),
+                parser_version="public-obligation-pdf-layout-text/1.0.0",
+            ),
+            page_ocr=page_ocr,
+        )
+
+        extraction = extractor.extract(
+            b"%PDF fixture",
+            fiscal_year=2021,
+            reference_month=5,
+        )
+
+        self.assertEqual(extraction.provenance.extraction_method, "ocr")
+        self.assertEqual(extraction.provenance.rotation_degrees, 0)
+        self.assertEqual(
+            extraction.provenance.extraction_parser_version,
+            "gazette-ocr-text/1.0.0+tesseract-psm3",
+        )
+        self.assertIn(("primary", 105, 270), calls)
+        self.assertIn(("alternative", 105, 0), calls)
 
 
 if __name__ == "__main__":
