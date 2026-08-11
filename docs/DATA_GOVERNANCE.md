@@ -95,6 +95,21 @@ Dimensões acompanhadas por fonte e campo:
 Rejeições são registradas com código determinístico. Registros inválidos vão
 para revisão/DLQ; não são descartados silenciosamente.
 
+### Obrigações financeiras
+
+- saldo inicial, acréscimos, reduções, pagamentos e saldo final são campos
+  distintos e não podem ser somados como se representassem o mesmo estágio;
+- cada obrigação normalizada mantém órgão, período, tipo, versão e registro
+  bruto de origem;
+- valor negativo em uma obrigação é rejeitado pelo contrato; estornos e
+  deduções devem ser modelados no estágio financeiro correto, sem transformar
+  automaticamente um sinal negativo em anomalia;
+- somente linhas validadas ou reconciliadas entram na RPC pública;
+- ausência de linha publicada significa “ainda não reconciliada”, nunca dívida
+  zero;
+- um total municipal só será elegível depois de eliminar duplicidade entre
+  períodos e versões e reconciliar fontes oficiais independentes.
+
 ## Conflitos
 
 `source_conflicts` deve preservar:

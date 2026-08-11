@@ -223,15 +223,17 @@ Portais locais, SICONFI e TCM-BA:
 - órgãos, fontes de recurso e classificações;
 - conflitos entre fontes.
 
-Estado atual: contrato determinístico de receita e projeção pública segura
-preparados; persistência normalizada e reconciliação de amostra ainda pendentes.
+Estado atual: contratos determinísticos de receita e obrigações, projeções
+públicas com evidência e persistência normalizada preparados; a reconciliação
+de uma amostra real de obrigações ainda está pendente.
 
 Próxima fatia em execução: fechamento mensal operacional, com receita no nível
 do total declarado por documento e pagamentos no nível do relatório validado;
 inventário interno dos PDFs preservados, filas, falhas e publicações; e
 comentário assistido somente depois que os números determinísticos estiverem
-fechados. Empréstimos e dívidas terão entidade e evidência próprias, sem
-inferência automática a partir de uma linha fiscal.
+fechados. Empréstimos e dívidas já possuem entidade e evidência próprias; a
+próxima fatia é normalizar uma família documental real e reconciliar as linhas
+antes de publicar qualquer consolidação.
 
 Gate:
 

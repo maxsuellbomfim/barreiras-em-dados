@@ -56,6 +56,12 @@ saldo inicial e final, baixas, retificações e reconciliação com SICONFI e
 prestações do TCM-BA. `pdc-relacao-de-divida-ativa` não entra nesse total:
 dívida ativa é crédito a receber pelo Município, não obrigação a pagar.
 
+As linhas extraídas desses documentos passam pelo contrato
+`finance.public_obligations`. A projeção pública aceita somente estados
+`validated` e `reconciled`, preserva período, versão, URL e SHA-256 da evidência
+e não calcula dívida consolidada. Um documento preservado sem linha validada
+continua visível como evidência em apuração, nunca como obrigação de valor zero.
+
 ## Catálogo oficial do Diário de Barreiras
 
 - catálogo: `https://pmbarreiras.diariomtransparente.com.br/publicacoes`;
