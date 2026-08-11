@@ -19,7 +19,7 @@ export type PublicExpenseReport = Readonly<{
   artifactSha256: string;
   documentArtifactSha256: string;
   collectedAt: string;
-  methodologyVersion: "public-expense-reports/1.0.0";
+  methodologyVersion: "public-expense-reports/1.1.0";
   validationStatus: "validated";
 }>;
 
@@ -53,7 +53,7 @@ export type PublicExpenseLine = Readonly<{
   sourceUrl: string;
   documentSourceUrl: string;
   documentArtifactSha256: string;
-  methodologyVersion: "public-expense-lines/1.0.0";
+  methodologyVersion: "public-expense-lines/1.1.0";
 }>;
 
 export type ExpenseLinesResult =
@@ -131,7 +131,7 @@ function parseExpenseReport(
     !ISO_DATE.test(periodEnd) ||
     row.currency !== "BRL" ||
     !Number.isSafeInteger(row.fiscal_year) ||
-    row.methodology_version !== "public-expense-reports/1.0.0" ||
+    row.methodology_version !== "public-expense-reports/1.1.0" ||
     row.validation_status !== "validated" ||
     amountFields.some(
       (field) => amounts[field] === null || !DECIMAL.test(amounts[field] ?? ""),
@@ -161,7 +161,7 @@ function parseExpenseReport(
     artifactSha256,
     documentArtifactSha256,
     collectedAt,
-    methodologyVersion: "public-expense-reports/1.0.0",
+    methodologyVersion: "public-expense-reports/1.1.0",
     validationStatus: "validated",
   };
 }
@@ -210,7 +210,7 @@ function parseExpenseLine(
     row.currency !== "BRL" ||
     !Number.isSafeInteger(row.fiscal_year) ||
     !Number.isSafeInteger(row.line_number) ||
-    row.methodology_version !== "public-expense-lines/1.0.0" ||
+    row.methodology_version !== "public-expense-lines/1.1.0" ||
     amountFields.some(
       (field) => amounts[field] === null || !DECIMAL.test(amounts[field] ?? ""),
     )
@@ -244,7 +244,7 @@ function parseExpenseLine(
     sourceUrl: stringFields.sourceUrl as string,
     documentSourceUrl: stringFields.documentSourceUrl as string,
     documentArtifactSha256: stringFields.documentArtifactSha256 as string,
-    methodologyVersion: "public-expense-lines/1.0.0",
+    methodologyVersion: "public-expense-lines/1.1.0",
   };
 }
 

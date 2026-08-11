@@ -16,7 +16,7 @@ export type PublicRevenue = Readonly<{
   artifactSha256: string;
   documentArtifactSha256: string;
   collectedAt: string;
-  methodologyVersion: "public-revenues/1.2.0";
+  methodologyVersion: "public-revenues/1.3.0";
   validationStatus: "validated";
 }>;
 
@@ -87,7 +87,7 @@ function parseRevenue(row: Record<string, unknown>): PublicRevenue | null {
     Number.isNaN(Date.parse(collectedAt)) ||
     (revenueDate !== null && !ISO_DATE.test(revenueDate)) ||
     !Number.isSafeInteger(row.fiscal_year) ||
-    row.methodology_version !== "public-revenues/1.2.0" ||
+    row.methodology_version !== "public-revenues/1.3.0" ||
     row.validation_status !== "validated" ||
     (sourceUrl !== null && !sourceUrl.startsWith("https://"))
   ) {
@@ -111,7 +111,7 @@ function parseRevenue(row: Record<string, unknown>): PublicRevenue | null {
     artifactSha256,
     documentArtifactSha256,
     collectedAt,
-    methodologyVersion: "public-revenues/1.2.0",
+    methodologyVersion: "public-revenues/1.3.0",
     validationStatus: "validated",
   };
 }

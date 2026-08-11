@@ -21,7 +21,7 @@ test("projeção de cobertura separa ausência de zero", () => {
 });
 
 test("cliente público valida a metodologia e estados", () => {
-  assert.match(client, /finance-coverage\/1\.0\.0/);
+  assert.match(client, /finance-coverage\/1\.1\.0/);
   assert.match(client, /PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY/);
   assert.match(client, /coverageStatus/);
 });

@@ -105,6 +105,9 @@ para revisão/DLQ; não são descartados silenciosamente.
   deduções devem ser modelados no estágio financeiro correto, sem transformar
   automaticamente um sinal negativo em anomalia;
 - somente linhas validadas ou reconciliadas entram na RPC pública;
+- receitas, despesas, fechamentos, cobertura e sinais só entram na projeção
+  pública quando o `source_record_key` do registro bruto coincide com o do PDF
+  filho e ambos pertencem à mesma resposta oficial preservada;
 - ausência de linha publicada significa “ainda não reconciliada”, nunca dívida
   zero;
 - um total municipal só será elegível depois de eliminar duplicidade entre
