@@ -18,6 +18,7 @@ import {
   getPublicMonthlyFinanceClosures,
   type PublicMonthlyFinanceClosure,
 } from "../../lib/monthly-finance";
+import { monthlyFinanceHref } from "../../lib/monthly-finance-detail.mjs";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
 import { getPublicFinanceCoverage, type PublicFinanceCoverageRow } from "../../lib/finance-coverage";
 
@@ -426,6 +427,9 @@ export default async function FinancesPage() {
                     </dl>
                     <p className="act-evidence">Metodologia determinística: {closure.calculationMethodology}. Receita usa o total declarado por documento; despesas usam o pagamento efetivado do relatório publicado.</p>
                   </details>
+                  <a className="finance-month-link" href={monthlyFinanceHref(closure.periodStart)}>
+                    Abrir este mês e conferir as fontes →
+                  </a>
                 </article>
               ))}
             </div>

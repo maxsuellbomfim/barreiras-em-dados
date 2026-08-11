@@ -31,6 +31,14 @@ export type MonthlyFinanceResult =
     }>
   | Readonly<{ state: "unavailable" }>;
 
+export type MonthlyFinanceDetailResult =
+  | Readonly<{
+      state: "available";
+      detail: PublicMonthlyFinanceDetail;
+    }>
+  | Readonly<{ state: "not_found" }>
+  | Readonly<{ state: "unavailable" }>;
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DECIMAL = /^-?\d+(?:\.\d{1,2})?$/;
 
@@ -217,3 +225,51 @@ export async function getPublicMonthlyFinanceClosures(
     return { state: "unavailable" };
   }
 }
+
+export async function getPublicMonthlyFinanceDetail(
+  periodStart: string,
+): Promise<MonthlyFinanceDetailResult> {
+  if (periodStartFromSlug(periodStart.slice(0, 7)) !== periodStart) {
+    return { state: "not_found" };
+  }
+  const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const publishableKey = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (!supabaseUrl?.startsWith("https://") || !publishableKey?.startsWith("sb_publishable_")) {
+    return { state: "unavailable" };
+  }
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/get_public_monthly_finance_detail`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Profile": "api",
+          apikey: publishableKey,
+          "Content-Profile": "api",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ period_filter: periodStart }),
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) return { state: "unavailable" };
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return { state: "unavailable" };
+    if (payload.length === 0) return { state: "not_found" };
+    if (payload.length !== 1 || typeof payload[0] !== "object" || payload[0] === null) {
+      return { state: "unavailable" };
+    }
+    const detail = parseMonthlyFinanceDetail(payload[0] as Record<string, unknown>);
+    if (!detail || detail.periodStart !== periodStart) return { state: "unavailable" };
+    return { state: "available", detail };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+import {
+  parseMonthlyFinanceDetail,
+  periodStartFromSlug,
+  type PublicMonthlyFinanceDetail,
+} from "./monthly-finance-detail.mjs";
