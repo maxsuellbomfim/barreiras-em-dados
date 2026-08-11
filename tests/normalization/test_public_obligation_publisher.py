@@ -79,6 +79,12 @@ def artifact_for(body: bytes = PDF_BODY) -> PublicObligationArtifact:
 
 
 class PublicObligationPublisherTests(unittest.TestCase):
+    def test_failure_job_type_is_versioned_for_auditable_retry(self):
+        self.assertEqual(
+            PUBLIC_OBLIGATION_JOB_TYPE,
+            "public_obligation_balancete_publication/1.1.0",
+        )
+
     def test_pending_documents_accepts_reference_keys_from_current_api(self):
         connection = CapturingConnection(
             [

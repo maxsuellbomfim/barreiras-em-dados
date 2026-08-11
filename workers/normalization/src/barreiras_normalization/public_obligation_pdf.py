@@ -37,10 +37,13 @@ class RestosAPagarSummary:
 
 _AMOUNT = r"(?:\d{1,3}(?:\.\d{3})*|\d+),\d{1,2}"
 _TOTAL_LINE = re.compile(
-    rf"^(?P<to_date>{_AMOUNT})\s+"
-    rf"(?P<period>{_AMOUNT})\s+"
-    rf"(?P<prior>{_AMOUNT})$"
+    rf"^(?P<label>TOTAL\s+)?(?P<first>{_AMOUNT})\s+"
+    rf"(?P<second>{_AMOUNT})\s+"
+    rf"(?P<third>{_AMOUNT})$",
+    re.IGNORECASE,
 )
+_AMOUNT_TOKEN = re.compile(_AMOUNT)
+_TRANSFER_ACCOUNT = re.compile(r"^351\d{9,}")
 
 
 def _fold(value: str) -> str:
@@ -51,6 +54,60 @@ def _fold(value: str) -> str:
         if not unicodedata.combining(character)
     )
     return without_marks.upper()
+
+
+def _closed_total(
+    first: str,
+    second: str,
+    third: str,
+) -> tuple[Decimal, Decimal, Decimal] | None:
+    left = parse_brl_amount(first)
+    middle = parse_brl_amount(second)
+    right = parse_brl_amount(third)
+    if left + middle == right:
+        return left, middle, right
+    if right + middle == left:
+        return right, middle, left
+    return None
+
+
+def _interleaved_total_after_boundary(
+    lines: list[str],
+    folded: list[str],
+    *,
+    section_start: int,
+    boundary: int,
+) -> tuple[Decimal, Decimal, Decimal] | None:
+    has_total_marker = any(
+        folded[index] == "TOTAL"
+        for index in range(max(section_start, boundary - 3), boundary)
+    )
+    if not has_total_marker:
+        return None
+
+    tokens: list[str] = []
+    for index in range(boundary + 1, min(len(lines), boundary + 12)):
+        if _TRANSFER_ACCOUNT.match(folded[index]):
+            break
+        tokens.extend(_AMOUNT_TOKEN.findall(lines[index]))
+        if len(tokens) >= 6:
+            break
+    if len(tokens) < 6:
+        return None
+
+    candidates = [
+        candidate
+        for offset in (0, 1)
+        if (
+            candidate := _closed_total(
+                tokens[offset], tokens[offset + 2], tokens[offset + 4]
+            )
+        )
+        is not None
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda candidate: candidate[2])
 
 
 def parse_restos_a_pagar_summary(
@@ -92,18 +149,31 @@ def parse_restos_a_pagar_summary(
         for line in lines[start:end]
         if (match := _TOTAL_LINE.fullmatch(line)) is not None
     ]
-    if not candidates:
+    total_values: tuple[Decimal, Decimal, Decimal] | None = None
+    if candidates:
+        explicit = [match for match in candidates if match.group("label")]
+        total = explicit[-1] if explicit else candidates[-1]
+        total_values = _closed_total(
+            total.group("first"),
+            total.group("second"),
+            total.group("third"),
+        )
+        if total_values is None:
+            raise PublicObligationPdfContractError(
+                "total de restos a pagar nao fecha: anterior + mes diverge do acumulado"
+            )
+    else:
+        total_values = _interleaved_total_after_boundary(
+            lines,
+            folded,
+            section_start=start,
+            boundary=end,
+        )
+    if total_values is None:
         raise PublicObligationPdfContractError(
             "total de restos a pagar nao encontrado antes da proxima secao"
         )
-    total = candidates[-1]
-    payments_to_date = parse_brl_amount(total.group("to_date"))
-    payments_period = parse_brl_amount(total.group("period"))
-    payments_prior = parse_brl_amount(total.group("prior"))
-    if payments_prior + payments_period != payments_to_date:
-        raise PublicObligationPdfContractError(
-            "total de restos a pagar nao fecha: anterior + mes diverge do acumulado"
-        )
+    payments_prior, payments_period, payments_to_date = total_values
 
     period_start = date(fiscal_year, reference_month, 1)
     period_end = date(
