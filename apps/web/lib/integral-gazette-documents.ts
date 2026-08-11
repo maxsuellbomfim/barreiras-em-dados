@@ -28,8 +28,16 @@ export type IntegralGazetteResult =
   | Readonly<{
       state: "available";
       editions: readonly IntegralGazetteEdition[];
+      pageSize: number;
+      offset: number;
+      hasMore: boolean;
     }>
   | Readonly<{ state: "unavailable" }>;
+
+export type IntegralGazettePageOptions = Readonly<{
+  pageSize?: number;
+  offset?: number;
+}>;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -167,7 +175,22 @@ export function enrichIntegralGazetteEditions(
   });
 }
 
-export async function getIntegralGazetteEditions(): Promise<IntegralGazetteResult> {
+export async function getIntegralGazetteEditions(
+  options: IntegralGazettePageOptions = {},
+): Promise<IntegralGazetteResult> {
+  const pageSize = options.pageSize ?? 20;
+  const offset = options.offset ?? 0;
+  if (
+    !positiveInteger(pageSize) ||
+    pageSize > 100 ||
+    !Number.isSafeInteger(offset) ||
+    offset < 0
+  ) {
+    return { state: "unavailable" };
+  }
+  // One extra row lets the page render a reliable "mais antigas" link
+  // without loading the whole archive or maintaining a second count query.
+  const requestPageSize = pageSize + 1;
   const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
   const publishableKey =
     process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -181,7 +204,7 @@ export async function getIntegralGazetteEditions(): Promise<IntegralGazetteResul
   }
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_integral_gazette_editions`,
+      `${supabaseUrl}/rest/v1/rpc/get_integral_gazette_editions_page`,
       {
         method: "POST",
         headers: {
@@ -191,7 +214,10 @@ export async function getIntegralGazetteEditions(): Promise<IntegralGazetteResul
           "Content-Profile": "api",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ page_size: 40 }),
+        body: JSON.stringify({
+          page_size: requestPageSize,
+          page_offset: offset,
+        }),
         next: { revalidate: 300 },
         signal: AbortSignal.timeout(5_000),
       },
@@ -209,7 +235,14 @@ export async function getIntegralGazetteEditions(): Promise<IntegralGazetteResul
       (left, right) =>
         right.editionYear - left.editionYear || right.edition - left.edition,
     );
-    return { state: "available", editions };
+    const hasMore = editions.length > pageSize;
+    return {
+      state: "available",
+      editions: hasMore ? editions.slice(0, pageSize) : editions,
+      pageSize,
+      offset,
+      hasMore,
+    };
   } catch {
     return { state: "unavailable" };
   }

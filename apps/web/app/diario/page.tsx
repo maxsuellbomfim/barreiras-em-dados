@@ -49,9 +49,26 @@ function CatalogPendingNotice({
   );
 }
 
-export default async function IntegralDiaryPage() {
+type DiaryPageProps = Readonly<{
+  searchParams: Promise<{ pagina?: string }>;
+}>;
+
+function pageNumberFromSearchParams(value: string | undefined): number {
+  const parsed = Number.parseInt(value ?? "1", 10);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? Math.min(parsed, 500) : 1;
+}
+
+export default async function IntegralDiaryPage({
+  searchParams,
+}: DiaryPageProps) {
+  const params = await searchParams;
+  const pageNumber = pageNumberFromSearchParams(params.pagina);
+  const pageSize = 20;
   const [integralResult, catalogResult, collectionStatus] = await Promise.all([
-    getIntegralGazetteEditions(),
+    getIntegralGazetteEditions({
+      pageSize,
+      offset: (pageNumber - 1) * pageSize,
+    }),
     getOfficialDiaryCatalog(),
     getQueridoDiarioCollectionStatus(),
   ]);
@@ -128,7 +145,34 @@ export default async function IntegralDiaryPage() {
             </div>
           </div>
         ) : (
-          <IntegralGazetteExplorer editions={editions} />
+          <>
+            <IntegralGazetteExplorer editions={editions} />
+            {integralResult.state === "available" ? (
+              <nav
+                className="diary-pagination"
+                aria-label="Paginação do Diário Oficial"
+              >
+                {pageNumber > 1 ? (
+                  <a href={`/diario?pagina=${pageNumber - 1}`}>
+                    ← Edições mais recentes
+                  </a>
+                ) : (
+                  <span aria-hidden="true" />
+                )}
+                <span>
+                  Página {pageNumber} · {integralResult.offset + 1}–
+                  {integralResult.offset + editions.length}
+                </span>
+                {integralResult.hasMore ? (
+                  <a href={`/diario?pagina=${pageNumber + 1}`}>
+                    Edições anteriores →
+                  </a>
+                ) : (
+                  <span aria-hidden="true" />
+                )}
+              </nav>
+            ) : null}
+          </>
         )}
 
         <p className="hero-note">
