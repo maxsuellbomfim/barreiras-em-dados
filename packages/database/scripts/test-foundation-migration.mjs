@@ -1088,19 +1088,69 @@ try {
   ]);
 
   const transferegovWorkload = await database.query(`
-    select slug, object_prefix, can_select, can_insert, status
+    select
+      slug,
+      auth_user_id::text as auth_user_id,
+      object_prefix,
+      can_select,
+      can_insert,
+      status
     from audit.storage_workload_identities
     where slug = 'transferegov-parcerias-collector'
   `);
   assert.deepEqual(transferegovWorkload.rows, [
     {
       slug: "transferegov-parcerias-collector",
+      auth_user_id: "c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a",
       object_prefix: "transferegov/parcerias/",
       can_select: true,
       can_insert: true,
       status: "active",
     },
   ]);
+
+  await database.exec(`
+    select set_config(
+      'request.jwt.claim.sub',
+      'c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a',
+      false
+    );
+  `);
+  const transferegovStorageAuthorization = await database.query(`
+    select api.can_access_raw_artifact(
+      'insert',
+      'raw-artifacts',
+      'transferegov/parcerias/propostas-barreiras/sha256/aa/file.json'
+    ) as municipal_workload_can_insert
+  `);
+  assert.equal(
+    transferegovStorageAuthorization.rows[0].municipal_workload_can_insert,
+    true,
+  );
+
+  await database.exec(`
+    update audit.storage_workload_identities
+    set status = 'suspended', can_select = false, can_insert = false
+    where slug = 'transferegov-parcerias-collector';
+  `);
+  const transferegovIdentityFixIndex = migrationNames.indexOf(
+    "20260812200000_fix_transferegov_storage_identity.sql",
+  );
+  assert.notEqual(transferegovIdentityFixIndex, -1);
+  await database.exec(migrations[transferegovIdentityFixIndex]);
+  const suspendedTransferegovWorkload = await database.query(`
+    select status, can_select, can_insert
+    from audit.storage_workload_identities
+    where slug = 'transferegov-parcerias-collector'
+  `);
+  assert.deepEqual(suspendedTransferegovWorkload.rows, [
+    { status: "suspended", can_select: false, can_insert: false },
+  ]);
+  await database.exec(`
+    update audit.storage_workload_identities
+    set status = 'active', can_select = true, can_insert = true
+    where slug = 'transferegov-parcerias-collector';
+  `);
 
   const transferegovPrivatePrivileges = await database.query(`
     select
