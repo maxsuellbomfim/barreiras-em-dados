@@ -10,9 +10,15 @@ const migrationsUrl = new URL("../../../supabase/migrations/", import.meta.url);
 const migrationNames = (await readdir(fileURLToPath(migrationsUrl)))
   .filter((name) => name.endsWith(".sql"))
   .sort();
-const migrations = await Promise.all(
+const migrationContents = await Promise.all(
   migrationNames.map((name) => readFile(fileURLToPath(new URL(name, migrationsUrl)), "utf8")),
 );
+const rankingMigrationIndex = migrationNames.indexOf(
+  "20260812211202_parliamentary_transfer_rankings.sql",
+);
+assert.notEqual(rankingMigrationIndex, -1, "migration de ranking nao encontrada");
+const baselineMigrations = migrationContents.slice(0, rankingMigrationIndex + 1);
+const laterMigrations = migrationContents.slice(rankingMigrationIndex + 1);
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
 
 try {
@@ -46,7 +52,19 @@ try {
     grant usage on schema storage to authenticated;
     grant select, insert, update, delete on storage.objects to authenticated;
   `);
-  for (const migration of migrations) await database.exec(migration);
+  for (const migration of baselineMigrations) await database.exec(migration);
+
+  const postgrestNotifications = [];
+  const stopListening = await database.listen("pgrst", (payload) => {
+    postgrestNotifications.push(payload);
+  });
+  for (const migration of laterMigrations) await database.exec(migration);
+  await new Promise((resolve) => setImmediate(resolve));
+  await stopListening();
+  assert.ok(
+    postgrestNotifications.includes("reload schema"),
+    "migrations posteriores ao ranking devem recarregar o schema do PostgREST",
+  );
 
   const territorySchema = await database.query(`
     select to_regnamespace('territory')::text as territory_schema
