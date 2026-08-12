@@ -1060,7 +1060,7 @@ try {
   `);
   assert.deepEqual(seeded.rows[0], {
     sources: 11,
-    endpoints: 19,
+    endpoints: 22,
     private_buckets: 1,
   });
 
@@ -1076,6 +1076,18 @@ try {
     {
       source_slug: "transferegov-parcerias",
       endpoint_slug: "distribuicoes-proposta",
+    },
+    {
+      source_slug: "transferegov-parcerias",
+      endpoint_slug: "documentos-habeis-parceria",
+    },
+    {
+      source_slug: "transferegov-parcerias",
+      endpoint_slug: "empenhos-parceria",
+    },
+    {
+      source_slug: "transferegov-parcerias",
+      endpoint_slug: "ordens-pagamento-documento",
     },
     {
       source_slug: "transferegov-parcerias",

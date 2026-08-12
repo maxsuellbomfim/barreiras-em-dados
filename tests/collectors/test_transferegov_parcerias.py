@@ -9,7 +9,10 @@ from email.utils import format_datetime
 from barreiras_collectors.connectors.transferegov import (
     BARREIRAS_IBGE_CODE,
     TransferegovError,
+    fetch_commitments_page,
     fetch_partnerships_page,
+    fetch_payable_documents_page,
+    fetch_payment_orders_page,
     fetch_proposals_page,
     fetch_resource_distributions_page,
 )
@@ -371,6 +374,104 @@ class TransferegovParceriasTests(unittest.TestCase):
             distribution_page.endpoint_code,
             partnership_page.endpoint_code,
         )
+
+    def test_financial_stages_follow_validated_parent_identifiers(self) -> None:
+        commitments = envelope(
+            [
+                {
+                    "id_empenho_parceria": 11245,
+                    "id_parceria": 30785,
+                    "nr_empenho": 2025_493599,
+                    "valor_empenho": 5000000.0,
+                }
+            ]
+        )
+        payable_documents = envelope(
+            [
+                {
+                    "id_documento_habil": 5941,
+                    "id_parceria": 30785,
+                    "nr_documento_habil": "2025TF860130",
+                    "vl_documento_habil": 5000000.0,
+                }
+            ]
+        )
+        payment_orders = envelope(
+            [
+                {
+                    "id_op": 5932,
+                    "id_documento_habil": 5941,
+                    "nr_ordem_pagamento": "2025OP053944",
+                    "in_situacao_op": "Paga",
+                    "nr_ordem_bancaria": "2025OB055607",
+                }
+            ]
+        )
+        transport = ScriptedTransport(
+            [
+                response(200, commitments),
+                response(200, payable_documents),
+                response(200, payment_orders),
+            ]
+        )
+
+        commitment_page = fetch_commitments_page(
+            partnership_id=30785,
+            validated_partnership_ids=frozenset({30785}),
+            page=1,
+            transport=transport,
+            retry_policy=RetryPolicy(max_attempts=1),
+            sleep=lambda _seconds: None,
+        )
+        document_page = fetch_payable_documents_page(
+            partnership_id=30785,
+            validated_partnership_ids=frozenset({30785}),
+            page=1,
+            transport=transport,
+            retry_policy=RetryPolicy(max_attempts=1),
+            sleep=lambda _seconds: None,
+        )
+        order_page = fetch_payment_orders_page(
+            document_id=5941,
+            validated_document_ids=frozenset({5941}),
+            page=1,
+            transport=transport,
+            retry_policy=RetryPolicy(max_attempts=1),
+            sleep=lambda _seconds: None,
+        )
+
+        self.assertEqual(commitment_page.endpoint_code, "empenhos-parceria")
+        self.assertEqual(
+            document_page.endpoint_code,
+            "documentos-habeis-parceria",
+        )
+        self.assertEqual(
+            order_page.endpoint_code,
+            "ordens-pagamento-documento",
+        )
+        self.assertIn("id_parceria=30785", transport.requests[0])
+        self.assertIn("id_parceria=30785", transport.requests[1])
+        self.assertIn("id_documento_habil=5941", transport.requests[2])
+
+    def test_financial_stages_reject_unvalidated_parent_identifiers(self) -> None:
+        with self.assertRaisesRegex(ValueError, "validada para Barreiras"):
+            fetch_commitments_page(
+                partnership_id=30785,
+                validated_partnership_ids=frozenset(),
+                page=1,
+                transport=ScriptedTransport([]),
+                retry_policy=RetryPolicy(max_attempts=1),
+                sleep=lambda _seconds: None,
+            )
+        with self.assertRaisesRegex(ValueError, "validado para Barreiras"):
+            fetch_payment_orders_page(
+                document_id=5941,
+                validated_document_ids=frozenset(),
+                page=1,
+                transport=ScriptedTransport([]),
+                retry_policy=RetryPolicy(max_attempts=1),
+                sleep=lambda _seconds: None,
+            )
 
     def test_retries_transient_http_status_and_rejects_malformed_envelope(self) -> None:
         transport = ScriptedTransport(

@@ -72,11 +72,20 @@ outra fonte.
 
 ## Persistência bruta implementada
 
-Propostas, distribuições e parcerias passam a ser preservadas no bucket
-privado por hash, com leitura de volta antes da gravação no banco. Cada item
-recebe tipo, chave da fonte, versão do parser e idempotência próprios. A
-execução e a cobertura são abertas antes da autenticação e da primeira
-requisição; falhas entram no controle central, sem se tornarem página vazia.
+Propostas, distribuições, parcerias, empenhos, documentos hábeis e ordens de
+pagamento passam a ser preservados no bucket privado por hash, com leitura de
+volta antes da gravação no banco. Quando a resposta oficial da ordem de
+pagamento contém `nr_ordem_bancaria`, o coletor cria também um registro bruto
+independente de ordem bancária, ligado ao mesmo artefato imutável. Isso mantém
+os dois fatos separados sem duplicar nem alterar a evidência recebida.
+
+Cada item recebe tipo, chave da fonte, versão do parser e idempotência
+próprios. A execução e a cobertura são abertas antes da autenticação e da
+primeira requisição; falhas entram no controle central, sem se tornarem página
+vazia. Os identificadores de parceria e documento hábil só alimentam a etapa
+seguinte depois de terem sido observados na cadeia territorial de Barreiras.
+Os endpoints financeiros respeitam o máximo oficial de 200 registros por
+página, mesmo quando a coleta de propostas usa lote maior.
 
 O job permanece no grupo **Finanças** e reutiliza a identidade técnica já
 provisionada, mas somente dentro do corredor
@@ -86,9 +95,11 @@ provisionada, mas somente dentro do corredor
 ## Limites e próxima fatia
 
 Esta fatia ainda não cria projeção pública nem calcula valores. A próxima
-fatia acrescentará empenhos, documentos hábeis, ordens de pagamento e ordens
-bancárias, mantendo cada estágio independente. Somente depois será criada a
-normalização com `Decimal`, reconciliação e linguagem acessível.
+fatia criará a normalização com `Decimal`, reconciliação entre os estágios e
+uma projeção pública em linguagem acessível. A interface deverá distinguir
+claramente valor proposto, empenhado, documentado, pago e efetivamente
+associado a ordem bancária; ausência em um endpoint será exibida como “não
+encontrado na fonte consultada”, nunca como zero.
 
 Transferências especiais são outro módulo. A varredura completa dos 410
 beneficiários da Bahia não encontrou o CNPJ municipal de Barreiras em
