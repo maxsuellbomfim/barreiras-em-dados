@@ -29,7 +29,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | PNCP | contratações, itens, resultados, contratos, documentos | P1 | documentação inicial |
 | SICONFI | demonstrativos contábeis e fiscais | P2 | documentação inicial |
 | TCM-BA | dados municipais e prestações | P2 | descoberta |
-| Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | contrato de Gestão de Parcerias confirmado; conector inicial em teste |
+| Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | propostas, distribuições e parcerias com persistência bruta idempotente; estágios de execução pendentes |
 | Tesouro Transparente | transferências constitucionais/legais e emendas | P3 | documentação inicial |
 | Transparência Bahia | transferências a municípios, despesas e emendas estaduais | P3 | descoberta inicial |
 | Câmara dos Deputados | mandatos, proposições, votações e despesas | P3 | API confirmada |

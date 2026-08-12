@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, ClassVar
 
 from ..connectors.direct_diary import ENDPOINT_CODE, SOURCE_CODE, DirectEdition
 from ..connectors.gazette_documents import CollectedDocument
@@ -19,6 +19,7 @@ from ..connectors.official_diary_catalog import (
     OfficialCatalogSnapshot,
 )
 from ..connectors.querido_diario import CollectedPage, GazettePage
+from ..connectors.transferegov import TransferegovPage
 from .models import (
     ArtifactIntegrityError,
     DirectEditionBatch,
@@ -60,6 +61,8 @@ MUNICIPAL_TRANSPARENCY_PARSER_VERSION = "municipal-transparency-page/1.0.0"
 PNCP_ITEM_PARSER_VERSION = "pncp-item-page/1.0.0"
 PNCP_RESULTADO_PARSER_VERSION = "pncp-resultado-page/1.0.0"
 PNCP_CONTRATO_PARSER_VERSION = "pncp-contrato-page/1.0.0"
+TRANSFEREGOV_COLLECTOR_VERSION = "transferegov-parcerias-collector/1.0.0"
+TRANSFEREGOV_PARSER_VERSION = "transferegov-parcerias-page/1.0.0"
 
 
 def executive_record_idempotency_key(
@@ -319,6 +322,160 @@ class PncpContratacoesPersistenceService:
             inserted_records=persisted.inserted_records,
             existing_records=persisted.existing_records,
         )
+
+
+class TransferegovPersistenceService:
+    """Preserva cada resposta oficial antes da normalizacao financeira."""
+
+    _RESOURCE_CONTRACTS: ClassVar[dict[str, tuple[str, str, str]]] = {
+        "propostas-barreiras": (
+            "transferegov_proposta",
+            "id_proposta",
+            "proposta",
+        ),
+        "distribuicoes-proposta": (
+            "transferegov_distribuicao_recurso",
+            "id_distribuicao_recurso_proposta",
+            "distribuicao",
+        ),
+        "parcerias-proposta": (
+            "transferegov_parceria",
+            "id_parceria",
+            "parceria",
+        ),
+    }
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, page: TransferegovPage) -> PersistenceResult:
+        actual_hash = hashlib.sha256(page.raw_body).hexdigest()
+        if (
+            actual_hash != page.body_sha256
+            or len(page.raw_body) != page.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "A resposta do Transferegov diverge dos metadados coletados."
+            )
+        raw_items = self._raw_items(page)
+        if raw_items != list(page.items):
+            raise ArtifactIntegrityError(
+                "Os itens validados divergem da resposta bruta do Transferegov."
+            )
+        try:
+            record_type, identifier_field, key_label = self._RESOURCE_CONTRACTS[
+                page.endpoint_code
+            ]
+        except KeyError as error:
+            raise PersistenceContractError(
+                f"Endpoint Transferegov sem contrato: {page.endpoint_code}."
+            ) from error
+
+        records: list[RawRecordInput] = []
+        for index, item in enumerate(page.items):
+            identifier = item.get(identifier_field)
+            if (
+                isinstance(identifier, bool)
+                or not isinstance(identifier, int)
+                or identifier < 1
+            ):
+                raise PersistenceContractError(
+                    f"Item {index} sem {identifier_field} inteiro positivo."
+                )
+            canonical = self._canonical_json(item)
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            records.append(
+                RawRecordInput(
+                    source_record_key=(
+                        f"transferegov:{key_label}:{identifier}"
+                    ),
+                    record_type=record_type,
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=TRANSFEREGOV_PARSER_VERSION,
+                    idempotency_key=self._digest(
+                        ":".join(
+                            (
+                                "transferegov-record",
+                                page.idempotency_key,
+                                TRANSFEREGOV_PARSER_VERSION,
+                                str(index),
+                                payload_sha256,
+                            )
+                        )
+                    ),
+                )
+            )
+
+        object_key = (
+            f"transferegov/parcerias/{page.endpoint_code}/sha256/"
+            f"{page.body_sha256[:2]}/{page.body_sha256}.json"
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=page.raw_body,
+            content_type=page.media_type,
+            expected_sha256=page.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or len(restored) != page.body_size_bytes
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "A resposta restaurada do Transferegov diverge da coletada."
+            )
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,  # type: ignore[arg-type]
+                object_key=object_key,
+                artifact_idempotency_key=self._digest(
+                    f"raw-artifact:{page.idempotency_key}"
+                ),
+                collector_version=TRANSFEREGOV_COLLECTOR_VERSION,
+                parser_version=TRANSFEREGOV_PARSER_VERSION,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=page.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+    @staticmethod
+    def _raw_items(page: TransferegovPage) -> list[dict]:
+        try:
+            payload = json.loads(page.raw_body)
+        except (json.JSONDecodeError, UnicodeDecodeError) as error:
+            raise ArtifactIntegrityError(
+                "A resposta bruta do Transferegov nao e JSON valido."
+            ) from error
+        if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+            raise ArtifactIntegrityError(
+                "A resposta bruta do Transferegov perdeu seu envelope."
+            )
+        return payload["data"]
+
+    @staticmethod
+    def _canonical_json(value: object) -> bytes:
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+    @staticmethod
+    def _digest(value: str) -> str:
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 class MunicipalTransparencyPersistenceService:

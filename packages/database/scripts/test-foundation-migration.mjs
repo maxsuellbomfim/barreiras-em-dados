@@ -1059,9 +1059,59 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 10,
-    endpoints: 16,
+    sources: 11,
+    endpoints: 19,
     private_buckets: 1,
+  });
+
+  const transferegovCatalog = await database.query(`
+    select source.slug as source_slug, endpoint.slug as endpoint_slug
+    from source.data_sources as source
+    join source.source_endpoints as endpoint
+      on endpoint.data_source_id = source.id
+    where source.slug = 'transferegov-parcerias'
+    order by endpoint.slug
+  `);
+  assert.deepEqual(transferegovCatalog.rows, [
+    {
+      source_slug: "transferegov-parcerias",
+      endpoint_slug: "distribuicoes-proposta",
+    },
+    {
+      source_slug: "transferegov-parcerias",
+      endpoint_slug: "parcerias-proposta",
+    },
+    {
+      source_slug: "transferegov-parcerias",
+      endpoint_slug: "propostas-barreiras",
+    },
+  ]);
+
+  const transferegovWorkload = await database.query(`
+    select slug, object_prefix, can_select, can_insert, status
+    from audit.storage_workload_identities
+    where slug = 'transferegov-parcerias-collector'
+  `);
+  assert.deepEqual(transferegovWorkload.rows, [
+    {
+      slug: "transferegov-parcerias-collector",
+      object_prefix: "transferegov/parcerias/",
+      can_select: true,
+      can_insert: true,
+      status: "active",
+    },
+  ]);
+
+  const transferegovPrivatePrivileges = await database.query(`
+    select
+      has_table_privilege('anon', 'raw.raw_records', 'SELECT') as anon_raw,
+      has_table_privilege(
+        'authenticated', 'source.source_endpoints', 'SELECT'
+      ) as authenticated_endpoints
+  `);
+  assert.deepEqual(transferegovPrivatePrivileges.rows[0], {
+    anon_raw: false,
+    authenticated_endpoints: false,
   });
 
   // Corredores por fonte: a mesma identidade pode receber um segundo
