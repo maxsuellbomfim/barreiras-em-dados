@@ -20,8 +20,8 @@ from .public_obligation_pdf import (
 )
 from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
 
-PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.5.3"
-PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.5.3"
+PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.5.4"
+PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.5.4"
 
 
 @dataclass(frozen=True)

@@ -70,7 +70,7 @@ def validate_restos_a_pagar_progression(
         )
 
 
-_AMOUNT = r"(?:\d{1,3}(?:\s*\.\s*\d{3})*|\d+)\s*,\s*\d{1,2}"
+_AMOUNT = r"(?:\d{1,3}(?:\s*[.,]\s*\d{3})*|\d+)\s*,\s*\d{1,2}"
 _TOTAL_LINE = re.compile(
     rf"^(?P<label>TOT\s*A\s*L?(?:\s+|(?=[.\-]))(?:[.\-]\s*)*)?"
     rf"(?P<first>{_AMOUNT})\s+"
@@ -107,14 +107,22 @@ def _closed_total(
     second: str,
     third: str,
 ) -> tuple[Decimal, Decimal, Decimal] | None:
-    left = parse_brl_amount(re.sub(r"\s+", "", first))
-    middle = parse_brl_amount(re.sub(r"\s+", "", second))
-    right = parse_brl_amount(re.sub(r"\s+", "", third))
+    left = _parse_ocr_brl_amount(first)
+    middle = _parse_ocr_brl_amount(second)
+    right = _parse_ocr_brl_amount(third)
     if left + middle == right:
         return left, middle, right
     if right + middle == left:
         return right, middle, left
     return None
+
+
+def _parse_ocr_brl_amount(value: str) -> Decimal:
+    compact = re.sub(r"\s+", "", value)
+    integer, decimal = compact.rsplit(",", 1)
+    if re.fullmatch(r"\d{1,3}(?:[.,]\d{3})+", integer):
+        compact = f"{integer.replace(',', '.')},{decimal}"
+    return parse_brl_amount(compact)
 
 
 def _interleaved_total_after_boundary(
@@ -187,7 +195,7 @@ def _columnar_total_before_boundary(
     if len(tokens) < 3:
         return None
 
-    values = [parse_brl_amount(token) for token in tokens]
+    values = [_parse_ocr_brl_amount(token) for token in tokens]
     accumulated = values[-1]
     matches = [
         (prior, period, accumulated)

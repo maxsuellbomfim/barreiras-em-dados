@@ -161,6 +161,24 @@ TRANSFERENCIA FINANCEIRA
         self.assertEqual(summary.payments_period_amount, Decimal("303721.65"))
         self.assertEqual(summary.payments_to_date_amount, Decimal("20788106.60"))
 
+    def test_repairs_ocr_comma_in_thousands_group_when_total_closes(self):
+        text = """\
+RESTOS A PAGAR
+213110101020611 RP Processados - FME Fonte 1569 3.945,60 0,00 3.945,60
+Total 19.859.849,88 0,00 19.859,849,88
+TRANSFERENCIA FINANCEIRA
+"""
+
+        summary = parse_restos_a_pagar_summary(
+            text,
+            fiscal_year=2025,
+            reference_month=10,
+        )
+
+        self.assertEqual(summary.payments_prior_amount, Decimal("19859849.88"))
+        self.assertEqual(summary.payments_period_amount, Decimal("0.00"))
+        self.assertEqual(summary.payments_to_date_amount, Decimal("19859849.88"))
+
     def test_accepts_brl_amounts_with_spaces_inserted_by_embedded_pdf(self):
         text = """\
 RESTOS A PAGAR
