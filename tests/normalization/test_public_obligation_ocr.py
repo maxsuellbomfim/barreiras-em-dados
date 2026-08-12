@@ -168,10 +168,7 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
             if rotation_degrees == 270 and page_number == 72:
                 text = "RESTOS A PAGAR\nlinhas de contas\nTotal"
             elif rotation_degrees == 270 and page_number == 73:
-                text = (
-                    "19.859.849,88 0,00 19.859.849,88\n"
-                    "TRANSFERÊNCIA FINANCEIRA"
-                )
+                text = "19.859.849,88 0,00 19.859.849,88\nTRANSFERÊNCIA FINANCEIRA"
             else:
                 text = "texto ilegivel"
             return FakeOcrResult(page_number=page_number, text=text)
@@ -218,8 +215,7 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
                 text = "RESTOS A PAGAR\nlinhas de contas"
             elif rotation_degrees == 270 and page_number == 5:
                 text = (
-                    "21.265.531,78 109.031,30 21.374.563,08\n"
-                    "TRANSFERENCIA FINANCEIRA"
+                    "21.265.531,78 109.031,30 21.374.563,08\nTRANSFERENCIA FINANCEIRA"
                 )
             else:
                 text = ""
@@ -244,6 +240,46 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
         )
         self.assertIn((2, 270), calls)
         self.assertIn((5, 270), calls)
+
+    def test_includes_non_blank_pages_between_heading_and_transfer_boundary(self):
+        pages = (
+            FakePage(1, "capa"),
+            FakePage(2, "RESTOS A PAGAR\ncontas iniciais"),
+            FakePage(3, "continuação das contas\nTotal"),
+            FakePage(4, "TRANSFERENCIA FINANCEIRA"),
+        )
+        calls: list[tuple[int, int]] = []
+
+        def page_ocr(_engine, _body, page_number, *, rotation_degrees=0):
+            calls.append((page_number, rotation_degrees))
+            if rotation_degrees == 270 and page_number == 2:
+                text = "RESTOS A PAGAR\nlinhas de contas"
+            elif rotation_degrees == 270 and page_number == 3:
+                text = "Total 37.936.002,42 4.487,11 37.940.489,53"
+            elif rotation_degrees == 270 and page_number == 4:
+                text = "TRANSFERENCIA FINANCEIRA"
+            else:
+                text = ""
+            return FakeOcrResult(page_number=page_number, text=text)
+
+        extractor = PublicObligationOcrExtractor(
+            engine=FakeEngine(),
+            pdf_text_deriver=lambda _body: FakePdf(pages),
+            page_ocr=page_ocr,
+        )
+
+        extraction = extractor.extract(
+            b"%PDF fixture",
+            fiscal_year=2024,
+            reference_month=5,
+        )
+
+        self.assertEqual(extraction.provenance.page_numbers, (2, 3, 4))
+        self.assertEqual(
+            extraction.summary.payments_period_amount,
+            Decimal("4487.11"),
+        )
+        self.assertIn((3, 270), calls)
 
     def test_classifies_incomplete_source_without_total_or_boundary(self):
         extractor = PublicObligationOcrExtractor(
@@ -311,8 +347,7 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
                 FakePage(2, "RESTOS A PAGAR\ncontas"),
                 FakePage(
                     3,
-                    "0,00 18.542.319,37 18.542.319,37\n"
-                    "TRANSFERÊNCIA FINANCEIRA",
+                    "0,00 18.542.319,37 18.542.319,37\nTRANSFERÊNCIA FINANCEIRA",
                 ),
             ),
             parser_version="public-obligation-pdf-layout-text/1.0.0",
