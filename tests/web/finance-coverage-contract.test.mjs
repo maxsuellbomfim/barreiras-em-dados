@@ -11,6 +11,13 @@ const migration = await readFile(
 );
 const client = await readFile(new URL("../../apps/web/lib/finance-coverage.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/financas/page.tsx", import.meta.url), "utf8");
+const obligationCoverageMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260812020500_public_obligation_source_coverage.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("projeção de cobertura separa ausência de zero", () => {
   assert.match(migration, /get_public_finance_coverage/);
@@ -32,4 +39,13 @@ test("página explica ao cidadão como fonte, correção e ausência são tratad
   assert.match(page, /fica fora dos totais até a correção/);
   assert.match(page, /A versão anterior permanece no histórico de auditoria/);
   assert.match(page, /nunca significa arrecadação ou gasto zero/);
+});
+
+test("lacunas de obrigações distinguem documento, seção ausente e fonte incompleta", () => {
+  assert.match(obligationCoverageMigration, /document_not_confirmed/);
+  assert.match(obligationCoverageMigration, /section_absent/);
+  assert.match(obligationCoverageMigration, /section_incomplete/);
+  assert.doesNotMatch(obligationCoverageMigration, /result_payload\s*->>\s*'detail'\s+as/);
+  assert.match(page, /Isso não significa valor zero/);
+  assert.match(page, /O Barreiras 360 não estimou nem completou o valor/);
 });
