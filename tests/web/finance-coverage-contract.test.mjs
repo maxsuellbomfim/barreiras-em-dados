@@ -13,7 +13,7 @@ const client = await readFile(new URL("../../apps/web/lib/finance-coverage.ts", 
 const page = await readFile(new URL("../../apps/web/app/financas/page.tsx", import.meta.url), "utf8");
 const obligationCoverageMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260812020500_public_obligation_source_coverage.sql",
+    "../../supabase/migrations/20260812022526_official_document_search_evidence.sql",
     import.meta.url,
   ),
   "utf8",
@@ -48,4 +48,12 @@ test("lacunas de obrigações distinguem documento, seção ausente e fonte inco
   assert.doesNotMatch(obligationCoverageMigration, /result_payload\s*->>\s*'detail'\s+as/);
   assert.match(page, /Isso não significa valor zero/);
   assert.match(page, /O Barreiras 360 não estimou nem completou o valor/);
+});
+
+test("documento não encontrado exige busca oficial preservada", () => {
+  assert.match(obligationCoverageMigration, /official_document_searches/);
+  assert.match(obligationCoverageMigration, /document_not_found/);
+  assert.match(obligationCoverageMigration, /evidence_manifest_sha256/);
+  assert.match(page, /Não encontrado no catálogo oficial/);
+  assert.match(page, /pode publicar o arquivo depois/);
 });

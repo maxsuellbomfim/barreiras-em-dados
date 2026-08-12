@@ -25,6 +25,7 @@ const ALLOWED_COVERAGE_STATUSES = new Set([
   "published",
   "section_absent",
   "section_incomplete",
+  "document_not_found",
   "document_not_confirmed",
 ]);
 
@@ -189,6 +190,10 @@ function parseCoverageRow(row) {
     row.document_artifact_sha256 === null
       ? null
       : text(row.document_artifact_sha256);
+  const searchEvidenceSha256 =
+    row.search_evidence_sha256 === null ? null : text(row.search_evidence_sha256);
+  const evidenceArtifactCount =
+    row.evidence_artifact_count === null ? null : row.evidence_artifact_count;
   const checkedAt = row.checked_at === null ? null : text(row.checked_at);
   const methodologyVersion = text(row.methodology_version);
   if (
@@ -201,14 +206,29 @@ function parseCoverageRow(row) {
     !ALLOWED_COVERAGE_STATUSES.has(row.coverage_status) ||
     (sourceUrl !== null && !sourceUrl.startsWith("https://")) ||
     (documentArtifactSha256 !== null && !SHA256.test(documentArtifactSha256)) ||
+    (searchEvidenceSha256 !== null && !SHA256.test(searchEvidenceSha256)) ||
+    (evidenceArtifactCount !== null &&
+      (!Number.isSafeInteger(evidenceArtifactCount) || evidenceArtifactCount < 1)) ||
     (checkedAt !== null && Number.isNaN(Date.parse(checkedAt))) ||
-    methodologyVersion !== "public-obligation-coverage/1.0.0"
+    methodologyVersion !== "public-obligation-coverage/1.1.0"
   ) {
     return null;
   }
   if (
-    row.coverage_status !== "document_not_confirmed" &&
+    !["document_not_confirmed", "document_not_found"].includes(
+      row.coverage_status,
+    ) &&
     (sourceUrl === null || documentArtifactSha256 === null || checkedAt === null)
+  ) {
+    return null;
+  }
+  if (
+    row.coverage_status === "document_not_found" &&
+    (sourceUrl === null ||
+      searchEvidenceSha256 === null ||
+      evidenceArtifactCount === null ||
+      checkedAt === null ||
+      documentArtifactSha256 !== null)
   ) {
     return null;
   }
@@ -220,6 +240,8 @@ function parseCoverageRow(row) {
     coverageStatus: row.coverage_status,
     sourceUrl,
     documentArtifactSha256,
+    searchEvidenceSha256,
+    evidenceArtifactCount,
     checkedAt,
     methodologyVersion,
   };

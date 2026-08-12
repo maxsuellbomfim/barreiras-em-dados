@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import calendar
 import logging
 import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from hashlib import sha256
 from itertools import islice
 from urllib.parse import urlsplit
@@ -23,10 +24,12 @@ from ..connectors.municipal_transparency import (
     CAMARA_BASE_URL,
     PREFEITURA_BASE_URL,
     MunicipalTransparencyAvailabilityError,
+    MunicipalTransparencyPage,
     iter_resource_pages,
 )
 from ..connectors.querido_diario import QueridoDiarioError
 from ..logging import log_event
+from ..persistence.models import OfficialDocumentSearchInput, PersistenceResult
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import (
     MUNICIPAL_TRANSPARENCY_COLLECTOR_VERSION,
@@ -66,6 +69,59 @@ LEGISLATIVE_ENDPOINTS = {
     "leis": "leis-api",
     "indicacoes": "indicacoes-api",
 }
+
+
+def _next_month(value: date) -> date:
+    return date(value.year + (value.month == 12), (value.month % 12) + 1, 1)
+
+
+def build_balancete_monthly_searches(
+    items: Sequence[Mapping[str, object]],
+    *,
+    period_start: date,
+    period_end: date,
+) -> tuple[OfficialDocumentSearchInput, ...]:
+    """Classifica cada mês usando somente ano_ref/mes_ref oficiais válidos."""
+
+    counts: dict[tuple[int, int], int] = {}
+    for item in items:
+        year_raw = item.get("ano_ref")
+        month_raw = item.get("mes_ref")
+        if not isinstance(year_raw, (str, int)) or not isinstance(
+            month_raw,
+            (str, int),
+        ):
+            raise ValueError("Balancete sem ano_ref e mes_ref oficiais.")
+        try:
+            year = int(year_raw)
+            month = int(month_raw)
+        except (TypeError, ValueError) as error:
+            raise ValueError("Balancete com ano_ref e mes_ref inválidos.") from error
+        if not 1900 <= year <= 2200 or not 1 <= month <= 12:
+            raise ValueError("Balancete com ano_ref e mes_ref fora do intervalo.")
+        counts[(year, month)] = counts.get((year, month), 0) + 1
+
+    cursor = date(period_start.year, period_start.month, 1)
+    final_month = date(period_end.year, period_end.month, 1)
+    searches: list[OfficialDocumentSearchInput] = []
+    while cursor <= final_month:
+        match_count = counts.get((cursor.year, cursor.month), 0)
+        searches.append(
+            OfficialDocumentSearchInput(
+                fiscal_year=cursor.year,
+                reference_month=cursor.month,
+                period_start=cursor,
+                period_end=date(
+                    cursor.year,
+                    cursor.month,
+                    calendar.monthrange(cursor.year, cursor.month)[1],
+                ),
+                search_status="found" if match_count else "not_found",
+                match_count=match_count,
+            )
+        )
+        cursor = _next_month(cursor)
+    return tuple(searches)
 
 
 def resolve_endpoint_code(source: str, resource: str) -> str:
@@ -220,6 +276,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=1)
     parser.add_argument("--offset", type=int, default=None)
     parser.add_argument("--max-pages", type=int, default=1)
+    parser.add_argument("--coverage-year-from", type=int, default=None)
+    parser.add_argument("--coverage-year-to", type=int, default=None)
     parser.add_argument(
         "--allow-partial",
         action="store_true",
@@ -239,6 +297,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--max-pages deve estar entre 1 e 1000.")
     if args.download_documents and args.resource not in FINANCIAL_DOCUMENT_RESOURCES:
         parser.error("--download-documents só pode ser usado em recurso financeiro.")
+    if args.coverage_year_from is not None and (
+        args.resource != "balancetes"
+        or args.offset not in (None, 0)
+        or args.coverage_year_from < 2021
+        or (
+            args.coverage_year_to is not None
+            and (
+                args.coverage_year_to < args.coverage_year_from
+                or args.coverage_year_to > datetime.now(MUNICIPAL_TIMEZONE).year
+            )
+        )
+    ):
+        parser.error(
+            "cobertura exige balancetes, offset zero e anos válidos desde 2021."
+        )
 
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
@@ -256,6 +329,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         persistence_settings.database_url
     )
     snapshot_date = datetime.now(MUNICIPAL_TIMEZONE).date()
+    last_closed_month = snapshot_date.replace(day=1) - timedelta(days=1)
     resource_namespace = sha256(args.resource.encode("utf-8")).hexdigest()[:12]
     partition_key = (
         f"snapshot:{args.resource}:limit:{args.limit}:pages:{args.max_pages}"
@@ -281,7 +355,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             partition_key=partition_key,
         )
         effective_offset = resolve_resume_offset(
-            explicit_offset=args.offset,
+            explicit_offset=(0 if args.coverage_year_from is not None else args.offset),
             checkpoint=checkpoint,
         )
         client = _cloud_client(persistence_settings)
@@ -304,6 +378,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             download_documents=args.download_documents,
             collector_settings=collector_settings,
             logger=logger,
+            coverage_period=(
+                (
+                    date(args.coverage_year_from, 1, 1),
+                    min(
+                        date(
+                            args.coverage_year_to or snapshot_date.year,
+                            12,
+                            31,
+                        ),
+                        last_closed_month,
+                    ),
+                )
+                if args.coverage_year_from is not None
+                else None
+            ),
         )
 
     summary = execute_controlled_municipal_transparency(
@@ -347,6 +436,7 @@ def _collect_resource(
     download_documents: bool,
     collector_settings: CollectorSettings,
     logger: logging.Logger,
+    coverage_period: tuple[date, date] | None = None,
 ) -> MunicipalTransparencyCollectionSummary:
     document_client = None
     if download_documents:
@@ -401,9 +491,13 @@ def _collect_resource(
     skipped_documents = 0
     last_page_size = 0
     availability_partial = False
+    page_evidence: list[tuple[PersistenceResult, MunicipalTransparencyPage]] = []
+    all_items: list[Mapping[str, object]] = []
     try:
         for page in islice(pages, max_pages):
             result = service.persist(page)
+            page_evidence.append((result, page))
+            all_items.extend(page.items)
             persisted_pages += 1
             last_page_size = len(page.items)
             inserted_records += result.inserted_records
@@ -498,6 +592,25 @@ def _collect_resource(
         )
 
     pagination_capped = persisted_pages == max_pages and last_page_size == limit
+    if coverage_period is not None:
+        if resource != "balancetes":
+            raise ValueError("Cobertura mensal é exclusiva dos balancetes.")
+        if availability_partial or pagination_capped or offset != 0:
+            raise RuntimeError(
+                "Catálogo incompleto não pode provar ausência mensal."
+            )
+        searches = build_balancete_monthly_searches(
+            all_items,
+            period_start=coverage_period[0],
+            period_end=coverage_period[1],
+        )
+        service.persist_official_document_searches(
+            source_code=source_code,
+            endpoint_code=endpoint_code,
+            resource=resource,
+            searches=searches,
+            page_evidence=tuple(page_evidence),
+        )
     next_offset = (
         offset + (persisted_pages * limit)
         if pagination_capped or availability_partial

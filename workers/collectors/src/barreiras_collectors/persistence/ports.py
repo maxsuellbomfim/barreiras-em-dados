@@ -6,9 +6,11 @@ from typing import Protocol
 
 from .models import (
     DocumentBatch,
+    OfficialDocumentSearchBatch,
     PersistenceBatch,
     RepositoryDocumentResult,
     RepositoryPersistResult,
+    RepositorySearchResult,
     StoredObject,
 )
 
@@ -33,3 +35,8 @@ class CollectionRepository(Protocol):
         self,
         batch: DocumentBatch,
     ) -> RepositoryDocumentResult: ...
+
+    def persist_official_document_searches(
+        self,
+        batch: OfficialDocumentSearchBatch,
+    ) -> RepositorySearchResult: ...

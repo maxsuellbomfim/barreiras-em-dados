@@ -41,11 +41,14 @@ export type PublicObligationCoverageRow = Readonly<{
     | "published"
     | "section_absent"
     | "section_incomplete"
+    | "document_not_found"
     | "document_not_confirmed";
   sourceUrl: string | null;
   documentArtifactSha256: string | null;
+  searchEvidenceSha256: string | null;
+  evidenceArtifactCount: number | null;
   checkedAt: string | null;
-  methodologyVersion: "public-obligation-coverage/1.0.0";
+  methodologyVersion: "public-obligation-coverage/1.1.0";
 }>;
 
 export type PublicObligationCoverageResult =

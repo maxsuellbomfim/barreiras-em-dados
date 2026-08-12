@@ -14,6 +14,7 @@ on:
           - "10"
           - "25"
           - "50"
+          - "500"
           - "100"
       max_pages:
         description: "Quantidade de páginas por fonte"
@@ -112,11 +113,17 @@ jobs:
           | sha256sum --check --strict
 
       - name: Preservar documento financeiro
+        env:
+          COLLECT_LIMIT: >-
+            ${{ matrix.resource == 'balancetes' && '500' || inputs.limit || '50' }}
+          COVERAGE_ARGUMENTS: >-
+            ${{ matrix.resource == 'balancetes' && '--coverage-year-from 2021' || '' }}
         run: >-
           python -B -m barreiras_collectors.commands.collect_municipal_transparency
           --source prefeitura
           --resource "${{ matrix.resource }}"
-          --limit "${{ inputs.limit || '50' }}"
+          --limit "$COLLECT_LIMIT"
           --max-pages "${{ inputs.max_pages || '3' }}"
           --download-documents
           --allow-partial
+          $COVERAGE_ARGUMENTS

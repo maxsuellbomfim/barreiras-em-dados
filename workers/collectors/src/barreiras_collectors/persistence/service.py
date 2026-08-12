@@ -24,11 +24,15 @@ from .models import (
     DirectEditionBatch,
     DocumentBatch,
     DocumentPersistResult,
+    OfficialDocumentSearchBatch,
+    OfficialDocumentSearchInput,
     PersistenceBatch,
     PersistenceContractError,
     PersistenceResult,
     RawRecordInput,
     RepositoryDirectEditionResult,
+    RepositorySearchResult,
+    SearchEvidenceArtifact,
 )
 from .ports import ArtifactObjectStore, CollectionRepository
 
@@ -474,6 +478,41 @@ class MunicipalTransparencyPersistenceService:
             sha256=document.body_sha256,
             object_created=stored.created,
             artifact_created=persisted.created,
+        )
+
+    def persist_official_document_searches(
+        self,
+        *,
+        source_code: str,
+        endpoint_code: str,
+        resource: str,
+        searches: tuple[OfficialDocumentSearchInput, ...],
+        page_evidence: tuple[tuple[PersistenceResult, MunicipalTransparencyPage], ...],
+    ) -> RepositorySearchResult:
+        """Registra o resultado mensal apenas após preservar todas as páginas."""
+
+        if not searches or not page_evidence:
+            raise PersistenceContractError(
+                "Busca oficial exige períodos e respostas brutas preservadas."
+            )
+        evidence = tuple(
+            SearchEvidenceArtifact(
+                raw_artifact_id=result.raw_artifact_id,
+                sha256=page.body_sha256,
+                source_url=page.request_url,
+                retrieved_at=page.received_at,
+            )
+            for result, page in page_evidence
+        )
+        return self.repository.persist_official_document_searches(
+            OfficialDocumentSearchBatch(
+                source_code=source_code,
+                endpoint_code=endpoint_code,
+                resource=resource,
+                searches=searches,
+                evidence_artifacts=evidence,
+                methodology_version="official-document-search/1.0.0",
+            )
         )
 
     @classmethod

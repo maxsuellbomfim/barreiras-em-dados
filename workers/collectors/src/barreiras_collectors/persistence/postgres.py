@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable, Mapping
 from datetime import date, datetime
@@ -13,11 +14,13 @@ from ..http import validate_https_url
 from .models import (
     DirectEditionBatch,
     DocumentBatch,
+    OfficialDocumentSearchBatch,
     PersistenceBatch,
     PersistenceContractError,
     RepositoryDirectEditionResult,
     RepositoryDocumentResult,
     RepositoryPersistResult,
+    RepositorySearchResult,
 )
 
 
@@ -471,6 +474,133 @@ class PostgresCollectionRepository:
                 raw_artifact_id=artifact_id,
                 inserted_records=inserted,
                 existing_records=existing,
+            )
+        finally:
+            connection.close()
+
+    def persist_official_document_searches(
+        self,
+        batch: OfficialDocumentSearchBatch,
+    ) -> RepositorySearchResult:
+        if not batch.searches or not batch.evidence_artifacts:
+            raise ValueError("Busca oficial exige períodos e evidências.")
+        ordered_evidence = tuple(
+            sorted(batch.evidence_artifacts, key=lambda item: item.raw_artifact_id)
+        )
+        manifest_sha256 = hashlib.sha256(
+            "\n".join(
+                f"{item.raw_artifact_id}:{item.sha256}" for item in ordered_evidence
+            ).encode("utf-8")
+        ).hexdigest()
+        checked_at = max(item.retrieved_at for item in ordered_evidence)
+        connection = self.connection_factory()
+        inserted = 0
+        existing = 0
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                endpoint_id = self._endpoint_id(
+                    connection,
+                    batch.source_code,
+                    batch.endpoint_code,
+                )
+                for evidence in ordered_evidence:
+                    row = connection.execute(
+                        """
+                        select id::text as id
+                        from raw.raw_artifacts
+                        where id = %s::uuid
+                          and source_endpoint_id = %s::uuid
+                          and artifact_kind = 'http_response'
+                          and sha256 = %s
+                        """,
+                        (evidence.raw_artifact_id, endpoint_id, evidence.sha256),
+                    ).fetchone()
+                    if row is None:
+                        raise PersistenceContractError(
+                            "Evidência da busca não pertence ao bruto preservado."
+                        )
+
+                for search in batch.searches:
+                    search_row = connection.execute(
+                        """
+                        insert into source.official_document_searches (
+                          source_endpoint_id, resource, period_start, period_end,
+                          search_status, match_count, evidence_manifest_sha256,
+                          evidence_artifact_count, checked_at, methodology_version
+                        ) values (
+                          %s::uuid, %s, %s::date, %s::date, %s, %s, %s, %s,
+                          %s::timestamptz, %s
+                        )
+                        on conflict (
+                          source_endpoint_id, resource, period_start,
+                          evidence_manifest_sha256
+                        ) do nothing
+                        returning id::text as id
+                        """,
+                        (
+                            endpoint_id,
+                            batch.resource,
+                            search.period_start,
+                            search.period_end,
+                            search.search_status,
+                            search.match_count,
+                            manifest_sha256,
+                            len(ordered_evidence),
+                            checked_at,
+                            batch.methodology_version,
+                        ),
+                    ).fetchone()
+                    if search_row is None:
+                        prior = connection.execute(
+                            """
+                            select id::text as id, search_status, match_count,
+                                   evidence_artifact_count, methodology_version
+                            from source.official_document_searches
+                            where source_endpoint_id = %s::uuid
+                              and resource = %s
+                              and period_start = %s::date
+                              and evidence_manifest_sha256 = %s
+                            """,
+                            (
+                                endpoint_id,
+                                batch.resource,
+                                search.period_start,
+                                manifest_sha256,
+                            ),
+                        ).fetchone()
+                        if (
+                            prior is None
+                            or str(prior["search_status"]) != search.search_status
+                            or int(prior["match_count"]) != search.match_count
+                            or int(prior["evidence_artifact_count"])
+                            != len(ordered_evidence)
+                            or str(prior["methodology_version"])
+                            != batch.methodology_version
+                        ):
+                            raise PersistenceContractError(
+                                "Conflito de idempotência na busca oficial."
+                            )
+                        search_id = str(prior["id"])
+                        existing += 1
+                    else:
+                        search_id = str(search_row["id"])
+                        inserted += 1
+                    for order, evidence in enumerate(ordered_evidence, start=1):
+                        connection.execute(
+                            """
+                            insert into source.official_document_search_artifacts (
+                              official_document_search_id, raw_artifact_id,
+                              artifact_order
+                            ) values (%s::uuid, %s::uuid, %s)
+                            on conflict do nothing
+                            """,
+                            (search_id, evidence.raw_artifact_id, order),
+                        )
+            return RepositorySearchResult(
+                inserted_searches=inserted,
+                existing_searches=existing,
             )
         finally:
             connection.close()

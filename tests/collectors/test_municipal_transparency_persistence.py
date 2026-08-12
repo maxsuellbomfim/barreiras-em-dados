@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import unittest
+from datetime import date
 from types import SimpleNamespace
 
 from barreiras_collectors.connectors.gazette_documents import CollectedDocument
@@ -10,7 +11,10 @@ from barreiras_collectors.connectors.municipal_transparency import (
     iter_resource_pages,
 )
 from barreiras_collectors.http import HttpResponse
-from barreiras_collectors.persistence.models import ArtifactIntegrityError
+from barreiras_collectors.persistence.models import (
+    ArtifactIntegrityError,
+    OfficialDocumentSearchInput,
+)
 from barreiras_collectors.persistence.service import (
     MunicipalTransparencyPersistenceService,
 )
@@ -54,6 +58,7 @@ class FakeRepository:
     def __init__(self) -> None:
         self.batches = []
         self.document_batches = []
+        self.search_batches = []
 
     def persist(self, batch):
         self.batches.append(batch)
@@ -67,6 +72,13 @@ class FakeRepository:
     def persist_document(self, batch):
         self.document_batches.append(batch)
         return SimpleNamespace(raw_artifact_id="document-artifact", created=True)
+
+    def persist_official_document_searches(self, batch):
+        self.search_batches.append(batch)
+        return SimpleNamespace(
+            inserted_searches=len(batch.searches),
+            existing_searches=0,
+        )
 
 
 def page_fixture():
@@ -97,6 +109,38 @@ def page_fixture():
 
 
 class MunicipalTransparencyPersistenceTests(unittest.TestCase):
+    def test_persists_monthly_search_with_preserved_response_lineage(self) -> None:
+        repository = FakeRepository()
+        service = MunicipalTransparencyPersistenceService(
+            object_store=FakeObjectStore(),
+            repository=repository,
+        )
+        page = page_fixture()
+        page_result = service.persist(page)
+
+        result = service.persist_official_document_searches(
+            source_code="prefeitura-barreiras-transparencia",
+            endpoint_code="dados-abertos-api",
+            resource="balancetes",
+            searches=(
+                OfficialDocumentSearchInput(
+                    fiscal_year=2022,
+                    reference_month=3,
+                    period_start=date(2022, 3, 1),
+                    period_end=date(2022, 3, 31),
+                    search_status="not_found",
+                    match_count=0,
+                ),
+            ),
+            page_evidence=((page_result, page),),
+        )
+
+        self.assertEqual(result.inserted_searches, 1)
+        batch = repository.search_batches[0]
+        self.assertEqual(batch.evidence_artifacts[0].raw_artifact_id, "artifact")
+        self.assertEqual(batch.evidence_artifacts[0].sha256, page.body_sha256)
+        self.assertEqual(batch.methodology_version, "official-document-search/1.0.0")
+
     def test_persists_raw_page_and_records_idempotently(self) -> None:
         repository = FakeRepository()
         service = MunicipalTransparencyPersistenceService(

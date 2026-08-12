@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from ..connectors.gazette_documents import CollectedDocument
@@ -67,6 +68,40 @@ class PersistenceResult:
     object_created: bool
     inserted_records: int
     existing_records: int
+
+
+@dataclass(frozen=True)
+class OfficialDocumentSearchInput:
+    fiscal_year: int
+    reference_month: int
+    period_start: date
+    period_end: date
+    search_status: str
+    match_count: int
+
+
+@dataclass(frozen=True)
+class SearchEvidenceArtifact:
+    raw_artifact_id: str
+    sha256: str
+    source_url: str
+    retrieved_at: str
+
+
+@dataclass(frozen=True)
+class OfficialDocumentSearchBatch:
+    source_code: str
+    endpoint_code: str
+    resource: str
+    searches: tuple[OfficialDocumentSearchInput, ...]
+    evidence_artifacts: tuple[SearchEvidenceArtifact, ...]
+    methodology_version: str
+
+
+@dataclass(frozen=True)
+class RepositorySearchResult:
+    inserted_searches: int
+    existing_searches: int
 
 
 @dataclass(frozen=True)
