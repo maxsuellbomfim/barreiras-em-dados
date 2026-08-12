@@ -167,11 +167,11 @@ class PublicObligationPublisherTests(unittest.TestCase):
     def test_failure_job_type_is_versioned_for_auditable_retry(self):
         self.assertEqual(
             PUBLIC_OBLIGATION_JOB_TYPE,
-            "public_obligation_balancete_publication/1.5.3",
+            "public_obligation_balancete_publication/1.5.4",
         )
         self.assertEqual(
             PUBLIC_OBLIGATION_METHODOLOGY,
-            "public-obligations-balancete/1.5.3",
+            "public-obligations-balancete/1.5.4",
         )
 
     def test_pending_documents_accepts_reference_keys_from_current_api(self):
