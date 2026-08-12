@@ -1,0 +1,24 @@
+{
+  "data": [
+    {
+      "id_proposta": 9274,
+      "id_programa": 15,
+      "cnpj_ente_recebedor": "08595187000125",
+      "nm_ente_recebedor": "FUNDO MUNICIPAL DE SAUDE DE BARREIRAS",
+      "cd_ibge_recebedor": 2903201,
+      "nm_municipio_recebedor": "BARREIRAS",
+      "nm_uf_recebedor": "BAHIA",
+      "sg_uf_recebedor": "BA",
+      "ds_objeto": "INCREMENTO DA MÉDIA E ALTA COMPLEXIDADE (MAC)",
+      "situacao_proposta": "Aprovada",
+      "vl_total_planejamento_gastos": 250000.0,
+      "mes_proposta": 7,
+      "ano_proposta": 2025,
+      "dt_proposta": "2025-07-21"
+    }
+  ],
+  "total_pages": 1,
+  "total_items": 1,
+  "page_number": 1,
+  "page_size": 1
+}
