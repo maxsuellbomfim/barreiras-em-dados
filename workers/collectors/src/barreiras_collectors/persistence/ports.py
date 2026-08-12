@@ -36,6 +36,11 @@ class CollectionRepository(Protocol):
         batch: DocumentBatch,
     ) -> RepositoryDocumentResult: ...
 
+    def municipal_document_identities(
+        self,
+        source_record_keys: tuple[str, ...],
+    ) -> frozenset[tuple[str, str]]: ...
+
     def persist_official_document_searches(
         self,
         batch: OfficialDocumentSearchBatch,

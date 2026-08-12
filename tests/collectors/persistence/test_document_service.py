@@ -266,6 +266,27 @@ class FilesystemDocumentRepositoryTests(unittest.TestCase):
             self.assertFalse(second.created)
             self.assertEqual(first.raw_artifact_id, second.raw_artifact_id)
 
+    def test_lists_preserved_municipal_document_identity(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw_root:
+            repository = FilesystemCollectionRepository(Path(raw_root))
+            batch = replace(
+                self.make_batch(),
+                source_record_key="municipal:balancete:2026-07",
+                document_schema_name="municipal-transparency-document",
+            )
+            repository.persist_document(batch)
+
+            identities = repository.municipal_document_identities(
+                (batch.source_record_key, "municipal:balancete:missing")
+            )
+
+            self.assertEqual(
+                identities,
+                frozenset({(batch.source_record_key, batch.document.source_url)}),
+            )
+
     def test_divergent_identity_under_same_key_is_rejected(self) -> None:
         import tempfile
 
@@ -299,6 +320,38 @@ class FilesystemDocumentRepositoryTests(unittest.TestCase):
 
 
 class PostgresDocumentRepositoryTests(unittest.TestCase):
+    def test_lists_only_preserved_municipal_document_identities(self) -> None:
+        connection = Mock()
+        connection.execute.return_value.fetchall.return_value = [
+            {
+                "source_record_key": "municipal:balancete:2026-07",
+                "source_url": "https://example.org/balancete-2026-07.pdf",
+            }
+        ]
+        repository = PostgresCollectionRepository(
+            connection_factory=Mock(return_value=connection)
+        )
+
+        identities = repository.municipal_document_identities(
+            ("municipal:balancete:2026-07",)
+        )
+
+        self.assertEqual(
+            identities,
+            frozenset(
+                {
+                    (
+                        "municipal:balancete:2026-07",
+                        "https://example.org/balancete-2026-07.pdf",
+                    )
+                }
+            ),
+        )
+        query = connection.execute.call_args.args[0]
+        self.assertIn("artifact_kind = 'document'", query)
+        self.assertIn("municipal-transparency-document", query)
+        connection.close.assert_called_once_with()
+
     def test_same_pdf_with_new_parent_artifact_is_idempotent(self) -> None:
         batch = FilesystemDocumentRepositoryTests().make_batch()
         connection = Mock()

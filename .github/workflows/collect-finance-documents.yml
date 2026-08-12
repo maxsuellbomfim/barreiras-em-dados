@@ -130,6 +130,8 @@ jobs:
       - name: Drenar documentos financeiros
         env:
           DRAIN_LIMIT: >-
+            ${{ matrix.resource == 'balancetes' && '500' || inputs.limit || '50' }}
+          DRAIN_MAX_DOCUMENTS: >-
             ${{ matrix.resource == 'balancetes' && '5' || inputs.limit || '50' }}
           DRAIN_MAX_PAGES: >-
             ${{ matrix.resource == 'balancetes' && '1' || inputs.max_pages || '3' }}
@@ -139,5 +141,6 @@ jobs:
           --resource "${{ matrix.resource }}"
           --limit "$DRAIN_LIMIT"
           --max-pages "$DRAIN_MAX_PAGES"
+          --max-documents "$DRAIN_MAX_DOCUMENTS"
           --download-documents
           --allow-partial

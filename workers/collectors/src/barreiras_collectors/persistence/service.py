@@ -480,6 +480,14 @@ class MunicipalTransparencyPersistenceService:
             artifact_created=persisted.created,
         )
 
+    def preserved_document_identities(
+        self,
+        source_record_keys: tuple[str, ...],
+    ) -> frozenset[tuple[str, str]]:
+        """Retorna identidade e URL já preservadas sem expor o Storage."""
+
+        return self.repository.municipal_document_identities(source_record_keys)
+
     def persist_official_document_searches(
         self,
         *,

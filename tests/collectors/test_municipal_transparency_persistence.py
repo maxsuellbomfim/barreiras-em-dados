@@ -73,6 +73,13 @@ class FakeRepository:
         self.document_batches.append(batch)
         return SimpleNamespace(raw_artifact_id="document-artifact", created=True)
 
+    def municipal_document_identities(self, source_record_keys):
+        return frozenset(
+            (batch.source_record_key, batch.document.source_url)
+            for batch in self.document_batches
+            if batch.source_record_key in source_record_keys
+        )
+
     def persist_official_document_searches(self, batch):
         self.search_batches.append(batch)
         return SimpleNamespace(
@@ -216,6 +223,19 @@ class MunicipalTransparencyPersistenceTests(unittest.TestCase):
         self.assertEqual(
             repository.document_batches[0].parent_artifact_id,
             page_result.raw_artifact_id,
+        )
+        self.assertEqual(
+            service.preserved_document_identities(
+                (repository.document_batches[0].source_record_key,)
+            ),
+            frozenset(
+                {
+                    (
+                        repository.document_batches[0].source_record_key,
+                        document.source_url,
+                    )
+                }
+            ),
         )
 
 
