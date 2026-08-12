@@ -308,6 +308,62 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
                 reference_month=9,
             )
 
+    def test_reconciles_legacy_restos_from_official_combined_totals(self):
+        extractor = PublicObligationOcrExtractor(
+            engine=FakeEngine(),
+            pdf_text_deriver=lambda _body: FakePdf(
+                (
+                    FakePage(
+                        22,
+                        """Demonstrativo de Receita Extra
+TRANSFERENCIA FINANCEIRA
+Total: 111.517.650,28 15-171.175,37 126.688.825,65
+""",
+                    ),
+                    FakePage(
+                        112,
+                        """Demonstrativo de Despesa Extra
+Total
+44.658.953,81
+4.934.649,90
+49.593.603,71
+RESTOS A PAGAR
+linhas oficiais sem subtotal separado
+""",
+                    ),
+                    FakePage(
+                        113,
+                        """Total Extra, Restos a Pagar e Transferencia Financeira
+177.17 )5,74
+20.216.422,12
+197.341.227,86
+""",
+                    ),
+                )
+            ),
+            page_ocr=lambda *_args, **_kwargs: self.fail("OCR nao deveria rodar"),
+        )
+
+        extraction = extractor.extract(
+            b"%PDF fixture",
+            fiscal_year=2022,
+            reference_month=9,
+        )
+
+        self.assertEqual(
+            extraction.summary.payments_prior_amount,
+            Decimal("20948201.65"),
+        )
+        self.assertEqual(
+            extraction.summary.payments_period_amount,
+            Decimal("110596.85"),
+        )
+        self.assertEqual(
+            extraction.summary.payments_to_date_amount,
+            Decimal("21058798.50"),
+        )
+        self.assertEqual(extraction.provenance.extraction_method, "embedded_text")
+
     def test_rejects_ambiguous_legacy_totals_footers_without_running_ocr(self):
         extractor = PublicObligationOcrExtractor(
             engine=FakeEngine(),

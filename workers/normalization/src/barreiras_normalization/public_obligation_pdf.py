@@ -87,7 +87,10 @@ _PUNCTUATED_TOTAL_LINE = re.compile(
     re.IGNORECASE,
 )
 _TOTAL_MARKER = re.compile(r"^TOT\s*A\s*L?(?:\s*[.\-])*$", re.IGNORECASE)
-_TOTAL_PREFIX = re.compile(r"^TOT\s*A\s*L?(?:\s|[.\-]|$)", re.IGNORECASE)
+_TOTAL_PREFIX = re.compile(r"^TOT\s*A\s*L?(?:\s|[.:\-]|$)", re.IGNORECASE)
+_OCR_THOUSANDS_HYPHEN = re.compile(
+    r"(?<=\d)-(?=\d{3}(?:[.,]\d{3})*,\s*\d{1,2}\b)"
+)
 _AMOUNT_TOKEN = re.compile(_AMOUNT)
 _TRANSFER_ACCOUNT = re.compile(r"^351\d{9,}")
 _TRANSFER_BOUNDARY = re.compile(
@@ -239,6 +242,146 @@ def _columnar_total_before_boundary(
     if len(matches) != 1:
         return None
     return matches[0]
+
+
+def _explicit_total_in_range(
+    lines: list[str],
+    folded: list[str],
+    *,
+    start: int,
+    end: int,
+) -> tuple[Decimal, Decimal, Decimal]:
+    totals: list[tuple[Decimal, Decimal, Decimal]] = []
+    for marker in range(start, end):
+        if not (
+            _has_total_prefix(folded[marker])
+            or folded[marker].rstrip(" .:-") == "TOTAL"
+        ):
+            continue
+        tokens = [
+            token
+            for line in lines[marker : min(end, marker + 5)]
+            for token in _AMOUNT_TOKEN.findall(
+                _OCR_THOUSANDS_HYPHEN.sub(".", line)
+            )
+        ]
+        if len(tokens) < 3:
+            continue
+        closed = _closed_total(
+            tokens[0],
+            tokens[1],
+            tokens[2],
+            allow_ocr_thousands_comma=True,
+        )
+        if closed is not None:
+            totals.append(closed)
+    if len(totals) != 1:
+        raise PublicObligationStructuralError(
+            "total oficial ausente ou ambiguo na reconciliacao combinada"
+        )
+    return totals[0]
+
+
+def parse_legacy_combined_restos_summary(
+    *,
+    expense_extra_text: str,
+    transfer_text: str,
+    combined_footer_text: str,
+    fiscal_year: int,
+    reference_month: int,
+) -> RestosAPagarSummary:
+    """Deriva restos quando a fonte publica apenas o total geral combinado."""
+
+    if not 1988 <= fiscal_year <= 9999 or not 1 <= reference_month <= 12:
+        raise PublicObligationStructuralError("periodo fiscal invalido")
+
+    expense_lines = [" ".join(line.split()) for line in expense_extra_text.splitlines()]
+    expense_folded = [_fold(line) for line in expense_lines]
+    restos_headings = [
+        index for index, line in enumerate(expense_folded) if line == "RESTOS A PAGAR"
+    ]
+    if len(restos_headings) != 1:
+        raise PublicObligationStructuralError("secao RESTOS A PAGAR ausente ou ambigua")
+    expense_total = _explicit_total_in_range(
+        expense_lines,
+        expense_folded,
+        start=0,
+        end=restos_headings[0],
+    )
+
+    transfer_lines = [" ".join(line.split()) for line in transfer_text.splitlines()]
+    transfer_folded = [_fold(line) for line in transfer_lines]
+    transfer_headings = [
+        index
+        for index, line in enumerate(transfer_folded)
+        if is_transfer_section_boundary(line)
+    ]
+    if len(transfer_headings) != 1:
+        raise PublicObligationStructuralError(
+            "secao TRANSFERENCIA FINANCEIRA ausente ou ambigua"
+        )
+    transfer_total = _explicit_total_in_range(
+        transfer_lines,
+        transfer_folded,
+        start=transfer_headings[0] + 1,
+        end=len(transfer_lines),
+    )
+
+    footer_lines = [
+        " ".join(line.split()) for line in combined_footer_text.splitlines()
+    ]
+    footer_folded = [_fold(line) for line in footer_lines]
+    footer_markers = [
+        index
+        for index, line in enumerate(footer_folded)
+        if line.startswith("TOTAL EXTRA, RESTOS A PAGAR E TRANSFERENCIA FINANCEIRA")
+    ]
+    if len(footer_markers) != 1:
+        raise PublicObligationStructuralError(
+            "total geral combinado ausente ou ambiguo"
+        )
+    footer_tokens = [
+        token
+        for line in footer_lines[footer_markers[0] :]
+        for token in _AMOUNT_TOKEN.findall(line)
+    ]
+    if len(footer_tokens) < 2:
+        raise PublicObligationStructuralError("total geral combinado incompleto")
+    combined_period = _parse_ocr_brl_amount(footer_tokens[-2])
+    combined_to_date = _parse_ocr_brl_amount(footer_tokens[-1])
+    combined_prior = combined_to_date - combined_period
+
+    payments_prior = combined_prior - expense_total[0] - transfer_total[0]
+    payments_period = combined_period - expense_total[1] - transfer_total[1]
+    payments_to_date = combined_to_date - expense_total[2] - transfer_total[2]
+    if min(payments_prior, payments_period, payments_to_date) < 0:
+        raise PublicObligationArithmeticError(
+            "reconciliacao combinada de restos a pagar produziu valor negativo"
+        )
+    if payments_prior + payments_period != payments_to_date:
+        raise PublicObligationArithmeticError(
+            "reconciliacao combinada de restos a pagar nao fecha"
+        )
+
+    period_start = date(fiscal_year, reference_month, 1)
+    period_end = date(
+        fiscal_year,
+        reference_month,
+        calendar.monthrange(fiscal_year, reference_month)[1],
+    )
+    return RestosAPagarSummary(
+        fiscal_year=fiscal_year,
+        period_start=period_start,
+        period_end=period_end,
+        obligation_type="restos_a_pagar_total",
+        description=(
+            "Pagamentos de restos a pagar derivados deterministicamente dos "
+            "totais oficiais combinados do balancete mensal"
+        ),
+        payments_prior_amount=payments_prior,
+        payments_period_amount=payments_period,
+        payments_to_date_amount=payments_to_date,
+    )
 
 
 def parse_restos_a_pagar_summary(
