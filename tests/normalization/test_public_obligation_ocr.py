@@ -338,7 +338,7 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
             (
                 FakePage(1, "capa"),
                 FakePage(2, "RESTOS A PAGAR\ntexto em ordem inadequada"),
-                FakePage(3, "TRANSFERÊNCIA FINANCEIRA"),
+                FakePage(3, "TRANSFERÊNCIA FINANCEIRA -"),
             )
         )
         layout = FakePdf(
@@ -347,7 +347,8 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
                 FakePage(2, "RESTOS A PAGAR\ncontas"),
                 FakePage(
                     3,
-                    "0,00 18.542.319,37 18.542.319,37\nTRANSFERÊNCIA FINANCEIRA",
+                    "0,00 18.542.319,37 18.542.319,37\n"
+                    "TRANSFERÊNCIA FINANCEIRA -",
                 ),
             ),
             parser_version="public-obligation-pdf-layout-text/1.0.0",

@@ -167,11 +167,11 @@ class PublicObligationPublisherTests(unittest.TestCase):
     def test_failure_job_type_is_versioned_for_auditable_retry(self):
         self.assertEqual(
             PUBLIC_OBLIGATION_JOB_TYPE,
-            "public_obligation_balancete_publication/1.5.4",
+            "public_obligation_balancete_publication/1.5.5",
         )
         self.assertEqual(
             PUBLIC_OBLIGATION_METHODOLOGY,
-            "public-obligations-balancete/1.5.4",
+            "public-obligations-balancete/1.5.5",
         )
 
     def test_pending_documents_accepts_reference_keys_from_current_api(self):
@@ -216,7 +216,13 @@ class PublicObligationPublisherTests(unittest.TestCase):
         )
         self.assertEqual(
             connection.parameters,
-            (2026, 2026, PUBLIC_OBLIGATION_JOB_TYPE, 1),
+            (
+                2026,
+                2026,
+                PUBLIC_OBLIGATION_METHODOLOGY,
+                PUBLIC_OBLIGATION_JOB_TYPE,
+                1,
+            ),
         )
         self.assertTrue(connection.closed)
         self.assertIn(
@@ -225,8 +231,12 @@ class PublicObligationPublisherTests(unittest.TestCase):
         )
         self.assertIn("public_obligation_section_absent", normalized_query)
         self.assertIn("public_obligation_section_incomplete", normalized_query)
-        self.assertIn("public_obligation_progression_conflict", normalized_query)
+        self.assertNotIn("public_obligation_progression_conflict", normalized_query)
         self.assertIn("result.validation_status = 'valid'", normalized_query)
+        self.assertIn(
+            "result.extractor_version = %s",
+            normalized_query,
+        )
 
     def test_pending_documents_selects_only_monthly_reports_in_period_order(self):
         connection = CapturingConnection([])

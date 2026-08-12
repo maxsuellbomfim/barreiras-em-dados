@@ -20,8 +20,8 @@ from .public_obligation_pdf import (
 )
 from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
 
-PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.5.4"
-PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.5.4"
+PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.5.5"
+PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.5.5"
 
 
 @dataclass(frozen=True)
@@ -336,10 +336,10 @@ class PostgresPublicObligationPublicationRepository:
                       where terminal_job.raw_artifact_id = document.id
                         and terminal_job.status = 'succeeded'
                         and result.validation_status = 'valid'
+                        and result.extractor_version = %s
                         and result.candidate_type in (
                           'public_obligation_section_absent',
-                          'public_obligation_section_incomplete',
-                          'public_obligation_progression_conflict'
+                          'public_obligation_section_incomplete'
                         )
                     )
                     and not exists (
@@ -360,6 +360,7 @@ class PostgresPublicObligationPublicationRepository:
                 (
                     fiscal_year_from,
                     fiscal_year_to,
+                    PUBLIC_OBLIGATION_METHODOLOGY,
                     PUBLIC_OBLIGATION_JOB_TYPE,
                     limit,
                 ),
