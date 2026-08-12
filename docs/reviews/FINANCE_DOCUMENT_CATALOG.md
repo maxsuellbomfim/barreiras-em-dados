@@ -40,6 +40,10 @@ validada → revisão → finance.revenues → projeção pública
   inicial a partir de 2021;
 - mensagem pública explícita quando a ausência de números ainda for uma
   etapa de validação, e não receita zero.
+- busca probatória no catálogo completo de balancetes, com resultado mensal
+  `found` ou `not_found`, respostas brutas vinculadas e manifesto SHA-256;
+- projeção pública distinta para “não encontrado no catálogo oficial”, sem
+  confundir essa evidência temporal com valor zero ou inexistência definitiva.
 
 ## Limite atual
 

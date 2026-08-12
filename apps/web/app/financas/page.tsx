@@ -184,6 +184,7 @@ function formatAmount(value: string | null, unavailable = "não disponível"): s
 function obligationCoverageTitle(status: PublicObligationCoverageRow["coverageStatus"]): string {
   if (status === "section_absent") return "Balancete localizado, mas sem a seção";
   if (status === "section_incomplete") return "Balancete localizado, mas incompleto";
+  if (status === "document_not_found") return "Não encontrado no catálogo oficial";
   return "Documento ainda não confirmado no acervo";
 }
 
@@ -195,6 +196,9 @@ function obligationCoverageExplanation(
   }
   if (status === "section_incomplete") {
     return "O balancete oficial foi localizado, mas a seção termina sem todos os totais necessários. O Barreiras 360 não estimou nem completou o valor.";
+  }
+  if (status === "document_not_found") {
+    return "O catálogo completo de balancetes da Prefeitura foi consultado e a resposta oficial foi preservada, mas não havia documento para este mês na data da verificação. Isso não significa valor zero: a Prefeitura pode publicar o arquivo depois, e a situação será atualizada na coleta seguinte.";
   }
   return "Até a última cobertura disponível, nenhum documento mensal foi confirmado no acervo coletado. Isso não significa valor zero nem prova que o arquivo nunca existiu no portal oficial.";
 }

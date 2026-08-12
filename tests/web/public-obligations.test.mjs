@@ -119,18 +119,23 @@ test("expõe ausência e incompletude comprovadas sem convertê-las em zero", as
           source_url: "https://barreiras.mtransparente.com.br/balancete-fevereiro-2022.pdf",
           document_artifact_sha256: "c".repeat(64),
           checked_at: "2026-08-12T01:55:57.000Z",
-          methodology_version: "public-obligation-coverage/1.0.0",
+          search_evidence_sha256: null,
+          evidence_artifact_count: null,
+          methodology_version: "public-obligation-coverage/1.1.0",
         },
         {
           coverage_id: "public-obligation-coverage:2022-03",
           fiscal_year: 2022,
           period_start: "2022-03-01",
           period_end: "2022-03-31",
-          coverage_status: "document_not_confirmed",
-          source_url: null,
+          coverage_status: "document_not_found",
+          source_url:
+            "https://portaldatransparencia.barreiras.ba.gov.br/api?resource=balancetes&limit=500&offset=0",
           document_artifact_sha256: null,
-          checked_at: null,
-          methodology_version: "public-obligation-coverage/1.0.0",
+          search_evidence_sha256: "d".repeat(64),
+          evidence_artifact_count: 1,
+          checked_at: "2026-08-12T02:20:00.000Z",
+          methodology_version: "public-obligation-coverage/1.1.0",
         },
       ],
     };
@@ -141,8 +146,10 @@ test("expõe ausência e incompletude comprovadas sem convertê-las em zero", as
   assert.equal(result.state, "available");
   assert.equal(result.rows[0].coverageStatus, "section_absent");
   assert.equal(result.rows[0].amount, undefined);
-  assert.equal(result.rows[1].coverageStatus, "document_not_confirmed");
-  assert.equal(result.rows[1].sourceUrl, null);
+  assert.equal(result.rows[1].coverageStatus, "document_not_found");
+  assert.equal(result.rows[1].documentArtifactSha256, null);
+  assert.equal(result.rows[1].searchEvidenceSha256, "d".repeat(64));
+  assert.equal(result.rows[1].evidenceArtifactCount, 1);
 });
 
 test("falha fechada quando a cobertura pública tenta expor estado interno", async () => {

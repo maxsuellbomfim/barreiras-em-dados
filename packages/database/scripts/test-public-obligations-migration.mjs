@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
@@ -18,6 +19,12 @@ const seed = await readFile(
   "utf8",
 );
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
+const searchManifest = createHash("sha256")
+  .update(
+    "00000000-0000-0000-0000-000000008002:" + "a".repeat(64),
+    "utf8",
+  )
+  .digest("hex");
 
 async function rejects(sql, pattern = undefined) {
   await assert.rejects(database.exec(sql), pattern);
@@ -72,6 +79,15 @@ try {
       has_table_privilege('anon', 'finance.public_obligations', 'SELECT') as anon_select,
       has_table_privilege('collector_worker', 'finance.public_obligations', 'INSERT') as worker_insert,
       has_table_privilege('collector_worker', 'finance.public_obligations', 'UPDATE') as worker_update,
+      has_table_privilege(
+        'anon', 'source.official_document_searches', 'SELECT'
+      ) as anon_search_select,
+      has_table_privilege(
+        'collector_worker', 'source.official_document_searches', 'INSERT'
+      ) as worker_search_insert,
+      has_table_privilege(
+        'collector_worker', 'source.official_document_searches', 'UPDATE'
+      ) as worker_search_update,
       has_function_privilege(
         'anon', 'api.get_public_obligations(integer,integer,text)', 'EXECUTE'
       ) as anon_rpc,
@@ -86,6 +102,9 @@ try {
     anon_select: false,
     worker_insert: true,
     worker_update: false,
+    anon_search_select: false,
+    worker_search_insert: true,
+    worker_search_update: false,
     anon_rpc: true,
     anon_coverage_rpc: true,
   }]);
@@ -109,6 +128,22 @@ try {
       'https://portaldatransparencia.barreiras.ba.gov.br/api?resource=balancetes',
       '2026-08-11 16:40:00+00', 100, '${"a".repeat(64)}',
       'fixtures/obligations.json', 'test/1'
+    );
+    insert into source.official_document_searches (
+      id, source_endpoint_id, resource, period_start, period_end,
+      search_status, match_count, evidence_manifest_sha256,
+      evidence_artifact_count, checked_at, methodology_version
+    ) values (
+      '00000000-0000-0000-0000-000000008030',
+      '00000000-0000-4000-8000-000000000102', 'balancetes',
+      '2026-03-01', '2026-03-31', 'not_found', 0, '${searchManifest}',
+      1, '2026-08-12 02:20:00+00', 'official-document-search/1.0.0'
+    );
+    insert into source.official_document_search_artifacts (
+      official_document_search_id, raw_artifact_id, artifact_order
+    ) values (
+      '00000000-0000-0000-0000-000000008030',
+      '00000000-0000-0000-0000-000000008002', 1
     );
     insert into raw.raw_records (
       id, raw_artifact_id, source_record_key, record_type, record_index,
@@ -611,9 +646,13 @@ try {
       coverage_status,
       source_url,
       document_artifact_sha256,
+      search_evidence_sha256,
+      evidence_artifact_count,
       methodology_version
     from api.get_public_obligation_coverage(120, 2026::smallint, 2026::smallint)
-    where period_start in ('2026-02-01', '2026-04-01', '2026-06-01')
+    where period_start in (
+      '2026-02-01', '2026-03-01', '2026-04-01', '2026-06-01'
+    )
     order by period_start
   `);
   await database.exec("reset role");
@@ -627,7 +666,22 @@ try {
       source_url:
         "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-fevereiro-2026.pdf",
       document_artifact_sha256: "f".repeat(64),
-      methodology_version: "public-obligation-coverage/1.0.0",
+      search_evidence_sha256: null,
+      evidence_artifact_count: null,
+      methodology_version: "public-obligation-coverage/1.1.0",
+    },
+    {
+      coverage_id: "public-obligation-coverage:2026-03",
+      fiscal_year: 2026,
+      period_start: new Date("2026-03-01T00:00:00.000Z"),
+      period_end: new Date("2026-03-31T00:00:00.000Z"),
+      coverage_status: "document_not_found",
+      source_url:
+        "https://portaldatransparencia.barreiras.ba.gov.br/api?resource=balancetes",
+      document_artifact_sha256: null,
+      search_evidence_sha256: searchManifest,
+      evidence_artifact_count: 1,
+      methodology_version: "public-obligation-coverage/1.1.0",
     },
     {
       coverage_id: "public-obligation-coverage:2026-04",
@@ -638,7 +692,9 @@ try {
       source_url:
         "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-abril-2026.pdf",
       document_artifact_sha256: "9".repeat(64),
-      methodology_version: "public-obligation-coverage/1.0.0",
+      search_evidence_sha256: null,
+      evidence_artifact_count: null,
+      methodology_version: "public-obligation-coverage/1.1.0",
     },
     {
       coverage_id: "public-obligation-coverage:2026-06",
@@ -649,7 +705,9 @@ try {
       source_url:
         "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-junho-2026.pdf",
       document_artifact_sha256: "d".repeat(64),
-      methodology_version: "public-obligation-coverage/1.0.0",
+      search_evidence_sha256: null,
+      evidence_artifact_count: null,
+      methodology_version: "public-obligation-coverage/1.1.0",
     },
   ]);
   assert.equal(

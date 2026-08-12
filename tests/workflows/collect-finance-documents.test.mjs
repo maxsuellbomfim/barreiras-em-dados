@@ -25,7 +25,15 @@ test("coleta financeira permite backfill por recurso e documentos grandes", () =
 });
 
 test("coleta financeira preserva fontes oficiais de dividas e obrigacoes", () => {
+  const collectionStep = workflow.slice(
+    workflow.indexOf("- name: Preservar documento financeiro"),
+  );
+  const collectionRun = collectionStep.slice(collectionStep.indexOf("run: >-"));
+
   assert.match(workflow, /balancetes/);
   assert.match(workflow, /pdc-contas-anuais/);
   assert.match(workflow, /rgf/);
+  assert.match(workflow, /COLLECT_LIMIT: >-[\s\S]*balancetes'[\s\S]*'500'/);
+  assert.match(workflow, /COVERAGE_ARGUMENTS: >-[\s\S]*--coverage-year-from 2021/);
+  assert.doesNotMatch(collectionRun, /\$\{\{ matrix\.resource == 'balancetes'/);
 });

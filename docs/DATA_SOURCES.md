@@ -69,6 +69,15 @@ até o mês atual. O publicador valida deterministicamente a identidade
 linha se a seção for ambígua ou se a conta não fechar. Esses valores medem
 pagamentos realizados e não o saldo ainda devido pelo Município.
 
+Uma competência só pode aparecer publicamente como “não encontrada no catálogo
+oficial” depois que o coletor percorre o catálogo completo de `balancetes`,
+preserva todas as respostas HTTP usadas na busca e registra um manifesto
+SHA-256 dos artefatos. A mensagem não significa valor zero, nem prova que o
+documento nunca existiu: informa apenas que ele não constava no catálogo oficial
+na data e hora verificadas. Paginação incompleta, limite atingido, falha de rede
+ou campo temporal inválido mantêm a competência como cobertura desconhecida ou
+falha; jamais produzem uma declaração pública de ausência.
+
 ## Catálogo oficial do Diário de Barreiras
 
 - catálogo: `https://pmbarreiras.diariomtransparente.com.br/publicacoes`;

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from datetime import date
 from unittest.mock import patch
 
 from barreiras_collectors.commands.collect_municipal_transparency import (
@@ -9,6 +10,7 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
     SOURCE_CONFIG,
     MunicipalTransparencyCollectionSummary,
     _bounded_env_int,
+    build_balancete_monthly_searches,
     execute_controlled_municipal_transparency,
     resolve_endpoint_code,
     resolve_municipal_document_role,
@@ -17,6 +19,40 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
 
 
 class MunicipalTransparencyCommandTests(unittest.TestCase):
+    def test_builds_monthly_searches_without_turning_absence_into_zero(
+        self,
+    ) -> None:
+        searches = build_balancete_monthly_searches(
+            (
+                {"ano_ref": "2022", "mes_ref": "2", "titulo": "Fevereiro"},
+                {"ano_ref": "2022", "mes_ref": "4", "titulo": "Abril"},
+                {"ano_ref": "2022", "mes_ref": "4", "titulo": "Balanço anual"},
+            ),
+            period_start=date(2022, 1, 1),
+            period_end=date(2022, 4, 30),
+        )
+
+        self.assertEqual(
+            [
+                (row.reference_month, row.search_status, row.match_count)
+                for row in searches
+            ],
+            [
+                (1, "not_found", 0),
+                (2, "found", 1),
+                (3, "not_found", 0),
+                (4, "found", 2),
+            ],
+        )
+
+    def test_refuses_to_claim_absence_when_catalog_month_is_malformed(self) -> None:
+        with self.assertRaisesRegex(ValueError, "ano_ref e mes_ref"):
+            build_balancete_monthly_searches(
+                ({"ano_ref": "2022", "titulo": "Sem mês"},),
+                period_start=date(2022, 1, 1),
+                period_end=date(2022, 4, 30),
+            )
+
     def test_resolves_specific_legislative_endpoints(self) -> None:
         self.assertEqual(resolve_endpoint_code("camara", "leis"), "leis-api")
         self.assertEqual(

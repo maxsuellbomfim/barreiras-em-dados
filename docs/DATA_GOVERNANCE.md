@@ -113,6 +113,9 @@ para revisão/DLQ; não são descartados silenciosamente.
   anterior e registram o conflito resolvido com evidências dos dois vínculos;
 - ausência de linha publicada significa “ainda não reconciliada”, nunca dívida
   zero;
+- ausência de documento só pode ser publicada quando houver uma busca completa
+  na fonte oficial, com horário, URL, artefatos brutos e hash do manifesto de
+  evidências; sem essa prova, o estado público permanece “não confirmado”;
 - um total municipal só será elegível depois de eliminar duplicidade entre
   períodos e versões e reconciliar fontes oficiais independentes.
 
