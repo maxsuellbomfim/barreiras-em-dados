@@ -28,14 +28,13 @@ function text(value) {
 
 function decimal(value) {
   if (typeof value === "string" && DECIMAL.test(value.trim())) return value.trim();
-  if (
-    typeof value === "number" &&
-    Number.isFinite(value) &&
-    Number.isSafeInteger(value * 100) &&
-    value >= 0
-  ) {
-    const normalized = String(value);
-    return DECIMAL.test(normalized) ? normalized : null;
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    const roundedCents = Math.round(value * 100);
+    if (!Number.isSafeInteger(roundedCents)) return null;
+    const normalizedValue = roundedCents / 100;
+    const tolerance = Number.EPSILON * Math.max(1, Math.abs(value)) * 4;
+    if (Math.abs(value - normalizedValue) > tolerance) return null;
+    return normalizedValue.toFixed(2);
   }
   return null;
 }
