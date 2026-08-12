@@ -71,10 +71,11 @@ def validate_restos_a_pagar_progression(
 
 
 _AMOUNT = r"(?:\d{1,3}(?:\s*[.,]\s*\d{3})*|\d+)\s*,\s*\d{1,2}"
+_COLUMN_SEPARATOR = r"\s+(?:[.\-:]\s+)?"
 _TOTAL_LINE = re.compile(
     rf"^(?P<label>TOT\s*A\s*L?(?:\s+|(?=[.\-]))(?:[.\-]\s*)*)?"
-    rf"(?P<first>{_AMOUNT})\s+"
-    rf"(?P<second>{_AMOUNT})\s+"
+    rf"(?P<first>{_AMOUNT}){_COLUMN_SEPARATOR}"
+    rf"(?P<second>{_AMOUNT}){_COLUMN_SEPARATOR}"
     rf"(?P<third>{_AMOUNT})$",
     re.IGNORECASE,
 )
@@ -82,6 +83,10 @@ _TOTAL_MARKER = re.compile(r"^TOT\s*A\s*L?(?:\s*[.\-])*$", re.IGNORECASE)
 _TOTAL_PREFIX = re.compile(r"^TOT\s*A\s*L?(?:\s|[.\-]|$)", re.IGNORECASE)
 _AMOUNT_TOKEN = re.compile(_AMOUNT)
 _TRANSFER_ACCOUNT = re.compile(r"^351\d{9,}")
+_TRANSFER_BOUNDARY = re.compile(
+    r"^TRANSFERENCIA FINANCEIRA(?:\s*[-.:])*$",
+    re.IGNORECASE,
+)
 
 
 def _fold(value: str) -> str:
@@ -92,6 +97,12 @@ def _fold(value: str) -> str:
         if not unicodedata.combining(character)
     )
     return without_marks.upper()
+
+
+def is_transfer_section_boundary(value: str) -> bool:
+    """Reconhece o título da próxima seção com pontuação editorial."""
+    normalized = " ".join(_fold(value).split())
+    return _TRANSFER_BOUNDARY.fullmatch(normalized) is not None
 
 
 def _is_total_marker(value: str) -> bool:
@@ -250,7 +261,7 @@ def parse_restos_a_pagar_summary(
         end = next(
             index
             for index in range(start, len(lines))
-            if folded[index] == "TRANSFERENCIA FINANCEIRA"
+            if is_transfer_section_boundary(folded[index])
         )
     except StopIteration as error:
         raise PublicObligationStructuralError(

@@ -127,3 +127,18 @@ validou o artefato real sem escrever no banco: R$ 19.859.849,88 acumulados até
 o mês anterior + R$ 0,00 pagos em outubro = R$ 19.859.849,88 acumulados até
 31/10/2025. A versão do job também foi incrementada para permitir o replay
 auditável da tentativa que havia falhado.
+
+## Pontuação entre colunas e na fronteira — julho de 2023
+
+O balancete oficial de julho de 2023 preservado com SHA-256
+`e525be3a76b7532b9077e7480829a059f19246c6bdd9d4a0ae96139f13434aae`
+publica o total de restos a pagar nas páginas 111 a 113. O texto embutido traz
+um ponto isolado entre a primeira e a segunda coluna e um hífen após o título
+`TRANSFERENCIA FINANCEIRA`. Esses sinais são elementos gráficos, não valores.
+
+A versão `public-obligations-balancete/1.5.5` aceita apenas ponto, hífen ou
+dois-pontos isolados nesses separadores. Permanecem obrigatórios o rótulo
+`Total`, os três valores monetários e a igualdade exata entre o acumulado
+anterior, o pagamento mensal e o acumulado atual. Resultados terminais de uma
+versão anterior não bloqueiam o reprocessamento por uma metodologia nova; o
+histórico anterior continua preservado e auditável.

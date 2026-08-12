@@ -68,6 +68,25 @@ TRANSFERÊNCIA FINANCEIRA
         self.assertEqual(summary.payments_period_amount, Decimal("4782988.29"))
         self.assertEqual(summary.payments_to_date_amount, Decimal("40719187.26"))
 
+    def test_accepts_punctuation_after_transfer_section_boundary(self):
+        text = """\
+RESTOS A PAGAR
+213110101020801 2022 - Fonte 0100 RP Processados 140,03 0,00 140,03
+Total 34.982.156,60 . 22.116,84 35.004.273,44
+TRANSFERENCIA FINANCEIRA -
+351120200000002 Repasse Concedido ao FMAS 2.112.000,00 343.564,97 2.455.564,97
+"""
+
+        summary = parse_restos_a_pagar_summary(
+            text,
+            fiscal_year=2023,
+            reference_month=7,
+        )
+
+        self.assertEqual(summary.payments_prior_amount, Decimal("34982156.60"))
+        self.assertEqual(summary.payments_period_amount, Decimal("22116.84"))
+        self.assertEqual(summary.payments_to_date_amount, Decimal("35004273.44"))
+
     def test_reconstructs_interleaved_total_from_may_balancete(self):
         text = """\
 RESTOS A PAGAR

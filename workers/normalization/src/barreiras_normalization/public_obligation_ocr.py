@@ -14,6 +14,7 @@ from .public_obligation_pdf import (
     PublicObligationSectionAbsentError,
     PublicObligationSectionIncompleteError,
     PublicObligationStructuralError,
+    is_transfer_section_boundary,
     parse_restos_a_pagar_summary,
 )
 from .public_obligation_publisher import (
@@ -56,10 +57,7 @@ def _has_section_totals_footer(text: str | None) -> bool:
 def _has_section_boundary(text: str | None) -> bool:
     if not text:
         return False
-    return any(
-        " ".join(_fold(line).split()) == "TRANSFERENCIA FINANCEIRA"
-        for line in text.splitlines()
-    )
+    return any(is_transfer_section_boundary(line) for line in text.splitlines())
 
 
 def _diagnostic_excerpt(text: str) -> str:
@@ -71,7 +69,7 @@ def _diagnostic_excerpt(text: str) -> str:
     boundaries = [
         index
         for index in range(start + 1, len(lines))
-        if folded[index] == "TRANSFERENCIA FINANCEIRA"
+        if is_transfer_section_boundary(folded[index])
     ]
     end = boundaries[0] if boundaries else len(lines)
     selected = [
