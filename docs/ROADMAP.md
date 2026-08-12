@@ -275,11 +275,12 @@ Folha não será simplesmente importada e publicada integralmente.
 - páginas de órgãos e secretarias com atos, metas e execução verificáveis.
 
 Estado atual: o contrato oficial de Gestão de Parcerias do Transferegov foi
-validado para o código IBGE de Barreiras. Propostas, distribuições de recursos
-e parcerias possuem coleta paginada e persistência bruta por hash, sem somar
-estágios e sem publicar valores ainda. A menor próxima fatia é preservar
-empenhos, documentos hábeis, ordens de pagamento e ordens bancárias para
-então reconciliar o percurso do recurso.
+validado para o código IBGE de Barreiras. Propostas, distribuições, parcerias,
+empenhos, documentos hábeis, ordens de pagamento e ordens bancárias possuem
+coleta e preservação bruta. A projeção pública inicial separa autoria pessoal
+de autoria coletiva, deduplica reexecuções e mostra valores destinados,
+empenhados e pagos sem somar estágios. A próxima menor fatia é ampliar a
+cobertura histórica e cruzar os autores individuais com os perfis políticos.
 
 Gate:
 

@@ -125,9 +125,9 @@ produção. A decisão está no ADR 0008.
 - `evidence`: ligações entre afirmações derivadas e origem;
 - `audit`: eventos de auditoria.
 
-Os quatro domínios adicionais são limites futuros, não schemas autorizados na
-migration atual. Entram somente após descoberta da fonte, contrato, fixture,
-ameaças e ADR de ativação.
+`territory` foi ativado após descoberta da API Gestão de Parcerias, contrato,
+fixtures e ADR 0059. Os demais domínios futuros continuam entrando somente
+após descoberta da fonte, contrato, fixture, ameaças e ADR de ativação.
 
 ### `api`
 

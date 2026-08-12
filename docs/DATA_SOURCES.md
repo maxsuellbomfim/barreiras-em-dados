@@ -223,6 +223,13 @@ Usar fontes complementares, sem somar estágios diferentes:
 - Transparência Bahia para recursos estaduais e transferências a municípios;
 - API local da Prefeitura para receita e PDC de emendas/transferências.
 
+Primeira projeção pública implementada: a API Gestão de Parcerias do
+Transferegov fornece proposta, distribuição, autoria, beneficiário, objeto,
+empenho, documento hábil, ordem de pagamento e ordem bancária. Ranking pessoal
+e autoria coletiva permanecem separados. Ausência em um endpoint não é
+publicada como zero. Metodologia completa em
+`docs/PARLIAMENTARY_TRANSFERS_METHODOLOGY.md`.
+
 Em 17/07/2026, o Transferegov anunciou novo ambiente de APIs e descontinuação do
 ambiente anterior em 31/08/2026. O conector deverá apontar para o ambiente novo
 e registrar versão do contrato.

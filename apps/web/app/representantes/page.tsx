@@ -498,6 +498,7 @@ export default async function RepresentativesPage() {
           </a>
           <nav className="nav-links" aria-label="Páginas públicas">
             <a href="/diario">Diário traduzido</a>
+            <a href="/recursos">Recursos</a>
             <a href="/licitacoes">Licitações</a>
             <a href="/atos">Atos</a>
           </nav>
@@ -543,9 +544,9 @@ export default async function RepresentativesPage() {
               no TSE, com situação atualizada por eleição.
             </li>
             <li>
-              <strong>Vínculo com Barreiras</strong>: será apresentado com
-              votação nominal no município (TSE), emendas destinadas ao
-              município e demais registros oficiais — números, não opinião.
+              <strong>Vínculo com Barreiras</strong>: votação nominal no
+              município (TSE) e emendas destinadas ao município são exibidas
+              em painéis separados, com números e fontes oficiais.
             </li>
           </ul>
         </div>
@@ -556,6 +557,7 @@ export default async function RepresentativesPage() {
           <a href="#estaduais">Estaduais</a>
           <a href="#federais">Federais</a>
           <a href="#vinculo">Vínculo com Barreiras</a>
+          <a href="/recursos">Emendas e recursos</a>
         </nav>
 
         <div className="representation-overview" aria-label="Resumo da cobertura">
