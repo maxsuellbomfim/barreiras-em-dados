@@ -15,6 +15,7 @@ from .public_obligation_pdf import (
     PublicObligationSectionIncompleteError,
     PublicObligationStructuralError,
     is_transfer_section_boundary,
+    parse_legacy_combined_restos_summary,
     parse_restos_a_pagar_summary,
 )
 from .public_obligation_publisher import (
@@ -139,6 +140,45 @@ class PublicObligationOcrExtractor:
                 and not boundary_pages
                 and continuation_page == footer_pages[0]
             ):
+                reconciled = []
+                pages_by_number = {page.page_number: page for page in pdf.pages}
+                section_text = pages_by_number[section_page].text or ""
+                footer_text = pages_by_number[footer_pages[0]].text or ""
+                for transfer_page in reversed(
+                    [page for page in pdf.pages if page.page_number < section_page]
+                ):
+                    if not _has_section_boundary(transfer_page.text):
+                        continue
+                    try:
+                        summary = parse_legacy_combined_restos_summary(
+                            expense_extra_text=section_text,
+                            transfer_text=transfer_page.text or "",
+                            combined_footer_text=footer_text,
+                            fiscal_year=fiscal_year,
+                            reference_month=reference_month,
+                        )
+                    except PublicObligationPdfContractError:
+                        continue
+                    reconciled.append((summary, transfer_page.page_number))
+                distinct = {summary for summary, _page in reconciled}
+                if len(distinct) == 1:
+                    summary, transfer_page_number = reconciled[0]
+                    return PublicObligationExtraction(
+                        summary=summary,
+                        provenance=PublicObligationExtractionProvenance(
+                            extraction_method="embedded_text",
+                            extraction_parser_version=pdf.parser_version,
+                            page_numbers=(
+                                transfer_page_number,
+                                section_page,
+                                footer_pages[0],
+                            ),
+                        ),
+                    )
+                if len(distinct) > 1:
+                    raise ValueError(
+                        "Totais combinados divergentes entre secoes de transferencia."
+                    )
                 raise PublicObligationSectionIncompleteError(
                     "A seção RESTOS A PAGAR está incompleta no PDF oficial: "
                     "a fonte termina sem o total mensal e sem a fronteira da seção."
