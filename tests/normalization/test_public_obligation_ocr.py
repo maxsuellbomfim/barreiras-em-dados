@@ -9,6 +9,7 @@ from barreiras_normalization.public_obligation_ocr import (
 )
 from barreiras_normalization.public_obligation_pdf import (
     PublicObligationSectionAbsentError,
+    PublicObligationSectionIncompleteError,
 )
 
 
@@ -196,6 +197,80 @@ class PublicObligationOcrExtractorTests(unittest.TestCase):
             calls,
             [(72, 270), (73, 270), (72, 90), (73, 90), (72, 0), (73, 0)],
         )
+
+    def test_skips_blank_pages_before_continuation_of_legacy_section(self):
+        pages = (
+            FakePage(1, "capa"),
+            FakePage(2, "RESTOS A PAGAR\ncontas"),
+            FakePage(3, None),
+            FakePage(4, None),
+            FakePage(
+                5,
+                "TRANSFERENCIA FINANCEIRA\n"
+                "Total Extra, Restos a Pagar e Transferencia Financeira",
+            ),
+        )
+        calls: list[tuple[int, int]] = []
+
+        def page_ocr(_engine, _body, page_number, *, rotation_degrees=0):
+            calls.append((page_number, rotation_degrees))
+            if rotation_degrees == 270 and page_number == 2:
+                text = "RESTOS A PAGAR\nlinhas de contas"
+            elif rotation_degrees == 270 and page_number == 5:
+                text = (
+                    "21.265.531,78 109.031,30 21.374.563,08\n"
+                    "TRANSFERENCIA FINANCEIRA"
+                )
+            else:
+                text = ""
+            return FakeOcrResult(page_number=page_number, text=text)
+
+        extractor = PublicObligationOcrExtractor(
+            engine=FakeEngine(),
+            pdf_text_deriver=lambda _body: FakePdf(pages),
+            page_ocr=page_ocr,
+        )
+
+        extraction = extractor.extract(
+            b"%PDF fixture",
+            fiscal_year=2022,
+            reference_month=12,
+        )
+
+        self.assertEqual(extraction.provenance.page_numbers, (2, 5))
+        self.assertEqual(
+            extraction.summary.payments_to_date_amount,
+            Decimal("21374563.08"),
+        )
+        self.assertIn((2, 270), calls)
+        self.assertIn((5, 270), calls)
+
+    def test_classifies_incomplete_source_without_total_or_boundary(self):
+        extractor = PublicObligationOcrExtractor(
+            engine=FakeEngine(),
+            pdf_text_deriver=lambda _body: FakePdf(
+                (
+                    FakePage(1, "capa"),
+                    FakePage(2, "RESTOS A PAGAR\nlinhas parciais"),
+                    FakePage(
+                        3,
+                        "Total Extra, Restos a Pagar e Transferencia Financeira "
+                        "177.175.005,74 20.216.422,12 197.391.427,86",
+                    ),
+                )
+            ),
+            page_ocr=lambda *_args, **_kwargs: self.fail("OCR nao deveria rodar"),
+        )
+
+        with self.assertRaisesRegex(
+            PublicObligationSectionIncompleteError,
+            "incompleta",
+        ):
+            extractor.extract(
+                b"%PDF fixture",
+                fiscal_year=2022,
+                reference_month=9,
+            )
 
     def test_rejects_ambiguous_legacy_totals_footers_without_running_ocr(self):
         extractor = PublicObligationOcrExtractor(

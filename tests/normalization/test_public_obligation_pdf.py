@@ -125,6 +125,60 @@ TRANSFERENCIA FINANCEIRA
         self.assertEqual(summary.payments_period_amount, Decimal("1445172.84"))
         self.assertEqual(summary.payments_to_date_amount, Decimal("23799496.26"))
 
+    def test_accepts_total_label_split_by_embedded_pdf_spacing(self):
+        text = """\
+RESTOS A PAGAR
+213110101020128 2021 - Fonte 0100 RP Nao Processados
+Tot a 19.895.890,06 588.494,89 20.484.384,95
+TRANSFERENCIA FINANCEIRA
+"""
+
+        summary = parse_restos_a_pagar_summary(
+            text,
+            fiscal_year=2022,
+            reference_month=6,
+        )
+
+        self.assertEqual(summary.payments_prior_amount, Decimal("19895890.06"))
+        self.assertEqual(summary.payments_period_amount, Decimal("588494.89"))
+        self.assertEqual(summary.payments_to_date_amount, Decimal("20484384.95"))
+
+    def test_accepts_punctuation_between_total_label_and_declared_values(self):
+        text = """\
+RESTOS A PAGAR
+213110101020128 2021 - Fonte 0100 RP Nao Processados
+Total . . 20.484.384,95 303.721,65 20.788.106,60
+TRANSFERENCIA FINANCEIRA
+"""
+
+        summary = parse_restos_a_pagar_summary(
+            text,
+            fiscal_year=2022,
+            reference_month=7,
+        )
+
+        self.assertEqual(summary.payments_prior_amount, Decimal("20484384.95"))
+        self.assertEqual(summary.payments_period_amount, Decimal("303721.65"))
+        self.assertEqual(summary.payments_to_date_amount, Decimal("20788106.60"))
+
+    def test_accepts_brl_amounts_with_spaces_inserted_by_embedded_pdf(self):
+        text = """\
+RESTOS A PAGAR
+213110101020128 2021 - Fonte 0100 RP Nao Processados
+Total 21. 214.414, 18 51. 117,60 21.265.531,78
+TRANSFERENCIA FINANCEIRA
+"""
+
+        summary = parse_restos_a_pagar_summary(
+            text,
+            fiscal_year=2022,
+            reference_month=11,
+        )
+
+        self.assertEqual(summary.payments_prior_amount, Decimal("21214414.18"))
+        self.assertEqual(summary.payments_period_amount, Decimal("51117.60"))
+        self.assertEqual(summary.payments_to_date_amount, Decimal("21265531.78"))
+
     def test_rejects_ambiguous_column_block_totals(self):
         text = """\
 RESTOS A PAGAR
@@ -164,6 +218,25 @@ TRANSFERENCIA FINANCEIRA
                 text,
                 fiscal_year=2021,
                 reference_month=7,
+            )
+
+    def test_does_not_publish_account_row_when_total_marker_is_split(self):
+        text = """\
+RESTOS A PAGAR
+213110101020225 1.945.534,03 0,00 1.945.534,03
+Tot a
+TRANSFERENCIA FINANCEIRA
+19.895.890,06 588.494,89 20.484.384,95
+"""
+
+        with self.assertRaisesRegex(
+            PublicObligationPdfContractError,
+            "total de restos a pagar",
+        ):
+            parse_restos_a_pagar_summary(
+                text,
+                fiscal_year=2022,
+                reference_month=6,
             )
 
     def test_rejects_progression_that_diverges_from_previous_month(self):

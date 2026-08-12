@@ -12,6 +12,7 @@ from barreiras_docproc.pdf_text import PdfCanonicalText, derive_pdf_text
 from .public_obligation_pdf import (
     PublicObligationPdfContractError,
     PublicObligationSectionAbsentError,
+    PublicObligationSectionIncompleteError,
     PublicObligationStructuralError,
     parse_restos_a_pagar_summary,
 )
@@ -48,8 +49,18 @@ def _has_section_totals_footer(text: str | None) -> bool:
     if not text:
         return False
     return any(
-        " ".join(_fold(line).split())
-        == "TOTAL EXTRA, RESTOS A PAGAR E TRANSFERENCIA FINANCEIRA"
+        " ".join(_fold(line).split()).startswith(
+            "TOTAL EXTRA, RESTOS A PAGAR E TRANSFERENCIA FINANCEIRA"
+        )
+        for line in text.splitlines()
+    )
+
+
+def _has_section_boundary(text: str | None) -> bool:
+    if not text:
+        return False
+    return any(
+        " ".join(_fold(line).split()) == "TRANSFERENCIA FINANCEIRA"
         for line in text.splitlines()
     )
 
@@ -112,11 +123,40 @@ class PublicObligationOcrExtractor:
         ]
         if len(section_pages) == 1:
             section_page = section_pages[0]
+            footer_pages = [
+                page.page_number
+                for page in pdf.pages
+                if _has_section_totals_footer(page.text)
+                and page.page_number > section_page
+            ]
+            boundary_pages = [
+                page.page_number
+                for page in pdf.pages[section_page:]
+                if _has_section_boundary(page.text)
+            ]
+            continuation_page = (
+                boundary_pages[0]
+                if boundary_pages
+                else footer_pages[0]
+                if footer_pages
+                else section_page + 1
+            )
+            if (
+                footer_pages
+                and not boundary_pages
+                and continuation_page == footer_pages[0]
+            ):
+                raise PublicObligationSectionIncompleteError(
+                    "A seção RESTOS A PAGAR está incompleta no PDF oficial: "
+                    "a fonte termina sem o total mensal e sem a fronteira da seção."
+                )
             last_page = len(pdf.pages)
             page_numbers = tuple(
-                number
-                for number in (section_page, section_page + 1)
-                if number <= last_page
+                dict.fromkeys(
+                    number
+                    for number in (section_page, continuation_page)
+                    if number <= last_page
+                )
             )
         else:
             footer_pages = [

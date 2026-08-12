@@ -19,8 +19,8 @@ from .public_obligation_pdf import (
 )
 from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
 
-PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.4.0"
-PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.4.0"
+PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.5.0"
+PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.5.0"
 
 
 @dataclass(frozen=True)
@@ -89,6 +89,13 @@ class PublicObligationPublicationRepository(Protocol):
     ) -> None: ...
 
     def record_section_absent(
+        self,
+        artifact: PublicObligationArtifact,
+        *,
+        detail: str,
+    ) -> None: ...
+
+    def record_section_incomplete(
         self,
         artifact: PublicObligationArtifact,
         *,
@@ -314,6 +321,76 @@ class PostgresPublicObligationPublicationRepository:
                     reference_month=int(row["reference_month"]),
                 )
                 for row in result.fetchall()
+            )
+        finally:
+            connection.close()
+
+    def record_section_incomplete(
+        self,
+        artifact: PublicObligationArtifact,
+        *,
+        detail: str,
+    ) -> None:
+        """Registra fonte incompleta como resultado terminal, nunca como zero."""
+        connection = self.connection_factory()
+        candidate_type = "public_obligation_section_incomplete"
+        try:
+            connection.execute(
+                """
+                with terminal_job as (
+                  insert into raw.extraction_jobs (
+                    raw_artifact_id, job_type, idempotency_key, status,
+                    attempt_count
+                  ) values (
+                    %s::uuid, %s, %s, 'succeeded', 1
+                  )
+                  on conflict (idempotency_key) do update set
+                    status = 'succeeded',
+                    attempt_count = raw.extraction_jobs.attempt_count + 1,
+                    last_error_code = null,
+                    last_error_detail = null,
+                    updated_at = statement_timestamp()
+                  returning id
+                )
+                insert into raw.extraction_results (
+                  extraction_job_id, candidate_type, extractor_version,
+                  validator_version, result_payload, confidence,
+                  validation_status, validation_errors
+                )
+                select
+                  terminal_job.id, %s, %s, %s,
+                  %s::jsonb, 1.0, 'valid', '[]'::jsonb
+                from terminal_job
+                where not exists (
+                  select 1
+                  from raw.extraction_results as existing
+                  where existing.extraction_job_id = terminal_job.id
+                    and existing.candidate_type = %s
+                    and existing.extractor_version = %s
+                )
+                """,
+                (
+                    artifact.id,
+                    PUBLIC_OBLIGATION_JOB_TYPE,
+                    _failure_key(artifact.sha256),
+                    candidate_type,
+                    PUBLIC_OBLIGATION_METHODOLOGY,
+                    PUBLIC_OBLIGATION_METHODOLOGY,
+                    json.dumps(
+                        {
+                            "classification": "incomplete_in_source_document",
+                            "detail": detail[:500],
+                            "fiscal_year": artifact.fiscal_year,
+                            "reference_month": artifact.reference_month,
+                            "source_url": artifact.source_url,
+                            "content_sha256": artifact.sha256,
+                        },
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ),
+                    candidate_type,
+                    PUBLIC_OBLIGATION_METHODOLOGY,
+                ),
             )
         finally:
             connection.close()
