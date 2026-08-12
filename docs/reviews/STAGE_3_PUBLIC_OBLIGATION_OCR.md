@@ -11,7 +11,8 @@ texto embutido não preserva as linhas da tabela.
 ## Controles exercitados
 
 - bytes restaurados do Storage conferidos contra tamanho e SHA-256 catalogados;
-- OCR Tesseract em português, `PSM 6`, somente nas duas páginas da seção;
+- OCR Tesseract em português, `PSM 6`, somente nas páginas não vazias
+  entre o início da seção e `TRANSFERÊNCIA FINANCEIRA`;
 - orientações controladas e rastreadas;
 - corte obrigatório antes de `TRANSFERÊNCIA FINANCEIRA`;
 - valores convertidos em `Decimal`, sem LLM e sem ponto flutuante;
@@ -71,3 +72,18 @@ ensaio permanece sem escrita e só libera publicação com zero falhas técnicas
 Essa correção é versionada como `public-obligations-balancete/1.5.1`, para que o
 artefato recusado no primeiro ensaio possa ser reavaliado sem apagar a tentativa
 anterior.
+
+## Continuidade em três páginas — maio de 2024
+
+O [run 31597824037](https://github.com/maxsuellbomfim/barreiras-em-dados/actions/runs/31597824037)
+publicou quatro de cinco artefatos e isolou o balancete de maio de 2024. A
+renderização visual mostrou a seção começando na página 113, o total na
+página 114 e a fronteira `TRANSFERÊNCIA FINANCEIRA` na página 115. O parser
+anterior selecionava apenas as extremidades e, portanto, pulava a página que
+continha o total.
+
+A versão `public-obligations-balancete/1.5.2` inclui todas as páginas não
+vazias dentro desse intervalo e continua ignorando páginas intermediárias em
+branco. O PDF oficial foi validado localmente pelo texto de layout, sem LLM:
+R$ 37.936.002,42 + R$ 4.487,11 = R$ 37.940.489,53. O novo job versionado permite
+reprocessar a tentativa falha sem apagar o diagnóstico anterior.

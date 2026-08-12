@@ -30,9 +30,7 @@ _AMOUNTISH = re.compile(r"\d[\d.]*,\d{1,2}")
 def _fold(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", value)
     return "".join(
-        character
-        for character in normalized
-        if not unicodedata.combining(character)
+        character for character in normalized if not unicodedata.combining(character)
     ).upper()
 
 
@@ -40,8 +38,7 @@ def _has_section_heading(text: str | None) -> bool:
     if not text:
         return False
     return any(
-        " ".join(_fold(line).split()) == "RESTOS A PAGAR"
-        for line in text.splitlines()
+        " ".join(_fold(line).split()) == "RESTOS A PAGAR" for line in text.splitlines()
     )
 
 
@@ -117,9 +114,7 @@ class PublicObligationOcrExtractor:
     ) -> PublicObligationExtraction:
         pdf = self.pdf_text_deriver(raw_body)
         section_pages = [
-            page.page_number
-            for page in pdf.pages
-            if _has_section_heading(page.text)
+            page.page_number for page in pdf.pages if _has_section_heading(page.text)
         ]
         if len(section_pages) == 1:
             section_page = section_pages[0]
@@ -150,13 +145,11 @@ class PublicObligationOcrExtractor:
                     "A seção RESTOS A PAGAR está incompleta no PDF oficial: "
                     "a fonte termina sem o total mensal e sem a fronteira da seção."
                 )
-            last_page = len(pdf.pages)
             page_numbers = tuple(
-                dict.fromkeys(
-                    number
-                    for number in (section_page, continuation_page)
-                    if number <= last_page
-                )
+                page.page_number
+                for page in pdf.pages[section_page - 1 : continuation_page]
+                if page.page_number in (section_page, continuation_page)
+                or bool(page.text)
             )
         else:
             footer_pages = [
@@ -174,20 +167,14 @@ class PublicObligationOcrExtractor:
                     "A fonte oficial integral não contém a seção RESTOS A PAGAR."
                 )
             if len(section_pages) != 0 or len(footer_pages) != 1:
-                raise ValueError(
-                    "OCR exige uma seção RESTOS A PAGAR inequívoca."
-                )
+                raise ValueError("OCR exige uma seção RESTOS A PAGAR inequívoca.")
             footer_page = footer_pages[0]
             if footer_page <= 1:
-                raise ValueError(
-                    "OCR exige uma seção RESTOS A PAGAR inequívoca."
-                )
+                raise ValueError("OCR exige uma seção RESTOS A PAGAR inequívoca.")
             page_numbers = (footer_page - 1, footer_page)
 
         if not page_numbers:
-            raise ValueError(
-                "OCR exige uma seção RESTOS A PAGAR inequívoca."
-            )
+            raise ValueError("OCR exige uma seção RESTOS A PAGAR inequívoca.")
 
         if self.layout_text_deriver is not None:
             layout_pdf = self.layout_text_deriver(raw_body)

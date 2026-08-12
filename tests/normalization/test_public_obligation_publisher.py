@@ -93,11 +93,11 @@ class PublicObligationPublisherTests(unittest.TestCase):
     def test_failure_job_type_is_versioned_for_auditable_retry(self):
         self.assertEqual(
             PUBLIC_OBLIGATION_JOB_TYPE,
-            "public_obligation_balancete_publication/1.5.1",
+            "public_obligation_balancete_publication/1.5.2",
         )
         self.assertEqual(
             PUBLIC_OBLIGATION_METHODOLOGY,
-            "public-obligations-balancete/1.5.1",
+            "public-obligations-balancete/1.5.2",
         )
 
     def test_pending_documents_accepts_reference_keys_from_current_api(self):
@@ -118,9 +118,7 @@ class PublicObligationPublisherTests(unittest.TestCase):
                 }
             ]
         )
-        repository = PostgresPublicObligationPublicationRepository(
-            lambda: connection
-        )
+        repository = PostgresPublicObligationPublicationRepository(lambda: connection)
 
         documents = repository.pending_documents(
             limit=1,
@@ -132,9 +130,7 @@ class PublicObligationPublisherTests(unittest.TestCase):
         self.assertEqual(documents[0].fiscal_year, 2026)
         self.assertEqual(documents[0].reference_month, 6)
         normalized_query = (
-            " ".join(connection.query.split())
-            .replace("( ", "(")
-            .replace(" )", ")")
+            " ".join(connection.query.split()).replace("( ", "(").replace(" )", ")")
         )
         self.assertIn(
             "coalesce(record.payload ->> 'ano', record.payload ->> 'ano_ref')",
@@ -156,9 +152,7 @@ class PublicObligationPublisherTests(unittest.TestCase):
 
     def test_pending_documents_selects_only_monthly_reports_in_period_order(self):
         connection = CapturingConnection([])
-        repository = PostgresPublicObligationPublicationRepository(
-            lambda: connection
-        )
+        repository = PostgresPublicObligationPublicationRepository(lambda: connection)
 
         repository.pending_documents(
             limit=25,
@@ -179,9 +173,7 @@ class PublicObligationPublisherTests(unittest.TestCase):
 
     def test_records_source_section_absence_as_terminal_valid_result(self):
         connection = CapturingConnection([])
-        repository = PostgresPublicObligationPublicationRepository(
-            lambda: connection
-        )
+        repository = PostgresPublicObligationPublicationRepository(lambda: connection)
 
         repository.record_section_absent(
             artifact_for(),
@@ -197,9 +189,7 @@ class PublicObligationPublisherTests(unittest.TestCase):
 
     def test_records_incomplete_source_section_as_terminal_valid_result(self):
         connection = CapturingConnection([])
-        repository = PostgresPublicObligationPublicationRepository(
-            lambda: connection
-        )
+        repository = PostgresPublicObligationPublicationRepository(lambda: connection)
 
         repository.record_section_incomplete(
             artifact_for(),
@@ -220,9 +210,7 @@ class PublicObligationPublisherTests(unittest.TestCase):
         connection = CapturingConnection(
             [{"payments_to_date_amount": Decimal("24003976.26")}]
         )
-        repository = PostgresPublicObligationPublicationRepository(
-            lambda: connection
-        )
+        repository = PostgresPublicObligationPublicationRepository(lambda: connection)
 
         value = repository.previous_month_to_date(artifact_for())
 
