@@ -4,6 +4,7 @@ import hashlib
 import io
 import unittest
 
+from barreiras_docproc import pdf_text
 from barreiras_docproc.canonical import CanonicalTextError
 from barreiras_docproc.pdf_text import PDF_PARSER_VERSION, derive_pdf_text
 from barreiras_docproc.processing import (
@@ -135,6 +136,20 @@ class PdfTextTests(unittest.TestCase):
             derive_pdf_text(b"%PDF-1.7 truncado e invalido")
         with self.assertRaises(CanonicalTextError):
             derive_pdf_text(b"nao eh pdf")
+
+    def test_extracts_layout_text_with_distinct_version(self) -> None:
+        self.assertTrue(hasattr(pdf_text, "derive_pdf_layout_text"))
+        self.assertTrue(hasattr(pdf_text, "PDF_LAYOUT_TEXT_VERSION"))
+        canonical = pdf_text.derive_pdf_layout_text(
+            build_pdf(["RESTOS A PAGAR", "Total 0,00 1,00 1,00"])
+        )
+
+        self.assertEqual(
+            canonical.parser_version,
+            pdf_text.PDF_LAYOUT_TEXT_VERSION,
+        )
+        self.assertEqual(canonical.pages_with_text, 2)
+        self.assertIn("RESTOS A PAGAR", canonical.pages[0].text or "")
 
 
 class PdfExtractionServiceTests(unittest.TestCase):

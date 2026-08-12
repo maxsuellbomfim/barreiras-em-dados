@@ -7,17 +7,20 @@ import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date, timedelta
+from decimal import Decimal
 from typing import Protocol
 
 from .public_obligation_pdf import (
     PublicObligationStructuralError,
     RestosAPagarSummary,
     parse_restos_a_pagar_summary,
+    validate_restos_a_pagar_progression,
 )
 from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
 
-PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.2.0"
-PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.2.0"
+PUBLIC_OBLIGATION_JOB_TYPE = "public_obligation_balancete_publication/1.4.0"
+PUBLIC_OBLIGATION_METHODOLOGY = "public-obligations-balancete/1.4.0"
 
 
 @dataclass(frozen=True)
@@ -72,12 +75,24 @@ class PublicObligationPublicationRepository(Protocol):
         provenance: PublicObligationExtractionProvenance,
     ) -> int: ...
 
+    def previous_month_to_date(
+        self,
+        artifact: PublicObligationArtifact,
+    ) -> Decimal | None: ...
+
     def record_failure(
         self,
         artifact: PublicObligationArtifact,
         *,
         error_code: str,
         error_detail: str,
+    ) -> None: ...
+
+    def record_section_absent(
+        self,
+        artifact: PublicObligationArtifact,
+        *,
+        detail: str,
     ) -> None: ...
 
 
@@ -105,6 +120,10 @@ class PublicObligationPublisher:
     ) -> PublicObligationPublishResult:
         extraction = self.validate(artifact)
         summary = extraction.summary
+        validate_restos_a_pagar_progression(
+            summary,
+            previous_month_to_date=self.repository.previous_month_to_date(artifact),
+        )
         inserted = self.repository.persist_validated_summary(
             artifact,
             summary,
@@ -241,6 +260,8 @@ class PostgresPublicObligationPublicationRepository:
                     and document.source_url = record.payload ->> 'url'
                     and record.record_type
                       = 'municipal_transparency_balancetes'
+                    and btrim(coalesce(record.payload ->> 'titulo', ''))
+                      ~* '^balancete[[:space:]]'
                     and coalesce(
                       record.payload ->> 'ano', record.payload ->> 'ano_ref'
                     )
@@ -264,14 +285,14 @@ class PostgresPublicObligationPublicationRepository:
                       from raw.extraction_jobs as job
                       where job.raw_artifact_id = document.id
                         and job.job_type = %s
-                        and job.status = 'failed'
+                        and job.status in ('failed', 'succeeded', 'dead_lettered')
                     )
                   order by document.id, record.created_at desc, record.id desc
                 )
                 select id, sha256, object_key, byte_size, parent_record_id,
                   source_url, fiscal_year, reference_month
                 from candidates
-                order by created_at, id
+                order by fiscal_year asc, reference_month asc, created_at asc, id
                 limit %s
                 """,
                 (
@@ -404,6 +425,38 @@ class PostgresPublicObligationPublicationRepository:
         finally:
             connection.close()
 
+    def previous_month_to_date(
+        self,
+        artifact: PublicObligationArtifact,
+    ) -> Decimal | None:
+        if artifact.reference_month == 1:
+            return None
+        previous_period_end = date(
+            artifact.fiscal_year,
+            artifact.reference_month,
+            1,
+        ) - timedelta(days=1)
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select payments_to_date_amount
+                from finance.public_obligations
+                where fiscal_year = %s
+                  and period_end = %s::date
+                  and obligation_type = 'restos_a_pagar_total'
+                  and validation_state in ('validated', 'reconciled')
+                order by version desc, validated_at desc, id desc
+                limit 1
+                """,
+                (artifact.fiscal_year, previous_period_end.isoformat()),
+            ).fetchone()
+            if row is None:
+                return None
+            return Decimal(str(row["payments_to_date_amount"]))
+        finally:
+            connection.close()
+
     def record_failure(
         self,
         artifact: PublicObligationArtifact,
@@ -434,6 +487,74 @@ class PostgresPublicObligationPublicationRepository:
                     _failure_key(artifact.sha256),
                     error_code,
                     error_detail[:1000],
+                ),
+            )
+        finally:
+            connection.close()
+
+    def record_section_absent(
+        self,
+        artifact: PublicObligationArtifact,
+        *,
+        detail: str,
+    ) -> None:
+        """Registra ausência comprovada como resultado terminal, não como zero."""
+        connection = self.connection_factory()
+        try:
+            connection.execute(
+                """
+                with terminal_job as (
+                  insert into raw.extraction_jobs (
+                    raw_artifact_id, job_type, idempotency_key, status,
+                    attempt_count
+                  ) values (
+                    %s::uuid, %s, %s, 'succeeded', 1
+                  )
+                  on conflict (idempotency_key) do update set
+                    status = 'succeeded',
+                    attempt_count = raw.extraction_jobs.attempt_count + 1,
+                    last_error_code = null,
+                    last_error_detail = null,
+                    updated_at = statement_timestamp()
+                  returning id
+                )
+                insert into raw.extraction_results (
+                  extraction_job_id, candidate_type, extractor_version,
+                  validator_version, result_payload, confidence,
+                  validation_status, validation_errors
+                )
+                select
+                  terminal_job.id, 'public_obligation_section_absent', %s, %s,
+                  %s::jsonb, 1.0, 'valid', '[]'::jsonb
+                from terminal_job
+                where not exists (
+                  select 1
+                  from raw.extraction_results as existing
+                  where existing.extraction_job_id = terminal_job.id
+                    and existing.candidate_type
+                      = 'public_obligation_section_absent'
+                    and existing.extractor_version = %s
+                )
+                """,
+                (
+                    artifact.id,
+                    PUBLIC_OBLIGATION_JOB_TYPE,
+                    _failure_key(artifact.sha256),
+                    PUBLIC_OBLIGATION_METHODOLOGY,
+                    PUBLIC_OBLIGATION_METHODOLOGY,
+                    json.dumps(
+                        {
+                            "classification": "absent_in_source_document",
+                            "detail": detail[:500],
+                            "fiscal_year": artifact.fiscal_year,
+                            "reference_month": artifact.reference_month,
+                            "source_url": artifact.source_url,
+                            "content_sha256": artifact.sha256,
+                        },
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ),
+                    PUBLIC_OBLIGATION_METHODOLOGY,
                 ),
             )
         finally:

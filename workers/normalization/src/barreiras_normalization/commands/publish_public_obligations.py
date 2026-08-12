@@ -9,9 +9,15 @@ from datetime import date
 
 from barreiras_docproc.canonical import CanonicalTextError
 from barreiras_docproc.ocr import OcrError, TesseractEngine
+from barreiras_docproc.pdf_text import derive_pdf_layout_text
 
 from ..public_obligation_ocr import PublicObligationOcrExtractor
-from ..public_obligation_pdf import PublicObligationPdfContractError
+from ..public_obligation_pdf import (
+    PublicObligationPdfContractError,
+    PublicObligationSectionAbsentError,
+    RestosAPagarSummary,
+    validate_restos_a_pagar_progression,
+)
 from ..public_obligation_publisher import (
     PostgresPublicObligationPublicationRepository,
     PublicObligationPublisher,
@@ -55,13 +61,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         repository=repository,
         ocr_extractor=PublicObligationOcrExtractor(
             engine=TesseractEngine(page_segmentation_mode=6),
+            alternative_engines=(TesseractEngine(page_segmentation_mode=3),),
+            layout_text_deriver=derive_pdf_layout_text,
         ).extract,
     )
 
     published = 0
     already_published = 0
     validated = 0
+    source_absent = 0
     failed = 0
+    previous_dry_run_summary: RestosAPagarSummary | None = None
     artifacts = repository.pending_documents(
         limit=args.limit,
         fiscal_year_from=args.fiscal_year_from,
@@ -80,6 +90,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.dry_run:
                 extraction = publisher.validate(artifact)
                 summary = extraction.summary
+                if (
+                    previous_dry_run_summary is not None
+                    and previous_dry_run_summary.fiscal_year == summary.fiscal_year
+                    and previous_dry_run_summary.period_end.month + 1
+                    == summary.period_end.month
+                ):
+                    validate_restos_a_pagar_progression(
+                        summary,
+                        previous_month_to_date=(
+                            previous_dry_run_summary.payments_to_date_amount
+                        ),
+                    )
+                previous_dry_run_summary = summary
                 validated += 1
                 logger.info(
                     "public_obligation_dry_run_validated artifact=%s period=%s "
@@ -95,6 +118,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 continue
             result = publisher.publish(artifact)
+        except PublicObligationSectionAbsentError as error:
+            previous_dry_run_summary = None
+            source_absent += 1
+            if not args.dry_run:
+                repository.record_section_absent(artifact, detail=str(error))
+            logger.info(
+                "public_obligation_section_absent artifact=%s period=%04d-%02d "
+                "source=%s detail=%s",
+                artifact.id,
+                artifact.fiscal_year,
+                artifact.reference_month,
+                artifact.source_url,
+                str(error)[:500],
+            )
+            continue
         except (
             ArtifactMismatchError,
             CanonicalTextError,
@@ -102,6 +140,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             PublicObligationPdfContractError,
             ValueError,
         ) as error:
+            previous_dry_run_summary = None
             failed += 1
             if not args.dry_run:
                 repository.record_failure(
@@ -122,11 +161,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     logger.info(
         "public_obligation_publication_completed artifacts=%s published=%s "
-        "already_published=%s validated=%s failed=%s dry_run=%s",
+        "already_published=%s validated=%s source_absent=%s failed=%s dry_run=%s",
         len(artifacts),
         published,
         already_published,
         validated,
+        source_absent,
         failed,
         args.dry_run,
     )

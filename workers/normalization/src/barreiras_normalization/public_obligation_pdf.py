@@ -27,8 +27,16 @@ class PublicObligationStructuralError(PublicObligationPdfContractError):
     """Estrutura ausente ou incompleta pode justificar uma nova extração."""
 
 
+class PublicObligationSectionAbsentError(PublicObligationStructuralError):
+    """O documento integral legível não contém o demonstrativo procurado."""
+
+
 class PublicObligationArithmeticError(PublicObligationPdfContractError):
     """Valores declarados foram encontrados, mas não fecham aritmeticamente."""
+
+
+class PublicObligationProgressionError(PublicObligationPdfContractError):
+    """O acumulado anterior diverge do acumulado do mês precedente."""
 
 
 @dataclass(frozen=True)
@@ -41,6 +49,21 @@ class RestosAPagarSummary:
     payments_prior_amount: Decimal
     payments_period_amount: Decimal
     payments_to_date_amount: Decimal
+
+
+def validate_restos_a_pagar_progression(
+    summary: RestosAPagarSummary,
+    *,
+    previous_month_to_date: Decimal | None,
+) -> None:
+    """Rejeita quebra de continuidade quando o mês precedente está disponível."""
+    if previous_month_to_date is None:
+        return
+    if summary.payments_prior_amount != previous_month_to_date:
+        raise PublicObligationProgressionError(
+            "pagamento acumulado ate o mes anterior diverge do acumulado "
+            "validado no mes anterior"
+        )
 
 
 _AMOUNT = r"(?:\d{1,3}(?:\.\d{3})*|\d+),\d{1,2}"
@@ -118,6 +141,50 @@ def _interleaved_total_after_boundary(
     return max(candidates, key=lambda candidate: candidate[2])
 
 
+def _columnar_total_before_boundary(
+    lines: list[str],
+    folded: list[str],
+    *,
+    section_start: int,
+    boundary: int,
+) -> tuple[Decimal, Decimal, Decimal] | None:
+    """Reconstrói o total quando o PDF exporta cada coluna em um bloco.
+
+    Alguns balancetes rotacionados emitem primeiro todas as descrições, depois
+    todos os valores da coluna anterior, todos os valores do mês e, por fim,
+    todos os acumulados. O acumulado total é o último valor antes da próxima
+    seção. Aceitamos somente quando existe um marcador ``Total`` e há uma única
+    dupla ordenada cuja soma fecha exatamente nesse último valor.
+    """
+    total_markers = [
+        index
+        for index in range(section_start, boundary)
+        if folded[index] == "TOTAL"
+    ]
+    if len(total_markers) != 1:
+        return None
+
+    tokens = [
+        token
+        for line in lines[total_markers[0] + 1 : boundary]
+        for token in _AMOUNT_TOKEN.findall(line)
+    ]
+    if len(tokens) < 3:
+        return None
+
+    values = [parse_brl_amount(token) for token in tokens]
+    accumulated = values[-1]
+    matches = [
+        (prior, period, accumulated)
+        for prior_index, prior in enumerate(values[:-2])
+        for period in values[prior_index + 1 : -1]
+        if prior + period == accumulated
+    ]
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
 def parse_restos_a_pagar_summary(
     text: str,
     *,
@@ -157,10 +224,14 @@ def parse_restos_a_pagar_summary(
         for line in lines[start:end]
         if (match := _TOTAL_LINE.fullmatch(line)) is not None
     ]
+    explicit = [match for match in candidates if match.group("label")]
+    has_total_label = any(
+        line == "TOTAL" or line.startswith("TOTAL ")
+        for line in folded[start:end]
+    )
     total_values: tuple[Decimal, Decimal, Decimal] | None = None
-    if candidates:
-        explicit = [match for match in candidates if match.group("label")]
-        total = explicit[-1] if explicit else candidates[-1]
+    if explicit:
+        total = explicit[-1]
         total_values = _closed_total(
             total.group("first"),
             total.group("second"),
@@ -171,12 +242,34 @@ def parse_restos_a_pagar_summary(
                 "total de restos a pagar nao fecha: anterior + mes diverge do acumulado"
             )
     else:
-        total_values = _interleaved_total_after_boundary(
+        # Um marcador Total separado indica que as colunas podem ter sido
+        # exportadas em blocos. Ele tem precedência sobre trios de linhas
+        # individuais que também fecham aritmeticamente.
+        total_values = _columnar_total_before_boundary(
             lines,
             folded,
             section_start=start,
             boundary=end,
         )
+        if total_values is None and candidates and not has_total_label:
+            total = candidates[-1]
+            total_values = _closed_total(
+                total.group("first"),
+                total.group("second"),
+                total.group("third"),
+            )
+            if total_values is None:
+                raise PublicObligationArithmeticError(
+                    "total de restos a pagar nao fecha: anterior + mes "
+                    "diverge do acumulado"
+                )
+        if total_values is None:
+            total_values = _interleaved_total_after_boundary(
+                lines,
+                folded,
+                section_start=start,
+                boundary=end,
+            )
     if total_values is None:
         raise PublicObligationStructuralError(
             "total de restos a pagar nao encontrado antes da proxima secao"
