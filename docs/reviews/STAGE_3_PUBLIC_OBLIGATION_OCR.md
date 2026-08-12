@@ -109,3 +109,21 @@ publicada como um valor reconciliado. A metodologia
 O conflito permanece aberto até que uma retificação ou outra evidência oficial
 permita reconciliar a sequência. Junho continua coerente com o acumulado
 declarado em maio, mas não resolve retroativamente a diferença com abril.
+
+## Separador de milhar reconhecido como vírgula — outubro de 2025
+
+O [run 31612290536](https://github.com/maxsuellbomfim/barreiras-em-dados/actions/runs/31612290536)
+isolou o balancete oficial de outubro de 2025, preservado com SHA-256
+`1782ee9d5b17316c712df7ad8535c70bcc63989b13d70b3f8ae4940d19ec8b6f`.
+Nas páginas 72 e 73, o OCR em rotação de 270 graus reconheceu o último valor do
+total como `19.859,849,88`: um ponto de milhar foi lido como vírgula.
+
+A versão `public-obligations-balancete/1.5.4` normaliza esse erro somente quando
+os grupos de milhar continuam tendo três algarismos. A publicação ainda exige
+o rótulo de total, a fronteira da seção e a identidade aritmética exata; uma
+linha que não fecha continua rejeitada. O
+[dry-run 31614310804](https://github.com/maxsuellbomfim/barreiras-em-dados/actions/runs/31614310804)
+validou o artefato real sem escrever no banco: R$ 19.859.849,88 acumulados até
+o mês anterior + R$ 0,00 pagos em outubro = R$ 19.859.849,88 acumulados até
+31/10/2025. A versão do job também foi incrementada para permitir o replay
+auditável da tentativa que havia falhado.
