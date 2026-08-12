@@ -29,6 +29,20 @@ O tipo publicado no campo oficial da emenda define a seção:
 Solicitante, recebedor, beneficiário e autor são papéis diferentes. Uma comissão
 não transfere crédito individual aos seus integrantes.
 
+## Ligação com perfis políticos
+
+O nome informado pelo Transferegov não é comparado livremente com nomes de
+parlamentares. A ligação pública exige um crosswalk aprovado que registre:
+
+- a grafia oficial observada no Transferegov;
+- o identificador do perfil oficial na Câmara ou na ALBA;
+- uma candidatura oficial já reconciliada com o TSE;
+- URLs e nota de evidência que sustentem a decisão.
+
+Variações de grafia podem apontar para o mesmo perfil, mas cada uma precisa de
+evidência própria. Autoria sem crosswalk permanece visível no ranking, sem link
+para pessoa. Comissões e bancadas nunca são ligadas a um perfil individual.
+
 ## Reconciliação e ausência
 
 Estágios financeiros só são atribuídos ao autor quando a proposta tem uma única

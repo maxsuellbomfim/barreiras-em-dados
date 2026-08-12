@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import {
   getPublicParliamentaryTransfers,
+  parliamentaryTransferAuthorAnchor,
   type ParliamentaryTransfer,
   type ParliamentaryTransferRanking,
 } from "../../lib/parliamentary-transfers";
@@ -53,7 +54,11 @@ function RankingTable({
   return (
     <div className="transfer-ranking-list">
       {rows.map((row) => (
-        <article className="transfer-ranking-card" key={`${row.authorKind}:${row.authorKey}`}>
+        <article
+          className="transfer-ranking-card"
+          id={parliamentaryTransferAuthorAnchor(row.authorKey)}
+          key={`${row.authorKind}:${row.authorKey}`}
+        >
           <span className="transfer-rank" aria-label={`posição ${row.rankPosition}`}>
             {row.rankPosition}
           </span>
@@ -79,6 +84,15 @@ function RankingTable({
               <dd>{row.amendmentCount.toLocaleString("pt-BR")}</dd>
             </div>
           </dl>
+          {row.associationStatus === "approved_official_crosswalk" &&
+          row.representativeSourceKind && row.representativeExternalId ? (
+            <a
+              className="transfer-profile-link"
+              href={`/representantes#${row.representativeSourceKind}-${row.representativeExternalId}`}
+            >
+              Ver perfil, votos e mandato →
+            </a>
+          ) : null}
         </article>
       ))}
     </div>

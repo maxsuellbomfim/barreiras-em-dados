@@ -280,7 +280,9 @@ empenhos, documentos hábeis, ordens de pagamento e ordens bancárias possuem
 coleta e preservação bruta. A projeção pública inicial separa autoria pessoal
 de autoria coletiva, deduplica reexecuções e mostra valores destinados,
 empenhados e pagos sem somar estágios. A próxima menor fatia é ampliar a
-cobertura histórica e cruzar os autores individuais com os perfis políticos.
+cobertura histórica. O primeiro crosswalk de autoria individual com perfil
+político foi implementado com evidência Câmara/TSE; novas associações exigem o
+mesmo padrão e não são inferidas por semelhança de nome.
 
 Gate:
 

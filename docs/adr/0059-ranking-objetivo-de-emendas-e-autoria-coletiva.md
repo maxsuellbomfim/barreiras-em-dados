@@ -26,6 +26,10 @@ pago como se fossem recursos diferentes.
 - deduplicar reexecuções pelo tipo e chave oficial do registro;
 - mostrar ausência de estágio como “não encontrado na fonte consultada”, nunca
   como zero;
+- ligar autoria individual a perfil político somente por crosswalk aprovado,
+  sustentado pelo perfil oficial e por identificador eleitoral reconciliado;
+- permitir diversas grafias oficiais para o mesmo perfil, preservando evidência
+  por grafia e sem correspondência aproximada durante a consulta;
 - expor somente RPCs no schema `api`; o browser não lê `territory` nem `raw`.
 
 ## Consequências
@@ -34,3 +38,5 @@ O painel permite competição cívica baseada em números verificáveis sem cham
 o resultado de avaliação geral do trabalho parlamentar. Leis, fiscalização,
 presença, qualidade e execução do objeto permanecem métricas separadas. Novas
 fontes poderão complementar a cobertura sem reescrever o bruto já preservado.
+O perfil passa a mostrar valores destinados e pagos quando a associação estiver
+aprovada; ausência de associação não é apresentada como ausência de atuação.
