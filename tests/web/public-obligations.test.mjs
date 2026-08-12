@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
+import * as publicObligations from "../../apps/web/lib/public-obligations.mjs";
+
+const {
   getPublicObligationCoverage,
   getPublicObligations,
-} from "../../apps/web/lib/public-obligations.mjs";
+} = publicObligations;
 
 const originalFetch = globalThis.fetch;
 const originalUrl = process.env.PUBLIC_DATA_SUPABASE_URL;
@@ -121,7 +123,10 @@ test("expõe ausência e incompletude comprovadas sem convertê-las em zero", as
           checked_at: "2026-08-12T01:55:57.000Z",
           search_evidence_sha256: null,
           evidence_artifact_count: null,
-          methodology_version: "public-obligation-coverage/1.1.0",
+          conflict_previous_period_amount: null,
+          conflict_reported_prior_amount: null,
+          conflict_difference_amount: null,
+          methodology_version: "public-obligation-coverage/1.2.0",
         },
         {
           coverage_id: "public-obligation-coverage:2022-03",
@@ -135,7 +140,10 @@ test("expõe ausência e incompletude comprovadas sem convertê-las em zero", as
           search_evidence_sha256: "d".repeat(64),
           evidence_artifact_count: 1,
           checked_at: "2026-08-12T02:20:00.000Z",
-          methodology_version: "public-obligation-coverage/1.1.0",
+          conflict_previous_period_amount: null,
+          conflict_reported_prior_amount: null,
+          conflict_difference_amount: null,
+          methodology_version: "public-obligation-coverage/1.2.0",
         },
       ],
     };
@@ -173,4 +181,79 @@ test("falha fechada quando a cobertura pública tenta expor estado interno", asy
   });
 
   assert.deepEqual(await getPublicObligationCoverage(), { state: "unavailable" });
+});
+
+test("exposes an official month-to-month conflict without publishing a reconciled value", async () => {
+  process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
+  process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_fixture";
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => [
+      {
+        coverage_id: "public-obligation-coverage:2025-05",
+        fiscal_year: 2025,
+        period_start: "2025-05-01",
+        period_end: "2025-05-31",
+        coverage_status: "source_conflict",
+        source_url:
+          "https://barreiras.mtransparente.com.br/admin/data/BALANCETE010725142456.pdf",
+        document_artifact_sha256: "e".repeat(64),
+        search_evidence_sha256: null,
+        evidence_artifact_count: null,
+        checked_at: "2026-08-12T14:00:00.000Z",
+        conflict_previous_period_amount: "19325093.07",
+        conflict_reported_prior_amount: "19324366.23",
+        conflict_difference_amount: "726.84",
+        methodology_version: "public-obligation-coverage/1.2.0",
+      },
+    ],
+  });
+
+  const result = await getPublicObligationCoverage(2025, 2025);
+
+  assert.equal(result.state, "available");
+  assert.deepEqual(result.rows[0], {
+    coverageId: "public-obligation-coverage:2025-05",
+    fiscalYear: 2025,
+    periodStart: "2025-05-01",
+    periodEnd: "2025-05-31",
+    coverageStatus: "source_conflict",
+    sourceUrl:
+      "https://barreiras.mtransparente.com.br/admin/data/BALANCETE010725142456.pdf",
+    documentArtifactSha256: "e".repeat(64),
+    searchEvidenceSha256: null,
+    evidenceArtifactCount: null,
+    checkedAt: "2026-08-12T14:00:00.000Z",
+    conflictPreviousPeriodAmount: "19325093.07",
+    conflictReportedPriorAmount: "19324366.23",
+    conflictDifferenceAmount: "726.84",
+    methodologyVersion: "public-obligation-coverage/1.2.0",
+  });
+});
+
+test("explains the exact official difference without implying wrongdoing", () => {
+  const describe =
+    publicObligations.describePublicObligationCoverage ??
+    (() => ({ title: "", explanation: "" }));
+
+  const copy = describe(
+    {
+      coverageStatus: "source_conflict",
+      conflictPreviousPeriodAmount: "19325093.07",
+      conflictReportedPriorAmount: "19324366.23",
+      conflictDifferenceAmount: "726.84",
+    },
+    (value) =>
+      ({
+        "19325093.07": "R$ 19.325.093,07",
+        "19324366.23": "R$ 19.324.366,23",
+        "726.84": "R$ 726,84",
+      })[value],
+  );
+
+  assert.deepEqual(copy, {
+    title: "Valores oficiais n\u00e3o conciliam entre meses",
+    explanation:
+      "O balancete do m\u00eas anterior fecha em R$ 19.325.093,07, mas o balancete deste m\u00eas come\u00e7a em R$ 19.324.366,23. A diferen\u00e7a \u00e9 de R$ 726,84. Este m\u00eas ficou fora dos totais validados e foi encaminhado para revis\u00e3o. Uma diverg\u00eancia entre documentos oficiais n\u00e3o prova irregularidade.",
+  });
 });

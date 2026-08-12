@@ -87,6 +87,15 @@ try {
       has_table_privilege('collector_worker', 'finance.public_obligations', 'INSERT') as worker_insert,
       has_table_privilege('collector_worker', 'finance.public_obligations', 'UPDATE') as worker_update,
       has_table_privilege(
+        'collector_worker', 'evidence.evidence_items', 'SELECT'
+      ) as worker_evidence_select,
+      has_table_privilege(
+        'collector_worker', 'evidence.source_conflicts', 'INSERT'
+      ) as worker_conflict_insert,
+      has_table_privilege(
+        'anon', 'evidence.source_conflicts', 'SELECT'
+      ) as anon_conflict_select,
+      has_table_privilege(
         'anon', 'source.official_document_searches', 'SELECT'
       ) as anon_search_select,
       has_table_privilege(
@@ -115,6 +124,9 @@ try {
     anon_select: false,
     worker_insert: true,
     worker_update: false,
+    worker_evidence_select: true,
+    worker_conflict_insert: true,
+    anon_conflict_select: false,
     anon_search_select: false,
     worker_search_insert: true,
     worker_search_update: false,
@@ -320,6 +332,72 @@ try {
         '{"classification":"incomplete_in_source_document","detail":"erro OCR interno","fiscal_year":2026,"reference_month":4,"source_url":"https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-abril-2026.pdf","content_sha256":"${"9".repeat(64)}"}'::jsonb,
         1.0, 'valid'
       );
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values (
+      '00000000-0000-0000-0000-000000008031',
+      '00000000-0000-0000-0000-000000008002', 'balancete-2026-04',
+      'source_conflict_previous_fixture', 2,
+      '{"titulo":"BALANCETE ABRIL 2026","ano":"2026","mes":"4","url":"https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-abril-2026.pdf"}'::jsonb,
+      '${"8".repeat(64)}', 'test/1', 'public-obligation-record-fixture-april',
+      '2026-08-11 16:40:00+00'
+    );
+    insert into finance.public_obligations (
+      id, origin_raw_record_id, source_document_artifact_id, public_body_id,
+      obligation_key, obligation_type, description, fiscal_year,
+      period_start, period_end, payments_prior_amount, payments_amount,
+      payments_to_date_amount, status, validation_state, methodology_version
+    ) values (
+      '00000000-0000-0000-0000-000000008032',
+      '00000000-0000-0000-0000-000000008008',
+      '00000000-0000-0000-0000-000000008010',
+      '00000000-0000-0000-0000-000000008004',
+      'restos-a-pagar-total:2026-05', 'restos_a_pagar_total',
+      'Pagamento mensal com divergencia entre balancetes', 2026,
+      '2026-05-01', '2026-05-31', 19324366.23, 45768.01, 19370134.24,
+      'reported', 'conflict', 'public-obligations-balancete/1.5.3'
+    );
+    insert into evidence.evidence_items (
+      id, target_type, target_id, raw_artifact_id, raw_record_id,
+      evidence_kind, source_url, excerpt, locator, content_sha256,
+      parser_version, is_primary
+    ) values
+      (
+        '00000000-0000-0000-0000-000000008033',
+        'finance.public_obligations',
+        '00000000-0000-0000-0000-000000008032',
+        '00000000-0000-0000-0000-000000008024',
+        '00000000-0000-0000-0000-000000008031', 'document',
+        'https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-abril-2026.pdf',
+        'Fechamento oficial do mes anterior',
+        '{"period_end":"2026-04-30"}'::jsonb, '${"9".repeat(64)}',
+        'test/1', false
+      ),
+      (
+        '00000000-0000-0000-0000-000000008034',
+        'finance.public_obligations',
+        '00000000-0000-0000-0000-000000008032',
+        '00000000-0000-0000-0000-000000008010',
+        '00000000-0000-0000-0000-000000008008', 'document',
+        'https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-maio-2026.pdf',
+        'Saldo anterior declarado no mes seguinte',
+        '{"period_start":"2026-05-01"}'::jsonb, '${"e".repeat(64)}',
+        'test/1', true
+      );
+    insert into evidence.source_conflicts (
+      id, target_type, target_id, field_name, first_evidence_item_id,
+      second_evidence_item_id, first_value, second_value, status
+    ) values (
+      '00000000-0000-0000-0000-000000008035',
+      'finance.public_obligations',
+      '00000000-0000-0000-0000-000000008032', 'payments_prior_amount',
+      '00000000-0000-0000-0000-000000008033',
+      '00000000-0000-0000-0000-000000008034',
+      '{"period_end":"2026-04-30","payments_to_date_amount":"19325093.07"}'::jsonb,
+      '{"period_start":"2026-05-01","payments_prior_amount":"19324366.23","difference_amount":"726.84"}'::jsonb,
+      'open'
+    );
     insert into finance.revenues (
       id, origin_raw_record_id, public_body_id, version, external_id,
       fiscal_year, revenue_date, revenue_code, description, forecast_amount,
@@ -683,7 +761,7 @@ try {
       document_artifact_sha256: "f".repeat(64),
       search_evidence_sha256: null,
       evidence_artifact_count: null,
-      methodology_version: "public-obligation-coverage/1.1.0",
+      methodology_version: "public-obligation-coverage/1.2.0",
     },
     {
       coverage_id: "public-obligation-coverage:2026-03",
@@ -696,7 +774,7 @@ try {
       document_artifact_sha256: null,
       search_evidence_sha256: searchManifest,
       evidence_artifact_count: 1,
-      methodology_version: "public-obligation-coverage/1.1.0",
+      methodology_version: "public-obligation-coverage/1.2.0",
     },
     {
       coverage_id: "public-obligation-coverage:2026-04",
@@ -709,7 +787,7 @@ try {
       document_artifact_sha256: "9".repeat(64),
       search_evidence_sha256: null,
       evidence_artifact_count: null,
-      methodology_version: "public-obligation-coverage/1.1.0",
+      methodology_version: "public-obligation-coverage/1.2.0",
     },
     {
       coverage_id: "public-obligation-coverage:2026-06",
@@ -722,7 +800,7 @@ try {
       document_artifact_sha256: "d".repeat(64),
       search_evidence_sha256: null,
       evidence_artifact_count: null,
-      methodology_version: "public-obligation-coverage/1.1.0",
+      methodology_version: "public-obligation-coverage/1.2.0",
     },
   ]);
   assert.equal(
@@ -730,6 +808,24 @@ try {
     false,
   );
   assert.equal(JSON.stringify(obligationCoverage.rows).includes("erro OCR"), false);
+
+  const obligationConflictCoverage = await database.query(`
+    select coverage_status, source_url, document_artifact_sha256,
+      conflict_previous_period_amount, conflict_reported_prior_amount,
+      conflict_difference_amount, methodology_version
+    from api.get_public_obligation_coverage(120, 2026::smallint, 2026::smallint)
+    where period_start = '2026-05-01'
+  `);
+  assert.deepEqual(obligationConflictCoverage.rows, [{
+    coverage_status: "source_conflict",
+    source_url:
+      "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-maio-2026.pdf",
+    document_artifact_sha256: "e".repeat(64),
+    conflict_previous_period_amount: "19325093.07",
+    conflict_reported_prior_amount: "19324366.23",
+    conflict_difference_amount: "726.84",
+    methodology_version: "public-obligation-coverage/1.2.0",
+  }]);
 
   const financeDocuments = await database.query(`
     select document_id, reference_month, document_artifact_sha256

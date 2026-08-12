@@ -72,6 +72,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     validated = 0
     source_absent = 0
     source_incomplete = 0
+    source_conflicts = 0
     failed = 0
     previous_dry_run_summary: RestosAPagarSummary | None = None
     artifacts = repository.pending_documents(
@@ -173,19 +174,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             continue
         if result.status == "published":
             published += 1
+        elif result.status in ("source_conflict", "already_source_conflict"):
+            source_conflicts += 1
         else:
             already_published += 1
 
     logger.info(
         "public_obligation_publication_completed artifacts=%s published=%s "
         "already_published=%s validated=%s source_absent=%s "
-        "source_incomplete=%s failed=%s dry_run=%s",
+        "source_incomplete=%s source_conflicts=%s failed=%s dry_run=%s",
         len(artifacts),
         published,
         already_published,
         validated,
         source_absent,
         source_incomplete,
+        source_conflicts,
         failed,
         args.dry_run,
     )

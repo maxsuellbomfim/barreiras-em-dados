@@ -4213,6 +4213,11 @@ footer {
   background: rgba(247, 249, 252, 0.8);
 }
 
+.finance-conflict-card {
+  border-color: rgba(180, 122, 24, 0.34);
+  background: rgba(255, 248, 235, 0.82);
+}
+
 @media (max-width: 700px) {
   .finance-at-a-glance-grid {
     grid-template-columns: 1fr;
