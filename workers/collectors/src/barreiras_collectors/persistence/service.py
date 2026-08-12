@@ -61,8 +61,8 @@ MUNICIPAL_TRANSPARENCY_PARSER_VERSION = "municipal-transparency-page/1.0.0"
 PNCP_ITEM_PARSER_VERSION = "pncp-item-page/1.0.0"
 PNCP_RESULTADO_PARSER_VERSION = "pncp-resultado-page/1.0.0"
 PNCP_CONTRATO_PARSER_VERSION = "pncp-contrato-page/1.0.0"
-TRANSFEREGOV_COLLECTOR_VERSION = "transferegov-parcerias-collector/1.0.0"
-TRANSFEREGOV_PARSER_VERSION = "transferegov-parcerias-page/1.0.0"
+TRANSFEREGOV_COLLECTOR_VERSION = "transferegov-parcerias-collector/1.1.0"
+TRANSFEREGOV_PARSER_VERSION = "transferegov-parcerias-page/1.1.0"
 
 
 def executive_record_idempotency_key(
@@ -343,6 +343,21 @@ class TransferegovPersistenceService:
             "id_parceria",
             "parceria",
         ),
+        "empenhos-parceria": (
+            "transferegov_empenho",
+            "id_empenho_parceria",
+            "empenho",
+        ),
+        "documentos-habeis-parceria": (
+            "transferegov_documento_habil",
+            "id_documento_habil",
+            "documento-habil",
+        ),
+        "ordens-pagamento-documento": (
+            "transferegov_ordem_pagamento",
+            "id_op",
+            "ordem-pagamento",
+        ),
     }
 
     def __init__(self, *, object_store, repository) -> None:
@@ -385,13 +400,18 @@ class TransferegovPersistenceService:
                 )
             canonical = self._canonical_json(item)
             payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            record_index = (
+                index * 2
+                if page.endpoint_code == "ordens-pagamento-documento"
+                else index
+            )
             records.append(
                 RawRecordInput(
                     source_record_key=(
                         f"transferegov:{key_label}:{identifier}"
                     ),
                     record_type=record_type,
-                    record_index=index,
+                    record_index=record_index,
                     payload=item,
                     payload_sha256=payload_sha256,
                     parser_version=TRANSFEREGOV_PARSER_VERSION,
@@ -401,13 +421,45 @@ class TransferegovPersistenceService:
                                 "transferegov-record",
                                 page.idempotency_key,
                                 TRANSFEREGOV_PARSER_VERSION,
-                                str(index),
+                                str(record_index),
                                 payload_sha256,
                             )
                         )
                     ),
                 )
             )
+            if page.endpoint_code == "ordens-pagamento-documento":
+                bank_order = item.get("nr_ordem_bancaria")
+                if bank_order is not None and not isinstance(bank_order, str):
+                    raise PersistenceContractError(
+                        f"Item {index} possui nr_ordem_bancaria inválido."
+                    )
+                if isinstance(bank_order, str) and bank_order.strip():
+                    bank_record_index = record_index + 1
+                    records.append(
+                        RawRecordInput(
+                            source_record_key=(
+                                "transferegov:ordem-bancaria:"
+                                f"{bank_order.strip()}"
+                            ),
+                            record_type="transferegov_ordem_bancaria",
+                            record_index=bank_record_index,
+                            payload=item,
+                            payload_sha256=payload_sha256,
+                            parser_version=TRANSFEREGOV_PARSER_VERSION,
+                            idempotency_key=self._digest(
+                                ":".join(
+                                    (
+                                        "transferegov-record",
+                                        page.idempotency_key,
+                                        TRANSFEREGOV_PARSER_VERSION,
+                                        str(bank_record_index),
+                                        payload_sha256,
+                                    )
+                                )
+                            ),
+                        )
+                    )
 
         object_key = (
             f"transferegov/parcerias/{page.endpoint_code}/sha256/"

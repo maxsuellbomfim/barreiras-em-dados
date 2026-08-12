@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 import json
+import logging
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from barreiras_collectors.collection_control import CollectionOutcome
 from barreiras_collectors.commands.collect_transferegov_parcerias import (
     TransferegovCollectionSummary,
+    _collect_snapshot,
     _fetch_all_pages,
     execute_controlled_transferegov,
 )
 from barreiras_collectors.connectors.transferegov import (
     TransferegovError,
+    fetch_commitments_page,
     fetch_partnerships_page,
+    fetch_payable_documents_page,
+    fetch_payment_orders_page,
     fetch_proposals_page,
     fetch_resource_distributions_page,
 )
@@ -149,6 +155,74 @@ def partnership_page():
     )
 
 
+def commitment_page():
+    return fetch_commitments_page(
+        partnership_id=30785,
+        validated_partnership_ids=frozenset({30785}),
+        page=1,
+        transport=OneShotTransport(
+            _body(
+                [
+                    {
+                        "id_empenho_parceria": 11245,
+                        "id_parceria": 30785,
+                        "nr_empenho": 2025_493599,
+                        "valor_empenho": 5000000.0,
+                    }
+                ]
+            )
+        ),
+        retry_policy=RetryPolicy(max_attempts=1),
+        sleep=lambda _seconds: None,
+    )
+
+
+def payable_document_page():
+    return fetch_payable_documents_page(
+        partnership_id=30785,
+        validated_partnership_ids=frozenset({30785}),
+        page=1,
+        transport=OneShotTransport(
+            _body(
+                [
+                    {
+                        "id_documento_habil": 5941,
+                        "id_parceria": 30785,
+                        "nr_documento_habil": "2025TF860130",
+                        "vl_documento_habil": 5000000.0,
+                    }
+                ]
+            )
+        ),
+        retry_policy=RetryPolicy(max_attempts=1),
+        sleep=lambda _seconds: None,
+    )
+
+
+def payment_order_page():
+    return fetch_payment_orders_page(
+        document_id=5941,
+        validated_document_ids=frozenset({5941}),
+        page=1,
+        transport=OneShotTransport(
+            _body(
+                [
+                    {
+                        "id_op": 5932,
+                        "id_documento_habil": 5941,
+                        "nr_ordem_pagamento": "2025OP053944",
+                        "in_situacao_op": "Paga",
+                        "nr_ordem_bancaria": "2025OB055607",
+                        "dt_emissao_ordem_bancaria": "2025-10-24",
+                    }
+                ]
+            )
+        ),
+        retry_policy=RetryPolicy(max_attempts=1),
+        sleep=lambda _seconds: None,
+    )
+
+
 class TransferegovPersistenceTests(unittest.TestCase):
     def test_persists_each_resource_with_distinct_raw_record_contract(self) -> None:
         repository = FakeRepository()
@@ -183,6 +257,56 @@ class TransferegovPersistenceTests(unittest.TestCase):
                 batch.object_key.startswith("transferegov/parcerias/")
                 for batch in repository.batches
             )
+        )
+
+    def test_payment_order_emits_independent_bank_order_from_same_evidence(
+        self,
+    ) -> None:
+        repository = FakeRepository()
+        service = TransferegovPersistenceService(
+            object_store=FakeObjectStore(),
+            repository=repository,
+        )
+
+        for page in (
+            commitment_page(),
+            payable_document_page(),
+            payment_order_page(),
+        ):
+            service.persist(page)
+
+        records = [
+            record
+            for batch in repository.batches
+            for record in batch.records
+        ]
+        self.assertEqual(
+            [record.record_type for record in records],
+            [
+                "transferegov_empenho",
+                "transferegov_documento_habil",
+                "transferegov_ordem_pagamento",
+                "transferegov_ordem_bancaria",
+            ],
+        )
+        self.assertEqual(
+            [record.source_record_key for record in records],
+            [
+                "transferegov:empenho:11245",
+                "transferegov:documento-habil:5941",
+                "transferegov:ordem-pagamento:5932",
+                "transferegov:ordem-bancaria:2025OB055607",
+            ],
+        )
+        self.assertIs(
+            records[-2].payload,
+            records[-1].payload,
+        )
+        self.assertEqual(
+            repository.batches[-1].object_key,
+            "transferegov/parcerias/ordens-pagamento-documento/sha256/"
+            f"{payment_order_page().body_sha256[:2]}/"
+            f"{payment_order_page().body_sha256}.json",
         )
 
     def test_replay_has_stable_artifact_and_record_idempotency_keys(self) -> None:
@@ -233,6 +357,122 @@ class TransferegovPersistenceTests(unittest.TestCase):
 
 
 class ControlledTransferegovTests(unittest.TestCase):
+    def test_snapshot_walks_from_partnership_to_bank_order_without_skipping_stage(
+        self,
+    ) -> None:
+        def page(endpoint: str, items: list[dict]):
+            return SimpleNamespace(
+                endpoint_code=endpoint,
+                items=tuple(items),
+                total_pages=1,
+                cursor={"page": 1},
+                body_sha256=f"{len(endpoint):064x}",
+            )
+
+        class ServiceProbe:
+            def __init__(self) -> None:
+                self.endpoints: list[str] = []
+
+            def persist(self, collected_page):
+                self.endpoints.append(collected_page.endpoint_code)
+                inserted = len(collected_page.items)
+                if collected_page.endpoint_code == "ordens-pagamento-documento":
+                    inserted += sum(
+                        bool(item.get("nr_ordem_bancaria"))
+                        for item in collected_page.items
+                    )
+                return SimpleNamespace(
+                    inserted_records=inserted,
+                    existing_records=0,
+                )
+
+        service = ServiceProbe()
+        with (
+            patch(
+                "barreiras_collectors.commands.collect_transferegov_parcerias."
+                "fetch_proposals_page",
+                return_value=page(
+                    "propostas-barreiras",
+                    [{"id_proposta": 30854}],
+                ),
+            ) as proposals,
+            patch(
+                "barreiras_collectors.commands.collect_transferegov_parcerias."
+                "fetch_resource_distributions_page",
+                return_value=page(
+                    "distribuicoes-proposta",
+                    [{"id_distribuicao_recurso_proposta": 43389}],
+                ),
+            ),
+            patch(
+                "barreiras_collectors.commands.collect_transferegov_parcerias."
+                "fetch_partnerships_page",
+                return_value=page(
+                    "parcerias-proposta",
+                    [{"id_parceria": 30785}],
+                ),
+            ),
+            patch(
+                "barreiras_collectors.commands.collect_transferegov_parcerias."
+                "fetch_commitments_page",
+                return_value=page(
+                    "empenhos-parceria",
+                    [{"id_empenho_parceria": 11245}],
+                ),
+            ) as commitments,
+            patch(
+                "barreiras_collectors.commands.collect_transferegov_parcerias."
+                "fetch_payable_documents_page",
+                return_value=page(
+                    "documentos-habeis-parceria",
+                    [{"id_documento_habil": 5941}],
+                ),
+            ) as documents,
+            patch(
+                "barreiras_collectors.commands.collect_transferegov_parcerias."
+                "fetch_payment_orders_page",
+                return_value=page(
+                    "ordens-pagamento-documento",
+                    [
+                        {
+                            "id_op": 5932,
+                            "nr_ordem_bancaria": "2025OB055607",
+                        }
+                    ],
+                ),
+            ) as payment_orders,
+        ):
+            summary = _collect_snapshot(
+                service=service,  # type: ignore[arg-type]
+                page_size=500,
+                max_pages=3,
+                logger=logging.getLogger("test-transferegov-stages"),
+            )
+
+        self.assertEqual(
+            service.endpoints,
+            [
+                "propostas-barreiras",
+                "distribuicoes-proposta",
+                "parcerias-proposta",
+                "empenhos-parceria",
+                "documentos-habeis-parceria",
+                "ordens-pagamento-documento",
+            ],
+        )
+        self.assertEqual(summary.observed_records, 7)
+        self.assertEqual(summary.commitment_records, 1)
+        self.assertEqual(summary.payable_document_records, 1)
+        self.assertEqual(summary.payment_order_records, 1)
+        self.assertEqual(summary.bank_order_records, 1)
+        self.assertEqual(proposals.call_args.kwargs["page_size"], 500)
+        self.assertEqual(commitments.call_args.kwargs["page_size"], 200)
+        self.assertEqual(documents.call_args.kwargs["page_size"], 200)
+        self.assertEqual(payment_orders.call_args.kwargs["page_size"], 200)
+        self.assertEqual(commitments.call_args.kwargs["partnership_id"], 30785)
+        self.assertEqual(documents.call_args.kwargs["partnership_id"], 30785)
+        self.assertEqual(payment_orders.call_args.kwargs["document_id"], 5941)
+
     def test_pagination_visits_every_declared_page_and_never_truncates(self) -> None:
         requested: list[int] = []
 

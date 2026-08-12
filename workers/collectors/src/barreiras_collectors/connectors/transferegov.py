@@ -32,6 +32,7 @@ ALLOWED_HOSTS = frozenset({"api-publica.transferegov.gestao.gov.br"})
 BARREIRAS_IBGE_CODE = 2903201
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500
+MAX_FINANCIAL_PAGE_SIZE = 200
 TIMEOUT_SECONDS = 60.0
 MAX_BODY_BYTES = 16 * 1024 * 1024
 RETRYABLE_HTTP_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
@@ -169,6 +170,126 @@ def fetch_partnerships_page(
         expected_field="id_proposta",
         expected_value=proposal,
         expected_description=f"proposta {proposal}",
+        transport=transport,
+        retry_policy=retry_policy,
+        circuit_breaker=circuit_breaker,
+        random_value=random_value,
+        now=now,
+        sleep=sleep,
+        logger=logger,
+    )
+
+
+def fetch_commitments_page(
+    *,
+    partnership_id: int,
+    validated_partnership_ids: frozenset[int],
+    page: int,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    transport: HttpTransport | None = None,
+    retry_policy: RetryPolicy | None = None,
+    circuit_breaker: CircuitBreaker | None = None,
+    random_value: Callable[[], float] = random.random,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    sleep: Callable[[float], None] = time.sleep,
+    logger: logging.Logger | None = None,
+) -> TransferegovPage:
+    """Preserva empenhos ligados a uma parceria validada de Barreiras."""
+    partnership = _validated_partnership_id(
+        partnership_id,
+        validated_partnership_ids,
+    )
+    return _fetch_page(
+        resource="empenho-parceria",
+        endpoint_code="empenhos-parceria",
+        schema_name="transferegov-parcerias-empenhos-page",
+        params={
+            "id_parceria": partnership,
+            "pagina": _positive_int(page, "page"),
+            "tamanho_da_pagina": _financial_page_size(page_size),
+        },
+        expected_field="id_parceria",
+        expected_value=partnership,
+        expected_description=f"parceria {partnership}",
+        transport=transport,
+        retry_policy=retry_policy,
+        circuit_breaker=circuit_breaker,
+        random_value=random_value,
+        now=now,
+        sleep=sleep,
+        logger=logger,
+    )
+
+
+def fetch_payable_documents_page(
+    *,
+    partnership_id: int,
+    validated_partnership_ids: frozenset[int],
+    page: int,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    transport: HttpTransport | None = None,
+    retry_policy: RetryPolicy | None = None,
+    circuit_breaker: CircuitBreaker | None = None,
+    random_value: Callable[[], float] = random.random,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    sleep: Callable[[float], None] = time.sleep,
+    logger: logging.Logger | None = None,
+) -> TransferegovPage:
+    """Preserva documentos hábeis ligados a uma parceria validada."""
+    partnership = _validated_partnership_id(
+        partnership_id,
+        validated_partnership_ids,
+    )
+    return _fetch_page(
+        resource="documento-habil",
+        endpoint_code="documentos-habeis-parceria",
+        schema_name="transferegov-parcerias-documentos-habeis-page",
+        params={
+            "id_parceria": partnership,
+            "pagina": _positive_int(page, "page"),
+            "tamanho_da_pagina": _financial_page_size(page_size),
+        },
+        expected_field="id_parceria",
+        expected_value=partnership,
+        expected_description=f"parceria {partnership}",
+        transport=transport,
+        retry_policy=retry_policy,
+        circuit_breaker=circuit_breaker,
+        random_value=random_value,
+        now=now,
+        sleep=sleep,
+        logger=logger,
+    )
+
+
+def fetch_payment_orders_page(
+    *,
+    document_id: int,
+    validated_document_ids: frozenset[int],
+    page: int,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    transport: HttpTransport | None = None,
+    retry_policy: RetryPolicy | None = None,
+    circuit_breaker: CircuitBreaker | None = None,
+    random_value: Callable[[], float] = random.random,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    sleep: Callable[[float], None] = time.sleep,
+    logger: logging.Logger | None = None,
+) -> TransferegovPage:
+    """Preserva ordens de pagamento e seus campos de ordem bancária."""
+    document = _validated_document_id(document_id, validated_document_ids)
+    return _fetch_page(
+        resource="ordem-pagamento",
+        endpoint_code="ordens-pagamento-documento",
+        schema_name="transferegov-parcerias-ordens-pagamento-page",
+        params={
+            "id_documento_habil": document,
+            "pagina": _positive_int(page, "page"),
+            "tamanho_da_pagina": _financial_page_size(page_size),
+        },
+        expected_field="id_documento_habil",
+        expected_value=document,
+        expected_description=f"documento hábil {document}",
         transport=transport,
         retry_policy=retry_policy,
         circuit_breaker=circuit_breaker,
@@ -408,10 +529,43 @@ def _validated_proposal_id(
     return proposal
 
 
+def _validated_partnership_id(
+    partnership_id: int,
+    validated_partnership_ids: frozenset[int],
+) -> int:
+    partnership = _positive_int(partnership_id, "partnership_id")
+    if partnership not in validated_partnership_ids:
+        raise ValueError(
+            f"partnership_id {partnership} não foi validada para Barreiras."
+        )
+    return partnership
+
+
+def _validated_document_id(
+    document_id: int,
+    validated_document_ids: frozenset[int],
+) -> int:
+    document = _positive_int(document_id, "document_id")
+    if document not in validated_document_ids:
+        raise ValueError(
+            f"document_id {document} não foi validado para Barreiras."
+        )
+    return document
+
+
 def _page_size(value: int) -> int:
     size = _positive_int(value, "page_size")
     if size > MAX_PAGE_SIZE:
         raise ValueError(f"page_size não pode exceder {MAX_PAGE_SIZE}.")
+    return size
+
+
+def _financial_page_size(value: int) -> int:
+    size = _positive_int(value, "page_size")
+    if size > MAX_FINANCIAL_PAGE_SIZE:
+        raise ValueError(
+            f"page_size financeiro não pode exceder {MAX_FINANCIAL_PAGE_SIZE}."
+        )
     return size
 
 

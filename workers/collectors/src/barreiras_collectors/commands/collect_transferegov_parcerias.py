@@ -16,10 +16,14 @@ from ..collection_control import (
 )
 from ..connectors.transferegov import (
     DEFAULT_PAGE_SIZE,
+    MAX_FINANCIAL_PAGE_SIZE,
     SOURCE_CODE,
     TransferegovError,
     TransferegovPage,
+    fetch_commitments_page,
     fetch_partnerships_page,
+    fetch_payable_documents_page,
+    fetch_payment_orders_page,
     fetch_proposals_page,
     fetch_resource_distributions_page,
 )
@@ -45,10 +49,21 @@ class TransferegovCollectionSummary:
     preserved_pages: int
     inserted_records: int
     existing_records: int
+    commitment_records: int = 0
+    payable_document_records: int = 0
+    payment_order_records: int = 0
+    bank_order_records: int = 0
 
     @property
     def observed_records(self) -> int:
-        return self.proposal_records + self.related_records
+        return (
+            self.proposal_records
+            + self.related_records
+            + self.commitment_records
+            + self.payable_document_records
+            + self.payment_order_records
+            + self.bank_order_records
+        )
 
     @property
     def outcome(self) -> CollectionOutcome:
@@ -78,6 +93,10 @@ def execute_controlled_transferegov(
                 "preserved_pages": summary.preserved_pages,
                 "inserted_records": summary.inserted_records,
                 "existing_records": summary.existing_records,
+                "commitment_records": summary.commitment_records,
+                "payable_document_records": summary.payable_document_records,
+                "payment_order_records": summary.payment_order_records,
+                "bank_order_records": summary.bank_order_records,
             },
         )
     return summary
@@ -170,6 +189,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         preserved_pages=summary.preserved_pages,
         inserted_records=summary.inserted_records,
         existing_records=summary.existing_records,
+        commitment_records=summary.commitment_records,
+        payable_document_records=summary.payable_document_records,
+        payment_order_records=summary.payment_order_records,
+        bank_order_records=summary.bank_order_records,
     )
     return 0
 
@@ -183,8 +206,12 @@ def _collect_snapshot(
 ) -> TransferegovCollectionSummary:
     breaker = CircuitBreaker(failure_threshold=4)
     proposal_records = related_records = 0
+    commitment_records = payable_document_records = 0
+    payment_order_records = bank_order_records = 0
     preserved_pages = inserted_records = existing_records = 0
     proposal_ids: set[int] = set()
+    partnership_ids: set[int] = set()
+    document_ids: set[int] = set()
 
     def preserve(page: TransferegovPage) -> None:
         nonlocal preserved_pages, inserted_records, existing_records
@@ -228,41 +255,117 @@ def _collect_snapshot(
 
     validated_ids = frozenset(proposal_ids)
     for proposal_id in sorted(validated_ids):
-        related_fetchers = (
-            (
-                "distribuicoes",
-                lambda number, proposal_id=proposal_id: (
-                    fetch_resource_distributions_page(
-                        proposal_id=proposal_id,
-                        validated_proposal_ids=validated_ids,
-                        page=number,
-                        page_size=page_size,
-                        circuit_breaker=breaker,
-                        logger=logger,
-                    )
-                ),
-            ),
-            (
-                "parcerias",
-                lambda number, proposal_id=proposal_id: fetch_partnerships_page(
+        distribution_pages = _fetch_all_pages(
+            fetch=lambda number, proposal_id=proposal_id: (
+                fetch_resource_distributions_page(
                     proposal_id=proposal_id,
                     validated_proposal_ids=validated_ids,
                     page=number,
                     page_size=page_size,
                     circuit_breaker=breaker,
                     logger=logger,
-                ),
+                )
             ),
+            max_pages=max_pages,
+            resource=f"distribuicoes:{proposal_id}",
         )
-        for resource, fetcher in related_fetchers:
-            pages = _fetch_all_pages(
-                fetch=fetcher,
-                max_pages=max_pages,
-                resource=f"{resource}:{proposal_id}",
+        for page in distribution_pages:
+            preserve(page)
+            related_records += len(page.items)
+
+        partnership_pages = _fetch_all_pages(
+            fetch=lambda number, proposal_id=proposal_id: fetch_partnerships_page(
+                proposal_id=proposal_id,
+                validated_proposal_ids=validated_ids,
+                page=number,
+                page_size=page_size,
+                circuit_breaker=breaker,
+                logger=logger,
+            ),
+            max_pages=max_pages,
+            resource=f"parcerias:{proposal_id}",
+        )
+        for page in partnership_pages:
+            preserve(page)
+            related_records += len(page.items)
+            for item in page.items:
+                identifier = item["id_parceria"]
+                if identifier in partnership_ids:
+                    raise TransferegovError(
+                        f"A parceria {identifier} apareceu mais de uma vez."
+                    )
+                partnership_ids.add(identifier)
+
+    validated_partnership_ids = frozenset(partnership_ids)
+    financial_page_size = min(page_size, MAX_FINANCIAL_PAGE_SIZE)
+    for partnership_id in sorted(validated_partnership_ids):
+        commitment_pages = _fetch_all_pages(
+            fetch=lambda number, partnership_id=partnership_id: (
+                fetch_commitments_page(
+                    partnership_id=partnership_id,
+                    validated_partnership_ids=validated_partnership_ids,
+                    page=number,
+                    page_size=financial_page_size,
+                    circuit_breaker=breaker,
+                    logger=logger,
+                )
+            ),
+            max_pages=max_pages,
+            resource=f"empenhos:{partnership_id}",
+        )
+        for page in commitment_pages:
+            preserve(page)
+            commitment_records += len(page.items)
+
+        document_pages = _fetch_all_pages(
+            fetch=lambda number, partnership_id=partnership_id: (
+                fetch_payable_documents_page(
+                    partnership_id=partnership_id,
+                    validated_partnership_ids=validated_partnership_ids,
+                    page=number,
+                    page_size=financial_page_size,
+                    circuit_breaker=breaker,
+                    logger=logger,
+                )
+            ),
+            max_pages=max_pages,
+            resource=f"documentos-habeis:{partnership_id}",
+        )
+        for page in document_pages:
+            preserve(page)
+            payable_document_records += len(page.items)
+            for item in page.items:
+                identifier = item["id_documento_habil"]
+                if identifier in document_ids:
+                    raise TransferegovError(
+                        f"O documento hábil {identifier} apareceu mais de uma vez."
+                    )
+                document_ids.add(identifier)
+
+    validated_document_ids = frozenset(document_ids)
+    for document_id in sorted(validated_document_ids):
+        order_pages = _fetch_all_pages(
+            fetch=lambda number, document_id=document_id: (
+                fetch_payment_orders_page(
+                    document_id=document_id,
+                    validated_document_ids=validated_document_ids,
+                    page=number,
+                    page_size=financial_page_size,
+                    circuit_breaker=breaker,
+                    logger=logger,
+                )
+            ),
+            max_pages=max_pages,
+            resource=f"ordens-pagamento:{document_id}",
+        )
+        for page in order_pages:
+            preserve(page)
+            payment_order_records += len(page.items)
+            bank_order_records += sum(
+                isinstance(item.get("nr_ordem_bancaria"), str)
+                and bool(item["nr_ordem_bancaria"].strip())
+                for item in page.items
             )
-            for page in pages:
-                preserve(page)
-                related_records += len(page.items)
 
     return TransferegovCollectionSummary(
         proposal_records=proposal_records,
@@ -270,6 +373,10 @@ def _collect_snapshot(
         preserved_pages=preserved_pages,
         inserted_records=inserted_records,
         existing_records=existing_records,
+        commitment_records=commitment_records,
+        payable_document_records=payable_document_records,
+        payment_order_records=payment_order_records,
+        bank_order_records=bank_order_records,
     )
 
 
