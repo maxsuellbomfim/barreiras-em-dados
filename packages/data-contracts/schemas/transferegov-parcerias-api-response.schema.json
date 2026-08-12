@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreirasemdados.org/schemas/transferegov-parcerias-api-response/1-0-0",
+  "title": "Transferegov Gestão de Parcerias API response",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "data",
+    "total_pages",
+    "total_items",
+    "page_number",
+    "page_size"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "total_pages": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_items": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "page_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "page_size": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

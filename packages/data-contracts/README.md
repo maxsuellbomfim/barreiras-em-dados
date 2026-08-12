@@ -9,6 +9,8 @@ Schemas iniciais:
 - `collection-page`: página HTTP preservável e seu estado;
 - `querido-diario-gazette-page`: resposta observada da API v0.19.0;
 - `municipal-transparency-api-response`: raiz comum das APIs locais;
+- `transferegov-parcerias-api-response`: envelope paginado observado na API
+  pública de Gestão de Parcerias;
 - `official-act-candidate`: extração candidata de nomeação/exoneração;
 - `evidence-item`: trecho e origem que sustentam uma afirmação.
 

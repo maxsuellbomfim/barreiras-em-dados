@@ -1,0 +1,17 @@
+{
+  "data": [
+    {
+      "id_parceria": 30785,
+      "cd_parceria": 202500030009,
+      "nu_externo": "36000703585202500",
+      "id_proposta": 30854,
+      "in_situacao_parceria": "Aprovada",
+      "tp_origem": "Sistema Externo",
+      "publicacoes_parceria": []
+    }
+  ],
+  "total_pages": 1,
+  "total_items": 1,
+  "page_number": 1,
+  "page_size": 1
+}
