@@ -60,3 +60,14 @@ substituem a linha `Total`, evitando publicar uma conta isolada como agregado.
 A metodologia passa a `public-obligations-balancete/1.5.0`. A nova versão deixa
 os jobs anteriormente falhos elegíveis para novo ensaio sem alterar ou apagar o
 histórico de tentativas.
+
+O primeiro ensaio remoto da versão, executado em 12 de agosto de 2026 sobre as
+11 competências disponíveis de 2022, bloqueou a publicação porque o texto
+embutido de junho separava o marcador `Tot a` dos valores e oferecia uma linha
+de conta individual que também fechava aritmeticamente. O parser passou a tratar
+essa grafia fragmentada como marcador obrigatório de total, impedindo o uso da
+linha individual e encaminhando o documento ao layout estruturado. O próximo
+ensaio permanece sem escrita e só libera publicação com zero falhas técnicas.
+Essa correção é versionada como `public-obligations-balancete/1.5.1`, para que o
+artefato recusado no primeiro ensaio possa ser reavaliado sem apagar a tentativa
+anterior.
