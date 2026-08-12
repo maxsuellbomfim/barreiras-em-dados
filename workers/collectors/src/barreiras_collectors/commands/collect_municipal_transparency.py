@@ -75,6 +75,12 @@ def _next_month(value: date) -> date:
     return date(value.year + (value.month == 12), (value.month % 12) + 1, 1)
 
 
+def resolve_execution_namespace(resource: str, *, download_documents: bool) -> str:
+    resource_namespace = sha256(resource.encode("utf-8")).hexdigest()[:12]
+    stage = "documents" if download_documents else "catalog"
+    return f"municipal-{resource_namespace}-{stage}"
+
+
 def build_balancete_monthly_searches(
     items: Sequence[Mapping[str, object]],
     *,
@@ -330,7 +336,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     snapshot_date = datetime.now(MUNICIPAL_TIMEZONE).date()
     last_closed_month = snapshot_date.replace(day=1) - timedelta(days=1)
-    resource_namespace = sha256(args.resource.encode("utf-8")).hexdigest()[:12]
     partition_key = (
         f"snapshot:{args.resource}:limit:{args.limit}:pages:{args.max_pages}"
     )
@@ -339,7 +344,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_code=source_code,
         endpoint_code=endpoint_code,
         idempotency_key=build_execution_idempotency_key(
-            f"municipal-{resource_namespace}"
+            resolve_execution_namespace(
+                args.resource,
+                download_documents=args.download_documents,
+            )
         ),
         collector_version=MUNICIPAL_TRANSPARENCY_COLLECTOR_VERSION,
         parser_version="municipal-transparency-api-response/1.0.0",

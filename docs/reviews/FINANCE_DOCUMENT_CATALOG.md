@@ -44,6 +44,8 @@ validada → revisão → finance.revenues → projeção pública
   `found` ou `not_found`, respostas brutas vinculadas e manifesto SHA-256;
 - projeção pública distinta para “não encontrado no catálogo oficial”, sem
   confundir essa evidência temporal com valor zero ou inexistência definitiva.
+- cobertura desacoplada do download: o catálogo completo é registrado primeiro
+  e os PDFs de balancetes são drenados em lotes retomáveis de cinco arquivos.
 
 ## Limite atual
 

@@ -20,13 +20,14 @@ test("coleta financeira permite backfill por recurso e documentos grandes", () =
   assert.match(workflow, /max-parallel: \$\{\{ \(inputs\.resource == 'all' \|\| inputs\.resource == ''\) && 1 \|\| 8 \}\}/);
   assert.match(workflow, /resource: >-[\s\S]*fromJSON\(/);
   assert.match(workflow, /format\('\[\"\{0\}\"\]'/);
-  assert.doesNotMatch(workflow, /jobs:[\s\S]*if: \$\{\{[^\n]*matrix\.resource/);
+  assert.doesNotMatch(workflow, /\n\s{4}if: \$\{\{[^\n]*matrix\.resource/);
   assert.match(workflow, /MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES: \"268435456\"/);
 });
 
 test("coleta financeira preserva fontes oficiais de dividas e obrigacoes", () => {
   const collectionStep = workflow.slice(
     workflow.indexOf("- name: Preservar documento financeiro"),
+    workflow.indexOf("- name: Drenar documentos financeiros"),
   );
   const collectionRun = collectionStep.slice(collectionStep.indexOf("run: >-"));
 
@@ -36,4 +37,24 @@ test("coleta financeira preserva fontes oficiais de dividas e obrigacoes", () =>
   assert.match(workflow, /COLLECT_LIMIT: >-[\s\S]*balancetes'[\s\S]*'500'/);
   assert.match(workflow, /COVERAGE_ARGUMENTS: >-[\s\S]*--coverage-year-from 2021/);
   assert.doesNotMatch(collectionRun, /\$\{\{ matrix\.resource == 'balancetes'/);
+});
+
+test("cobertura de balancetes nao espera o download de todo o acervo", () => {
+  const collectionStep = workflow.slice(
+    workflow.indexOf("- name: Preservar documento financeiro"),
+    workflow.indexOf("- name: Drenar documentos financeiros"),
+  );
+  const drainStep = workflow.slice(
+    workflow.indexOf("- name: Drenar documentos financeiros"),
+  );
+
+  assert.doesNotMatch(collectionStep, /--download-documents/);
+  assert.match(
+    drainStep,
+    /DRAIN_LIMIT: >-[\s\S]*matrix\.resource == 'balancetes'[\s\S]*'5'/,
+  );
+  assert.match(drainStep, /--resource "\$\{\{ matrix\.resource \}\}"/);
+  assert.match(drainStep, /--limit "\$DRAIN_LIMIT"/);
+  assert.match(drainStep, /--max-pages "\$DRAIN_MAX_PAGES"/);
+  assert.match(drainStep, /--download-documents/);
 });
