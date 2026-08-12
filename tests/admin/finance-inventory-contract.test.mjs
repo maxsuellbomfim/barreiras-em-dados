@@ -13,6 +13,13 @@ const balanceteStatusMigration = await readFile(
   ),
   "utf8",
 );
+const sourceStatusMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260812121448_admin_finance_source_status.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const page = await readFile(
   new URL("../../apps/admin/app/page.tsx", import.meta.url),
   "utf8",
@@ -51,4 +58,16 @@ test("inventário reconhece balancetes com obrigações públicas validadas", ()
     balanceteStatusMigration,
     /finance-ingestion-inventory\/1\.1\.0/,
   );
+});
+
+test("inventário distingue seção ausente de documento oficial incompleto", () => {
+  assert.match(sourceStatusMigration, /public_obligation_section_absent/);
+  assert.match(sourceStatusMigration, /public_obligation_section_incomplete/);
+  assert.match(sourceStatusMigration, /'source_absent'::text/);
+  assert.match(sourceStatusMigration, /'source_incomplete'::text/);
+  assert.match(sourceStatusMigration, /finance-ingestion-inventory\/1\.2\.0/);
+  assert.match(page, /Seção não encontrada no documento oficial/);
+  assert.match(page, /Documento oficial incompleto/);
+  assert.match(page, /source_absent/);
+  assert.match(page, /source_incomplete/);
 });

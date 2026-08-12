@@ -84,7 +84,13 @@ type FinanceInventoryItem = Readonly<{
   artifact_sha256: string;
   byte_size: number;
   source_record_key: string | null;
-  extraction_status: "published" | "failed" | "queued" | "preserved_only";
+  extraction_status:
+    | "published"
+    | "failed"
+    | "queued"
+    | "preserved_only"
+    | "source_absent"
+    | "source_incomplete";
   latest_job_status: string | null;
   latest_error_code: string | null;
   latest_error_detail: string | null;
@@ -233,6 +239,8 @@ function financeStatusLabel(status: FinanceInventoryItem["extraction_status"]): 
   if (status === "published") return "Publicado";
   if (status === "failed") return "Falhou — revisar";
   if (status === "queued") return "Na fila";
+  if (status === "source_absent") return "Seção não encontrada no documento oficial";
+  if (status === "source_incomplete") return "Documento oficial incompleto";
   return "Preservado — ainda não processado";
 }
 
@@ -485,7 +493,14 @@ function FinanceInventory({
   });
   const counts = items.reduce(
     (summary, item) => ({ ...summary, [item.extraction_status]: summary[item.extraction_status] + 1 }),
-    { published: 0, failed: 0, queued: 0, preserved_only: 0 },
+    {
+      published: 0,
+      failed: 0,
+      queued: 0,
+      preserved_only: 0,
+      source_absent: 0,
+      source_incomplete: 0,
+    },
   );
 
   return (
@@ -509,6 +524,8 @@ function FinanceInventory({
             <div><dt>Publicados</dt><dd>{counts.published.toLocaleString("pt-BR")}</dd></div>
             <div><dt>Falhas</dt><dd>{counts.failed.toLocaleString("pt-BR")}</dd></div>
             <div><dt>A processar</dt><dd>{(counts.preserved_only + counts.queued).toLocaleString("pt-BR")}</dd></div>
+            <div><dt>Seção ausente</dt><dd>{counts.source_absent.toLocaleString("pt-BR")}</dd></div>
+            <div><dt>Fonte incompleta</dt><dd>{counts.source_incomplete.toLocaleString("pt-BR")}</dd></div>
           </dl>
           <div className="toolbar">
             <input
@@ -535,7 +552,7 @@ function FinanceInventory({
                 <div><dt>Linhas publicadas</dt><dd>{item.published_rows.toLocaleString("pt-BR")}</dd></div>
                 <div><dt>Parser</dt><dd>{item.methodology_version}</dd></div>
               </dl>
-              {item.latest_error_detail ? <p className="finance-inventory-error"><strong>{item.latest_error_code ?? "Falha"}:</strong> {item.latest_error_detail}</p> : null}
+              {item.latest_error_detail ? <p className="finance-inventory-error"><strong>{item.extraction_status === "source_absent" || item.extraction_status === "source_incomplete" ? "Situação da fonte" : (item.latest_error_code ?? "Falha")}:</strong> {item.latest_error_detail}</p> : null}
               <p className="meta">
                 <a href={item.document_url} target="_blank" rel="noreferrer">Abrir PDF oficial</a> · hash {item.artifact_sha256.slice(0, 12)}…
               </p>
