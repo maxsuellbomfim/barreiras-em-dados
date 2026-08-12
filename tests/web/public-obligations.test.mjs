@@ -58,6 +58,32 @@ test("carrega pagamento mensal de restos a pagar sem convertê-lo em dívida tot
   assert.equal("totalDebt" in result.obligations[0], false);
 });
 
+test("normaliza decimais numéricos retornados pelo PostgREST sem rejeitar centavos válidos", async () => {
+  process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
+  process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_fixture";
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => [
+      {
+        ...validRow(),
+        fiscal_year: 2021,
+        period_start: "2021-02-01",
+        period_end: "2021-02-28",
+        payments_prior_amount: 18542319.37,
+        payments_amount: 2467434.19,
+        payments_to_date_amount: 21009753.56,
+      },
+    ],
+  });
+
+  const result = await getPublicObligations();
+
+  assert.equal(result.state, "available");
+  assert.equal(result.obligations[0].paymentsPriorAmount, "18542319.37");
+  assert.equal(result.obligations[0].paymentsPeriodAmount, "2467434.19");
+  assert.equal(result.obligations[0].paymentsToDateAmount, "21009753.56");
+});
+
 test("falha fechada quando a progressão dos pagamentos diverge", async () => {
   process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
   process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_fixture";
