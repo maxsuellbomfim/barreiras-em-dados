@@ -52,6 +52,8 @@ class TransferegovPage:
     final_url: str
     requested_at: str
     received_at: str
+    window_start: str
+    window_end: str
     attempts: int
     http_status: int
     collection_status: str
@@ -255,6 +257,7 @@ def _fetch_page(
                     endpoint_code=endpoint_code,
                     schema_name=schema_name,
                     expected_page=params["pagina"],
+                    expected_page_size=params["tamanho_da_pagina"],
                     expected_field=expected_field,
                     expected_value=expected_value,
                     expected_description=expected_description,
@@ -293,6 +296,7 @@ def _parse_page(
     endpoint_code: str,
     schema_name: str,
     expected_page: int,
+    expected_page_size: int,
     expected_field: str,
     expected_value: int,
     expected_description: str,
@@ -364,6 +368,8 @@ def _parse_page(
         final_url=response.final_url,
         requested_at=requested_at,
         received_at=received_at,
+        window_start=requested_at,
+        window_end=received_at,
         attempts=attempts,
         http_status=response.status,
         collection_status="success" if items else "empty",
@@ -371,7 +377,12 @@ def _parse_page(
         body_size_bytes=len(response.body),
         media_type="application/json",
         response_headers=_safe_headers(response.headers),
-        cursor={"page": page_number, "size": page_size},
+        cursor={
+            "page": page_number,
+            "size": expected_page_size,
+            "response_size": page_size,
+            "offset": (page_number - 1) * expected_page_size,
+        },
         raw_body=response.body,
         items=tuple(items),
         total_pages=total_pages,

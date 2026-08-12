@@ -274,6 +274,13 @@ Folha não será simplesmente importada e publicada integralmente.
 - recursos estaduais e federais destinados a Barreiras;
 - páginas de órgãos e secretarias com atos, metas e execução verificáveis.
 
+Estado atual: o contrato oficial de Gestão de Parcerias do Transferegov foi
+validado para o código IBGE de Barreiras. Propostas, distribuições de recursos
+e parcerias possuem coleta paginada e persistência bruta por hash, sem somar
+estágios e sem publicar valores ainda. A menor próxima fatia é preservar
+empenhos, documentos hábeis, ordens de pagamento e ordens bancárias para
+então reconciliar o percurso do recurso.
+
 Gate:
 
 - valores reconciliados sem somar estágios incompatíveis;

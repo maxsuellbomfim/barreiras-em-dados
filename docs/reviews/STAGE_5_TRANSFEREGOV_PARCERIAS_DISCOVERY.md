@@ -70,12 +70,25 @@ outra fonte.
 - não publicar antes de preservar a cadeia completa e validar os valores com
   `Decimal` na normalização.
 
+## Persistência bruta implementada
+
+Propostas, distribuições e parcerias passam a ser preservadas no bucket
+privado por hash, com leitura de volta antes da gravação no banco. Cada item
+recebe tipo, chave da fonte, versão do parser e idempotência próprios. A
+execução e a cobertura são abertas antes da autenticação e da primeira
+requisição; falhas entram no controle central, sem se tornarem página vazia.
+
+O job permanece no grupo **Finanças** e reutiliza a identidade técnica já
+provisionada, mas somente dentro do corredor
+`transferegov/parcerias/`. Os schemas `source` e `raw` não recebem leitura de
+`anon` ou `authenticated`.
+
 ## Limites e próxima fatia
 
-O conector desta fatia valida o contrato e a territorialidade, mas ainda não
-grava no Supabase. A próxima fatia criará persistência bruta idempotente para
-propostas, distribuições e parcerias. Em seguida entram empenhos, documentos
-hábeis e ordens de pagamento, mantendo cada estágio independente.
+Esta fatia ainda não cria projeção pública nem calcula valores. A próxima
+fatia acrescentará empenhos, documentos hábeis, ordens de pagamento e ordens
+bancárias, mantendo cada estágio independente. Somente depois será criada a
+normalização com `Decimal`, reconciliação e linguagem acessível.
 
 Transferências especiais são outro módulo. A varredura completa dos 410
 beneficiários da Bahia não encontrou o CNPJ municipal de Barreiras em

@@ -215,6 +215,12 @@ class TransferegovParceriasTests(unittest.TestCase):
         self.assertEqual(page.endpoint_code, "propostas-barreiras")
         self.assertEqual(page.items[0]["id_proposta"], 9274)
         self.assertEqual(page.collection_status, "success")
+        self.assertEqual(
+            page.cursor,
+            {"page": 1, "size": 50, "response_size": 1, "offset": 0},
+        )
+        self.assertEqual(page.window_start, page.requested_at)
+        self.assertEqual(page.window_end, page.received_at)
         self.assertEqual(page.raw_body, scripted.body)
         self.assertEqual(page.body_sha256, hashlib.sha256(scripted.body).hexdigest())
 

@@ -67,6 +67,32 @@ class ResolveCollectionWindowTests(unittest.TestCase):
 
 
 class ScheduledWorkflowTests(unittest.TestCase):
+    def test_finance_group_runs_transferegov_as_an_independent_job(self) -> None:
+        repository_root = Path(__file__).parents[2]
+        workflow = (
+            repository_root
+            / ".github"
+            / "workflows"
+            / "collect-finance-documents.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("include_transferegov:", workflow)
+        self.assertIn("transferegov:", workflow)
+        self.assertIn(
+            "barreiras_collectors.commands.collect_transferegov_parcerias",
+            workflow,
+        )
+        self.assertIn(
+            "MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL",
+            workflow,
+        )
+        self.assertEqual(
+            workflow.count("collect_transferegov_parcerias"),
+            1,
+        )
+        transferegov_job = workflow[workflow.index("  transferegov:") :]
+        self.assertNotIn("inputs.max_pages", transferegov_job)
+
     def test_manual_dates_are_not_interpolated_into_the_shell_script(self) -> None:
         repository_root = Path(__file__).parents[2]
         workflow = (
