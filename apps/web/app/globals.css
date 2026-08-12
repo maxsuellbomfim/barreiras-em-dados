@@ -2247,6 +2247,22 @@ footer {
   white-space: nowrap;
 }
 
+.finance-obligation-latest {
+  margin: 1.4rem 0 1rem;
+  border-color: rgba(180, 35, 24, 0.18);
+  background: linear-gradient(145deg, #fff6f5, #ffffff);
+}
+
+.finance-obligation-latest-value {
+  background: #fee4e2;
+  color: #b42318;
+  font-size: 0.9rem;
+}
+
+.finance-obligation-history {
+  margin-top: 1.2rem;
+}
+
 .finance-coverage-section {
   margin-bottom: 3.5rem;
 }
