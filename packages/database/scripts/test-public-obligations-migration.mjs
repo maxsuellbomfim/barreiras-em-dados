@@ -63,6 +63,10 @@ try {
     grant select, insert, update, delete on storage.objects to authenticated;
   `);
   for (const migration of migrations) await database.exec(migration);
+  // O Supabase hospeda pgcrypto em extensions. Reproduzir esse layout depois
+  // das migrations antigas permite testar o trigger corretivo sem mascarar a
+  // chamada equivocada a public.digest.
+  await database.exec("alter extension pgcrypto set schema extensions");
   await database.exec(seed);
 
   const relation = await database.query(`
