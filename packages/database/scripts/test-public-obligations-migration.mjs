@@ -67,6 +67,9 @@ try {
   // das migrations antigas permite testar o trigger corretivo sem mascarar a
   // chamada equivocada a public.digest.
   await database.exec("alter extension pgcrypto set schema extensions");
+  // A role tecnica de producao nao possui USAGE no schema de extensoes. O
+  // trigger deve validar a evidencia sem ampliar essa superficie de acesso.
+  await database.exec("revoke usage on schema extensions from public, collector_worker");
   await database.exec(seed);
 
   const relation = await database.query(`
@@ -92,6 +95,12 @@ try {
       has_table_privilege(
         'collector_worker', 'source.official_document_searches', 'UPDATE'
       ) as worker_search_update,
+      has_schema_privilege(
+        'collector_worker', 'extensions', 'USAGE'
+      ) as worker_extensions_usage,
+      (select prosecdef from pg_proc
+       where oid = 'source.verify_official_document_search_evidence()'::regprocedure
+      ) as evidence_trigger_security_definer,
       has_function_privilege(
         'anon', 'api.get_public_obligations(integer,integer,text)', 'EXECUTE'
       ) as anon_rpc,
@@ -109,6 +118,8 @@ try {
     anon_search_select: false,
     worker_search_insert: true,
     worker_search_update: false,
+    worker_extensions_usage: false,
+    evidence_trigger_security_definer: true,
     anon_rpc: true,
     anon_coverage_rpc: true,
   }]);
