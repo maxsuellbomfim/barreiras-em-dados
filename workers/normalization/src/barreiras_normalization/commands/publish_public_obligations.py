@@ -15,6 +15,7 @@ from ..public_obligation_ocr import PublicObligationOcrExtractor
 from ..public_obligation_pdf import (
     PublicObligationPdfContractError,
     PublicObligationSectionAbsentError,
+    PublicObligationSectionIncompleteError,
     RestosAPagarSummary,
     validate_restos_a_pagar_progression,
 )
@@ -70,6 +71,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     already_published = 0
     validated = 0
     source_absent = 0
+    source_incomplete = 0
     failed = 0
     previous_dry_run_summary: RestosAPagarSummary | None = None
     artifacts = repository.pending_documents(
@@ -133,6 +135,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 str(error)[:500],
             )
             continue
+        except PublicObligationSectionIncompleteError as error:
+            previous_dry_run_summary = None
+            source_incomplete += 1
+            if not args.dry_run:
+                repository.record_section_incomplete(artifact, detail=str(error))
+            logger.info(
+                "public_obligation_section_incomplete artifact=%s period=%04d-%02d "
+                "source=%s detail=%s",
+                artifact.id,
+                artifact.fiscal_year,
+                artifact.reference_month,
+                artifact.source_url,
+                str(error)[:500],
+            )
+            continue
         except (
             ArtifactMismatchError,
             CanonicalTextError,
@@ -161,12 +178,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     logger.info(
         "public_obligation_publication_completed artifacts=%s published=%s "
-        "already_published=%s validated=%s source_absent=%s failed=%s dry_run=%s",
+        "already_published=%s validated=%s source_absent=%s "
+        "source_incomplete=%s failed=%s dry_run=%s",
         len(artifacts),
         published,
         already_published,
         validated,
         source_absent,
+        source_incomplete,
         failed,
         args.dry_run,
     )

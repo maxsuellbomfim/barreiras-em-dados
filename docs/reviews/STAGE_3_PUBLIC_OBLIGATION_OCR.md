@@ -37,3 +37,26 @@ Os valores representam pagamentos de restos a pagar, não o saldo da dívida
 municipal. O ensaio não publicou dados. Após a mesclagem, o workflow deve ser
 executado em lotes idempotentes e as duas linhas precisam ser conferidas na RPC
 pública e na página de finanças antes de ampliar o backfill para 2021.
+
+## Ampliação histórica — balancetes de 2022
+
+Em 12 de agosto de 2026, os cinco artefatos que falharam no primeiro ensaio de
+2022 foram comparados com os respectivos PDFs oficiais, inclusive por
+renderização visual das páginas do `Demonstrativo de Despesa Extra`.
+
+| Competência | Diagnóstico da fonte | Tratamento determinístico |
+|---|---|---|
+| junho | total completo; rótulo extraído como `Tot a` | aceitar somente R$ 19.895.890,06 + R$ 588.494,89 = R$ 20.484.384,95 |
+| julho | total completo precedido por pontuação de layout | aceitar somente R$ 20.484.384,95 + R$ 303.721,65 = R$ 20.788.106,60 |
+| setembro | seção presente, mas o PDF termina sem total mensal e sem a fronteira `TRANSFERÊNCIA FINANCEIRA` | resultado terminal `incomplete_in_source_document`; não publicar valor nem registrar zero |
+| novembro | total completo com espaços inseridos nos valores | remover apenas espaços internos e exigir R$ 21.214.414,18 + R$ 51.117,60 = R$ 21.265.531,78 |
+| dezembro | continuação da seção após páginas vazias | localizar a próxima página com a fronteira e aplicar OCR apenas à página inicial e à continuação |
+
+O total geral `Total Extra, Restos a Pagar e Transferência Financeira` não é
+usado para reconstruir um total de restos a pagar ausente, pois mistura famílias
+financeiras distintas. Linhas individuais que fecham aritmeticamente também não
+substituem a linha `Total`, evitando publicar uma conta isolada como agregado.
+
+A metodologia passa a `public-obligations-balancete/1.5.0`. A nova versão deixa
+os jobs anteriormente falhos elegíveis para novo ensaio sem alterar ou apagar o
+histórico de tentativas.

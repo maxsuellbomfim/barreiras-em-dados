@@ -93,11 +93,11 @@ class PublicObligationPublisherTests(unittest.TestCase):
     def test_failure_job_type_is_versioned_for_auditable_retry(self):
         self.assertEqual(
             PUBLIC_OBLIGATION_JOB_TYPE,
-            "public_obligation_balancete_publication/1.4.0",
+            "public_obligation_balancete_publication/1.5.0",
         )
         self.assertEqual(
             PUBLIC_OBLIGATION_METHODOLOGY,
-            "public-obligations-balancete/1.4.0",
+            "public-obligations-balancete/1.5.0",
         )
 
     def test_pending_documents_accepts_reference_keys_from_current_api(self):
@@ -193,6 +193,27 @@ class PublicObligationPublisherTests(unittest.TestCase):
         self.assertIn("'succeeded'", normalized_query)
         self.assertIn("insert into raw.extraction_results", normalized_query)
         self.assertIn("public_obligation_section_absent", normalized_query)
+        self.assertTrue(connection.closed)
+
+    def test_records_incomplete_source_section_as_terminal_valid_result(self):
+        connection = CapturingConnection([])
+        repository = PostgresPublicObligationPublicationRepository(
+            lambda: connection
+        )
+
+        repository.record_section_incomplete(
+            artifact_for(),
+            detail="A secao existe, mas o PDF termina sem o total declarado.",
+        )
+
+        normalized_query = " ".join(connection.query.lower().split())
+        self.assertIn("insert into raw.extraction_jobs", normalized_query)
+        self.assertIn("'succeeded'", normalized_query)
+        self.assertIn("insert into raw.extraction_results", normalized_query)
+        self.assertIn(
+            "public_obligation_section_incomplete",
+            connection.parameters,
+        )
         self.assertTrue(connection.closed)
 
     def test_reads_previous_month_accumulated_value_for_reconciliation(self):

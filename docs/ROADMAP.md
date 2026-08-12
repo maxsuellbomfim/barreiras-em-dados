@@ -229,7 +229,11 @@ restos a pagar de março a junho de 2026 estão publicados com acumulado anterio
 pagamento do mês e acumulado atual reconciliados por código e ligados ao PDF
 oficial exato. Janeiro e fevereiro passaram por ensaio OCR remoto sem escrita:
 as duas competências fecharam aritmeticamente e a progressão fevereiro-março
-coincidiu; a persistência aguarda a mesclagem e o replay controlado.
+coincidiu. O backfill de 2021 foi publicado com dez competências validadas e
+duas ausências comprovadas na fonte. Para 2022, quatro layouts oficiais foram
+corrigidos; setembro é preservado como documento oficial incompleto, sem valor
+inferido. O gate atual é um ensaio remoto de 2022 com zero falhas técnicas antes
+da publicação idempotente das competências válidas.
 
 Próxima fatia em execução: fechamento mensal operacional, com receita no nível
 do total declarado por documento e pagamentos no nível do relatório validado;

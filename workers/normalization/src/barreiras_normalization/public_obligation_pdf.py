@@ -31,6 +31,10 @@ class PublicObligationSectionAbsentError(PublicObligationStructuralError):
     """O documento integral legível não contém o demonstrativo procurado."""
 
 
+class PublicObligationSectionIncompleteError(PublicObligationStructuralError):
+    """A fonte contém a seção, mas não publica seu total completo."""
+
+
 class PublicObligationArithmeticError(PublicObligationPdfContractError):
     """Valores declarados foram encontrados, mas não fecham aritmeticamente."""
 
@@ -66,9 +70,10 @@ def validate_restos_a_pagar_progression(
         )
 
 
-_AMOUNT = r"(?:\d{1,3}(?:\.\d{3})*|\d+),\d{1,2}"
+_AMOUNT = r"(?:\d{1,3}(?:\s*\.\s*\d{3})*|\d+)\s*,\s*\d{1,2}"
 _TOTAL_LINE = re.compile(
-    rf"^(?P<label>TOTAL\s+)?(?P<first>{_AMOUNT})\s+"
+    rf"^(?P<label>TOT\s*A\s*L?(?:\s+|(?=[.\-]))(?:[.\-]\s*)*)?"
+    rf"(?P<first>{_AMOUNT})\s+"
     rf"(?P<second>{_AMOUNT})\s+"
     rf"(?P<third>{_AMOUNT})$",
     re.IGNORECASE,
@@ -92,9 +97,9 @@ def _closed_total(
     second: str,
     third: str,
 ) -> tuple[Decimal, Decimal, Decimal] | None:
-    left = parse_brl_amount(first)
-    middle = parse_brl_amount(second)
-    right = parse_brl_amount(third)
+    left = parse_brl_amount(re.sub(r"\s+", "", first))
+    middle = parse_brl_amount(re.sub(r"\s+", "", second))
+    right = parse_brl_amount(re.sub(r"\s+", "", third))
     if left + middle == right:
         return left, middle, right
     if right + middle == left:
