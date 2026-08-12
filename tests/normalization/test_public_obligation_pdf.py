@@ -87,6 +87,40 @@ TRANSFERENCIA FINANCEIRA -
         self.assertEqual(summary.payments_period_amount, Decimal("22116.84"))
         self.assertEqual(summary.payments_to_date_amount, Decimal("35004273.44"))
 
+    def test_rejects_punctuation_between_columns_without_total_label(self):
+        text = """\
+RESTOS A PAGAR
+34.982.156,60 . 22.116,84 35.004.273,44
+TRANSFERENCIA FINANCEIRA
+"""
+
+        with self.assertRaisesRegex(
+            PublicObligationPdfContractError,
+            "total de restos a pagar nao encontrado",
+        ):
+            parse_restos_a_pagar_summary(
+                text,
+                fiscal_year=2023,
+                reference_month=7,
+            )
+
+    def test_rejects_compound_punctuation_after_transfer_boundary(self):
+        text = """\
+RESTOS A PAGAR
+Total 34.982.156,60 22.116,84 35.004.273,44
+TRANSFERENCIA FINANCEIRA --
+"""
+
+        with self.assertRaisesRegex(
+            PublicObligationPdfContractError,
+            "limite da secao RESTOS A PAGAR nao encontrado",
+        ):
+            parse_restos_a_pagar_summary(
+                text,
+                fiscal_year=2023,
+                reference_month=7,
+            )
+
     def test_reconstructs_interleaved_total_from_may_balancete(self):
         text = """\
 RESTOS A PAGAR

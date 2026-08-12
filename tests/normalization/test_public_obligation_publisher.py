@@ -231,7 +231,7 @@ class PublicObligationPublisherTests(unittest.TestCase):
         )
         self.assertIn("public_obligation_section_absent", normalized_query)
         self.assertIn("public_obligation_section_incomplete", normalized_query)
-        self.assertIn("public_obligation_progression_conflict", normalized_query)
+        self.assertNotIn("public_obligation_progression_conflict", normalized_query)
         self.assertIn("result.validation_status = 'valid'", normalized_query)
         self.assertIn(
             "result.extractor_version = %s",

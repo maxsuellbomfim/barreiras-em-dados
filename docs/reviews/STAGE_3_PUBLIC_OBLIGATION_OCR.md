@@ -136,9 +136,11 @@ publica o total de restos a pagar nas páginas 111 a 113. O texto embutido traz
 um ponto isolado entre a primeira e a segunda coluna e um hífen após o título
 `TRANSFERENCIA FINANCEIRA`. Esses sinais são elementos gráficos, não valores.
 
-A versão `public-obligations-balancete/1.5.5` aceita apenas ponto, hífen ou
-dois-pontos isolados nesses separadores. Permanecem obrigatórios o rótulo
-`Total`, os três valores monetários e a igualdade exata entre o acumulado
-anterior, o pagamento mensal e o acumulado atual. Resultados terminais de uma
-versão anterior não bloqueiam o reprocessamento por uma metodologia nova; o
-histórico anterior continua preservado e auditável.
+A versão `public-obligations-balancete/1.5.5` aceita apenas um ponto, hífen ou
+dois-pontos isolado nesses separadores e somente em uma linha rotulada como
+`Total`. Permanecem obrigatórios os três valores monetários e a igualdade exata
+entre o acumulado anterior, o pagamento mensal e o acumulado atual. Resultados
+de seção ausente ou incompleta produzidos por uma versão anterior não bloqueiam
+o reprocessamento por uma metodologia nova; o histórico anterior continua
+preservado e auditável. Divergências oficiais entre meses continuam bloqueadas
+até que uma nova evidência permita reconciliá-las.

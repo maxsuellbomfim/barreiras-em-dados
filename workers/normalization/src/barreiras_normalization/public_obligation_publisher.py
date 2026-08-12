@@ -339,8 +339,7 @@ class PostgresPublicObligationPublicationRepository:
                         and result.extractor_version = %s
                         and result.candidate_type in (
                           'public_obligation_section_absent',
-                          'public_obligation_section_incomplete',
-                          'public_obligation_progression_conflict'
+                          'public_obligation_section_incomplete'
                         )
                     )
                     and not exists (
