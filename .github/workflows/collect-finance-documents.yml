@@ -124,6 +124,20 @@ jobs:
           --resource "${{ matrix.resource }}"
           --limit "$COLLECT_LIMIT"
           --max-pages "${{ inputs.max_pages || '3' }}"
-          --download-documents
           --allow-partial
           $COVERAGE_ARGUMENTS
+
+      - name: Drenar documentos financeiros
+        env:
+          DRAIN_LIMIT: >-
+            ${{ matrix.resource == 'balancetes' && '5' || inputs.limit || '50' }}
+          DRAIN_MAX_PAGES: >-
+            ${{ matrix.resource == 'balancetes' && '1' || inputs.max_pages || '3' }}
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_municipal_transparency
+          --source prefeitura
+          --resource "${{ matrix.resource }}"
+          --limit "$DRAIN_LIMIT"
+          --max-pages "$DRAIN_MAX_PAGES"
+          --download-documents
+          --allow-partial

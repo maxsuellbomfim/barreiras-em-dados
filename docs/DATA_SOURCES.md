@@ -78,6 +78,12 @@ na data e hora verificadas. Paginação incompleta, limite atingido, falha de re
 ou campo temporal inválido mantêm a competência como cobertura desconhecida ou
 falha; jamais produzem uma declaração pública de ausência.
 
+Para que o inventário não espere a transferência de centenas de PDFs, a coleta
+financeira executa duas etapas independentes e idempotentes. Primeiro preserva o
+catálogo completo e registra a cobertura mensal. Depois drena até cinco PDFs de
+balancetes por execução, retomando do checkpoint seguinte. Assim, um documento
+grande ou lento não impede a atualização pública do estado da fonte.
+
 ## Catálogo oficial do Diário de Barreiras
 
 - catálogo: `https://pmbarreiras.diariomtransparente.com.br/publicacoes`;

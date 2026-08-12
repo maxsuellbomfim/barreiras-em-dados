@@ -13,6 +13,7 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
     build_balancete_monthly_searches,
     execute_controlled_municipal_transparency,
     resolve_endpoint_code,
+    resolve_execution_namespace,
     resolve_municipal_document_role,
     resolve_resume_offset,
 )
@@ -107,6 +108,16 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
         self.assertIn("balancetes", FINANCIAL_DOCUMENT_RESOURCES)
         self.assertIn("pdc-contas-anuais", FINANCIAL_DOCUMENT_RESOURCES)
         self.assertIn("rgf", FINANCIAL_DOCUMENT_RESOURCES)
+
+    def test_catalog_and_document_drain_use_distinct_execution_namespaces(
+        self,
+    ) -> None:
+        catalog = resolve_execution_namespace("balancetes", download_documents=False)
+        documents = resolve_execution_namespace("balancetes", download_documents=True)
+
+        self.assertNotEqual(catalog, documents)
+        self.assertRegex(catalog, r"^municipal-[0-9a-f]{12}-catalog$")
+        self.assertRegex(documents, r"^municipal-[0-9a-f]{12}-documents$")
 
     def test_only_validated_pdf_format_is_downloaded(self) -> None:
         self.assertEqual(
