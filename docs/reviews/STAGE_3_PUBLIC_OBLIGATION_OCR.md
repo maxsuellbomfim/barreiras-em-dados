@@ -49,14 +49,16 @@ renderização visual das páginas do `Demonstrativo de Despesa Extra`.
 |---|---|---|
 | junho | total completo; rótulo extraído como `Tot a` | aceitar somente R$ 19.895.890,06 + R$ 588.494,89 = R$ 20.484.384,95 |
 | julho | total completo precedido por pontuação de layout | aceitar somente R$ 20.484.384,95 + R$ 303.721,65 = R$ 20.788.106,60 |
-| setembro | seção presente, mas o PDF termina sem total mensal e sem a fronteira `TRANSFERÊNCIA FINANCEIRA` | resultado terminal `incomplete_in_source_document`; não publicar valor nem registrar zero |
+| setembro | formato legado sem subtotal isolado: Despesa Extra e Transferência Financeira têm totais próprios, seguidos por um total geral combinado | derivar Restos a Pagar somente quando os três conjuntos fecharem por subtração exata e a continuidade com agosto e outubro for preservada |
 | novembro | total completo com espaços inseridos nos valores | remover apenas espaços internos e exigir R$ 21.214.414,18 + R$ 51.117,60 = R$ 21.265.531,78 |
 | dezembro | continuação da seção após páginas vazias | localizar a próxima página com a fronteira e aplicar OCR apenas à página inicial e à continuação |
 
-O total geral `Total Extra, Restos a Pagar e Transferência Financeira` não é
-usado para reconstruir um total de restos a pagar ausente, pois mistura famílias
-financeiras distintas. Linhas individuais que fecham aritmeticamente também não
-substituem a linha `Total`, evitando publicar uma conta isolada como agregado.
+O total geral `Total Extra, Restos a Pagar e Transferência Financeira` nunca é
+interpretado isoladamente como Restos a Pagar, pois mistura famílias financeiras
+distintas. No formato legado de setembro, ele só pode participar da reconciliação
+quando o mesmo documento também publica os totais inequívocos de Despesa Extra e
+Transferência Financeira. Linhas individuais que fecham aritmeticamente não
+substituem uma linha `Total`, evitando publicar uma conta isolada como agregado.
 
 A metodologia passa a `public-obligations-balancete/1.5.0`. A nova versão deixa
 os jobs anteriormente falhos elegíveis para novo ensaio sem alterar ou apagar o
@@ -144,3 +146,40 @@ de seção ausente ou incompleta produzidos por uma versão anterior não bloque
 o reprocessamento por uma metodologia nova; o histórico anterior continua
 preservado e auditável. Divergências oficiais entre meses continuam bloqueadas
 até que uma nova evidência permita reconciliá-las.
+
+## Total geral combinado — setembro de 2022
+
+O balancete de setembro de 2022, preservado com SHA-256
+`8811e4ee9034e0bc3afff572f363d3b350dc5967a13f0db36812d63158d91f75`,
+usa um formato legado: a página 112 inicia `RESTOS A PAGAR`, mas não publica
+um subtotal isolado antes do rodapé da página 113. A mesma fonte, porém,
+publica três conjuntos independentes de totais:
+
+- Despesa Extra: R$ 44.658.953,81 anteriores + R$ 4.934.649,90 no mês =
+  R$ 49.593.603,71 acumulados;
+- Transferência Financeira: R$ 111.517.650,28 anteriores +
+  R$ 15.171.175,37 no mês = R$ 126.688.825,65 acumulados;
+- Total combinado: R$ 20.216.422,12 no mês e R$ 197.341.227,86 acumulados,
+  dos quais se obtém R$ 177.124.805,74 anteriores por subtração exata.
+
+A versão `public-obligations-balancete/1.5.6` calcula cada coluna de Restos a
+Pagar subtraindo do total combinado somente os dois totais oficiais anteriores:
+
+| Coluna | Reconciliação determinística | Resultado |
+|---|---|---:|
+| até agosto | R$ 177.124.805,74 − R$ 44.658.953,81 − R$ 111.517.650,28 | R$ 20.948.201,65 |
+| setembro | R$ 20.216.422,12 − R$ 4.934.649,90 − R$ 15.171.175,37 | R$ 110.596,85 |
+| até setembro | R$ 197.341.227,86 − R$ 49.593.603,71 − R$ 126.688.825,65 | R$ 21.058.798,50 |
+
+O texto embutido reconheceu o valor mensal da transferência como
+`15-171.175,37`. A correção do hífen para ponto é limitada a linhas oficiais
+rotuladas como `Total:` e só é aceita quando a identidade aritmética fecha; ela
+não altera sinais negativos nem lançamentos individuais. O resultado também
+coincide com o acumulado de agosto e com o campo anterior de outubro.
+
+O [dry-run 31626287731](https://github.com/maxsuellbomfim/barreiras-em-dados/actions/runs/31626287731)
+validou os valores nas páginas 22, 112 e 113, sem escrita e sem OCR adicional.
+O [run 31626444292](https://github.com/maxsuellbomfim/barreiras-em-dados/actions/runs/31626444292)
+publicou uma única competência, sem falhas ou conflitos. A RPC pública e a
+página de Finanças foram conferidas após a gravação: o valor mensal, os dois
+acumulados, o PDF oficial e o prefixo do hash estão expostos ao cidadão.
