@@ -27,3 +27,15 @@ test("workflow de despesas usa o publicador versionado e limite seguro", () => {
   assert.match(workflow, /inputs\.dry_run_public_obligations != true/);
   assert.match(workflow, /--dry-run/);
 });
+
+test("workflow permite publicar somente despesas ou restos a pagar", () => {
+  assert.match(workflow, /publication_scope:/);
+  assert.match(workflow, /- "all"/);
+  assert.match(workflow, /- "expenses"/);
+  assert.match(workflow, /- "public-obligations"/);
+  assert.match(
+    workflow,
+    /inputs\.publication_scope != 'public-obligations'/,
+  );
+  assert.match(workflow, /inputs\.publication_scope != 'expenses'/);
+});

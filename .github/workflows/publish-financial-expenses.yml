@@ -25,6 +25,15 @@ on:
           - "5"
           - "10"
           - "20"
+      publication_scope:
+        description: "Publicadores executados neste lote"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "expenses"
+          - "public-obligations"
       dry_run_public_obligations:
         description: "Validar restos a pagar sem gravar no banco"
         required: false
@@ -82,7 +91,9 @@ jobs:
           | sha256sum --check --strict
 
       - name: Publicar janela de despesas
-        if: inputs.dry_run_public_obligations != true
+        if: >-
+          inputs.dry_run_public_obligations != true
+          && inputs.publication_scope != 'public-obligations'
         shell: bash
         env:
           INPUT_FISCAL_YEAR_FROM: ${{ inputs.fiscal_year_from }}
@@ -98,6 +109,7 @@ jobs:
             --fiscal-year-to "$year_to"
 
       - name: Publicar pagamentos de restos a pagar dos balancetes
+        if: inputs.publication_scope != 'expenses'
         shell: bash
         env:
           INPUT_FISCAL_YEAR_FROM: ${{ inputs.fiscal_year_from }}
