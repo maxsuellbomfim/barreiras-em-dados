@@ -179,6 +179,23 @@ TRANSFERENCIA FINANCEIRA
         self.assertEqual(summary.payments_period_amount, Decimal("0.00"))
         self.assertEqual(summary.payments_to_date_amount, Decimal("19859849.88"))
 
+    def test_does_not_repair_ocr_thousands_comma_without_total_label(self):
+        text = """\
+RESTOS A PAGAR
+19.859.849,88 0,00 19.859,849,88
+TRANSFERENCIA FINANCEIRA
+"""
+
+        with self.assertRaisesRegex(
+            PublicObligationPdfContractError,
+            "total de restos a pagar",
+        ):
+            parse_restos_a_pagar_summary(
+                text,
+                fiscal_year=2025,
+                reference_month=10,
+            )
+
     def test_accepts_brl_amounts_with_spaces_inserted_by_embedded_pdf(self):
         text = """\
 RESTOS A PAGAR

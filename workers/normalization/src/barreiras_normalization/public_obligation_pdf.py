@@ -106,7 +106,13 @@ def _closed_total(
     first: str,
     second: str,
     third: str,
+    *,
+    allow_ocr_thousands_comma: bool = False,
 ) -> tuple[Decimal, Decimal, Decimal] | None:
+    if not allow_ocr_thousands_comma and any(
+        _has_ocr_thousands_comma(value) for value in (first, second, third)
+    ):
+        return None
     left = _parse_ocr_brl_amount(first)
     middle = _parse_ocr_brl_amount(second)
     right = _parse_ocr_brl_amount(third)
@@ -115,6 +121,12 @@ def _closed_total(
     if right + middle == left:
         return right, middle, left
     return None
+
+
+def _has_ocr_thousands_comma(value: str) -> bool:
+    compact = re.sub(r"\s+", "", value)
+    integer, _decimal = compact.rsplit(",", 1)
+    return "," in integer
 
 
 def _parse_ocr_brl_amount(value: str) -> Decimal:
@@ -154,7 +166,10 @@ def _interleaved_total_after_boundary(
         for offset in (0, 1)
         if (
             candidate := _closed_total(
-                tokens[offset], tokens[offset + 2], tokens[offset + 4]
+                tokens[offset],
+                tokens[offset + 2],
+                tokens[offset + 4],
+                allow_ocr_thousands_comma=True,
             )
         )
         is not None
@@ -259,6 +274,7 @@ def parse_restos_a_pagar_summary(
             total.group("first"),
             total.group("second"),
             total.group("third"),
+            allow_ocr_thousands_comma=True,
         )
         if total_values is None:
             raise PublicObligationArithmeticError(
