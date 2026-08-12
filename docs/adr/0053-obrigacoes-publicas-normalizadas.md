@@ -27,6 +27,10 @@ e apresentar o resultado como “dívida total”.
    `reconciled`, com URL, SHA-256 e instante de coleta da fonte.
 6. Não expor uma coluna ou função de “total da dívida”. A consolidação só poderá
    existir depois de reconciliar competência, natureza, versão e fontes.
+7. Expor pela RPC `api.get_public_obligation_coverage` o motivo sanitizado para
+   cada competência sem valor: documento ainda não confirmado no acervo, seção
+   ausente no documento ou seção incompleta. Mensagens internas do parser e OCR
+   não integram a projeção pública.
 
 ## Segurança e governança
 
@@ -37,6 +41,8 @@ e apresentar o resultado como “dívida total”.
   limite de página entre 1 e 200.
 - Registros extraídos, conflitantes, rejeitados ou substituídos não aparecem na
   projeção pública.
+- Uma lacuna documental nunca é convertida em valor zero. A interface informa o
+  estado, a competência, a fonte e a data da verificação quando comprovadas.
 
 ## Consequências
 

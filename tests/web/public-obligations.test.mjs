@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getPublicObligations } from "../../apps/web/lib/public-obligations.mjs";
+import {
+  getPublicObligationCoverage,
+  getPublicObligations,
+} from "../../apps/web/lib/public-obligations.mjs";
 
 const originalFetch = globalThis.fetch;
 const originalUrl = process.env.PUBLIC_DATA_SUPABASE_URL;
@@ -93,4 +96,74 @@ test("falha fechada quando a progressão dos pagamentos diverge", async () => {
   });
 
   assert.deepEqual(await getPublicObligations(), { state: "unavailable" });
+});
+
+test("expõe ausência e incompletude comprovadas sem convertê-las em zero", async () => {
+  process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
+  process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_fixture";
+  globalThis.fetch = async (_url, request) => {
+    assert.deepEqual(JSON.parse(request.body), {
+      page_size: 120,
+      fiscal_year_from: 2021,
+      fiscal_year_to: null,
+    });
+    return {
+      ok: true,
+      json: async () => [
+        {
+          coverage_id: "public-obligation-coverage:2022-02",
+          fiscal_year: 2022,
+          period_start: "2022-02-01",
+          period_end: "2022-02-28",
+          coverage_status: "section_absent",
+          source_url: "https://barreiras.mtransparente.com.br/balancete-fevereiro-2022.pdf",
+          document_artifact_sha256: "c".repeat(64),
+          checked_at: "2026-08-12T01:55:57.000Z",
+          methodology_version: "public-obligation-coverage/1.0.0",
+        },
+        {
+          coverage_id: "public-obligation-coverage:2022-03",
+          fiscal_year: 2022,
+          period_start: "2022-03-01",
+          period_end: "2022-03-31",
+          coverage_status: "document_not_confirmed",
+          source_url: null,
+          document_artifact_sha256: null,
+          checked_at: null,
+          methodology_version: "public-obligation-coverage/1.0.0",
+        },
+      ],
+    };
+  };
+
+  const result = await getPublicObligationCoverage();
+
+  assert.equal(result.state, "available");
+  assert.equal(result.rows[0].coverageStatus, "section_absent");
+  assert.equal(result.rows[0].amount, undefined);
+  assert.equal(result.rows[1].coverageStatus, "document_not_confirmed");
+  assert.equal(result.rows[1].sourceUrl, null);
+});
+
+test("falha fechada quando a cobertura pública tenta expor estado interno", async () => {
+  process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
+  process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_fixture";
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => [
+      {
+        coverage_id: "public-obligation-coverage:2022-09",
+        fiscal_year: 2022,
+        period_start: "2022-09-01",
+        period_end: "2022-09-30",
+        coverage_status: "ocr_failed",
+        source_url: null,
+        document_artifact_sha256: null,
+        checked_at: null,
+        methodology_version: "public-obligation-coverage/1.0.0",
+      },
+    ],
+  });
+
+  assert.deepEqual(await getPublicObligationCoverage(), { state: "unavailable" });
 });

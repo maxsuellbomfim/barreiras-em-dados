@@ -22,8 +22,10 @@ import { monthlyFinanceHref } from "../../lib/monthly-finance-detail.mjs";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
 import { getPublicFinanceCoverage, type PublicFinanceCoverageRow } from "../../lib/finance-coverage";
 import {
+  getPublicObligationCoverage,
   getPublicObligations,
   type PublicObligation,
+  type PublicObligationCoverageRow,
 } from "../../lib/public-obligations.mjs";
 
 export const revalidate = 300;
@@ -179,6 +181,24 @@ function formatAmount(value: string | null, unavailable = "não disponível"): s
   return value === null ? unavailable : formatBrlDecimal(value);
 }
 
+function obligationCoverageTitle(status: PublicObligationCoverageRow["coverageStatus"]): string {
+  if (status === "section_absent") return "Balancete localizado, mas sem a seção";
+  if (status === "section_incomplete") return "Balancete localizado, mas incompleto";
+  return "Documento ainda não confirmado no acervo";
+}
+
+function obligationCoverageExplanation(
+  status: PublicObligationCoverageRow["coverageStatus"],
+): string {
+  if (status === "section_absent") {
+    return "O balancete oficial foi localizado e preservado, mas não traz a seção de restos a pagar. Por isso, nenhum valor foi publicado para este mês.";
+  }
+  if (status === "section_incomplete") {
+    return "O balancete oficial foi localizado, mas a seção termina sem todos os totais necessários. O Barreiras 360 não estimou nem completou o valor.";
+  }
+  return "Até a última cobertura disponível, nenhum documento mensal foi confirmado no acervo coletado. Isso não significa valor zero nem prova que o arquivo nunca existiu no portal oficial.";
+}
+
 export default async function FinancesPage() {
   const [
     expensesResult,
@@ -189,6 +209,7 @@ export default async function FinancesPage() {
     signalsResult,
     coverageResult,
     obligationsResult,
+    obligationCoverageResult,
   ] = await Promise.all([
     getPublicExpenseReports(),
     getPublicExpenseLines(),
@@ -198,6 +219,7 @@ export default async function FinancesPage() {
     getPublicFinanceSignals(),
     getPublicFinanceCoverage(),
     getPublicObligations(),
+    getPublicObligationCoverage(),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -217,6 +239,13 @@ export default async function FinancesPage() {
           (obligation) => obligation.obligationType === "restos_a_pagar_total",
         )
       : [];
+  const publicObligationCoverage =
+    obligationCoverageResult.state === "available"
+      ? obligationCoverageResult.rows
+      : [];
+  const obligationCoverageGaps = publicObligationCoverage.filter(
+    (row) => row.coverageStatus !== "published",
+  );
   const comparableMonths = coverageRows.filter((row) => row.coverageStatus === "complete").length;
   const missingMonths = coverageRows.filter((row) => row.coverageStatus === "missing").length;
   const sortedRevenues = sortNewest(revenues, "revenueDate");
@@ -836,6 +865,67 @@ export default async function FinancesPage() {
                 </article>
               ))}
             </div>
+          </section>
+        ) : null}
+
+        {obligationCoverageGaps.length > 0 ? (
+          <section
+            aria-labelledby="obligation-coverage-title"
+            className="finance-documents finance-obligation-documents"
+          >
+            <div className="section-heading compact">
+              <span className="eyebrow">Cobertura e lacunas</span>
+              <h2 id="obligation-coverage-title">Onde ainda não foi possível publicar um valor</h2>
+              <p>
+                Cada lacuna é identificada pelo motivo. Documento ausente, seção
+                ausente e seção incompleta não são tratados como R$ 0.
+              </p>
+            </div>
+            <details className="finance-details">
+              <summary>
+                Ver {obligationCoverageGaps.length.toLocaleString("pt-BR")} competências sem valor publicado
+              </summary>
+              <div className="digest-grid">
+                {obligationCoverageGaps.map((row: PublicObligationCoverageRow) => (
+                  <article className="digest-card finance-debt-card" key={row.coverageId}>
+                    <div className="track-top">
+                      <span>Cobertura documental</span>
+                      <span className="track-status">{formatMonthTitle(row.periodStart)}</span>
+                    </div>
+                    <h3 className="procurement-object">
+                      {obligationCoverageTitle(row.coverageStatus)}
+                    </h3>
+                    <div className="finance-reading finance-reading-card">
+                      <strong>O que isso significa</strong>
+                      <p>{obligationCoverageExplanation(row.coverageStatus)}</p>
+                    </div>
+                    <p className="act-evidence">
+                      {row.sourceUrl ? (
+                        <>
+                          <a href={row.sourceUrl} target="_blank" rel="noreferrer">
+                            Abrir documento oficial →
+                          </a>{" "}
+                        </>
+                      ) : (
+                        <a
+                          href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Consultar o portal oficial →
+                        </a>
+                      )}
+                      {row.documentArtifactSha256
+                        ? ` · documento preservado · hash ${row.documentArtifactSha256.slice(0, 12)}…`
+                        : ""}
+                      {row.checkedAt
+                        ? ` · verificado em ${formatCollectedAt(row.checkedAt)}`
+                        : ""}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </details>
           </section>
         ) : null}
 

@@ -21,6 +21,12 @@ const ALLOWED_STATUSES = new Set([
   "unknown",
 ]);
 const ALLOWED_VALIDATION_STATES = new Set(["validated", "reconciled"]);
+const ALLOWED_COVERAGE_STATUSES = new Set([
+  "published",
+  "section_absent",
+  "section_incomplete",
+  "document_not_confirmed",
+]);
 
 function text(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -169,6 +175,100 @@ export async function getPublicObligations(fiscalYear, obligationType) {
       obligations.push(obligation);
     }
     return { state: "available", obligations };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+function parseCoverageRow(row) {
+  const coverageId = text(row.coverage_id);
+  const periodStart = text(row.period_start);
+  const periodEnd = text(row.period_end);
+  const sourceUrl = row.source_url === null ? null : text(row.source_url);
+  const documentArtifactSha256 =
+    row.document_artifact_sha256 === null
+      ? null
+      : text(row.document_artifact_sha256);
+  const checkedAt = row.checked_at === null ? null : text(row.checked_at);
+  const methodologyVersion = text(row.methodology_version);
+  if (
+    coverageId === null ||
+    !Number.isSafeInteger(row.fiscal_year) ||
+    periodStart === null ||
+    !ISO_DATE.test(periodStart) ||
+    periodEnd === null ||
+    !ISO_DATE.test(periodEnd) ||
+    !ALLOWED_COVERAGE_STATUSES.has(row.coverage_status) ||
+    (sourceUrl !== null && !sourceUrl.startsWith("https://")) ||
+    (documentArtifactSha256 !== null && !SHA256.test(documentArtifactSha256)) ||
+    (checkedAt !== null && Number.isNaN(Date.parse(checkedAt))) ||
+    methodologyVersion !== "public-obligation-coverage/1.0.0"
+  ) {
+    return null;
+  }
+  if (
+    row.coverage_status !== "document_not_confirmed" &&
+    (sourceUrl === null || documentArtifactSha256 === null || checkedAt === null)
+  ) {
+    return null;
+  }
+  return {
+    coverageId,
+    fiscalYear: row.fiscal_year,
+    periodStart,
+    periodEnd,
+    coverageStatus: row.coverage_status,
+    sourceUrl,
+    documentArtifactSha256,
+    checkedAt,
+    methodologyVersion,
+  };
+}
+
+export async function getPublicObligationCoverage(
+  fiscalYearFrom = 2021,
+  fiscalYearTo,
+) {
+  const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const publishableKey = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (
+    !supabaseUrl?.startsWith("https://") ||
+    !publishableKey?.startsWith("sb_publishable_")
+  ) {
+    return { state: "unavailable" };
+  }
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/get_public_obligation_coverage`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Profile": "api",
+          apikey: publishableKey,
+          "Content-Profile": "api",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          page_size: 120,
+          fiscal_year_from: fiscalYearFrom,
+          fiscal_year_to: fiscalYearTo ?? null,
+        }),
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) return { state: "unavailable" };
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return { state: "unavailable" };
+    const rows = [];
+    for (const row of payload) {
+      if (typeof row !== "object" || row === null) return { state: "unavailable" };
+      const parsed = parseCoverageRow(row);
+      if (parsed === null) return { state: "unavailable" };
+      rows.push(parsed);
+    }
+    return { state: "available", rows };
   } catch {
     return { state: "unavailable" };
   }

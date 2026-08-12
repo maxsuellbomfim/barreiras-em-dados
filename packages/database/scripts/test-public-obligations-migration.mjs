@@ -74,7 +74,11 @@ try {
       has_table_privilege('collector_worker', 'finance.public_obligations', 'UPDATE') as worker_update,
       has_function_privilege(
         'anon', 'api.get_public_obligations(integer,integer,text)', 'EXECUTE'
-      ) as anon_rpc
+      ) as anon_rpc,
+      has_function_privilege(
+        'anon', 'api.get_public_obligation_coverage(integer,smallint,smallint)',
+        'EXECUTE'
+      ) as anon_coverage_rpc
   `);
   assert.deepEqual(security.rows, [{
     rls: true,
@@ -83,6 +87,7 @@ try {
     worker_insert: true,
     worker_update: false,
     anon_rpc: true,
+    anon_coverage_rpc: true,
   }]);
 
   await database.exec(`
@@ -153,6 +158,30 @@ try {
         'fixtures/balancete-maio-2026.pdf', 'test/1',
         '{"schema_name":"municipal-transparency-document","source_record_key":"balancete-2026-05"}'::jsonb,
         '2026-08-11 16:42:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000008023',
+        '00000000-0000-0000-0000-000000008001',
+        '00000000-0000-4000-8000-000000000102',
+        '00000000-0000-0000-0000-000000008002',
+        'public-obligation-document-february', 'document',
+        'https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-fevereiro-2026.pdf',
+        '2026-08-11 16:43:00+00', 250, '${"f".repeat(64)}',
+        'fixtures/balancete-fevereiro-2026.pdf', 'test/1',
+        '{"schema_name":"municipal-transparency-document","source_record_key":"balancete-2026-02"}'::jsonb,
+        '2026-08-11 16:43:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000008024',
+        '00000000-0000-0000-0000-000000008001',
+        '00000000-0000-4000-8000-000000000102',
+        '00000000-0000-0000-0000-000000008002',
+        'public-obligation-document-april', 'document',
+        'https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-abril-2026.pdf',
+        '2026-08-11 16:44:00+00', 275, '${"9".repeat(64)}',
+        'fixtures/balancete-abril-2026.pdf', 'test/1',
+        '{"schema_name":"municipal-transparency-document","source_record_key":"balancete-2026-04"}'::jsonb,
+        '2026-08-11 16:44:00+00'
       );
     insert into org.public_bodies (
       id, origin_raw_record_id, ibge_code, name, body_type, state_code
@@ -205,6 +234,41 @@ try {
         '2026-06-01', '2026-06-30', null, null, null, 45364644.06,
         3683221.97, 49047866.03, null, 'reported', 'validated',
         'public-obligations-balancete/1.0.0', '2026-08-11 16:45:00+00'
+      );
+    insert into raw.extraction_jobs (
+      id, raw_artifact_id, job_type, idempotency_key, status, attempt_count
+    ) values
+      (
+        '00000000-0000-0000-0000-000000008021',
+        '00000000-0000-0000-0000-000000008023',
+        'publish_public_obligation_balancete',
+        'public-obligation-section-absent-fixture', 'succeeded', 1
+      ),
+      (
+        '00000000-0000-0000-0000-000000008022',
+        '00000000-0000-0000-0000-000000008024',
+        'publish_public_obligation_balancete',
+        'public-obligation-section-incomplete-fixture', 'succeeded', 1
+      );
+    insert into raw.extraction_results (
+      extraction_job_id, candidate_type, extractor_version,
+      validator_version, result_payload, confidence, validation_status
+    ) values
+      (
+        '00000000-0000-0000-0000-000000008021',
+        'public_obligation_section_absent',
+        'public-obligations-balancete/1.5.1',
+        'public-obligations-balancete/1.5.1',
+        '{"classification":"absent_in_source_document","detail":"mensagem interna que nao pode ser publicada","fiscal_year":2026,"reference_month":2,"source_url":"https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-fevereiro-2026.pdf","content_sha256":"${"f".repeat(64)}"}'::jsonb,
+        1.0, 'valid'
+      ),
+      (
+        '00000000-0000-0000-0000-000000008022',
+        'public_obligation_section_incomplete',
+        'public-obligations-balancete/1.5.1',
+        'public-obligations-balancete/1.5.1',
+        '{"classification":"incomplete_in_source_document","detail":"erro OCR interno","fiscal_year":2026,"reference_month":4,"source_url":"https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-abril-2026.pdf","content_sha256":"${"9".repeat(64)}"}'::jsonb,
+        1.0, 'valid'
       );
     insert into finance.revenues (
       id, origin_raw_record_id, public_body_id, version, external_id,
@@ -536,6 +600,63 @@ try {
     methodology_version: "public-obligations-balancete/1.0.0",
   });
   assert.equal("total_debt" in loan, false);
+
+  await database.exec("set role anon");
+  const obligationCoverage = await database.query(`
+    select
+      coverage_id,
+      fiscal_year,
+      period_start,
+      period_end,
+      coverage_status,
+      source_url,
+      document_artifact_sha256,
+      methodology_version
+    from api.get_public_obligation_coverage(120, 2026::smallint, 2026::smallint)
+    where period_start in ('2026-02-01', '2026-04-01', '2026-06-01')
+    order by period_start
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(obligationCoverage.rows, [
+    {
+      coverage_id: "public-obligation-coverage:2026-02",
+      fiscal_year: 2026,
+      period_start: new Date("2026-02-01T00:00:00.000Z"),
+      period_end: new Date("2026-02-28T00:00:00.000Z"),
+      coverage_status: "section_absent",
+      source_url:
+        "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-fevereiro-2026.pdf",
+      document_artifact_sha256: "f".repeat(64),
+      methodology_version: "public-obligation-coverage/1.0.0",
+    },
+    {
+      coverage_id: "public-obligation-coverage:2026-04",
+      fiscal_year: 2026,
+      period_start: new Date("2026-04-01T00:00:00.000Z"),
+      period_end: new Date("2026-04-30T00:00:00.000Z"),
+      coverage_status: "section_incomplete",
+      source_url:
+        "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-abril-2026.pdf",
+      document_artifact_sha256: "9".repeat(64),
+      methodology_version: "public-obligation-coverage/1.0.0",
+    },
+    {
+      coverage_id: "public-obligation-coverage:2026-06",
+      fiscal_year: 2026,
+      period_start: new Date("2026-06-01T00:00:00.000Z"),
+      period_end: new Date("2026-06-30T00:00:00.000Z"),
+      coverage_status: "published",
+      source_url:
+        "https://portaldatransparencia.barreiras.ba.gov.br/documentos/balancete-junho-2026.pdf",
+      document_artifact_sha256: "d".repeat(64),
+      methodology_version: "public-obligation-coverage/1.0.0",
+    },
+  ]);
+  assert.equal(
+    JSON.stringify(obligationCoverage.rows).includes("mensagem interna"),
+    false,
+  );
+  assert.equal(JSON.stringify(obligationCoverage.rows).includes("erro OCR"), false);
 
   const financeDocuments = await database.query(`
     select document_id, reference_month, document_artifact_sha256

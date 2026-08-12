@@ -31,3 +31,28 @@ export function getPublicObligations(
   fiscalYear?: number,
   obligationType?: string,
 ): Promise<PublicObligationsResult>;
+
+export type PublicObligationCoverageRow = Readonly<{
+  coverageId: string;
+  fiscalYear: number;
+  periodStart: string;
+  periodEnd: string;
+  coverageStatus:
+    | "published"
+    | "section_absent"
+    | "section_incomplete"
+    | "document_not_confirmed";
+  sourceUrl: string | null;
+  documentArtifactSha256: string | null;
+  checkedAt: string | null;
+  methodologyVersion: "public-obligation-coverage/1.0.0";
+}>;
+
+export type PublicObligationCoverageResult =
+  | Readonly<{ state: "available"; rows: readonly PublicObligationCoverageRow[] }>
+  | Readonly<{ state: "unavailable" }>;
+
+export function getPublicObligationCoverage(
+  fiscalYearFrom?: number,
+  fiscalYearTo?: number,
+): Promise<PublicObligationCoverageResult>;
