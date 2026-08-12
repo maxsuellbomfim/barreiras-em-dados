@@ -336,6 +336,7 @@ class PostgresPublicObligationPublicationRepository:
                       where terminal_job.raw_artifact_id = document.id
                         and terminal_job.status = 'succeeded'
                         and result.validation_status = 'valid'
+                        and result.extractor_version = %s
                         and result.candidate_type in (
                           'public_obligation_section_absent',
                           'public_obligation_section_incomplete',
@@ -360,6 +361,7 @@ class PostgresPublicObligationPublicationRepository:
                 (
                     fiscal_year_from,
                     fiscal_year_to,
+                    PUBLIC_OBLIGATION_METHODOLOGY,
                     PUBLIC_OBLIGATION_JOB_TYPE,
                     limit,
                 ),

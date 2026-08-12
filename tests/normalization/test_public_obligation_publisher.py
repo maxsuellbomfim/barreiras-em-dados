@@ -216,7 +216,13 @@ class PublicObligationPublisherTests(unittest.TestCase):
         )
         self.assertEqual(
             connection.parameters,
-            (2026, 2026, PUBLIC_OBLIGATION_JOB_TYPE, 1),
+            (
+                2026,
+                2026,
+                PUBLIC_OBLIGATION_METHODOLOGY,
+                PUBLIC_OBLIGATION_JOB_TYPE,
+                1,
+            ),
         )
         self.assertTrue(connection.closed)
         self.assertIn(
@@ -227,6 +233,10 @@ class PublicObligationPublisherTests(unittest.TestCase):
         self.assertIn("public_obligation_section_incomplete", normalized_query)
         self.assertIn("public_obligation_progression_conflict", normalized_query)
         self.assertIn("result.validation_status = 'valid'", normalized_query)
+        self.assertIn(
+            "result.extractor_version = %s",
+            normalized_query,
+        )
 
     def test_pending_documents_selects_only_monthly_reports_in_period_order(self):
         connection = CapturingConnection([])
