@@ -223,7 +223,8 @@ TRANSFERENCIA FINANCEIRA
     def test_does_not_publish_account_row_when_total_marker_is_split(self):
         text = """\
 RESTOS A PAGAR
-213110101020225 1.945.534,03 0,00 1.945.534,03
+213110101020225 2021 Fonte 0214 RP Processados - FMS
+1.945.534,03 0,00 1.945.534,03
 Tot a
 TRANSFERENCIA FINANCEIRA
 19.895.890,06 588.494,89 20.484.384,95

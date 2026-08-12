@@ -78,6 +78,8 @@ _TOTAL_LINE = re.compile(
     rf"(?P<third>{_AMOUNT})$",
     re.IGNORECASE,
 )
+_TOTAL_MARKER = re.compile(r"^TOT\s*A\s*L?(?:\s*[.\-])*$", re.IGNORECASE)
+_TOTAL_PREFIX = re.compile(r"^TOT\s*A\s*L?(?:\s|[.\-]|$)", re.IGNORECASE)
 _AMOUNT_TOKEN = re.compile(_AMOUNT)
 _TRANSFER_ACCOUNT = re.compile(r"^351\d{9,}")
 
@@ -90,6 +92,14 @@ def _fold(value: str) -> str:
         if not unicodedata.combining(character)
     )
     return without_marks.upper()
+
+
+def _is_total_marker(value: str) -> bool:
+    return _TOTAL_MARKER.fullmatch(value) is not None
+
+
+def _has_total_prefix(value: str) -> bool:
+    return _TOTAL_PREFIX.match(value) is not None
 
 
 def _closed_total(
@@ -115,7 +125,7 @@ def _interleaved_total_after_boundary(
     boundary: int,
 ) -> tuple[Decimal, Decimal, Decimal] | None:
     has_total_marker = any(
-        folded[index] == "TOTAL"
+        _is_total_marker(folded[index])
         for index in range(max(section_start, boundary - 3), boundary)
     )
     if not has_total_marker:
@@ -164,7 +174,7 @@ def _columnar_total_before_boundary(
     total_markers = [
         index
         for index in range(section_start, boundary)
-        if folded[index] == "TOTAL"
+        if _is_total_marker(folded[index])
     ]
     if len(total_markers) != 1:
         return None
@@ -231,7 +241,7 @@ def parse_restos_a_pagar_summary(
     ]
     explicit = [match for match in candidates if match.group("label")]
     has_total_label = any(
-        line == "TOTAL" or line.startswith("TOTAL ")
+        _has_total_prefix(line)
         for line in folded[start:end]
     )
     total_values: tuple[Decimal, Decimal, Decimal] | None = None
