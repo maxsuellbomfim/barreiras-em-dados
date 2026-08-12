@@ -239,9 +239,9 @@ export default async function FinancesPage() {
   const coverageRows = coverageResult.state === "available" ? coverageResult.rows : [];
   const publicObligations =
     obligationsResult.state === "available"
-      ? obligationsResult.obligations.filter(
-          (obligation) => obligation.obligationType === "restos_a_pagar_total",
-        )
+      ? obligationsResult.obligations
+          .filter((obligation) => obligation.obligationType === "restos_a_pagar_total")
+          .sort((left, right) => right.periodEnd.localeCompare(left.periodEnd))
       : [];
   const publicObligationCoverage =
     obligationCoverageResult.state === "available"
@@ -250,6 +250,18 @@ export default async function FinancesPage() {
   const obligationCoverageGaps = publicObligationCoverage.filter(
     (row) => row.coverageStatus !== "published",
   );
+  const latestPublicObligation = publicObligations[0] ?? null;
+  const publishedObligationMonths =
+    publicObligationCoverage.length > 0
+      ? publicObligationCoverage.filter((row) => row.coverageStatus === "published")
+          .length
+      : publicObligations.length;
+  const obligationSectionAbsentMonths = publicObligationCoverage.filter(
+    (row) => row.coverageStatus === "section_absent",
+  ).length;
+  const obligationSectionIncompleteMonths = publicObligationCoverage.filter(
+    (row) => row.coverageStatus === "section_incomplete",
+  ).length;
   const comparableMonths = coverageRows.filter((row) => row.coverageStatus === "complete").length;
   const missingMonths = coverageRows.filter((row) => row.coverageStatus === "missing").length;
   const sortedRevenues = sortNewest(revenues, "revenueDate");
@@ -802,73 +814,120 @@ export default async function FinancesPage() {
                 despesas do mesmo relatório.
               </p>
             </div>
-            <div className="digest-grid">
-              {publicObligations.map((obligation: PublicObligation) => (
-                <article
-                  className="digest-card finance-negative-card"
-                  key={obligation.obligationId}
-                >
-                  <div className="track-top">
-                    <span>Restos a pagar</span>
-                    <span className="track-status">
-                      {formatMonthTitle(obligation.periodStart ?? obligation.periodEnd)}
-                    </span>
-                  </div>
-                  <h3 className="procurement-object">
-                    Pagamentos realizados no mês
-                  </h3>
-                  <dl className="procurement-values">
-                    <div className="revenue-primary-value">
-                      <dt>Saiu do caixa no mês</dt>
-                      <dd>
-                        {obligation.paymentsPeriodAmount
-                          ? formatBrlDecimal(obligation.paymentsPeriodAmount)
-                          : "valor não informado"}
-                      </dd>
+            {latestPublicObligation ? (
+              <article className="finance-status-panel finance-obligation-latest">
+                <div>
+                  <span className="eyebrow">Último mês com valor publicado</span>
+                  <h2>
+                    {formatMonthTitle(
+                      latestPublicObligation.periodStart ?? latestPublicObligation.periodEnd,
+                    )}
+                  </h2>
+                  <p>
+                    O balancete oficial informa quanto saiu do caixa neste mês para
+                    quitar despesas empenhadas anteriormente. Este valor não é o total
+                    da dívida municipal nem informa, sozinho, quanto ainda falta pagar.
+                  </p>
+                </div>
+                <span className="finance-status-pill finance-obligation-latest-value">
+                  {latestPublicObligation.paymentsPeriodAmount
+                    ? formatBrlDecimal(latestPublicObligation.paymentsPeriodAmount)
+                    : "valor não informado"}
+                </span>
+              </article>
+            ) : null}
+            <div
+              className="finance-coverage-summary"
+              aria-label="Resumo da cobertura de restos a pagar"
+            >
+              <div>
+                <strong>{publishedObligationMonths.toLocaleString("pt-BR")}</strong>
+                <span>competências com valor</span>
+              </div>
+              <div>
+                <strong>{obligationSectionAbsentMonths.toLocaleString("pt-BR")}</strong>
+                <span>competências com seção ausente</span>
+              </div>
+              <div>
+                <strong>{obligationSectionIncompleteMonths.toLocaleString("pt-BR")}</strong>
+                <span>competências com fonte incompleta</span>
+              </div>
+            </div>
+            <details className="finance-details finance-obligation-history">
+              <summary>
+                Ver histórico mês a mês (
+                {publicObligations.length.toLocaleString("pt-BR")} competências
+                publicadas)
+              </summary>
+              <div className="digest-grid">
+                {publicObligations.map((obligation: PublicObligation) => (
+                  <article
+                    className="digest-card finance-negative-card"
+                    key={obligation.obligationId}
+                  >
+                    <div className="track-top">
+                      <span>Restos a pagar</span>
+                      <span className="track-status">
+                        {formatMonthTitle(obligation.periodStart ?? obligation.periodEnd)}
+                      </span>
                     </div>
-                  </dl>
-                  <div className="finance-reading finance-reading-card">
-                    <strong>Em palavras simples</strong>
-                    <p>
-                      Este valor saiu dos cofres no mês para quitar despesas que já
-                      haviam sido empenhadas antes. Ele mostra pagamento realizado,
-                      não quanto ainda falta pagar.
-                    </p>
-                  </div>
-                  <details className="finance-details">
-                    <summary>Ver acumulados e fonte oficial</summary>
+                    <h3 className="procurement-object">
+                      Pagamentos realizados no mês
+                    </h3>
                     <dl className="procurement-values">
-                      <div>
-                        <dt>Pago até o mês anterior</dt>
+                      <div className="revenue-primary-value">
+                        <dt>Saiu do caixa no mês</dt>
                         <dd>
-                          {obligation.paymentsPriorAmount
-                            ? formatBrlDecimal(obligation.paymentsPriorAmount)
-                            : "não informado"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Pago até o fim deste mês</dt>
-                        <dd>
-                          {obligation.paymentsToDateAmount
-                            ? formatBrlDecimal(obligation.paymentsToDateAmount)
-                            : "não informado"}
+                          {obligation.paymentsPeriodAmount
+                            ? formatBrlDecimal(obligation.paymentsPeriodAmount)
+                            : "valor não informado"}
                         </dd>
                       </div>
                     </dl>
-                    <p className="act-evidence">
-                      <a
-                        href={obligation.documentSourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Abrir balancete oficial →
-                      </a>{" "}
-                      · PDF preservado · hash {obligation.documentArtifactSha256.slice(0, 12)}…
-                    </p>
-                  </details>
-                </article>
-              ))}
-            </div>
+                    <div className="finance-reading finance-reading-card">
+                      <strong>Em palavras simples</strong>
+                      <p>
+                        Este valor saiu dos cofres no mês para quitar despesas que já
+                        haviam sido empenhadas antes. Ele mostra pagamento realizado,
+                        não quanto ainda falta pagar.
+                      </p>
+                    </div>
+                    <details className="finance-details">
+                      <summary>Ver acumulados e fonte oficial</summary>
+                      <dl className="procurement-values">
+                        <div>
+                          <dt>Pago até o mês anterior</dt>
+                          <dd>
+                            {obligation.paymentsPriorAmount
+                              ? formatBrlDecimal(obligation.paymentsPriorAmount)
+                              : "não informado"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Pago até o fim deste mês</dt>
+                          <dd>
+                            {obligation.paymentsToDateAmount
+                              ? formatBrlDecimal(obligation.paymentsToDateAmount)
+                              : "não informado"}
+                          </dd>
+                        </div>
+                      </dl>
+                      <p className="act-evidence">
+                        <a
+                          href={obligation.documentSourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Abrir balancete oficial →
+                        </a>{" "}
+                        · PDF preservado · hash{" "}
+                        {obligation.documentArtifactSha256.slice(0, 12)}…
+                      </p>
+                    </details>
+                  </article>
+                ))}
+              </div>
+            </details>
           </section>
         ) : null}
 

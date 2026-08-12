@@ -57,3 +57,12 @@ test("documento não encontrado exige busca oficial preservada", () => {
   assert.match(page, /Não encontrado no catálogo oficial/);
   assert.match(page, /pode publicar o arquivo depois/);
 });
+
+test("restos a pagar mostram leitura rápida e histórico recolhido", () => {
+  assert.match(page, /Último mês com valor publicado/);
+  assert.match(page, /competências com valor/);
+  assert.match(page, /seção ausente/);
+  assert.match(page, /fonte incompleta/);
+  assert.match(page, /Ver histórico mês a mês/);
+  assert.match(page, /não é o total da dívida municipal/);
+});
