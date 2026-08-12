@@ -25,6 +25,7 @@ const ALLOWED_COVERAGE_STATUSES = new Set([
   "published",
   "section_absent",
   "section_incomplete",
+  "source_conflict",
   "document_not_found",
   "document_not_confirmed",
 ]);
@@ -195,6 +196,15 @@ function parseCoverageRow(row) {
   const evidenceArtifactCount =
     row.evidence_artifact_count === null ? null : row.evidence_artifact_count;
   const checkedAt = row.checked_at === null ? null : text(row.checked_at);
+  const conflictPreviousPeriodAmount = optionalDecimal(
+    row.conflict_previous_period_amount,
+  );
+  const conflictReportedPriorAmount = optionalDecimal(
+    row.conflict_reported_prior_amount,
+  );
+  const conflictDifferenceAmount = optionalDecimal(
+    row.conflict_difference_amount,
+  );
   const methodologyVersion = text(row.methodology_version);
   if (
     coverageId === null ||
@@ -210,7 +220,7 @@ function parseCoverageRow(row) {
     (evidenceArtifactCount !== null &&
       (!Number.isSafeInteger(evidenceArtifactCount) || evidenceArtifactCount < 1)) ||
     (checkedAt !== null && Number.isNaN(Date.parse(checkedAt))) ||
-    methodologyVersion !== "public-obligation-coverage/1.1.0"
+    methodologyVersion !== "public-obligation-coverage/1.2.0"
   ) {
     return null;
   }
@@ -232,6 +242,22 @@ function parseCoverageRow(row) {
   ) {
     return null;
   }
+  if (
+    row.coverage_status === "source_conflict" &&
+    (conflictPreviousPeriodAmount === null ||
+      conflictReportedPriorAmount === null ||
+      conflictDifferenceAmount === null)
+  ) {
+    return null;
+  }
+  if (
+    row.coverage_status !== "source_conflict" &&
+    (row.conflict_previous_period_amount !== null ||
+      row.conflict_reported_prior_amount !== null ||
+      row.conflict_difference_amount !== null)
+  ) {
+    return null;
+  }
   return {
     coverageId,
     fiscalYear: row.fiscal_year,
@@ -242,8 +268,51 @@ function parseCoverageRow(row) {
     documentArtifactSha256,
     searchEvidenceSha256,
     evidenceArtifactCount,
+    conflictPreviousPeriodAmount,
+    conflictReportedPriorAmount,
+    conflictDifferenceAmount,
     checkedAt,
     methodologyVersion,
+  };
+}
+
+export function describePublicObligationCoverage(row, formatAmount) {
+  if (row.coverageStatus === "source_conflict") {
+    return {
+      title: "Valores oficiais n\u00e3o conciliam entre meses",
+      explanation:
+        `O balancete do m\u00eas anterior fecha em ${formatAmount(row.conflictPreviousPeriodAmount)}, ` +
+        `mas o balancete deste m\u00eas come\u00e7a em ${formatAmount(row.conflictReportedPriorAmount)}. ` +
+        `A diferen\u00e7a \u00e9 de ${formatAmount(row.conflictDifferenceAmount)}. ` +
+        "Este m\u00eas ficou fora dos totais validados e foi encaminhado para revis\u00e3o. " +
+        "Uma diverg\u00eancia entre documentos oficiais n\u00e3o prova irregularidade.",
+    };
+  }
+  if (row.coverageStatus === "section_absent") {
+    return {
+      title: "Balancete localizado, mas sem a se\u00e7\u00e3o",
+      explanation:
+        "O balancete oficial foi localizado e preservado, mas n\u00e3o traz a se\u00e7\u00e3o de restos a pagar. Por isso, nenhum valor foi publicado para este m\u00eas.",
+    };
+  }
+  if (row.coverageStatus === "section_incomplete") {
+    return {
+      title: "Balancete localizado, mas incompleto",
+      explanation:
+        "O balancete oficial foi localizado, mas a se\u00e7\u00e3o termina sem todos os totais necess\u00e1rios. O Barreiras 360 n\u00e3o estimou nem completou o valor.",
+    };
+  }
+  if (row.coverageStatus === "document_not_found") {
+    return {
+      title: "N\u00e3o encontrado no cat\u00e1logo oficial",
+      explanation:
+        "O cat\u00e1logo completo de balancetes da Prefeitura foi consultado e a resposta oficial foi preservada, mas n\u00e3o havia documento para este m\u00eas na data da verifica\u00e7\u00e3o. Isso n\u00e3o significa valor zero: a Prefeitura pode publicar o arquivo depois, e a situa\u00e7\u00e3o ser\u00e1 atualizada na coleta seguinte.",
+    };
+  }
+  return {
+    title: "Documento ainda n\u00e3o confirmado no acervo",
+    explanation:
+      "At\u00e9 a \u00faltima cobertura dispon\u00edvel, nenhum documento mensal foi confirmado no acervo coletado. Isso n\u00e3o significa valor zero nem prova que o arquivo nunca existiu no portal oficial.",
   };
 }
 

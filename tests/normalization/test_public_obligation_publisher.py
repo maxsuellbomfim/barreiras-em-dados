@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import unittest
 from decimal import Decimal
 from pathlib import Path
@@ -35,8 +36,10 @@ class FakeReader:
 
 
 class FakeRepository:
-    def __init__(self) -> None:
+    def __init__(self, *, previous_month_to_date=None) -> None:
         self.inserted = []
+        self.conflicts = []
+        self.previous = previous_month_to_date
 
     def persist_validated_summary(self, artifact, summary, provenance) -> int:
         if self.inserted:
@@ -46,7 +49,22 @@ class FakeRepository:
 
     def previous_month_to_date(self, artifact):
         del artifact
-        return None
+        return self.previous
+
+    def record_progression_conflict(
+        self,
+        artifact,
+        summary,
+        provenance,
+        *,
+        previous_month_to_date,
+    ) -> int:
+        if self.conflicts:
+            return 0
+        self.conflicts.append(
+            (artifact, summary, provenance, previous_month_to_date)
+        )
+        return 1
 
 
 class FakeRows:
@@ -76,6 +94,62 @@ class CapturingConnection:
         self.closed = True
 
 
+class FakeTransaction:
+    def __init__(self, connection) -> None:
+        self.connection = connection
+
+    def __enter__(self):
+        self.connection.transaction_entered = True
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        del exc_type, exc_value, traceback
+        self.connection.transaction_exited = True
+
+
+class ProgressionConflictConnection:
+    def __init__(self) -> None:
+        self.calls = []
+        self.closed = False
+        self.transaction_entered = False
+        self.transaction_exited = False
+
+    def transaction(self):
+        return FakeTransaction(self)
+
+    def execute(self, query, parameters=()):
+        self.calls.append((query, parameters))
+        normalized = " ".join(query.lower().split())
+        if "select obligation.id::text" in normalized:
+            return FakeRows(
+                [
+                    {
+                        "id": "00000000-0000-4000-8000-000000000930",
+                        "payments_to_date_amount": Decimal("45364644.05"),
+                        "evidence_item_id": (
+                            "00000000-0000-4000-8000-000000000931"
+                        ),
+                    }
+                ]
+            )
+        if "from org.public_bodies" in normalized:
+            return FakeRows(
+                [{"id": "00000000-0000-4000-8000-000000000932"}]
+            )
+        if "insert into finance.public_obligations" in normalized:
+            return FakeRows(
+                [{"id": "00000000-0000-4000-8000-000000000933"}]
+            )
+        if "insert into evidence.evidence_items" in normalized:
+            return FakeRows(
+                [{"id": "00000000-0000-4000-8000-000000000934"}]
+            )
+        return FakeRows([])
+
+    def close(self):
+        self.closed = True
+
+
 def artifact_for(body: bytes = PDF_BODY) -> PublicObligationArtifact:
     return PublicObligationArtifact(
         id="00000000-0000-4000-8000-000000000921",
@@ -93,11 +167,11 @@ class PublicObligationPublisherTests(unittest.TestCase):
     def test_failure_job_type_is_versioned_for_auditable_retry(self):
         self.assertEqual(
             PUBLIC_OBLIGATION_JOB_TYPE,
-            "public_obligation_balancete_publication/1.5.2",
+            "public_obligation_balancete_publication/1.5.3",
         )
         self.assertEqual(
             PUBLIC_OBLIGATION_METHODOLOGY,
-            "public-obligations-balancete/1.5.2",
+            "public-obligations-balancete/1.5.3",
         )
 
     def test_pending_documents_accepts_reference_keys_from_current_api(self):
@@ -149,6 +223,10 @@ class PublicObligationPublisherTests(unittest.TestCase):
             "job.status in ('failed', 'succeeded', 'dead_lettered')",
             normalized_query,
         )
+        self.assertIn("public_obligation_section_absent", normalized_query)
+        self.assertIn("public_obligation_section_incomplete", normalized_query)
+        self.assertIn("public_obligation_progression_conflict", normalized_query)
+        self.assertIn("result.validation_status = 'valid'", normalized_query)
 
     def test_pending_documents_selects_only_monthly_reports_in_period_order(self):
         connection = CapturingConnection([])
@@ -220,6 +298,56 @@ class PublicObligationPublisherTests(unittest.TestCase):
         self.assertIn("obligation_type = 'restos_a_pagar_total'", normalized_query)
         self.assertTrue(connection.closed)
 
+    def test_persists_progression_conflict_with_both_evidence_values(self):
+        connection = ProgressionConflictConnection()
+        repository = PostgresPublicObligationPublicationRepository(lambda: connection)
+        extraction = PublicObligationPublisher(
+            object_reader=FakeReader(PDF_BODY),
+            repository=FakeRepository(),
+            text_extractor=lambda _body: FIXTURE_TEXT,
+        ).validate(artifact_for())
+
+        inserted = repository.record_progression_conflict(
+            artifact_for(),
+            extraction.summary,
+            extraction.provenance,
+            previous_month_to_date=Decimal("45364644.05"),
+        )
+
+        self.assertEqual(inserted, 1)
+        self.assertTrue(connection.transaction_entered)
+        self.assertTrue(connection.transaction_exited)
+        self.assertTrue(connection.closed)
+        all_queries = " ".join(query.lower() for query, _ in connection.calls)
+        all_parameters = tuple(
+            value for _, parameters in connection.calls for value in parameters
+        )
+        self.assertIn("insert into finance.public_obligations", all_queries)
+        self.assertIn("insert into evidence.source_conflicts", all_queries)
+        self.assertIn("insert into raw.extraction_results", all_queries)
+        self.assertIn("public_obligation_progression_conflict", all_parameters)
+        self.assertIn(Decimal("45364644.06"), all_parameters)
+        json_parameters = [
+            json.loads(value)
+            for value in all_parameters
+            if isinstance(value, str) and value.startswith("{")
+        ]
+        self.assertIn(
+            {
+                "period_end": "2026-05-31",
+                "payments_to_date_amount": "45364644.05",
+            },
+            json_parameters,
+        )
+        self.assertIn(
+            {
+                "period_start": "2026-06-01",
+                "payments_prior_amount": "45364644.06",
+                "difference_amount": "0.01",
+            },
+            json_parameters,
+        )
+
     def test_rejects_tampered_pdf_before_persisting(self):
         repository = FakeRepository()
         publisher = PublicObligationPublisher(
@@ -249,6 +377,26 @@ class PublicObligationPublisherTests(unittest.TestCase):
         _, summary, provenance = repository.inserted[0]
         self.assertEqual(summary.period_end.isoformat(), "2026-06-30")
         self.assertEqual(str(summary.payments_period_amount), "3683221.97")
+        self.assertEqual(provenance.extraction_method, "embedded_text")
+
+    def test_records_progression_conflict_without_publishing_as_validated(self):
+        repository = FakeRepository(
+            previous_month_to_date=Decimal("45364644.05")
+        )
+        publisher = PublicObligationPublisher(
+            object_reader=FakeReader(PDF_BODY),
+            repository=repository,
+            text_extractor=lambda _body: FIXTURE_TEXT,
+        )
+
+        result = publisher.publish(artifact_for())
+
+        self.assertEqual(result.status, "source_conflict")
+        self.assertEqual(repository.inserted, [])
+        self.assertEqual(len(repository.conflicts), 1)
+        _, summary, provenance, previous = repository.conflicts[0]
+        self.assertEqual(summary.payments_prior_amount, Decimal("45364644.06"))
+        self.assertEqual(previous, Decimal("45364644.05"))
         self.assertEqual(provenance.extraction_method, "embedded_text")
 
     def test_validate_checks_artifact_and_extracts_without_persisting(self):

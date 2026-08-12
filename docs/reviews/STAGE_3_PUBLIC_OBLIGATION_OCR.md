@@ -87,3 +87,25 @@ vazias dentro desse intervalo e continua ignorando páginas intermediárias em
 branco. O PDF oficial foi validado localmente pelo texto de layout, sem LLM:
 R$ 37.936.002,42 + R$ 4.487,11 = R$ 37.940.489,53. O novo job versionado permite
 reprocessar a tentativa falha sem apagar o diagnóstico anterior.
+
+## Divergência oficial entre abril e maio de 2025
+
+O backfill controlado identificou uma diferença de R$ 726,84 entre dois
+balancetes oficiais consecutivos. O documento de abril informa pagamentos
+acumulados de restos a pagar de R$ 19.325.093,07. O documento de maio, embora
+feche internamente, informa R$ 19.324.366,23 como acumulado anterior.
+
+Essa diferença não é corrigida por aproximação, não é atribuída ao OCR e não é
+publicada como um valor reconciliado. A metodologia
+`public-obligations-balancete/1.5.3` passa a:
+
+- preservar os dois valores e suas evidências em `evidence.source_conflicts`;
+- registrar a competência de maio com estado `conflict`, sem validação
+  editorial ou numérica;
+- encerrar a tentativa como conflito conhecido, evitando retries infinitos;
+- expor no portal uma explicação neutra com os dois valores e a diferença;
+- ressaltar que divergência entre fontes não é prova de irregularidade.
+
+O conflito permanece aberto até que uma retificação ou outra evidência oficial
+permita reconciliar a sequência. Junho continua coerente com o acumulado
+declarado em maio, mas não resolve retroativamente a diferença com abril.

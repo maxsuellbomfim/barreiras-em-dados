@@ -22,6 +22,7 @@ import { monthlyFinanceHref } from "../../lib/monthly-finance-detail.mjs";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
 import { getPublicFinanceCoverage, type PublicFinanceCoverageRow } from "../../lib/finance-coverage";
 import {
+  describePublicObligationCoverage,
   getPublicObligationCoverage,
   getPublicObligations,
   type PublicObligation,
@@ -181,28 +182,6 @@ function formatAmount(value: string | null, unavailable = "não disponível"): s
   return value === null ? unavailable : formatBrlDecimal(value);
 }
 
-function obligationCoverageTitle(status: PublicObligationCoverageRow["coverageStatus"]): string {
-  if (status === "section_absent") return "Balancete localizado, mas sem a seção";
-  if (status === "section_incomplete") return "Balancete localizado, mas incompleto";
-  if (status === "document_not_found") return "Não encontrado no catálogo oficial";
-  return "Documento ainda não confirmado no acervo";
-}
-
-function obligationCoverageExplanation(
-  status: PublicObligationCoverageRow["coverageStatus"],
-): string {
-  if (status === "section_absent") {
-    return "O balancete oficial foi localizado e preservado, mas não traz a seção de restos a pagar. Por isso, nenhum valor foi publicado para este mês.";
-  }
-  if (status === "section_incomplete") {
-    return "O balancete oficial foi localizado, mas a seção termina sem todos os totais necessários. O Barreiras 360 não estimou nem completou o valor.";
-  }
-  if (status === "document_not_found") {
-    return "O catálogo completo de balancetes da Prefeitura foi consultado e a resposta oficial foi preservada, mas não havia documento para este mês na data da verificação. Isso não significa valor zero: a Prefeitura pode publicar o arquivo depois, e a situação será atualizada na coleta seguinte.";
-  }
-  return "Até a última cobertura disponível, nenhum documento mensal foi confirmado no acervo coletado. Isso não significa valor zero nem prova que o arquivo nunca existiu no portal oficial.";
-}
-
 export default async function FinancesPage() {
   const [
     expensesResult,
@@ -261,6 +240,9 @@ export default async function FinancesPage() {
   ).length;
   const obligationSectionIncompleteMonths = publicObligationCoverage.filter(
     (row) => row.coverageStatus === "section_incomplete",
+  ).length;
+  const obligationSourceConflictMonths = publicObligationCoverage.filter(
+    (row) => row.coverageStatus === "source_conflict",
   ).length;
   const comparableMonths = coverageRows.filter((row) => row.coverageStatus === "complete").length;
   const missingMonths = coverageRows.filter((row) => row.coverageStatus === "missing").length;
@@ -852,6 +834,10 @@ export default async function FinancesPage() {
                 <strong>{obligationSectionIncompleteMonths.toLocaleString("pt-BR")}</strong>
                 <span>competências com fonte incompleta</span>
               </div>
+              <div>
+                <strong>{obligationSourceConflictMonths.toLocaleString("pt-BR")}</strong>
+                <span>competências com divergência oficial</span>
+              </div>
             </div>
             <details className="finance-details finance-obligation-history">
               <summary>
@@ -941,7 +927,9 @@ export default async function FinancesPage() {
               <h2 id="obligation-coverage-title">Onde ainda não foi possível publicar um valor</h2>
               <p>
                 Cada lacuna é identificada pelo motivo. Documento ausente, seção
-                ausente e seção incompleta não são tratados como R$ 0.
+                ausente, seção incompleta e divergência entre documentos oficiais não
+                são tratados como R$ 0. Uma divergência também não é prova de
+                irregularidade: ela permanece aberta até a reconciliação das fontes.
               </p>
             </div>
             <details className="finance-details">
@@ -949,44 +937,54 @@ export default async function FinancesPage() {
                 Ver {obligationCoverageGaps.length.toLocaleString("pt-BR")} competências sem valor publicado
               </summary>
               <div className="digest-grid">
-                {obligationCoverageGaps.map((row: PublicObligationCoverageRow) => (
-                  <article className="digest-card finance-debt-card" key={row.coverageId}>
-                    <div className="track-top">
-                      <span>Cobertura documental</span>
-                      <span className="track-status">{formatMonthTitle(row.periodStart)}</span>
-                    </div>
-                    <h3 className="procurement-object">
-                      {obligationCoverageTitle(row.coverageStatus)}
-                    </h3>
-                    <div className="finance-reading finance-reading-card">
-                      <strong>O que isso significa</strong>
-                      <p>{obligationCoverageExplanation(row.coverageStatus)}</p>
-                    </div>
-                    <p className="act-evidence">
-                      {row.sourceUrl ? (
-                        <>
-                          <a href={row.sourceUrl} target="_blank" rel="noreferrer">
-                            Abrir documento oficial →
-                          </a>{" "}
-                        </>
-                      ) : (
-                        <a
-                          href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Consultar o portal oficial →
-                        </a>
-                      )}
-                      {row.documentArtifactSha256
-                        ? ` · documento preservado · hash ${row.documentArtifactSha256.slice(0, 12)}…`
-                        : ""}
-                      {row.checkedAt
-                        ? ` · verificado em ${formatCollectedAt(row.checkedAt)}`
-                        : ""}
-                    </p>
-                  </article>
-                ))}
+                {obligationCoverageGaps.map((row: PublicObligationCoverageRow) => {
+                  const copy = describePublicObligationCoverage(row, formatBrlDecimal);
+                  return (
+                    <article
+                      className={`digest-card finance-debt-card${
+                        row.coverageStatus === "source_conflict"
+                          ? " finance-conflict-card"
+                          : ""
+                      }`}
+                      key={row.coverageId}
+                    >
+                      <div className="track-top">
+                        <span>Cobertura documental</span>
+                        <span className="track-status">
+                          {formatMonthTitle(row.periodStart)}
+                        </span>
+                      </div>
+                      <h3 className="procurement-object">{copy.title}</h3>
+                      <div className="finance-reading finance-reading-card">
+                        <strong>O que isso significa</strong>
+                        <p>{copy.explanation}</p>
+                      </div>
+                      <p className="act-evidence">
+                        {row.sourceUrl ? (
+                          <>
+                            <a href={row.sourceUrl} target="_blank" rel="noreferrer">
+                              Abrir documento oficial →
+                            </a>{" "}
+                          </>
+                        ) : (
+                          <a
+                            href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Consultar o portal oficial →
+                          </a>
+                        )}
+                        {row.documentArtifactSha256
+                          ? ` · documento preservado · hash ${row.documentArtifactSha256.slice(0, 12)}…`
+                          : ""}
+                        {row.checkedAt
+                          ? ` · verificado em ${formatCollectedAt(row.checkedAt)}`
+                          : ""}
+                      </p>
+                    </article>
+                  );
+                })}
               </div>
             </details>
           </section>

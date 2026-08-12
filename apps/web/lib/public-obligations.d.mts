@@ -41,14 +41,18 @@ export type PublicObligationCoverageRow = Readonly<{
     | "published"
     | "section_absent"
     | "section_incomplete"
+    | "source_conflict"
     | "document_not_found"
     | "document_not_confirmed";
   sourceUrl: string | null;
   documentArtifactSha256: string | null;
   searchEvidenceSha256: string | null;
   evidenceArtifactCount: number | null;
+  conflictPreviousPeriodAmount: string | null;
+  conflictReportedPriorAmount: string | null;
+  conflictDifferenceAmount: string | null;
   checkedAt: string | null;
-  methodologyVersion: "public-obligation-coverage/1.1.0";
+  methodologyVersion: "public-obligation-coverage/1.2.0";
 }>;
 
 export type PublicObligationCoverageResult =
@@ -59,3 +63,14 @@ export function getPublicObligationCoverage(
   fiscalYearFrom?: number,
   fiscalYearTo?: number,
 ): Promise<PublicObligationCoverageResult>;
+
+export function describePublicObligationCoverage(
+  row: Pick<
+    PublicObligationCoverageRow,
+    | "coverageStatus"
+    | "conflictPreviousPeriodAmount"
+    | "conflictReportedPriorAmount"
+    | "conflictDifferenceAmount"
+  >,
+  formatAmount: (value: string) => string,
+): Readonly<{ title: string; explanation: string }>;
