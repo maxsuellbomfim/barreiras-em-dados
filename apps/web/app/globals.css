@@ -4246,3 +4246,288 @@ footer {
   font-size: 0.78rem;
   opacity: 0.65;
 }
+
+/* Recursos destinados a Barreiras (/recursos) */
+.transfer-reading-guide,
+.transfer-methodology {
+  margin-top: 1.5rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(23, 105, 224, 0.16);
+  border-radius: 1rem;
+  background: rgba(237, 243, 255, 0.72);
+  color: #56647a;
+}
+
+.transfer-reading-guide strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.transfer-reading-guide p,
+.transfer-methodology p {
+  max-width: 66rem;
+  margin: 0.55rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.transfer-ranking,
+.transfer-catalog {
+  margin-top: 2.6rem;
+}
+
+.transfer-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.transfer-section-heading h2 {
+  margin: 0.25rem 0 0;
+  color: var(--ink);
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+  letter-spacing: -0.045em;
+}
+
+.transfer-section-heading > p {
+  max-width: 28rem;
+  margin: 0;
+  color: #6f7c91;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.transfer-ranking-list,
+.transfer-card-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.transfer-ranking-card {
+  display: grid;
+  grid-template-columns: auto minmax(12rem, 1fr) minmax(24rem, 1.4fr);
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.transfer-rank {
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 0.75rem;
+  background: #eaf1ff;
+  color: #285abf;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.transfer-ranking-name h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  letter-spacing: -0.025em;
+}
+
+.transfer-ranking-name span,
+.transfer-card-kind {
+  color: #738097;
+  font-size: 0.72rem;
+}
+
+.transfer-ranking-card dl,
+.transfer-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.transfer-ranking-card dl > div,
+.transfer-stage-grid > div {
+  min-width: 0;
+  padding: 0.75rem;
+  border-radius: 0.85rem;
+  background: #f6f8fc;
+}
+
+.transfer-ranking-card dt,
+.transfer-stage-grid dt,
+.transfer-details dt {
+  color: #77849a;
+  font-size: 0.67rem;
+  font-weight: 720;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.transfer-ranking-card dd,
+.transfer-stage-grid dd,
+.transfer-details dd {
+  margin: 0.25rem 0 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 720;
+  overflow-wrap: anywhere;
+}
+
+.transfer-card {
+  padding: 1.2rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.transfer-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.transfer-card-heading h3 {
+  margin: 0.25rem 0 0;
+  color: var(--ink);
+  font-size: 1.15rem;
+  letter-spacing: -0.03em;
+}
+
+.transfer-card-heading p,
+.transfer-object,
+.transfer-beneficiary {
+  margin: 0.35rem 0 0;
+  color: #5e6b80;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.transfer-status {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(27, 169, 108, 0.11);
+  color: #167d55;
+  font-size: 0.7rem;
+  font-weight: 720;
+}
+
+.transfer-object {
+  max-width: 64rem;
+  margin-top: 0.9rem;
+  color: var(--ink);
+  font-size: 0.94rem;
+}
+
+.transfer-beneficiary {
+  margin-bottom: 1rem;
+}
+
+.transfer-stage-grid span {
+  display: block;
+  margin-top: 0.35rem;
+  color: #7c899d;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.transfer-caution {
+  margin: 0.8rem 0 0;
+  padding: 0.7rem 0.8rem;
+  border-left: 3px solid #b47a18;
+  border-radius: 0.45rem;
+  background: rgba(255, 248, 235, 0.82);
+  color: #74603d;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.transfer-details {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(28, 40, 61, 0.1);
+}
+
+.transfer-details summary,
+.transfer-methodology summary {
+  cursor: pointer;
+  color: #315bc7;
+  font-size: 0.8rem;
+  font-weight: 720;
+}
+
+.transfer-details dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0.8rem 0;
+}
+
+.transfer-details dl > div {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid rgba(28, 40, 61, 0.08);
+}
+
+.transfer-details a {
+  color: #315bc7;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.transfer-hash {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem !important;
+}
+
+.transfer-empty {
+  margin: 0;
+  padding: 1rem;
+  border: 1px dashed rgba(28, 40, 61, 0.16);
+  border-radius: 1rem;
+  color: #6f7c91;
+  font-size: 0.82rem;
+}
+
+.transfer-methodology {
+  margin-bottom: 2rem;
+  border-color: rgba(28, 40, 61, 0.1);
+  background: rgba(248, 250, 253, 0.86);
+}
+
+@media (max-width: 840px) {
+  .transfer-ranking-card {
+    grid-template-columns: auto 1fr;
+  }
+
+  .transfer-ranking-card dl {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .transfer-section-heading,
+  .transfer-card-heading {
+    display: grid;
+  }
+
+  .transfer-section-heading > p {
+    text-align: left;
+  }
+
+  .transfer-ranking-card dl,
+  .transfer-stage-grid,
+  .transfer-details dl {
+    grid-template-columns: 1fr;
+  }
+
+  .transfer-status {
+    width: fit-content;
+  }
+}

@@ -97,6 +97,12 @@ const quickLinks = [
     href: "/financas",
     tone: "amber",
   },
+  {
+    label: "Recursos para Barreiras",
+    detail: "Quem destinou emendas, quanto foi pago e qual fonte comprova.",
+    href: "/recursos",
+    tone: "green",
+  },
 ] as const;
 
 const evidenceSteps = [
@@ -340,6 +346,7 @@ export default async function HomePage() {
           <nav className="nav-links" aria-label="Navegação principal">
             <a href="/atos">Atos</a>
             <a href="/licitacoes">Licitações</a>
+            <a href="/recursos">Recursos</a>
             <a href="/representantes">Representantes</a>
             <a href="/camara">Leis da Câmara</a>
           </nav>
