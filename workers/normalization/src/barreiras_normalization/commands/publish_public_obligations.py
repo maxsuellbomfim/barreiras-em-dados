@@ -35,6 +35,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--fiscal-year-from", type=int, default=2021)
     parser.add_argument("--fiscal-year-to", type=int, default=date.today().year)
     parser.add_argument(
+        "--reference-month",
+        type=int,
+        default=None,
+        help="Restringe a seleção ao mês informado (1 a 12).",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Valida e registra os valores no log sem escrever no banco.",
@@ -44,6 +50,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--limit deve estar entre 1 e 20")
     if not 1900 <= args.fiscal_year_from <= args.fiscal_year_to <= 2200:
         parser.error("intervalo fiscal inválido")
+    if args.reference_month is not None and not 1 <= args.reference_month <= 12:
+        parser.error("--reference-month deve estar entre 1 e 12")
 
     from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
     from barreiras_collectors.settings import PersistenceSettings
@@ -79,6 +87,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         limit=args.limit,
         fiscal_year_from=args.fiscal_year_from,
         fiscal_year_to=args.fiscal_year_to,
+        reference_month=args.reference_month,
     )
     logger = logging.getLogger(__name__)
     for index, artifact in enumerate(artifacts, start=1):

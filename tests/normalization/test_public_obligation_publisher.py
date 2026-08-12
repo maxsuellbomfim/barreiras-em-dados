@@ -221,6 +221,8 @@ class PublicObligationPublisherTests(unittest.TestCase):
                 2026,
                 PUBLIC_OBLIGATION_METHODOLOGY,
                 PUBLIC_OBLIGATION_JOB_TYPE,
+                None,
+                None,
                 1,
             ),
         )
@@ -257,6 +259,32 @@ class PublicObligationPublisherTests(unittest.TestCase):
         self.assertIn(
             "order by fiscal_year asc, reference_month asc, created_at asc, id",
             normalized_query,
+        )
+
+    def test_pending_documents_can_target_one_reference_month(self):
+        connection = CapturingConnection([])
+        repository = PostgresPublicObligationPublicationRepository(lambda: connection)
+
+        repository.pending_documents(
+            limit=1,
+            fiscal_year_from=2022,
+            fiscal_year_to=2022,
+            reference_month=9,
+        )
+
+        normalized_query = " ".join(connection.query.lower().split())
+        self.assertIn("reference_month = %s", normalized_query)
+        self.assertEqual(
+            connection.parameters,
+            (
+                2022,
+                2022,
+                PUBLIC_OBLIGATION_METHODOLOGY,
+                PUBLIC_OBLIGATION_JOB_TYPE,
+                9,
+                9,
+                1,
+            ),
         )
 
     def test_records_source_section_absence_as_terminal_valid_result(self):

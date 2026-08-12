@@ -15,6 +15,11 @@ on:
         required: false
         default: ""
         type: string
+      reference_month:
+        description: "Mês exato dos restos a pagar (1 a 12; vazio percorre o ano)"
+        required: false
+        default: ""
+        type: string
       limit:
         description: "Máximo de PDFs por execução"
         required: false
@@ -114,6 +119,7 @@ jobs:
         env:
           INPUT_FISCAL_YEAR_FROM: ${{ inputs.fiscal_year_from }}
           INPUT_FISCAL_YEAR_TO: ${{ inputs.fiscal_year_to }}
+          INPUT_REFERENCE_MONTH: ${{ inputs.reference_month }}
           INPUT_LIMIT: ${{ inputs.limit }}
           INPUT_DRY_RUN: ${{ inputs.dry_run_public_obligations }}
         run: |
@@ -123,6 +129,9 @@ jobs:
           extra_args=()
           if [[ "${INPUT_DRY_RUN:-false}" == "true" ]]; then
             extra_args+=(--dry-run)
+          fi
+          if [[ -n "${INPUT_REFERENCE_MONTH:-}" ]]; then
+            extra_args+=(--reference-month "$INPUT_REFERENCE_MONTH")
           fi
           python -B -m barreiras_normalization.commands.publish_public_obligations \
             --limit "$limit" \

@@ -67,6 +67,7 @@ class PublicObligationPublicationRepository(Protocol):
         limit: int,
         fiscal_year_from: int,
         fiscal_year_to: int,
+        reference_month: int | None = None,
     ) -> tuple[PublicObligationArtifact, ...]: ...
 
     def persist_validated_summary(
@@ -271,6 +272,7 @@ class PostgresPublicObligationPublicationRepository:
         limit: int,
         fiscal_year_from: int,
         fiscal_year_to: int,
+        reference_month: int | None = None,
     ) -> tuple[PublicObligationArtifact, ...]:
         connection = self.connection_factory()
         try:
@@ -354,6 +356,7 @@ class PostgresPublicObligationPublicationRepository:
                 select id, sha256, object_key, byte_size, parent_record_id,
                   source_url, fiscal_year, reference_month
                 from candidates
+                where (%s is null or reference_month = %s)
                 order by fiscal_year asc, reference_month asc, created_at asc, id
                 limit %s
                 """,
@@ -362,6 +365,8 @@ class PostgresPublicObligationPublicationRepository:
                     fiscal_year_to,
                     PUBLIC_OBLIGATION_METHODOLOGY,
                     PUBLIC_OBLIGATION_JOB_TYPE,
+                    reference_month,
+                    reference_month,
                     limit,
                 ),
             )

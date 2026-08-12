@@ -39,3 +39,10 @@ test("workflow permite publicar somente despesas ou restos a pagar", () => {
   );
   assert.match(workflow, /inputs\.publication_scope != 'expenses'/);
 });
+
+test("workflow permite direcionar restos a pagar para um mes exato", () => {
+  assert.match(workflow, /reference_month:/);
+  assert.match(workflow, /INPUT_REFERENCE_MONTH: \$\{\{ inputs\.reference_month \}\}/);
+  assert.match(workflow, /if \[\[ -n "\$\{INPUT_REFERENCE_MONTH:-\}" \]\]/);
+  assert.match(workflow, /extra_args\+=\(--reference-month "\$INPUT_REFERENCE_MONTH"\)/);
+});
