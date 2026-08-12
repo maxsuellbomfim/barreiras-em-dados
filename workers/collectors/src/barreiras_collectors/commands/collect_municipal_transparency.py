@@ -29,7 +29,11 @@ from ..connectors.municipal_transparency import (
 )
 from ..connectors.querido_diario import QueridoDiarioError
 from ..logging import log_event
-from ..persistence.models import OfficialDocumentSearchInput, PersistenceResult
+from ..persistence.models import (
+    OfficialDocumentSearchInput,
+    PersistenceResult,
+    RawRecordInput,
+)
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import (
     MUNICIPAL_TRANSPARENCY_COLLECTOR_VERSION,
@@ -178,6 +182,35 @@ class MunicipalTransparencyCollectionSummary:
         return CollectionOutcome.COMPLETE
 
 
+@dataclass(frozen=True)
+class PendingDocumentSelection:
+    indexes: tuple[int, ...]
+    already_preserved: int
+    deferred: int
+
+
+def select_pending_document_indexes(
+    candidates: Sequence[tuple[int, str, str]],
+    *,
+    preserved: frozenset[tuple[str, str]],
+    max_documents: int,
+) -> PendingDocumentSelection:
+    """Seleciona somente URLs ainda sem artefato filho idêntico preservado."""
+
+    pending: list[int] = []
+    already_preserved = 0
+    for index, source_record_key, source_url in candidates:
+        if (source_record_key, source_url) in preserved:
+            already_preserved += 1
+            continue
+        pending.append(index)
+    return PendingDocumentSelection(
+        indexes=tuple(pending[:max_documents]),
+        already_preserved=already_preserved,
+        deferred=max(0, len(pending) - max_documents),
+    )
+
+
 def execute_controlled_municipal_transparency(
     *,
     control: CollectionControl,
@@ -294,6 +327,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="baixa e preserva PDFs oficiais apontados pelos registros financeiros",
     )
+    parser.add_argument(
+        "--max-documents",
+        type=int,
+        default=None,
+        help="máximo de PDFs novos baixados por execução",
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 500:
         parser.error("--limit deve estar entre 1 e 500.")
@@ -303,6 +342,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--max-pages deve estar entre 1 e 1000.")
     if args.download_documents and args.resource not in FINANCIAL_DOCUMENT_RESOURCES:
         parser.error("--download-documents só pode ser usado em recurso financeiro.")
+    if args.max_documents is not None and not 1 <= args.max_documents <= 500:
+        parser.error("--max-documents deve estar entre 1 e 500.")
     if args.coverage_year_from is not None and (
         args.resource != "balancetes"
         or args.offset not in (None, 0)
@@ -384,6 +425,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_pages=args.max_pages,
             allow_partial=args.allow_partial,
             download_documents=args.download_documents,
+            max_documents=args.max_documents or args.limit,
             collector_settings=collector_settings,
             logger=logger,
             coverage_period=(
@@ -442,6 +484,7 @@ def _collect_resource(
     max_pages: int,
     allow_partial: bool,
     download_documents: bool,
+    max_documents: int,
     collector_settings: CollectorSettings,
     logger: logging.Logger,
     coverage_period: tuple[date, date] | None = None,
@@ -511,6 +554,8 @@ def _collect_resource(
             inserted_records += result.inserted_records
             existing_records += result.existing_records
             if document_client is not None:
+                candidates: list[tuple[int, str, str]] = []
+                records: dict[int, RawRecordInput] = {}
                 for index, item in enumerate(page.items):
                     document_url = item.get("url")
                     if not isinstance(document_url, str) or not document_url.strip():
@@ -527,6 +572,37 @@ def _collect_resource(
                             reason="unsupported_document_format",
                         )
                         continue
+                    record = service.record_input(page, index=index, item=item)
+                    records[index] = record
+                    candidates.append(
+                        (index, record.source_record_key, document_url.strip())
+                    )
+                preserved = service.preserved_document_identities(
+                    tuple(source_key for _, source_key, _ in candidates)
+                )
+                selection = select_pending_document_indexes(
+                    candidates,
+                    preserved=preserved,
+                    max_documents=max(0, max_documents - persisted_documents),
+                )
+                skipped_documents += selection.deferred
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "collector_municipal_transparency_document_selection",
+                    source=source_code,
+                    resource=page.resource,
+                    candidates=len(candidates),
+                    already_preserved=selection.already_preserved,
+                    selected=len(selection.indexes),
+                    deferred=selection.deferred,
+                )
+                for index in selection.indexes:
+                    item = page.items[index]
+                    document_url = str(item["url"]).strip()
+                    document_role = resolve_municipal_document_role(document_url)
+                    if document_role is None:
+                        raise RuntimeError("Seleção incluiu formato não validado.")
                     try:
                         document = document_client.fetch(
                             document_url.strip(),
@@ -534,11 +610,7 @@ def _collect_resource(
                         )
                         service.persist_document(
                             page_result=result,
-                            record=service.record_input(
-                                page,
-                                index=index,
-                                item=item,
-                            ),
+                            record=records[index],
                             document=document,
                             source_code=source_code,
                             endpoint_code=endpoint_code,

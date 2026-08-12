@@ -16,6 +16,7 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
     resolve_execution_namespace,
     resolve_municipal_document_role,
     resolve_resume_offset,
+    select_pending_document_indexes,
 )
 
 
@@ -131,6 +132,29 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 "https://barreiras.mtransparente.com.br/contas.docx"
             )
         )
+
+    def test_document_drain_selects_only_missing_or_changed_sources(self) -> None:
+        candidates = (
+            (0, "record-a", "https://example.org/a.pdf"),
+            (1, "record-b", "https://example.org/b-new.pdf"),
+            (2, "record-c", "https://example.org/c.pdf"),
+        )
+        preserved = frozenset(
+            {
+                ("record-a", "https://example.org/a.pdf"),
+                ("record-b", "https://example.org/b-old.pdf"),
+            }
+        )
+
+        selection = select_pending_document_indexes(
+            candidates,
+            preserved=preserved,
+            max_documents=1,
+        )
+
+        self.assertEqual(selection.indexes, (1,))
+        self.assertEqual(selection.already_preserved, 1)
+        self.assertEqual(selection.deferred, 1)
 
     def test_bounded_env_int_rejects_values_outside_safe_window(self) -> None:
         with patch.dict("os.environ", {"TEST_MUNICIPAL_LIMIT": "61"}, clear=False):

@@ -133,6 +133,37 @@ class FilesystemCollectionRepository:
             created=created,
         )
 
+    def municipal_document_identities(
+        self,
+        source_record_keys: tuple[str, ...],
+    ) -> frozenset[tuple[str, str]]:
+        """Consulta os manifestos locais preservados sem depender do Storage."""
+
+        if not source_record_keys:
+            return frozenset()
+        expected_keys = frozenset(source_record_keys)
+        identities: set[tuple[str, str]] = set()
+        manifests_root = self.root / "document-manifests"
+        if not manifests_root.exists():
+            return frozenset()
+        for manifest_path in manifests_root.glob("sha256/*/*/*.json"):
+            manifest = self._read_verified_manifest(manifest_path)
+            if (
+                manifest.get("document_schema_name")
+                != "municipal-transparency-document"
+            ):
+                continue
+            source_record_key = manifest.get("source_record_key")
+            document = manifest.get("document")
+            if (
+                isinstance(source_record_key, str)
+                and source_record_key in expected_keys
+                and isinstance(document, dict)
+                and isinstance(document.get("source_url"), str)
+            ):
+                identities.add((source_record_key, document["source_url"]))
+        return frozenset(identities)
+
     @staticmethod
     def _document_manifest(
         batch: DocumentBatch,

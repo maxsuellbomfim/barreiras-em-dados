@@ -1185,6 +1185,34 @@ class PostgresCollectionRepository:
         finally:
             connection.close()
 
+    def municipal_document_identities(
+        self,
+        source_record_keys: tuple[str, ...],
+    ) -> frozenset[tuple[str, str]]:
+        if not source_record_keys:
+            return frozenset()
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select distinct
+                  artifact.metadata ->> 'source_record_key' as source_record_key,
+                  artifact.source_url
+                from raw.raw_artifacts as artifact
+                where artifact.artifact_kind = 'document'
+                  and artifact.metadata ->> 'schema_name' =
+                    'municipal-transparency-document'
+                  and artifact.metadata ->> 'source_record_key' = any(%s)
+                """,
+                (list(source_record_keys),),
+            ).fetchall()
+            return frozenset(
+                (str(row["source_record_key"]), str(row["source_url"]))
+                for row in rows
+            )
+        finally:
+            connection.close()
+
     @classmethod
     def _document_artifact(
         cls,

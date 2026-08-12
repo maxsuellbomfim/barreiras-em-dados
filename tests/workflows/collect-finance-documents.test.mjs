@@ -51,10 +51,15 @@ test("cobertura de balancetes nao espera o download de todo o acervo", () => {
   assert.doesNotMatch(collectionStep, /--download-documents/);
   assert.match(
     drainStep,
-    /DRAIN_LIMIT: >-[\s\S]*matrix\.resource == 'balancetes'[\s\S]*'5'/,
+    /DRAIN_LIMIT: >-[\s\S]*matrix\.resource == 'balancetes'[\s\S]*'500'/,
+  );
+  assert.match(
+    drainStep,
+    /DRAIN_MAX_DOCUMENTS: >-[\s\S]*matrix\.resource == 'balancetes'[\s\S]*'5'/,
   );
   assert.match(drainStep, /--resource "\$\{\{ matrix\.resource \}\}"/);
   assert.match(drainStep, /--limit "\$DRAIN_LIMIT"/);
   assert.match(drainStep, /--max-pages "\$DRAIN_MAX_PAGES"/);
+  assert.match(drainStep, /--max-documents "\$DRAIN_MAX_DOCUMENTS"/);
   assert.match(drainStep, /--download-documents/);
 });
