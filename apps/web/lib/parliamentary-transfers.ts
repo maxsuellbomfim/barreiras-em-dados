@@ -143,6 +143,40 @@ export type HistoricalParliamentaryAmendmentRanking = Readonly<{
   methodologyVersion: "historical-parliamentary-amendment-ranking/1.0.0";
 }>;
 
+export type BahiaStateLoaAmendment = Readonly<{
+  fiscalYear: number;
+  amendmentNumber: string;
+  authorExternalCode: string | null;
+  authorKey: string;
+  authorName: string;
+  authorizedAmount: string;
+  officialDescription: string;
+  annexCode: string | null;
+  budgetUnitCode: string | null;
+  agencyCode: string | null;
+  actionCode: string | null;
+  pageNumber: number;
+  evidenceText: string;
+  financialStage: "authorized";
+  sourceUrl: string;
+  sourceArtifactSha256: string;
+  evidenceSha256: string;
+  methodologyVersion: "bahia-state-loa-amendments/1.0.0";
+}>;
+
+export type BahiaStateLoaAmendmentRanking = Readonly<{
+  rankPosition: number;
+  authorKey: string;
+  authorName: string;
+  authorExternalCode: string | null;
+  amendmentCount: number;
+  authorizedAmount: string;
+  firstYear: number;
+  lastYear: number;
+  financialStage: "authorized";
+  methodologyVersion: "bahia-state-loa-amendment-ranking/1.0.0";
+}>;
+
 export type FederalTransferScopeSummary = Readonly<{
   candidateProposalCount: number;
   includedProposalCount: number;
@@ -223,6 +257,8 @@ export type ParliamentaryTransfersResult =
       historicalAmendments: readonly HistoricalParliamentaryAmendment[] | null;
       historicalPeople: readonly HistoricalParliamentaryAmendmentRanking[] | null;
       historicalCollectives: readonly HistoricalParliamentaryAmendmentRanking[] | null;
+      stateLoaAmendments: readonly BahiaStateLoaAmendment[] | null;
+      stateLoaRanking: readonly BahiaStateLoaAmendmentRanking[] | null;
       scopeSummary: FederalTransferScopeSummary | null;
       reconciledTransfers: readonly ReconciledParliamentaryTransfer[] | null;
       reconciledPeople: readonly ReconciledParliamentaryTransferRanking[] | null;
@@ -642,6 +678,92 @@ function parseHistoricalRankingRows(
     : parsed as HistoricalParliamentaryAmendmentRanking[];
 }
 
+function parseBahiaStateLoaAmendment(
+  row: Record<string, unknown>,
+): BahiaStateLoaAmendment | null {
+  const fiscalYear = integer(row.fiscal_year, 2022);
+  const amendmentNumber = requiredText(row.amendment_number);
+  const authorKey = requiredText(row.author_key);
+  const authorName = requiredText(row.author_name);
+  const authorizedAmount = decimal(row.authorized_amount);
+  const officialDescription = requiredText(row.official_description);
+  const pageNumber = integer(row.page_number, 1);
+  const evidenceText = requiredText(row.evidence_text);
+  const sourceUrl = requiredText(row.source_url);
+  const sourceArtifactSha256 = requiredText(row.source_artifact_sha256);
+  const evidenceSha256 = requiredText(row.evidence_sha256);
+  if (
+    fiscalYear === null || !amendmentNumber || !authorKey || !authorName ||
+    !authorizedAmount || !officialDescription || pageNumber === null ||
+    !evidenceText || !sourceUrl?.startsWith("https://") ||
+    !sourceArtifactSha256 || !SHA256.test(sourceArtifactSha256) ||
+    !evidenceSha256 || !SHA256.test(evidenceSha256) ||
+    row.financial_stage !== "authorized" ||
+    row.methodology_version !== "bahia-state-loa-amendments/1.0.0"
+  ) return null;
+  return {
+    fiscalYear,
+    amendmentNumber,
+    authorExternalCode: optionalText(row.author_external_code),
+    authorKey,
+    authorName,
+    authorizedAmount,
+    officialDescription,
+    annexCode: optionalText(row.annex_code),
+    budgetUnitCode: optionalText(row.budget_unit_code),
+    agencyCode: optionalText(row.agency_code),
+    actionCode: optionalText(row.action_code),
+    pageNumber,
+    evidenceText,
+    financialStage: "authorized",
+    sourceUrl,
+    sourceArtifactSha256,
+    evidenceSha256,
+    methodologyVersion: "bahia-state-loa-amendments/1.0.0",
+  };
+}
+
+function parseBahiaStateLoaRanking(
+  row: Record<string, unknown>,
+): BahiaStateLoaAmendmentRanking | null {
+  const rankPosition = integer(row.rank_position, 1);
+  const authorKey = requiredText(row.author_key);
+  const authorName = requiredText(row.author_name);
+  const amendmentCount = integer(row.amendment_count, 1);
+  const authorizedAmount = decimal(row.authorized_amount);
+  const firstYear = integer(row.first_year, 2022);
+  const lastYear = integer(row.last_year, 2022);
+  if (
+    rankPosition === null || !authorKey || !authorName || amendmentCount === null ||
+    !authorizedAmount || firstYear === null || lastYear === null || firstYear > lastYear ||
+    row.financial_stage !== "authorized" ||
+    row.methodology_version !== "bahia-state-loa-amendment-ranking/1.0.0"
+  ) return null;
+  return {
+    rankPosition,
+    authorKey,
+    authorName,
+    authorExternalCode: optionalText(row.author_external_code),
+    amendmentCount,
+    authorizedAmount,
+    firstYear,
+    lastYear,
+    financialStage: "authorized",
+    methodologyVersion: "bahia-state-loa-amendment-ranking/1.0.0",
+  };
+}
+
+function parseBahiaStateLoaRows<T>(
+  rows: unknown[],
+  parser: (row: Record<string, unknown>) => T | null,
+): T[] | null {
+  const parsed = rows.map((row) => {
+    if (typeof row !== "object" || row === null) return null;
+    return parser(row as Record<string, unknown>);
+  });
+  return parsed.some((row) => row === null) ? null : parsed as T[];
+}
+
 function parseScopeSummary(rows: unknown[]): FederalTransferScopeSummary | null {
   if (rows.length !== 1 || typeof rows[0] !== "object" || rows[0] === null) return null;
   const row = rows[0] as Record<string, unknown>;
@@ -900,6 +1022,8 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       historicalAmendmentRows,
       historicalPeopleRows,
       historicalCollectiveRows,
+      stateLoaAmendmentRows,
+      stateLoaRankingRows,
       scopeSummaryRows,
       reconciledTransferRows,
       reconciledPeopleRows,
@@ -944,6 +1068,15 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
         fiscal_year_filter: null,
         page_size: 50,
       }),
+      callRpc("get_public_bahia_state_loa_amendments", {
+        fiscal_year_filter: null,
+        author_key_filter: null,
+        page_size: 200,
+      }),
+      callRpc("get_public_bahia_state_loa_amendment_ranking", {
+        fiscal_year_filter: null,
+        page_size: 50,
+      }),
       callRpc("get_public_federal_transfer_scope_summary", {}),
       callRpc("get_public_reconciled_parliamentary_transfers", {
         fiscal_year_filter: null,
@@ -984,6 +1117,15 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
     const historicalCollectives = historicalCollectiveRows === null
       ? null
       : parseHistoricalRankingRows(historicalCollectiveRows);
+    const stateLoaAmendments = stateLoaAmendmentRows === null
+      ? null
+      : parseBahiaStateLoaRows(
+          stateLoaAmendmentRows,
+          parseBahiaStateLoaAmendment,
+        );
+    const stateLoaRanking = stateLoaRankingRows === null
+      ? null
+      : parseBahiaStateLoaRows(stateLoaRankingRows, parseBahiaStateLoaRanking);
     const scopeSummary = scopeSummaryRows === null
       ? null
       : parseScopeSummary(scopeSummaryRows);
@@ -1018,6 +1160,8 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       historicalAmendments,
       historicalPeople,
       historicalCollectives,
+      stateLoaAmendments,
+      stateLoaRanking,
       scopeSummary,
       reconciledTransfers: reconciledTransfers?.some((row) => row === null)
         ? null
