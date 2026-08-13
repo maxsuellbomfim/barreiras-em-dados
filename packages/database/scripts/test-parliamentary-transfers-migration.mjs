@@ -74,6 +74,8 @@ try {
   const contracts = await database.query(`
     select
       to_regclass('territory.parliamentary_transfers')::text as transfer_projection,
+      to_regclass('political.parliamentary_transfer_author_crosswalk')::text
+        as author_crosswalk,
       to_regclass('raw.raw_records_transferegov_latest_idx')::text as latest_index,
       to_regclass('raw.raw_records_transferegov_proposal_idx')::text as proposal_index,
       to_regclass('raw.raw_records_transferegov_partnership_idx')::text as partnership_index,
@@ -98,6 +100,7 @@ try {
   `);
   assert.deepEqual(contracts.rows, [{
     transfer_projection: "territory.parliamentary_transfers",
+    author_crosswalk: "political.parliamentary_transfer_author_crosswalk",
     latest_index: "raw.raw_records_transferegov_latest_idx",
     proposal_index: "raw.raw_records_transferegov_proposal_idx",
     partnership_index: "raw.raw_records_transferegov_partnership_idx",
@@ -234,13 +237,17 @@ try {
 
   await database.exec("set role anon");
   const people = await database.query(`
-    select author_name, author_kind, amendment_count, destination_amount,
+    select author_name, author_kind, representative_source_kind,
+      representative_external_id, representative_profile_url,
+      association_status, amendment_count, destination_amount,
       committed_amount, paid_amount, fully_paid_amendment_count,
       methodology_version
     from api.get_public_parliamentary_transfer_ranking('person', 2025::smallint, 50)
   `);
   const collectives = await database.query(`
-    select author_name, author_kind, amendment_count, destination_amount,
+    select author_name, author_kind, representative_source_kind,
+      representative_external_id, representative_profile_url,
+      association_status, amendment_count, destination_amount,
       committed_amount, paid_amount, fully_paid_amendment_count,
       methodology_version
     from api.get_public_parliamentary_transfer_ranking('collective', 2025::smallint, 50)
@@ -258,22 +265,30 @@ try {
   assert.deepEqual(people.rows, [{
     author_name: "RICARDO MAIA",
     author_kind: "person",
+    representative_source_kind: "federal",
+    representative_external_id: "220694",
+    representative_profile_url: "https://www.camara.leg.br/deputados/220694",
+    association_status: "approved_official_crosswalk",
     amendment_count: 2,
     destination_amount: "350000.00",
     committed_amount: null,
     paid_amount: null,
     fully_paid_amendment_count: 0,
-    methodology_version: "parliamentary-transfer-ranking/1.0.0",
+    methodology_version: "parliamentary-transfer-ranking/1.1.0",
   }]);
   assert.deepEqual(collectives.rows, [{
     author_name: "COMISSAO DA SAUDE",
     author_kind: "commission",
+    representative_source_kind: null,
+    representative_external_id: null,
+    representative_profile_url: null,
+    association_status: "not_applicable_collective",
     amendment_count: 1,
     destination_amount: "5000000.00",
     committed_amount: "5000000.00",
     paid_amount: "5000000.00",
     fully_paid_amendment_count: 1,
-    methodology_version: "parliamentary-transfer-ranking/1.0.0",
+    methodology_version: "parliamentary-transfer-ranking/1.1.0",
   }]);
   assert.deepEqual(transfers.rows, [
     {
@@ -323,6 +338,10 @@ try {
   await database.exec("set role anon");
   await assert.rejects(
     database.query("select * from territory.parliamentary_transfers"),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query("select * from political.parliamentary_transfer_author_crosswalk"),
     /permission denied/,
   );
   await assert.rejects(

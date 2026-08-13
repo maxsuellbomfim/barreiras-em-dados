@@ -9,6 +9,13 @@ const migration = await readFile(
   ),
   "utf8",
 );
+const authorLinkMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260812224207_link_parliamentary_transfer_authors_to_profiles.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(
   new URL("../../apps/web/lib/parliamentary-transfers.ts", import.meta.url),
   "utf8",
@@ -26,6 +33,15 @@ test("ranking separa autoria individual de comissoes e bancadas", () => {
   assert.match(client, /author_scope: "collective"/);
   assert.match(page, /Parlamentares que destinaram recursos/);
   assert.match(page, /Comiss/);
+});
+
+test("autoria individual aprovada liga ranking e perfil oficial por identificador", () => {
+  assert.match(authorLinkMigration, /representative_external_id/);
+  assert.match(authorLinkMigration, /approved_official_crosswalk/);
+  assert.match(client, /representativeExternalId/);
+  assert.match(client, /associationStatus/);
+  assert.match(page, /Ver perfil, votos e mandato/);
+  assert.match(page, /\/representantes#\$\{row\.representativeSourceKind/);
 });
 
 test("ranking usa valores oficiais sem produzir nota subjetiva de desempenho", () => {

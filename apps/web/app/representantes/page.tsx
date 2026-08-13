@@ -23,6 +23,13 @@ import {
   getExecutiveProfiles,
   type ExecutiveProfile,
 } from "../../lib/executive-profiles";
+import {
+  getPublicParliamentaryTransferRankings,
+  parliamentaryTransferAuthorAnchor,
+  transferSummaryForRepresentative,
+  type ParliamentaryTransferRanking,
+} from "../../lib/parliamentary-transfers";
+import { formatBrlDecimal } from "../../lib/revenues";
 
 export const revalidate = 300;
 
@@ -91,16 +98,58 @@ function RepresentativeVoteSummary({
   );
 }
 
+function RepresentativeTransferSummary({
+  summary,
+}: Readonly<{ summary: ParliamentaryTransferRanking | null }>) {
+  if (!summary) return null;
+  return (
+    <div className="person-vote-summary person-transfer-summary" aria-label="Emendas para Barreiras">
+      <div className="person-vote-summary-heading">
+        <strong>Recursos destinados a Barreiras</strong>
+        <span className="person-vote-summary-badge">autoria confirmada</span>
+      </div>
+      <ul>
+        <li>
+          <span>Valor destinado</span>
+          <strong>{formatBrlDecimal(summary.destinationAmount)}</strong>
+        </li>
+        <li>
+          <span>Pagamento confirmado</span>
+          <strong>
+            {summary.paidAmount === null
+              ? "não encontrado na fonte"
+              : formatBrlDecimal(summary.paidAmount)}
+          </strong>
+        </li>
+        <li>
+          <span>Emendas no recorte</span>
+          <strong>{summary.amendmentCount.toLocaleString("pt-BR")}</strong>
+        </li>
+      </ul>
+      <p>Valores oficiais por estágio; recurso destinado não significa recurso pago.</p>
+      <a href={`/recursos#${parliamentaryTransferAuthorAnchor(summary.authorKey)}`}>
+        Ver emendas e documentos →
+      </a>
+    </div>
+  );
+}
+
 function RepresentativeCard({
   person,
   voteLinks,
+  transferSummary,
 }: Readonly<{
   person: FederalRepresentative;
   voteLinks: readonly RepresentativeVote[];
+  transferSummary: ParliamentaryTransferRanking | null;
 }>) {
   const camaraUrl = `https://www.camara.leg.br/deputados/${person.externalId}`;
   return (
-    <article className="person-card" aria-label="Representante">
+    <article
+      className="person-card"
+      id={`federal-${person.externalId}`}
+      aria-label="Representante"
+    >
       <div className="person-head">
         {person.photoUrl ? (
           // Foto oficial publicada pela própria Câmara.
@@ -166,6 +215,7 @@ function RepresentativeCard({
       </dl>
 
       <RepresentativeVoteSummary votes={voteLinks} />
+      <RepresentativeTransferSummary summary={transferSummary} />
 
       <p className="act-evidence">
         <a href={camaraUrl} target="_blank" rel="noreferrer">
@@ -237,9 +287,11 @@ function CouncillorCard({
 function StateRepresentativeCard({
   person,
   voteLinks,
+  transferSummary,
 }: Readonly<{
   person: StateRepresentative;
   voteLinks: readonly RepresentativeVote[];
+  transferSummary: ParliamentaryTransferRanking | null;
 }>) {
   const initials = person.displayName
     .split(/\s+/)
@@ -249,7 +301,11 @@ function StateRepresentativeCard({
     .join("");
 
   return (
-    <article className="person-card" aria-label="Deputado estadual">
+    <article
+      className="person-card"
+      id={`state-${person.externalId}`}
+      aria-label="Deputado estadual"
+    >
       <div className="person-head">
         {person.photoUrl ? (
           // Foto oficial preservada a partir da página individual da ALBA.
@@ -274,6 +330,7 @@ function StateRepresentativeCard({
         </div>
       </div>
       <RepresentativeVoteSummary votes={voteLinks} />
+      <RepresentativeTransferSummary summary={transferSummary} />
       {person.education || person.professionalActivity || person.electiveMandate || person.parliamentaryActivity ? (
         <details className="person-biography">
           <summary>Biografia oficial publicada pela ALBA</summary>
@@ -475,6 +532,7 @@ export default async function RepresentativesPage() {
     votesResult,
     executiveProfilesResult,
     representativeVotesResult,
+    transferRankingsResult,
   ] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
@@ -482,11 +540,16 @@ export default async function RepresentativesPage() {
     getTseBarreirasVotes(),
     getExecutiveProfiles(),
     getRepresentativeVotes(),
+    getPublicParliamentaryTransferRankings(),
   ]);
   const legacyVotes = votesResult.state === "available" ? votesResult.votes : [];
   const representativeVotes =
     representativeVotesResult.state === "available"
       ? representativeVotesResult.votes
+      : [];
+  const transferRankings =
+    transferRankingsResult.state === "available"
+      ? transferRankingsResult.people
       : [];
 
   return (
@@ -733,6 +796,11 @@ export default async function RepresentativesPage() {
                       "federal",
                       person.externalId,
                     )}
+                    transferSummary={transferSummaryForRepresentative(
+                      transferRankings,
+                      "federal",
+                      person.externalId,
+                    )}
                   />
                 ))}
               </div>
@@ -846,6 +914,11 @@ export default async function RepresentativesPage() {
                       person={person}
                       voteLinks={votesForRepresentative(
                         representativeVotes,
+                        "state",
+                        person.externalId,
+                      )}
+                      transferSummary={transferSummaryForRepresentative(
+                        transferRankings,
                         "state",
                         person.externalId,
                       )}

@@ -5,11 +5,21 @@ export type ParliamentaryAuthorKind =
   | "collective"
   | "other";
 
+export type ParliamentaryRepresentativeSourceKind = "federal" | "state";
+export type ParliamentaryAuthorAssociationStatus =
+  | "approved_official_crosswalk"
+  | "not_linked"
+  | "not_applicable_collective";
+
 export type ParliamentaryTransferRanking = Readonly<{
   rankPosition: number;
   authorKey: string;
   authorName: string;
   authorKind: ParliamentaryAuthorKind;
+  representativeSourceKind: ParliamentaryRepresentativeSourceKind | null;
+  representativeExternalId: string | null;
+  representativeProfileUrl: string | null;
+  associationStatus: ParliamentaryAuthorAssociationStatus;
   amendmentCount: number;
   destinationAmount: string;
   committedAmount: string | null;
@@ -17,8 +27,16 @@ export type ParliamentaryTransferRanking = Readonly<{
   fullyPaidAmendmentCount: number;
   firstYear: number;
   lastYear: number;
-  methodologyVersion: "parliamentary-transfer-ranking/1.0.0";
+  methodologyVersion: "parliamentary-transfer-ranking/1.1.0";
 }>;
+
+export type ParliamentaryTransferRankingsResult =
+  | Readonly<{
+      state: "available";
+      people: readonly ParliamentaryTransferRanking[];
+      collectives: readonly ParliamentaryTransferRanking[];
+    }>
+  | Readonly<{ state: "unavailable" }>;
 
 export type ParliamentaryTransfer = Readonly<{
   externalTransferKey: string;
@@ -107,6 +125,10 @@ function parseRanking(
   const authorKey = requiredText(row.author_key);
   const authorName = requiredText(row.author_name);
   const kind = authorKind(row.author_kind);
+  const representativeSourceKind = optionalText(row.representative_source_kind);
+  const representativeExternalId = optionalText(row.representative_external_id);
+  const representativeProfileUrl = optionalText(row.representative_profile_url);
+  const associationStatus = optionalText(row.association_status);
   const amendmentCount = integer(row.amendment_count);
   const destinationAmount = decimal(row.destination_amount);
   const committedAmount = row.committed_amount === null
@@ -122,13 +144,29 @@ function parseRanking(
     (row.committed_amount !== null && committedAmount === null) ||
     (row.paid_amount !== null && paidAmount === null) ||
     fullyPaidAmendmentCount === null || firstYear === null || lastYear === null ||
-    row.methodology_version !== "parliamentary-transfer-ranking/1.0.0"
+    !["approved_official_crosswalk", "not_linked", "not_applicable_collective"].includes(
+      associationStatus ?? "",
+    ) ||
+    (associationStatus === "approved_official_crosswalk" && (
+      !["federal", "state"].includes(representativeSourceKind ?? "") ||
+      !representativeExternalId || !representativeProfileUrl?.startsWith("https://")
+    )) ||
+    (associationStatus !== "approved_official_crosswalk" && (
+      representativeSourceKind !== null || representativeExternalId !== null ||
+      representativeProfileUrl !== null
+    )) ||
+    row.methodology_version !== "parliamentary-transfer-ranking/1.1.0"
   ) return null;
   return {
     rankPosition,
     authorKey,
     authorName,
     authorKind: kind,
+    representativeSourceKind:
+      representativeSourceKind as ParliamentaryRepresentativeSourceKind | null,
+    representativeExternalId,
+    representativeProfileUrl,
+    associationStatus: associationStatus as ParliamentaryAuthorAssociationStatus,
     amendmentCount,
     destinationAmount,
     committedAmount,
@@ -136,8 +174,16 @@ function parseRanking(
     fullyPaidAmendmentCount,
     firstYear,
     lastYear,
-    methodologyVersion: "parliamentary-transfer-ranking/1.0.0",
+    methodologyVersion: "parliamentary-transfer-ranking/1.1.0",
   };
+}
+
+function parseRankingRows(rows: unknown[]): ParliamentaryTransferRanking[] {
+  return rows.flatMap((row) => {
+    if (typeof row !== "object" || row === null) return [];
+    const parsed = parseRanking(row as Record<string, unknown>);
+    return parsed ? [parsed] : [];
+  });
 }
 
 function parseTransfer(row: Record<string, unknown>): ParliamentaryTransfer | null {
@@ -245,16 +291,8 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
     ]);
     if (!peopleRows || !collectiveRows || !transferRows) return { state: "unavailable" };
 
-    const people = peopleRows.flatMap((row) => {
-      if (typeof row !== "object" || row === null) return [];
-      const parsed = parseRanking(row as Record<string, unknown>);
-      return parsed ? [parsed] : [];
-    });
-    const collectives = collectiveRows.flatMap((row) => {
-      if (typeof row !== "object" || row === null) return [];
-      const parsed = parseRanking(row as Record<string, unknown>);
-      return parsed ? [parsed] : [];
-    });
+    const people = parseRankingRows(peopleRows);
+    const collectives = parseRankingRows(collectiveRows);
     const transfers = transferRows.flatMap((row) => {
       if (typeof row !== "object" || row === null) return [];
       const parsed = parseTransfer(row as Record<string, unknown>);
@@ -264,4 +302,49 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
   } catch {
     return { state: "unavailable" };
   }
+}
+
+export async function getPublicParliamentaryTransferRankings(): Promise<ParliamentaryTransferRankingsResult> {
+  try {
+    const [peopleRows, collectiveRows] = await Promise.all([
+      callRpc("get_public_parliamentary_transfer_ranking", {
+        author_scope: "person",
+        fiscal_year_filter: null,
+        page_size: 50,
+      }),
+      callRpc("get_public_parliamentary_transfer_ranking", {
+        author_scope: "collective",
+        fiscal_year_filter: null,
+        page_size: 50,
+      }),
+    ]);
+    if (!peopleRows || !collectiveRows) return { state: "unavailable" };
+    return {
+      state: "available",
+      people: parseRankingRows(peopleRows),
+      collectives: parseRankingRows(collectiveRows),
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export function transferSummaryForRepresentative(
+  rows: readonly ParliamentaryTransferRanking[],
+  sourceKind: ParliamentaryRepresentativeSourceKind,
+  representativeExternalId: string,
+): ParliamentaryTransferRanking | null {
+  return rows.find(
+    (row) => row.associationStatus === "approved_official_crosswalk" &&
+      row.representativeSourceKind === sourceKind &&
+      row.representativeExternalId === representativeExternalId,
+  ) ?? null;
+}
+
+export function parliamentaryTransferAuthorAnchor(authorKey: string): string {
+  return `autor-${authorKey
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")}`;
 }

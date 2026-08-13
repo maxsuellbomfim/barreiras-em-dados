@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+const representativesPage = await readFile(
+  new URL("../../apps/web/app/representantes/page.tsx", import.meta.url),
+  "utf8",
+);
+
 const migration = await readFile(
   new URL(
     "../../supabase/migrations/20260808150000_representative_alias_review.sql",
@@ -90,4 +95,11 @@ test("revisão de alias não confunde parâmetro e coluna review_note", () => {
   assert.match(aliasReviewFix, /p_review_note text default null/);
   assert.match(aliasReviewFix, /review_note = nullif\(btrim\(p_review_note\), ''\)/);
   assert.match(aliasReviewFix, /update political\.representative_alias_suggestions as suggestion_row/);
+});
+
+test("perfil federal recebe resumo de emendas somente por identificador aprovado", () => {
+  assert.match(representativesPage, /getPublicParliamentaryTransferRankings/);
+  assert.match(representativesPage, /transferSummaryForRepresentative/);
+  assert.match(representativesPage, /Recursos destinados a Barreiras/);
+  assert.match(representativesPage, /id={`federal-\${person\.externalId}`}/);
 });
