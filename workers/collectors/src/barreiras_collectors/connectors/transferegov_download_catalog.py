@@ -270,7 +270,11 @@ def _parse_catalog(
         body_size_bytes=len(response.body),
         media_type="application/xml",
         response_headers=_safe_headers(response.headers),
-        cursor={"selected_files": len(items)},
+        cursor={
+            "offset": 0,
+            "size": len(items),
+            "selected_files": len(items),
+        },
         raw_body=response.body,
         items=items,
         total_pages=1,

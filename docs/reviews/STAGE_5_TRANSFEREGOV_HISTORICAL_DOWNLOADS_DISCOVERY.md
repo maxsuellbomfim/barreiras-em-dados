@@ -71,3 +71,11 @@ A correção mantém o bucket privado e amplia somente a allowlist de MIME types
 O teste de migration exige explicitamente `application/xml`; o workflow deverá
 ser repetido após a migration ser aplicada. Um HTTP 200 sem preservação do
 artefato continua sendo falha, não cobertura completa.
+
+A execução comparativa
+[`31660063594`](https://github.com/maxsuellbomfim/barreiras-em-dados/actions/runs/31660063594)
+comprovou que upload e leitura de volta passaram após a correção do MIME. A
+persistência relacional então expôs um segundo contrato: o repositório comum
+exige `offset` e `size` no cursor de toda página. O catálogo fornecia somente
+`selected_files` e falhou com `KeyError`, antes de gravar registros ou declarar
+cobertura. A regressão agora fixa explicitamente os três campos do cursor.
