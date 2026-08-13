@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import {
   getPublicParliamentaryTransfers,
   parliamentaryTransferAuthorAnchor,
+  type BahiaStateLoaAmendment,
+  type BahiaStateLoaAmendmentRanking,
   type FederalTransferProposal,
   type FederalTransferScopeSummary,
   type HistoricalParliamentaryAmendment,
@@ -224,6 +226,155 @@ function ReconciledRankingTable({
         </article>
       ))}
     </div>
+  );
+}
+
+function StateLoaRankingTable({
+  rows,
+}: Readonly<{ rows: readonly BahiaStateLoaAmendmentRanking[] }>) {
+  if (rows.length === 0) {
+    return (
+      <p className="transfer-empty">
+        Nenhuma emenda estadual validada foi encontrada neste recorte.
+      </p>
+    );
+  }
+  return (
+    <div className="transfer-ranking-list">
+      {rows.map((row) => (
+        <article
+          className="transfer-ranking-card"
+          key={`state-loa:${row.authorKey}`}
+        >
+          <span className="transfer-rank" aria-label={`posição ${row.rankPosition}`}>
+            {row.rankPosition}
+          </span>
+          <div className="transfer-ranking-name">
+            <h3>{row.authorName}</h3>
+            <span>Autoria publicada no anexo da LOA da Bahia</span>
+          </div>
+          <dl>
+            <div>
+              <dt>Autorizado no orçamento</dt>
+              <dd>{formatBrlDecimal(row.authorizedAmount)}</dd>
+            </div>
+            <div>
+              <dt>Emendas encontradas</dt>
+              <dd>{row.amendmentCount.toLocaleString("pt-BR")}</dd>
+            </div>
+            <div>
+              <dt>Período</dt>
+              <dd>{row.firstYear === row.lastYear ? row.firstYear : `${row.firstYear}–${row.lastYear}`}</dd>
+            </div>
+          </dl>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function StateLoaAmendmentCard({
+  amendment,
+}: Readonly<{ amendment: BahiaStateLoaAmendment }>) {
+  return (
+    <article className="transfer-card">
+      <div className="transfer-card-heading">
+        <div>
+          <span className="transfer-card-kind">LOA da Bahia · {amendment.fiscalYear}</span>
+          <h3>{amendment.authorName}</h3>
+          <p>Emenda {amendment.amendmentNumber} · página {amendment.pageNumber}</p>
+        </div>
+        <span className="transfer-status">autorizada no orçamento</span>
+      </div>
+      <p className="transfer-object">{amendment.officialDescription}</p>
+      <dl className="transfer-stage-grid">
+        <div>
+          <dt>Valor autorizado</dt>
+          <dd>{formatBrlDecimal(amendment.authorizedAmount)}</dd>
+          <span>Dotação aprovada na LOA; não é confirmação de pagamento.</span>
+        </div>
+        <div>
+          <dt>Unidade orçamentária</dt>
+          <dd>{amendment.budgetUnitCode ?? "não informada na linha"}</dd>
+          <span>Ação {amendment.actionCode ?? "não informada"}</span>
+        </div>
+        <div>
+          <dt>Órgão</dt>
+          <dd>{amendment.agencyCode ?? "não informado na linha"}</dd>
+          <span>Anexo {amendment.annexCode ?? "não informado"}</span>
+        </div>
+      </dl>
+      <details className="transfer-details">
+        <summary>Trecho exato que sustenta este registro</summary>
+        <p>{amendment.evidenceText}</p>
+        <p>
+          Hash do PDF: <code>{amendment.sourceArtifactSha256}</code><br />
+          Hash do trecho: <code>{amendment.evidenceSha256}</code>
+        </p>
+      </details>
+      <a
+        className="transfer-source-link"
+        href={amendment.sourceUrl}
+        rel="noreferrer"
+        target="_blank"
+      >
+        Abrir anexo oficial da LOA →
+      </a>
+    </article>
+  );
+}
+
+function StateLoaPanel({
+  ranking,
+  amendments,
+}: Readonly<{
+  ranking: readonly BahiaStateLoaAmendmentRanking[] | null;
+  amendments: readonly BahiaStateLoaAmendment[] | null;
+}>) {
+  return (
+    <section className="transfer-ranking" aria-labelledby="state-loa-title">
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Recursos estaduais · 2022 a 2026</span>
+          <h2 id="state-loa-title">Emendas estaduais autorizadas na LOA</h2>
+        </div>
+        <p>Fonte: anexos oficiais da Secretaria do Planejamento da Bahia.</p>
+      </div>
+      <aside className="transfer-reading-guide">
+        <strong>O que estes valores realmente dizem</strong>
+        <p>
+          “Autorizado” significa que a emenda entrou no orçamento estadual. Isso
+          não significa dinheiro pago, transferido a Barreiras ou obra executada.
+          Essas etapas só serão exibidas quando outra fonte oficial as comprovar.
+        </p>
+        <p>
+          A ordem abaixo usa somente soma decimal em SQL. Não é nota de desempenho
+          nem avaliação política; mostra quem aparece com maior valor autorizado
+          nos anexos municipais encontrados.
+        </p>
+      </aside>
+      {ranking === null ? (
+        <p className="transfer-empty">
+          A projeção estadual ainda não está disponível no banco público. Isso não
+          significa ausência de emendas.
+        </p>
+      ) : <StateLoaRankingTable rows={ranking} />}
+      {amendments && amendments.length > 0 ? (
+        <details className="transfer-methodology">
+          <summary>
+            Conferir as {amendments.length.toLocaleString("pt-BR")} emendas, objetos e fontes
+          </summary>
+          <div className="transfer-card-list">
+            {amendments.map((amendment) => (
+              <StateLoaAmendmentCard
+                amendment={amendment}
+                key={`${amendment.fiscalYear}:${amendment.amendmentNumber}:${amendment.evidenceSha256}`}
+              />
+            ))}
+          </div>
+        </details>
+      ) : null}
+    </section>
   );
 }
 
@@ -823,6 +974,11 @@ export default async function ParliamentaryResourcesPage() {
           </div>
         ) : (
           <>
+            <StateLoaPanel
+              amendments={result.stateLoaAmendments}
+              ranking={result.stateLoaRanking}
+            />
+
             <ReconciledRankingPanel
               people={result.reconciledPeople}
               collectives={result.reconciledCollectives}

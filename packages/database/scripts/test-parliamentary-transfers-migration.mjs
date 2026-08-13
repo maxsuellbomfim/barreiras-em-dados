@@ -530,6 +530,172 @@ try {
       );
   `);
 
+  await database.exec(`
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000009301',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'bahia-seplan-budget'
+         and endpoint.slug = 'state-loa-amendment-annexes'),
+      'state-loa-public-fixture-run', 'test/1', 'succeeded'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key, collector_version
+    ) values (
+      '00000000-0000-0000-0000-000000009302',
+      '00000000-0000-0000-0000-000000009301',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'bahia-seplan-budget'
+         and endpoint.slug = 'state-loa-amendment-annexes'),
+      'state-loa-public-fixture-artifact', 'document',
+      'https://www.ba.gov.br/seplan/loa-fixture.pdf',
+      '2026-08-13 18:00:00+00', 1000, '${"7".repeat(64)}',
+      'fixtures/bahia-loa.pdf', 'test/1'
+    );
+    insert into raw.extraction_jobs (
+      id, raw_artifact_id, job_type, idempotency_key, status
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009310',
+        '00000000-0000-0000-0000-000000009302',
+        'bahia_state_loa_authorized_amendments_v1',
+        'state-loa-public-fixture-job-ok', 'succeeded'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009311',
+        '00000000-0000-0000-0000-000000009302',
+        'bahia_state_loa_authorized_amendments_v1',
+        'state-loa-public-fixture-job-failed', 'failed'
+      );
+    insert into raw.extraction_results (
+      id, extraction_job_id, candidate_type, extractor_version,
+      validator_version, result_payload, validation_status, validation_errors,
+      created_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009320',
+        '00000000-0000-0000-0000-000000009310',
+        'bahia_state_loa_authorized_amendment',
+        'bahia-state-loa-barreiras/1.1.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2022,"municipality":"Barreiras","amendment_number":"101","author_external_code":null,"author_name":"Antônio Henrique Jr.","authorized_amount":"100000","official_description":"Saúde em Barreiras","annex_code":"III","budget_unit_code":"1001","agency_code":"10","action_code":"2001","page_number":10,"evidence_text":"BARREIRAS ANTONIO HENRIQUE JR 100000","financial_stage":"authorized","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","evidence_sha256":"${"a".repeat(64)}"}',
+        'valid', '[]', '2026-08-13 18:01:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009321',
+        '00000000-0000-0000-0000-000000009310',
+        'bahia_state_loa_authorized_amendment',
+        'bahia-state-loa-barreiras/1.1.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2026,"municipality":"Barreiras","amendment_number":"102","author_external_code":"500069","author_name":"Antonio Henrique Júnior","authorized_amount":"200000","official_description":"Educação em Barreiras","annex_code":"I","budget_unit_code":"1002","agency_code":"11","action_code":"2002","page_number":11,"evidence_text":"BARREIRAS ANTONIO HENRIQUE JUNIOR 200000","financial_stage":"authorized","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","evidence_sha256":"${"b".repeat(64)}"}',
+        'valid', '[]', '2026-08-13 18:02:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009322',
+        '00000000-0000-0000-0000-000000009310',
+        'bahia_state_loa_authorized_amendment',
+        'bahia-state-loa-barreiras/1.1.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2026,"municipality":"Barreiras","amendment_number":"103","author_external_code":"500144","author_name":"Marcone Amaral","authorized_amount":"500000","official_description":"Infraestrutura em Barreiras","annex_code":"I","budget_unit_code":"1003","agency_code":"12","action_code":"2003","page_number":12,"evidence_text":"BARREIRAS MARCONE AMARAL 500000","financial_stage":"authorized","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","evidence_sha256":"${"c".repeat(64)}"}',
+        'valid', '[]', '2026-08-13 18:03:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009323',
+        '00000000-0000-0000-0000-000000009310',
+        'bahia_state_loa_authorized_amendment',
+        'bahia-state-loa-barreiras/1.1.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2026,"municipality":"Barreiras","amendment_number":"102","author_external_code":"500069","author_name":"Antonio Henrique Júnior","authorized_amount":"200000","official_description":"Educação em Barreiras","annex_code":"I","budget_unit_code":"1002","agency_code":"11","action_code":"2002","page_number":11,"evidence_text":"BARREIRAS ANTONIO HENRIQUE JUNIOR 200000","financial_stage":"authorized","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","evidence_sha256":"${"b".repeat(64)}"}',
+        'valid', '[]', '2026-08-13 18:04:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009324',
+        '00000000-0000-0000-0000-000000009311',
+        'bahia_state_loa_authorized_amendment',
+        'bahia-state-loa-barreiras/1.1.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2026,"municipality":"Barreiras","amendment_number":"999","author_name":"Registro com job falho","authorized_amount":"999999","official_description":"Não publicar","page_number":99,"evidence_text":"NAO PUBLICAR","financial_stage":"authorized","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","evidence_sha256":"${"d".repeat(64)}"}',
+        'valid', '[]', '2026-08-13 18:05:00+00'
+      );
+  `);
+
+  const stateLoaDetails = await database.query(`
+    select fiscal_year, amendment_number, author_name, authorized_amount,
+      financial_stage, source_artifact_sha256, evidence_sha256,
+      methodology_version
+    from api.get_public_bahia_state_loa_amendments(null, null, 200)
+  `);
+  const stateLoaRanking = await database.query(`
+    select rank_position, author_key, author_name, author_external_code,
+      amendment_count, authorized_amount, first_year, last_year,
+      financial_stage, methodology_version
+    from api.get_public_bahia_state_loa_amendment_ranking(null, 50)
+  `);
+  assert.deepEqual(stateLoaDetails.rows, [
+    {
+      fiscal_year: 2026,
+      amendment_number: "103",
+      author_name: "Marcone Amaral",
+      authorized_amount: "500000.00",
+      financial_stage: "authorized",
+      source_artifact_sha256: "7".repeat(64),
+      evidence_sha256: "c".repeat(64),
+      methodology_version: "bahia-state-loa-amendments/1.0.0",
+    },
+    {
+      fiscal_year: 2026,
+      amendment_number: "102",
+      author_name: "Antonio Henrique Júnior",
+      authorized_amount: "200000.00",
+      financial_stage: "authorized",
+      source_artifact_sha256: "7".repeat(64),
+      evidence_sha256: "b".repeat(64),
+      methodology_version: "bahia-state-loa-amendments/1.0.0",
+    },
+    {
+      fiscal_year: 2022,
+      amendment_number: "101",
+      author_name: "Antônio Henrique Jr.",
+      authorized_amount: "100000.00",
+      financial_stage: "authorized",
+      source_artifact_sha256: "7".repeat(64),
+      evidence_sha256: "a".repeat(64),
+      methodology_version: "bahia-state-loa-amendments/1.0.0",
+    },
+  ]);
+  assert.deepEqual(stateLoaRanking.rows, [
+    {
+      rank_position: 1,
+      author_key: "marcone amaral",
+      author_name: "Marcone Amaral",
+      author_external_code: "500144",
+      amendment_count: 1,
+      authorized_amount: "500000.00",
+      first_year: 2026,
+      last_year: 2026,
+      financial_stage: "authorized",
+      methodology_version: "bahia-state-loa-amendment-ranking/1.0.0",
+    },
+    {
+      rank_position: 2,
+      author_key: "antonio henrique junior",
+      author_name: "Antonio Henrique Júnior",
+      author_external_code: "500069",
+      amendment_count: 2,
+      authorized_amount: "300000.00",
+      first_year: 2022,
+      last_year: 2026,
+      financial_stage: "authorized",
+      methodology_version: "bahia-state-loa-amendment-ranking/1.0.0",
+    },
+  ]);
+
   await database.exec("set role anon");
   const people = await database.query(`
     select author_name, author_kind, representative_source_kind,
@@ -1002,6 +1168,16 @@ try {
   await assert.rejects(
     database.query("select * from territory.reconciled_parliamentary_transfers"),
     /permission denied/,
+  );
+  await assert.rejects(
+    database.query("select * from territory.bahia_state_loa_amendments"),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_bahia_state_loa_amendments(null, null, 201)",
+    ),
+    /limite de emendas estaduais da LOA invalido/,
   );
   await assert.rejects(
     database.query(

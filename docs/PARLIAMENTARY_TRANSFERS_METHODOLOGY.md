@@ -120,7 +120,7 @@ CPF/CNPJ presente no texto do objeto não é interpretado como valor; o último
 campo monetário isolado da linha territorial é o valor autorizado. Um anexo sem
 texto integral ou sem linha comprovada de Barreiras falha e não gera total zero.
 
-Validação local dos PDFs oficiais em 13/08/2026, antes da projeção pública:
+Validação local e replay de produção dos PDFs oficiais em 13/08/2026:
 
 - 2022: 2 linhas; R$ 379.200 autorizados;
 - 2023: 14 linhas; R$ 1.090.200 autorizados;
@@ -128,8 +128,11 @@ Validação local dos PDFs oficiais em 13/08/2026, antes da projeção pública:
 - 2025: 7 linhas; R$ 997.600 autorizados;
 - 2026: 27 linhas; R$ 9.017.541 autorizados.
 
-Esses números são uma linha de base reprodutível do parser e ainda não provam
-empenho, liquidação, pagamento ou recebimento pelo Município.
+O replay persistiu 63 resultados válidos, com 63 chaves de evidência distintas,
+cinco jobs concluídos e nenhuma falha. A projeção pública aceita somente jobs
+concluídos, parser e validador fixados, URL HTTPS, hash do PDF, hash do trecho e
+estágio `authorized`. Esses números ainda não provam empenho, liquidação,
+pagamento ou recebimento pelo Município.
 
 Valor publicado nesses anexos é **autorizado na LOA**. Não significa pagamento,
 transferência ou dinheiro recebido por Barreiras. A futura reconciliação com o
@@ -142,11 +145,15 @@ ZIP do FIPLAN exibirá, em colunas independentes:
 - restos a pagar, cancelamentos e impedimentos, sem convertê-los em zero;
 - URL, data da coleta, hash e versão exata do arquivo de origem.
 
-O ranking mostrará primeiro fatos comparáveis: valor autorizado e valor
-efetivamente pago a Barreiras em colunas distintas. Uma emenda anunciada ou
-indicada não será descrita como dinheiro recebido. Ausência na base estadual
-será exibida como “não encontrada na fonte consultada”, nunca como ausência
-definitiva ou falta de trabalho parlamentar.
+O primeiro ranking estadual mostra apenas o valor autorizado, separado do
+ranking federal e acompanhado do objeto, página, trecho literal, URL e hashes.
+Grafias equivalentes de autor são agrupadas por normalização determinística de
+acentos, pontuação e abreviação `Jr.`; isso não substitui o futuro vínculo com o
+identificador oficial do parlamentar. Valor efetivamente pago a Barreiras só
+entrará em coluna própria após reconciliação com a execução. Uma emenda
+anunciada ou indicada não será descrita como dinheiro recebido. Ausência na
+base estadual será exibida como “não encontrada na fonte consultada”, nunca
+como ausência definitiva ou falta de trabalho parlamentar.
 
 O link oficial rotulado como Anexo III de 2021 aponta para um PDF da LOA 2020.
 Por isso, 2021 é registrado como `blocked`: o Barreiras 360 não baixa nem
