@@ -25,6 +25,11 @@ from ..connectors.transferegov_download_catalog import (
     TransferegovDownloadCatalogSnapshot,
     parse_catalog_items,
 )
+from ..connectors.transferegov_historical_amendments import (
+    HistoricalAmendmentArchiveError,
+    HistoricalAmendmentSnapshot,
+    parse_historical_amendments_archive,
+)
 from ..connectors.transferegov_historical_proposals import (
     HistoricalProposalArchiveError,
     HistoricalProposalSnapshot,
@@ -84,6 +89,12 @@ TRANSFEREGOV_HISTORICAL_PROPOSAL_COLLECTOR_VERSION = (
 )
 TRANSFEREGOV_HISTORICAL_PROPOSAL_PARSER_VERSION = (
     "transferegov-historical-proposals/1.0.0"
+)
+TRANSFEREGOV_HISTORICAL_AMENDMENT_COLLECTOR_VERSION = (
+    "transferegov-historical-amendments-collector/1.0.0"
+)
+TRANSFEREGOV_HISTORICAL_AMENDMENT_PARSER_VERSION = (
+    "transferegov-historical-amendments/1.0.0"
 )
 
 
@@ -756,6 +767,123 @@ class TransferegovHistoricalProposalPersistenceService:
                     TRANSFEREGOV_HISTORICAL_PROPOSAL_COLLECTOR_VERSION
                 ),
                 parser_version=TRANSFEREGOV_HISTORICAL_PROPOSAL_PARSER_VERSION,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=snapshot.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+
+class TransferegovHistoricalAmendmentPersistenceService:
+    """Preserva o ZIP integral e materializa emendas do recorte comprovado."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, snapshot: HistoricalAmendmentSnapshot) -> PersistenceResult:
+        actual_hash = hashlib.sha256(snapshot.raw_body).hexdigest()
+        if (
+            actual_hash != snapshot.body_sha256
+            or len(snapshot.raw_body) != snapshot.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "O ZIP histórico de emendas diverge dos metadados coletados."
+            )
+        try:
+            raw_items = parse_historical_amendments_archive(
+                snapshot.raw_body,
+                proposal_ids=snapshot.proposal_ids,
+            )
+        except HistoricalAmendmentArchiveError as error:
+            raise ArtifactIntegrityError(
+                "O ZIP preservado perdeu seu contrato de emendas."
+            ) from error
+        if raw_items != snapshot.items:
+            raise ArtifactIntegrityError(
+                "As emendas municipais divergem do ZIP preservado."
+            )
+
+        records: list[RawRecordInput] = []
+        for index, item in enumerate(snapshot.items):
+            identity_fields = (
+                item.get("id_proposta"),
+                item.get("codigo_programa_emenda"),
+                item.get("numero_emenda"),
+                item.get("autor_nome"),
+            )
+            if any(
+                not isinstance(value, str) or not value
+                for value in identity_fields
+            ):
+                raise PersistenceContractError(
+                    f"Emenda histórica {index} não possui identidade completa."
+                )
+            identity = ":".join(str(value) for value in identity_fields)
+            identity_hash = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            records.append(
+                RawRecordInput(
+                    source_record_key=(
+                        "transferegov:historical-amendment:"
+                        f"{identity_fields[0]}:{identity_hash[:24]}"
+                    ),
+                    record_type="transferegov_historical_amendment",
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=TRANSFEREGOV_HISTORICAL_AMENDMENT_PARSER_VERSION,
+                    idempotency_key=hashlib.sha256(
+                        (
+                            "transferegov-historical-amendment-record:"
+                            f"{snapshot.body_sha256}:{identity_hash}:"
+                            f"{payload_sha256}"
+                        ).encode()
+                    ).hexdigest(),
+                )
+            )
+
+        object_key = (
+            "transferegov/parcerias/historical/emendas/sha256/"
+            f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.zip"
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=snapshot.raw_body,
+            content_type=snapshot.media_type,
+            expected_sha256=snapshot.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != snapshot.body_sha256
+            or len(restored) != snapshot.body_size_bytes
+            or stored.sha256 != snapshot.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "O ZIP histórico de emendas restaurado diverge do coletado."
+            )
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=snapshot,  # type: ignore[arg-type]
+                object_key=object_key,
+                artifact_idempotency_key=hashlib.sha256(
+                    f"raw-artifact:{snapshot.idempotency_key}".encode()
+                ).hexdigest(),
+                collector_version=TRANSFEREGOV_HISTORICAL_AMENDMENT_COLLECTOR_VERSION,
+                parser_version=TRANSFEREGOV_HISTORICAL_AMENDMENT_PARSER_VERSION,
                 records=tuple(records),
             )
         )

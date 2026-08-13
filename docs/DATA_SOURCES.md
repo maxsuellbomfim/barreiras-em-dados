@@ -29,7 +29,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | PNCP | contratações, itens, resultados, contratos, documentos | P1 | documentação inicial |
 | SICONFI | demonstrativos contábeis e fiscais | P2 | documentação inicial |
 | TCM-BA | dados municipais e prestações | P2 | descoberta |
-| Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | API atual e catálogo histórico oficial preservados separadamente; filtragem municipal dos CSVs pendente |
+| Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | API atual, catálogo histórico, propostas municipais e recorte de emendas por ID implementados; demais CSVs pendentes |
 | Tesouro Transparente | transferências constitucionais/legais e emendas | P3 | documentação inicial |
 | Transparência Bahia | transferências a municípios, despesas e emendas estaduais | P3 | descoberta inicial |
 | Câmara dos Deputados | mandatos, proposições, votações e despesas | P3 | API confirmada |
@@ -261,8 +261,22 @@ validado por tamanho, ETag, integridade ZIP e contrato CSV; a projeção aceita
 somente `COD_MUNIC_IBGE=2903201` desde 2021. Agência, conta, endereço, bairro e
 CEP não integram o registro normalizado. A projeção pública também omite CNPJ e
 expõe apenas campos necessários à compreensão da proposta e sua evidência. A
-proposta ainda não recebe autoria de emenda até ser reconciliada com
-`siconv_emenda.zip`.
+proposta não recebe autoria por aproximação de nome.
+
+O segundo download controlado, `siconv_emenda.zip`, é filtrado exclusivamente
+pelos identificadores das propostas municipais já preservadas. O contrato
+oficial de SHA-256 `53115430398a9ed71ffcc2d8a35040572a71e31a678038a8bdfda6cd5d56142a`,
+auditado em 13/08/2026, contém nove linhas ligadas a oito das 69 propostas de
+Barreiras preservadas entre 2021 e 2026. Uma proposta pode possuir
+mais de uma emenda; as outras propostas permanecem como "sem emenda identificada
+neste arquivo", nunca como autoria inexistente. O nome e o tipo de autoria são
+mantidos como publicados pela fonte. CPF de beneficiário bloqueia a projeção;
+CNPJ integral permanece somente no ZIP privado, e o registro normalizado guarda
+apenas o tipo e os quatro últimos dígitos para diagnóstico.
+
+Se tamanho ou ETag do catálogo e do proxy divergirem durante uma atualização,
+a coleta falha de forma explícita e aguarda sincronização; uma versão anterior
+não é silenciosamente tratada como o retrato atual.
 
 ### Emendas parlamentares estaduais da Bahia
 

@@ -54,6 +54,11 @@ on:
         required: false
         default: false
         type: boolean
+      include_transferegov_historical_amendments:
+        description: "Cruzar o ZIP oficial de emendas com propostas preservadas de Barreiras"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -203,6 +208,13 @@ jobs:
         run: >-
           python -B -m
           barreiras_collectors.commands.collect_transferegov_historical_proposals
+          --year-from "2021"
+
+      - name: Preservar emendas históricas ligadas a Barreiras
+        if: github.event_name == 'workflow_dispatch' && inputs.include_transferegov_historical_amendments == true
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.collect_transferegov_historical_amendments
           --year-from "2021"
 
       - name: Preservar retrato do Transferegov

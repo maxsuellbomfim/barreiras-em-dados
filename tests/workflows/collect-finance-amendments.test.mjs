@@ -1,0 +1,27 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const workflow = await readFile(
+  new URL("../../.github/workflows/collect-finance-documents.yml", import.meta.url),
+  "utf8",
+);
+
+test("arquivo histórico de emendas exige opt-in e depende das propostas preservadas", () => {
+  const transferegovJob = workflow.slice(workflow.indexOf("  transferegov:"));
+
+  assert.match(workflow, /include_transferegov_historical_amendments:/);
+  assert.match(
+    transferegovJob,
+    /if: github\.event_name == 'workflow_dispatch' && inputs\.include_transferegov_historical_amendments == true/,
+  );
+  assert.match(
+    transferegovJob,
+    /barreiras_collectors\.commands\.collect_transferegov_historical_amendments/,
+  );
+  assert.match(transferegovJob, /--year-from "2021"/);
+  assert.doesNotMatch(
+    transferegovJob,
+    /collect_transferegov_historical_amendments[\s\S]*--year-from "\$\{\{/,
+  );
+});
