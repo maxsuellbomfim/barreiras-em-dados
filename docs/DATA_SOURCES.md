@@ -230,6 +230,13 @@ e autoria coletiva permanecem separados. Ausência em um endpoint não é
 publicada como zero. Metodologia completa em
 `docs/PARLIAMENTARY_TRANSFERS_METHODOLOGY.md`.
 
+A coleta de propostas é particionada por ano fiscal, de 2021 ao ano municipal
+atual, usando simultaneamente `cd_ibge_recebedor=2903201` e `ano_proposta`.
+Cada resposta é conferida contra os dois filtros antes de ser preservada. A
+cobertura pública distingue `complete`, `empty`, `partial`, `failed`, `blocked`
+e `unclassified`: um ano vazio confirmado na API de Parcerias não é publicado
+como prova de ausência em outras bases oficiais.
+
 Em 17/07/2026, o Transferegov anunciou novo ambiente de APIs e descontinuação do
 ambiente anterior em 31/08/2026. O conector deverá apontar para o ambiente novo
 e registrar versão do contrato.

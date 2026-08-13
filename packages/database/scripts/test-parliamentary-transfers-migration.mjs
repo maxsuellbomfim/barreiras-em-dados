@@ -86,6 +86,9 @@ try {
       to_regprocedure(
         'api.get_public_parliamentary_transfers(smallint,text,integer)'
       )::text as detail_rpc,
+      to_regprocedure(
+        'api.get_public_parliamentary_transfer_coverage(smallint,smallint)'
+      )::text as coverage_rpc,
       has_schema_privilege('anon', 'territory', 'USAGE') as anon_territory_usage,
       has_function_privilege(
         'anon',
@@ -96,7 +99,12 @@ try {
         'anon',
         'api.get_public_parliamentary_transfers(smallint,text,integer)',
         'EXECUTE'
-      ) as anon_detail_rpc
+      ) as anon_detail_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_parliamentary_transfer_coverage(smallint,smallint)',
+        'EXECUTE'
+      ) as anon_coverage_rpc
   `);
   assert.deepEqual(contracts.rows, [{
     transfer_projection: "territory.parliamentary_transfers",
@@ -108,9 +116,12 @@ try {
     ranking_rpc:
       "api.get_public_parliamentary_transfer_ranking(text,smallint,integer)",
     detail_rpc: "api.get_public_parliamentary_transfers(smallint,text,integer)",
+    coverage_rpc:
+      "api.get_public_parliamentary_transfer_coverage(smallint,smallint)",
     anon_territory_usage: false,
     anon_ranking_rpc: true,
     anon_detail_rpc: true,
+    anon_coverage_rpc: true,
   }]);
 
   await database.exec(`
@@ -125,6 +136,33 @@ try {
          and endpoint.slug = 'propostas-barreiras'),
       'parliamentary-transfer-fixture-run', 'test/1', 'succeeded'
     );
+    insert into source.collection_partitions (
+      source_endpoint_id, partition_key, period_start, period_end, status,
+      observed_records, collection_run_id, checkpoint, last_attempted_at,
+      completed_at
+    ) values
+      (
+        (select endpoint.id
+         from source.source_endpoints endpoint
+         join source.data_sources source on source.id = endpoint.data_source_id
+         where source.slug = 'transferegov-parcerias'
+           and endpoint.slug = 'propostas-barreiras'),
+        'fiscal-year:2021', '2021-01-01', '2021-12-31', 'empty', 0,
+        '00000000-0000-0000-0000-000000009001',
+        '{"fiscal_year":2021,"proposal_records":0}',
+        '2026-08-12 17:00:00+00', '2026-08-12 17:00:01+00'
+      ),
+      (
+        (select endpoint.id
+         from source.source_endpoints endpoint
+         join source.data_sources source on source.id = endpoint.data_source_id
+         where source.slug = 'transferegov-parcerias'
+           and endpoint.slug = 'propostas-barreiras'),
+        'fiscal-year:2025', '2025-01-01', '2025-12-31', 'complete', 11,
+        '00000000-0000-0000-0000-000000009001',
+        '{"fiscal_year":2025,"proposal_records":3}',
+        '2026-08-12 18:00:00+00', '2026-08-12 18:00:01+00'
+      );
     insert into raw.raw_artifacts (
       id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
       source_url, retrieved_at, byte_size, sha256, object_key, collector_version
@@ -260,6 +298,21 @@ try {
     from api.get_public_parliamentary_transfers(2025::smallint, null, 100)
     order by destination_amount desc
   `);
+  const coverage = await database.query(`
+    select fiscal_year, coverage_status, proposal_count,
+      published_amendment_count,
+      to_char(
+        last_attempted_at at time zone 'UTC',
+        'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+      ) as last_attempted_at,
+      methodology_version
+    from api.get_public_parliamentary_transfer_coverage(
+      2021::smallint,
+      2025::smallint
+    )
+    where fiscal_year in (2021, 2022, 2025)
+    order by fiscal_year
+  `);
   await database.exec("reset role");
 
   assert.deepEqual(people.rows, [{
@@ -334,6 +387,32 @@ try {
       methodology_version: "parliamentary-transfers/1.0.0",
     },
   ]);
+  assert.deepEqual(coverage.rows, [
+    {
+      fiscal_year: 2021,
+      coverage_status: "empty",
+      proposal_count: 0,
+      published_amendment_count: 0,
+      last_attempted_at: "2026-08-12T17:00:00Z",
+      methodology_version: "parliamentary-transfer-coverage/1.0.0",
+    },
+    {
+      fiscal_year: 2022,
+      coverage_status: "unclassified",
+      proposal_count: null,
+      published_amendment_count: null,
+      last_attempted_at: null,
+      methodology_version: "parliamentary-transfer-coverage/1.0.0",
+    },
+    {
+      fiscal_year: 2025,
+      coverage_status: "complete",
+      proposal_count: 3,
+      published_amendment_count: 3,
+      last_attempted_at: "2026-08-12T18:00:00Z",
+      methodology_version: "parliamentary-transfer-coverage/1.0.0",
+    },
+  ]);
 
   await database.exec("set role anon");
   await assert.rejects(
@@ -345,10 +424,20 @@ try {
     /permission denied/,
   );
   await assert.rejects(
+    database.query("select * from source.collection_partitions"),
+    /permission denied/,
+  );
+  await assert.rejects(
     database.query(
       "select * from api.get_public_parliamentary_transfer_ranking('all', 2025::smallint, 50)",
     ),
     /author_scope deve ser person ou collective/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_parliamentary_transfer_coverage(2025::smallint, 2024::smallint)",
+    ),
+    /intervalo fiscal invalido/,
   );
   await database.exec("reset role");
 

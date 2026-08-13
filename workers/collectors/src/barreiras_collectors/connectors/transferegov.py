@@ -73,6 +73,7 @@ def fetch_proposals_page(
     *,
     page: int,
     page_size: int = DEFAULT_PAGE_SIZE,
+    fiscal_year: int | None = None,
     transport: HttpTransport | None = None,
     retry_policy: RetryPolicy | None = None,
     circuit_breaker: CircuitBreaker | None = None,
@@ -82,18 +83,32 @@ def fetch_proposals_page(
     logger: logging.Logger | None = None,
 ) -> TransferegovPage:
     """Preserva uma página de propostas cujo município recebedor é Barreiras."""
+    year = _positive_int(fiscal_year, "fiscal_year") if fiscal_year else None
+    params = {
+        "cd_ibge_recebedor": BARREIRAS_IBGE_CODE,
+    }
+    if year is not None:
+        params["ano_proposta"] = year
+    params.update(
+        {
+            "pagina": _positive_int(page, "page"),
+            "tamanho_da_pagina": _page_size(page_size),
+        }
+    )
     return _fetch_page(
         resource="proposta",
         endpoint_code="propostas-barreiras",
         schema_name="transferegov-parcerias-propostas-page",
-        params={
-            "cd_ibge_recebedor": BARREIRAS_IBGE_CODE,
-            "pagina": _positive_int(page, "page"),
-            "tamanho_da_pagina": _page_size(page_size),
-        },
+        params=params,
         expected_field="cd_ibge_recebedor",
         expected_value=BARREIRAS_IBGE_CODE,
         expected_description="fora de Barreiras",
+        additional_expected_field="ano_proposta" if year is not None else None,
+        additional_expected_value=year,
+        additional_expected_description=(
+            f"ano fiscal {year}" if year is not None else None
+        ),
+        cursor_context={"fiscal_year": year} if year is not None else None,
         transport=transport,
         retry_policy=retry_policy,
         circuit_breaker=circuit_breaker,
@@ -309,6 +324,10 @@ def _fetch_page(
     expected_field: str,
     expected_value: int,
     expected_description: str,
+    additional_expected_field: str | None = None,
+    additional_expected_value: int | None = None,
+    additional_expected_description: str | None = None,
+    cursor_context: Mapping[str, int] | None = None,
     transport: HttpTransport | None,
     retry_policy: RetryPolicy | None,
     circuit_breaker: CircuitBreaker | None,
@@ -382,6 +401,10 @@ def _fetch_page(
                     expected_field=expected_field,
                     expected_value=expected_value,
                     expected_description=expected_description,
+                    additional_expected_field=additional_expected_field,
+                    additional_expected_value=additional_expected_value,
+                    additional_expected_description=additional_expected_description,
+                    cursor_context=cursor_context,
                 )
             except TransferegovError:
                 breaker.record_failure()
@@ -421,6 +444,10 @@ def _parse_page(
     expected_field: str,
     expected_value: int,
     expected_description: str,
+    additional_expected_field: str | None,
+    additional_expected_value: int | None,
+    additional_expected_description: str | None,
+    cursor_context: Mapping[str, int] | None,
 ) -> TransferegovPage:
     try:
         payload = json.loads(response.body)
@@ -443,6 +470,14 @@ def _parse_page(
             raise TransferegovError(
                 f"O item {index} de {endpoint_code} não referencia "
                 f"{expected_description}."
+            )
+        if (
+            additional_expected_field is not None
+            and item.get(additional_expected_field) != additional_expected_value
+        ):
+            raise TransferegovError(
+                f"O item {index} de {endpoint_code} não referencia "
+                f"{additional_expected_description}."
             )
         items.append(item)
 
@@ -503,6 +538,7 @@ def _parse_page(
             "size": expected_page_size,
             "response_size": page_size,
             "offset": (page_number - 1) * expected_page_size,
+            **dict(cursor_context or {}),
         },
         raw_body=response.body,
         items=tuple(items),

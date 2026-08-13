@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import unittest
@@ -7,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from barreiras_collectors.collection_control import CollectionOutcome
+from barreiras_collectors.commands import collect_transferegov_parcerias as command
 from barreiras_collectors.commands.collect_transferegov_parcerias import (
     TransferegovCollectionSummary,
     _collect_snapshot,
@@ -357,9 +359,66 @@ class TransferegovPersistenceTests(unittest.TestCase):
 
 
 class ControlledTransferegovTests(unittest.TestCase):
+    def test_fiscal_year_range_is_bounded_and_inclusive(self) -> None:
+        self.assertTrue(hasattr(command, "validate_fiscal_year_range"))
+        validate = command.validate_fiscal_year_range
+
+        self.assertEqual(
+            validate(2021, 2026, current_year=2026),
+            tuple(range(2021, 2027)),
+        )
+        for values in ((2020, 2026), (2025, 2024), (2021, 2027)):
+            with self.subTest(values=values):
+                with self.assertRaises(ValueError):
+                    validate(*values, current_year=2026)
+
+    def test_yearly_backfill_attempts_remaining_years_before_reporting_failure(
+        self,
+    ) -> None:
+        self.assertTrue(hasattr(command, "execute_yearly_backfill"))
+        attempted: list[int] = []
+
+        class ControlProbe:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                return False
+
+            def complete(self, **_values):
+                return None
+
+        def operation_factory(year: int):
+            def operation() -> TransferegovCollectionSummary:
+                attempted.append(year)
+                if year == 2022:
+                    raise RuntimeError("indisponivel")
+                return TransferegovCollectionSummary(
+                    proposal_records=0,
+                    related_records=0,
+                    preserved_pages=1,
+                    inserted_records=0,
+                    existing_records=0,
+                )
+
+            return operation
+
+        with self.assertRaisesRegex(TransferegovError, "2022"):
+            command.execute_yearly_backfill(
+                fiscal_years=(2021, 2022, 2023),
+                control_factory=lambda _year: ControlProbe(),
+                operation_factory=operation_factory,
+                logger=logging.getLogger("test-transferegov-backfill"),
+            )
+
+        self.assertEqual(attempted, [2021, 2022, 2023])
+
     def test_snapshot_walks_from_partnership_to_bank_order_without_skipping_stage(
         self,
     ) -> None:
+        self.assertIn("fiscal_year", inspect.signature(_collect_snapshot).parameters)
+
         def page(endpoint: str, items: list[dict]):
             return SimpleNamespace(
                 endpoint_code=endpoint,
@@ -444,6 +503,7 @@ class ControlledTransferegovTests(unittest.TestCase):
         ):
             summary = _collect_snapshot(
                 service=service,  # type: ignore[arg-type]
+                fiscal_year=2025,
                 page_size=500,
                 max_pages=3,
                 logger=logging.getLogger("test-transferegov-stages"),
@@ -466,6 +526,7 @@ class ControlledTransferegovTests(unittest.TestCase):
         self.assertEqual(summary.payment_order_records, 1)
         self.assertEqual(summary.bank_order_records, 1)
         self.assertEqual(proposals.call_args.kwargs["page_size"], 500)
+        self.assertEqual(proposals.call_args.kwargs["fiscal_year"], 2025)
         self.assertEqual(commitments.call_args.kwargs["page_size"], 200)
         self.assertEqual(documents.call_args.kwargs["page_size"], 200)
         self.assertEqual(payment_orders.call_args.kwargs["page_size"], 200)
@@ -501,7 +562,12 @@ class ControlledTransferegovTests(unittest.TestCase):
             )
 
     def test_control_starts_before_authentication_or_external_fetch(self) -> None:
+        self.assertIn(
+            "fiscal_year",
+            inspect.signature(execute_controlled_transferegov).parameters,
+        )
         events: list[str] = []
+        completion: dict[str, object] = {}
 
         class ControlProbe:
             def __enter__(self):
@@ -514,6 +580,7 @@ class ControlledTransferegovTests(unittest.TestCase):
                 return False
 
             def complete(self, **values):
+                completion.update(values)
                 events.append(f"completed:{values['outcome'].value}")
 
         def operation() -> TransferegovCollectionSummary:
@@ -529,6 +596,7 @@ class ControlledTransferegovTests(unittest.TestCase):
 
         execute_controlled_transferegov(
             control=ControlProbe(),  # type: ignore[arg-type]
+            fiscal_year=2025,
             operation=operation,
         )
 
@@ -536,6 +604,8 @@ class ControlledTransferegovTests(unittest.TestCase):
             events,
             ["started", "external-setup", "completed:complete", "closed"],
         )
+        self.assertEqual(completion["checkpoint"]["fiscal_year"], 2025)
+        self.assertEqual(completion["metrics"]["fiscal_year"], 2025)
 
     def test_empty_proposal_page_is_explicit_empty_coverage(self) -> None:
         summary = TransferegovCollectionSummary(

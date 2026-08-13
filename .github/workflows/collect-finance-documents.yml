@@ -191,4 +191,5 @@ jobs:
       - name: Preservar retrato do Transferegov
         run: >-
           python -B -m barreiras_collectors.commands.collect_transferegov_parcerias
+          --year-from "2021"
           --page-size "${{ inputs.limit || '50' }}"

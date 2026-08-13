@@ -6,7 +6,7 @@ import argparse
 import logging
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from ..collection_control import (
@@ -40,6 +40,7 @@ from .pncp_runtime import build_authenticated_object_store
 
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 MAX_PAGES_PER_RESOURCE = 100
+MIN_FISCAL_YEAR = 2021
 
 
 @dataclass(frozen=True)
@@ -75,6 +76,7 @@ class TransferegovCollectionSummary:
 def execute_controlled_transferegov(
     *,
     control: CollectionControl,
+    fiscal_year: int,
     operation: Callable[[], TransferegovCollectionSummary],
 ) -> TransferegovCollectionSummary:
     """Registra a tentativa antes de autenticar ou consultar a fonte."""
@@ -84,10 +86,12 @@ def execute_controlled_transferegov(
             outcome=summary.outcome,
             observed_records=summary.observed_records,
             checkpoint={
+                "fiscal_year": fiscal_year,
                 "preserved_pages": summary.preserved_pages,
                 "proposal_records": summary.proposal_records,
             },
             metrics={
+                "fiscal_year": fiscal_year,
                 "proposal_records": summary.proposal_records,
                 "related_records": summary.related_records,
                 "preserved_pages": summary.preserved_pages,
@@ -100,6 +104,91 @@ def execute_controlled_transferegov(
             },
         )
     return summary
+
+
+def validate_fiscal_year_range(
+    year_from: int,
+    year_to: int,
+    *,
+    current_year: int,
+) -> tuple[int, ...]:
+    """Valida o intervalo retroativo sem aceitar anos futuros ou anteriores a 2021."""
+    values = (year_from, year_to, current_year)
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in values):
+        raise ValueError("Os anos fiscais devem ser inteiros.")
+    if year_from < MIN_FISCAL_YEAR:
+        raise ValueError(f"O ano inicial não pode ser anterior a {MIN_FISCAL_YEAR}.")
+    if year_from > year_to:
+        raise ValueError("O ano inicial não pode ser posterior ao ano final.")
+    if year_to > current_year:
+        raise ValueError("O ano final não pode estar no futuro.")
+    return tuple(range(year_from, year_to + 1))
+
+
+def execute_yearly_backfill(
+    *,
+    fiscal_years: Sequence[int],
+    control_factory: Callable[[int], CollectionControl],
+    operation_factory: Callable[
+        [int], Callable[[], TransferegovCollectionSummary]
+    ],
+    logger: logging.Logger,
+) -> tuple[tuple[int, TransferegovCollectionSummary], ...]:
+    """Tenta cada ano isoladamente e só então reporta falhas agregadas."""
+    completed: list[tuple[int, TransferegovCollectionSummary]] = []
+    failures: list[tuple[int, Exception]] = []
+    for fiscal_year in fiscal_years:
+        try:
+            summary = execute_controlled_transferegov(
+                control=control_factory(fiscal_year),
+                fiscal_year=fiscal_year,
+                operation=operation_factory(fiscal_year),
+            )
+        except Exception as error:
+            failures.append((fiscal_year, error))
+            log_event(
+                logger,
+                logging.ERROR,
+                "collector_transferegov_year_failed",
+                source=SOURCE_CODE,
+                fiscal_year=fiscal_year,
+                error_type=type(error).__name__,
+            )
+            continue
+        completed.append((fiscal_year, summary))
+        _log_year_completed(logger, fiscal_year=fiscal_year, summary=summary)
+
+    if failures:
+        failed_years = ", ".join(str(year) for year, _error in failures)
+        raise TransferegovError(
+            f"A coleta anual do Transferegov falhou em: {failed_years}."
+        ) from failures[0][1]
+    return tuple(completed)
+
+
+def _log_year_completed(
+    logger: logging.Logger,
+    *,
+    fiscal_year: int,
+    summary: TransferegovCollectionSummary,
+) -> None:
+    log_event(
+        logger,
+        logging.INFO,
+        "collector_transferegov_year_completed",
+        source=SOURCE_CODE,
+        fiscal_year=fiscal_year,
+        coverage_status=summary.outcome.value,
+        proposal_records=summary.proposal_records,
+        related_records=summary.related_records,
+        preserved_pages=summary.preserved_pages,
+        inserted_records=summary.inserted_records,
+        existing_records=summary.existing_records,
+        commitment_records=summary.commitment_records,
+        payable_document_records=summary.payable_document_records,
+        payment_order_records=summary.payment_order_records,
+        bank_order_records=summary.bank_order_records,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -121,11 +210,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=MAX_PAGES_PER_RESOURCE,
         help="Limite de seguranca por recurso e proposta.",
     )
+    current_year = datetime.now(MUNICIPAL_TIMEZONE).year
+    parser.add_argument(
+        "--year-from",
+        type=int,
+        default=MIN_FISCAL_YEAR,
+        help=f"Primeiro ano fiscal a consultar (minimo: {MIN_FISCAL_YEAR}).",
+    )
+    parser.add_argument(
+        "--year-to",
+        type=int,
+        default=current_year,
+        help="Ultimo ano fiscal a consultar (padrao: ano municipal atual).",
+    )
     arguments = parser.parse_args(argv)
     if arguments.page_size < 1:
         parser.error("--page-size deve ser positivo.")
     if arguments.max_pages < 1:
         parser.error("--max-pages deve ser positivo.")
+    try:
+        fiscal_years = validate_fiscal_year_range(
+            arguments.year_from,
+            arguments.year_to,
+            current_year=current_year,
+        )
+    except ValueError as error:
+        parser.error(str(error))
 
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
@@ -144,55 +254,48 @@ def main(argv: Sequence[str] | None = None) -> int:
     repository = PostgresCollectionRepository.from_dsn(
         persistence_settings.database_url
     )
-    today = datetime.now(MUNICIPAL_TIMEZONE).date()
-    control = CollectionControl(
-        repository=repository,
-        source_code=SOURCE_CODE,
-        endpoint_code="propostas-barreiras",
-        idempotency_key=build_execution_idempotency_key(
-            "transferegov-parcerias"
-        ),
-        collector_version=TRANSFEREGOV_COLLECTOR_VERSION,
-        parser_version=TRANSFEREGOV_PARSER_VERSION,
-        partition_key=f"snapshot:{today.isoformat()}",
-        period_start=today,
-        period_end=today,
-    )
     logger = logging.getLogger(__name__)
 
-    def operation() -> TransferegovCollectionSummary:
-        service = TransferegovPersistenceService(
-            object_store=build_authenticated_object_store(
-                persistence_settings
-            ),
+    def control_factory(fiscal_year: int) -> CollectionControl:
+        return CollectionControl(
             repository=repository,
-        )
-        return _collect_snapshot(
-            service=service,
-            page_size=arguments.page_size,
-            max_pages=arguments.max_pages,
-            logger=logger,
+            source_code=SOURCE_CODE,
+            endpoint_code="propostas-barreiras",
+            idempotency_key=build_execution_idempotency_key(
+                f"transferegov-parcerias-{fiscal_year}"
+            ),
+            collector_version=TRANSFEREGOV_COLLECTOR_VERSION,
+            parser_version=TRANSFEREGOV_PARSER_VERSION,
+            partition_key=f"fiscal-year:{fiscal_year}",
+            period_start=date(fiscal_year, 1, 1),
+            period_end=date(fiscal_year, 12, 31),
         )
 
-    summary = execute_controlled_transferegov(
-        control=control,
-        operation=operation,
-    )
-    log_event(
-        logger,
-        logging.INFO,
-        "collector_transferegov_completed",
-        source=SOURCE_CODE,
-        coverage_status=summary.outcome.value,
-        proposal_records=summary.proposal_records,
-        related_records=summary.related_records,
-        preserved_pages=summary.preserved_pages,
-        inserted_records=summary.inserted_records,
-        existing_records=summary.existing_records,
-        commitment_records=summary.commitment_records,
-        payable_document_records=summary.payable_document_records,
-        payment_order_records=summary.payment_order_records,
-        bank_order_records=summary.bank_order_records,
+    def operation_factory(
+        fiscal_year: int,
+    ) -> Callable[[], TransferegovCollectionSummary]:
+        def operation() -> TransferegovCollectionSummary:
+            service = TransferegovPersistenceService(
+                object_store=build_authenticated_object_store(
+                    persistence_settings
+                ),
+                repository=repository,
+            )
+            return _collect_snapshot(
+                service=service,
+                fiscal_year=fiscal_year,
+                page_size=arguments.page_size,
+                max_pages=arguments.max_pages,
+                logger=logger,
+            )
+
+        return operation
+
+    execute_yearly_backfill(
+        fiscal_years=fiscal_years,
+        control_factory=control_factory,
+        operation_factory=operation_factory,
+        logger=logger,
     )
     return 0
 
@@ -200,6 +303,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _collect_snapshot(
     *,
     service: TransferegovPersistenceService,
+    fiscal_year: int,
     page_size: int,
     max_pages: int,
     logger: logging.Logger,
@@ -236,6 +340,7 @@ def _collect_snapshot(
         fetch=lambda number: fetch_proposals_page(
             page=number,
             page_size=page_size,
+            fiscal_year=fiscal_year,
             circuit_breaker=breaker,
             logger=logger,
         ),

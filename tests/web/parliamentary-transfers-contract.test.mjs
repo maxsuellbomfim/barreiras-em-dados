@@ -16,6 +16,13 @@ const authorLinkMigration = await readFile(
   ),
   "utf8",
 );
+const coverageMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260813004926_public_parliamentary_transfer_coverage.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(
   new URL("../../apps/web/lib/parliamentary-transfers.ts", import.meta.url),
   "utf8",
@@ -74,4 +81,15 @@ test("cliente aceita decimais numericos do PostgREST sem perder centavos", () =>
   assert.match(client, /Number\.isFinite\(value\)/);
   assert.match(client, /Number\.isSafeInteger\(roundedCents\)/);
   assert.match(client, /normalizedValue\.toFixed\(2\)/);
+});
+
+test("cobertura anual distingue vazio confirmado de ano ainda nao classificado", () => {
+  assert.match(coverageMigration, /coalesce\(annual\.status, 'unclassified'\)/);
+  assert.match(coverageMigration, /annual\.status = 'empty' then 0/);
+  assert.match(client, /get_public_parliamentary_transfer_coverage/);
+  assert.match(client, /coverage: readonly ParliamentaryTransferCoverage\[\] \| null/);
+  assert.match(page, /Quais anos j. conferimos/);
+  assert.match(page, /n.o prova aus.ncia em outras bases\s+oficiais/);
+  assert.match(page, /Coleta incompleta/);
+  assert.match(page, /Ano ainda n.o classificado/);
 });

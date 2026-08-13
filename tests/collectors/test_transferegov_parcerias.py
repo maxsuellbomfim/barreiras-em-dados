@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -178,6 +179,7 @@ class TransferegovParceriasTests(unittest.TestCase):
         self.assertEqual(sleeps, [11.0])
 
     def test_proposals_are_scoped_to_barreiras_and_preserve_source_bytes(self) -> None:
+        self.assertIn("fiscal_year", inspect.signature(fetch_proposals_page).parameters)
         payload = envelope(
             [
                 {
@@ -202,6 +204,7 @@ class TransferegovParceriasTests(unittest.TestCase):
         page = fetch_proposals_page(
             page=1,
             page_size=50,
+            fiscal_year=2025,
             transport=transport,
             retry_policy=RetryPolicy(max_attempts=2),
             sleep=lambda _seconds: None,
@@ -211,7 +214,8 @@ class TransferegovParceriasTests(unittest.TestCase):
             transport.requests,
             [
                 "https://api-publica.transferegov.gestao.gov.br/parcerias/"
-                "proposta?cd_ibge_recebedor=2903201&pagina=1&tamanho_da_pagina=50"
+                "proposta?cd_ibge_recebedor=2903201&ano_proposta=2025&"
+                "pagina=1&tamanho_da_pagina=50"
             ],
         )
         self.assertEqual(page.source_code, "transferegov-parcerias")
@@ -220,12 +224,39 @@ class TransferegovParceriasTests(unittest.TestCase):
         self.assertEqual(page.collection_status, "success")
         self.assertEqual(
             page.cursor,
-            {"page": 1, "size": 50, "response_size": 1, "offset": 0},
+            {
+                "page": 1,
+                "size": 50,
+                "response_size": 1,
+                "offset": 0,
+                "fiscal_year": 2025,
+            },
         )
         self.assertEqual(page.window_start, page.requested_at)
         self.assertEqual(page.window_end, page.received_at)
         self.assertEqual(page.raw_body, scripted.body)
         self.assertEqual(page.body_sha256, hashlib.sha256(scripted.body).hexdigest())
+
+    def test_proposal_outside_requested_fiscal_year_is_rejected(self) -> None:
+        self.assertIn("fiscal_year", inspect.signature(fetch_proposals_page).parameters)
+        payload = envelope(
+            [
+                {
+                    "id_proposta": 9274,
+                    "cd_ibge_recebedor": 2903201,
+                    "ano_proposta": 2024,
+                }
+            ]
+        )
+
+        with self.assertRaisesRegex(TransferegovError, "ano fiscal 2025"):
+            fetch_proposals_page(
+                page=1,
+                fiscal_year=2025,
+                transport=ScriptedTransport([response(200, payload)]),
+                retry_policy=RetryPolicy(max_attempts=1),
+                sleep=lambda _seconds: None,
+            )
 
     def test_empty_official_page_is_preserved_as_explicit_empty_coverage(self) -> None:
         scripted = response(200, envelope([]))
