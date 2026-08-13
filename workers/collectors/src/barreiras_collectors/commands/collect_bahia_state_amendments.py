@@ -45,6 +45,7 @@ class BahiaStateAmendmentCollectionSummary:
     catalog_sha256: str
     archive_sha256: str
     resource_last_modified: str
+    source_warning_rows: int = 0
 
 
 def execute_controlled_state_amendments(
@@ -76,6 +77,7 @@ def execute_controlled_state_amendments(
                 "archive_members": summary.archive_members,
                 "archive_rows": summary.archive_rows,
                 "unparseable_members": list(summary.unparseable_members),
+                "source_warning_rows": summary.source_warning_rows,
                 "archive_bytes": summary.archive_bytes,
                 "inserted_records": summary.inserted_records,
                 "existing_records": summary.existing_records,
@@ -165,6 +167,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             catalog_sha256=catalog.body_sha256,
             archive_sha256=archive.body_sha256,
             resource_last_modified=archive.resource_last_modified,
+            source_warning_rows=sum(
+                int(warnings.get("missing_check_digit_rows", 0))
+                for item in archive.items
+                if isinstance(
+                    warnings := item.get("validation_warnings"),
+                    dict,
+                )
+            ),
         )
 
     summary = execute_controlled_state_amendments(
@@ -179,6 +189,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         archive_members=summary.archive_members,
         archive_rows=summary.archive_rows,
         unparseable_members=list(summary.unparseable_members),
+        source_warning_rows=summary.source_warning_rows,
         archive_bytes=summary.archive_bytes,
         inserted_records=summary.inserted_records,
         existing_records=summary.existing_records,

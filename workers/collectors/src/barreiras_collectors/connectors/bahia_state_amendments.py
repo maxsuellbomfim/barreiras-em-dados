@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import random
+import re
 import time
 import zipfile
 from collections.abc import Callable, Mapping
@@ -112,6 +113,25 @@ EXPECTED_MEMBER_COLUMNS: dict[str, tuple[str, ...]] = {
         "num_processo_sist_elet_info",
     ),
 }
+
+PAYMENT_MEMBER_NAME = "VW_PAINEL_EMENDAS_PARLAMENTARES_PAGAMENTOS.csv"
+PAYMENT_RECORD_START = re.compile(
+    r'(?m)^"\d{18,19}";"\d{5}\.\d{4}\.\d{2}\.\d{7}-\d?";'
+)
+PAYMENT_RECORD = re.compile(
+    r'^"(?P<payment_id>\d{18,19})";'
+    r'"(?P<formatted_id>\d{5}\.\d{4}\.\d{2}\.\d{7}-\d?)";'
+    r'"(?P<creditor>[^"\r\n]*)";'
+    r'"(?P<date>\d{2}/\d{2}/\d{4} 00:00:00)";'
+    r'"(?P<amount>-?\d+(?:,\d+)?)";'
+    r'"(?P<status>[^"\r\n]+)";'
+    r'"(?P<gcv>-?\d*(?:,\d+)?)";'
+    r'"(?P<object>[\s\S]*)";'
+    r'"(?P<commitment_id>\d{18,19})";'
+    r'"(?P<execution_code>'
+    r'\d{4}\.\d\.\d{1,2}\.\d{4,5}\.\d+\.\d+\.\d+\.\d+'
+    r')"$'
+)
 
 
 class BahiaStateAmendmentArchiveError(RuntimeError):
@@ -383,6 +403,7 @@ def parse_state_amendment_archive(body: bytes) -> tuple[dict[str, object], ...]:
                     )
                 row_count = 0
                 row_count_status = "validated"
+                validation_warnings: dict[str, object] = {}
                 try:
                     for row in reader:
                         if not row or all(not value.strip() for value in row):
@@ -398,6 +419,18 @@ def parse_state_amendment_archive(body: bytes) -> tuple[dict[str, object], ...]:
                     # mas não declaramos uma contagem que não foi validada.
                     row_count = None
                     row_count_status = "source_csv_malformed"
+                if (
+                    row_count is None
+                    and member.filename == PAYMENT_MEMBER_NAME
+                ):
+                    recovered = _count_payment_records(decoded)
+                    if recovered is not None:
+                        row_count, missing_check_digit_rows = recovered
+                        row_count_status = "validated_with_source_warnings"
+                        validation_warnings = {
+                            "record_boundary_recovery_used": True,
+                            "missing_check_digit_rows": missing_check_digit_rows,
+                        }
             except BahiaStateAmendmentArchiveError:
                 raise
             except (UnicodeDecodeError, csv.Error, EOFError, RuntimeError) as error:
@@ -410,6 +443,7 @@ def parse_state_amendment_archive(body: bytes) -> tuple[dict[str, object], ...]:
                     "columns": list(header),
                     "row_count": row_count,
                     "row_count_status": row_count_status,
+                    "validation_warnings": validation_warnings,
                     "physical_line_count": max(len(decoded.splitlines()) - 1, 0),
                     "uncompressed_bytes": member.file_size,
                     "compressed_bytes": member.compress_size,
@@ -417,6 +451,33 @@ def parse_state_amendment_archive(body: bytes) -> tuple[dict[str, object], ...]:
                 }
             )
     return tuple(manifests)
+
+
+def _count_payment_records(decoded: str) -> tuple[int, int] | None:
+    """Conta a view quebrada sem completar ou normalizar campos da fonte."""
+    first_line_end = decoded.find("\n")
+    if first_line_end < 0:
+        return None
+    data = decoded[first_line_end + 1 :]
+    starts = [match.start() for match in PAYMENT_RECORD_START.finditer(data)]
+    if not starts or data[: starts[0]].strip():
+        return None
+
+    missing_check_digit_rows = 0
+    for index, start in enumerate(starts):
+        end = starts[index + 1] if index + 1 < len(starts) else len(data)
+        record = data[start:end].rstrip("\r\n")
+        match = PAYMENT_RECORD.fullmatch(record)
+        if match is None:
+            return None
+        values = match.groupdict()
+        if (
+            len(values["payment_id"]) == 18
+            or values["formatted_id"].endswith("-")
+            or len(values["commitment_id"]) == 18
+        ):
+            missing_check_digit_rows += 1
+    return len(starts), missing_check_digit_rows
 
 
 def _request(

@@ -110,7 +110,7 @@ BAHIA_STATE_AMENDMENT_CATALOG_PARSER_VERSION = (
     "bahia-state-amendment-catalog/1.0.0"
 )
 BAHIA_STATE_AMENDMENT_ARCHIVE_PARSER_VERSION = (
-    "bahia-state-amendment-archive/1.1.0"
+    "bahia-state-amendment-archive/1.2.0"
 )
 
 
