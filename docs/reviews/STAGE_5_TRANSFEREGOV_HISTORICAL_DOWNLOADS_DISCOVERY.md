@@ -57,3 +57,17 @@ Baixar `siconv_proposta.zip` em fluxo com limite, hash e validação ZIP/CSV;
 descobrir seu schema por fixture; filtrar por código IBGE/CNPJ oficial de
 Barreiras; preservar a evidência da versão do ZIP e as linhas municipais; e
 comparar a cobertura encontrada com a API atual sem somar registros ainda.
+
+## Validação de produção em 13/08/2026
+
+A execução manual limitada
+[`31658851731`](https://github.com/maxsuellbomfim/barreiras-em-dados/actions/runs/31658851731)
+confirmou o catálogo oficial com HTTP 200 e hash
+`4d5cab986a19801f97e0b1a6a1fc864fb6bd50d60472aeb4c7db9a4c84e0d3da`,
+mas o Storage recusou o artefato com `invalid_mime_type`: o bucket privado
+`raw-artifacts` ainda não admitia `application/xml`.
+
+A correção mantém o bucket privado e amplia somente a allowlist de MIME types.
+O teste de migration exige explicitamente `application/xml`; o workflow deverá
+ser repetido após a migration ser aplicada. Um HTTP 200 sem preservação do
+artefato continua sendo falha, não cobertura completa.
