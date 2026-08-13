@@ -61,6 +61,13 @@ visível como falha, mas não cancela fontes independentes nem posterga o
 tratamento privado de identidade. Um job final consolida a saúde sem transformar
 falha em ausência de registros.
 
+O leiaute oficial do cadastro de candidaturas de 2024 usa o valor numérico `-4`
+quando um dado pessoal não é divulgável. O importador passa a classificar esse
+caso como `not_disclosed_by_source`, em vez de `invalid_official_value`. Lacunas
+anteriores sustentadas pelos mesmos hashes oficiais são supersedidas por uma
+nova versão auditável; não há exclusão do histórico, criação de identidade sem
+CPF oficial nem busca em fonte alternativa não autorizada.
+
 O backfill do Diário agora calcula a fronteira pela faixa contínua de execuções
 bem-sucedidas até a véspera. Um registro histórico isolado não pode mais saltar
 lacunas recentes nem encerrar prematuramente a cobertura desde 2021. Janelas

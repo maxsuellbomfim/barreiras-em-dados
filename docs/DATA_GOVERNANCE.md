@@ -140,6 +140,9 @@ para revisão/DLQ; não são descartados silenciosamente.
 - a linha oficial que sustentou o identificador também é preservada cifrada,
   com URL HTTPS, ano, chave do registro, SHA-256 do payload e, quando
   disponíveis, hashes do pacote e do arquivo estadual do TSE;
+- códigos de não divulgação definidos no leiaute da fonte são registrados como
+  lacuna explícita, e não como CPF inválido, ausência de coleta ou identidade
+  confirmada;
 - somente candidaturas presentes em um crosswalk oficial aprovado entram no
   recorte privado; o restante do cadastro nacional não é copiado;
 - secretários sem CPF em fonte oficial continuam reconciliáveis por cargo,
