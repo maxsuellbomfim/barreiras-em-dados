@@ -1002,6 +1002,8 @@ try {
         as identifier_sources,
       to_regclass('private.person_identifier_conflicts') is not null
         as identifier_conflicts,
+      to_regclass('private.person_identifier_gaps') is not null
+        as identifier_gaps,
       to_regclass('identity.person_source_links') is not null as person_source_links
   `);
   assert.deepEqual(controlPlaneTables.rows[0], {
@@ -1010,6 +1012,7 @@ try {
     identifiers: true,
     identifier_sources: true,
     identifier_conflicts: true,
+    identifier_gaps: true,
     person_source_links: true,
   });
 
@@ -1038,6 +1041,9 @@ try {
         'identity_worker', 'private.person_identifier_conflicts', 'INSERT'
       ) as identity_conflict_insert,
       has_table_privilege(
+        'identity_worker', 'private.person_identifier_gaps', 'INSERT'
+      ) as identity_gap_insert,
+      has_table_privilege(
         'identity_worker', 'identity.person_source_links', 'INSERT'
       ) as identity_link_insert,
       has_table_privilege(
@@ -1053,6 +1059,9 @@ try {
         'anon', 'private.person_identifier_sources', 'SELECT'
       ) as anon_source_select,
       has_table_privilege(
+        'anon', 'private.person_identifier_gaps', 'SELECT'
+      ) as anon_gap_select,
+      has_table_privilege(
         'authenticated', 'identity.person_source_links', 'SELECT'
       ) as authenticated_link_select
   `);
@@ -1066,11 +1075,13 @@ try {
     identity_update: false,
     identity_source_insert: true,
     identity_conflict_insert: true,
+    identity_gap_insert: true,
     identity_link_insert: true,
     identity_person_insert: true,
     identity_raw_select: true,
     identity_crosswalk_select: true,
     anon_source_select: false,
+    anon_gap_select: false,
     authenticated_link_select: false,
   });
 
@@ -1159,20 +1170,48 @@ try {
     )
   `);
   assert.equal(conflictedIdentity.rows[0].status, "conflicted");
+  const unavailableIdentity = await database.query(`
+    select status
+    from identity.register_tse_identifier_gap(
+      'candidate:2024:125', 2024, 'https://cdn.tse.jus.br/source.zip',
+      decode('0d', 'hex'), decode(repeat('0e', 12), 'hex'),
+      decode(repeat('0f', 16), 'hex'), '${"1".repeat(64)}',
+      '${"b".repeat(64)}', '${"c".repeat(64)}', 1,
+      'tse-candidate-registry/1.1.0', statement_timestamp(),
+      'municipal', 'cm:vereador:125', 'Vereador', '${identityOriginId}',
+      'invalid_official_value'
+    )
+  `);
+  assert.equal(unavailableIdentity.rows[0].status, "inserted");
+  const replayedUnavailableIdentity = await database.query(`
+    select status
+    from identity.register_tse_identifier_gap(
+      'candidate:2024:125', 2024, 'https://cdn.tse.jus.br/source.zip',
+      decode('0d', 'hex'), decode(repeat('0e', 12), 'hex'),
+      decode(repeat('0f', 16), 'hex'), '${"1".repeat(64)}',
+      '${"b".repeat(64)}', '${"c".repeat(64)}', 1,
+      'tse-candidate-registry/1.1.0', statement_timestamp(),
+      'municipal', 'cm:vereador:125', 'Vereador', '${identityOriginId}',
+      'invalid_official_value'
+    )
+  `);
+  assert.equal(replayedUnavailableIdentity.rows[0].status, "unchanged");
   const privateIdentityCounts = await database.query(`
     select
       (select count(*)::integer from hr.people) as people,
       (select count(*)::integer from private.person_identifiers) as identifiers,
       (select count(*)::integer from identity.person_source_links) as links,
       (select count(*)::integer from private.person_identifier_sources) as sources,
-      (select count(*)::integer from private.person_identifier_conflicts) as conflicts
+      (select count(*)::integer from private.person_identifier_conflicts) as conflicts,
+      (select count(*)::integer from private.person_identifier_gaps) as gaps
   `);
   assert.deepEqual(privateIdentityCounts.rows[0], {
     people: 1,
     identifiers: 1,
     links: 1,
-    sources: 2,
+    sources: 3,
     conflicts: 1,
+    gaps: 1,
   });
   const canonicalIdentitySource = await database.query(`
     select source_kind
@@ -1191,6 +1230,7 @@ try {
       and relname in (
         'person_identifier_sources',
         'person_identifier_conflicts',
+        'person_identifier_gaps',
         'person_source_links',
         'people'
       )
@@ -1200,6 +1240,11 @@ try {
     { relname: 'people', relrowsecurity: true, relforcerowsecurity: true },
     {
       relname: 'person_identifier_conflicts',
+      relrowsecurity: true,
+      relforcerowsecurity: true,
+    },
+    {
+      relname: 'person_identifier_gaps',
       relrowsecurity: true,
       relforcerowsecurity: true,
     },

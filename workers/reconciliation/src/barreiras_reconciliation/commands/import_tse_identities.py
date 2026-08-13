@@ -51,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
                     "inserted": summary.inserted,
                     "unchanged": summary.unchanged,
                     "conflicted": summary.conflicted,
+                    "unavailable": summary.unavailable,
+                    "coverage_complete": summary.unavailable == 0,
                     "requires_review": summary.conflicted > 0,
                 },
                 sort_keys=True,

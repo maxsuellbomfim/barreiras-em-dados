@@ -33,8 +33,8 @@ quantidades inseridas, replays idempotentes e conflitos.
 
 Após aplicar a migration e configurar os segredos, execute **Coletar
 representação política**. O job **Registrar identidades privadas oficiais** deve
-produzir uma linha JSON por ano com `selected`, `inserted`, `unchanged` e
-`conflicted`.
+produzir uma linha JSON por ano com `selected`, `inserted`, `unchanged`,
+`conflicted` e `unavailable`.
 
 Critérios:
 
@@ -42,6 +42,10 @@ Critérios:
 - candidatura aprovada ausente no arquivo do TSE aborta o ano antes da primeira
   gravação;
 - CPF divergente gera conflito privado e nunca fusão automática;
+- CPF ausente ou inválido na linha oficial não interrompe as demais
+  candidaturas: a linha integral fica cifrada em
+  `private.person_identifier_sources` e a lacuna fica registrada em
+  `private.person_identifier_gaps`, sem inventar identificador;
 - nenhuma sequência de CPF, fingerprint, quatro últimos dígitos, cifra, senha ou
   chave pode aparecer no log ou em artefato;
 - `anon`, `authenticated`, `collector_worker`, web e admin não possuem leitura.

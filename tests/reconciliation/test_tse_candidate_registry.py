@@ -91,7 +91,9 @@ class TseCandidateRegistryTest(unittest.TestCase):
         self.assertNotIn("cpf", str(identities[0].public_payload).lower())
         self.assertIn(CPF_FIXTURE.encode("ascii"), identities[0].private_source_payload)
 
-    def test_rejects_an_approved_candidate_with_invalid_cpf(self) -> None:
+    def test_keeps_an_approved_candidate_with_invalid_cpf_as_unavailable(
+        self,
+    ) -> None:
         package = registry_zip(
             [
                 {
@@ -106,12 +108,19 @@ class TseCandidateRegistryTest(unittest.TestCase):
             ]
         )
 
-        with self.assertRaisesRegex(CandidateRegistryError, "CPF inválido"):
-            candidates_from_registry(
-                extract_bahia_registry(package, 2024),
-                year=2024,
-                approved_candidate_ids={"123"},
-            )
+        identities = candidates_from_registry(
+            extract_bahia_registry(package, 2024),
+            year=2024,
+            approved_candidate_ids={"123"},
+        )
+
+        self.assertEqual(len(identities), 1)
+        self.assertIsNone(identities[0].cpf)
+        self.assertEqual(
+            identities[0].identifier_issue,
+            "invalid_official_value",
+        )
+        self.assertNotIn("cpf", str(identities[0].public_payload).lower())
 
     def test_rejects_a_layout_without_the_official_cpf_column(self) -> None:
         package = io.BytesIO()

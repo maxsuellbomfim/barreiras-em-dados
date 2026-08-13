@@ -7,7 +7,11 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Protocol
 
-from .identity_repository import IdentityRegistration, IdentityTarget
+from .identity_repository import (
+    IdentifierGapRegistration,
+    IdentityRegistration,
+    IdentityTarget,
+)
 from .private_identifiers import PrivateIdentifierCipher
 from .tse_candidate_registry import (
     candidates_from_registry,
@@ -15,7 +19,7 @@ from .tse_candidate_registry import (
     source_url,
 )
 
-PARSER_VERSION = "tse-candidate-registry/1.0.0"
+PARSER_VERSION = "tse-candidate-registry/1.1.0"
 
 
 class IdentityImportError(RuntimeError):
@@ -27,6 +31,8 @@ class IdentityRepositoryProtocol(Protocol):
 
     def register(self, registration: IdentityRegistration) -> str: ...
 
+    def register_unavailable(self, registration: IdentifierGapRegistration) -> str: ...
+
 
 @dataclass(frozen=True, slots=True)
 class IdentityImportSummary:
@@ -35,6 +41,7 @@ class IdentityImportSummary:
     inserted: int
     unchanged: int
     conflicted: int
+    unavailable: int
 
 
 class IdentityImportService:
@@ -71,10 +78,30 @@ class IdentityImportService:
         archive_sha256 = hashlib.sha256(package).hexdigest()
         state_file_sha256 = hashlib.sha256(state_csv).hexdigest()
         counts = {"inserted": 0, "unchanged": 0, "conflicted": 0}
+        unavailable = 0
         for target in targets:
             identity = by_candidate[target.candidate_id]
-            person_context = f"tse:{year}:{target.candidate_id}"
             evidence_context = f"tse-candidate-registry:{year}:{target.candidate_id}"
+            protected_source = self.cipher.protect_payload(
+                identity.private_source_payload,
+                evidence_context=evidence_context,
+            )
+            if identity.cpf is None:
+                self.repository.register_unavailable(
+                    IdentifierGapRegistration(
+                        target=target,
+                        source_record_key=f"candidate:{year}:{target.candidate_id}",
+                        source_url=source_url(year),
+                        archive_sha256=archive_sha256,
+                        state_file_sha256=state_file_sha256,
+                        parser_version=PARSER_VERSION,
+                        reason=identity.identifier_issue or "invalid_official_value",
+                        protected_source=protected_source,
+                    )
+                )
+                unavailable += 1
+                continue
+            person_context = f"tse:{year}:{target.candidate_id}"
             registration = IdentityRegistration(
                 target=target,
                 source_record_key=f"candidate:{year}:{target.candidate_id}",
@@ -89,10 +116,7 @@ class IdentityImportService:
                     identity.cpf,
                     person_context=person_context,
                 ),
-                protected_source=self.cipher.protect_payload(
-                    identity.private_source_payload,
-                    evidence_context=evidence_context,
-                ),
+                protected_source=protected_source,
             )
             status = self.repository.register(registration)
             counts[status] += 1
@@ -103,6 +127,7 @@ class IdentityImportService:
             inserted=counts["inserted"],
             unchanged=counts["unchanged"],
             conflicted=counts["conflicted"],
+            unavailable=unavailable,
         )
 
 

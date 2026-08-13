@@ -21,6 +21,7 @@ CPF_FIXTURE = "52998224725"
 class FakeRepository:
     targets: tuple[IdentityTarget, ...]
     registrations: list[object]
+    gaps: list[object]
 
     def eligible_targets(self, election_year: int) -> tuple[IdentityTarget, ...]:
         return tuple(
@@ -29,6 +30,10 @@ class FakeRepository:
 
     def register(self, registration: object) -> str:
         self.registrations.append(registration)
+        return "inserted"
+
+    def register_unavailable(self, registration: object) -> str:
+        self.gaps.append(registration)
         return "inserted"
 
 
@@ -63,7 +68,7 @@ def _package(candidate_id: str = "123") -> bytes:
 
 class IdentityImportServiceTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.repository = FakeRepository((_target(),), [])
+        self.repository = FakeRepository((_target(),), [], [])
         self.service = IdentityImportService(
             repository=self.repository,
             cipher=PrivateIdentifierCipher(
@@ -105,6 +110,46 @@ class IdentityImportServiceTests(unittest.TestCase):
             self.service.import_package(year=2024, package=_package("123"))
 
         self.assertEqual(self.repository.registrations, [])
+
+    def test_preserves_invalid_official_cpf_as_a_gap_and_imports_valid_rows(
+        self,
+    ) -> None:
+        self.repository.targets = (_target("123"), _target("456"))
+        package = registry_zip(
+            [
+                {
+                    "ANO_ELEICAO": "2024",
+                    "SG_UF": "BA",
+                    "DS_CARGO": "VEREADOR",
+                    "SQ_CANDIDATO": "123",
+                    "NR_CPF_CANDIDATO": CPF_FIXTURE,
+                    "NM_CANDIDATO": "PESSOA VÁLIDA",
+                    "NM_URNA_CANDIDATO": "VÁLIDA",
+                },
+                {
+                    "ANO_ELEICAO": "2024",
+                    "SG_UF": "BA",
+                    "DS_CARGO": "VEREADOR",
+                    "SQ_CANDIDATO": "456",
+                    "NR_CPF_CANDIDATO": "1" * 11,
+                    "NM_CANDIDATO": "PESSOA SEM IDENTIFICADOR",
+                    "NM_URNA_CANDIDATO": "SEM IDENTIFICADOR",
+                },
+            ]
+        )
+
+        summary = self.service.import_package(year=2024, package=package)
+
+        self.assertEqual(summary.selected, 2)
+        self.assertEqual(summary.inserted, 1)
+        self.assertEqual(summary.unavailable, 1)
+        self.assertEqual(len(self.repository.registrations), 1)
+        self.assertEqual(len(self.repository.gaps), 1)
+        self.assertEqual(
+            self.repository.gaps[0].reason,
+            "invalid_official_value",
+        )
+        self.assertNotIn("11111111111", repr(self.repository.gaps[0]))
 
     def test_refuses_an_empty_scope_instead_of_reporting_false_success(self) -> None:
         self.repository.targets = ()
