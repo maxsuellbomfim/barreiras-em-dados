@@ -140,6 +140,11 @@ registros fica `source_csv_malformed` e a partição, `partial`. Apenas as views
 cuja estrutura foi validada contribuem para métricas técnicas de linhas; nenhuma
 delas contribui para totais financeiros públicos nesta fase.
 
+A fonte oficial também apresentou a cadeia TLS incompleta em 13/08/2026. O
+coletor não desativa a validação: usa exclusivamente o intermediário OV R36 e o
+cross-sign R46/USERTrust publicados pela Sectigo, preservados no repositório e
+verificados por hash antes da execução.
+
 Fontes oficiais iniciais:
 
 - https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares

@@ -4,9 +4,11 @@ import csv
 import hashlib
 import io
 import json
+import ssl
 import unittest
 import zipfile
 from datetime import UTC, datetime
+from pathlib import Path
 
 from barreiras_collectors.connectors.bahia_state_amendments import (
     EXPECTED_MEMBER_COLUMNS,
@@ -15,7 +17,7 @@ from barreiras_collectors.connectors.bahia_state_amendments import (
     fetch_state_amendment_catalog,
     parse_state_amendment_archive,
 )
-from barreiras_collectors.http import HttpResponse
+from barreiras_collectors.http import HttpResponse, UrllibTransport
 from barreiras_collectors.resilience import RetryPolicy
 
 
@@ -110,6 +112,39 @@ def response(body: bytes, *, final_url: str, content_type: str) -> HttpResponse:
 
 
 class BahiaStateAmendmentArchiveTests(unittest.TestCase):
+    def test_source_specific_ca_bundle_is_loaded_without_replacing_default_trust(
+        self,
+    ) -> None:
+        bundle = Path(
+            "config/certificates/sectigo-public-server-authentication-ov-r36-chain.pem"
+        )
+        self.assertTrue(bundle.is_file(), "o bundle TLS oficial da fonte deve existir")
+
+        baseline = ssl.create_default_context()
+        try:
+            transport = UrllibTransport(
+                frozenset({"dados.ba.gov.br"}),
+                additional_ca_bundle=bundle,
+            )
+        except TypeError as error:
+            self.fail(f"o transporte deve aceitar uma cadeia adicional: {error}")
+
+        trusted_common_names = {
+            value
+            for certificate in transport._ssl_context.get_ca_certs()
+            for relative_distinguished_name in certificate.get("subject", ())
+            for key, value in relative_distinguished_name
+            if key == "commonName"
+        }
+        self.assertIn(
+            "Sectigo Public Server Authentication CA OV R36",
+            trusted_common_names,
+        )
+        self.assertGreaterEqual(
+            len(transport._ssl_context.get_ca_certs()),
+            len(baseline.get_ca_certs()),
+        )
+
     def test_validates_all_five_csv_contracts_without_normalizing_money(self) -> None:
         body = archive_bytes()
 

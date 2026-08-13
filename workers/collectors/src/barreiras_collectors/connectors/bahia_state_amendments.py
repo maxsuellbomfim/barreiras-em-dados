@@ -12,12 +12,14 @@ import hashlib
 import io
 import json
 import logging
+import os
 import random
 import time
 import zipfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from ..http import (
@@ -45,6 +47,12 @@ DOWNLOAD_URL = (
     f"download/{ARCHIVE_NAME}"
 )
 OFFICIAL_HOSTS = frozenset({"dados.ba.gov.br"})
+STATE_TLS_CA_BUNDLE = Path(
+    os.getenv(
+        "BAHIA_STATE_TLS_CA_BUNDLE",
+        "config/certificates/sectigo-public-server-authentication-ov-r36-chain.pem",
+    )
+)
 MAX_CATALOG_BYTES = 2 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 32 * 1024 * 1024
 MAX_MEMBER_BYTES = 32 * 1024 * 1024
@@ -179,7 +187,10 @@ def fetch_state_amendment_catalog(
     logger: logging.Logger | None = None,
 ) -> BahiaStateAmendmentCatalogSnapshot:
     """Obtém e valida o catálogo CKAN que referencia o ZIP diário."""
-    active_transport = transport or UrllibTransport(OFFICIAL_HOSTS)
+    active_transport = transport or UrllibTransport(
+        OFFICIAL_HOSTS,
+        additional_ca_bundle=STATE_TLS_CA_BUNDLE,
+    )
     policy = retry_policy or RetryPolicy(max_attempts=4)
     breaker = circuit_breaker or CircuitBreaker(failure_threshold=policy.max_attempts)
     response, requested_at, received_at, attempts = _request(
@@ -243,7 +254,10 @@ def fetch_state_amendment_archive(
     """Baixa o ZIP exatamente descrito pelo catálogo já preservado."""
     resource = _catalog_resource(catalog)
     expected_size = int(resource["byte_size"])
-    active_transport = transport or UrllibTransport(OFFICIAL_HOSTS)
+    active_transport = transport or UrllibTransport(
+        OFFICIAL_HOSTS,
+        additional_ca_bundle=STATE_TLS_CA_BUNDLE,
+    )
     policy = retry_policy or RetryPolicy(max_attempts=4)
     breaker = circuit_breaker or CircuitBreaker(failure_threshold=policy.max_attempts)
     response, requested_at, received_at, attempts = _request(

@@ -248,6 +248,7 @@ jobs:
       SUPABASE_WORKLOAD_EMAIL: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL }}
       SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD }}
       SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
+      BAHIA_STATE_TLS_CA_BUNDLE: config/certificates/sectigo-public-server-authentication-ov-r36-chain.pem
     steps:
       - name: Baixar código
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -260,6 +261,11 @@ jobs:
 
       - name: Instalar dependências fixadas
         run: python -m pip install --disable-pip-version-check ".[postgres,storage]"
+
+      - name: Verificar cadeia TLS oficial da fonte estadual
+        run: >-
+          echo "729b16d606ab35a0ca027fce556f9b35913d4553f1f9b6e88ba331625519d333  config/certificates/sectigo-public-server-authentication-ov-r36-chain.pem"
+          | sha256sum --check --strict
 
       - name: Verificar CA oficial do Supabase
         run: >-
