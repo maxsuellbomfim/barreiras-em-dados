@@ -1074,6 +1074,115 @@ try {
     authenticated_link_select: false,
   });
 
+  const identityLoginBoundary = await database.query(`
+    select
+      role.rolcanlogin,
+      role.rolsuper,
+      role.rolcreatedb,
+      role.rolcreaterole,
+      role.rolreplication,
+      role.rolbypassrls,
+      role.rolconnlimit,
+      pg_has_role('identity_registry', 'identity_worker', 'MEMBER') as worker_member,
+      pg_has_role(
+        'identity_registry', 'collector_worker', 'MEMBER'
+      ) as collector_member
+    from pg_catalog.pg_roles as role
+    where role.rolname = 'identity_registry'
+  `);
+  assert.deepEqual(identityLoginBoundary.rows, [
+    {
+      rolcanlogin: false,
+      rolsuper: false,
+      rolcreatedb: false,
+      rolcreaterole: false,
+      rolreplication: false,
+      rolbypassrls: false,
+      rolconnlimit: 1,
+      worker_member: true,
+      collector_member: false,
+    },
+  ]);
+
+  const identityOrigin = await database.query(`
+    select id::text as id from raw.raw_records order by created_at limit 1
+  `);
+  const identityOriginId = identityOrigin.rows[0].id;
+  const firstIdentity = await database.query(`
+    select status, person_id::text as person_id
+    from identity.register_tse_identity(
+      'candidate:2024:123', 2024, 'https://cdn.tse.jus.br/source.zip',
+      decode('01', 'hex'), decode(repeat('02', 12), 'hex'),
+      decode(repeat('03', 16), 'hex'), '${"a".repeat(64)}',
+      '${"b".repeat(64)}', '${"c".repeat(64)}', 1,
+      'tse-candidate-registry/1.0.0', statement_timestamp(),
+      'municipal', 'cm:vereador:123', 'Vereador', '${identityOriginId}',
+      decode('04', 'hex'), decode(repeat('05', 12), 'hex'),
+      decode(repeat('06', 16), 'hex'), '${"d".repeat(64)}', '4725',
+      'PESSOA TESTE', 'pessoa teste', 'PESSOA'
+    )
+  `);
+  assert.equal(firstIdentity.rows[0].status, "inserted");
+
+  const replayedIdentity = await database.query(`
+    select status, person_id::text as person_id
+    from identity.register_tse_identity(
+      'candidate:2024:123', 2024, 'https://cdn.tse.jus.br/source.zip',
+      decode('01', 'hex'), decode(repeat('02', 12), 'hex'),
+      decode(repeat('03', 16), 'hex'), '${"a".repeat(64)}',
+      '${"b".repeat(64)}', '${"c".repeat(64)}', 1,
+      'tse-candidate-registry/1.0.0', statement_timestamp(),
+      'municipal', 'cm:vereador:123', 'Vereador', '${identityOriginId}',
+      decode('04', 'hex'), decode(repeat('05', 12), 'hex'),
+      decode(repeat('06', 16), 'hex'), '${"d".repeat(64)}', '4725',
+      'PESSOA TESTE', 'pessoa teste', 'PESSOA'
+    )
+  `);
+  assert.equal(replayedIdentity.rows[0].status, "unchanged");
+  assert.equal(
+    replayedIdentity.rows[0].person_id,
+    firstIdentity.rows[0].person_id,
+  );
+
+  const conflictedIdentity = await database.query(`
+    select status
+    from identity.register_tse_identity(
+      'candidate:2024:124', 2024, 'https://cdn.tse.jus.br/source.zip',
+      decode('07', 'hex'), decode(repeat('08', 12), 'hex'),
+      decode(repeat('09', 16), 'hex'), '${"e".repeat(64)}',
+      '${"b".repeat(64)}', '${"c".repeat(64)}', 1,
+      'tse-candidate-registry/1.0.0', statement_timestamp(),
+      'municipal', 'cm:vereador:123', 'Vereador', '${identityOriginId}',
+      decode('0a', 'hex'), decode(repeat('0b', 12), 'hex'),
+      decode(repeat('0c', 16), 'hex'), '${"f".repeat(64)}', '9999',
+      'PESSOA TESTE', 'pessoa teste', 'PESSOA'
+    )
+  `);
+  assert.equal(conflictedIdentity.rows[0].status, "conflicted");
+  const privateIdentityCounts = await database.query(`
+    select
+      (select count(*)::integer from hr.people) as people,
+      (select count(*)::integer from private.person_identifiers) as identifiers,
+      (select count(*)::integer from identity.person_source_links) as links,
+      (select count(*)::integer from private.person_identifier_sources) as sources,
+      (select count(*)::integer from private.person_identifier_conflicts) as conflicts
+  `);
+  assert.deepEqual(privateIdentityCounts.rows[0], {
+    people: 1,
+    identifiers: 1,
+    links: 1,
+    sources: 2,
+    conflicts: 1,
+  });
+  const canonicalIdentitySource = await database.query(`
+    select source_kind
+    from identity.person_source_links
+    where source_external_id = 'cm:vereador:123'
+  `);
+  assert.deepEqual(canonicalIdentitySource.rows, [
+    { source_kind: 'municipal_councillor' },
+  ]);
+
   const privateIdentityRls = await database.query(`
     select relname, relrowsecurity, relforcerowsecurity
     from pg_catalog.pg_class

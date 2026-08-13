@@ -192,13 +192,21 @@ a comparação determinística usa HMAC-SHA-256 com outra chave. Chaves não fic
 no PostgreSQL, no frontend ou em variáveis `NEXT_PUBLIC_*`. O schema `private`
 não é exposto pelo PostgREST, nega `anon`, `authenticated` e
 `collector_worker`, e aceita somente `SELECT`/`INSERT` do papel sem login
-`identity_worker`. Correção cria nova evidência; não há `UPDATE` ou `DELETE`.
+`identity_worker`. A conexão operacional usa exclusivamente o login
+`identity_registry`, com limite de uma conexão e sem participação no papel dos
+coletores. Correção cria nova evidência; não há `UPDATE` ou `DELETE`.
 Cada cifra usa nonce aleatório de 96 bits e dados adicionais autenticados com a
 versão da chave e o identificador oficial da pessoa ou evidência. A fonte que
 contém CPF também fica cifrada; somente uma projeção explicitamente redigida,
 sem CPF, pode alcançar as tabelas brutas compartilhadas. Logs registram apenas
 contagens, códigos de fonte e conflitos sanitizados — nunca valor, fingerprint,
 últimos dígitos, ciphertext ou material de chave.
+
+O workflow de Representação verifica apenas a presença dos quatro segredos
+privados antes de baixar o código. Os segredos só entram no ambiente do comando
+de identidade; checkout, setup e demais coletores não os recebem. Sem a
+credencial exclusiva, a coleta pública continua e o importador privado é
+explicitamente ignorado, sem falso registro de sucesso.
 
 ## Checklist por etapa
 
