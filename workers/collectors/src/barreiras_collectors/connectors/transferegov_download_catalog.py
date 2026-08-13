@@ -33,6 +33,9 @@ CATALOG_URL = (
     "https://api-publica.transferegov.gestao.gov.br/"
     "downloads/dadosgov/?restype=container&comp=list"
 )
+DOWNLOAD_BASE_URL = (
+    "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/"
+)
 CATALOG_HOSTS = frozenset({"api-publica.transferegov.gestao.gov.br"})
 BLOB_HOST = "trsfgovprodstrgaccpublic.blob.core.windows.net"
 BLOB_CONTAINER = "trsfgov-prod-public-data"
@@ -220,6 +223,7 @@ def parse_catalog_items(body: bytes) -> tuple[dict[str, object], ...]:
         selected[name] = {
             "name": name,
             "url": url,
+            "download_url": f"{DOWNLOAD_BASE_URL}{name}",
             "byte_size": byte_size,
             "last_modified": modified,
             "etag": etag,

@@ -118,6 +118,36 @@ class TransferegovDownloadCatalogTests(unittest.TestCase):
         )
         self.assertEqual(len(transport.requests), 1)
 
+    def test_exposes_official_proxy_download_url_without_losing_blob_provenance(
+        self,
+    ) -> None:
+        snapshot = fetch_download_catalog(
+            transport=OneShotTransport(response(catalog_xml())),
+            retry_policy=RetryPolicy(max_attempts=1),
+            sleep=lambda _seconds: None,
+        )
+
+        proposal = next(
+            item
+            for item in snapshot.items
+            if item["name"] == "siconv_proposta.zip"
+        )
+
+        self.assertEqual(
+            proposal["url"],
+            (
+                f"https://{OFFICIAL_BLOB_HOST}/{OFFICIAL_CONTAINER}/"
+                "siconv_proposta.zip"
+            ),
+        )
+        self.assertEqual(
+            proposal["download_url"],
+            (
+                "https://api-publica.transferegov.gestao.gov.br/"
+                "downloads/dadosgov/siconv_proposta.zip"
+            ),
+        )
+
     def test_missing_required_file_cannot_close_catalog_coverage(self) -> None:
         names = tuple(sorted(REQUIRED_HISTORICAL_FILES - {"siconv_emenda.zip"}))
 
