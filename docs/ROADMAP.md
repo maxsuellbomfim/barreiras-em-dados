@@ -52,6 +52,15 @@ limitados aos dez estaduais e dez federais mais votados em Barreiras no primeiro
 turno de cada eleição. Nenhuma chave ou CPF é transportado por input manual,
 log, artefato de CI ou aplicação web.
 
+A coleta de representação passa a isolar Câmara dos Deputados, Câmara
+Municipal, ALBA e Executivo em execuções matriciais com `fail-fast: false`. Para
+respeitar as duas conexões da role de coleta, a matriz usa uma conexão e o TSE
+roda em job próprio com a segunda. O importador cifrado depende somente desse
+acervo eleitoral. Assim, indisponibilidade de uma API parlamentar continua
+visível como falha, mas não cancela fontes independentes nem posterga o
+tratamento privado de identidade. Um job final consolida a saúde sem transformar
+falha em ausência de registros.
+
 O backfill do Diário agora calcula a fronteira pela faixa contínua de execuções
 bem-sucedidas até a véspera. Um registro histórico isolado não pode mais saltar
 lacunas recentes nem encerrar prematuramente a cobertura desde 2021. Janelas

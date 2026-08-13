@@ -14,12 +14,70 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  collect:
-    name: Preservar representantes federais
+  collect-profiles:
+    name: Preservar ${{ matrix.label }}
     runs-on: ubuntu-latest
-    # The ALBA profile pass takes about 11 minutes and the TSE 2022 archive
-    # is roughly 556 MB; leave room for download, extraction and persistence.
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      # Uma fonte indisponível não cancela fontes independentes.
+      fail-fast: false
+      # A role de coleta admite duas conexões: uma fica disponível ao job TSE.
+      max-parallel: 1
+      matrix:
+        include:
+          - source: federal
+            label: deputados federais da Bahia
+            module: barreiras_collectors.commands.collect_camara_deputies
+          - source: municipal
+            label: vereadores de Barreiras
+            module: barreiras_collectors.commands.collect_vereadores
+          - source: state
+            label: deputados estaduais da Bahia
+            module: barreiras_collectors.commands.collect_alba_deputies
+          - source: executive
+            label: prefeito, vice e secretarias de Barreiras
+            module: barreiras_collectors.commands.collect_municipal_executive
+    env:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: workers/collectors/src
+      PERSISTENCE_MODE: postgres-supabase
+      DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+      SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_WORKLOAD_EMAIL: ${{ secrets.QUERIDO_DIARIO_SUPABASE_WORKLOAD_EMAIL }}
+      SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.QUERIDO_DIARIO_SUPABASE_WORKLOAD_PASSWORD }}
+      SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
+      COLLECTOR_MODULE: ${{ matrix.module }}
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências fixadas
+        run: python -m pip install --disable-pip-version-check ".[postgres,storage]"
+
+      - name: Verificar CA oficial do Supabase
+        run: >-
+          echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
+          | sha256sum --check --strict
+
+      - name: Executar coletor isolado
+        shell: bash
+        run: python -B -m "$COLLECTOR_MODULE"
+
+  collect-elections:
+    name: Preservar votação recebida em Barreiras
+    runs-on: ubuntu-latest
+    # O arquivo do TSE é grande; esta fonte não deve dividir o runner com as demais.
+    timeout-minutes: 30
     env:
       APP_ENV: production
       LOG_LEVEL: INFO
@@ -51,66 +109,13 @@ jobs:
           echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
           | sha256sum --check --strict
 
-      - name: Preservar deputados federais da Bahia
-        id: federal
-        continue-on-error: true
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_camara_deputies
-
-      - name: Preservar vereadores de Barreiras
-        id: municipal
-        continue-on-error: true
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_vereadores
-
-      - name: Preservar deputados estaduais da Bahia
-        id: state
-        continue-on-error: true
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_alba_deputies
-
-      - name: Preservar prefeito, vice e secretarias de Barreiras
-        id: executive
-        continue-on-error: true
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_municipal_executive
-
-      - name: Preservar votação recebida em Barreiras (vínculo territorial)
-        id: elections
-        continue-on-error: true
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_tse_votes
-
-      - name: Consolidar resultado sem ocultar falhas
-        if: ${{ always() }}
-        env:
-          FEDERAL_OUTCOME: ${{ steps.federal.outcome }}
-          MUNICIPAL_OUTCOME: ${{ steps.municipal.outcome }}
-          STATE_OUTCOME: ${{ steps.state.outcome }}
-          EXECUTIVE_OUTCOME: ${{ steps.executive.outcome }}
-          ELECTIONS_OUTCOME: ${{ steps.elections.outcome }}
-        shell: bash
-        run: |
-          failed=0
-          for outcome in \
-            "$FEDERAL_OUTCOME" \
-            "$MUNICIPAL_OUTCOME" \
-            "$STATE_OUTCOME" \
-            "$EXECUTIVE_OUTCOME" \
-            "$ELECTIONS_OUTCOME"
-          do
-            if [ "$outcome" != "success" ]; then
-              failed=1
-            fi
-          done
-          if [ "$failed" -ne 0 ]; then
-            echo "Uma ou mais fontes de representação falharam; consulte a saúde das fontes."
-            exit 1
-          fi
+      - name: Preservar votação por eleição, cargo e turno
+        run: python -B -m barreiras_collectors.commands.collect_tse_votes
 
   private-identities:
     name: Registrar identidades privadas oficiais
-    needs: collect
+    # O importador depende apenas do acervo eleitoral, não das APIs parlamentares.
+    needs: collect-elections
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -178,3 +183,30 @@ jobs:
           python -B -m barreiras_reconciliation.commands.import_tse_identities
           --year 2022
           --year 2024
+
+  summarize:
+    name: Consolidar saúde da representação
+    needs:
+      - collect-profiles
+      - collect-elections
+      - private-identities
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    env:
+      PROFILES_RESULT: ${{ needs.collect-profiles.result }}
+      ELECTIONS_RESULT: ${{ needs.collect-elections.result }}
+      IDENTITIES_RESULT: ${{ needs.private-identities.result }}
+    steps:
+      - name: Exibir resultado sem ocultar falhas
+        shell: bash
+        run: |
+          printf 'perfis=%s\neleicoes=%s\nidentidades=%s\n' \
+            "$PROFILES_RESULT" \
+            "$ELECTIONS_RESULT" \
+            "$IDENTITIES_RESULT"
+          if [ "$PROFILES_RESULT" != "success" ] || \
+             [ "$ELECTIONS_RESULT" != "success" ] || \
+             [ "$IDENTITIES_RESULT" != "success" ]; then
+            echo "Uma ou mais fontes de representação falharam; consulte o job isolado correspondente."
+            exit 1
+          fi
