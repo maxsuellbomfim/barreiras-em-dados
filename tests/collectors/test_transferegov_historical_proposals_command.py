@@ -6,6 +6,7 @@ from datetime import date
 from barreiras_collectors.collection_control import CollectionOutcome
 from barreiras_collectors.commands.collect_transferegov_historical_proposals import (
     HistoricalProposalCollectionSummary,
+    build_historical_proposals_execution_key,
     execute_controlled_historical_proposals,
     resolve_coverage_period,
 )
@@ -29,6 +30,27 @@ class FakeControl:
 
 
 class HistoricalProposalCommandTests(unittest.TestCase):
+    def test_execution_key_uses_a_valid_stable_collector_namespace(self) -> None:
+        environment = {
+            "GITHUB_RUN_ID": "31663954649",
+            "GITHUB_RUN_ATTEMPT": "1",
+            "GITHUB_REPOSITORY": "maxsuellbomfim/barreiras-em-dados",
+            "GITHUB_WORKFLOW": "Coletar documentos financeiros municipais",
+        }
+
+        first = build_historical_proposals_execution_key(
+            environment=environment,
+        )
+        replay = build_historical_proposals_execution_key(
+            environment=environment,
+        )
+
+        self.assertEqual(first, replay)
+        self.assertRegex(
+            first,
+            r"^transferegov-historical-proposals:execution:[0-9a-f]{64}$",
+        )
+
     def test_current_year_coverage_ends_on_collection_date(self) -> None:
         self.assertEqual(
             resolve_coverage_period(

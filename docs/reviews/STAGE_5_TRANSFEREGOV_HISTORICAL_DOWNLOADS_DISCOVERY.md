@@ -132,3 +132,11 @@ O parser do catálogo passa a ser `transferegov-download-catalog/1.1.0` e o
 schema do snapshot passa a `1.1.0`. As linhas `1.0.0` e o XML preservado
 continuam imutáveis. A coleta de propostas históricas só deverá ser repetida
 depois que essa versão estiver aplicada no banco.
+
+Na repetição controlada `31663954649`, o catálogo `1.1.0` foi preservado, mas
+o comando do ZIP parou antes de abrir a execução: o namespace incluía o
+intervalo com `:` e violava o contrato de identificadores técnicos. O período
+continua registrado em `partition_key=historical-proposals:2021:2026`; a chave
+da tentativa passa a usar somente o namespace estável
+`transferegov-historical-proposals`. Assim, o GitHub `run_id/run_attempt`
+distingue tentativas e a partição conserva o recorte temporal auditável.
