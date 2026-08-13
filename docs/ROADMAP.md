@@ -318,10 +318,11 @@ anúncio ou indicação como recurso já recebido por Barreiras.
 
 Primeira fatia concluída: preservação privada e imutável do catálogo CKAN e do
 ZIP estadual, com validação estrita dos cinco CSVs e detecção de mudança de
-schema. Como o arquivo não publica chave municipal explícita, a próxima menor
-fatia é localizar no Transparência Bahia/FIPLAN o relacionamento oficial que
-permita recortar Barreiras sem inferência textual. Até lá, nenhum valor estadual
-entra em totais ou rankings municipais.
+schema. O CSV de despesas também passa a ser normalizado automaticamente após a
+coleta em valores separados de orçamento, empenho, liquidação e pagamento, com
+hashes e versão do parser. Como o arquivo não publica chave municipal explícita,
+todo resultado permanece marcado como agregado estadual e nenhum valor entra em
+totais ou rankings municipais por simples menção textual.
 
 Segunda fatia concluída: extração determinística das linhas territoriais de
 Barreiras nos anexos oficiais da LOA 2022-2026, com evidência literal e estágio
@@ -329,9 +330,11 @@ Barreiras nos anexos oficiais da LOA 2022-2026, com evidência literal e estági
 PDFs, sem falhas, e a projeção pública passa a mostrar ranking e catálogo por
 autor, ano, objeto, página, URL e hashes. Oito dos onze autores foram ligados a
 perfis oficiais preservados da ALBA por crosswalk aprovado; os demais continuam
-sem link. O próximo gate é resolver esses três vínculos históricos e reconciliar
-as autorizações com a execução estadual, sem inferir pagamento por semelhança
-textual.
+sem link. O próximo gate é medir correspondências únicas, ambíguas e bloqueadas
+entre as autorizações territoriais e a execução estadual normalizada. Somente
+ligações determinísticas poderão alimentar a projeção pública; ausência será
+descrita como “não encontrada na fonte consultada”, nunca como zero ou falta de
+trabalho parlamentar.
 
 Gate:
 

@@ -97,6 +97,27 @@ test("LOA estadual e extraida deterministicamente depois da preservacao", () => 
   assert.match(loaJob, /--limit "10"/);
 });
 
+test("execucao estadual e normalizada depois de preservar o ZIP oficial", () => {
+  const stateJob = workflow.slice(
+    workflow.indexOf("  bahia_state_amendments:"),
+    workflow.indexOf("  bahia_state_loa_amendments:"),
+  );
+
+  assert.match(
+    stateJob,
+    /PYTHONPATH: workers\/collectors\/src:workers\/normalization\/src/,
+  );
+  const preserveIndex = stateJob.indexOf(
+    "barreiras_collectors.commands.collect_bahia_state_amendments",
+  );
+  const processIndex = stateJob.indexOf(
+    "barreiras_normalization.commands.process_bahia_state_execution",
+  );
+  assert.ok(preserveIndex >= 0);
+  assert.ok(processIndex > preserveIndex);
+  assert.match(stateJob, /--limit "1"/);
+});
+
 test("arquivo histórico de propostas exige opt-in e recorta Barreiras desde 2021", () => {
   const transferegovJob = workflow.slice(workflow.indexOf("  transferegov:"));
 

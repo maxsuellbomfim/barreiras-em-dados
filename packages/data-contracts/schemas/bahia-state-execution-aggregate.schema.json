@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreirasemdados.org/schemas/bahia-state-execution-aggregate/1-0-0",
+  "title": "Bahia state parliamentary amendment execution aggregate",
+  "description": "Execucao financeira estadual agregada por estrutura orcamentaria e autor. A fonte nao informa municipio nem autoriza atribuir o valor a Barreiras.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_name",
+    "schema_version",
+    "fiscal_year",
+    "agency_name",
+    "agency_code",
+    "budget_unit_name",
+    "budget_unit_code",
+    "action_name",
+    "action_code",
+    "author_name",
+    "author_external_code",
+    "execution_code",
+    "initial_budget_amount",
+    "current_budget_amount",
+    "committed_amount",
+    "liquidated_amount",
+    "paid_amount",
+    "territorial_scope",
+    "evidence_text",
+    "evidence_sha256",
+    "source_url",
+    "source_artifact_sha256",
+    "source_collected_at",
+    "parser_version"
+  ],
+  "properties": {
+    "schema_name": { "const": "bahia-state-execution-aggregate" },
+    "schema_version": { "const": "1.0.0" },
+    "fiscal_year": { "type": "integer", "minimum": 2000, "maximum": 2200 },
+    "agency_name": { "type": "string", "minLength": 1 },
+    "agency_code": { "type": "string", "minLength": 1 },
+    "budget_unit_name": { "type": "string", "minLength": 1 },
+    "budget_unit_code": { "type": "string", "minLength": 1 },
+    "action_name": { "type": "string", "minLength": 1 },
+    "action_code": { "type": "string", "pattern": "^\\d+$" },
+    "author_name": { "type": "string", "minLength": 1 },
+    "author_external_code": { "type": "string", "pattern": "^\\d+$" },
+    "execution_code": {
+      "type": "string",
+      "pattern": "^\\d{4}(?:\\.\\d+){7}$"
+    },
+    "initial_budget_amount": { "type": "string", "pattern": "^-?\\d+\\.\\d{2}$" },
+    "current_budget_amount": { "type": "string", "pattern": "^-?\\d+\\.\\d{2}$" },
+    "committed_amount": { "type": "string", "pattern": "^-?\\d+\\.\\d{2}$" },
+    "liquidated_amount": { "type": "string", "pattern": "^-?\\d+\\.\\d{2}$" },
+    "paid_amount": { "type": "string", "pattern": "^-?\\d+\\.\\d{2}$" },
+    "territorial_scope": {
+      "type": "string",
+      "enum": ["not_available_in_execution_archive"]
+    },
+    "evidence_text": { "type": "string", "minLength": 1 },
+    "evidence_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "source_url": { "type": "string", "pattern": "^https://" },
+    "source_artifact_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_collected_at": { "type": "string", "format": "date-time" },
+    "parser_version": { "const": "bahia-state-execution-aggregate/1.0.0" }
+  }
+}
