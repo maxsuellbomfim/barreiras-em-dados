@@ -1,0 +1,255 @@
+from __future__ import annotations
+
+import csv
+import hashlib
+import io
+import json
+import unittest
+import zipfile
+from datetime import UTC, datetime
+
+from barreiras_collectors.connectors.bahia_state_amendments import (
+    EXPECTED_MEMBER_COLUMNS,
+    BahiaStateAmendmentArchiveError,
+    fetch_state_amendment_archive,
+    fetch_state_amendment_catalog,
+    parse_state_amendment_archive,
+)
+from barreiras_collectors.http import HttpResponse
+from barreiras_collectors.resilience import RetryPolicy
+
+
+def _csv_bytes(columns: tuple[str, ...], rows: list[tuple[str, ...]]) -> bytes:
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, delimiter=";", lineterminator="\n")
+    writer.writerow(columns)
+    writer.writerows(rows)
+    return output.getvalue().encode("utf-8-sig")
+
+
+def archive_bytes(
+    *,
+    missing_member: str | None = None,
+    extra_member: bool = False,
+    columns_override: dict[str, tuple[str, ...]] | None = None,
+    body_override: dict[str, bytes] | None = None,
+) -> bytes:
+    archive = io.BytesIO()
+    overrides = columns_override or {}
+    body_overrides = body_override or {}
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as package:
+        for name, columns in EXPECTED_MEMBER_COLUMNS.items():
+            if name == missing_member:
+                continue
+            active_columns = overrides.get(name, columns)
+            row = tuple("1" for _ in active_columns)
+            package.writestr(
+                name,
+                body_overrides.get(name, _csv_bytes(active_columns, [row])),
+            )
+        if extra_member:
+            package.writestr("unexpected.csv", b"field\nvalue\n")
+    return archive.getvalue()
+
+
+def catalog_body(*, size: int, resource_url: str | None = None) -> bytes:
+    return json.dumps(
+        {
+            "success": True,
+            "result": {
+                "id": "1436b3e7-6594-4683-bfa5-b2e3a6c69e07",
+                "name": "emendas-parlamentares",
+                "title": "Emendas Parlamentares Estaduais",
+                "metadata_modified": "2026-08-12T09:34:57.991157",
+                "resources": [
+                    {
+                        "id": "2d284f2e-79cc-4e3c-a45b-6fc903a6e2d0",
+                        "name": "EmendasParlamentares.zip",
+                        "format": "ZIP",
+                        "url": resource_url
+                        or (
+                            "https://dados.ba.gov.br/dataset/"
+                            "1436b3e7-6594-4683-bfa5-b2e3a6c69e07/resource/"
+                            "2d284f2e-79cc-4e3c-a45b-6fc903a6e2d0/download/"
+                            "emendasparlamentares.zip"
+                        ),
+                        "last_modified": "2026-08-12T09:34:57",
+                        "size": size,
+                    }
+                ],
+            },
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    ).encode()
+
+
+class SequenceTransport:
+    def __init__(self, responses: list[HttpResponse]) -> None:
+        self.responses = responses
+        self.requests: list[tuple[str, int]] = []
+
+    def get(self, url, *, headers, timeout_seconds, max_body_bytes):
+        del headers, timeout_seconds
+        self.requests.append((url, max_body_bytes))
+        return self.responses.pop(0)
+
+
+def response(body: bytes, *, final_url: str, content_type: str) -> HttpResponse:
+    return HttpResponse(
+        status=200,
+        headers={
+            "Content-Type": content_type,
+            "Content-Length": str(len(body)),
+            "ETag": '"official-version"',
+            "X-Api-Key": "never-preserve",
+        },
+        body=body,
+        final_url=final_url,
+    )
+
+
+class BahiaStateAmendmentArchiveTests(unittest.TestCase):
+    def test_validates_all_five_csv_contracts_without_normalizing_money(self) -> None:
+        body = archive_bytes()
+
+        members = parse_state_amendment_archive(body)
+
+        self.assertEqual(len(members), 5)
+        self.assertEqual(
+            {member["member_name"] for member in members},
+            set(EXPECTED_MEMBER_COLUMNS),
+        )
+        self.assertTrue(all(member["row_count"] == 1 for member in members))
+        self.assertTrue(
+            all(member["row_count_status"] == "validated" for member in members)
+        )
+        self.assertTrue(all(len(member["content_sha256"]) == 64 for member in members))
+        self.assertTrue(all("rows" not in member for member in members))
+
+    def test_rejects_missing_extra_or_drifted_members(self) -> None:
+        first_member = next(iter(EXPECTED_MEMBER_COLUMNS))
+        cases = (
+            archive_bytes(missing_member=first_member),
+            archive_bytes(extra_member=True),
+            archive_bytes(columns_override={first_member: ("changed",)}),
+        )
+        for body in cases:
+            with self.subTest(size=len(body)):
+                with self.assertRaises(BahiaStateAmendmentArchiveError):
+                    parse_state_amendment_archive(body)
+
+    def test_preserves_source_csv_when_its_rows_cannot_be_counted_safely(self) -> None:
+        member = "VW_PAINEL_EMENDAS_PARLAMENTARES_PAGAMENTOS.csv"
+        columns = EXPECTED_MEMBER_COLUMNS[member]
+        header = _csv_bytes(columns, []).decode("utf-8-sig")
+        malformed_quote = ("1;\"foo\"bar\";" + ";".join("1" for _ in range(8))).encode(
+            "utf-8"
+        )
+        body = archive_bytes(
+            body_override={
+                member: (
+                    b"\xef\xbb\xbf"
+                    + header.encode("utf-8")
+                    + malformed_quote
+                    + b"\n"
+                )
+            }
+        )
+
+        manifests = parse_state_amendment_archive(body)
+
+        payment = next(item for item in manifests if item["member_name"] == member)
+        self.assertIsNone(payment["row_count"])
+        self.assertEqual(payment["row_count_status"], "source_csv_malformed")
+        self.assertEqual(payment["physical_line_count"], 1)
+
+        wrong_width = archive_bytes(
+            body_override={
+                member: b"\xef\xbb\xbf"
+                + header.encode("utf-8")
+                + malformed_quote
+                + b";unexpected\n"
+            }
+        )
+        wrong_width_manifest = parse_state_amendment_archive(wrong_width)
+        payment = next(
+            item for item in wrong_width_manifest if item["member_name"] == member
+        )
+        self.assertIsNone(payment["row_count"])
+        self.assertEqual(payment["row_count_status"], "source_csv_malformed")
+
+    def test_binds_archive_to_ckan_resource_and_preserves_safe_headers(self) -> None:
+        archive = archive_bytes()
+        catalog_url = (
+            "https://dados.ba.gov.br/api/3/action/"
+            "package_show?id=emendas-parlamentares"
+        )
+        download_url = (
+            "https://dados.ba.gov.br/dataset/"
+            "1436b3e7-6594-4683-bfa5-b2e3a6c69e07/resource/"
+            "2d284f2e-79cc-4e3c-a45b-6fc903a6e2d0/download/"
+            "emendasparlamentares.zip"
+        )
+        transport = SequenceTransport(
+            [
+                response(
+                    catalog_body(size=len(archive)),
+                    final_url=catalog_url,
+                    content_type="application/json",
+                ),
+                response(
+                    archive,
+                    final_url=download_url,
+                    content_type="application/zip",
+                ),
+            ]
+        )
+
+        catalog = fetch_state_amendment_catalog(
+            transport=transport,
+            retry_policy=RetryPolicy(max_attempts=1),
+            sleep=lambda _seconds: None,
+            now=lambda: datetime(2026, 8, 13, 16, 0, tzinfo=UTC),
+        )
+        snapshot = fetch_state_amendment_archive(
+            catalog=catalog,
+            transport=transport,
+            retry_policy=RetryPolicy(max_attempts=1),
+            sleep=lambda _seconds: None,
+            now=lambda: datetime(2026, 8, 13, 16, 1, tzinfo=UTC),
+        )
+
+        self.assertEqual(catalog.total_items, 1)
+        self.assertEqual(snapshot.total_items, 5)
+        self.assertEqual(snapshot.body_sha256, hashlib.sha256(archive).hexdigest())
+        self.assertEqual(snapshot.catalog_sha256, catalog.body_sha256)
+        self.assertNotIn("x-api-key", snapshot.response_headers)
+        self.assertEqual(transport.requests[1], (download_url, len(archive)))
+
+    def test_rejects_unofficial_download_url(self) -> None:
+        archive = archive_bytes()
+        body = catalog_body(size=len(archive), resource_url="https://example.org/file.zip")
+        transport = SequenceTransport(
+            [
+                response(
+                    body,
+                    final_url=(
+                        "https://dados.ba.gov.br/api/3/action/"
+                        "package_show?id=emendas-parlamentares"
+                    ),
+                    content_type="application/json",
+                )
+            ]
+        )
+
+        with self.assertRaisesRegex(BahiaStateAmendmentArchiveError, "oficial"):
+            fetch_state_amendment_catalog(
+                transport=transport,
+                retry_policy=RetryPolicy(max_attempts=1),
+                sleep=lambda _seconds: None,
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

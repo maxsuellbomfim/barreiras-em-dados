@@ -6,6 +6,13 @@ import hashlib
 import json
 from typing import Any, ClassVar
 
+from ..connectors.bahia_state_amendments import (
+    BahiaStateAmendmentArchiveError,
+    BahiaStateAmendmentArchiveSnapshot,
+    BahiaStateAmendmentCatalogSnapshot,
+    parse_state_amendment_archive,
+    parse_state_amendment_catalog,
+)
 from ..connectors.direct_diary import ENDPOINT_CODE, SOURCE_CODE, DirectEdition
 from ..connectors.gazette_documents import CollectedDocument
 from ..connectors.municipal_transparency import MunicipalTransparencyPage
@@ -95,6 +102,15 @@ TRANSFEREGOV_HISTORICAL_AMENDMENT_COLLECTOR_VERSION = (
 )
 TRANSFEREGOV_HISTORICAL_AMENDMENT_PARSER_VERSION = (
     "transferegov-historical-amendments/1.0.0"
+)
+BAHIA_STATE_AMENDMENT_COLLECTOR_VERSION = (
+    "bahia-state-amendments-collector/1.0.0"
+)
+BAHIA_STATE_AMENDMENT_CATALOG_PARSER_VERSION = (
+    "bahia-state-amendment-catalog/1.0.0"
+)
+BAHIA_STATE_AMENDMENT_ARCHIVE_PARSER_VERSION = (
+    "bahia-state-amendment-archive/1.1.0"
 )
 
 
@@ -896,6 +912,206 @@ class TransferegovHistoricalAmendmentPersistenceService:
             inserted_records=persisted.inserted_records,
             existing_records=persisted.existing_records,
         )
+
+
+class BahiaStateAmendmentCatalogPersistenceService:
+    """Preserva o JSON CKAN antes de baixar o ZIP que ele descreve."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(
+        self,
+        snapshot: BahiaStateAmendmentCatalogSnapshot,
+    ) -> PersistenceResult:
+        _verify_state_amendment_bytes(
+            snapshot,
+            description="catálogo estadual de emendas",
+        )
+        try:
+            resource = parse_state_amendment_catalog(snapshot.raw_body)
+        except BahiaStateAmendmentArchiveError as error:
+            raise ArtifactIntegrityError(
+                "O catálogo estadual preservado perdeu seu contrato."
+            ) from error
+        if snapshot.items != (resource,):
+            raise ArtifactIntegrityError(
+                "O recurso estadual diverge do catálogo preservado."
+            )
+        record = _state_amendment_record(
+            payload=resource,
+            source_record_key=(
+                "bahia:state-amendment-catalog:"
+                f"{resource['resource_id']}"
+            ),
+            record_type="bahia_state_amendment_catalog_resource",
+            parser_version=BAHIA_STATE_AMENDMENT_CATALOG_PARSER_VERSION,
+            record_index=0,
+            snapshot_key=snapshot.idempotency_key,
+        )
+        object_key = (
+            "bahia/emendas-estaduais/catalog/sha256/"
+            f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.json"
+        )
+        return _persist_state_amendment_snapshot(
+            snapshot=snapshot,
+            records=(record,),
+            object_key=object_key,
+            collector_version=BAHIA_STATE_AMENDMENT_COLLECTOR_VERSION,
+            parser_version=BAHIA_STATE_AMENDMENT_CATALOG_PARSER_VERSION,
+            object_store=self.object_store,
+            repository=self.repository,
+            restored_description="catálogo estadual restaurado",
+        )
+
+
+class BahiaStateAmendmentArchivePersistenceService:
+    """Preserva o ZIP integral e materializa somente o manifesto das views."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(
+        self,
+        snapshot: BahiaStateAmendmentArchiveSnapshot,
+    ) -> PersistenceResult:
+        _verify_state_amendment_bytes(
+            snapshot,
+            description="ZIP estadual de emendas",
+        )
+        try:
+            members = parse_state_amendment_archive(snapshot.raw_body)
+        except BahiaStateAmendmentArchiveError as error:
+            raise ArtifactIntegrityError(
+                "O ZIP estadual preservado perdeu seu contrato."
+            ) from error
+        if members != snapshot.items:
+            raise ArtifactIntegrityError(
+                "O manifesto do ZIP estadual diverge do arquivo preservado."
+            )
+        records = tuple(
+            _state_amendment_record(
+                payload=member,
+                source_record_key=(
+                    "bahia:state-amendment-archive-member:"
+                    f"{member['member_name']}:{member['content_sha256']}"
+                ),
+                record_type="bahia_state_amendment_archive_member",
+                parser_version=BAHIA_STATE_AMENDMENT_ARCHIVE_PARSER_VERSION,
+                record_index=index,
+                snapshot_key=snapshot.idempotency_key,
+            )
+            for index, member in enumerate(members)
+        )
+        object_key = (
+            "bahia/emendas-estaduais/archive/sha256/"
+            f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.zip"
+        )
+        return _persist_state_amendment_snapshot(
+            snapshot=snapshot,
+            records=records,
+            object_key=object_key,
+            collector_version=BAHIA_STATE_AMENDMENT_COLLECTOR_VERSION,
+            parser_version=BAHIA_STATE_AMENDMENT_ARCHIVE_PARSER_VERSION,
+            object_store=self.object_store,
+            repository=self.repository,
+            restored_description="ZIP estadual restaurado",
+        )
+
+
+def _verify_state_amendment_bytes(snapshot, *, description: str) -> None:
+    actual_hash = hashlib.sha256(snapshot.raw_body).hexdigest()
+    if (
+        actual_hash != snapshot.body_sha256
+        or len(snapshot.raw_body) != snapshot.body_size_bytes
+    ):
+        raise ArtifactIntegrityError(
+            f"O {description} diverge dos metadados coletados."
+        )
+
+
+def _state_amendment_record(
+    *,
+    payload: dict[str, object],
+    source_record_key: str,
+    record_type: str,
+    parser_version: str,
+    record_index: int,
+    snapshot_key: str,
+) -> RawRecordInput:
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    payload_sha256 = hashlib.sha256(canonical).hexdigest()
+    return RawRecordInput(
+        source_record_key=source_record_key,
+        record_type=record_type,
+        record_index=record_index,
+        payload=payload,
+        payload_sha256=payload_sha256,
+        parser_version=parser_version,
+        idempotency_key=hashlib.sha256(
+            (
+                "bahia-state-amendment-record:"
+                f"{snapshot_key}:{parser_version}:{record_index}:{payload_sha256}"
+            ).encode()
+        ).hexdigest(),
+    )
+
+
+def _persist_state_amendment_snapshot(
+    *,
+    snapshot,
+    records: tuple[RawRecordInput, ...],
+    object_key: str,
+    collector_version: str,
+    parser_version: str,
+    object_store,
+    repository,
+    restored_description: str,
+) -> PersistenceResult:
+    stored = object_store.put_if_absent(
+        object_key=object_key,
+        body=snapshot.raw_body,
+        content_type=snapshot.media_type,
+        expected_sha256=snapshot.body_sha256,
+    )
+    restored = object_store.read(object_key)
+    if (
+        hashlib.sha256(restored).hexdigest() != snapshot.body_sha256
+        or len(restored) != snapshot.body_size_bytes
+        or stored.sha256 != snapshot.body_sha256
+        or stored.byte_size != snapshot.body_size_bytes
+    ):
+        raise ArtifactIntegrityError(
+            f"O {restored_description} diverge do bruto coletado."
+        )
+    persisted = repository.persist(
+        PersistenceBatch(
+            page=snapshot,  # type: ignore[arg-type]
+            object_key=object_key,
+            artifact_idempotency_key=hashlib.sha256(
+                f"raw-artifact:{snapshot.idempotency_key}".encode()
+            ).hexdigest(),
+            collector_version=collector_version,
+            parser_version=parser_version,
+            records=records,
+        )
+    )
+    return PersistenceResult(
+        collection_run_id=persisted.collection_run_id,
+        raw_artifact_id=persisted.raw_artifact_id,
+        object_key=object_key,
+        sha256=snapshot.body_sha256,
+        object_created=stored.created,
+        inserted_records=persisted.inserted_records,
+        existing_records=persisted.existing_records,
+    )
 
 
 class MunicipalTransparencyPersistenceService:

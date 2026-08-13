@@ -31,7 +31,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | TCM-BA | dados municipais e prestações | P2 | descoberta |
 | Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | API atual, catálogo histórico, propostas municipais e recorte de emendas por ID implementados; demais CSVs pendentes |
 | Tesouro Transparente | transferências constitucionais/legais e emendas | P3 | documentação inicial |
-| Transparência Bahia | transferências a municípios, despesas e emendas estaduais | P3 | descoberta inicial |
+| Transparência Bahia | transferências a municípios, despesas e emendas estaduais | P3 | bruto estadual implementado; recorte municipal bloqueado |
 | Câmara dos Deputados | mandatos, proposições, votações e despesas | P3 | API confirmada |
 | Assembleia Legislativa da Bahia | parlamentares, comissões e proposições | P3 | API indicada; contrato a descobrir |
 | TSE Dados Abertos | candidaturas, resultados e bens declarados | P4 | datasets confirmados |
@@ -312,6 +312,22 @@ O contrato deverá manter autor, exercício, número, objeto, órgão executor,
 beneficiário, município e cada estágio financeiro publicado. A filtragem de
 Barreiras será validada contra os campos estruturados do arquivo antes de
 qualquer total ou ranking.
+
+Em 13/08/2026, a inspeção do recurso oficial confirmou um arquivo ZIP com
+**cinco CSVs** de centralização/descentralização, despesas, liquidação,
+pagamentos e processos SEI. Esses cinco arquivos não publicam coluna municipal
+explícita nem código IBGE do destino. Por isso, esta primeira integração
+preserva o catálogo CKAN e o ZIP integral, registra hash, tamanho, cabeçalhos e
+quantidade de linhas, mas **não autoriza atribuição a Barreiras**. Busca textual
+por objeto, beneficiário ou unidade não será usada como substituto de uma chave
+territorial oficial.
+
+O retrato verificado em 13/08/2026 também contém aspas não escapadas e quebras
+de linha na view de pagamentos. O ZIP e os cinco cabeçalhos são válidos e ficam
+preservados, mas a contagem dessa view é marcada como indisponível na fonte e a
+cobertura da execução como parcial. As outras quatro views tiveram 48.303
+linhas validadas. O portal não converte esse limite em zero nem tenta reparar
+silenciosamente os dados oficiais.
 
 Em 17/07/2026, o Transferegov anunciou novo ambiente de APIs e descontinuação do
 ambiente anterior em 31/08/2026. O conector deverá apontar para o ambiente novo
