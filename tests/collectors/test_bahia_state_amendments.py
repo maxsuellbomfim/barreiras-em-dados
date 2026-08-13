@@ -29,6 +29,18 @@ def _csv_bytes(columns: tuple[str, ...], rows: list[tuple[str, ...]]) -> bytes:
     return output.getvalue().encode("utf-8-sig")
 
 
+def _quoted_header(columns: tuple[str, ...]) -> bytes:
+    output = io.StringIO(newline="")
+    writer = csv.writer(
+        output,
+        delimiter=";",
+        lineterminator="\r\n",
+        quoting=csv.QUOTE_ALL,
+    )
+    writer.writerow(columns)
+    return output.getvalue().encode("utf-8")
+
+
 def archive_bytes(
     *,
     missing_member: str | None = None,
@@ -213,6 +225,45 @@ class BahiaStateAmendmentArchiveTests(unittest.TestCase):
         )
         self.assertIsNone(payment["row_count"])
         self.assertEqual(payment["row_count_status"], "source_csv_malformed")
+
+    def test_counts_payment_rows_by_official_identifiers_despite_broken_quotes(
+        self,
+    ) -> None:
+        member = "VW_PAINEL_EMENDAS_PARLAMENTARES_PAGAMENTOS.csv"
+        header = _quoted_header(EXPECTED_MEMBER_COLUMNS[member])
+        rows = (
+            b'"1960100032200018568";"19601.0003.22.0001856-8";'
+            b'"CREDOR UM";"11/03/2022 00:00:00";"175000,00";"Sim";'
+            b'"";"Veiculo conforme NF"s 1906; processo oficial";'
+            b'"1960100032100112450";"2021.3.19.19601.313.1099.500091.5"\r\n'
+            b'"2080100722500002523";"20801.0072.25.0000252-3";'
+            b'"CREDOR DOIS";"27/02/2025 00:00:00";"5970,00";"Nao";'
+            b'"";"Primeira linha\r\nSegunda linha; com detalhe";'
+            b'"2080100722400006131";"2024.3.20.20801.437.7873.500128.5"\r\n'
+            b'"850100022400018653";"85010.0022.40.0018653-";'
+            b'"MUNICIPIO TESTE";"11/12/2024 00:00:00";"1131,54";"Sim";'
+            b'"";"Identificador sem digito publicado pela fonte";'
+            b'"850100022400008621";"2024.3.8.8501.434.7894.500072.5"\r\n'
+        )
+        body = archive_bytes(
+            body_override={member: b"\xef\xbb\xbf" + header + rows}
+        )
+
+        manifests = parse_state_amendment_archive(body)
+
+        payment = next(item for item in manifests if item["member_name"] == member)
+        self.assertEqual(payment["row_count"], 3)
+        self.assertEqual(
+            payment["row_count_status"],
+            "validated_with_source_warnings",
+        )
+        self.assertEqual(
+            payment["validation_warnings"],
+            {
+                "record_boundary_recovery_used": True,
+                "missing_check_digit_rows": 1,
+            },
+        )
 
     def test_binds_archive_to_ckan_resource_and_preserves_safe_headers(self) -> None:
         archive = archive_bytes()

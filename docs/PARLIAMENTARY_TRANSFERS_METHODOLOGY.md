@@ -135,10 +135,15 @@ registrada como retrato estadual preservado e o recorte municipal permanecerá
 bloqueado até que uma fonte oficial forneça chave ou relacionamento verificável.
 
 A view estadual de pagamentos observada em 13/08/2026 não segue integralmente
-as regras de escape de CSV. Ela é preservada por hash, mas sua quantidade de
-registros fica `source_csv_malformed` e a partição, `partial`. Apenas as views
-cuja estrutura foi validada contribuem para métricas técnicas de linhas; nenhuma
-delas contribui para totais financeiros públicos nesta fase.
+as regras de escape de CSV. Ela é preservada por hash e processada por uma
+gramática exclusiva que usa os identificadores estruturados de pagamento,
+empenho e execução para separar os registros, sem alterar o campo `Objeto`.
+Esse contrato validou 20.687 pagamentos; 32 deles conservam a ausência de
+dígito verificador publicada pela própria fonte e geram aviso auditável. O ZIP
+passa a ter 68.990 linhas estruturalmente validadas e cobertura técnica
+`complete`. Isso não torna os valores elegíveis à publicação: nenhuma das
+cinco views contribui para totais financeiros ou rankings enquanto faltar uma
+chave territorial oficial para Barreiras.
 
 A fonte oficial também apresentou a cadeia TLS incompleta em 13/08/2026. O
 coletor não desativa a validação: usa exclusivamente o intermediário OV R36 e o

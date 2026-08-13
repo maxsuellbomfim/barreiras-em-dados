@@ -328,12 +328,17 @@ quantidade de linhas, mas **não autoriza atribuição a Barreiras**. Busca text
 por objeto, beneficiário ou unidade não será usada como substituto de uma chave
 territorial oficial.
 
-O retrato verificado em 13/08/2026 também contém aspas não escapadas e quebras
-de linha na view de pagamentos. O ZIP e os cinco cabeçalhos são válidos e ficam
-preservados, mas a contagem dessa view é marcada como indisponível na fonte e a
-cobertura da execução como parcial. As outras quatro views tiveram 48.303
-linhas validadas. O portal não converte esse limite em zero nem tenta reparar
-silenciosamente os dados oficiais.
+O retrato SHA-256 `b34303a548f6bfc6596eaf5fa684bbee5a1ad749d9d4776962378493e2ae763b`,
+verificado em 13/08/2026, contém aspas não escapadas, pontos e vírgulas e
+quebras de linha no campo `Objeto` da view de pagamentos. O parser genérico de
+CSV permanece estrito. Para essa view específica, a versão `1.2.0` delimita
+cada registro somente pelos identificadores estruturados de pagamento,
+empenho e execução publicados nas extremidades da linha lógica. O contrato
+validou 20.687 pagamentos e 68.990 linhas nas cinco views. Em 32 pagamentos, a
+própria fonte omitiu o dígito verificador dos identificadores; a lacuna é
+registrada como `missing_check_digit_rows` e nenhum dígito é inferido. Essa
+validação fecha a cobertura estrutural do ZIP, mas não normaliza valores, não
+autoriza totais e não remove o bloqueio territorial de Barreiras.
 
 Em 17/07/2026, o Transferegov anunciou novo ambiente de APIs e descontinuação do
 ambiente anterior em 31/08/2026. O conector deverá apontar para o ambiente novo
