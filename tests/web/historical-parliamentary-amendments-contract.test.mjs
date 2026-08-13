@@ -9,6 +9,13 @@ const migration = await readFile(
   ),
   "utf8",
 );
+const territorialScopeMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260813140050_strict_barreiras_transfer_scope.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(
   new URL("../../apps/web/lib/parliamentary-transfers.ts", import.meta.url),
   "utf8",
@@ -61,4 +68,17 @@ test("falha transitória do cache da RPC recebe uma tentativa sem cache", () => 
   assert.match(client, /\[404, 408, 425, 429\]/);
   assert.match(client, /response\.status >= 500/);
   assert.match(client, /await fetchRpcResponse\(url, request, true\)/);
+});
+
+test("recorte territorial nao atribui projetos regionais a Barreiras", () => {
+  assert.match(territorialScopeMigration, /federal_transfer_proposal_scope/);
+  assert.match(territorialScopeMigration, /object_explicitly_mentions_barreiras/);
+  assert.match(territorialScopeMigration, /regional_entity_destination_unverified/);
+  assert.match(territorialScopeMigration, /recipient_registered_in_barreiras/);
+  assert.match(territorialScopeMigration, /is_confirmed_for_barreiras/);
+  assert.match(territorialScopeMigration, /get_public_federal_transfer_scope_summary/);
+  assert.doesNotMatch(territorialScopeMigration, /delete\s+from\s+raw\./iu);
+  assert.match(client, /get_public_federal_transfer_scope_summary/);
+  assert.match(page, /n.o atribu.dos a Barreiras/);
+  assert.match(page, /cons.rcio regional/);
 });

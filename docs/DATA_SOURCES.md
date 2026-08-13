@@ -258,23 +258,32 @@ permanece privado e não é servido pelo portal.
 
 O primeiro download controlado, `siconv_proposta.zip`, já está operacional. Seu arquivo nacional é
 validado por tamanho, ETag, integridade ZIP e contrato CSV; a projeção aceita
-somente `COD_MUNIC_IBGE=2903201` desde 2021. Agência, conta, endereço, bairro e
+somente `COD_MUNIC_IBGE=2903201` desde 2021 como conjunto candidato. Agência, conta, endereço, bairro e
 CEP não integram o registro normalizado. A projeção pública também omite CNPJ e
 expõe apenas campos necessários à compreensão da proposta e sua evidência. A
 proposta não recebe autoria por aproximação de nome.
 
+O código municipal do proponente, isoladamente, não prova que um projeto de
+consórcio regional beneficia Barreiras. Por isso, o recorte público exige menção
+explícita a Barreiras no objeto ou um destinatário local que não seja entidade
+regional. Projetos de consórcio sem destino municipal comprovado permanecem no
+bruto e no diagnóstico de cobertura, mas não entram em totais ou rankings.
+
 O segundo download controlado, `siconv_emenda.zip`, é filtrado exclusivamente
 pelos identificadores das propostas municipais já preservadas. O retrato
 oficial de SHA-256 `f55c98d09538f733bf8b58d6c0f333e0a1da1af12891ef288a22eec5fa769f82`,
-coletado e auditado em 13/08/2026, contém nove linhas ligadas a oito das 69 propostas de
-Barreiras preservadas entre 2021 e 2026. Uma proposta pode possuir
+coletado e auditado em 13/08/2026, contém nove linhas candidatas ligadas a oito das
+69 propostas cujo proponente foi registrado em Barreiras entre 2021 e 2026.
+O recorte territorial estrito confirmou 62 propostas e três linhas de emenda;
+sete propostas de consórcio e seis linhas de emenda ficaram fora dos totais por
+não comprovarem destino em Barreiras. Uma proposta pode possuir
 mais de uma emenda; as outras propostas permanecem como "sem emenda identificada
 neste arquivo", nunca como autoria inexistente. O nome e o tipo de autoria são
 mantidos como publicados pela fonte. CPF de beneficiário bloqueia a projeção;
 CNPJ integral permanece somente no ZIP privado, e o registro normalizado guarda
 apenas o tipo e os quatro últimos dígitos para diagnóstico.
 
-A projeção pública histórica relaciona cada linha à proposta, mostra autor,
+A projeção pública histórica relaciona cada linha territorialmente confirmada à proposta, mostra autor,
 tipo de autoria, valor destinado à proposta, objeto, fonte e hash. Pessoas e
 comissões possuem rankings separados. Esta série não publica identificadores
 do beneficiário e permanece separada da API corrente até que uma reconciliação

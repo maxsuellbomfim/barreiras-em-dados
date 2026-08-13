@@ -78,6 +78,8 @@ try {
         as historical_proposal_projection,
       to_regclass('territory.historical_parliamentary_amendments')::text
         as historical_amendment_projection,
+      to_regclass('territory.federal_transfer_proposal_scope')::text
+        as territorial_scope_projection,
       to_regclass('political.parliamentary_transfer_author_crosswalk')::text
         as author_crosswalk,
       to_regclass('raw.raw_records_transferegov_latest_idx')::text as latest_index,
@@ -102,6 +104,9 @@ try {
       to_regprocedure(
         'api.get_public_historical_parliamentary_amendment_ranking(text,smallint,integer)'
       )::text as historical_amendment_ranking_rpc,
+      to_regprocedure(
+        'api.get_public_federal_transfer_scope_summary()'
+      )::text as territorial_scope_rpc,
       has_schema_privilege('anon', 'territory', 'USAGE') as anon_territory_usage,
       has_function_privilege(
         'anon',
@@ -132,13 +137,19 @@ try {
         'anon',
         'api.get_public_historical_parliamentary_amendment_ranking(text,smallint,integer)',
         'EXECUTE'
-      ) as anon_historical_amendment_ranking_rpc
+      ) as anon_historical_amendment_ranking_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_federal_transfer_scope_summary()',
+        'EXECUTE'
+      ) as anon_territorial_scope_rpc
   `);
   assert.deepEqual(contracts.rows, [{
     transfer_projection: "territory.parliamentary_transfers",
     historical_proposal_projection: "territory.federal_transfer_proposals",
     historical_amendment_projection:
       "territory.historical_parliamentary_amendments",
+    territorial_scope_projection: "territory.federal_transfer_proposal_scope",
     author_crosswalk: "political.parliamentary_transfer_author_crosswalk",
     latest_index: "raw.raw_records_transferegov_latest_idx",
     proposal_index: "raw.raw_records_transferegov_proposal_idx",
@@ -155,6 +166,7 @@ try {
       "api.get_public_historical_parliamentary_amendments(smallint,text,integer)",
     historical_amendment_ranking_rpc:
       "api.get_public_historical_parliamentary_amendment_ranking(text,smallint,integer)",
+    territorial_scope_rpc: "api.get_public_federal_transfer_scope_summary()",
     anon_territory_usage: false,
     anon_ranking_rpc: true,
     anon_detail_rpc: true,
@@ -162,6 +174,7 @@ try {
     anon_historical_proposal_rpc: true,
     anon_historical_amendment_rpc: true,
     anon_historical_amendment_ranking_rpc: true,
+    anon_territorial_scope_rpc: true,
   }]);
 
   await database.exec(`
@@ -362,6 +375,15 @@ try {
         '{"id_proposta":"9001","numero_proposta":"000001/2021","ano_proposta":2021,"data_proposta":"15/06/2021","cod_municipio_ibge":"2903201","municipio_proponente":"BARREIRAS","proponente":"MUNICIPIO DE BARREIRAS","proponente_cnpj":"13654405000195","situacao_proposta":"PROPOSTA APROVADA","situacao_projeto_basico":"APROVADO","modalidade":"CONVENIO","objeto":"CONSTRUIR EQUIPAMENTO PUBLICO","item_investimento":"INFRAESTRUTURA","orgao":"MINISTERIO DO DESENVOLVIMENTO","orgao_superior":"MINISTERIO DO DESENVOLVIMENTO","valor_global":"1250000.50","valor_repasse":"1200000.50","valor_contrapartida":"50000.00","conta":"NAO PUBLICAR"}',
         '${"7".repeat(64)}', 'test/2', 'historical-record-0002',
         '2026-08-13 10:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009112',
+        '00000000-0000-0000-0000-000000009102',
+        'transferegov:historical-proposal:9002',
+        'transferegov_historical_proposal', 2,
+        '{"id_proposta":"9002","numero_proposta":"000002/2021","ano_proposta":2021,"data_proposta":"16/06/2021","cod_municipio_ibge":"2903201","municipio_proponente":"BARREIRAS","proponente":"CONSORCIO MULTIFINALITARIO DO OESTE DA BAHIA","proponente_cnpj":"00000000000000","situacao_proposta":"PROPOSTA APROVADA","situacao_projeto_basico":"APROVADO","modalidade":"CONVENIO","objeto":"PAVIMENTACAO NO MUNICIPIO DE BARRA-BA","item_investimento":"INFRAESTRUTURA","orgao":"MINISTERIO DO DESENVOLVIMENTO","orgao_superior":"MINISTERIO DO DESENVOLVIMENTO","valor_global":"700000.00","valor_repasse":"700000.00","valor_contrapartida":"0.00"}',
+        '${"6".repeat(64)}', 'test/1', 'historical-record-0003',
+        '2026-08-13 10:00:00+00'
       );
   `);
 
@@ -422,6 +444,15 @@ try {
         'transferegov_historical_amendment', 2,
         '{"id_proposta":"9001","numero_emenda":"50070003","autor_nome":"COM. TURISMO","tipo_parlamentar":"COMISSAO","codigo_programa_emenda":"5400020210017","impositiva":false,"valor_repasse_emenda":"300000","valor_repasse_proposta_emenda":"300000","beneficiario_tipo":"cnpj","beneficiario_ultimos_4":"0195"}',
         '${"2".repeat(64)}', 'test/1', 'historical-amendment-record-0003',
+        '2026-08-13 11:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009213',
+        '00000000-0000-0000-0000-000000009202',
+        'transferegov:historical-amendment:9002:50070004:commission',
+        'transferegov_historical_amendment', 3,
+        '{"id_proposta":"9002","numero_emenda":"50070004","autor_nome":"COM. TURISMO","tipo_parlamentar":"COMISSAO","codigo_programa_emenda":"5400020210018","impositiva":false,"valor_repasse_emenda":"700000","valor_repasse_proposta_emenda":"700000","beneficiario_tipo":"cnpj","beneficiario_ultimos_4":"0000"}',
+        '${"1".repeat(64)}', 'test/1', 'historical-amendment-record-0004',
         '2026-08-13 11:00:00+00'
       );
   `);
@@ -510,6 +541,13 @@ try {
       2021::smallint,
       50
     )
+  `);
+  const territorialScope = await database.query(`
+    select candidate_proposal_count, included_proposal_count,
+      excluded_regional_proposal_count, candidate_amendment_count,
+      included_amendment_count, excluded_regional_amendment_count,
+      excluded_regional_destination_amount, methodology_version
+    from api.get_public_federal_transfer_scope_summary()
   `);
   await database.exec("reset role");
 
@@ -710,6 +748,16 @@ try {
     methodology_version:
       "historical-parliamentary-amendment-ranking/1.0.0",
   }]);
+  assert.deepEqual(territorialScope.rows, [{
+    candidate_proposal_count: 2,
+    included_proposal_count: 1,
+    excluded_regional_proposal_count: 1,
+    candidate_amendment_count: 4,
+    included_amendment_count: 3,
+    excluded_regional_amendment_count: 1,
+    excluded_regional_destination_amount: "700000.00",
+    methodology_version: "federal-transfer-territorial-scope/1.0.0",
+  }]);
 
   await database.exec("set role anon");
   await assert.rejects(
@@ -744,6 +792,10 @@ try {
   );
   await assert.rejects(
     database.query("select * from territory.federal_transfer_proposals"),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query("select * from territory.federal_transfer_proposal_scope"),
     /permission denied/,
   );
   await assert.rejects(
