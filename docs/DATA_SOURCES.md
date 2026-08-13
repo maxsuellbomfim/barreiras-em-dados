@@ -315,6 +315,13 @@ autorização orçamentária e não comprovam empenho, liquidação ou pagamento
 Cada ano é preservado como documento privado, com URL exata, SHA-256 e partição
 própria, antes da extração das linhas de Barreiras.
 
+A extração determinística dos anexos 2022-2026 está implementada no worker de
+documentos. Ela conserva autor, número, órgão, unidade, objeto, página, trecho
+literal, hash da evidência e valor decimal autorizado. O processamento recusa
+PDF parcial, hash divergente e mudança de formato; os resultados ficam internos
+até o replay de produção ser conferido. A linha territorial precisa declarar
+`Barreiras`: citar a cidade apenas no objeto não basta.
+
 O link oficial rotulado como Anexo III da LOA 2021 aponta para o arquivo de
 2020. O período fica `blocked`, com a divergência documentada, em vez de receber
 um documento do exercício errado. Ausência de valor ou documento será mostrada

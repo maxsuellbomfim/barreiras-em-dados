@@ -323,6 +323,13 @@ fatia é localizar no Transparência Bahia/FIPLAN o relacionamento oficial que
 permita recortar Barreiras sem inferência textual. Até lá, nenhum valor estadual
 entra em totais ou rankings municipais.
 
+Segunda fatia implementada: extração determinística das linhas territoriais de
+Barreiras nos anexos oficiais da LOA 2022-2026, com evidência literal e estágio
+`authorized`. O próximo gate é executar o replay em produção, conferir as 63
+linhas esperadas contra os PDFs e somente então criar a projeção pública de
+valores autorizados. A reconciliação com execução continua sendo uma entrega
+posterior e não será inferida por semelhança textual.
+
 Gate:
 
 - valores reconciliados sem somar estágios incompatíveis;

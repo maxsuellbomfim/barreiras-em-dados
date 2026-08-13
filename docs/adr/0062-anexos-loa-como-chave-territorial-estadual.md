@@ -27,6 +27,14 @@ O coletor grava somente o PDF e um manifesto tecnico. Extracao de autores,
 municipios e valores pertence a `workers/document-processing`; normalizacao e
 reconciliacao com execucao pertencem aos workers correspondentes.
 
+A extracao usa duas gramaticas versionadas: linhas agrupadas por municipio em
+2022-2025 e linhas agrupadas por autor em 2026. O campo territorial precisa ser
+literalmente `Barreiras`; uma mencao da cidade no objeto nao qualifica a linha.
+O valor e persistido como decimal e sempre recebe o estagio `authorized`. Hash
+divergente, pagina sem texto, zero linhas territoriais, autor ausente em 2026 ou
+duplicidade de autor e numero falham de forma auditavel. Nenhum desses casos e
+publicado como zero.
+
 ## Consequencias
 
 - Barreiras pode ser localizado por uma coluna/agrupamento territorial oficial;
@@ -35,3 +43,5 @@ reconciliacao com execucao pertencem aos workers correspondentes.
 - ausencia de linha sera descrita como nao encontrada na fonte consultada, nunca
   convertida silenciosamente em zero;
 - 2021 permanece observavel como bloqueio de qualidade da fonte.
+- as linhas extraidas permanecem internas ate a conferencia do primeiro replay
+  e a criacao de uma projecao publica separada dos valores executados.

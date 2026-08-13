@@ -113,6 +113,24 @@ SEPLAN-BA: entre 2022 e 2025, o Anexo III organiza emendas individuais por
 município e autor; em 2026, o Anexo I publica autor, objeto, município e valor.
 Cada PDF é preservado integralmente antes de qualquer extração.
 
+O parser determinístico mantém gramáticas independentes para os anexos de
+2022-2025 e de 2026. Cada resultado conserva a página e o trecho literal que
+sustentam autor, número, objeto e valor. Valores são decimais, nunca `float`.
+CPF/CNPJ presente no texto do objeto não é interpretado como valor; o último
+campo monetário isolado da linha territorial é o valor autorizado. Um anexo sem
+texto integral ou sem linha comprovada de Barreiras falha e não gera total zero.
+
+Validação local dos PDFs oficiais em 13/08/2026, antes da projeção pública:
+
+- 2022: 2 linhas; R$ 379.200 autorizados;
+- 2023: 14 linhas; R$ 1.090.200 autorizados;
+- 2024: 13 linhas; R$ 2.245.028 autorizados;
+- 2025: 7 linhas; R$ 997.600 autorizados;
+- 2026: 27 linhas; R$ 9.017.541 autorizados.
+
+Esses números são uma linha de base reprodutível do parser e ainda não provam
+empenho, liquidação, pagamento ou recebimento pelo Município.
+
 Valor publicado nesses anexos é **autorizado na LOA**. Não significa pagamento,
 transferência ou dinheiro recebido por Barreiras. A futura reconciliação com o
 ZIP do FIPLAN exibirá, em colunas independentes:
