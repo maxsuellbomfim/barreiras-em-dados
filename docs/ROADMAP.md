@@ -303,9 +303,12 @@ mantendo autoria coletiva separada e sem chamar valor indicado de dinheiro
 pago. O recorte territorial estrito também impede que projetos de consórcio
 destinados a Barra/BA ou sem município comprovado sejam atribuídos a Barreiras;
 esses registros continuam preservados e aparecem apenas como exclusões
-metodológicas. A próxima menor fatia federal é reconciliar, por chaves oficiais, a série
-histórica e a API corrente; somente depois disso haverá ranking federal
-consolidado sem risco de dupla contagem.
+metodológicas. A série corrente e o arquivo histórico federal passaram a ser
+reconciliados por proposta e número oficial da emenda. Correspondências exatas
+entram uma única vez; conflitos são publicados para auditoria e excluídos dos
+totais. A próxima menor fatia é aplicar o mesmo contrato de evidência e
+separação de estágios às emendas estaduais. O ranking federal consolidado já
+evita dupla contagem entre as duas séries disponíveis.
 
 A trilha estadual será implementada em fonte e cobertura próprias a partir do
 conjunto diário **Emendas Parlamentares Estaduais** da SEFAZ-BA/FIPLAN. Ela

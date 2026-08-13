@@ -30,6 +30,13 @@ const historicalProposalMigration = await readFile(
   ),
   "utf8",
 );
+const reconciliationMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260813142302_reconcile_federal_transfer_series.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(
   new URL("../../apps/web/lib/parliamentary-transfers.ts", import.meta.url),
   "utf8",
@@ -115,4 +122,17 @@ test("propostas historicas ficam separadas de emendas e exibem seus limites", ()
   assert.match(page, /Arquivo oficial completo no Transferegov/);
   assert.match(page, /ficha de proposta, isoladamente, n.o entra no ranking/);
   assert.match(page, /arquivo oficial de emendas comprova autor e valor destinado/);
+});
+
+test("series corrente e historica sao reconciliadas sem dupla contagem", () => {
+  assert.match(reconciliationMigration, /official:' \|\| btrim\(transfer\.proposal_id\)/);
+  assert.match(reconciliationMigration, /matched_exact/);
+  assert.match(reconciliationMigration, /conflict_source_divergence/);
+  assert.match(reconciliationMigration, /reconciliation_status not like 'conflict_%'/);
+  assert.match(client, /get_public_reconciled_parliamentary_transfers/);
+  assert.match(client, /get_public_reconciled_parliamentary_transfer_ranking/);
+  assert.match(client, /get_public_parliamentary_transfer_reconciliation_summary/);
+  assert.match(page, /Ranking consolidado e audit.vel/);
+  assert.match(page, /correspond.ncia\(s\)\s+exata\(s\) contam uma .nica vez/);
+  assert.match(page, /conflito\(s\)\s+ficam vis.veis para auditoria, mas fora dos totais/);
 });

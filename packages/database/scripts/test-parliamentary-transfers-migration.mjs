@@ -80,6 +80,8 @@ try {
         as historical_amendment_projection,
       to_regclass('territory.federal_transfer_proposal_scope')::text
         as territorial_scope_projection,
+      to_regclass('territory.reconciled_parliamentary_transfers')::text
+        as reconciled_transfer_projection,
       to_regclass('political.parliamentary_transfer_author_crosswalk')::text
         as author_crosswalk,
       to_regclass('raw.raw_records_transferegov_latest_idx')::text as latest_index,
@@ -107,6 +109,15 @@ try {
       to_regprocedure(
         'api.get_public_federal_transfer_scope_summary()'
       )::text as territorial_scope_rpc,
+      to_regprocedure(
+        'api.get_public_reconciled_parliamentary_transfers(smallint,text,integer)'
+      )::text as reconciled_transfer_rpc,
+      to_regprocedure(
+        'api.get_public_reconciled_parliamentary_transfer_ranking(text,smallint,integer)'
+      )::text as reconciled_ranking_rpc,
+      to_regprocedure(
+        'api.get_public_parliamentary_transfer_reconciliation_summary()'
+      )::text as reconciliation_summary_rpc,
       has_schema_privilege('anon', 'territory', 'USAGE') as anon_territory_usage,
       has_function_privilege(
         'anon',
@@ -142,7 +153,22 @@ try {
         'anon',
         'api.get_public_federal_transfer_scope_summary()',
         'EXECUTE'
-      ) as anon_territorial_scope_rpc
+      ) as anon_territorial_scope_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_reconciled_parliamentary_transfers(smallint,text,integer)',
+        'EXECUTE'
+      ) as anon_reconciled_transfer_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_reconciled_parliamentary_transfer_ranking(text,smallint,integer)',
+        'EXECUTE'
+      ) as anon_reconciled_ranking_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_parliamentary_transfer_reconciliation_summary()',
+        'EXECUTE'
+      ) as anon_reconciliation_summary_rpc
   `);
   assert.deepEqual(contracts.rows, [{
     transfer_projection: "territory.parliamentary_transfers",
@@ -150,6 +176,8 @@ try {
     historical_amendment_projection:
       "territory.historical_parliamentary_amendments",
     territorial_scope_projection: "territory.federal_transfer_proposal_scope",
+    reconciled_transfer_projection:
+      "territory.reconciled_parliamentary_transfers",
     author_crosswalk: "political.parliamentary_transfer_author_crosswalk",
     latest_index: "raw.raw_records_transferegov_latest_idx",
     proposal_index: "raw.raw_records_transferegov_proposal_idx",
@@ -167,6 +195,12 @@ try {
     historical_amendment_ranking_rpc:
       "api.get_public_historical_parliamentary_amendment_ranking(text,smallint,integer)",
     territorial_scope_rpc: "api.get_public_federal_transfer_scope_summary()",
+    reconciled_transfer_rpc:
+      "api.get_public_reconciled_parliamentary_transfers(smallint,text,integer)",
+    reconciled_ranking_rpc:
+      "api.get_public_reconciled_parliamentary_transfer_ranking(text,smallint,integer)",
+    reconciliation_summary_rpc:
+      "api.get_public_parliamentary_transfer_reconciliation_summary()",
     anon_territory_usage: false,
     anon_ranking_rpc: true,
     anon_detail_rpc: true,
@@ -175,6 +209,9 @@ try {
     anon_historical_amendment_rpc: true,
     anon_historical_amendment_ranking_rpc: true,
     anon_territorial_scope_rpc: true,
+    anon_reconciled_transfer_rpc: true,
+    anon_reconciled_ranking_rpc: true,
+    anon_reconciliation_summary_rpc: true,
   }]);
 
   await database.exec(`
@@ -384,6 +421,24 @@ try {
         '{"id_proposta":"9002","numero_proposta":"000002/2021","ano_proposta":2021,"data_proposta":"16/06/2021","cod_municipio_ibge":"2903201","municipio_proponente":"BARREIRAS","proponente":"CONSORCIO MULTIFINALITARIO DO OESTE DA BAHIA","proponente_cnpj":"00000000000000","situacao_proposta":"PROPOSTA APROVADA","situacao_projeto_basico":"APROVADO","modalidade":"CONVENIO","objeto":"PAVIMENTACAO NO MUNICIPIO DE BARRA-BA","item_investimento":"INFRAESTRUTURA","orgao":"MINISTERIO DO DESENVOLVIMENTO","orgao_superior":"MINISTERIO DO DESENVOLVIMENTO","valor_global":"700000.00","valor_repasse":"700000.00","valor_contrapartida":"0.00"}',
         '${"6".repeat(64)}', 'test/1', 'historical-record-0003',
         '2026-08-13 10:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009113',
+        '00000000-0000-0000-0000-000000009102',
+        'transferegov:historical-proposal:9274',
+        'transferegov_historical_proposal', 3,
+        '{"id_proposta":"9274","numero_proposta":"000003/2025","ano_proposta":2025,"data_proposta":"20/05/2025","cod_municipio_ibge":"2903201","municipio_proponente":"BARREIRAS","proponente":"MUNICIPIO DE BARREIRAS","proponente_cnpj":"13654405000195","situacao_proposta":"PROPOSTA APROVADA","situacao_projeto_basico":"APROVADO","modalidade":"TRANSFERENCIA ESPECIAL","objeto":"APOIO A BARREIRAS","item_investimento":"CUSTEIO","orgao":"MINISTERIO DA SAUDE","orgao_superior":"MINISTERIO DA SAUDE","valor_global":"250000.00","valor_repasse":"250000.00","valor_contrapartida":"0.00"}',
+        '${"5".repeat(64)}', 'test/1', 'historical-record-0004',
+        '2026-08-13 10:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009114',
+        '00000000-0000-0000-0000-000000009102',
+        'transferegov:historical-proposal:40000',
+        'transferegov_historical_proposal', 4,
+        '{"id_proposta":"40000","numero_proposta":"000004/2025","ano_proposta":2025,"data_proposta":"21/05/2025","cod_municipio_ibge":"2903201","municipio_proponente":"BARREIRAS","proponente":"FUNDO MUNICIPAL DE SAUDE DE BARREIRAS","proponente_cnpj":"13654405000195","situacao_proposta":"PROPOSTA APROVADA","situacao_projeto_basico":"APROVADO","modalidade":"TRANSFERENCIA ESPECIAL","objeto":"APOIO A ATENCAO PRIMARIA EM BARREIRAS","item_investimento":"CUSTEIO","orgao":"MINISTERIO DA SAUDE","orgao_superior":"MINISTERIO DA SAUDE","valor_global":"99999.00","valor_repasse":"99999.00","valor_contrapartida":"0.00"}',
+        '${"4".repeat(64)}', 'test/1', 'historical-record-0005',
+        '2026-08-13 10:00:00+00'
       );
   `);
 
@@ -453,6 +508,24 @@ try {
         'transferegov_historical_amendment', 3,
         '{"id_proposta":"9002","numero_emenda":"50070004","autor_nome":"COM. TURISMO","tipo_parlamentar":"COMISSAO","codigo_programa_emenda":"5400020210018","impositiva":false,"valor_repasse_emenda":"700000","valor_repasse_proposta_emenda":"700000","beneficiario_tipo":"cnpj","beneficiario_ultimos_4":"0000"}',
         '${"1".repeat(64)}', 'test/1', 'historical-amendment-record-0004',
+        '2026-08-13 11:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009214',
+        '00000000-0000-0000-0000-000000009202',
+        'transferegov:historical-amendment:9274:2025.4460.0002:person',
+        'transferegov_historical_amendment', 4,
+        '{"id_proposta":"9274","numero_emenda":"2025.4460.0002","autor_nome":"RICARDO MAIA","tipo_parlamentar":"INDIVIDUAL","codigo_programa_emenda":"3600020250017","impositiva":true,"valor_repasse_emenda":"250000","valor_repasse_proposta_emenda":"250000","beneficiario_tipo":"cnpj","beneficiario_ultimos_4":"0195"}',
+        '${"0".repeat(64)}', 'test/1', 'historical-amendment-record-0005',
+        '2026-08-13 11:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009215',
+        '00000000-0000-0000-0000-000000009202',
+        'transferegov:historical-amendment:40000:2025.4460.0099:person',
+        'transferegov_historical_amendment', 5,
+        '{"id_proposta":"40000","numero_emenda":"2025.4460.0099","autor_nome":"RICARDO MAIA","tipo_parlamentar":"INDIVIDUAL","codigo_programa_emenda":"3600020250018","impositiva":true,"valor_repasse_emenda":"99999","valor_repasse_proposta_emenda":"99999","beneficiario_tipo":"cnpj","beneficiario_ultimos_4":"0195"}',
+        '${"f".repeat(64)}', 'test/1', 'historical-amendment-record-0006',
         '2026-08-13 11:00:00+00'
       );
   `);
@@ -548,6 +621,36 @@ try {
       included_amendment_count, excluded_regional_amendment_count,
       excluded_regional_destination_amount, methodology_version
     from api.get_public_federal_transfer_scope_summary()
+  `);
+  const reconciledTransfers = await database.query(`
+    select proposal_id, amendment_number, author_name, author_kind,
+      reconciliation_status, destination_amount, current_destination_amount,
+      historical_destination_amount, committed_amount, paid_amount,
+      current_source_url, historical_source_url, methodology_version
+    from api.get_public_reconciled_parliamentary_transfers(
+      2025::smallint,
+      null,
+      100
+    )
+    order by proposal_id, amendment_number
+  `);
+  const reconciledPeople = await database.query(`
+    select rank_position, author_name, author_kind,
+      representative_external_id, association_status, amendment_count,
+      proposal_count, destination_amount, committed_amount, paid_amount,
+      methodology_version
+    from api.get_public_reconciled_parliamentary_transfer_ranking(
+      'person',
+      null,
+      50
+    )
+  `);
+  const reconciliationSummary = await database.query(`
+    select current_source_row_count, historical_source_row_count,
+      consolidated_row_count, exact_match_count, current_only_count,
+      historical_only_count, conflict_count, rankable_row_count,
+      published_destination_amount, methodology_version
+    from api.get_public_parliamentary_transfer_reconciliation_summary()
   `);
   await database.exec("reset role");
 
@@ -749,14 +852,108 @@ try {
       "historical-parliamentary-amendment-ranking/1.0.0",
   }]);
   assert.deepEqual(territorialScope.rows, [{
-    candidate_proposal_count: 2,
-    included_proposal_count: 1,
+    candidate_proposal_count: 4,
+    included_proposal_count: 3,
     excluded_regional_proposal_count: 1,
-    candidate_amendment_count: 4,
-    included_amendment_count: 3,
+    candidate_amendment_count: 6,
+    included_amendment_count: 5,
     excluded_regional_amendment_count: 1,
     excluded_regional_destination_amount: "700000.00",
     methodology_version: "federal-transfer-territorial-scope/1.0.0",
+  }]);
+  assert.deepEqual(reconciledTransfers.rows, [
+    {
+      proposal_id: "30854",
+      amendment_number: "2025.5041.0002",
+      author_name: "COMISSAO DA SAUDE",
+      author_kind: "commission",
+      reconciliation_status: "current_only",
+      destination_amount: "5000000.00",
+      current_destination_amount: "5000000.00",
+      historical_destination_amount: null,
+      committed_amount: "5000000.00",
+      paid_amount: "5000000.00",
+      current_source_url:
+        "https://api-publica.transferegov.gestao.gov.br/parcerias/proposta?cd_ibge_recebedor=2903201",
+      historical_source_url: null,
+      methodology_version: "reconciled-parliamentary-transfers/1.0.0",
+    },
+    {
+      proposal_id: "40000",
+      amendment_number: "2025.4460.0099",
+      author_name: "RICARDO MAIA",
+      author_kind: "person",
+      reconciliation_status: "conflict_source_divergence",
+      destination_amount: null,
+      current_destination_amount: "100000.00",
+      historical_destination_amount: "99999.00",
+      committed_amount: null,
+      paid_amount: null,
+      current_source_url:
+        "https://api-publica.transferegov.gestao.gov.br/parcerias/proposta?cd_ibge_recebedor=2903201",
+      historical_source_url:
+        "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_emenda.zip",
+      methodology_version: "reconciled-parliamentary-transfers/1.0.0",
+    },
+    {
+      proposal_id: "9274",
+      amendment_number: "2025.4460.0002",
+      author_name: "RICARDO MAIA",
+      author_kind: "person",
+      reconciliation_status: "matched_exact",
+      destination_amount: "250000.00",
+      current_destination_amount: "250000.00",
+      historical_destination_amount: "250000.00",
+      committed_amount: null,
+      paid_amount: null,
+      current_source_url:
+        "https://api-publica.transferegov.gestao.gov.br/parcerias/proposta?cd_ibge_recebedor=2903201",
+      historical_source_url:
+        "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_emenda.zip",
+      methodology_version: "reconciled-parliamentary-transfers/1.0.0",
+    },
+  ]);
+  assert.deepEqual(reconciledPeople.rows, [
+    {
+      rank_position: 1,
+      author_name: "AFONSO FLORENCE",
+      author_kind: "person",
+      representative_external_id: null,
+      association_status: "not_linked",
+      amendment_count: 2,
+      proposal_count: 1,
+      destination_amount: "900000.00",
+      committed_amount: null,
+      paid_amount: null,
+      methodology_version:
+        "reconciled-parliamentary-transfer-ranking/1.0.0",
+    },
+    {
+      rank_position: 2,
+      author_name: "RICARDO MAIA",
+      author_kind: "person",
+      representative_external_id: "220694",
+      association_status: "approved_official_crosswalk",
+      amendment_count: 1,
+      proposal_count: 1,
+      destination_amount: "250000.00",
+      committed_amount: null,
+      paid_amount: null,
+      methodology_version:
+        "reconciled-parliamentary-transfer-ranking/1.0.0",
+    },
+  ]);
+  assert.deepEqual(reconciliationSummary.rows, [{
+    current_source_row_count: 3,
+    historical_source_row_count: 5,
+    consolidated_row_count: 6,
+    exact_match_count: 1,
+    current_only_count: 1,
+    historical_only_count: 3,
+    conflict_count: 1,
+    rankable_row_count: 5,
+    published_destination_amount: "6450000.00",
+    methodology_version: "parliamentary-transfer-reconciliation/1.0.0",
   }]);
 
   await database.exec("set role anon");
@@ -800,6 +997,10 @@ try {
   );
   await assert.rejects(
     database.query("select * from territory.historical_parliamentary_amendments"),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query("select * from territory.reconciled_parliamentary_transfers"),
     /permission denied/,
   );
   await assert.rejects(

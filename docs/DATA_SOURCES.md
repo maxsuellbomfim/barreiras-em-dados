@@ -286,8 +286,13 @@ apenas o tipo e os quatro últimos dígitos para diagnóstico.
 A projeção pública histórica relaciona cada linha territorialmente confirmada à proposta, mostra autor,
 tipo de autoria, valor destinado à proposta, objeto, fonte e hash. Pessoas e
 comissões possuem rankings separados. Esta série não publica identificadores
-do beneficiário e permanece separada da API corrente até que uma reconciliação
-determinística impeça dupla contagem. Valor destinado não é apresentado como
+do beneficiário. A API corrente e o arquivo histórico federal agora são
+reconciliados pela chave
+exata `id_proposta + numero_emenda`. Correspondências contam uma única vez.
+Registros exclusivos de uma série são identificados como tal; divergências de
+ano, autoria, tipo ou valor ficam preservadas, mas fora de totais e rankings. A
+projeção pública mantém URL e SHA-256 de cada série, sem eleger uma fonte
+vencedora global. Valor destinado não é apresentado como
 empenho, pagamento ou execução.
 
 Se tamanho ou ETag do catálogo e do proxy divergirem durante uma atualização,

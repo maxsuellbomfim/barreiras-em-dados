@@ -9,7 +9,9 @@ import {
   type HistoricalParliamentaryAmendmentRanking,
   type ParliamentaryTransfer,
   type ParliamentaryTransferCoverage,
+  type ParliamentaryTransferReconciliationSummary,
   type ParliamentaryTransferRanking,
+  type ReconciledParliamentaryTransferRanking,
 } from "../../lib/parliamentary-transfers";
 import { formatBrlDecimal } from "../../lib/revenues";
 
@@ -170,6 +172,119 @@ function RankingTable({
         </article>
       ))}
     </div>
+  );
+}
+
+function ReconciledRankingTable({
+  rows,
+  emptyCopy,
+}: Readonly<{
+  rows: readonly ReconciledParliamentaryTransferRanking[];
+  emptyCopy: string;
+}>) {
+  if (rows.length === 0) return <p className="transfer-empty">{emptyCopy}</p>;
+  return (
+    <div className="transfer-ranking-list">
+      {rows.map((row) => (
+        <article
+          className="transfer-ranking-card"
+          id={parliamentaryTransferAuthorAnchor(row.authorKey)}
+          key={`reconciled:${row.authorKind}:${row.authorKey}`}
+        >
+          <span className="transfer-rank" aria-label={`posição ${row.rankPosition}`}>
+            {row.rankPosition}
+          </span>
+          <div className="transfer-ranking-name">
+            <h3>{row.authorName}</h3>
+            <span>{authorKindLabel(row.authorKind)}</span>
+          </div>
+          <dl>
+            <div>
+              <dt>Destinado</dt>
+              <dd>{formatBrlDecimal(row.destinationAmount)}</dd>
+            </div>
+            <div>
+              <dt>Pago confirmado</dt>
+              <dd>{row.paidAmount === null ? "não encontrado" : formatBrlDecimal(row.paidAmount)}</dd>
+            </div>
+            <div>
+              <dt>Emendas sem duplicar</dt>
+              <dd>{row.amendmentCount.toLocaleString("pt-BR")}</dd>
+            </div>
+          </dl>
+          {row.associationStatus === "approved_official_crosswalk" &&
+          row.representativeSourceKind && row.representativeExternalId ? (
+            <a
+              className="transfer-profile-link"
+              href={`/representantes#${row.representativeSourceKind}-${row.representativeExternalId}`}
+            >
+              Ver perfil, votos e mandato →
+            </a>
+          ) : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ReconciledRankingPanel({
+  people,
+  collectives,
+  summary,
+}: Readonly<{
+  people: readonly ReconciledParliamentaryTransferRanking[] | null;
+  collectives: readonly ReconciledParliamentaryTransferRanking[] | null;
+  summary: ParliamentaryTransferReconciliationSummary | null;
+}>) {
+  if (people === null || collectives === null || summary === null) {
+    return (
+      <section className="transfer-ranking" aria-labelledby="reconciled-ranking-title">
+        <div className="transfer-section-heading">
+          <div>
+            <span className="eyebrow">Visão consolidada</span>
+            <h2 id="reconciled-ranking-title">Conferência entre as bases em atualização</h2>
+          </div>
+        </div>
+        <p className="transfer-empty">
+          As séries oficiais continuam disponíveis abaixo. A consolidação que impede
+          contagem duplicada será exibida assim que a atualização do banco terminar.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="transfer-ranking" aria-labelledby="reconciled-ranking-title">
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Ranking consolidado e auditável</span>
+          <h2 id="reconciled-ranking-title">Quem aparece nas duas bases sem duplicar valores</h2>
+        </div>
+        <p>{formatBrlDecimal(summary.publishedDestinationAmount)} identificados nas fontes</p>
+      </div>
+      <aside className="transfer-reading-guide">
+        <strong>Como conferimos</strong>
+        <p>
+          Cruzamos proposta e número oficial da emenda. As {summary.exactMatchCount.toLocaleString("pt-BR")} correspondência(s)
+          exata(s) contam uma única vez; {summary.conflictCount.toLocaleString("pt-BR")} conflito(s)
+          ficam visíveis para auditoria, mas fora dos totais.
+        </p>
+        <p>
+          Há {summary.currentOnlyCount.toLocaleString("pt-BR")} registro(s) apenas na API atual e {" "}
+          {summary.historicalOnlyCount.toLocaleString("pt-BR")} apenas no arquivo histórico. Isso indica cobertura diferente,
+          não erro nem irregularidade.
+        </p>
+      </aside>
+      <h3>Autoria individual</h3>
+      <ReconciledRankingTable
+        rows={people}
+        emptyCopy="Nenhuma autoria individual consolidada foi encontrada."
+      />
+      <h3>Comissões e bancadas</h3>
+      <ReconciledRankingTable
+        rows={collectives}
+        emptyCopy="Nenhuma autoria coletiva consolidada foi encontrada."
+      />
+    </section>
   );
 }
 
@@ -708,6 +823,12 @@ export default async function ParliamentaryResourcesPage() {
           </div>
         ) : (
           <>
+            <ReconciledRankingPanel
+              people={result.reconciledPeople}
+              collectives={result.reconciledCollectives}
+              summary={result.reconciliationSummary}
+            />
+
             <HistoricalAmendmentsPanel
               amendments={result.historicalAmendments}
               people={result.historicalPeople}
@@ -717,6 +838,7 @@ export default async function ParliamentaryResourcesPage() {
 
             <HistoricalProposalsPanel proposals={result.historicalProposals} />
 
+            {result.reconciledPeople === null ? (
             <section className="transfer-ranking" aria-labelledby="people-ranking-title">
               <div className="transfer-section-heading">
                 <div>
@@ -730,7 +852,9 @@ export default async function ParliamentaryResourcesPage() {
                 emptyCopy="Nenhuma autoria individual foi encontrada no recorte oficial coletado."
               />
             </section>
+            ) : null}
 
+            {result.reconciledCollectives === null ? (
             <section className="transfer-ranking" aria-labelledby="collective-ranking-title">
               <div className="transfer-section-heading">
                 <div>
@@ -744,6 +868,7 @@ export default async function ParliamentaryResourcesPage() {
                 emptyCopy="Nenhuma autoria coletiva foi encontrada no recorte oficial coletado."
               />
             </section>
+            ) : null}
 
             <section className="transfer-catalog" aria-labelledby="transfer-catalog-title">
               <div className="transfer-section-heading">
