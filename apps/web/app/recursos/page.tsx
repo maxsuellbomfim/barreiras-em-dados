@@ -267,6 +267,16 @@ function StateLoaRankingTable({
               <dd>{row.firstYear === row.lastYear ? row.firstYear : `${row.firstYear}–${row.lastYear}`}</dd>
             </div>
           </dl>
+          {row.associationStatus === "approved_official_crosswalk" &&
+          row.representativeSourceKind === "state" &&
+          row.representativeExternalId ? (
+            <a
+              className="transfer-profile-link"
+              href={`/representantes#state-${row.representativeExternalId}`}
+            >
+              Ver perfil oficial e mandato →
+            </a>
+          ) : null}
         </article>
       ))}
     </div>

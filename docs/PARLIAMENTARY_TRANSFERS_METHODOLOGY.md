@@ -43,6 +43,12 @@ Variações de grafia podem apontar para o mesmo perfil, mas cada uma precisa de
 evidência própria. Autoria sem crosswalk permanece visível no ranking, sem link
 para pessoa. Comissões e bancadas nunca são ligadas a um perfil individual.
 
+Para a LOA estadual, o vínculo inicial usa a autoria nominal preservada no anexo
+e o perfil individual oficial preservado da ALBA. Em 13/08/2026, oito dos onze
+autores do recorte tinham esse vínculo aprovado. Marcone Amaral, Diego Castro e
+Capitão Alden permanecem sem link automático até que uma fonte oficial preserve
+um identificador compatível com o período da autoria.
+
 ## Reconciliação e ausência
 
 Estágios financeiros só são atribuídos ao autor quando a proposta tem uma única
@@ -148,8 +154,9 @@ ZIP do FIPLAN exibirá, em colunas independentes:
 O primeiro ranking estadual mostra apenas o valor autorizado, separado do
 ranking federal e acompanhado do objeto, página, trecho literal, URL e hashes.
 Grafias equivalentes de autor são agrupadas por normalização determinística de
-acentos, pontuação e abreviação `Jr.`; isso não substitui o futuro vínculo com o
-identificador oficial do parlamentar. Valor efetivamente pago a Barreiras só
+acentos, pontuação e abreviação `Jr.`. O link para um perfil político aparece
+somente quando existe crosswalk privado e aprovado com a ALBA; a normalização,
+isoladamente, não cria esse vínculo. Valor efetivamente pago a Barreiras só
 entrará em coluna própria após reconciliação com a execução. Uma emenda
 anunciada ou indicada não será descrita como dinheiro recebido. Ausência na
 base estadual será exibida como “não encontrada na fonte consultada”, nunca
