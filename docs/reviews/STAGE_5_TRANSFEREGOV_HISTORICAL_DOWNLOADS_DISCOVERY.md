@@ -79,3 +79,15 @@ persistência relacional então expôs um segundo contrato: o repositório comum
 exige `offset` e `size` no cursor de toda página. O catálogo fornecia somente
 `selected_files` e falhou com `KeyError`, antes de gravar registros ou declarar
 cobertura. A regressão agora fixa explicitamente os três campos do cursor.
+
+A validação da branch corrigida
+[`31660257114`](https://github.com/maxsuellbomfim/barreiras-em-dados/actions/runs/31660257114)
+concluiu os dois jobs. A consulta direta posterior confirmou:
+
+- execução `succeeded` e partição `complete`;
+- artefato XML com 36.443 bytes e SHA-256
+  `4d5cab986a19801f97e0b1a6a1fc864fb6bd50d60472aeb4c7db9a4c84e0d3da`;
+- oito registros, um para cada arquivo contratado;
+- `observed_records = 8` e nenhuma falha não resolvida.
+
+Somente após essa prova a fatia do catálogo pode ser considerada operacional.
