@@ -29,7 +29,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | PNCP | contratações, itens, resultados, contratos, documentos | P1 | documentação inicial |
 | SICONFI | demonstrativos contábeis e fiscais | P2 | documentação inicial |
 | TCM-BA | dados municipais e prestações | P2 | descoberta |
-| Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | propostas, distribuições e parcerias com persistência bruta idempotente; estágios de execução pendentes |
+| Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | API atual e catálogo histórico oficial preservados separadamente; filtragem municipal dos CSVs pendente |
 | Tesouro Transparente | transferências constitucionais/legais e emendas | P3 | documentação inicial |
 | Transparência Bahia | transferências a municípios, despesas e emendas estaduais | P3 | descoberta inicial |
 | Câmara dos Deputados | mandatos, proposições, votações e despesas | P3 | API confirmada |
@@ -237,6 +237,26 @@ cobertura pública distingue `complete`, `empty`, `partial`, `failed`, `blocked`
 e `unclassified`: um ano vazio confirmado na API de Parcerias não é publicado
 como prova de ausência em outras bases oficiais.
 
+### Downloads históricos de transferências discricionárias e legais
+
+O ambiente oficial de downloads expõe uma enumeração XML completa em
+`/downloads/dadosgov/?restype=container&comp=list`. Esse catálogo é outra
+fonte lógica: não substitui a API atual de Gestão de Parcerias e sua cobertura
+não pode ser misturada silenciosamente com ela.
+
+O primeiro contrato monitora oito arquivos nacionais necessários ao rastro do
+dinheiro: proposta, proponente, convênio, emenda, empenho, desembolso,
+pagamento e termo aditivo. A resposta XML integral é preservada por SHA-256;
+cada entrada guarda URL oficial, tamanho, `Last-Modified`, `ETag`, MD5 quando
+publicado e tipo. Um arquivo ausente ou um `NextMarker` não consumido impede o
+fechamento da cobertura como completa.
+
+Os arquivos não são baixados pelo coletor de catálogo. Alguns ZIPs nacionais
+observados em 12/08/2026 ultrapassam 300 MiB. A próxima etapa fará download em
+fluxo, validação do arquivo e filtragem territorial antes de persistir as
+linhas de Barreiras; o ZIP nacional bruto permanece privado e não será servido
+pelo portal.
+
 Em 17/07/2026, o Transferegov anunciou novo ambiente de APIs e descontinuação do
 ambiente anterior em 31/08/2026. O conector deverá apontar para o ambiente novo
 e registrar versão do contrato.
@@ -244,6 +264,8 @@ e registrar versão do contrato.
 Referências:
 
 - [APIs públicas do Transferegov](https://api-publica.transferegov.gestao.gov.br/)
+- [Downloads oficiais de dados abertos](https://api-publica.transferegov.gestao.gov.br/downloads)
+- [Dados abertos do Transferegov](https://www.gov.br/transferegov/pt-br/ferramentas-gestao/dados-abertos)
 - [Comunicado de migração de 2026](https://www.gov.br/obrasgov/pt-br/noticias/2026/comunicado-23-2026-mudancas-nos-acessos-as-apis-de-dados-abertos-do-transferegov-br-e-do-obrasgov-br)
 - [Transferências no Tesouro Transparente](https://www.tesourotransparente.gov.br/temas/estados-e-municipios/transferencias-a-estados-e-municipios)
 - [Informações de municípios — Transparência Bahia](https://www.transparencia.ba.gov.br/InformacaoMunicipio)

@@ -83,11 +83,19 @@ class ScheduledWorkflowTests(unittest.TestCase):
             workflow,
         )
         self.assertIn(
+            "barreiras_collectors.commands.collect_transferegov_download_catalog",
+            workflow,
+        )
+        self.assertIn(
             "MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL",
             workflow,
         )
         self.assertEqual(
             workflow.count("collect_transferegov_parcerias"),
+            1,
+        )
+        self.assertEqual(
+            workflow.count("collect_transferegov_download_catalog"),
             1,
         )
         transferegov_job = workflow[workflow.index("  transferegov:") :]

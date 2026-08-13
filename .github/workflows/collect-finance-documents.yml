@@ -188,6 +188,11 @@ jobs:
           echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
           | sha256sum --check --strict
 
+      - name: Preservar catálogo histórico do Transferegov
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.collect_transferegov_download_catalog
+
       - name: Preservar retrato do Transferegov
         run: >-
           python -B -m barreiras_collectors.commands.collect_transferegov_parcerias
