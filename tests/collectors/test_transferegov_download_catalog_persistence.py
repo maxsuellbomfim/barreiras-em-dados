@@ -94,7 +94,7 @@ class TransferegovDownloadCatalogPersistenceTests(unittest.TestCase):
         )
         self.assertEqual(
             {record.parser_version for record in records},
-            {"transferegov-download-catalog/1.0.0"},
+            {"transferegov-download-catalog/1.1.0"},
         )
 
     def test_refuses_items_that_do_not_match_the_preserved_xml(self) -> None:

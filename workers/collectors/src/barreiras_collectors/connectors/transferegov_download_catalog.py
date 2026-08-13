@@ -257,7 +257,7 @@ def _parse_catalog(
     ).hexdigest()
     return TransferegovDownloadCatalogSnapshot(
         schema_name="transferegov-download-catalog",
-        schema_version="1.0.0",
+        schema_version="1.1.0",
         source_code=SOURCE_CODE,
         endpoint_code=ENDPOINT_CODE,
         idempotency_key=idempotency_key,

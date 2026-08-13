@@ -1106,7 +1106,7 @@ try {
       base_url:
         "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/",
       endpoint_kind: "file",
-      parser_version: "transferegov-download-catalog/1.0.0",
+      parser_version: "transferegov-download-catalog/1.1.0",
       required_files: [
         "siconv_convenio.zip",
         "siconv_desembolso.zip",
