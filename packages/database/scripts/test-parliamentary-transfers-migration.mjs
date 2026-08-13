@@ -633,6 +633,8 @@ try {
   `);
   const stateLoaRanking = await database.query(`
     select rank_position, author_key, author_name, author_external_code,
+      representative_source_kind, representative_external_id,
+      representative_profile_url, association_status,
       amendment_count, authorized_amount, first_year, last_year,
       financial_stage, methodology_version
     from api.get_public_bahia_state_loa_amendment_ranking(null, 50)
@@ -675,24 +677,33 @@ try {
       author_key: "marcone amaral",
       author_name: "Marcone Amaral",
       author_external_code: "500144",
+      representative_source_kind: null,
+      representative_external_id: null,
+      representative_profile_url: null,
+      association_status: "not_linked",
       amendment_count: 1,
       authorized_amount: "500000.00",
       first_year: 2026,
       last_year: 2026,
       financial_stage: "authorized",
-      methodology_version: "bahia-state-loa-amendment-ranking/1.0.0",
+      methodology_version: "bahia-state-loa-amendment-ranking/1.1.0",
     },
     {
       rank_position: 2,
       author_key: "antonio henrique junior",
       author_name: "Antonio Henrique Júnior",
       author_external_code: "500069",
+      representative_source_kind: "state",
+      representative_external_id: "921264",
+      representative_profile_url:
+        "https://www.al.ba.gov.br/deputados/deputado-estadual/921264",
+      association_status: "approved_official_crosswalk",
       amendment_count: 2,
       authorized_amount: "300000.00",
       first_year: 2022,
       last_year: 2026,
       financial_stage: "authorized",
-      methodology_version: "bahia-state-loa-amendment-ranking/1.0.0",
+      methodology_version: "bahia-state-loa-amendment-ranking/1.1.0",
     },
   ]);
 

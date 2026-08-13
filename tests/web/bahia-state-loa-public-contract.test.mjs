@@ -50,3 +50,12 @@ test("site separa autorizacao orcamentaria estadual de pagamento e execucao", ()
   assert.match(page, /N.o . nota de desempenho/);
   assert.doesNotMatch(page, /pontua..o/iu);
 });
+
+test("ranking estadual liga somente autores com crosswalk oficial aprovado", () => {
+  assert.match(client, /representativeSourceKind/);
+  assert.match(client, /representativeExternalId/);
+  assert.match(client, /representativeProfileUrl/);
+  assert.match(client, /associationStatus/);
+  assert.match(page, /Ver perfil oficial e mandato/);
+  assert.match(page, /\/representantes#state-/);
+});

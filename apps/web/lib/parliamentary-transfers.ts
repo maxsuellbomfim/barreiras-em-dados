@@ -169,12 +169,19 @@ export type BahiaStateLoaAmendmentRanking = Readonly<{
   authorKey: string;
   authorName: string;
   authorExternalCode: string | null;
+  representativeSourceKind: ParliamentaryRepresentativeSourceKind | null;
+  representativeExternalId: string | null;
+  representativeProfileUrl: string | null;
+  associationStatus: Exclude<
+    ParliamentaryAuthorAssociationStatus,
+    "not_applicable_collective"
+  >;
   amendmentCount: number;
   authorizedAmount: string;
   firstYear: number;
   lastYear: number;
   financialStage: "authorized";
-  methodologyVersion: "bahia-state-loa-amendment-ranking/1.0.0";
+  methodologyVersion: "bahia-state-loa-amendment-ranking/1.1.0";
 }>;
 
 export type FederalTransferScopeSummary = Readonly<{
@@ -729,6 +736,10 @@ function parseBahiaStateLoaRanking(
   const rankPosition = integer(row.rank_position, 1);
   const authorKey = requiredText(row.author_key);
   const authorName = requiredText(row.author_name);
+  const representativeSourceKind = optionalText(row.representative_source_kind);
+  const representativeExternalId = optionalText(row.representative_external_id);
+  const representativeProfileUrl = optionalText(row.representative_profile_url);
+  const associationStatus = optionalText(row.association_status);
   const amendmentCount = integer(row.amendment_count, 1);
   const authorizedAmount = decimal(row.authorized_amount);
   const firstYear = integer(row.first_year, 2022);
@@ -736,20 +747,37 @@ function parseBahiaStateLoaRanking(
   if (
     rankPosition === null || !authorKey || !authorName || amendmentCount === null ||
     !authorizedAmount || firstYear === null || lastYear === null || firstYear > lastYear ||
+    !["approved_official_crosswalk", "not_linked"].includes(associationStatus ?? "") ||
+    (associationStatus === "approved_official_crosswalk" && (
+      representativeSourceKind !== "state" || !representativeExternalId ||
+      !representativeProfileUrl?.startsWith("https://www.al.ba.gov.br/")
+    )) ||
+    (associationStatus === "not_linked" && (
+      representativeSourceKind !== null || representativeExternalId !== null ||
+      representativeProfileUrl !== null
+    )) ||
     row.financial_stage !== "authorized" ||
-    row.methodology_version !== "bahia-state-loa-amendment-ranking/1.0.0"
+    row.methodology_version !== "bahia-state-loa-amendment-ranking/1.1.0"
   ) return null;
   return {
     rankPosition,
     authorKey,
     authorName,
     authorExternalCode: optionalText(row.author_external_code),
+    representativeSourceKind:
+      representativeSourceKind as ParliamentaryRepresentativeSourceKind | null,
+    representativeExternalId,
+    representativeProfileUrl,
+    associationStatus: associationStatus as Exclude<
+      ParliamentaryAuthorAssociationStatus,
+      "not_applicable_collective"
+    >,
     amendmentCount,
     authorizedAmount,
     firstYear,
     lastYear,
     financialStage: "authorized",
-    methodologyVersion: "bahia-state-loa-amendment-ranking/1.0.0",
+    methodologyVersion: "bahia-state-loa-amendment-ranking/1.1.0",
   };
 }
 

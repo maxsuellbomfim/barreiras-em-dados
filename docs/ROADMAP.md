@@ -327,9 +327,11 @@ Segunda fatia concluída: extração determinística das linhas territoriais de
 Barreiras nos anexos oficiais da LOA 2022-2026, com evidência literal e estágio
 `authorized`. O replay de produção conferiu 63 linhas distintas contra os cinco
 PDFs, sem falhas, e a projeção pública passa a mostrar ranking e catálogo por
-autor, ano, objeto, página, URL e hashes. O próximo gate é vincular autores aos
-perfis oficiais e reconciliar essas autorizações com a execução estadual, sem
-inferir pagamento por semelhança textual.
+autor, ano, objeto, página, URL e hashes. Oito dos onze autores foram ligados a
+perfis oficiais preservados da ALBA por crosswalk aprovado; os demais continuam
+sem link. O próximo gate é resolver esses três vínculos históricos e reconciliar
+as autorizações com a execução estadual, sem inferir pagamento por semelhança
+textual.
 
 Gate:
 
