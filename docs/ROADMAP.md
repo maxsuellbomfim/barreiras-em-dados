@@ -310,11 +310,18 @@ totais. A próxima menor fatia é aplicar o mesmo contrato de evidência e
 separação de estágios às emendas estaduais. O ranking federal consolidado já
 evita dupla contagem entre as duas séries disponíveis.
 
-A trilha estadual será implementada em fonte e cobertura próprias a partir do
+A trilha estadual foi iniciada em fonte e cobertura próprias a partir do
 conjunto diário **Emendas Parlamentares Estaduais** da SEFAZ-BA/FIPLAN. Ela
 separará valor indicado, empenhado, liquidado, pago, restos e cancelamentos; o
 ranking público não misturará emendas estaduais com federais e nunca tratará
 anúncio ou indicação como recurso já recebido por Barreiras.
+
+Primeira fatia concluída: preservação privada e imutável do catálogo CKAN e do
+ZIP estadual, com validação estrita dos cinco CSVs e detecção de mudança de
+schema. Como o arquivo não publica chave municipal explícita, a próxima menor
+fatia é localizar no Transparência Bahia/FIPLAN o relacionamento oficial que
+permita recortar Barreiras sem inferência textual. Até lá, nenhum valor estadual
+entra em totais ou rankings municipais.
 
 Gate:
 

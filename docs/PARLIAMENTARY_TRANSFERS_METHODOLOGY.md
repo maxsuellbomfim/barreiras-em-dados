@@ -124,6 +124,22 @@ indicada não será descrita como dinheiro recebido. Ausência na base estadual
 será exibida como “não encontrada na fonte consultada”, nunca como ausência
 definitiva ou falta de trabalho parlamentar.
 
+### Limite territorial observado em 13/08/2026
+
+O ZIP oficial atualmente contém cinco CSVs, porém não publica coluna municipal
+explícita nem código IBGE nos cabeçalhos. A preservação desse retrato da fonte
+não autoriza atribuição a Barreiras, cálculo de total municipal ou inclusão em
+ranking. Termos como “Barreiras” no objeto ou no nome de uma unidade são apenas
+texto e não constituem chave territorial determinística. A cobertura será
+registrada como retrato estadual preservado e o recorte municipal permanecerá
+bloqueado até que uma fonte oficial forneça chave ou relacionamento verificável.
+
+A view estadual de pagamentos observada em 13/08/2026 não segue integralmente
+as regras de escape de CSV. Ela é preservada por hash, mas sua quantidade de
+registros fica `source_csv_malformed` e a partição, `partial`. Apenas as views
+cuja estrutura foi validada contribuem para métricas técnicas de linhas; nenhuma
+delas contribui para totais financeiros públicos nesta fase.
+
 Fontes oficiais iniciais:
 
 - https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares
