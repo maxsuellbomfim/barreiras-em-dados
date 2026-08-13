@@ -13,6 +13,12 @@ from ..connectors.bahia_state_amendments import (
     parse_state_amendment_archive,
     parse_state_amendment_catalog,
 )
+from ..connectors.bahia_state_loa_amendments import (
+    YEARLY_ANNEXES,
+    BahiaStateLoaAnnexError,
+    StateLoaAnnexSnapshot,
+    build_state_loa_annex_manifest,
+)
 from ..connectors.direct_diary import ENDPOINT_CODE, SOURCE_CODE, DirectEdition
 from ..connectors.gazette_documents import CollectedDocument
 from ..connectors.municipal_transparency import MunicipalTransparencyPage
@@ -111,6 +117,12 @@ BAHIA_STATE_AMENDMENT_CATALOG_PARSER_VERSION = (
 )
 BAHIA_STATE_AMENDMENT_ARCHIVE_PARSER_VERSION = (
     "bahia-state-amendment-archive/1.2.0"
+)
+BAHIA_STATE_LOA_ANNEX_COLLECTOR_VERSION = (
+    "bahia-state-loa-amendment-annex-collector/1.0.0"
+)
+BAHIA_STATE_LOA_ANNEX_PARSER_VERSION = (
+    "bahia-state-loa-amendment-annex/1.0.0"
 )
 
 
@@ -1018,6 +1030,65 @@ class BahiaStateAmendmentArchivePersistenceService:
             object_store=self.object_store,
             repository=self.repository,
             restored_description="ZIP estadual restaurado",
+        )
+
+
+class BahiaStateLoaAmendmentAnnexPersistenceService:
+    """Preserva o PDF anual e um manifesto tecnico sem valores financeiros."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, snapshot: StateLoaAnnexSnapshot) -> PersistenceResult:
+        _verify_state_amendment_bytes(
+            snapshot,
+            description="anexo anual da LOA",
+        )
+        contract = YEARLY_ANNEXES.get(snapshot.fiscal_year)
+        if contract is None:
+            raise ArtifactIntegrityError(
+                "O ano do anexo da LOA nao possui contrato preservavel."
+            )
+        try:
+            manifest = build_state_loa_annex_manifest(
+                snapshot.raw_body,
+                contract=contract,
+            )
+        except BahiaStateLoaAnnexError as error:
+            raise ArtifactIntegrityError(
+                "O PDF anual da LOA perdeu seu contrato."
+            ) from error
+        if snapshot.items != (manifest,):
+            raise ArtifactIntegrityError(
+                "O manifesto do anexo da LOA diverge do PDF preservado."
+            )
+        record = _state_amendment_record(
+            payload=manifest,
+            source_record_key=(
+                "bahia:state-loa-amendment-annex:"
+                f"{snapshot.fiscal_year}:{snapshot.annex_code}:"
+                f"{snapshot.body_sha256}"
+            ),
+            record_type="bahia_state_loa_amendment_annex",
+            parser_version=BAHIA_STATE_LOA_ANNEX_PARSER_VERSION,
+            record_index=0,
+            snapshot_key=snapshot.idempotency_key,
+        )
+        object_key = (
+            "bahia/loa-emendas-estaduais/"
+            f"{snapshot.fiscal_year}/sha256/{snapshot.body_sha256[:2]}/"
+            f"{snapshot.body_sha256}.pdf"
+        )
+        return _persist_state_amendment_snapshot(
+            snapshot=snapshot,
+            records=(record,),
+            object_key=object_key,
+            collector_version=BAHIA_STATE_LOA_ANNEX_COLLECTOR_VERSION,
+            parser_version=BAHIA_STATE_LOA_ANNEX_PARSER_VERSION,
+            object_store=self.object_store,
+            repository=self.repository,
+            restored_description="anexo anual da LOA restaurado",
         )
 
 

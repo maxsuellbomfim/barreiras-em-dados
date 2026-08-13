@@ -1458,7 +1458,7 @@ class PostgresCollectionRepository:
     ) -> str:
         headers = batch.page.response_headers
         artifact_kind = getattr(batch.page, "artifact_kind", "http_response")
-        if artifact_kind not in {"http_response", "archive"}:
+        if artifact_kind not in {"http_response", "archive", "document"}:
             raise PersistenceContractError("Tipo de artefato bruto não permitido.")
         metadata = {
             "schema_name": batch.page.schema_name,
@@ -1476,6 +1476,23 @@ class PostgresCollectionRepository:
                     "catalog_etag": getattr(batch.page, "catalog_etag", None),
                     "catalog_last_modified": getattr(
                         batch.page, "catalog_last_modified", None
+                    ),
+                }
+            )
+        elif artifact_kind == "document":
+            metadata.update(
+                {
+                    "fiscal_year": getattr(batch.page, "fiscal_year", None),
+                    "annex_code": getattr(batch.page, "annex_code", None),
+                    "budget_stage": (
+                        batch.page.items[0].get("budget_stage")
+                        if batch.page.items
+                        else None
+                    ),
+                    "territorial_scope": (
+                        batch.page.items[0].get("territorial_scope")
+                        if batch.page.items
+                        else None
                     ),
                 }
             )

@@ -99,17 +99,23 @@ proposta` são mostrados separadamente. Nenhum deles é rotulado como dinheiro
 recebido, empenhado ou pago. Ausência de autoria no arquivo de propostas é
 exibida como limite da fonte, não preenchida por IA ou semelhança de nome.
 
-## Emendas estaduais da Bahia — próxima trilha
+## Emendas estaduais da Bahia — autorização e execução separadas
 
-Emendas estaduais serão coletadas e publicadas separadamente das federais. A
-fonte inicial será o conjunto oficial **Emendas Parlamentares Estaduais** do
+Emendas estaduais são coletadas e serão publicadas separadamente das federais. A
+fonte de execução é o conjunto oficial **Emendas Parlamentares Estaduais** do
 Portal de Dados Abertos da Bahia, alimentado pelo FIPLAN e atualizado
 diariamente. O Portal Transparência Bahia será usado como fonte complementar de
 execução orçamentária e financeira.
 
-O recorte territorial buscará Barreiras pelo identificador municipal e pelos
-campos estruturados de localidade/beneficiário da própria fonte. Cada registro
-deverá preservar, quando publicados:
+O ZIP diário do FIPLAN continua sendo a fonte de execução, mas não contém
+município. A chave territorial oficial foi localizada nos anexos da LOA da
+SEPLAN-BA: entre 2022 e 2025, o Anexo III organiza emendas individuais por
+município e autor; em 2026, o Anexo I publica autor, objeto, município e valor.
+Cada PDF é preservado integralmente antes de qualquer extração.
+
+Valor publicado nesses anexos é **autorizado na LOA**. Não significa pagamento,
+transferência ou dinheiro recebido por Barreiras. A futura reconciliação com o
+ZIP do FIPLAN exibirá, em colunas independentes:
 
 - deputado estadual autor e identificador oficial;
 - exercício, número da emenda e objeto;
@@ -118,11 +124,16 @@ deverá preservar, quando publicados:
 - restos a pagar, cancelamentos e impedimentos, sem convertê-los em zero;
 - URL, data da coleta, hash e versão exata do arquivo de origem.
 
-O ranking mostrará primeiro fatos comparáveis: valor indicado e valor
+O ranking mostrará primeiro fatos comparáveis: valor autorizado e valor
 efetivamente pago a Barreiras em colunas distintas. Uma emenda anunciada ou
 indicada não será descrita como dinheiro recebido. Ausência na base estadual
 será exibida como “não encontrada na fonte consultada”, nunca como ausência
 definitiva ou falta de trabalho parlamentar.
+
+O link oficial rotulado como Anexo III de 2021 aponta para um PDF da LOA 2020.
+Por isso, 2021 é registrado como `blocked`: o Barreiras 360 não baixa nem
+reclassifica o documento de outro exercício para preencher artificialmente a
+cobertura.
 
 ### Limite territorial observado em 13/08/2026
 
@@ -132,7 +143,9 @@ não autoriza atribuição a Barreiras, cálculo de total municipal ou inclusão
 ranking. Termos como “Barreiras” no objeto ou no nome de uma unidade são apenas
 texto e não constituem chave territorial determinística. A cobertura será
 registrada como retrato estadual preservado e o recorte municipal permanecerá
-bloqueado até que uma fonte oficial forneça chave ou relacionamento verificável.
+bloqueado para o ZIP isolado. Os anexos anuais da LOA agora fornecem a chave
+territorial oficial para valores autorizados; a ligação com empenho, liquidação
+e pagamento ainda depende de reconciliação verificável com a execução.
 
 A view estadual de pagamentos observada em 13/08/2026 não segue integralmente
 as regras de escape de CSV. Ela é preservada por hash e processada por uma
@@ -142,8 +155,9 @@ Esse contrato validou 20.687 pagamentos; 32 deles conservam a ausência de
 dígito verificador publicada pela própria fonte e geram aviso auditável. O ZIP
 passa a ter 68.990 linhas estruturalmente validadas e cobertura técnica
 `complete`. Isso não torna os valores elegíveis à publicação: nenhuma das
-cinco views contribui para totais financeiros ou rankings enquanto faltar uma
-chave territorial oficial para Barreiras.
+cinco views contribui isoladamente para totais financeiros ou rankings. A
+atribuição municipal exige reconciliação determinística com a chave territorial
+dos anexos da LOA e preservação da evidência de cada ligação.
 
 A fonte oficial também apresentou a cadeia TLS incompleta em 13/08/2026. O
 coletor não desativa a validação: usa exclusivamente o intermediário OV R36 e o
@@ -153,5 +167,6 @@ verificados por hash antes da execução.
 Fontes oficiais iniciais:
 
 - https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares
+- https://www.ba.gov.br/seplan/orcamento/historico-de-loa
 - https://www.transparencia.ba.gov.br/
 - https://www.transparencia.ba.gov.br/MapaSite/
