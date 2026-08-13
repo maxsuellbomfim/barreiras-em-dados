@@ -389,6 +389,13 @@ coligações, vagas, motivos de cassação e redes sociais. Cada situação exib
 deve trazer o instante da coleta; anúncio partidário não substitui registro
 oficial.
 
+O recurso oficial `consulta_cand_<ano>.zip` é a fonte inicial do identificador
+forte privado. O processador lê somente o arquivo da Bahia e somente os
+`SQ_CANDIDATO` já vinculados por crosswalk aprovado. CPF e a linha integral da
+fonte são cifrados antes da persistência; a projeção redigida conserva apenas
+ano, cargo, sequencial, nomes e UF. O arquivo nunca alimenta busca pública por
+CPF e não autoriza, sozinho, conclusão editorial ou reputacional.
+
 Cada declaração será vinculada à eleição e candidatura; não será tratada como
 patrimônio atual.
 

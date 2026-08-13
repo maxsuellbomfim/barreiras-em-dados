@@ -82,10 +82,13 @@ jobs:
           sudo apt-get install -y -q tesseract-ocr tesseract-ocr-por
 
       - name: Verificar estilo
-        run: python -m ruff check workers/collectors/src workers/document-processing/src workers/normalization/src tests
+        run: >-
+          python -m ruff check workers/collectors/src
+          workers/document-processing/src workers/normalization/src
+          workers/reconciliation/src tests
 
       - name: Testar coletores e processamento de documentos
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-          PYTHONPATH: workers/collectors/src:workers/document-processing/src:workers/normalization/src
+          PYTHONPATH: workers/collectors/src:workers/document-processing/src:workers/normalization/src:workers/reconciliation/src
         run: python -B -m unittest discover -s tests -t . -p 'test_*.py' -v

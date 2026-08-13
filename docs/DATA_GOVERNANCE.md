@@ -137,6 +137,11 @@ para revisão/DLQ; não são descartados silenciosamente.
 - o valor indispensável fica cifrado no schema `private`; comparações usam
   HMAC-SHA-256 com chave separada, e o diagnóstico comum vê no máximo os quatro
   últimos dígitos;
+- a linha oficial que sustentou o identificador também é preservada cifrada,
+  com URL HTTPS, ano, chave do registro, SHA-256 do payload e, quando
+  disponíveis, hashes do pacote e do arquivo estadual do TSE;
+- somente candidaturas presentes em um crosswalk oficial aprovado entram no
+  recorte privado; o restante do cadastro nacional não é copiado;
 - secretários sem CPF em fonte oficial continuam reconciliáveis por cargo,
   órgão, vigência e evidências; fontes obscuras ou vazamentos são proibidos;
 - folha pública prioriza remuneração bruta agregada e componentes permitidos;
@@ -150,7 +155,7 @@ para revisão/DLQ; não são descartados silenciosamente.
 - CNPJ exato pode confirmar pessoa jurídica dentro da validade e da fonte;
 - CPF completo não é chave pública e não aparece em projeções;
 - divergência entre fingerprints de CPF impede fusão automática e gera
-  `source_conflicts` para revisão;
+  conflito privado para revisão, sem repetir o CPF em logs ou payloads;
 - associação de pessoa natural exige identificador permitido ou revisão humana
   com duas evidências independentes quando houver impacto reputacional;
 - toda aresta de relacionamento possui evidência própria, data e validade;

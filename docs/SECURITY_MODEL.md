@@ -193,6 +193,12 @@ no PostgreSQL, no frontend ou em variáveis `NEXT_PUBLIC_*`. O schema `private`
 não é exposto pelo PostgREST, nega `anon`, `authenticated` e
 `collector_worker`, e aceita somente `SELECT`/`INSERT` do papel sem login
 `identity_worker`. Correção cria nova evidência; não há `UPDATE` ou `DELETE`.
+Cada cifra usa nonce aleatório de 96 bits e dados adicionais autenticados com a
+versão da chave e o identificador oficial da pessoa ou evidência. A fonte que
+contém CPF também fica cifrada; somente uma projeção explicitamente redigida,
+sem CPF, pode alcançar as tabelas brutas compartilhadas. Logs registram apenas
+contagens, códigos de fonte e conflitos sanitizados — nunca valor, fingerprint,
+últimos dígitos, ciphertext ou material de chave.
 
 ## Checklist por etapa
 

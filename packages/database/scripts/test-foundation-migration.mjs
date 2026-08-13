@@ -997,12 +997,20 @@ try {
     select
       to_regclass('source.collection_partitions') is not null as partitions,
       to_regclass('source.collection_failures') is not null as failures,
-      to_regclass('private.person_identifiers') is not null as identifiers
+      to_regclass('private.person_identifiers') is not null as identifiers,
+      to_regclass('private.person_identifier_sources') is not null
+        as identifier_sources,
+      to_regclass('private.person_identifier_conflicts') is not null
+        as identifier_conflicts,
+      to_regclass('identity.person_source_links') is not null as person_source_links
   `);
   assert.deepEqual(controlPlaneTables.rows[0], {
     partitions: true,
     failures: true,
     identifiers: true,
+    identifier_sources: true,
+    identifier_conflicts: true,
+    person_source_links: true,
   });
 
   const privateIdentityPrivileges = await database.query(`
@@ -1022,7 +1030,31 @@ try {
       ) as identity_insert,
       has_table_privilege(
         'identity_worker', 'private.person_identifiers', 'UPDATE'
-      ) as identity_update
+      ) as identity_update,
+      has_table_privilege(
+        'identity_worker', 'private.person_identifier_sources', 'INSERT'
+      ) as identity_source_insert,
+      has_table_privilege(
+        'identity_worker', 'private.person_identifier_conflicts', 'INSERT'
+      ) as identity_conflict_insert,
+      has_table_privilege(
+        'identity_worker', 'identity.person_source_links', 'INSERT'
+      ) as identity_link_insert,
+      has_table_privilege(
+        'identity_worker', 'hr.people', 'INSERT'
+      ) as identity_person_insert,
+      has_table_privilege(
+        'identity_worker', 'raw.raw_records', 'SELECT'
+      ) as identity_raw_select,
+      has_table_privilege(
+        'identity_worker', 'political.representative_tse_crosswalk', 'SELECT'
+      ) as identity_crosswalk_select,
+      has_table_privilege(
+        'anon', 'private.person_identifier_sources', 'SELECT'
+      ) as anon_source_select,
+      has_table_privilege(
+        'authenticated', 'identity.person_source_links', 'SELECT'
+      ) as authenticated_link_select
   `);
   assert.deepEqual(privateIdentityPrivileges.rows[0], {
     anon_schema: false,
@@ -1032,7 +1064,47 @@ try {
     identity_select: true,
     identity_insert: true,
     identity_update: false,
+    identity_source_insert: true,
+    identity_conflict_insert: true,
+    identity_link_insert: true,
+    identity_person_insert: true,
+    identity_raw_select: true,
+    identity_crosswalk_select: true,
+    anon_source_select: false,
+    authenticated_link_select: false,
   });
+
+  const privateIdentityRls = await database.query(`
+    select relname, relrowsecurity, relforcerowsecurity
+    from pg_catalog.pg_class
+    join pg_catalog.pg_namespace on pg_namespace.oid = pg_class.relnamespace
+    where pg_namespace.nspname in ('private', 'identity', 'hr')
+      and relname in (
+        'person_identifier_sources',
+        'person_identifier_conflicts',
+        'person_source_links',
+        'people'
+      )
+    order by relname
+  `);
+  assert.deepEqual(privateIdentityRls.rows, [
+    { relname: 'people', relrowsecurity: true, relforcerowsecurity: true },
+    {
+      relname: 'person_identifier_conflicts',
+      relrowsecurity: true,
+      relforcerowsecurity: true,
+    },
+    {
+      relname: 'person_identifier_sources',
+      relrowsecurity: true,
+      relforcerowsecurity: true,
+    },
+    {
+      relname: 'person_source_links',
+      relrowsecurity: true,
+      relforcerowsecurity: true,
+    },
+  ]);
 
   const controlPlanePrivileges = await database.query(`
     select
