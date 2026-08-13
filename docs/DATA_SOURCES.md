@@ -252,16 +252,17 @@ publicado e tipo. Um arquivo ausente ou um `NextMarker` não consumido impede o
 fechamento da cobertura como completa.
 
 Os arquivos não são baixados pelo coletor de catálogo. Alguns ZIPs nacionais
-observados em 12/08/2026 ultrapassam 300 MiB. A próxima etapa fará download em
-fluxo, validação do arquivo e filtragem territorial antes de persistir as
-linhas de Barreiras; o ZIP nacional bruto permanece privado e não será servido
-pelo portal.
+observados em 12/08/2026 ultrapassam 300 MiB. Cada conjunto possui download
+controlado, validação e filtragem territorial próprios; o ZIP nacional bruto
+permanece privado e não é servido pelo portal.
 
-O primeiro download controlado é `siconv_proposta.zip`. Seu arquivo nacional é
+O primeiro download controlado, `siconv_proposta.zip`, já está operacional. Seu arquivo nacional é
 validado por tamanho, ETag, integridade ZIP e contrato CSV; a projeção aceita
 somente `COD_MUNIC_IBGE=2903201` desde 2021. Agência, conta, endereço, bairro e
-CEP não integram o registro normalizado. A proposta ainda não recebe autoria de
-emenda até ser reconciliada com `siconv_emenda.zip`.
+CEP não integram o registro normalizado. A projeção pública também omite CNPJ e
+expõe apenas campos necessários à compreensão da proposta e sua evidência. A
+proposta ainda não recebe autoria de emenda até ser reconciliada com
+`siconv_emenda.zip`.
 
 ### Emendas parlamentares estaduais da Bahia
 

@@ -60,18 +60,25 @@ complementares, mantendo fonte, data e hash da evidência.
 
 Os anos sem proposta nessa API nova significam somente “nenhuma proposta
 devolvida por este endpoint para o filtro e a data consultados”. A cobertura
-histórica será reconstruída separadamente pelos arquivos oficiais de dados
-abertos do Transferegov. Até que os CSVs sejam baixados, validados e filtrados
-por Barreiras, eles não alteram ranking, totais nem estados financeiros.
+histórica é reconstruída separadamente pelos arquivos oficiais de dados
+abertos do Transferegov. O arquivo de propostas já possui projeção pública
+própria, mas não altera ranking, totais de emendas nem estados financeiros.
 
 ## Cobertura histórica federal
 
 O arquivo nacional `siconv_proposta.zip` é preservado integralmente em área
 privada e validado contra o catálogo oficial por tamanho e ETag. A projeção
 normalizada mantém apenas propostas cujo `COD_MUNIC_IBGE` seja exatamente
-`2903201` e exclui dados bancários, endereço e CEP. Proposta não é emenda: esses
-registros ampliam a cobertura territorial, mas não entram no ranking de autoria
-até o relacionamento com `siconv_emenda.zip` ser comprovado.
+`2903201` e exclui CNPJ, dados bancários, endereço e CEP da API pública. Cada
+registro publicado conserva número, ano, situação, objeto, órgão, valores
+propostos, URL e hash do ZIP preservado. Proposta não é emenda: esses registros
+ampliam a cobertura territorial, mas não entram no ranking de autoria até o
+relacionamento com `siconv_emenda.zip` ser comprovado.
+
+Na interface, `valor global proposto`, `repasse solicitado` e `contrapartida
+proposta` são mostrados separadamente. Nenhum deles é rotulado como dinheiro
+recebido, empenhado ou pago. Ausência de autoria no arquivo de propostas é
+exibida como limite da fonte, não preenchida por IA ou semelhança de nome.
 
 ## Emendas estaduais da Bahia — próxima trilha
 

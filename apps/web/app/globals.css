@@ -4545,6 +4545,13 @@ footer {
   text-decoration: none;
 }
 
+.transfer-source-warning {
+  margin: 0.45rem 0 0;
+  color: #7c899d;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
 .transfer-hash {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.72rem !important;
@@ -4557,6 +4564,61 @@ footer {
   border-radius: 1rem;
   color: #6f7c91;
   font-size: 0.82rem;
+}
+
+.historical-proposal-years {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.historical-proposal-year {
+  border: 1px solid rgba(28, 40, 61, 0.11);
+  border-radius: 1.1rem;
+  background: rgba(248, 250, 253, 0.8);
+  overflow: hidden;
+}
+
+.historical-proposal-year > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 780;
+  list-style: none;
+}
+
+.historical-proposal-year > summary::-webkit-details-marker {
+  display: none;
+}
+
+.historical-proposal-year > summary::after {
+  content: "+";
+  color: #315bc7;
+  font-size: 1.15rem;
+}
+
+.historical-proposal-year[open] > summary::after {
+  content: "−";
+}
+
+.historical-proposal-year > summary small {
+  margin-left: auto;
+  color: #78859a;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.historical-proposal-year > .transfer-card-list {
+  padding: 0 0.8rem 0.8rem;
+}
+
+.historical-proposal-card .transfer-caution strong {
+  color: #5f4a27;
 }
 
 .transfer-methodology {

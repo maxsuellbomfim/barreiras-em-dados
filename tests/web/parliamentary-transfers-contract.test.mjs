@@ -23,6 +23,13 @@ const coverageMigration = await readFile(
   ),
   "utf8",
 );
+const historicalProposalMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260813112804_public_federal_transfer_proposals.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(
   new URL("../../apps/web/lib/parliamentary-transfers.ts", import.meta.url),
   "utf8",
@@ -92,4 +99,19 @@ test("cobertura anual distingue vazio confirmado de ano ainda nao classificado",
   assert.match(page, /n.o prova aus.ncia em outras bases\s+oficiais/);
   assert.match(page, /Coleta incompleta/);
   assert.match(page, /Ano ainda n.o classificado/);
+});
+
+test("propostas historicas ficam separadas de emendas e exibem seus limites", () => {
+  assert.match(historicalProposalMigration, /transferegov_historical_proposal/);
+  assert.match(historicalProposalMigration, /not_available_in_proposal_source/);
+  assert.match(historicalProposalMigration, /proposal_registered/);
+  assert.match(historicalProposalMigration, /artifact\.sha256 as artifact_sha256/);
+  assert.match(historicalProposalMigration, /revoke all on territory\.federal_transfer_proposals/);
+  assert.match(client, /get_public_federal_transfer_proposals/);
+  assert.match(client, /FederalTransferProposal/);
+  assert.match(page, /Propostas federais encontradas desde 2021/);
+  assert.match(page, /proposta n.o significa dinheiro pago/);
+  assert.match(page, /Autoria parlamentar n.o dispon.vel nesta fonte/);
+  assert.match(page, /Arquivo oficial completo no Transferegov/);
+  assert.match(page, /Este registro n.o entra no ranking de emendas/);
 });

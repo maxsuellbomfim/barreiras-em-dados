@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import {
   getPublicParliamentaryTransfers,
   parliamentaryTransferAuthorAnchor,
+  type FederalTransferProposal,
   type ParliamentaryTransfer,
   type ParliamentaryTransferCoverage,
   type ParliamentaryTransferRanking,
@@ -14,7 +15,7 @@ export const revalidate = 300;
 export const metadata: Metadata = {
   title: "Recursos destinados a Barreiras",
   description:
-    "Emendas destinadas a Barreiras, autoria e estágios financeiros comprovados em fonte oficial.",
+    "Propostas federais e emendas destinadas a Barreiras, com autoria e estágios financeiros separados por fonte oficial.",
 };
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -55,10 +56,10 @@ function coverageDescription(row: ParliamentaryTransferCoverage): string {
     row.proposalCount !== null &&
     row.publishedAmendmentCount !== null
   ) {
-    return `Fonte consultada: ${row.proposalCount.toLocaleString("pt-BR")} proposta(s); ${row.publishedAmendmentCount.toLocaleString("pt-BR")} emenda(s) publicada(s).`;
+    return `API atual consultada: ${row.proposalCount.toLocaleString("pt-BR")} proposta(s); ${row.publishedAmendmentCount.toLocaleString("pt-BR")} emenda(s) publicada(s).`;
   }
   if (row.coverageStatus === "empty") {
-    return "Fonte consultada: nenhuma proposta encontrada nesta API para o ano.";
+    return "API atual consultada: nenhuma proposta encontrada para o ano.";
   }
   if (row.coverageStatus === "partial") {
     return "Coleta incompleta: ainda não é possível concluir quantas propostas existem.";
@@ -79,7 +80,7 @@ function CoveragePanel({
     <section className="transfer-coverage" aria-labelledby="transfer-coverage-title">
       <div className="transfer-section-heading">
         <div>
-          <span className="eyebrow">Cobertura da fonte</span>
+          <span className="eyebrow">Cobertura da API atual</span>
           <h2 id="transfer-coverage-title">Quais anos já conferimos?</h2>
         </div>
         <p>O estado é calculado por código para cada ano, de forma independente.</p>
@@ -105,9 +106,9 @@ function CoveragePanel({
         </ul>
       )}
       <p className="transfer-coverage-caveat">
-        Nenhuma proposta encontrada nesta API não prova ausência em outras bases
-        oficiais. O Barreiras 360 ampliará o cruzamento sem transformar dado não
-        coletado em zero.
+        Nenhuma proposta encontrada na API atual não prova ausência em outras bases
+        oficiais. Por isso, o arquivo histórico federal aparece em uma seção
+        separada abaixo, sem transformar dado não coletado em zero.
       </p>
     </section>
   );
@@ -253,6 +254,174 @@ function TransferCard({ transfer }: Readonly<{ transfer: ParliamentaryTransfer }
   );
 }
 
+function HistoricalProposalCard({
+  proposal,
+}: Readonly<{ proposal: FederalTransferProposal }>) {
+  return (
+    <article className="transfer-card historical-proposal-card">
+      <div className="transfer-card-heading">
+        <div>
+          <span className="transfer-card-kind">Proposta federal cadastrada</span>
+          <h3>
+            Proposta {proposal.proposalNumber ?? proposal.proposalId}
+          </h3>
+          <p>
+            {proposal.modality ?? "modalidade não informada"} · {proposal.fiscalYear}
+            {proposal.proposalDateText ? ` · cadastrada em ${proposal.proposalDateText}` : ""}
+          </p>
+        </div>
+        <span className="transfer-status">
+          {proposal.proposalStatus ?? "situação não informada"}
+        </span>
+      </div>
+
+      <p className="transfer-object">
+        {proposal.objectDescription ?? "Objeto não informado no arquivo consultado."}
+      </p>
+      <p className="transfer-beneficiary">
+        <strong>Proponente:</strong>{" "}
+        {proposal.proponentName ?? "não informado"}
+        {proposal.federalBodyName ? ` · órgão federal: ${proposal.federalBodyName}` : ""}
+      </p>
+
+      <dl className="transfer-stage-grid">
+        <div>
+          <dt>Valor global proposto</dt>
+          <dd>
+            {proposal.globalAmount === null
+              ? "não informado"
+              : formatBrlDecimal(proposal.globalAmount)}
+          </dd>
+          <span>Valor previsto na proposta; não comprova transferência.</span>
+        </div>
+        <div>
+          <dt>Repasse solicitado</dt>
+          <dd>
+            {proposal.requestedTransferAmount === null
+              ? "não informado"
+              : formatBrlDecimal(proposal.requestedTransferAmount)}
+          </dd>
+          <span>Pedido registrado, ainda diferente de dinheiro empenhado ou pago.</span>
+        </div>
+        <div>
+          <dt>Contrapartida proposta</dt>
+          <dd>
+            {proposal.counterpartAmount === null
+              ? "não informada"
+              : formatBrlDecimal(proposal.counterpartAmount)}
+          </dd>
+          <span>Parte prevista para o proponente no cadastro original.</span>
+        </div>
+      </dl>
+
+      <p className="transfer-caution">
+        <strong>Autoria parlamentar não disponível nesta fonte.</strong>{" "}
+        Este registro não entra no ranking de emendas. A ligação só será feita
+        quando outro documento oficial comprovar autor e estágio financeiro.
+      </p>
+
+      <details className="transfer-details">
+        <summary>Ver situação, órgão e evidência</summary>
+        <dl>
+          <div>
+            <dt>Situação do projeto básico</dt>
+            <dd>{proposal.basicProjectStatus ?? "não informada"}</dd>
+          </div>
+          <div>
+            <dt>Área do investimento</dt>
+            <dd>{proposal.investmentItem ?? "não informada"}</dd>
+          </div>
+          <div>
+            <dt>Órgão federal superior</dt>
+            <dd>{proposal.superiorFederalBodyName ?? "não informado"}</dd>
+          </div>
+          <div>
+            <dt>Hash da evidência preservada</dt>
+            <dd className="transfer-hash">{proposal.artifactSha256}</dd>
+          </div>
+        </dl>
+        <a href={proposal.sourceUrl} target="_blank" rel="noreferrer">
+          Arquivo oficial completo no Transferegov ↗
+        </a>
+        <p className="transfer-source-warning">
+          O link abre o ZIP nacional usado na coleta e pode ser um arquivo grande.
+        </p>
+      </details>
+    </article>
+  );
+}
+
+function HistoricalProposalsPanel({
+  proposals,
+}: Readonly<{ proposals: readonly FederalTransferProposal[] | null }>) {
+  if (proposals === null) {
+    return (
+      <section className="transfer-catalog" aria-labelledby="historical-proposals-title">
+        <div className="transfer-section-heading">
+          <div>
+            <span className="eyebrow">Acervo histórico federal</span>
+            <h2 id="historical-proposals-title">Propostas federais encontradas desde 2021</h2>
+          </div>
+        </div>
+        <p className="transfer-empty">
+          O catálogo histórico está temporariamente indisponível. Isso não significa
+          que não existam propostas.
+        </p>
+      </section>
+    );
+  }
+
+  const proposalsByYear = new Map<number, FederalTransferProposal[]>();
+  for (const proposal of proposals) {
+    const yearRows = proposalsByYear.get(proposal.fiscalYear) ?? [];
+    yearRows.push(proposal);
+    proposalsByYear.set(proposal.fiscalYear, yearRows);
+  }
+  const yearGroups = [...proposalsByYear.entries()].sort(
+    ([leftYear], [rightYear]) => rightYear - leftYear,
+  );
+
+  return (
+    <section className="transfer-catalog" aria-labelledby="historical-proposals-title">
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Acervo histórico federal</span>
+          <h2 id="historical-proposals-title">Propostas federais encontradas desde 2021</h2>
+        </div>
+        <p>{proposals.length.toLocaleString("pt-BR")} registro(s) preservado(s)</p>
+      </div>
+      <aside className="transfer-reading-guide">
+        <strong>Como interpretar</strong>
+        <p>
+          Uma proposta não significa dinheiro pago nem obra executada. Ela registra
+          uma intenção formal apresentada ao Governo Federal. Situação, valores e
+          objeto abaixo são os campos do arquivo oficial; autoria e pagamento só
+          aparecem no ranking quando outra fonte oficial comprova essas etapas.
+        </p>
+      </aside>
+      {yearGroups.length === 0 ? (
+        <p className="transfer-empty">Nenhuma proposta histórica foi encontrada no recorte.</p>
+      ) : (
+        <div className="historical-proposal-years">
+          {yearGroups.map(([year, rows], index) => (
+            <details className="historical-proposal-year" key={year} open={index === 0}>
+              <summary>
+                <span>{year}</span>
+                <small>{rows.length.toLocaleString("pt-BR")} proposta(s)</small>
+              </summary>
+              <div className="transfer-card-list">
+                {rows.map((proposal) => (
+                  <HistoricalProposalCard proposal={proposal} key={proposal.proposalId} />
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default async function ParliamentaryResourcesPage() {
   const result = await getPublicParliamentaryTransfers();
 
@@ -307,6 +476,8 @@ export default async function ParliamentaryResourcesPage() {
           </div>
         ) : (
           <>
+            <HistoricalProposalsPanel proposals={result.historicalProposals} />
+
             <section className="transfer-ranking" aria-labelledby="people-ranking-title">
               <div className="transfer-section-heading">
                 <div>
