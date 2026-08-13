@@ -76,6 +76,8 @@ try {
       to_regclass('territory.parliamentary_transfers')::text as transfer_projection,
       to_regclass('territory.federal_transfer_proposals')::text
         as historical_proposal_projection,
+      to_regclass('territory.historical_parliamentary_amendments')::text
+        as historical_amendment_projection,
       to_regclass('political.parliamentary_transfer_author_crosswalk')::text
         as author_crosswalk,
       to_regclass('raw.raw_records_transferegov_latest_idx')::text as latest_index,
@@ -94,6 +96,12 @@ try {
       to_regprocedure(
         'api.get_public_federal_transfer_proposals(smallint,text,integer)'
       )::text as historical_proposal_rpc,
+      to_regprocedure(
+        'api.get_public_historical_parliamentary_amendments(smallint,text,integer)'
+      )::text as historical_amendment_rpc,
+      to_regprocedure(
+        'api.get_public_historical_parliamentary_amendment_ranking(text,smallint,integer)'
+      )::text as historical_amendment_ranking_rpc,
       has_schema_privilege('anon', 'territory', 'USAGE') as anon_territory_usage,
       has_function_privilege(
         'anon',
@@ -114,11 +122,23 @@ try {
         'anon',
         'api.get_public_federal_transfer_proposals(smallint,text,integer)',
         'EXECUTE'
-      ) as anon_historical_proposal_rpc
+      ) as anon_historical_proposal_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_historical_parliamentary_amendments(smallint,text,integer)',
+        'EXECUTE'
+      ) as anon_historical_amendment_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_historical_parliamentary_amendment_ranking(text,smallint,integer)',
+        'EXECUTE'
+      ) as anon_historical_amendment_ranking_rpc
   `);
   assert.deepEqual(contracts.rows, [{
     transfer_projection: "territory.parliamentary_transfers",
     historical_proposal_projection: "territory.federal_transfer_proposals",
+    historical_amendment_projection:
+      "territory.historical_parliamentary_amendments",
     author_crosswalk: "political.parliamentary_transfer_author_crosswalk",
     latest_index: "raw.raw_records_transferegov_latest_idx",
     proposal_index: "raw.raw_records_transferegov_proposal_idx",
@@ -131,11 +151,17 @@ try {
       "api.get_public_parliamentary_transfer_coverage(smallint,smallint)",
     historical_proposal_rpc:
       "api.get_public_federal_transfer_proposals(smallint,text,integer)",
+    historical_amendment_rpc:
+      "api.get_public_historical_parliamentary_amendments(smallint,text,integer)",
+    historical_amendment_ranking_rpc:
+      "api.get_public_historical_parliamentary_amendment_ranking(text,smallint,integer)",
     anon_territory_usage: false,
     anon_ranking_rpc: true,
     anon_detail_rpc: true,
     anon_coverage_rpc: true,
     anon_historical_proposal_rpc: true,
+    anon_historical_amendment_rpc: true,
+    anon_historical_amendment_ranking_rpc: true,
   }]);
 
   await database.exec(`
@@ -339,6 +365,67 @@ try {
       );
   `);
 
+  await database.exec(`
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000009201',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'transferegov-downloads'
+         and endpoint.slug = 'emendas-historicas'),
+      'historical-amendment-fixture-run', 'test/1', 'succeeded'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key, collector_version
+    ) values (
+      '00000000-0000-0000-0000-000000009202',
+      '00000000-0000-0000-0000-000000009201',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'transferegov-downloads'
+         and endpoint.slug = 'emendas-historicas'),
+      'historical-amendment-fixture-artifact', 'archive',
+      'https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_emenda.zip',
+      '2026-08-13 11:00:00+00', 8306000, '${"5".repeat(64)}',
+      'fixtures/siconv_emenda.zip', 'test/1'
+    );
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009210',
+        '00000000-0000-0000-0000-000000009202',
+        'transferegov:historical-amendment:9001:11110001:person',
+        'transferegov_historical_amendment', 0,
+        '{"id_proposta":"9001","numero_emenda":"11110001","autor_nome":"AFONSO FLORENCE","tipo_parlamentar":"INDIVIDUAL","codigo_programa_emenda":"5300020210017","impositiva":true,"valor_repasse_emenda":"400000","valor_repasse_proposta_emenda":"900000","beneficiario_tipo":"cnpj","beneficiario_ultimos_4":"0195"}',
+        '${"4".repeat(64)}', 'test/1', 'historical-amendment-record-0001',
+        '2026-08-13 11:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009211',
+        '00000000-0000-0000-0000-000000009202',
+        'transferegov:historical-amendment:9001:11110002:person',
+        'transferegov_historical_amendment', 1,
+        '{"id_proposta":"9001","numero_emenda":"11110002","autor_nome":"AFONSO FLORENCE","tipo_parlamentar":"INDIVIDUAL","codigo_programa_emenda":"5300020210017","impositiva":true,"valor_repasse_emenda":"500000","valor_repasse_proposta_emenda":"900000","beneficiario_tipo":"cnpj","beneficiario_ultimos_4":"0195"}',
+        '${"3".repeat(64)}', 'test/1', 'historical-amendment-record-0002',
+        '2026-08-13 11:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009212',
+        '00000000-0000-0000-0000-000000009202',
+        'transferegov:historical-amendment:9001:50070003:commission',
+        'transferegov_historical_amendment', 2,
+        '{"id_proposta":"9001","numero_emenda":"50070003","autor_nome":"COM. TURISMO","tipo_parlamentar":"COMISSAO","codigo_programa_emenda":"5400020210017","impositiva":false,"valor_repasse_emenda":"300000","valor_repasse_proposta_emenda":"300000","beneficiario_tipo":"cnpj","beneficiario_ultimos_4":"0195"}',
+        '${"2".repeat(64)}', 'test/1', 'historical-amendment-record-0003',
+        '2026-08-13 11:00:00+00'
+      );
+  `);
+
   await database.exec("set role anon");
   const people = await database.query(`
     select author_name, author_kind, representative_source_kind,
@@ -390,6 +477,38 @@ try {
       2021::smallint,
       'PROPOSTA APROVADA',
       100
+    )
+  `);
+  const historicalAmendments = await database.query(`
+    select proposal_id, fiscal_year, amendment_number, author_name,
+      author_kind, is_mandatory, destination_amount, beneficiary_name,
+      object_description, financial_stage, source_url, artifact_sha256,
+      methodology_version
+    from api.get_public_historical_parliamentary_amendments(
+      2021::smallint,
+      null,
+      100
+    )
+    order by destination_amount desc
+  `);
+  const historicalPeople = await database.query(`
+    select rank_position, author_name, author_kind, amendment_count,
+      proposal_count, destination_amount, first_year, last_year,
+      financial_stage, methodology_version
+    from api.get_public_historical_parliamentary_amendment_ranking(
+      'person',
+      2021::smallint,
+      50
+    )
+  `);
+  const historicalCollectives = await database.query(`
+    select rank_position, author_name, author_kind, amendment_count,
+      proposal_count, destination_amount, first_year, last_year,
+      financial_stage, methodology_version
+    from api.get_public_historical_parliamentary_amendment_ranking(
+      'collective',
+      2021::smallint,
+      50
     )
   `);
   await database.exec("reset role");
@@ -515,6 +634,82 @@ try {
     artifact_sha256: "9".repeat(64),
     methodology_version: "federal-transfer-proposals/1.0.0",
   }]);
+  assert.deepEqual(historicalAmendments.rows, [
+    {
+      proposal_id: "9001",
+      fiscal_year: 2021,
+      amendment_number: "11110002",
+      author_name: "AFONSO FLORENCE",
+      author_kind: "person",
+      is_mandatory: true,
+      destination_amount: "500000.00",
+      beneficiary_name: "MUNICIPIO DE BARREIRAS",
+      object_description: "CONSTRUIR EQUIPAMENTO PUBLICO",
+      financial_stage: "destination_identified_payment_not_verified",
+      source_url:
+        "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_emenda.zip",
+      artifact_sha256: "5".repeat(64),
+      methodology_version: "historical-parliamentary-amendments/1.0.0",
+    },
+    {
+      proposal_id: "9001",
+      fiscal_year: 2021,
+      amendment_number: "11110001",
+      author_name: "AFONSO FLORENCE",
+      author_kind: "person",
+      is_mandatory: true,
+      destination_amount: "400000.00",
+      beneficiary_name: "MUNICIPIO DE BARREIRAS",
+      object_description: "CONSTRUIR EQUIPAMENTO PUBLICO",
+      financial_stage: "destination_identified_payment_not_verified",
+      source_url:
+        "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_emenda.zip",
+      artifact_sha256: "5".repeat(64),
+      methodology_version: "historical-parliamentary-amendments/1.0.0",
+    },
+    {
+      proposal_id: "9001",
+      fiscal_year: 2021,
+      amendment_number: "50070003",
+      author_name: "COM. TURISMO",
+      author_kind: "commission",
+      is_mandatory: false,
+      destination_amount: "300000.00",
+      beneficiary_name: "MUNICIPIO DE BARREIRAS",
+      object_description: "CONSTRUIR EQUIPAMENTO PUBLICO",
+      financial_stage: "destination_identified_payment_not_verified",
+      source_url:
+        "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_emenda.zip",
+      artifact_sha256: "5".repeat(64),
+      methodology_version: "historical-parliamentary-amendments/1.0.0",
+    },
+  ]);
+  assert.deepEqual(historicalPeople.rows, [{
+    rank_position: 1,
+    author_name: "AFONSO FLORENCE",
+    author_kind: "person",
+    amendment_count: 2,
+    proposal_count: 1,
+    destination_amount: "900000.00",
+    first_year: 2021,
+    last_year: 2021,
+    financial_stage: "destination_identified_payment_not_verified",
+    methodology_version:
+      "historical-parliamentary-amendment-ranking/1.0.0",
+  }]);
+  assert.deepEqual(historicalCollectives.rows, [{
+    rank_position: 1,
+    author_name: "COM. TURISMO",
+    author_kind: "commission",
+    amendment_count: 1,
+    proposal_count: 1,
+    destination_amount: "300000.00",
+    first_year: 2021,
+    last_year: 2021,
+    financial_stage: "destination_identified_payment_not_verified",
+    methodology_version:
+      "historical-parliamentary-amendment-ranking/1.0.0",
+  }]);
 
   await database.exec("set role anon");
   await assert.rejects(
@@ -551,6 +746,22 @@ try {
     database.query("select * from territory.federal_transfer_proposals"),
     /permission denied/,
   );
+  await assert.rejects(
+    database.query("select * from territory.historical_parliamentary_amendments"),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_historical_parliamentary_amendment_ranking('all', null, 50)",
+    ),
+    /author_scope deve ser person ou collective/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_historical_parliamentary_amendments(null, null, 201)",
+    ),
+    /limite de emendas historicas invalido/,
+  );
   await database.exec("reset role");
 
   assert.equal(JSON.stringify(transfers.rows).includes("cpf"), false);
@@ -558,6 +769,8 @@ try {
   assert.equal(JSON.stringify(historicalProposals.rows).includes("cnpj"), false);
   assert.equal(JSON.stringify(historicalProposals.rows).includes("conta"), false);
   assert.equal(JSON.stringify(historicalProposals.rows).includes("agencia"), false);
+  assert.equal(JSON.stringify(historicalAmendments.rows).includes("cnpj"), false);
+  assert.equal(JSON.stringify(historicalAmendments.rows).includes("ultimos_4"), false);
   console.log(
     "Emendas: autoria, estagios financeiros, deduplicacao e limites publicos verificados.",
   );

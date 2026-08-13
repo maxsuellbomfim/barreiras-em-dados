@@ -113,5 +113,6 @@ test("propostas historicas ficam separadas de emendas e exibem seus limites", ()
   assert.match(page, /proposta n.o significa dinheiro pago/);
   assert.match(page, /Autoria parlamentar n.o dispon.vel nesta fonte/);
   assert.match(page, /Arquivo oficial completo no Transferegov/);
-  assert.match(page, /Este registro n.o entra no ranking de emendas/);
+  assert.match(page, /ficha de proposta, isoladamente, n.o entra no ranking/);
+  assert.match(page, /arquivo oficial de emendas comprova autor e valor destinado/);
 });
