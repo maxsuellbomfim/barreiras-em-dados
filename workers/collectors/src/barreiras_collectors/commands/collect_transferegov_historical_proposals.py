@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
@@ -32,6 +32,7 @@ from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import build_authenticated_object_store
 
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
+EXECUTION_NAMESPACE = "transferegov-historical-proposals"
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,17 @@ class HistoricalProposalCollectionSummary:
     catalog_etag: str
     year_from: int
     year_to: int
+
+
+def build_historical_proposals_execution_key(
+    *,
+    environment: Mapping[str, str] | None = None,
+) -> str:
+    """Identifica a tentativa; o período fica na partição auditável."""
+    return build_execution_idempotency_key(
+        EXECUTION_NAMESPACE,
+        environment=environment,
+    )
 
 
 def resolve_coverage_period(
@@ -142,9 +154,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         repository=repository,
         source_code=SOURCE_CODE,
         endpoint_code=ENDPOINT_CODE,
-        idempotency_key=build_execution_idempotency_key(
-            f"transferegov-historical-proposals:{args.year_from}:{args.year_to}"
-        ),
+        idempotency_key=build_historical_proposals_execution_key(),
         collector_version=TRANSFEREGOV_HISTORICAL_PROPOSAL_COLLECTOR_VERSION,
         parser_version=TRANSFEREGOV_HISTORICAL_PROPOSAL_PARSER_VERSION,
         partition_key=f"historical-proposals:{args.year_from}:{args.year_to}",
