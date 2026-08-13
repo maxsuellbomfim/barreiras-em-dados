@@ -298,9 +298,11 @@ separadas por ano, com situação, objeto e valores propostos, deixando explíci
 que cadastro não prova transferência ou pagamento. O coletor de
 `siconv_emenda.zip` agora relaciona as linhas pelo identificador oficial da
 proposta, preserva o ZIP privado e minimiza o identificador do beneficiário.
-A próxima menor fatia federal é reconciliar essas emendas com a projeção
-pública, mantendo autoria coletiva separada e sem chamar valor indicado de
-dinheiro pago.
+A projeção pública histórica já exibe essas emendas e um ranking próprio,
+mantendo autoria coletiva separada e sem chamar valor indicado de dinheiro
+pago. A próxima menor fatia federal é reconciliar, por chaves oficiais, a série
+histórica e a API corrente; somente depois disso haverá ranking federal
+consolidado sem risco de dupla contagem.
 
 A trilha estadual será implementada em fonte e cobertura próprias a partir do
 conjunto diário **Emendas Parlamentares Estaduais** da SEFAZ-BA/FIPLAN. Ela

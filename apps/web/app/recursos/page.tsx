@@ -4,6 +4,8 @@ import {
   getPublicParliamentaryTransfers,
   parliamentaryTransferAuthorAnchor,
   type FederalTransferProposal,
+  type HistoricalParliamentaryAmendment,
+  type HistoricalParliamentaryAmendmentRanking,
   type ParliamentaryTransfer,
   type ParliamentaryTransferCoverage,
   type ParliamentaryTransferRanking,
@@ -170,6 +172,215 @@ function RankingTable({
   );
 }
 
+function HistoricalRankingTable({
+  rows,
+  emptyCopy,
+}: Readonly<{
+  rows: readonly HistoricalParliamentaryAmendmentRanking[];
+  emptyCopy: string;
+}>) {
+  if (rows.length === 0) return <p className="transfer-empty">{emptyCopy}</p>;
+  return (
+    <div className="transfer-ranking-list">
+      {rows.map((row) => (
+        <article
+          className="transfer-ranking-card"
+          key={`historical:${row.authorKind}:${row.authorKey}`}
+        >
+          <span className="transfer-rank" aria-label={`posição ${row.rankPosition}`}>
+            {row.rankPosition}
+          </span>
+          <div className="transfer-ranking-name">
+            <h3>{row.authorName}</h3>
+            <span>{authorKindLabel(row.authorKind)}</span>
+          </div>
+          <dl>
+            <div>
+              <dt>Destinado a Barreiras</dt>
+              <dd>{formatBrlDecimal(row.destinationAmount)}</dd>
+            </div>
+            <div>
+              <dt>Emendas distintas</dt>
+              <dd>{row.amendmentCount.toLocaleString("pt-BR")}</dd>
+            </div>
+            <div>
+              <dt>Propostas alcançadas</dt>
+              <dd>{row.proposalCount.toLocaleString("pt-BR")}</dd>
+            </div>
+          </dl>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function HistoricalAmendmentCard({
+  amendment,
+}: Readonly<{ amendment: HistoricalParliamentaryAmendment }>) {
+  return (
+    <article className="transfer-card historical-amendment-card">
+      <div className="transfer-card-heading">
+        <div>
+          <span className="transfer-card-kind">{authorKindLabel(amendment.authorKind)}</span>
+          <h3>{amendment.authorName}</h3>
+          <p>
+            Emenda {amendment.amendmentNumber ?? "sem número na fonte"} · {amendment.fiscalYear}
+          </p>
+        </div>
+        <span className="transfer-status">
+          {amendment.proposalStatus ?? "situação da proposta não informada"}
+        </span>
+      </div>
+
+      <p className="transfer-object">
+        {amendment.objectDescription ?? "Objeto não informado no arquivo consultado."}
+      </p>
+      <p className="transfer-beneficiary">
+        <strong>Quem recebe:</strong>{" "}
+        {amendment.beneficiaryName ?? "beneficiário não informado"}
+      </p>
+
+      <dl className="transfer-stage-grid">
+        <div>
+          <dt>Valor destinado à proposta</dt>
+          <dd>{formatBrlDecimal(amendment.destinationAmount)}</dd>
+          <span>Parcela da emenda associada a esta proposta de Barreiras.</span>
+        </div>
+        <div>
+          <dt>É impositiva?</dt>
+          <dd>
+            {amendment.isMandatory === null
+              ? "não informado"
+              : amendment.isMandatory ? "sim" : "não"}
+          </dd>
+          <span>Classificação publicada no arquivo oficial de emendas.</span>
+        </div>
+        <div>
+          <dt>Pagamento</dt>
+          <dd>não verificado nesta série histórica</dd>
+          <span>Valor destinado não comprova empenho, pagamento nem execução.</span>
+        </div>
+      </dl>
+
+      <details className="transfer-details">
+        <summary>Ver proposta e comprovação</summary>
+        <dl>
+          <div>
+            <dt>Proposta</dt>
+            <dd>{amendment.proposalNumber ?? amendment.proposalId}</dd>
+          </div>
+          <div>
+            <dt>Programa da emenda</dt>
+            <dd>{amendment.programCode ?? "não informado"}</dd>
+          </div>
+          <div>
+            <dt>Hash da evidência preservada</dt>
+            <dd className="transfer-hash">{amendment.artifactSha256}</dd>
+          </div>
+        </dl>
+        <a href={amendment.sourceUrl} target="_blank" rel="noreferrer">
+          Abrir arquivo oficial no Transferegov ↗
+        </a>
+        <p className="transfer-source-warning">
+          O link abre o ZIP nacional usado na coleta e pode ser um arquivo grande.
+        </p>
+      </details>
+    </article>
+  );
+}
+
+function HistoricalAmendmentsPanel({
+  amendments,
+  people,
+  collectives,
+}: Readonly<{
+  amendments: readonly HistoricalParliamentaryAmendment[] | null;
+  people: readonly HistoricalParliamentaryAmendmentRanking[] | null;
+  collectives: readonly HistoricalParliamentaryAmendmentRanking[] | null;
+}>) {
+  return (
+    <section className="transfer-catalog" aria-labelledby="historical-amendments-title">
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Arquivo oficial desde 2021</span>
+          <h2 id="historical-amendments-title">
+            Emendas identificadas no acervo histórico
+          </h2>
+        </div>
+        <p>
+          {amendments === null
+            ? "consulta temporariamente indisponível"
+            : `${amendments.length.toLocaleString("pt-BR")} vínculo(s) comprovado(s)`}
+        </p>
+      </div>
+
+      <aside className="transfer-reading-guide">
+        <strong>O que estes valores significam</strong>
+        <p>
+          O arquivo histórico informa autor e parcela destinada à proposta de
+          Barreiras. Ele não comprova empenho, pagamento nem execução. Esta série
+          permanece separada da API atual para impedir dupla contagem.
+        </p>
+      </aside>
+
+      {people !== null ? (
+        <section className="transfer-ranking" aria-labelledby="historical-people-title">
+          <div className="transfer-section-heading">
+            <div>
+              <span className="eyebrow">Somente pessoas</span>
+              <h3 id="historical-people-title">Ranking histórico de autoria individual</h3>
+            </div>
+            <p>Ordenado pelo valor destinado às propostas de Barreiras.</p>
+          </div>
+          <HistoricalRankingTable
+            rows={people}
+            emptyCopy="Nenhuma autoria individual foi identificada no acervo histórico."
+          />
+        </section>
+      ) : null}
+
+      {collectives !== null ? (
+        <section className="transfer-ranking" aria-labelledby="historical-collective-title">
+          <div className="transfer-section-heading">
+            <div>
+              <span className="eyebrow">Comissões e bancadas</span>
+              <h3 id="historical-collective-title">Autoria coletiva no acervo histórico</h3>
+            </div>
+            <p>Estes valores não são atribuídos a qualquer parlamentar individual.</p>
+          </div>
+          <HistoricalRankingTable
+            rows={collectives}
+            emptyCopy="Nenhuma autoria coletiva foi identificada no acervo histórico."
+          />
+        </section>
+      ) : null}
+
+      {amendments === null ? (
+        <p className="transfer-empty">
+          A consulta histórica não respondeu. Isso não significa ausência de emendas.
+        </p>
+      ) : amendments.length === 0 ? (
+        <p className="transfer-empty">Nenhuma emenda histórica foi encontrada no recorte.</p>
+      ) : (
+        <details className="historical-proposal-year">
+          <summary>
+            <span>Ver emenda por emenda</span>
+            <small>{amendments.length.toLocaleString("pt-BR")} registro(s)</small>
+          </summary>
+          <div className="transfer-card-list">
+            {amendments.map((amendment) => (
+              <HistoricalAmendmentCard
+                amendment={amendment}
+                key={amendment.externalTransferKey}
+              />
+            ))}
+          </div>
+        </details>
+      )}
+    </section>
+  );
+}
+
 function TransferCard({ transfer }: Readonly<{ transfer: ParliamentaryTransfer }>) {
   const exact = transfer.stageAttributionStatus === "exact_single_distribution";
   return (
@@ -316,8 +527,10 @@ function HistoricalProposalCard({
 
       <p className="transfer-caution">
         <strong>Autoria parlamentar não disponível nesta fonte.</strong>{" "}
-        Este registro não entra no ranking de emendas. A ligação só será feita
-        quando outro documento oficial comprovar autor e estágio financeiro.
+        Esta ficha de proposta, isoladamente, não entra no ranking. Quando o
+        arquivo oficial de emendas comprova autor e valor destinado, a ligação
+        aparece no painel histórico acima; pagamento continua dependendo de
+        evidência financeira própria.
       </p>
 
       <details className="transfer-details">
@@ -476,6 +689,12 @@ export default async function ParliamentaryResourcesPage() {
           </div>
         ) : (
           <>
+            <HistoricalAmendmentsPanel
+              amendments={result.historicalAmendments}
+              people={result.historicalPeople}
+              collectives={result.historicalCollectives}
+            />
+
             <HistoricalProposalsPanel proposals={result.historicalProposals} />
 
             <section className="transfer-ranking" aria-labelledby="people-ranking-title">

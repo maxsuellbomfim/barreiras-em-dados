@@ -106,6 +106,43 @@ export type FederalTransferProposal = Readonly<{
   methodologyVersion: "federal-transfer-proposals/1.0.0";
 }>;
 
+export type HistoricalParliamentaryAmendment = Readonly<{
+  externalTransferKey: string;
+  proposalId: string;
+  proposalNumber: string | null;
+  fiscalYear: number;
+  amendmentNumber: string | null;
+  authorName: string;
+  authorKind: ParliamentaryAuthorKind;
+  amendmentKind: string | null;
+  programCode: string | null;
+  isMandatory: boolean | null;
+  destinationAmount: string;
+  amendmentTotalInSource: string | null;
+  beneficiaryName: string | null;
+  objectDescription: string | null;
+  proposalStatus: string | null;
+  financialStage: "destination_identified_payment_not_verified";
+  collectedAt: string;
+  sourceUrl: string;
+  artifactSha256: string;
+  methodologyVersion: "historical-parliamentary-amendments/1.0.0";
+}>;
+
+export type HistoricalParliamentaryAmendmentRanking = Readonly<{
+  rankPosition: number;
+  authorKey: string;
+  authorName: string;
+  authorKind: ParliamentaryAuthorKind;
+  amendmentCount: number;
+  proposalCount: number;
+  destinationAmount: string;
+  firstYear: number;
+  lastYear: number;
+  financialStage: "destination_identified_payment_not_verified";
+  methodologyVersion: "historical-parliamentary-amendment-ranking/1.0.0";
+}>;
+
 export type ParliamentaryTransfersResult =
   | Readonly<{
       state: "available";
@@ -114,6 +151,9 @@ export type ParliamentaryTransfersResult =
       transfers: readonly ParliamentaryTransfer[];
       coverage: readonly ParliamentaryTransferCoverage[] | null;
       historicalProposals: readonly FederalTransferProposal[] | null;
+      historicalAmendments: readonly HistoricalParliamentaryAmendment[] | null;
+      historicalPeople: readonly HistoricalParliamentaryAmendmentRanking[] | null;
+      historicalCollectives: readonly HistoricalParliamentaryAmendmentRanking[] | null;
     }>
   | Readonly<{ state: "unavailable" }>;
 
@@ -414,6 +454,120 @@ function parseFederalTransferProposalRows(
   return proposals;
 }
 
+function parseHistoricalAmendment(
+  row: Record<string, unknown>,
+): HistoricalParliamentaryAmendment | null {
+  const externalTransferKey = requiredText(row.external_transfer_key);
+  const proposalId = requiredText(row.proposal_id);
+  const fiscalYear = integer(row.fiscal_year, 2021);
+  const authorName = requiredText(row.author_name);
+  const kind = authorKind(row.author_kind);
+  const destinationAmount = decimal(row.destination_amount);
+  const amendmentTotalInSource = row.amendment_total_in_source === null
+    ? null
+    : decimal(row.amendment_total_in_source);
+  const collectedAt = requiredText(row.collected_at);
+  const sourceUrl = requiredText(row.source_url);
+  const artifactSha256 = requiredText(row.artifact_sha256);
+  const isMandatory = row.is_mandatory;
+  if (
+    !externalTransferKey || !proposalId || !/^\d+$/.test(proposalId) ||
+    fiscalYear === null || !authorName || !kind || !destinationAmount ||
+    (row.amendment_total_in_source !== null && amendmentTotalInSource === null) ||
+    ![true, false, null].includes(isMandatory as boolean | null) ||
+    row.financial_stage !== "destination_identified_payment_not_verified" ||
+    !collectedAt || Number.isNaN(Date.parse(collectedAt)) ||
+    !sourceUrl?.startsWith("https://") || !artifactSha256 ||
+    !SHA256.test(artifactSha256) ||
+    row.methodology_version !== "historical-parliamentary-amendments/1.0.0"
+  ) return null;
+  return {
+    externalTransferKey,
+    proposalId,
+    proposalNumber: optionalText(row.proposal_number),
+    fiscalYear,
+    amendmentNumber: optionalText(row.amendment_number),
+    authorName,
+    authorKind: kind,
+    amendmentKind: optionalText(row.amendment_kind),
+    programCode: optionalText(row.program_code),
+    isMandatory: isMandatory as boolean | null,
+    destinationAmount,
+    amendmentTotalInSource,
+    beneficiaryName: optionalText(row.beneficiary_name),
+    objectDescription: optionalText(row.object_description),
+    proposalStatus: optionalText(row.proposal_status),
+    financialStage: "destination_identified_payment_not_verified",
+    collectedAt,
+    sourceUrl,
+    artifactSha256,
+    methodologyVersion: "historical-parliamentary-amendments/1.0.0",
+  };
+}
+
+function parseHistoricalAmendmentRows(
+  rows: unknown[],
+): HistoricalParliamentaryAmendment[] | null {
+  const parsed = rows.map((row) => {
+    if (typeof row !== "object" || row === null) return null;
+    return parseHistoricalAmendment(row as Record<string, unknown>);
+  });
+  if (parsed.some((row) => row === null)) return null;
+  const amendments = parsed as HistoricalParliamentaryAmendment[];
+  if (
+    new Set(amendments.map((row) => row.externalTransferKey)).size !==
+    amendments.length
+  ) return null;
+  return amendments;
+}
+
+function parseHistoricalRanking(
+  row: Record<string, unknown>,
+): HistoricalParliamentaryAmendmentRanking | null {
+  const rankPosition = integer(row.rank_position, 1);
+  const authorKey = requiredText(row.author_key);
+  const authorName = requiredText(row.author_name);
+  const kind = authorKind(row.author_kind);
+  const amendmentCount = integer(row.amendment_count);
+  const proposalCount = integer(row.proposal_count);
+  const destinationAmount = decimal(row.destination_amount);
+  const firstYear = integer(row.first_year, 2021);
+  const lastYear = integer(row.last_year, 2021);
+  if (
+    rankPosition === null || !authorKey || !authorName || !kind ||
+    amendmentCount === null || proposalCount === null || !destinationAmount ||
+    firstYear === null || lastYear === null || firstYear > lastYear ||
+    row.financial_stage !== "destination_identified_payment_not_verified" ||
+    row.methodology_version !==
+      "historical-parliamentary-amendment-ranking/1.0.0"
+  ) return null;
+  return {
+    rankPosition,
+    authorKey,
+    authorName,
+    authorKind: kind,
+    amendmentCount,
+    proposalCount,
+    destinationAmount,
+    firstYear,
+    lastYear,
+    financialStage: "destination_identified_payment_not_verified",
+    methodologyVersion: "historical-parliamentary-amendment-ranking/1.0.0",
+  };
+}
+
+function parseHistoricalRankingRows(
+  rows: unknown[],
+): HistoricalParliamentaryAmendmentRanking[] | null {
+  const parsed = rows.map((row) => {
+    if (typeof row !== "object" || row === null) return null;
+    return parseHistoricalRanking(row as Record<string, unknown>);
+  });
+  return parsed.some((row) => row === null)
+    ? null
+    : parsed as HistoricalParliamentaryAmendmentRanking[];
+}
+
 async function callRpc(
   name: string,
   body: Record<string, unknown>,
@@ -449,6 +603,9 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       transferRows,
       coverageRows,
       historicalProposalRows,
+      historicalAmendmentRows,
+      historicalPeopleRows,
+      historicalCollectiveRows,
     ] = await Promise.all([
       callRpc("get_public_parliamentary_transfer_ranking", {
         author_scope: "person",
@@ -473,6 +630,21 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
         proposal_status_filter: null,
         page_size: 200,
       }),
+      callRpc("get_public_historical_parliamentary_amendments", {
+        fiscal_year_filter: null,
+        author_kind_filter: null,
+        page_size: 200,
+      }),
+      callRpc("get_public_historical_parliamentary_amendment_ranking", {
+        author_scope: "person",
+        fiscal_year_filter: null,
+        page_size: 50,
+      }),
+      callRpc("get_public_historical_parliamentary_amendment_ranking", {
+        author_scope: "collective",
+        fiscal_year_filter: null,
+        page_size: 50,
+      }),
     ]);
     if (!peopleRows || !collectiveRows || !transferRows) return { state: "unavailable" };
 
@@ -487,6 +659,15 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
     const historicalProposals = historicalProposalRows === null
       ? null
       : parseFederalTransferProposalRows(historicalProposalRows);
+    const historicalAmendments = historicalAmendmentRows === null
+      ? null
+      : parseHistoricalAmendmentRows(historicalAmendmentRows);
+    const historicalPeople = historicalPeopleRows === null
+      ? null
+      : parseHistoricalRankingRows(historicalPeopleRows);
+    const historicalCollectives = historicalCollectiveRows === null
+      ? null
+      : parseHistoricalRankingRows(historicalCollectiveRows);
     return {
       state: "available",
       people,
@@ -494,6 +675,9 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       transfers,
       coverage,
       historicalProposals,
+      historicalAmendments,
+      historicalPeople,
+      historicalCollectives,
     };
   } catch {
     return { state: "unavailable" };

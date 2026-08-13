@@ -264,15 +264,22 @@ expõe apenas campos necessários à compreensão da proposta e sua evidência. 
 proposta não recebe autoria por aproximação de nome.
 
 O segundo download controlado, `siconv_emenda.zip`, é filtrado exclusivamente
-pelos identificadores das propostas municipais já preservadas. O contrato
-oficial de SHA-256 `53115430398a9ed71ffcc2d8a35040572a71e31a678038a8bdfda6cd5d56142a`,
-auditado em 13/08/2026, contém nove linhas ligadas a oito das 69 propostas de
+pelos identificadores das propostas municipais já preservadas. O retrato
+oficial de SHA-256 `f55c98d09538f733bf8b58d6c0f333e0a1da1af12891ef288a22eec5fa769f82`,
+coletado e auditado em 13/08/2026, contém nove linhas ligadas a oito das 69 propostas de
 Barreiras preservadas entre 2021 e 2026. Uma proposta pode possuir
 mais de uma emenda; as outras propostas permanecem como "sem emenda identificada
 neste arquivo", nunca como autoria inexistente. O nome e o tipo de autoria são
 mantidos como publicados pela fonte. CPF de beneficiário bloqueia a projeção;
 CNPJ integral permanece somente no ZIP privado, e o registro normalizado guarda
 apenas o tipo e os quatro últimos dígitos para diagnóstico.
+
+A projeção pública histórica relaciona cada linha à proposta, mostra autor,
+tipo de autoria, valor destinado à proposta, objeto, fonte e hash. Pessoas e
+comissões possuem rankings separados. Esta série não publica identificadores
+do beneficiário e permanece separada da API corrente até que uma reconciliação
+determinística impeça dupla contagem. Valor destinado não é apresentado como
+empenho, pagamento ou execução.
 
 Se tamanho ou ETag do catálogo e do proxy divergirem durante uma atualização,
 a coleta falha de forma explícita e aguarda sincronização; uma versão anterior
