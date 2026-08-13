@@ -3487,9 +3487,29 @@ footer {
   text-decoration: none;
 }
 
+.territorial-context-note {
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(23, 105, 224, 0.18);
+  border-radius: 1rem;
+  background: #eef5ff;
+}
+
+.territorial-context-note strong {
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.territorial-context-note p {
+  max-width: 64rem;
+  margin: 0.35rem 0 0;
+  color: #53647e;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
 .territorial-filters {
   display: grid;
-  grid-template-columns: minmax(9rem, 0.8fr) minmax(11rem, 1fr) minmax(9rem, 0.7fr) minmax(14rem, 1.4fr);
+  grid-template-columns: repeat(3, minmax(9rem, 0.8fr)) minmax(12rem, 1fr) minmax(14rem, 1.3fr);
   gap: 0.7rem;
   padding: 1rem;
   border: 1px solid rgba(28, 40, 61, 0.1);
@@ -3610,7 +3630,7 @@ footer {
 
 .territorial-table {
   width: 100%;
-  min-width: 42rem;
+  min-width: 58rem;
   border-collapse: collapse;
   color: #4f5d73;
   font-size: 0.8rem;
@@ -3656,6 +3676,32 @@ footer {
   font-weight: 800;
   text-align: right !important;
   white-space: nowrap;
+}
+
+.territorial-outcome {
+  display: inline-flex;
+  padding: 0.24rem 0.5rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #536177;
+  font-size: 0.69rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.territorial-outcome-elected {
+  background: #e6f7ed;
+  color: #17643a;
+}
+
+.territorial-outcome-alternate {
+  background: #fff4da;
+  color: #76510a;
+}
+
+.territorial-outcome-other {
+  background: #eaf2ff;
+  color: #225dba;
 }
 
 .territorial-results-note {
