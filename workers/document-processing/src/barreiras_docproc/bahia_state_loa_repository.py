@@ -56,7 +56,7 @@ class BahiaStateLoaExtractionRepository:
                   where artifact.artifact_kind = 'document'
                     and artifact.content_type = 'application/pdf'
                     and artifact.object_key like
-                      'bahia/loa-emendas-estaduais/%'
+                      'bahia/loa-emendas-estaduais/%%'
                   and not exists (
                       select 1
                       from raw.extraction_jobs as job

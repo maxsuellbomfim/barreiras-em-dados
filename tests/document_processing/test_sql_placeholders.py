@@ -21,6 +21,12 @@ MODULES = (
     / "postgres.py",
     Path(__file__).parents[2]
     / "workers"
+    / "document-processing"
+    / "src"
+    / "barreiras_docproc"
+    / "bahia_state_loa_repository.py",
+    Path(__file__).parents[2]
+    / "workers"
     / "collectors"
     / "src"
     / "barreiras_collectors"
