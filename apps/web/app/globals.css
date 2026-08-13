@@ -3985,6 +3985,154 @@ footer {
   text-decoration: underline;
 }
 
+.person-trajectory {
+  margin: 0.9rem 0;
+  border: 1px solid rgba(75, 113, 205, 0.18);
+  border-radius: 0.95rem;
+  background: linear-gradient(145deg, rgba(247, 250, 255, 0.96), rgba(237, 243, 255, 0.82));
+  color: #4e5a6f;
+}
+
+.person-trajectory > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.person-trajectory > summary::-webkit-details-marker {
+  display: none;
+}
+
+.person-trajectory > summary::after {
+  content: "+";
+  color: #315bc7;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.person-trajectory[open] > summary::after {
+  content: "−";
+}
+
+.person-trajectory > summary span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.person-trajectory > summary strong {
+  color: #233b78;
+  font-size: 0.8rem;
+}
+
+.person-trajectory > summary small {
+  color: #738098;
+  font-size: 0.67rem;
+  font-weight: 500;
+}
+
+.person-trajectory ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0 0.9rem;
+  list-style: none;
+}
+
+.person-trajectory-event {
+  position: relative;
+  display: grid;
+  grid-template-columns: 0.9rem 1fr;
+  gap: 0.65rem;
+  padding: 0 0 1rem;
+}
+
+.person-trajectory-event:not(:last-child)::before {
+  position: absolute;
+  top: 0.65rem;
+  bottom: -0.1rem;
+  left: 0.31rem;
+  width: 1px;
+  background: rgba(49, 91, 199, 0.24);
+  content: "";
+}
+
+.person-trajectory-marker {
+  position: relative;
+  z-index: 1;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-top: 0.22rem;
+  border: 2px solid #7b98dd;
+  border-radius: 999px;
+  background: #f7faff;
+}
+
+.person-trajectory-current .person-trajectory-marker {
+  border-color: #248153;
+  background: #dff4e9;
+}
+
+.person-trajectory-event > div {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.person-trajectory-period {
+  color: #7a879c;
+  font-size: 0.64rem;
+}
+
+.person-trajectory-event strong {
+  color: var(--ink);
+  font-size: 0.79rem;
+}
+
+.person-trajectory-status {
+  color: #41506a;
+  font-size: 0.71rem;
+  font-weight: 650;
+}
+
+.person-trajectory-event p,
+.person-trajectory-note {
+  margin: 0;
+  color: #657189;
+  font-size: 0.69rem;
+  line-height: 1.45;
+}
+
+.person-trajectory-event a,
+.person-trajectory-study-link {
+  width: fit-content;
+  color: #315bc7;
+  font-size: 0.68rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.person-trajectory-note {
+  margin: 0 0.9rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(78, 90, 111, 0.12);
+}
+
+.person-trajectory-study-link {
+  display: inline-block;
+  margin: 0 0.9rem 0.9rem;
+}
+
+.person-trajectory-event a:hover,
+.person-trajectory-event a:focus-visible,
+.person-trajectory-study-link:hover,
+.person-trajectory-study-link:focus-visible {
+  text-decoration: underline;
+}
+
 @media (max-width: 720px) {
   .person-facts > div {
     grid-template-columns: 1fr;

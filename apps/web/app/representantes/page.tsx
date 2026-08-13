@@ -19,6 +19,7 @@ import {
   type RepresentativeVote,
 } from "../../lib/representative-votes";
 import TerritorialVotesStudy from "./territorial-votes-study";
+import RepresentativeTrajectory from "./representative-trajectory";
 import {
   getExecutiveProfiles,
   type ExecutiveProfile,
@@ -49,53 +50,6 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
 
 function countLabel(count: number | null): string {
   return count === null ? "—" : count.toLocaleString("pt-BR");
-}
-
-function RepresentativeVoteSummary({
-  votes,
-}: Readonly<{ votes: readonly RepresentativeVote[] }>) {
-  return (
-    <div className="person-vote-summary" aria-label="Votação em Barreiras">
-      <div className="person-vote-summary-heading">
-        <strong>Votação em Barreiras</strong>
-        <span className="person-vote-summary-badge">
-          {votes.length > 0
-            ? votes.some((vote) => vote.voteScope === "ticket")
-              ? "chapa majoritária"
-              : "vínculo confirmado"
-            : "em consolidação"}
-        </span>
-      </div>
-      {votes.length > 0 ? (
-        <>
-          <ul>
-            {votes.map((vote) => (
-              <li key={`${vote.electionYear}-${vote.candidateId}-${vote.turnNumber}`}>
-                <span>
-                  {vote.electionYear} · {vote.turnNumber}º turno
-                  <small className="person-vote-candidate-name">
-                    {vote.ballotName ?? vote.displayName ?? "candidatura no TSE"}
-                  </small>
-                </span>
-                <strong>
-                  {vote.votesInBarreiras.toLocaleString("pt-BR")} {vote.voteScope === "ticket" ? "votos da chapa" : "votos"}
-                </strong>
-              </li>
-            ))}
-          </ul>
-          {votes.some((vote) => vote.voteScope === "ticket") ? (
-            <p>{votes.find((vote) => vote.voteScope === "ticket")?.scopeNote}</p>
-          ) : null}
-        </>
-      ) : (
-        <p>
-          Ainda não há um vínculo eleitoral aprovado por identificador oficial
-          para este perfil. O registro não é presumido por semelhança de nome.
-        </p>
-      )}
-      <a href="#vinculo">Ver o estudo territorial completo →</a>
-    </div>
-  );
 }
 
 function RepresentativeTransferSummary({
@@ -214,7 +168,18 @@ function RepresentativeCard({
         </div>
       </dl>
 
-      <RepresentativeVoteSummary votes={voteLinks} />
+      <RepresentativeTrajectory
+        currentMandate={{
+          office: "Deputado(a) federal em exercício",
+          period: person.legislature ? `${person.legislature}ª legislatura` : "legislatura não informada",
+          status: person.mandateStatus
+            ? `${person.mandateStatus}${person.electoralStatus ? ` · condição eleitoral atual: ${person.electoralStatus}` : ""}`
+            : "Situação atual publicada pela Câmara",
+          sourceLabel: "Câmara dos Deputados",
+          sourceUrl: camaraUrl,
+        }}
+        votes={voteLinks}
+      />
       <RepresentativeTransferSummary summary={transferSummary} />
 
       <p className="act-evidence">
@@ -264,7 +229,16 @@ function CouncillorCard({
         </div>
       </div>
 
-      <RepresentativeVoteSummary votes={voteLinks} />
+      <RepresentativeTrajectory
+        currentMandate={{
+          office: "Vereador(a) de Barreiras em exercício",
+          period: "legislatura municipal 2025–2028",
+          status: "Em exercício conforme a Câmara Municipal",
+          sourceLabel: "Câmara Municipal de Barreiras",
+          sourceUrl: person.sourceUrl,
+        }}
+        votes={voteLinks}
+      />
 
       {person.biography ? (
         <details>
@@ -329,7 +303,16 @@ function StateRepresentativeCard({
           <span className="person-badge person-badge-active">mandato publicado pela ALBA</span>
         </div>
       </div>
-      <RepresentativeVoteSummary votes={voteLinks} />
+      <RepresentativeTrajectory
+        currentMandate={{
+          office: "Deputado(a) estadual em exercício",
+          period: "legislatura estadual atual",
+          status: "Perfil incluído na composição atual publicada pela ALBA",
+          sourceLabel: "Assembleia Legislativa da Bahia",
+          sourceUrl: person.profileUrl,
+        }}
+        votes={voteLinks}
+      />
       <RepresentativeTransferSummary summary={transferSummary} />
       {person.education || person.professionalActivity || person.electiveMandate || person.parliamentaryActivity ? (
         <details className="person-biography">
@@ -463,7 +446,16 @@ function ExecutiveProfileCard({
         </div>
       </div>
       {profile.role === "prefeito" || profile.role === "vice-prefeito" ? (
-        <RepresentativeVoteSummary votes={voteLinks} />
+        <RepresentativeTrajectory
+          currentMandate={{
+            office: roleLabel,
+            period: "gestão municipal 2025–2028",
+            status: "Perfil atual publicado pela Prefeitura",
+            sourceLabel: "Prefeitura de Barreiras",
+            sourceUrl: profile.profileUrl,
+          }}
+          votes={voteLinks}
+        />
       ) : null}
       {profile.sourceExcerpt ? (
         <details>
