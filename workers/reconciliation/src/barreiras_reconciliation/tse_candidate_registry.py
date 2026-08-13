@@ -40,7 +40,8 @@ class OfficialCandidateIdentity:
     election_year: int
     office: str
     candidate_id: str
-    cpf: str
+    cpf: str | None
+    identifier_issue: str | None
     civil_name: str
     ballot_name: str
     public_payload: dict[str, str]
@@ -96,12 +97,6 @@ def candidates_from_registry(
             raise CandidateRegistryError(
                 f"A candidatura {candidate_id} diverge do ano ou UF solicitados."
             )
-        try:
-            cpf = normalize_cpf(row["NR_CPF_CANDIDATO"])
-        except InvalidCpfError as error:
-            raise CandidateRegistryError(
-                f"CPF inválido na candidatura oficial {candidate_id}."
-            ) from error
         private_payload = {
             column.lower(): row[column].strip() for column in REQUIRED_COLUMNS
         }
@@ -113,11 +108,21 @@ def candidates_from_registry(
             "sq_candidato": candidate_id,
             "uf": STATE_CODE,
         }
+        raw_cpf = row["NR_CPF_CANDIDATO"].strip()
+        try:
+            cpf = normalize_cpf(raw_cpf)
+            identifier_issue = None
+        except InvalidCpfError:
+            cpf = None
+            identifier_issue = (
+                "missing_official_value" if not raw_cpf else "invalid_official_value"
+            )
         identity = OfficialCandidateIdentity(
             election_year=year,
             office=public_payload["cargo"],
             candidate_id=candidate_id,
             cpf=cpf,
+            identifier_issue=identifier_issue,
             civil_name=public_payload["nome"],
             ballot_name=public_payload["nome_urna"],
             public_payload=public_payload,
@@ -129,10 +134,16 @@ def candidates_from_registry(
             ).encode("utf-8"),
         )
         previous = identities.get(candidate_id)
-        if previous is not None and previous.cpf != identity.cpf:
+        if (
+            previous is not None
+            and previous.cpf is not None
+            and identity.cpf is not None
+            and previous.cpf != identity.cpf
+        ):
             raise CandidateRegistryError(
                 f"A fonte publicou CPFs divergentes para {candidate_id}."
             )
-        identities[candidate_id] = identity
+        if previous is None or previous.cpf is None:
+            identities[candidate_id] = identity
 
     return sorted(identities.values(), key=lambda item: item.candidate_id)

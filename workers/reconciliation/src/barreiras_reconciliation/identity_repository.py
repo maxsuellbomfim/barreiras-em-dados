@@ -66,6 +66,18 @@ class IdentityRegistration:
     protected_source: ProtectedSourcePayload = field(repr=False)
 
 
+@dataclass(frozen=True, slots=True)
+class IdentifierGapRegistration:
+    target: IdentityTarget
+    source_record_key: str
+    source_url: str
+    archive_sha256: str
+    state_file_sha256: str
+    parser_version: str
+    reason: str
+    protected_source: ProtectedSourcePayload = field(repr=False)
+
+
 class IdentityRepository:
     def __init__(self, connection_factory: Callable[[], DatabaseConnection]) -> None:
         self.connection_factory = connection_factory
@@ -212,6 +224,51 @@ class IdentityRepository:
                     "conflicted",
                 }:
                     raise RuntimeError("Registro privado retornou estado inválido.")
+                return str(row["status"])
+        finally:
+            connection.close()
+
+    def register_unavailable(self, registration: IdentifierGapRegistration) -> str:
+        target = registration.target
+        source = registration.protected_source
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                row = connection.execute(
+                    """
+                    select status
+                    from identity.register_tse_identifier_gap(
+                      %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                      %s, %s, %s, %s, %s, %s, %s
+                    )
+                    """,
+                    (
+                        registration.source_record_key,
+                        target.election_year,
+                        registration.source_url,
+                        source.encrypted_payload,
+                        source.nonce,
+                        source.authentication_tag,
+                        source.payload_sha256,
+                        registration.archive_sha256,
+                        registration.state_file_sha256,
+                        source.key_version,
+                        registration.parser_version,
+                        target.source_collected_at,
+                        target.source_kind,
+                        target.source_external_id,
+                        target.office,
+                        target.origin_raw_record_id,
+                        registration.reason,
+                    ),
+                ).fetchone()
+                if row is None or row.get("status") not in {
+                    "inserted",
+                    "unchanged",
+                }:
+                    raise RuntimeError("Lacuna privada retornou estado inválido.")
                 return str(row["status"])
         finally:
             connection.close()
