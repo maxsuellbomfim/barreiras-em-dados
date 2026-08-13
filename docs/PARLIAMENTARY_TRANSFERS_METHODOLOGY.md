@@ -114,7 +114,19 @@ diariamente. O Portal Transparência Bahia será usado como fonte complementar d
 execução orçamentária e financeira.
 
 O ZIP diário do FIPLAN continua sendo a fonte de execução, mas não contém
-município. A chave territorial oficial foi localizada nos anexos da LOA da
+município. Seu CSV de despesas agora é normalizado deterministicamente por
+exercício, órgão, unidade orçamentária, ação e identificador oficial do autor.
+Orçado inicial, orçado atual, empenhado, liquidado e pago permanecem em colunas
+separadas e aceitam valores negativos legítimos publicados pela fonte, como
+ajustes e estornos. Cada linha conserva o hash do ZIP e o hash da evidência. Um
+ZIP sem linhas financeiras, com estrutura alterada ou com bytes divergentes do
+hash falha e segue para nova tentativa ou fila de falhas; nunca produz total
+zero.
+
+A normalização registra obrigatoriamente
+`territorial_scope=not_available_in_execution_archive`. Portanto, esses valores
+descrevem execução agregada estadual e ainda não são “pagos a Barreiras”. A
+chave territorial oficial foi localizada nos anexos da LOA da
 SEPLAN-BA: entre 2022 e 2025, o Anexo III organiza emendas individuais por
 município e autor; em 2026, o Anexo I publica autor, objeto, município e valor.
 Cada PDF é preservado integralmente antes de qualquer extração.
@@ -141,8 +153,9 @@ estágio `authorized`. Esses números ainda não provam empenho, liquidação,
 pagamento ou recebimento pelo Município.
 
 Valor publicado nesses anexos é **autorizado na LOA**. Não significa pagamento,
-transferência ou dinheiro recebido por Barreiras. A futura reconciliação com o
-ZIP do FIPLAN exibirá, em colunas independentes:
+transferência ou dinheiro recebido por Barreiras. A próxima reconciliação entre
+as autorizações territoriais e os agregados normalizados do FIPLAN exibirá, em
+colunas independentes:
 
 - deputado estadual autor e identificador oficial;
 - exercício, número da emenda e objeto;
