@@ -20,6 +20,11 @@ from ..connectors.official_diary_catalog import (
 )
 from ..connectors.querido_diario import CollectedPage, GazettePage
 from ..connectors.transferegov import TransferegovPage
+from ..connectors.transferegov_download_catalog import (
+    TransferegovDownloadCatalogError,
+    TransferegovDownloadCatalogSnapshot,
+    parse_catalog_items,
+)
 from .models import (
     ArtifactIntegrityError,
     DirectEditionBatch,
@@ -63,6 +68,12 @@ PNCP_RESULTADO_PARSER_VERSION = "pncp-resultado-page/1.0.0"
 PNCP_CONTRATO_PARSER_VERSION = "pncp-contrato-page/1.0.0"
 TRANSFEREGOV_COLLECTOR_VERSION = "transferegov-parcerias-collector/1.1.0"
 TRANSFEREGOV_PARSER_VERSION = "transferegov-parcerias-page/1.1.0"
+TRANSFEREGOV_DOWNLOAD_CATALOG_COLLECTOR_VERSION = (
+    "transferegov-download-catalog-collector/1.0.0"
+)
+TRANSFEREGOV_DOWNLOAD_CATALOG_PARSER_VERSION = (
+    "transferegov-download-catalog/1.0.0"
+)
 
 
 def executive_record_idempotency_key(
@@ -528,6 +539,113 @@ class TransferegovPersistenceService:
     @staticmethod
     def _digest(value: str) -> str:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+class TransferegovDownloadCatalogPersistenceService:
+    """Preserva o XML integral e materializa somente metadados de downloads."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(
+        self,
+        snapshot: TransferegovDownloadCatalogSnapshot,
+    ) -> PersistenceResult:
+        actual_hash = hashlib.sha256(snapshot.raw_body).hexdigest()
+        if (
+            actual_hash != snapshot.body_sha256
+            or len(snapshot.raw_body) != snapshot.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "O XML do catálogo diverge dos metadados coletados."
+            )
+        try:
+            raw_items = parse_catalog_items(snapshot.raw_body)
+        except TransferegovDownloadCatalogError as error:
+            raise ArtifactIntegrityError(
+                "O XML preservado do catálogo perdeu seu contrato."
+            ) from error
+        if raw_items != snapshot.items:
+            raise ArtifactIntegrityError(
+                "Os itens validados divergem do XML preservado do catálogo."
+            )
+
+        records: list[RawRecordInput] = []
+        for index, item in enumerate(snapshot.items):
+            name = item.get("name")
+            if not isinstance(name, str) or not name:
+                raise PersistenceContractError(
+                    f"Item {index} do catálogo não possui nome."
+                )
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            records.append(
+                RawRecordInput(
+                    source_record_key=f"transferegov:download:{name}",
+                    record_type="transferegov_download_catalog_entry",
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=(
+                        TRANSFEREGOV_DOWNLOAD_CATALOG_PARSER_VERSION
+                    ),
+                    idempotency_key=hashlib.sha256(
+                        (
+                            "transferegov-download-record:"
+                            f"{snapshot.idempotency_key}:{name}:{payload_sha256}"
+                        ).encode()
+                    ).hexdigest(),
+                )
+            )
+
+        object_key = (
+            "transferegov/parcerias/download-catalog/sha256/"
+            f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.xml"
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=snapshot.raw_body,
+            content_type=snapshot.media_type,
+            expected_sha256=snapshot.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != snapshot.body_sha256
+            or len(restored) != snapshot.body_size_bytes
+            or stored.sha256 != snapshot.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "O catálogo restaurado diverge do XML coletado."
+            )
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=snapshot,  # type: ignore[arg-type]
+                object_key=object_key,
+                artifact_idempotency_key=hashlib.sha256(
+                    f"raw-artifact:{snapshot.idempotency_key}".encode()
+                ).hexdigest(),
+                collector_version=(
+                    TRANSFEREGOV_DOWNLOAD_CATALOG_COLLECTOR_VERSION
+                ),
+                parser_version=TRANSFEREGOV_DOWNLOAD_CATALOG_PARSER_VERSION,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=snapshot.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
 
 
 class MunicipalTransparencyPersistenceService:

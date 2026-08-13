@@ -68,6 +68,10 @@ test("Transferegov classifica cada ano desde 2021 sem entrada livre no shell", (
   const transferegovJob = workflow.slice(workflow.indexOf("  transferegov:"));
 
   assert.match(transferegovJob, /--year-from "2021"/);
+  assert.match(
+    transferegovJob,
+    /barreiras_collectors\.commands\.collect_transferegov_download_catalog/,
+  );
   assert.doesNotMatch(transferegovJob, /--year-from "\$\{\{/);
   assert.doesNotMatch(transferegovJob, /--year-to "\$\{\{/);
 });

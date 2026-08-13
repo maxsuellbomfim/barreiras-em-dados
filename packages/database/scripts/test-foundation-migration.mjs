@@ -1059,10 +1059,44 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 11,
-    endpoints: 22,
+    sources: 12,
+    endpoints: 23,
     private_buckets: 1,
   });
+
+  const transferegovDownloadCatalog = await database.query(`
+    select
+      source.slug as source_slug,
+      endpoint.slug as endpoint_slug,
+      endpoint.base_url,
+      endpoint.endpoint_kind,
+      endpoint.config ->> 'parser_version' as parser_version,
+      endpoint.config -> 'required_files' as required_files
+    from source.data_sources as source
+    join source.source_endpoints as endpoint
+      on endpoint.data_source_id = source.id
+    where source.slug = 'transferegov-downloads'
+  `);
+  assert.deepEqual(transferegovDownloadCatalog.rows, [
+    {
+      source_slug: "transferegov-downloads",
+      endpoint_slug: "dados-abertos-catalogo",
+      base_url:
+        "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/",
+      endpoint_kind: "file",
+      parser_version: "transferegov-download-catalog/1.0.0",
+      required_files: [
+        "siconv_convenio.zip",
+        "siconv_desembolso.zip",
+        "siconv_emenda.zip",
+        "siconv_empenho.zip",
+        "siconv_pagamento.zip",
+        "siconv_proponentes.zip",
+        "siconv_proposta.zip",
+        "siconv_termo_aditivo.zip",
+      ],
+    },
+  ]);
 
   const transferegovCatalog = await database.query(`
     select source.slug as source_slug, endpoint.slug as endpoint_slug

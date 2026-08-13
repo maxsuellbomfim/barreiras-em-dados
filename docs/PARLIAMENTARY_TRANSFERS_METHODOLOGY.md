@@ -57,3 +57,9 @@ Fonte: API pública Gestão de Parcerias do Transferegov, filtrada pelo código
 IBGE `2903201`. A cobertura inicial observada contém três propostas de 2025. O
 painel crescerá com a coleta recorrente e com fontes federais e estaduais
 complementares, mantendo fonte, data e hash da evidência.
+
+Os anos sem proposta nessa API nova significam somente “nenhuma proposta
+devolvida por este endpoint para o filtro e a data consultados”. A cobertura
+histórica será reconstruída separadamente pelos arquivos oficiais de dados
+abertos do Transferegov. Até que os CSVs sejam baixados, validados e filtrados
+por Barreiras, eles não alteram ranking, totais nem estados financeiros.
