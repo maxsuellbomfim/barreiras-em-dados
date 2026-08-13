@@ -1060,7 +1060,7 @@ try {
   `);
   assert.deepEqual(seeded.rows[0], {
     sources: 12,
-    endpoints: 24,
+    endpoints: 25,
     private_buckets: 1,
   });
 
@@ -1117,6 +1117,15 @@ try {
         "siconv_proposta.zip",
         "siconv_termo_aditivo.zip",
       ],
+    },
+    {
+      source_slug: "transferegov-downloads",
+      endpoint_slug: "emendas-historicas",
+      base_url:
+        "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_emenda.zip",
+      endpoint_kind: "file",
+      parser_version: "transferegov-historical-amendments/1.0.0",
+      required_files: null,
     },
     {
       source_slug: "transferegov-downloads",

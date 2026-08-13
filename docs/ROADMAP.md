@@ -295,9 +295,12 @@ primeira projeção histórica de `siconv_proposta.zip` filtra Barreiras pelo c�
 IBGE oficial, preserva o ZIP nacional em área privada e exclui dados bancários e
 endereços dos registros municipais. O catálogo público mostra essas propostas
 separadas por ano, com situação, objeto e valores propostos, deixando explícito
-que cadastro não prova transferência ou pagamento. A próxima menor fatia
-federal é relacionar `siconv_emenda.zip` às propostas para completar autoria e
-valor sem inferência por nome.
+que cadastro não prova transferência ou pagamento. O coletor de
+`siconv_emenda.zip` agora relaciona as linhas pelo identificador oficial da
+proposta, preserva o ZIP privado e minimiza o identificador do beneficiário.
+A próxima menor fatia federal é reconciliar essas emendas com a projeção
+pública, mantendo autoria coletiva separada e sem chamar valor indicado de
+dinheiro pago.
 
 A trilha estadual será implementada em fonte e cobertura próprias a partir do
 conjunto diário **Emendas Parlamentares Estaduais** da SEFAZ-BA/FIPLAN. Ela

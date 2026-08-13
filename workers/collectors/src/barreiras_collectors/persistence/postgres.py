@@ -116,6 +116,35 @@ class PostgresCollectionRepository:
         finally:
             connection.close()
 
+    def historical_proposal_ids(
+        self,
+        *,
+        year_from: int,
+        year_to: int,
+    ) -> frozenset[str]:
+        """Obtém somente propostas municipais já preservadas e validadas."""
+        if year_from < 2008 or year_to < year_from:
+            raise ValueError("O período histórico solicitado é inválido.")
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select distinct record.payload ->> 'id_proposta' as id_proposta
+                from raw.raw_records as record
+                where record.record_type = 'transferegov_historical_proposal'
+                  and record.payload ->> 'cod_municipio_ibge' = '2903201'
+                  and record.payload ->> 'id_proposta' ~ '^[0-9]+$'
+                  and record.payload ->> 'ano_proposta' ~ '^[0-9]{4}$'
+                  and (record.payload ->> 'ano_proposta')::integer
+                      between %s and %s
+                order by id_proposta
+                """,
+                (year_from, year_to),
+            ).fetchall()
+            return frozenset(str(row["id_proposta"]) for row in rows)
+        finally:
+            connection.close()
+
     def start_controlled_run(
         self,
         *,

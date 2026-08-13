@@ -72,8 +72,18 @@ normalizada mantém apenas propostas cujo `COD_MUNIC_IBGE` seja exatamente
 `2903201` e exclui CNPJ, dados bancários, endereço e CEP da API pública. Cada
 registro publicado conserva número, ano, situação, objeto, órgão, valores
 propostos, URL e hash do ZIP preservado. Proposta não é emenda: esses registros
-ampliam a cobertura territorial, mas não entram no ranking de autoria até o
-relacionamento com `siconv_emenda.zip` ser comprovado.
+ampliam a cobertura territorial. O relacionamento com `siconv_emenda.zip` usa
+somente `ID_PROPOSTA`, nunca semelhança de nomes ou de objetos. O recorte
+inicial comprovou nove linhas de emendas ligadas a oito propostas; os demais
+registros continuam sem autoria histórica atribuída por essa fonte.
+
+O arquivo de emendas é preservado integralmente em área privada. A projeção
+normalizada separa número da emenda, programa, autor publicado, tipo de autoria,
+indicador de impositividade e os dois valores informados pelo arquivo. O
+identificador integral do beneficiário não integra o registro normalizado:
+CPF é recusado, e CNPJ é minimizado para tipo e quatro últimos dígitos. Essa
+camada bruta ainda não altera ranking público até passar pela reconciliação de
+identidade e pelos estágios financeiros.
 
 Na interface, `valor global proposto`, `repasse solicitado` e `contrapartida
 proposta` são mostrados separadamente. Nenhum deles é rotulado como dinheiro
