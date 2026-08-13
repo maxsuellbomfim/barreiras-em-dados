@@ -37,38 +37,47 @@ class MonthlyFinanceCommentaryRepository:
     ) -> tuple[MonthlyFinanceFacts, ...]:
         connection = self.connection_factory()
         try:
-            rows = connection.execute(
-                """
-                select closure.*
-                from api.get_public_monthly_finance_closures(120, null) as closure
-                where closure.fiscal_year between %s and %s
-                  and not exists (
-                    select 1
-                    from editorial.monthly_finance_commentaries as commentary
-                    where commentary.closure_id = closure.closure_id
-                      and commentary.status = 'published'
-                  )
-                order by closure.period_start desc, closure.public_body_name
-                limit %s
-                """,
-                (fiscal_year_from, fiscal_year_to, limit),
-            )
-            return tuple(
-                MonthlyFinanceFacts(
-                    closure_id=str(row["closure_id"]),
-                    period_start=_date_text(row["period_start"]),
-                    period_end=_date_text(row["period_end"]),
-                    public_body_name=str(row["public_body_name"]),
-                    closure_status=str(row["closure_status"]),
-                    coverage_note=str(row["coverage_note"]),
-                    revenue_report_amount=_decimal_text(row["revenue_report_amount"]),
-                    expense_paid_amount=_decimal_text(row["expense_paid_amount"]),
-                    operational_difference_amount=_decimal_text(
-                        row["operational_difference_amount"]
-                    ),
+            pending: list[MonthlyFinanceFacts] = []
+            for fiscal_year in range(fiscal_year_to, fiscal_year_from - 1, -1):
+                remaining = limit - len(pending)
+                if remaining <= 0:
+                    break
+                rows = connection.execute(
+                    """
+                    select closure.*
+                    from api.get_public_monthly_finance_closures(
+                      120, %s::smallint
+                    ) as closure
+                    where not exists (
+                      select 1
+                      from editorial.monthly_finance_commentaries as commentary
+                      where commentary.closure_id = closure.closure_id
+                        and commentary.status = 'published'
+                    )
+                    order by closure.period_start desc, closure.public_body_name
+                    limit %s
+                    """,
+                    (fiscal_year, remaining),
                 )
-                for row in rows.fetchall()
-            )
+                pending.extend(
+                    MonthlyFinanceFacts(
+                        closure_id=str(row["closure_id"]),
+                        period_start=_date_text(row["period_start"]),
+                        period_end=_date_text(row["period_end"]),
+                        public_body_name=str(row["public_body_name"]),
+                        closure_status=str(row["closure_status"]),
+                        coverage_note=str(row["coverage_note"]),
+                        revenue_report_amount=_decimal_text(
+                            row["revenue_report_amount"]
+                        ),
+                        expense_paid_amount=_decimal_text(row["expense_paid_amount"]),
+                        operational_difference_amount=_decimal_text(
+                            row["operational_difference_amount"]
+                        ),
+                    )
+                    for row in rows.fetchall()
+                )
+            return tuple(pending)
         finally:
             connection.close()
 
