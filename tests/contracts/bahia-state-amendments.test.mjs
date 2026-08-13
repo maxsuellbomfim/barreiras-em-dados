@@ -17,6 +17,7 @@ const dataSources = await readFile(
   new URL("../../docs/DATA_SOURCES.md", import.meta.url),
   "utf8",
 );
+const gitignore = await readFile(new URL("../../.gitignore", import.meta.url), "utf8");
 
 test("fonte estadual fica privada e separada das emendas federais", () => {
   assert.match(migration, /'bahia-open-data'/);
@@ -27,11 +28,26 @@ test("fonte estadual fica privada e separada das emendas federais", () => {
 });
 
 test("workflow agenda preservacao do catalogo e ZIP sem publicar ranking", () => {
+  const [jobsBeforeStateCollector, stateCollectorJob] = workflow.split(
+    /\n  bahia_state_amendments:/,
+  );
+
   assert.match(workflow, /include_bahia_state_amendments:/);
+  assert.ok(stateCollectorJob, "o job estadual deve existir");
   assert.match(
-    workflow,
+    stateCollectorJob,
     /barreiras_collectors\.commands\.collect_bahia_state_amendments/,
   );
+  assert.match(stateCollectorJob, /BAHIA_STATE_TLS_CA_BUNDLE:/);
+  assert.match(
+    gitignore,
+    /!config\/certificates\/sectigo-public-server-authentication-ov-r36-chain\.pem/,
+  );
+  assert.match(
+    stateCollectorJob,
+    /729b16d606ab35a0ca027fce556f9b35913d4553f1f9b6e88ba331625519d333[\s\S]+sectigo-public-server-authentication-ov-r36-chain\.pem[\s\S]+sha256sum --check --strict/,
+  );
+  assert.doesNotMatch(jobsBeforeStateCollector, /BAHIA_STATE_TLS_CA_BUNDLE:/);
   assert.doesNotMatch(workflow, /publish_bahia_state_amendment/i);
 });
 

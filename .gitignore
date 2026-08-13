@@ -19,6 +19,7 @@ __pycache__/
 .env.*
 !.env.example
 *.pem
+!config/certificates/sectigo-public-server-authentication-ov-r36-chain.pem
 *.key
 
 # Local databases and collected artifacts

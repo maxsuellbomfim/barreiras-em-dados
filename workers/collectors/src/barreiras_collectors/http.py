@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import ssl
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
@@ -74,10 +76,19 @@ class _RestrictedRedirectHandler(urllib.request.HTTPRedirectHandler):
 class UrllibTransport:
     """Transporte stdlib com redirects limitados ao host oficial."""
 
-    def __init__(self, allowed_hosts: frozenset[str]) -> None:
+    def __init__(
+        self,
+        allowed_hosts: frozenset[str],
+        *,
+        additional_ca_bundle: str | os.PathLike[str] | None = None,
+    ) -> None:
         self.allowed_hosts = allowed_hosts
+        self._ssl_context = ssl.create_default_context()
+        if additional_ca_bundle is not None:
+            self._ssl_context.load_verify_locations(cafile=os.fspath(additional_ca_bundle))
         self._opener = urllib.request.build_opener(
-            _RestrictedRedirectHandler(allowed_hosts)
+            _RestrictedRedirectHandler(allowed_hosts),
+            urllib.request.HTTPSHandler(context=self._ssl_context),
         )
 
     def get(

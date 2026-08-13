@@ -304,9 +304,15 @@ não é silenciosamente tratada como o retrato atual.
 O Portal de Dados Abertos da Bahia publica o conjunto **Emendas Parlamentares
 Estaduais**, originado no FIPLAN/SEFAZ-BA, com atualização diária declarada. O
 Portal Transparência Bahia mantém painéis separados de dados gerais e execução
-orçamentária e financeira. A futura coleta terá fonte, parser, partições e
-projeção próprios; dados estaduais não serão agregados silenciosamente aos
-federais.
+orçamentária e financeira. A preservação bruta já possui fonte, endpoint,
+parser e partições próprios; dados estaduais não são agregados silenciosamente
+aos federais.
+
+Em 13/08/2026, o servidor `dados.ba.gov.br` apresentou o certificado atual
+`Sectigo Public Server Authentication CA OV R36`, mas enviou intermediários de
+uma cadeia anterior. O worker mantém a verificação TLS e acrescenta somente a
+cadeia OV R36/R46 publicada pela Sectigo, versionada no repositório e conferida
+por SHA-256 no workflow. Nenhum modo de TLS inseguro é permitido.
 
 O contrato deverá manter autor, exercício, número, objeto, órgão executor,
 beneficiário, município e cada estágio financeiro publicado. A filtragem de
