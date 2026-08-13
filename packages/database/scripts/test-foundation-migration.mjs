@@ -1238,6 +1238,46 @@ try {
     where slug = 'transferegov-parcerias-collector';
   `);
 
+  const bahiaStateWorkload = await database.query(`
+    select
+      slug,
+      auth_user_id::text as auth_user_id,
+      object_prefix,
+      can_select,
+      can_insert,
+      status
+    from audit.storage_workload_identities
+    where slug = 'bahia-state-amendments-collector'
+  `);
+  assert.deepEqual(bahiaStateWorkload.rows, [
+    {
+      slug: "bahia-state-amendments-collector",
+      auth_user_id: "c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a",
+      object_prefix: "bahia/emendas-estaduais/",
+      can_select: true,
+      can_insert: true,
+      status: "active",
+    },
+  ]);
+
+  const bahiaStateStorageAuthorization = await database.query(`
+    select
+      api.can_access_raw_artifact(
+        'insert',
+        'raw-artifacts',
+        'bahia/emendas-estaduais/catalog/sha256/aa/file.json'
+      ) as municipal_workload_can_insert,
+      api.can_access_raw_artifact(
+        'insert',
+        'raw-artifacts',
+        'pncp/file.json'
+      ) as unrelated_prefix_stays_denied
+  `);
+  assert.deepEqual(bahiaStateStorageAuthorization.rows[0], {
+    municipal_workload_can_insert: true,
+    unrelated_prefix_stays_denied: false,
+  });
+
   const transferegovPrivatePrivileges = await database.query(`
     select
       has_table_privilege('anon', 'raw.raw_records', 'SELECT') as anon_raw,
