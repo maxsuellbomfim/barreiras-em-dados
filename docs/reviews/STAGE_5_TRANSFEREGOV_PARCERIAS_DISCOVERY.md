@@ -105,3 +105,16 @@ Transferências especiais são outro módulo. A varredura completa dos 410
 beneficiários da Bahia não encontrou o CNPJ municipal de Barreiras em
 12/08/2026; isso será registrado como observação da fonte, não como conclusão
 de inexistência histórica de emendas ou transferências.
+
+## Atualização: cobertura anual auditável
+
+O endpoint de propostas aceita `ano_proposta`. O coletor passou a executar uma
+partição independente para cada ano de 2021 ao ano municipal atual. O ano
+também é validado em cada item devolvido, impedindo que uma resposta fora do
+filtro feche cobertura incorretamente. Uma falha anual é registrada e não
+interrompe as tentativas dos anos seguintes; ao final, o workflow continua
+falhando para que a indisponibilidade não seja silenciosa.
+
+O portal recebe apenas ano, estado da cobertura, contagem de propostas,
+contagem de emendas publicadas e data da última tentativa. Checkpoints,
+detalhes de erro e tabelas internas continuam inacessíveis aos papéis públicos.

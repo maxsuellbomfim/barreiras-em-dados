@@ -63,3 +63,11 @@ test("cobertura de balancetes nao espera o download de todo o acervo", () => {
   assert.match(drainStep, /--max-documents "\$DRAIN_MAX_DOCUMENTS"/);
   assert.match(drainStep, /--download-documents/);
 });
+
+test("Transferegov classifica cada ano desde 2021 sem entrada livre no shell", () => {
+  const transferegovJob = workflow.slice(workflow.indexOf("  transferegov:"));
+
+  assert.match(transferegovJob, /--year-from "2021"/);
+  assert.doesNotMatch(transferegovJob, /--year-from "\$\{\{/);
+  assert.doesNotMatch(transferegovJob, /--year-to "\$\{\{/);
+});

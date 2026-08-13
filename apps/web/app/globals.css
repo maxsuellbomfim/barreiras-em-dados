@@ -4271,6 +4271,70 @@ footer {
   line-height: 1.6;
 }
 
+.transfer-coverage {
+  margin-top: 2.2rem;
+}
+
+.transfer-coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.transfer-coverage-grid li {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-left: 0.25rem solid #8a97aa;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.transfer-coverage-grid li[data-status="complete"],
+.transfer-coverage-grid li[data-status="empty"] {
+  border-left-color: #23865f;
+}
+
+.transfer-coverage-grid li[data-status="partial"],
+.transfer-coverage-grid li[data-status="failed"],
+.transfer-coverage-grid li[data-status="blocked"] {
+  border-left-color: #b46728;
+}
+
+.transfer-coverage-grid strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.transfer-coverage-grid span,
+.transfer-coverage-grid small,
+.transfer-coverage-caveat,
+.transfer-coverage-unavailable {
+  color: #647187;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.transfer-coverage-grid small {
+  color: #8590a2;
+  font-size: 0.7rem;
+}
+
+.transfer-coverage-caveat,
+.transfer-coverage-unavailable {
+  margin: 0.8rem 0 0;
+}
+
+.transfer-coverage-unavailable {
+  padding: 0.9rem 1rem;
+  border: 1px dashed rgba(28, 40, 61, 0.16);
+  border-radius: 0.9rem;
+}
+
 .transfer-ranking,
 .transfer-catalog {
   margin-top: 2.6rem;

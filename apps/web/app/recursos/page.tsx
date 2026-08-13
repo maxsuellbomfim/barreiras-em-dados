@@ -4,6 +4,7 @@ import {
   getPublicParliamentaryTransfers,
   parliamentaryTransferAuthorAnchor,
   type ParliamentaryTransfer,
+  type ParliamentaryTransferCoverage,
   type ParliamentaryTransferRanking,
 } from "../../lib/parliamentary-transfers";
 import { formatBrlDecimal } from "../../lib/revenues";
@@ -20,6 +21,11 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
   month: "short",
   year: "numeric",
+  timeZone: "America/Bahia",
+});
+const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
   timeZone: "America/Bahia",
 });
 
@@ -41,6 +47,70 @@ function unavailableAmount(stage: "commitment" | "payment"): string {
   return stage === "commitment"
     ? "Empenho não encontrado nos endpoints consultados"
     : "Pagamento não encontrado nos endpoints consultados";
+}
+
+function coverageDescription(row: ParliamentaryTransferCoverage): string {
+  if (
+    row.coverageStatus === "complete" &&
+    row.proposalCount !== null &&
+    row.publishedAmendmentCount !== null
+  ) {
+    return `Fonte consultada: ${row.proposalCount.toLocaleString("pt-BR")} proposta(s); ${row.publishedAmendmentCount.toLocaleString("pt-BR")} emenda(s) publicada(s).`;
+  }
+  if (row.coverageStatus === "empty") {
+    return "Fonte consultada: nenhuma proposta encontrada nesta API para o ano.";
+  }
+  if (row.coverageStatus === "partial") {
+    return "Coleta incompleta: ainda não é possível concluir quantas propostas existem.";
+  }
+  if (row.coverageStatus === "failed") {
+    return "Coleta com falha: a fonte não pôde ser conferida por inteiro.";
+  }
+  if (row.coverageStatus === "blocked") {
+    return "Coleta bloqueada pela fonte: este ano precisa de nova tentativa.";
+  }
+  return "Ano ainda não classificado.";
+}
+
+function CoveragePanel({
+  rows,
+}: Readonly<{ rows: readonly ParliamentaryTransferCoverage[] | null }>) {
+  return (
+    <section className="transfer-coverage" aria-labelledby="transfer-coverage-title">
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Cobertura da fonte</span>
+          <h2 id="transfer-coverage-title">Quais anos já conferimos?</h2>
+        </div>
+        <p>O estado é calculado por código para cada ano, de forma independente.</p>
+      </div>
+      {rows === null ? (
+        <p className="transfer-coverage-unavailable">
+          O diagnóstico anual está temporariamente indisponível. Isso não altera
+          nem apaga os registros oficiais exibidos abaixo.
+        </p>
+      ) : (
+        <ul className="transfer-coverage-grid">
+          {rows.map((row) => (
+            <li data-status={row.coverageStatus} key={row.fiscalYear}>
+              <strong>{row.fiscalYear}</strong>
+              <span>{coverageDescription(row)}</span>
+              {row.lastAttemptedAt ? (
+                <small>
+                  Última tentativa: {dateTimeFormatter.format(new Date(row.lastAttemptedAt))}
+                </small>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="transfer-coverage-caveat">
+        Nenhuma proposta encontrada nesta API não prova ausência em outras bases
+        oficiais. O Barreiras 360 ampliará o cruzamento sem transformar dado não
+        coletado em zero.
+      </p>
+    </section>
+  );
 }
 
 function RankingTable({
@@ -225,6 +295,8 @@ export default async function ParliamentaryResourcesPage() {
             consultados — nunca que o valor é zero.
           </p>
         </aside>
+
+        {result.state === "available" ? <CoveragePanel rows={result.coverage} /> : null}
 
         {result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">

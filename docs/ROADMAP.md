@@ -280,7 +280,10 @@ empenhos, documentos hábeis, ordens de pagamento e ordens bancárias possuem
 coleta e preservação bruta. A projeção pública inicial separa autoria pessoal
 de autoria coletiva, deduplica reexecuções e mostra valores destinados,
 empenhados e pagos sem somar estágios. A próxima menor fatia é ampliar a
-cobertura histórica. O primeiro crosswalk de autoria individual com perfil
+cobertura histórica. O backfill anual da API de Parcerias agora consulta e
+classifica separadamente cada exercício desde 2021, e a página pública mostra
+quando a fonte foi consultada, ficou vazia, falhou ou ainda não foi
+classificada. O primeiro crosswalk de autoria individual com perfil
 político foi implementado com evidência Câmara/TSE; novas associações exigem o
 mesmo padrão e não são inferidas por semelhança de nome.
 

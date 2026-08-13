@@ -65,12 +65,30 @@ export type ParliamentaryTransfer = Readonly<{
   methodologyVersion: "parliamentary-transfers/1.0.0";
 }>;
 
+export type ParliamentaryTransferCoverageStatus =
+  | "complete"
+  | "empty"
+  | "partial"
+  | "failed"
+  | "blocked"
+  | "unclassified";
+
+export type ParliamentaryTransferCoverage = Readonly<{
+  fiscalYear: number;
+  coverageStatus: ParliamentaryTransferCoverageStatus;
+  proposalCount: number | null;
+  publishedAmendmentCount: number | null;
+  lastAttemptedAt: string | null;
+  methodologyVersion: "parliamentary-transfer-coverage/1.0.0";
+}>;
+
 export type ParliamentaryTransfersResult =
   | Readonly<{
       state: "available";
       people: readonly ParliamentaryTransferRanking[];
       collectives: readonly ParliamentaryTransferRanking[];
       transfers: readonly ParliamentaryTransfer[];
+      coverage: readonly ParliamentaryTransferCoverage[] | null;
     }>
   | Readonly<{ state: "unavailable" }>;
 
@@ -83,6 +101,14 @@ const AUTHOR_KINDS = new Set<ParliamentaryAuthorKind>([
   "bench",
   "collective",
   "other",
+]);
+const COVERAGE_STATUSES = new Set<ParliamentaryTransferCoverageStatus>([
+  "complete",
+  "empty",
+  "partial",
+  "failed",
+  "blocked",
+  "unclassified",
 ]);
 
 function requiredText(value: unknown): string | null {
@@ -243,6 +269,55 @@ function parseTransfer(row: Record<string, unknown>): ParliamentaryTransfer | nu
   };
 }
 
+function parseCoverage(
+  row: Record<string, unknown>,
+): ParliamentaryTransferCoverage | null {
+  const fiscalYear = integer(row.fiscal_year, 2021);
+  const status = row.coverage_status;
+  const proposalCount = row.proposal_count === null
+    ? null
+    : integer(row.proposal_count);
+  const publishedAmendmentCount = row.published_amendment_count === null
+    ? null
+    : integer(row.published_amendment_count);
+  const lastAttemptedAt = optionalText(row.last_attempted_at);
+  const finalStatus = status === "complete" || status === "empty";
+  if (
+    fiscalYear === null || typeof status !== "string" ||
+    !COVERAGE_STATUSES.has(status as ParliamentaryTransferCoverageStatus) ||
+    (row.proposal_count !== null && proposalCount === null) ||
+    (row.published_amendment_count !== null && publishedAmendmentCount === null) ||
+    (lastAttemptedAt !== null && Number.isNaN(Date.parse(lastAttemptedAt))) ||
+    (finalStatus && (proposalCount === null || publishedAmendmentCount === null)) ||
+    (!finalStatus && (proposalCount !== null || publishedAmendmentCount !== null)) ||
+    (status === "empty" && (proposalCount !== 0 || publishedAmendmentCount !== 0)) ||
+    row.methodology_version !== "parliamentary-transfer-coverage/1.0.0"
+  ) return null;
+  return {
+    fiscalYear,
+    coverageStatus: status as ParliamentaryTransferCoverageStatus,
+    proposalCount,
+    publishedAmendmentCount,
+    lastAttemptedAt,
+    methodologyVersion: "parliamentary-transfer-coverage/1.0.0",
+  };
+}
+
+function parseCoverageRows(
+  rows: unknown[],
+): ParliamentaryTransferCoverage[] | null {
+  const parsed = rows.map((row) => {
+    if (typeof row !== "object" || row === null) return null;
+    return parseCoverage(row as Record<string, unknown>);
+  });
+  if (parsed.some((row) => row === null)) return null;
+  const coverage = parsed as ParliamentaryTransferCoverage[];
+  if (new Set(coverage.map((row) => row.fiscalYear)).size !== coverage.length) {
+    return null;
+  }
+  return coverage.sort((left, right) => right.fiscalYear - left.fiscalYear);
+}
+
 async function callRpc(
   name: string,
   body: Record<string, unknown>,
@@ -272,7 +347,7 @@ async function callRpc(
 
 export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTransfersResult> {
   try {
-    const [peopleRows, collectiveRows, transferRows] = await Promise.all([
+    const [peopleRows, collectiveRows, transferRows, coverageRows] = await Promise.all([
       callRpc("get_public_parliamentary_transfer_ranking", {
         author_scope: "person",
         fiscal_year_filter: null,
@@ -288,6 +363,9 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
         author_kind_filter: null,
         page_size: 200,
       }),
+      callRpc("get_public_parliamentary_transfer_coverage", {
+        fiscal_year_from: 2021,
+      }),
     ]);
     if (!peopleRows || !collectiveRows || !transferRows) return { state: "unavailable" };
 
@@ -298,7 +376,8 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       const parsed = parseTransfer(row as Record<string, unknown>);
       return parsed ? [parsed] : [];
     });
-    return { state: "available", people, collectives, transfers };
+    const coverage = coverageRows === null ? null : parseCoverageRows(coverageRows);
+    return { state: "available", people, collectives, transfers, coverage };
   } catch {
     return { state: "unavailable" };
   }
