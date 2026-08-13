@@ -31,7 +31,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | TCM-BA | dados municipais e prestações | P2 | descoberta |
 | Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | API atual, catálogo histórico, propostas municipais e recorte de emendas por ID implementados; demais CSVs pendentes |
 | Tesouro Transparente | transferências constitucionais/legais e emendas | P3 | documentação inicial |
-| Transparência Bahia | transferências a municípios, despesas e emendas estaduais | P3 | bruto estadual implementado; recorte municipal bloqueado |
+| Transparência Bahia / SEPLAN-BA | transferências a municípios, despesas e emendas estaduais | P3 | ZIP de execução preservado; anexos territoriais da LOA 2022-2026 em coleta |
 | Câmara dos Deputados | mandatos, proposições, votações e despesas | P3 | API confirmada |
 | Assembleia Legislativa da Bahia | parlamentares, comissões e proposições | P3 | API indicada; contrato a descobrir |
 | TSE Dados Abertos | candidaturas, resultados e bens declarados | P4 | datasets confirmados |
@@ -308,6 +308,18 @@ orçamentária e financeira. A preservação bruta já possui fonte, endpoint,
 parser e partições próprios; dados estaduais não são agregados silenciosamente
 aos federais.
 
+Os anexos da LOA publicados pela SEPLAN-BA fornecem a chave territorial que o
+ZIP diário não possui. O Anexo III cobre município e autor em 2022-2025; o
+Anexo I de 2026 também publica município por emenda. Esses PDFs representam
+autorização orçamentária e não comprovam empenho, liquidação ou pagamento.
+Cada ano é preservado como documento privado, com URL exata, SHA-256 e partição
+própria, antes da extração das linhas de Barreiras.
+
+O link oficial rotulado como Anexo III da LOA 2021 aponta para o arquivo de
+2020. O período fica `blocked`, com a divergência documentada, em vez de receber
+um documento do exercício errado. Ausência de valor ou documento será mostrada
+como não encontrada na fonte consultada, nunca como zero.
+
 Em 13/08/2026, o servidor `dados.ba.gov.br` apresentou o certificado atual
 `Sectigo Public Server Authentication CA OV R36`, mas enviou intermediários de
 uma cadeia anterior. O worker mantém a verificação TLS e acrescenta somente a
@@ -353,6 +365,7 @@ Referências:
 - [Transferências no Tesouro Transparente](https://www.tesourotransparente.gov.br/temas/estados-e-municipios/transferencias-a-estados-e-municipios)
 - [Informações de municípios — Transparência Bahia](https://www.transparencia.ba.gov.br/InformacaoMunicipio)
 - [Emendas Parlamentares Estaduais — Dados Abertos Bahia](https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares)
+- [Histórico da LOA e anexos de emendas — SEPLAN-BA](https://www.ba.gov.br/seplan/orcamento/historico-de-loa)
 - [Mapa dos painéis de emendas — Transparência Bahia](https://www.transparencia.ba.gov.br/MapaSite/)
 
 ## Representação legislativa e eleições
