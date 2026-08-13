@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from .private_identifiers import InvalidCpfError, normalize_cpf
 
 STATE_CODE = "BA"
+NOT_DISCLOSED_NUMERIC_VALUE = "-4"
 SOURCE_URL_TEMPLATE = (
     "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/"
     "consulta_cand_{year}.zip"
@@ -114,9 +115,12 @@ def candidates_from_registry(
             identifier_issue = None
         except InvalidCpfError:
             cpf = None
-            identifier_issue = (
-                "missing_official_value" if not raw_cpf else "invalid_official_value"
-            )
+            if not raw_cpf:
+                identifier_issue = "missing_official_value"
+            elif raw_cpf == NOT_DISCLOSED_NUMERIC_VALUE:
+                identifier_issue = "not_disclosed_by_source"
+            else:
+                identifier_issue = "invalid_official_value"
         identity = OfficialCandidateIdentity(
             election_year=year,
             office=public_payload["cargo"],

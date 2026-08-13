@@ -1196,6 +1196,19 @@ try {
     )
   `);
   assert.equal(replayedUnavailableIdentity.rows[0].status, "unchanged");
+  const notDisclosedIdentity = await database.query(`
+    select status
+    from identity.register_tse_identifier_gap(
+      'candidate:2024:126', 2024, 'https://cdn.tse.jus.br/source.zip',
+      decode('1d', 'hex'), decode(repeat('1e', 12), 'hex'),
+      decode(repeat('1f', 16), 'hex'), '${"2".repeat(64)}',
+      '${"b".repeat(64)}', '${"c".repeat(64)}', 1,
+      'tse-candidate-registry/1.2.0', statement_timestamp(),
+      'municipal', 'cm:vereador:126', 'Vereador', '${identityOriginId}',
+      'not_disclosed_by_source'
+    )
+  `);
+  assert.equal(notDisclosedIdentity.rows[0].status, "inserted");
   const privateIdentityCounts = await database.query(`
     select
       (select count(*)::integer from hr.people) as people,
@@ -1209,9 +1222,9 @@ try {
     people: 1,
     identifiers: 1,
     links: 1,
-    sources: 3,
+    sources: 4,
     conflicts: 1,
-    gaps: 1,
+    gaps: 2,
   });
   const canonicalIdentitySource = await database.query(`
     select source_kind

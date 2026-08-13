@@ -19,7 +19,7 @@ from .tse_candidate_registry import (
     source_url,
 )
 
-PARSER_VERSION = "tse-candidate-registry/1.1.0"
+PARSER_VERSION = "tse-candidate-registry/1.2.0"
 
 
 class IdentityImportError(RuntimeError):

@@ -122,6 +122,35 @@ class TseCandidateRegistryTest(unittest.TestCase):
         )
         self.assertNotIn("cpf", str(identities[0].public_payload).lower())
 
+    def test_classifies_tse_negative_four_as_not_disclosed_by_source(self) -> None:
+        package = registry_zip(
+            [
+                {
+                    "ANO_ELEICAO": "2024",
+                    "SG_UF": "BA",
+                    "DS_CARGO": "VEREADOR",
+                    "SQ_CANDIDATO": "123",
+                    "NR_CPF_CANDIDATO": "-4",
+                    "NM_CANDIDATO": "PESSOA TESTE",
+                    "NM_URNA_CANDIDATO": "PESSOA",
+                }
+            ]
+        )
+
+        identities = candidates_from_registry(
+            extract_bahia_registry(package, 2024),
+            year=2024,
+            approved_candidate_ids={"123"},
+        )
+
+        self.assertEqual(len(identities), 1)
+        self.assertIsNone(identities[0].cpf)
+        self.assertEqual(
+            identities[0].identifier_issue,
+            "not_disclosed_by_source",
+        )
+        self.assertNotIn("cpf", str(identities[0].public_payload).lower())
+
     def test_rejects_a_layout_without_the_official_cpf_column(self) -> None:
         package = io.BytesIO()
         with zipfile.ZipFile(package, "w") as archive:
