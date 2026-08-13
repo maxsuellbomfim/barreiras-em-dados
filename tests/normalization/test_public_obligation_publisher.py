@@ -287,6 +287,32 @@ class PublicObligationPublisherTests(unittest.TestCase):
             ),
         )
 
+    def test_pending_documents_without_month_does_not_bind_untyped_null(self):
+        connection = CapturingConnection([])
+        repository = PostgresPublicObligationPublicationRepository(lambda: connection)
+
+        repository.pending_documents(
+            limit=25,
+            fiscal_year_from=2021,
+            fiscal_year_to=2026,
+        )
+
+        normalized_query = " ".join(connection.query.lower().split())
+        self.assertNotIn("%s is null", normalized_query)
+        self.assertIn("%s::integer is null", normalized_query)
+        self.assertEqual(
+            connection.parameters,
+            (
+                2021,
+                2026,
+                PUBLIC_OBLIGATION_METHODOLOGY,
+                PUBLIC_OBLIGATION_JOB_TYPE,
+                None,
+                None,
+                25,
+            ),
+        )
+
     def test_records_source_section_absence_as_terminal_valid_result(self):
         connection = CapturingConnection([])
         repository = PostgresPublicObligationPublicationRepository(lambda: connection)

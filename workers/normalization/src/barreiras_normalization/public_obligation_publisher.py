@@ -356,7 +356,10 @@ class PostgresPublicObligationPublicationRepository:
                 select id, sha256, object_key, byte_size, parent_record_id,
                   source_url, fiscal_year, reference_month
                 from candidates
-                where (%s is null or reference_month = %s)
+                where (
+                  %s::integer is null
+                  or reference_month = %s::integer
+                )
                 order by fiscal_year asc, reference_month asc, created_at asc, id
                 limit %s
                 """,
