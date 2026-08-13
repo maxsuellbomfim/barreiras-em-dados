@@ -77,7 +77,7 @@ TRANSFEREGOV_DOWNLOAD_CATALOG_COLLECTOR_VERSION = (
     "transferegov-download-catalog-collector/1.0.0"
 )
 TRANSFEREGOV_DOWNLOAD_CATALOG_PARSER_VERSION = (
-    "transferegov-download-catalog/1.0.0"
+    "transferegov-download-catalog/1.1.0"
 )
 TRANSFEREGOV_HISTORICAL_PROPOSAL_COLLECTOR_VERSION = (
     "transferegov-historical-proposals-collector/1.0.0"

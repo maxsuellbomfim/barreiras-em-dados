@@ -118,3 +118,17 @@ concluiu os dois jobs. A consulta direta posterior confirmou:
 - `observed_records = 8` e nenhuma falha não resolvida.
 
 Somente após essa prova a fatia do catálogo pode ser considerada operacional.
+
+## Reprocessamento versionado em 13/08/2026
+
+A primeira execução posterior à inclusão da rota proxy oficial encontrou o
+mesmo XML e o mesmo artefato bruto, mas tentou gravar a nova projeção
+`download_url` ainda identificada como parser `1.0.0`. O banco recusou a
+sobrescrita pela restrição `raw_records_artifact_index_parser_key`. Esse
+comportamento é correto: uma interpretação diferente do mesmo documento deve
+produzir outra versão, nunca substituir a anterior.
+
+O parser do catálogo passa a ser `transferegov-download-catalog/1.1.0` e o
+schema do snapshot passa a `1.1.0`. As linhas `1.0.0` e o XML preservado
+continuam imutáveis. A coleta de propostas históricas só deverá ser repetida
+depois que essa versão estiver aplicada no banco.

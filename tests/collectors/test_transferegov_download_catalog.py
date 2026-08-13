@@ -96,6 +96,7 @@ class TransferegovDownloadCatalogTests(unittest.TestCase):
 
         self.assertEqual(snapshot.source_code, "transferegov-downloads")
         self.assertEqual(snapshot.endpoint_code, "dados-abertos-catalogo")
+        self.assertEqual(snapshot.schema_version, "1.1.0")
         self.assertEqual(
             {entry["name"] for entry in snapshot.items},
             REQUIRED_HISTORICAL_FILES,
