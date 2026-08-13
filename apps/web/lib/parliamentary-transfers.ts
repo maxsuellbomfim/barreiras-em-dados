@@ -82,6 +82,30 @@ export type ParliamentaryTransferCoverage = Readonly<{
   methodologyVersion: "parliamentary-transfer-coverage/1.0.0";
 }>;
 
+export type FederalTransferProposal = Readonly<{
+  proposalId: string;
+  proposalNumber: string | null;
+  fiscalYear: number;
+  proposalDateText: string | null;
+  proposalStatus: string | null;
+  basicProjectStatus: string | null;
+  modality: string | null;
+  objectDescription: string | null;
+  investmentItem: string | null;
+  proponentName: string | null;
+  federalBodyName: string | null;
+  superiorFederalBodyName: string | null;
+  globalAmount: string | null;
+  requestedTransferAmount: string | null;
+  counterpartAmount: string | null;
+  authorshipStatus: "not_available_in_proposal_source";
+  financialStage: "proposal_registered";
+  collectedAt: string;
+  sourceUrl: string;
+  artifactSha256: string;
+  methodologyVersion: "federal-transfer-proposals/1.0.0";
+}>;
+
 export type ParliamentaryTransfersResult =
   | Readonly<{
       state: "available";
@@ -89,11 +113,13 @@ export type ParliamentaryTransfersResult =
       collectives: readonly ParliamentaryTransferRanking[];
       transfers: readonly ParliamentaryTransfer[];
       coverage: readonly ParliamentaryTransferCoverage[] | null;
+      historicalProposals: readonly FederalTransferProposal[] | null;
     }>
   | Readonly<{ state: "unavailable" }>;
 
 const DECIMAL = /^-?\d+(?:\.\d{1,2})?$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const SOURCE_DATE = /^\d{2}\/\d{2}\/\d{4}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const AUTHOR_KINDS = new Set<ParliamentaryAuthorKind>([
   "person",
@@ -318,6 +344,76 @@ function parseCoverageRows(
   return coverage.sort((left, right) => right.fiscalYear - left.fiscalYear);
 }
 
+function parseFederalTransferProposal(
+  row: Record<string, unknown>,
+): FederalTransferProposal | null {
+  const proposalId = requiredText(row.proposal_id);
+  const proposalNumber = optionalText(row.proposal_number);
+  const fiscalYear = integer(row.fiscal_year, 2021);
+  const proposalDateText = optionalText(row.proposal_date_text);
+  const globalAmount = row.global_amount === null ? null : decimal(row.global_amount);
+  const requestedTransferAmount = row.requested_transfer_amount === null
+    ? null
+    : decimal(row.requested_transfer_amount);
+  const counterpartAmount = row.counterpart_amount === null
+    ? null
+    : decimal(row.counterpart_amount);
+  const collectedAt = requiredText(row.collected_at);
+  const sourceUrl = requiredText(row.source_url);
+  const artifactSha256 = requiredText(row.artifact_sha256);
+  if (
+    !proposalId || !/^\d+$/.test(proposalId) || fiscalYear === null ||
+    (proposalDateText !== null && !SOURCE_DATE.test(proposalDateText)) ||
+    (row.global_amount !== null && globalAmount === null) ||
+    (row.requested_transfer_amount !== null && requestedTransferAmount === null) ||
+    (row.counterpart_amount !== null && counterpartAmount === null) ||
+    row.authorship_status !== "not_available_in_proposal_source" ||
+    row.financial_stage !== "proposal_registered" ||
+    !collectedAt || Number.isNaN(Date.parse(collectedAt)) ||
+    !sourceUrl?.startsWith("https://") || !artifactSha256 ||
+    !SHA256.test(artifactSha256) ||
+    row.methodology_version !== "federal-transfer-proposals/1.0.0"
+  ) return null;
+  return {
+    proposalId,
+    proposalNumber,
+    fiscalYear,
+    proposalDateText,
+    proposalStatus: optionalText(row.proposal_status),
+    basicProjectStatus: optionalText(row.basic_project_status),
+    modality: optionalText(row.modality),
+    objectDescription: optionalText(row.object_description),
+    investmentItem: optionalText(row.investment_item),
+    proponentName: optionalText(row.proponent_name),
+    federalBodyName: optionalText(row.federal_body_name),
+    superiorFederalBodyName: optionalText(row.superior_federal_body_name),
+    globalAmount,
+    requestedTransferAmount,
+    counterpartAmount,
+    authorshipStatus: "not_available_in_proposal_source",
+    financialStage: "proposal_registered",
+    collectedAt,
+    sourceUrl,
+    artifactSha256,
+    methodologyVersion: "federal-transfer-proposals/1.0.0",
+  };
+}
+
+function parseFederalTransferProposalRows(
+  rows: unknown[],
+): FederalTransferProposal[] | null {
+  const parsed = rows.map((row) => {
+    if (typeof row !== "object" || row === null) return null;
+    return parseFederalTransferProposal(row as Record<string, unknown>);
+  });
+  if (parsed.some((row) => row === null)) return null;
+  const proposals = parsed as FederalTransferProposal[];
+  if (new Set(proposals.map((row) => row.proposalId)).size !== proposals.length) {
+    return null;
+  }
+  return proposals;
+}
+
 async function callRpc(
   name: string,
   body: Record<string, unknown>,
@@ -347,7 +443,13 @@ async function callRpc(
 
 export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTransfersResult> {
   try {
-    const [peopleRows, collectiveRows, transferRows, coverageRows] = await Promise.all([
+    const [
+      peopleRows,
+      collectiveRows,
+      transferRows,
+      coverageRows,
+      historicalProposalRows,
+    ] = await Promise.all([
       callRpc("get_public_parliamentary_transfer_ranking", {
         author_scope: "person",
         fiscal_year_filter: null,
@@ -366,6 +468,11 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       callRpc("get_public_parliamentary_transfer_coverage", {
         fiscal_year_from: 2021,
       }),
+      callRpc("get_public_federal_transfer_proposals", {
+        fiscal_year_filter: null,
+        proposal_status_filter: null,
+        page_size: 200,
+      }),
     ]);
     if (!peopleRows || !collectiveRows || !transferRows) return { state: "unavailable" };
 
@@ -377,7 +484,17 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       return parsed ? [parsed] : [];
     });
     const coverage = coverageRows === null ? null : parseCoverageRows(coverageRows);
-    return { state: "available", people, collectives, transfers, coverage };
+    const historicalProposals = historicalProposalRows === null
+      ? null
+      : parseFederalTransferProposalRows(historicalProposalRows);
+    return {
+      state: "available",
+      people,
+      collectives,
+      transfers,
+      coverage,
+      historicalProposals,
+    };
   } catch {
     return { state: "unavailable" };
   }

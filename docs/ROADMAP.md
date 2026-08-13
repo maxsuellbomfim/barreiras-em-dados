@@ -293,9 +293,11 @@ manifesto monitora oito conjuntos essenciais e interrompe a cobertura quando
 há paginação pendente, arquivo ausente ou URL fora do contêiner oficial. A
 primeira projeção histórica de `siconv_proposta.zip` filtra Barreiras pelo código
 IBGE oficial, preserva o ZIP nacional em área privada e exclui dados bancários e
-endereços dos registros municipais. A próxima menor fatia federal é relacionar
-`siconv_emenda.zip` às propostas para completar autoria e valor sem inferência
-por nome.
+endereços dos registros municipais. O catálogo público mostra essas propostas
+separadas por ano, com situação, objeto e valores propostos, deixando explícito
+que cadastro não prova transferência ou pagamento. A próxima menor fatia
+federal é relacionar `siconv_emenda.zip` às propostas para completar autoria e
+valor sem inferência por nome.
 
 A trilha estadual será implementada em fonte e cobertura próprias a partir do
 conjunto diário **Emendas Parlamentares Estaduais** da SEFAZ-BA/FIPLAN. Ela

@@ -74,6 +74,8 @@ try {
   const contracts = await database.query(`
     select
       to_regclass('territory.parliamentary_transfers')::text as transfer_projection,
+      to_regclass('territory.federal_transfer_proposals')::text
+        as historical_proposal_projection,
       to_regclass('political.parliamentary_transfer_author_crosswalk')::text
         as author_crosswalk,
       to_regclass('raw.raw_records_transferegov_latest_idx')::text as latest_index,
@@ -89,6 +91,9 @@ try {
       to_regprocedure(
         'api.get_public_parliamentary_transfer_coverage(smallint,smallint)'
       )::text as coverage_rpc,
+      to_regprocedure(
+        'api.get_public_federal_transfer_proposals(smallint,text,integer)'
+      )::text as historical_proposal_rpc,
       has_schema_privilege('anon', 'territory', 'USAGE') as anon_territory_usage,
       has_function_privilege(
         'anon',
@@ -104,10 +109,16 @@ try {
         'anon',
         'api.get_public_parliamentary_transfer_coverage(smallint,smallint)',
         'EXECUTE'
-      ) as anon_coverage_rpc
+      ) as anon_coverage_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_federal_transfer_proposals(smallint,text,integer)',
+        'EXECUTE'
+      ) as anon_historical_proposal_rpc
   `);
   assert.deepEqual(contracts.rows, [{
     transfer_projection: "territory.parliamentary_transfers",
+    historical_proposal_projection: "territory.federal_transfer_proposals",
     author_crosswalk: "political.parliamentary_transfer_author_crosswalk",
     latest_index: "raw.raw_records_transferegov_latest_idx",
     proposal_index: "raw.raw_records_transferegov_proposal_idx",
@@ -118,10 +129,13 @@ try {
     detail_rpc: "api.get_public_parliamentary_transfers(smallint,text,integer)",
     coverage_rpc:
       "api.get_public_parliamentary_transfer_coverage(smallint,smallint)",
+    historical_proposal_rpc:
+      "api.get_public_federal_transfer_proposals(smallint,text,integer)",
     anon_territory_usage: false,
     anon_ranking_rpc: true,
     anon_detail_rpc: true,
     anon_coverage_rpc: true,
+    anon_historical_proposal_rpc: true,
   }]);
 
   await database.exec(`
@@ -273,6 +287,58 @@ try {
       );
   `);
 
+  await database.exec(`
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000009101',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'transferegov-downloads'
+         and endpoint.slug = 'propostas-historicas'),
+      'historical-proposal-fixture-run', 'test/1', 'succeeded'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key, collector_version
+    ) values (
+      '00000000-0000-0000-0000-000000009102',
+      '00000000-0000-0000-0000-000000009101',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'transferegov-downloads'
+         and endpoint.slug = 'propostas-historicas'),
+      'historical-proposal-fixture-artifact', 'archive',
+      'https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_proposta.zip',
+      '2026-08-13 10:00:00+00', 205017763, '${"9".repeat(64)}',
+      'fixtures/siconv_proposta.zip', 'test/1'
+    );
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009110',
+        '00000000-0000-0000-0000-000000009102',
+        'transferegov:historical-proposal:9001',
+        'transferegov_historical_proposal', 0,
+        '{"id_proposta":"9001","numero_proposta":"000001/2021","ano_proposta":2021,"data_proposta":"15/06/2021","cod_municipio_ibge":"2903201","municipio_proponente":"BARREIRAS","proponente":"MUNICIPIO DE BARREIRAS","proponente_cnpj":"13654405000195","situacao_proposta":"PROPOSTA EM ANALISE","situacao_projeto_basico":"EM ANALISE","modalidade":"CONVENIO","objeto":"VERSAO ANTIGA","item_investimento":"INFRAESTRUTURA","orgao":"MINISTERIO DO DESENVOLVIMENTO","orgao_superior":"MINISTERIO DO DESENVOLVIMENTO","valor_global":"1250000.50","valor_repasse":"1200000.50","valor_contrapartida":"50000.00","agencia":"NAO PUBLICAR"}',
+        '${"8".repeat(64)}', 'test/1', 'historical-record-0001',
+        '2026-08-13 09:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009111',
+        '00000000-0000-0000-0000-000000009102',
+        'transferegov:historical-proposal:9001',
+        'transferegov_historical_proposal', 1,
+        '{"id_proposta":"9001","numero_proposta":"000001/2021","ano_proposta":2021,"data_proposta":"15/06/2021","cod_municipio_ibge":"2903201","municipio_proponente":"BARREIRAS","proponente":"MUNICIPIO DE BARREIRAS","proponente_cnpj":"13654405000195","situacao_proposta":"PROPOSTA APROVADA","situacao_projeto_basico":"APROVADO","modalidade":"CONVENIO","objeto":"CONSTRUIR EQUIPAMENTO PUBLICO","item_investimento":"INFRAESTRUTURA","orgao":"MINISTERIO DO DESENVOLVIMENTO","orgao_superior":"MINISTERIO DO DESENVOLVIMENTO","valor_global":"1250000.50","valor_repasse":"1200000.50","valor_contrapartida":"50000.00","conta":"NAO PUBLICAR"}',
+        '${"7".repeat(64)}', 'test/2', 'historical-record-0002',
+        '2026-08-13 10:00:00+00'
+      );
+  `);
+
   await database.exec("set role anon");
   const people = await database.query(`
     select author_name, author_kind, representative_source_kind,
@@ -312,6 +378,19 @@ try {
     )
     where fiscal_year in (2021, 2022, 2025)
     order by fiscal_year
+  `);
+  const historicalProposals = await database.query(`
+    select proposal_id, proposal_number, fiscal_year, proposal_date_text,
+      proposal_status, basic_project_status, modality, object_description,
+      investment_item, proponent_name, federal_body_name,
+      superior_federal_body_name, global_amount, requested_transfer_amount,
+      counterpart_amount, authorship_status, financial_stage,
+      source_url, artifact_sha256, methodology_version
+    from api.get_public_federal_transfer_proposals(
+      2021::smallint,
+      'PROPOSTA APROVADA',
+      100
+    )
   `);
   await database.exec("reset role");
 
@@ -413,6 +492,29 @@ try {
       methodology_version: "parliamentary-transfer-coverage/1.0.0",
     },
   ]);
+  assert.deepEqual(historicalProposals.rows, [{
+    proposal_id: "9001",
+    proposal_number: "000001/2021",
+    fiscal_year: 2021,
+    proposal_date_text: "15/06/2021",
+    proposal_status: "PROPOSTA APROVADA",
+    basic_project_status: "APROVADO",
+    modality: "CONVENIO",
+    object_description: "CONSTRUIR EQUIPAMENTO PUBLICO",
+    investment_item: "INFRAESTRUTURA",
+    proponent_name: "MUNICIPIO DE BARREIRAS",
+    federal_body_name: "MINISTERIO DO DESENVOLVIMENTO",
+    superior_federal_body_name: "MINISTERIO DO DESENVOLVIMENTO",
+    global_amount: "1250000.50",
+    requested_transfer_amount: "1200000.50",
+    counterpart_amount: "50000.00",
+    authorship_status: "not_available_in_proposal_source",
+    financial_stage: "proposal_registered",
+    source_url:
+      "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_proposta.zip",
+    artifact_sha256: "9".repeat(64),
+    methodology_version: "federal-transfer-proposals/1.0.0",
+  }]);
 
   await database.exec("set role anon");
   await assert.rejects(
@@ -439,10 +541,23 @@ try {
     ),
     /intervalo fiscal invalido/,
   );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_federal_transfer_proposals(null, null, 201)",
+    ),
+    /limite de propostas invalido/,
+  );
+  await assert.rejects(
+    database.query("select * from territory.federal_transfer_proposals"),
+    /permission denied/,
+  );
   await database.exec("reset role");
 
   assert.equal(JSON.stringify(transfers.rows).includes("cpf"), false);
   assert.equal(JSON.stringify(transfers.rows).includes("solicitante"), false);
+  assert.equal(JSON.stringify(historicalProposals.rows).includes("cnpj"), false);
+  assert.equal(JSON.stringify(historicalProposals.rows).includes("conta"), false);
+  assert.equal(JSON.stringify(historicalProposals.rows).includes("agencia"), false);
   console.log(
     "Emendas: autoria, estagios financeiros, deduplicacao e limites publicos verificados.",
   );
