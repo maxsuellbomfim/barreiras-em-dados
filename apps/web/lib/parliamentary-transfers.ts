@@ -568,6 +568,29 @@ function parseHistoricalRankingRows(
     : parsed as HistoricalParliamentaryAmendmentRanking[];
 }
 
+type RpcRequest = Readonly<{
+  headers: Readonly<Record<string, string>>;
+  body: string;
+}>;
+
+async function fetchRpcResponse(
+  url: string,
+  request: RpcRequest,
+  bypassCache = false,
+): Promise<Response> {
+  return fetch(url, {
+    method: "POST",
+    headers: request.headers,
+    body: request.body,
+    ...(bypassCache ? { cache: "no-store" as const } : { next: { revalidate: 300 } }),
+    signal: AbortSignal.timeout(5_000),
+  });
+}
+
+function isTransientRpcFailure(response: Response): boolean {
+  return [404, 408, 425, 429].includes(response.status) || response.status >= 500;
+}
+
 async function callRpc(
   name: string,
   body: Record<string, unknown>,
@@ -577,8 +600,8 @@ async function callRpc(
   if (!supabaseUrl?.startsWith("https://") || !publishableKey?.startsWith("sb_publishable_")) {
     return null;
   }
-  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${name}`, {
-    method: "POST",
+  const url = `${supabaseUrl}/rest/v1/rpc/${name}`;
+  const request: RpcRequest = {
     headers: {
       Accept: "application/json",
       "Accept-Profile": "api",
@@ -587,9 +610,11 @@ async function callRpc(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-    next: { revalidate: 300 },
-    signal: AbortSignal.timeout(5_000),
-  });
+  };
+  const cachedResponse = await fetchRpcResponse(url, request);
+  const response = !cachedResponse.ok && isTransientRpcFailure(cachedResponse)
+    ? await fetchRpcResponse(url, request, true)
+    : cachedResponse;
   if (!response.ok) return null;
   const payload: unknown = await response.json();
   return Array.isArray(payload) ? payload : null;
