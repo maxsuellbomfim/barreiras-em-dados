@@ -105,6 +105,14 @@ class TransferegovDownloadCatalogTests(unittest.TestCase):
         self.assertEqual(snapshot.body_sha256, hashlib.sha256(body).hexdigest())
         self.assertEqual(snapshot.total_items, len(REQUIRED_HISTORICAL_FILES))
         self.assertEqual(
+            snapshot.cursor,
+            {
+                "offset": 0,
+                "size": len(REQUIRED_HISTORICAL_FILES),
+                "selected_files": len(REQUIRED_HISTORICAL_FILES),
+            },
+        )
+        self.assertEqual(
             snapshot.response_headers,
             {"content-type": "application/xml", "etag": '"catalog"'},
         )
