@@ -41,6 +41,13 @@ votação do TSE passam a registrar execução antes da autenticação e do HTTP
 próxima fatia é usar essa cobertura observada para abrir o backfill amplo desde
 2021, começando pelos recursos com período oficial bem definido.
 
+A fundação da identidade privada agora valida CPF, cifra valor e evidência com
+AES-256-GCM, compara por HMAC-SHA-256 independente e recorta o cadastro oficial
+do TSE somente para candidaturas previamente aprovadas. A ativação operacional
+seguinte provisionará uma credencial exclusiva `identity_worker`, duas chaves
+distintas no cofre do GitHub Actions e o replay de 2022/2024; nenhuma chave ou
+CPF será transportado por input manual, log, artefato de CI ou aplicação web.
+
 O backfill do Diário agora calcula a fronteira pela faixa contínua de execuções
 bem-sucedidas até a véspera. Um registro histórico isolado não pode mais saltar
 lacunas recentes nem encerrar prematuramente a cobertura desde 2021. Janelas
