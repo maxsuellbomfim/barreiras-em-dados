@@ -154,6 +154,64 @@ export type FederalTransferScopeSummary = Readonly<{
   methodologyVersion: "federal-transfer-territorial-scope/1.0.0";
 }>;
 
+export type ReconciledParliamentaryTransfer = Readonly<{
+  reconciliationKey: string;
+  proposalId: string;
+  proposalNumber: string | null;
+  fiscalYear: number;
+  amendmentNumber: string | null;
+  authorName: string;
+  authorKind: ParliamentaryAuthorKind;
+  reconciliationStatus:
+    | "matched_exact"
+    | "current_only"
+    | "historical_only"
+    | "conflict_non_unique_official_key"
+    | "conflict_source_divergence";
+  destinationAmount: string | null;
+  currentDestinationAmount: string | null;
+  historicalDestinationAmount: string | null;
+  committedAmount: string | null;
+  paidAmount: string | null;
+  currentSourceUrl: string | null;
+  currentArtifactSha256: string | null;
+  historicalSourceUrl: string | null;
+  historicalArtifactSha256: string | null;
+  methodologyVersion: "reconciled-parliamentary-transfers/1.0.0";
+}>;
+
+export type ReconciledParliamentaryTransferRanking = Readonly<{
+  rankPosition: number;
+  authorKey: string;
+  authorName: string;
+  authorKind: ParliamentaryAuthorKind;
+  representativeSourceKind: ParliamentaryRepresentativeSourceKind | null;
+  representativeExternalId: string | null;
+  representativeProfileUrl: string | null;
+  associationStatus: ParliamentaryAuthorAssociationStatus;
+  amendmentCount: number;
+  proposalCount: number;
+  destinationAmount: string;
+  committedAmount: string | null;
+  paidAmount: string | null;
+  firstYear: number;
+  lastYear: number;
+  methodologyVersion: "reconciled-parliamentary-transfer-ranking/1.0.0";
+}>;
+
+export type ParliamentaryTransferReconciliationSummary = Readonly<{
+  currentSourceRowCount: number;
+  historicalSourceRowCount: number;
+  consolidatedRowCount: number;
+  exactMatchCount: number;
+  currentOnlyCount: number;
+  historicalOnlyCount: number;
+  conflictCount: number;
+  rankableRowCount: number;
+  publishedDestinationAmount: string;
+  methodologyVersion: "parliamentary-transfer-reconciliation/1.0.0";
+}>;
+
 export type ParliamentaryTransfersResult =
   | Readonly<{
       state: "available";
@@ -166,6 +224,10 @@ export type ParliamentaryTransfersResult =
       historicalPeople: readonly HistoricalParliamentaryAmendmentRanking[] | null;
       historicalCollectives: readonly HistoricalParliamentaryAmendmentRanking[] | null;
       scopeSummary: FederalTransferScopeSummary | null;
+      reconciledTransfers: readonly ReconciledParliamentaryTransfer[] | null;
+      reconciledPeople: readonly ReconciledParliamentaryTransferRanking[] | null;
+      reconciledCollectives: readonly ReconciledParliamentaryTransferRanking[] | null;
+      reconciliationSummary: ParliamentaryTransferReconciliationSummary | null;
     }>
   | Readonly<{ state: "unavailable" }>;
 
@@ -613,6 +675,168 @@ function parseScopeSummary(rows: unknown[]): FederalTransferScopeSummary | null 
   };
 }
 
+const RECONCILIATION_STATUSES = new Set<
+  ReconciledParliamentaryTransfer["reconciliationStatus"]
+>([
+  "matched_exact",
+  "current_only",
+  "historical_only",
+  "conflict_non_unique_official_key",
+  "conflict_source_divergence",
+]);
+
+function parseReconciledTransfer(
+  row: Record<string, unknown>,
+): ReconciledParliamentaryTransfer | null {
+  const reconciliationKey = requiredText(row.reconciliation_key);
+  const proposalId = requiredText(row.proposal_id);
+  const fiscalYear = integer(row.fiscal_year, 2021);
+  const authorName = requiredText(row.author_name);
+  const kind = authorKind(row.author_kind);
+  const status = optionalText(row.reconciliation_status);
+  const nullableDecimal = (value: unknown) => value === null ? null : decimal(value);
+  const destinationAmount = nullableDecimal(row.destination_amount);
+  const currentDestinationAmount = nullableDecimal(row.current_destination_amount);
+  const historicalDestinationAmount = nullableDecimal(row.historical_destination_amount);
+  const committedAmount = nullableDecimal(row.committed_amount);
+  const paidAmount = nullableDecimal(row.paid_amount);
+  const currentSourceUrl = optionalText(row.current_source_url);
+  const currentArtifactSha256 = optionalText(row.current_artifact_sha256);
+  const historicalSourceUrl = optionalText(row.historical_source_url);
+  const historicalArtifactSha256 = optionalText(row.historical_artifact_sha256);
+  if (
+    !reconciliationKey || !proposalId || fiscalYear === null || !authorName || !kind ||
+    !status || !RECONCILIATION_STATUSES.has(
+      status as ReconciledParliamentaryTransfer["reconciliationStatus"],
+    ) ||
+    (row.destination_amount !== null && destinationAmount === null) ||
+    (row.current_destination_amount !== null && currentDestinationAmount === null) ||
+    (row.historical_destination_amount !== null && historicalDestinationAmount === null) ||
+    (row.committed_amount !== null && committedAmount === null) ||
+    (row.paid_amount !== null && paidAmount === null) ||
+    (currentSourceUrl !== null && !currentSourceUrl.startsWith("https://")) ||
+    (historicalSourceUrl !== null && !historicalSourceUrl.startsWith("https://")) ||
+    (currentArtifactSha256 !== null && !SHA256.test(currentArtifactSha256)) ||
+    (historicalArtifactSha256 !== null && !SHA256.test(historicalArtifactSha256)) ||
+    row.methodology_version !== "reconciled-parliamentary-transfers/1.0.0"
+  ) return null;
+  return {
+    reconciliationKey,
+    proposalId,
+    proposalNumber: optionalText(row.proposal_number),
+    fiscalYear,
+    amendmentNumber: optionalText(row.amendment_number),
+    authorName,
+    authorKind: kind,
+    reconciliationStatus:
+      status as ReconciledParliamentaryTransfer["reconciliationStatus"],
+    destinationAmount,
+    currentDestinationAmount,
+    historicalDestinationAmount,
+    committedAmount,
+    paidAmount,
+    currentSourceUrl,
+    currentArtifactSha256,
+    historicalSourceUrl,
+    historicalArtifactSha256,
+    methodologyVersion: "reconciled-parliamentary-transfers/1.0.0",
+  };
+}
+
+function parseReconciledRanking(
+  row: Record<string, unknown>,
+): ReconciledParliamentaryTransferRanking | null {
+  const rankPosition = integer(row.rank_position, 1);
+  const authorKey = requiredText(row.author_key);
+  const authorName = requiredText(row.author_name);
+  const kind = authorKind(row.author_kind);
+  const amendmentCount = integer(row.amendment_count);
+  const proposalCount = integer(row.proposal_count);
+  const destinationAmount = decimal(row.destination_amount);
+  const committedAmount = row.committed_amount === null
+    ? null
+    : decimal(row.committed_amount);
+  const paidAmount = row.paid_amount === null ? null : decimal(row.paid_amount);
+  const firstYear = integer(row.first_year, 2021);
+  const lastYear = integer(row.last_year, 2021);
+  const sourceKind = optionalText(row.representative_source_kind);
+  const associationStatus = optionalText(row.association_status);
+  if (
+    rankPosition === null || !authorKey || !authorName || !kind ||
+    amendmentCount === null || proposalCount === null || !destinationAmount ||
+    (row.committed_amount !== null && committedAmount === null) ||
+    (row.paid_amount !== null && paidAmount === null) ||
+    firstYear === null || lastYear === null || firstYear > lastYear ||
+    (sourceKind !== null && !["federal", "state"].includes(sourceKind)) ||
+    !associationStatus || ![
+      "approved_official_crosswalk", "not_linked", "not_applicable_collective",
+    ].includes(associationStatus) ||
+    row.methodology_version !==
+      "reconciled-parliamentary-transfer-ranking/1.0.0"
+  ) return null;
+  return {
+    rankPosition,
+    authorKey,
+    authorName,
+    authorKind: kind,
+    representativeSourceKind:
+      sourceKind as ParliamentaryRepresentativeSourceKind | null,
+    representativeExternalId: optionalText(row.representative_external_id),
+    representativeProfileUrl: optionalText(row.representative_profile_url),
+    associationStatus: associationStatus as ParliamentaryAuthorAssociationStatus,
+    amendmentCount,
+    proposalCount,
+    destinationAmount,
+    committedAmount,
+    paidAmount,
+    firstYear,
+    lastYear,
+    methodologyVersion: "reconciled-parliamentary-transfer-ranking/1.0.0",
+  };
+}
+
+function parseReconciliationSummary(
+  rows: unknown[],
+): ParliamentaryTransferReconciliationSummary | null {
+  if (rows.length !== 1 || typeof rows[0] !== "object" || rows[0] === null) return null;
+  const row = rows[0] as Record<string, unknown>;
+  const values = [
+    row.current_source_row_count,
+    row.historical_source_row_count,
+    row.consolidated_row_count,
+    row.exact_match_count,
+    row.current_only_count,
+    row.historical_only_count,
+    row.conflict_count,
+    row.rankable_row_count,
+  ].map((value) => integer(value));
+  const publishedDestinationAmount = decimal(row.published_destination_amount);
+  if (
+    values.some((value) => value === null) || !publishedDestinationAmount ||
+    row.methodology_version !== "parliamentary-transfer-reconciliation/1.0.0"
+  ) return null;
+  const [currentSourceRowCount, historicalSourceRowCount, consolidatedRowCount,
+    exactMatchCount, currentOnlyCount, historicalOnlyCount, conflictCount,
+    rankableRowCount] = values as number[];
+  if (
+    exactMatchCount + currentOnlyCount + historicalOnlyCount + conflictCount !==
+      consolidatedRowCount ||
+    rankableRowCount + conflictCount !== consolidatedRowCount
+  ) return null;
+  return {
+    currentSourceRowCount,
+    historicalSourceRowCount,
+    consolidatedRowCount,
+    exactMatchCount,
+    currentOnlyCount,
+    historicalOnlyCount,
+    conflictCount,
+    rankableRowCount,
+    publishedDestinationAmount,
+    methodologyVersion: "parliamentary-transfer-reconciliation/1.0.0",
+  };
+}
+
 type RpcRequest = Readonly<{
   headers: Readonly<Record<string, string>>;
   body: string;
@@ -677,6 +901,10 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       historicalPeopleRows,
       historicalCollectiveRows,
       scopeSummaryRows,
+      reconciledTransferRows,
+      reconciledPeopleRows,
+      reconciledCollectiveRows,
+      reconciliationSummaryRows,
     ] = await Promise.all([
       callRpc("get_public_parliamentary_transfer_ranking", {
         author_scope: "person",
@@ -717,6 +945,22 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
         page_size: 50,
       }),
       callRpc("get_public_federal_transfer_scope_summary", {}),
+      callRpc("get_public_reconciled_parliamentary_transfers", {
+        fiscal_year_filter: null,
+        author_kind_filter: null,
+        page_size: 200,
+      }),
+      callRpc("get_public_reconciled_parliamentary_transfer_ranking", {
+        author_scope: "person",
+        fiscal_year_filter: null,
+        page_size: 50,
+      }),
+      callRpc("get_public_reconciled_parliamentary_transfer_ranking", {
+        author_scope: "collective",
+        fiscal_year_filter: null,
+        page_size: 50,
+      }),
+      callRpc("get_public_parliamentary_transfer_reconciliation_summary", {}),
     ]);
     if (!peopleRows || !collectiveRows || !transferRows) return { state: "unavailable" };
 
@@ -743,6 +987,27 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
     const scopeSummary = scopeSummaryRows === null
       ? null
       : parseScopeSummary(scopeSummaryRows);
+    const reconciledTransfers = reconciledTransferRows === null
+      ? null
+      : reconciledTransferRows.map((row) => {
+        if (typeof row !== "object" || row === null) return null;
+        return parseReconciledTransfer(row as Record<string, unknown>);
+      });
+    const reconciledPeople = reconciledPeopleRows === null
+      ? null
+      : reconciledPeopleRows.map((row) => {
+        if (typeof row !== "object" || row === null) return null;
+        return parseReconciledRanking(row as Record<string, unknown>);
+      });
+    const reconciledCollectives = reconciledCollectiveRows === null
+      ? null
+      : reconciledCollectiveRows.map((row) => {
+        if (typeof row !== "object" || row === null) return null;
+        return parseReconciledRanking(row as Record<string, unknown>);
+      });
+    const reconciliationSummary = reconciliationSummaryRows === null
+      ? null
+      : parseReconciliationSummary(reconciliationSummaryRows);
     return {
       state: "available",
       people,
@@ -754,6 +1019,16 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       historicalPeople,
       historicalCollectives,
       scopeSummary,
+      reconciledTransfers: reconciledTransfers?.some((row) => row === null)
+        ? null
+        : reconciledTransfers as readonly ReconciledParliamentaryTransfer[] | null,
+      reconciledPeople: reconciledPeople?.some((row) => row === null)
+        ? null
+        : reconciledPeople as readonly ReconciledParliamentaryTransferRanking[] | null,
+      reconciledCollectives: reconciledCollectives?.some((row) => row === null)
+        ? null
+        : reconciledCollectives as readonly ReconciledParliamentaryTransferRanking[] | null,
+      reconciliationSummary,
     };
   } catch {
     return { state: "unavailable" };
