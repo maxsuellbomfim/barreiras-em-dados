@@ -76,6 +76,27 @@ test("Transferegov classifica cada ano desde 2021 sem entrada livre no shell", (
   assert.doesNotMatch(transferegovJob, /--year-to "\$\{\{/);
 });
 
+test("LOA estadual e extraida deterministicamente depois da preservacao", () => {
+  const loaJob = workflow.slice(
+    workflow.indexOf("  bahia_state_loa_amendments:"),
+  );
+
+  assert.match(
+    loaJob,
+    /PYTHONPATH: workers\/collectors\/src:workers\/document-processing\/src/,
+  );
+  assert.match(loaJob, /"\.\[postgres,storage,pdf\]"/);
+  const preserveIndex = loaJob.indexOf(
+    "barreiras_collectors.commands.collect_bahia_state_loa_amendments",
+  );
+  const processIndex = loaJob.indexOf(
+    "barreiras_docproc.commands.process_bahia_state_loa",
+  );
+  assert.ok(preserveIndex >= 0);
+  assert.ok(processIndex > preserveIndex);
+  assert.match(loaJob, /--limit "10"/);
+});
+
 test("arquivo histórico de propostas exige opt-in e recorta Barreiras desde 2021", () => {
   const transferegovJob = workflow.slice(workflow.indexOf("  transferegov:"));
 
