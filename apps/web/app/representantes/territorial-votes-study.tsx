@@ -2,6 +2,14 @@
 
 import { useMemo, useState } from "react";
 
+import {
+  classifyElectionOutcome,
+  electionCycleLabel,
+  electionPeriodLabel,
+  latestElectionYear,
+  outcomeLabel,
+} from "../../lib/representative-election-context.mjs";
+import type { ElectionOutcome } from "../../lib/representative-election-context.mjs";
 import type { TseVote } from "../../lib/tse-votes";
 
 const officeOrder = [
@@ -26,6 +34,18 @@ function displayName(vote: TseVote): string {
   return vote.ballotName ?? vote.displayName ?? "Candidatura sem nome informado";
 }
 
+const outcomeOptions: readonly Readonly<{
+  value: ElectionOutcome | "todos";
+  label: string;
+}>[] = [
+  { value: "todos", label: "Todas as situações" },
+  { value: "elected", label: "Eleitos naquele pleito" },
+  { value: "alternate", label: "Suplentes naquele pleito" },
+  { value: "not_elected", label: "Não eleitos naquele pleito" },
+  { value: "other", label: "Outras situações" },
+  { value: "unknown", label: "Situação não informada" },
+];
+
 export default function TerritorialVotesStudy({
   votes,
 }: Readonly<{ votes: readonly TseVote[] }>) {
@@ -40,9 +60,12 @@ export default function TerritorialVotesStudy({
       ),
     [votes],
   );
-  const [yearFilter, setYearFilter] = useState("todos");
+  const [yearFilter, setYearFilter] = useState(() =>
+    latestElectionYear(votes.map((vote) => vote.electionYear)),
+  );
   const [officeFilter, setOfficeFilter] = useState("todos");
   const [turnFilter, setTurnFilter] = useState("todos");
+  const [outcomeFilter, setOutcomeFilter] = useState<ElectionOutcome | "todos">("todos");
   const [search, setSearch] = useState("");
   const turns = useMemo(
     () => [...new Set(votes.map((vote) => vote.turnNumber))].sort((left, right) => left - right),
@@ -56,14 +79,16 @@ export default function TerritorialVotesStudy({
       const office = vote.office ?? "Cargo não informado";
       const matchesOffice = officeFilter === "todos" || office === officeFilter;
       const matchesTurn = turnFilter === "todos" || vote.turnNumber === Number(turnFilter);
+      const matchesOutcome =
+        outcomeFilter === "todos" || classifyElectionOutcome(vote.situation) === outcomeFilter;
       const matchesSearch =
         normalizedSearch.length === 0 ||
         [displayName(vote), vote.party, vote.candidateNumber, vote.candidateId]
           .filter(Boolean)
           .some((value) => value!.toLocaleLowerCase("pt-BR").includes(normalizedSearch));
-      return matchesYear && matchesOffice && matchesTurn && matchesSearch;
+      return matchesYear && matchesOffice && matchesTurn && matchesOutcome && matchesSearch;
     });
-  }, [officeFilter, search, turnFilter, votes, yearFilter]);
+  }, [officeFilter, outcomeFilter, search, turnFilter, votes, yearFilter]);
 
   const summary = useMemo(() => {
     const groups = new Map<string, { year: number; office: string; turn: number; candidates: number; votes: number }>();
@@ -84,6 +109,10 @@ export default function TerritorialVotesStudy({
     if (turnFilter === "todos") return null;
     return filteredVotes.reduce((total, vote) => total + vote.votesInBarreiras, 0);
   }, [filteredVotes, turnFilter]);
+  const electedCount = useMemo(
+    () => filteredVotes.filter((vote) => classifyElectionOutcome(vote.situation) === "elected").length,
+    [filteredVotes],
+  );
   const topVotes = useMemo(
     () =>
       [...filteredVotes].sort(
@@ -101,15 +130,24 @@ export default function TerritorialVotesStudy({
           <span className="eyebrow">Vínculo territorial mensurável</span>
           <h2 id="candidates-title">Votos recebidos em Barreiras</h2>
           <p>
-            Quantos votos cada candidatura recebeu no município. Prefeito e
-            vereador são registros de 2024; cargos estaduais e federais são de
-            2022. Isso não é ranking, avaliação de mandato nem prova de
-            representação atual.
+            Histórico de candidaturas que receberam votos no município,
+            organizado pelo ano da eleição, cargo disputado e resultado
+            publicado pelo TSE. Uma mesma pessoa pode aparecer em cargos ou
+            pleitos diferentes; isso não informa, sozinho, qual cargo ocupa hoje.
           </p>
         </div>
         <a className="territorial-study-source" href="https://dadosabertos.tse.jus.br/" target="_blank" rel="noreferrer">
           Fonte oficial: TSE ↗
         </a>
+      </div>
+
+      <div className="territorial-context-note" role="note">
+        <strong>Candidatura não é mandato atual</strong>
+        <p>
+          Os mandatos atuais confirmados pela Prefeitura, Câmara Municipal,
+          ALBA e Câmara dos Deputados ficam nas listas acima. Aqui, &ldquo;eleito&rdquo;,
+          &ldquo;suplente&rdquo; ou &ldquo;não eleito&rdquo; descreve apenas o resultado daquela eleição.
+        </p>
       </div>
 
       <div className="territorial-filters" aria-label="Filtros eleitorais">
@@ -134,6 +172,17 @@ export default function TerritorialVotesStudy({
             {turns.map((turn) => <option key={turn} value={turn}>{turn}º turno</option>)}
           </select>
         </label>
+        <label>
+          <span>Situação naquele pleito</span>
+          <select
+            value={outcomeFilter}
+            onChange={(event) => setOutcomeFilter(event.target.value as ElectionOutcome | "todos")}
+          >
+            {outcomeOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
         <label className="territorial-search">
           <span>Pesquisar candidatura</span>
           <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="nome, partido ou número" />
@@ -142,8 +191,8 @@ export default function TerritorialVotesStudy({
 
       <div className="territorial-kpis" aria-label="Resumo filtrado">
         <div><strong>{formatNumber(filteredVotes.length)}</strong><span>candidaturas no recorte</span></div>
+        <div><strong>{formatNumber(electedCount)}</strong><span>eleitos naquele pleito</span></div>
         <div><strong>{totalVotes === null ? "—" : formatNumber(totalVotes)}</strong><span>{totalVotes === null ? "selecione um turno para somar votos" : "votos no turno selecionado"}</span></div>
-        <div><strong>{formatNumber(summary.length)}</strong><span>combinações de ano, cargo e turno</span></div>
       </div>
 
       {filteredVotes.length === 0 ? (
@@ -177,16 +226,21 @@ export default function TerritorialVotesStudy({
             <div className="territorial-table-wrap">
               <table className="territorial-table">
                 <caption className="sr-only">Candidaturas filtradas por votação em Barreiras</caption>
-                <thead><tr><th scope="col">Candidatura</th><th scope="col">Cargo / ano</th><th scope="col">Partido</th><th scope="col">Votos</th></tr></thead>
+                <thead><tr><th scope="col">Candidatura</th><th scope="col">Cargo disputado / eleição</th><th scope="col">Situação naquele pleito</th><th scope="col">Partido</th><th scope="col">Votos</th></tr></thead>
                 <tbody>
-                  {topVotes.slice(0, 50).map((vote) => (
-                    <tr key={`${vote.electionYear}-${vote.candidateId}-${vote.turnNumber}`}>
-                      <th scope="row">{displayName(vote)}<small>{vote.candidateNumber ? `nº ${vote.candidateNumber}` : "número não informado"}</small></th>
-                      <td>{vote.office ?? "Cargo não informado"}<small>{vote.electionYear} · {vote.turnNumber}º turno</small></td>
-                      <td>{vote.party ?? "não informado"}</td>
-                      <td className="territorial-table-number">{formatNumber(vote.votesInBarreiras)}</td>
-                    </tr>
-                  ))}
+                  {topVotes.slice(0, 50).map((vote) => {
+                    const outcome = classifyElectionOutcome(vote.situation);
+                    const office = vote.office ?? "Cargo não informado";
+                    return (
+                      <tr key={`${vote.electionYear}-${vote.candidateId}-${vote.turnNumber}`}>
+                        <th scope="row">{displayName(vote)}<small>{vote.candidateNumber ? `nº ${vote.candidateNumber}` : "número não informado"}</small></th>
+                        <td>{office}<small>{electionCycleLabel(vote.electionYear, office)} · {electionPeriodLabel(vote.electionYear, office)} · {vote.turnNumber}º turno</small></td>
+                        <td><span className={`territorial-outcome territorial-outcome-${outcome}`}>{outcomeLabel(outcome)}</span><small>Fonte: {vote.situation ?? "não informado"}</small></td>
+                        <td>{vote.party ?? "não informado"}</td>
+                        <td className="territorial-table-number">{formatNumber(vote.votesInBarreiras)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -199,10 +253,11 @@ export default function TerritorialVotesStudy({
         <summary>Como interpretar este vínculo</summary>
         <p>
           O vínculo é territorial: o TSE informa a votação nominal agregada no
-          município. A plataforma não presume que todo candidato votado em
-          Barreiras seja representante da cidade. A associação com perfis atuais
-          será feita separadamente, apenas quando houver identificador oficial
-          compatível.
+          município. O cargo exibido é o disputado naquele pleito, não uma
+          declaração de cargo atual. A plataforma não presume que todo candidato
+          votado em Barreiras represente a cidade. A associação com um perfil
+          atual ocorre separadamente e somente por crosswalk revisado com
+          identificadores oficiais — nunca apenas por semelhança de nome.
         </p>
       </details>
     </div>

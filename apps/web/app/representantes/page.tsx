@@ -595,16 +595,19 @@ export default async function RepresentativesPage() {
               bandeira e a biografia atribuídas à própria Câmara.
             </li>
             <li>
-              <strong>Deputados estaduais</strong>: serão ligados à fonte oficial
-              da ALBA e a um vínculo territorial documentado.
+              <strong>Deputados estaduais</strong>: perfis atuais publicados pela
+              ALBA; a votação recebida em Barreiras aparece separadamente por
+              eleição.
             </li>
             <li>
-              <strong>Deputados federais</strong>: eleitos pela Bahia, da API
-              aberta da Câmara dos Deputados — já disponíveis abaixo.
+              <strong>Deputados federais</strong>: parlamentares em exercício pela
+              Bahia na API aberta da Câmara dos Deputados, com legislatura e
+              situação oficiais.
             </li>
             <li>
-              <strong>Candidatos</strong>: aparecerão somente quando registrados
-              no TSE, com situação atualizada por eleição.
+              <strong>Histórico eleitoral</strong>: candidaturas registradas no
+              TSE, separadas por pleito, cargo, turno e resultado daquele ano.
+              Candidatura não é apresentada como mandato atual.
             </li>
             <li>
               <strong>Vínculo com Barreiras</strong>: votação nominal no
@@ -630,15 +633,15 @@ export default async function RepresentativesPage() {
           </div>
           <div>
             <strong>{countLabel(stateResult.state === "available" ? stateResult.representatives.length : null)}</strong>
-            <span>deputados estaduais</span>
+            <span>mandatos estaduais atuais</span>
           </div>
           <div>
             <strong>{countLabel(result.state === "available" ? result.representatives.length : null)}</strong>
-            <span>deputados federais</span>
+            <span>mandatos federais atuais</span>
           </div>
           <div>
             <strong>{countLabel(votesResult.state === "available" ? votesResult.votes.length : null)}</strong>
-            <span>registros eleitorais</span>
+            <span>candidaturas históricas</span>
           </div>
         </div>
 
@@ -742,77 +745,10 @@ export default async function RepresentativesPage() {
           </div>
         </div>
 
-        <section id="federais" className="representation-block representation-block-federal" aria-labelledby="federal-title">
-          <div className="section-heading">
-            <span className="eyebrow">Câmara dos Deputados</span>
-            <h2 id="federal-title">Deputados federais</h2>
-            <p>
-              Parlamentares eleitos pela Bahia, com vínculo territorial
-              apresentado separadamente da representação municipal.
-            </p>
-          </div>
-          {result.state === "unavailable" ? (
-          <div className="collection-unavailable" role="status">
-            <div>
-              <strong>Lista temporariamente indisponível</strong>
-              <p>
-                Isso representa uma falha de consulta, não ausência de dados.
-                Tente novamente em alguns minutos.
-              </p>
-            </div>
-          </div>
-        ) : result.representatives.length === 0 ? (
-          <div className="collection-unavailable" role="status">
-            <div>
-              <strong>Os primeiros perfis estão a caminho</strong>
-              <p>
-                A coleta na Câmara dos Deputados está configurada e os
-                perfis aparecerão aqui na próxima execução automática.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="acts-count" role="status">
-              {result.representatives.length.toLocaleString("pt-BR")}{" "}
-              deputados federais eleitos pela Bahia
-            </p>
-            <details className="representation-collapsible representation-directory-collapsible">
-              <summary>
-                <span>
-                  <strong>Ver perfis federais</strong>
-                </span>
-                <span className="representation-collapsible-meta">
-                  {result.representatives.length.toLocaleString("pt-BR")} perfis · abrir
-                </span>
-              </summary>
-              <div className="person-grid">
-                {result.representatives.map((person) => (
-                  <RepresentativeCard
-                    key={person.externalId}
-                    person={person}
-                    voteLinks={votesForRepresentative(
-                      representativeVotes,
-                      "federal",
-                      person.externalId,
-                    )}
-                    transferSummary={transferSummaryForRepresentative(
-                      transferRankings,
-                      "federal",
-                      person.externalId,
-                    )}
-                  />
-                ))}
-              </div>
-            </details>
-          </>
-          )}
-        </section>
-
         <section id="vereadores" className="representation-block representation-block-councillors" aria-labelledby="councillors-title">
         <div className="section-heading">
           <span className="eyebrow">Câmara Municipal</span>
-          <h2 id="councillors-title">Vereadores de Barreiras</h2>
+          <h2 id="councillors-title">Mandatos municipais atuais</h2>
           <p>
             Composição publicada pelo portal oficial da Câmara. Bandeira e
             biografia são textos da própria Casa, reproduzidos com
@@ -865,11 +801,12 @@ export default async function RepresentativesPage() {
         <section id="estaduais" className="representation-block representation-block-state" aria-labelledby="state-title">
           <div className="section-heading">
             <span className="eyebrow">Assembleia Legislativa da Bahia</span>
-            <h2 id="state-title">Deputados estaduais</h2>
+            <h2 id="state-title">Mandatos estaduais atuais</h2>
             <p>
-              Composição publicada pela ALBA, com vínculo territorial tratado
-              separadamente. A lista não afirma que qualquer parlamentar
-              representa Barreiras sem evidência municipal específica.
+              Composição em exercício publicada pela ALBA. Quem disputou esse
+              cargo em outro pleito aparece no histórico eleitoral abaixo; esta
+              lista não atribui representação de Barreiras sem evidência
+              municipal específica.
             </p>
           </div>
           {stateResult.state === "unavailable" ? (
@@ -895,8 +832,8 @@ export default async function RepresentativesPage() {
           ) : (
             <>
               <p className="acts-count" role="status">
-                {stateResult.representatives.length.toLocaleString("pt-BR")} deputados
-                estaduais publicados pela ALBA
+                {stateResult.representatives.length.toLocaleString("pt-BR")} perfis
+                atuais publicados pela ALBA
               </p>
               <details className="representation-collapsible representation-directory-collapsible">
                 <summary>
@@ -920,6 +857,74 @@ export default async function RepresentativesPage() {
                       transferSummary={transferSummaryForRepresentative(
                         transferRankings,
                         "state",
+                        person.externalId,
+                      )}
+                    />
+                  ))}
+                </div>
+              </details>
+            </>
+          )}
+        </section>
+
+        <section id="federais" className="representation-block representation-block-federal" aria-labelledby="federal-title">
+          <div className="section-heading">
+            <span className="eyebrow">Câmara dos Deputados</span>
+            <h2 id="federal-title">Mandatos federais atuais</h2>
+            <p>
+              Pessoas em exercício pela Bahia na 57ª legislatura, conforme a
+              API oficial da Câmara dos Deputados. Candidaturas anteriores ou a
+              outros cargos ficam no histórico eleitoral, sem alterar esta lista.
+            </p>
+          </div>
+          {result.state === "unavailable" ? (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Lista temporariamente indisponível</strong>
+                <p>
+                  Isso representa uma falha de consulta, não ausência de dados.
+                  Tente novamente em alguns minutos.
+                </p>
+              </div>
+            </div>
+          ) : result.representatives.length === 0 ? (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Os primeiros perfis estão a caminho</strong>
+                <p>
+                  A coleta na Câmara dos Deputados está configurada e os
+                  perfis aparecerão aqui na próxima execução automática.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="acts-count" role="status">
+                {result.representatives.length.toLocaleString("pt-BR")}{" "}
+                perfis em exercício publicados pela Câmara dos Deputados
+              </p>
+              <details className="representation-collapsible representation-directory-collapsible">
+                <summary>
+                  <span>
+                    <strong>Ver perfis federais</strong>
+                  </span>
+                  <span className="representation-collapsible-meta">
+                    {result.representatives.length.toLocaleString("pt-BR")} perfis · abrir
+                  </span>
+                </summary>
+                <div className="person-grid">
+                  {result.representatives.map((person) => (
+                    <RepresentativeCard
+                      key={person.externalId}
+                      person={person}
+                      voteLinks={votesForRepresentative(
+                        representativeVotes,
+                        "federal",
+                        person.externalId,
+                      )}
+                      transferSummary={transferSummaryForRepresentative(
+                        transferRankings,
+                        "federal",
                         person.externalId,
                       )}
                     />
