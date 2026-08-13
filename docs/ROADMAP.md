@@ -43,10 +43,14 @@ próxima fatia é usar essa cobertura observada para abrir o backfill amplo desd
 
 A fundação da identidade privada agora valida CPF, cifra valor e evidência com
 AES-256-GCM, compara por HMAC-SHA-256 independente e recorta o cadastro oficial
-do TSE somente para candidaturas previamente aprovadas. A ativação operacional
-seguinte provisionará uma credencial exclusiva `identity_worker`, duas chaves
-distintas no cofre do GitHub Actions e o replay de 2022/2024; nenhuma chave ou
-CPF será transportado por input manual, log, artefato de CI ou aplicação web.
+do TSE somente para candidaturas previamente aprovadas. O importador e o
+workflow de 2022/2024 usam a credencial exclusiva `identity_registry`, membro
+somente do papel `identity_worker`, e duas chaves distintas no cofre do GitHub
+Actions. Vereadores e prefeito com voto individual entram no recorte; o vice
+fica bloqueado até possuir identificador individual oficial; deputados ficam
+limitados aos dez estaduais e dez federais mais votados em Barreiras no primeiro
+turno de cada eleição. Nenhuma chave ou CPF é transportado por input manual,
+log, artefato de CI ou aplicação web.
 
 O backfill do Diário agora calcula a fronteira pela faixa contínua de execuções
 bem-sucedidas até a véspera. Um registro histórico isolado não pode mais saltar
