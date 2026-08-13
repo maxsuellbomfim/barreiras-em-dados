@@ -291,9 +291,17 @@ O catálogo oficial dos arquivos históricos de transferências discricionárias
 e legais passa a ser preservado diariamente como uma fonte separada. O
 manifesto monitora oito conjuntos essenciais e interrompe a cobertura quando
 há paginação pendente, arquivo ausente ou URL fora do contêiner oficial. A
-próxima menor fatia é processar `siconv_proposta.zip` em fluxo, filtrar
-Barreiras por identificador oficial e preservar somente as linhas municipais
-junto do hash e da versão exata do ZIP de origem.
+primeira projeção histórica de `siconv_proposta.zip` filtra Barreiras pelo código
+IBGE oficial, preserva o ZIP nacional em área privada e exclui dados bancários e
+endereços dos registros municipais. A próxima menor fatia federal é relacionar
+`siconv_emenda.zip` às propostas para completar autoria e valor sem inferência
+por nome.
+
+A trilha estadual será implementada em fonte e cobertura próprias a partir do
+conjunto diário **Emendas Parlamentares Estaduais** da SEFAZ-BA/FIPLAN. Ela
+separará valor indicado, empenhado, liquidado, pago, restos e cancelamentos; o
+ranking público não misturará emendas estaduais com federais e nunca tratará
+anúncio ou indicação como recurso já recebido por Barreiras.
 
 Gate:
 

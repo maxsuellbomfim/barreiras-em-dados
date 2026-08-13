@@ -257,6 +257,26 @@ fluxo, validação do arquivo e filtragem territorial antes de persistir as
 linhas de Barreiras; o ZIP nacional bruto permanece privado e não será servido
 pelo portal.
 
+O primeiro download controlado é `siconv_proposta.zip`. Seu arquivo nacional é
+validado por tamanho, ETag, integridade ZIP e contrato CSV; a projeção aceita
+somente `COD_MUNIC_IBGE=2903201` desde 2021. Agência, conta, endereço, bairro e
+CEP não integram o registro normalizado. A proposta ainda não recebe autoria de
+emenda até ser reconciliada com `siconv_emenda.zip`.
+
+### Emendas parlamentares estaduais da Bahia
+
+O Portal de Dados Abertos da Bahia publica o conjunto **Emendas Parlamentares
+Estaduais**, originado no FIPLAN/SEFAZ-BA, com atualização diária declarada. O
+Portal Transparência Bahia mantém painéis separados de dados gerais e execução
+orçamentária e financeira. A futura coleta terá fonte, parser, partições e
+projeção próprios; dados estaduais não serão agregados silenciosamente aos
+federais.
+
+O contrato deverá manter autor, exercício, número, objeto, órgão executor,
+beneficiário, município e cada estágio financeiro publicado. A filtragem de
+Barreiras será validada contra os campos estruturados do arquivo antes de
+qualquer total ou ranking.
+
 Em 17/07/2026, o Transferegov anunciou novo ambiente de APIs e descontinuação do
 ambiente anterior em 31/08/2026. O conector deverá apontar para o ambiente novo
 e registrar versão do contrato.
@@ -269,6 +289,8 @@ Referências:
 - [Comunicado de migração de 2026](https://www.gov.br/obrasgov/pt-br/noticias/2026/comunicado-23-2026-mudancas-nos-acessos-as-apis-de-dados-abertos-do-transferegov-br-e-do-obrasgov-br)
 - [Transferências no Tesouro Transparente](https://www.tesourotransparente.gov.br/temas/estados-e-municipios/transferencias-a-estados-e-municipios)
 - [Informações de municípios — Transparência Bahia](https://www.transparencia.ba.gov.br/InformacaoMunicipio)
+- [Emendas Parlamentares Estaduais — Dados Abertos Bahia](https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares)
+- [Mapa dos painéis de emendas — Transparência Bahia](https://www.transparencia.ba.gov.br/MapaSite/)
 
 ## Representação legislativa e eleições
 

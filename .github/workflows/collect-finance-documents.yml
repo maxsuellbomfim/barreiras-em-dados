@@ -49,6 +49,11 @@ on:
         required: false
         default: true
         type: boolean
+      include_transferegov_historical_proposals:
+        description: "Baixar o ZIP histórico nacional e recortar Barreiras desde 2021"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -192,6 +197,13 @@ jobs:
         run: >-
           python -B -m
           barreiras_collectors.commands.collect_transferegov_download_catalog
+
+      - name: Preservar propostas históricas de Barreiras
+        if: github.event_name == 'workflow_dispatch' && inputs.include_transferegov_historical_proposals == true
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.collect_transferegov_historical_proposals
+          --year-from "2021"
 
       - name: Preservar retrato do Transferegov
         run: >-

@@ -1060,7 +1060,7 @@ try {
   `);
   assert.deepEqual(seeded.rows[0], {
     sources: 12,
-    endpoints: 23,
+    endpoints: 24,
     private_buckets: 1,
   });
 
@@ -1097,6 +1097,7 @@ try {
     join source.source_endpoints as endpoint
       on endpoint.data_source_id = source.id
     where source.slug = 'transferegov-downloads'
+    order by endpoint.slug
   `);
   assert.deepEqual(transferegovDownloadCatalog.rows, [
     {
@@ -1116,6 +1117,15 @@ try {
         "siconv_proposta.zip",
         "siconv_termo_aditivo.zip",
       ],
+    },
+    {
+      source_slug: "transferegov-downloads",
+      endpoint_slug: "propostas-historicas",
+      base_url:
+        "https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_proposta.zip",
+      endpoint_kind: "file",
+      parser_version: "transferegov-historical-proposals/1.0.0",
+      required_files: null,
     },
   ]);
 

@@ -40,6 +40,27 @@ Conjuntos selecionados no primeiro contrato:
 Tamanhos são metadados do retrato observado e podem mudar. Eles não devem
 ser codificados como limite ou expectativa permanente.
 
+## Validação do arquivo de propostas em 12/08/2026
+
+O endereço operacional do arquivo é o proxy oficial
+`https://api-publica.transferegov.gestao.gov.br/downloads/dadosgov/siconv_proposta.zip`.
+A URL do blob declarada no catálogo é preservada como proveniência, mas não é
+usada diretamente para download porque respondeu com acesso negado no ensaio.
+
+O arquivo observado tinha:
+
+- 205.017.763 bytes compactados;
+- SHA-256 `5947f8ef1457b29e938e017dfb7a05076b0c5301c21296d4eefef1ac44700989`;
+- ETag `0x8DEF8636FB12944`;
+- membro único `siconv_proposta.csv` com 36 colunas;
+- 1.155.782 linhas nacionais;
+- 199 propostas com `COD_MUNIC_IBGE=2903201` entre 2008 e 2026;
+- 69 propostas no recorte inicial de 2021 a 2026.
+
+Esses números descrevem somente a versão observada e não são codificados como
+totais permanentes. Cada execução confere novamente tamanho, ETag, schema,
+integridade ZIP, código IBGE e período antes de fechar a cobertura.
+
 ## Decisões desta fatia
 
 - cadastrar `transferegov-downloads` separadamente de
@@ -49,14 +70,20 @@ ser codificados como limite ou expectativa permanente.
 - exigir todos os oito arquivos e `NextMarker` vazio para cobertura completa;
 - guardar somente cabeçalhos HTTP em allowlist;
 - registrar execução antes da autenticação e da primeira requisição;
-- não baixar ZIPs, calcular valores ou publicar linhas nesta fatia.
+- baixar o ZIP somente por acionamento manual explícito na primeira validação;
+- manter o ZIP nacional integral no armazenamento privado e fragmentá-lo pelo
+  mecanismo imutável já existente quando ultrapassar o limite do objeto;
+- excluir da projeção normalizada agência, conta bancária, CEP, endereço e
+  bairro do proponente;
+- rejeitar identificador de proponente com formato de CPF no recorte municipal;
+- não calcular, agregar ou publicar valores nesta fatia.
 
 ## Próxima menor fatia
 
-Baixar `siconv_proposta.zip` em fluxo com limite, hash e validação ZIP/CSV;
-descobrir seu schema por fixture; filtrar por código IBGE/CNPJ oficial de
-Barreiras; preservar a evidência da versão do ZIP e as linhas municipais; e
-comparar a cobertura encontrada com a API atual sem somar registros ainda.
+Executar o coletor controlado em produção e conferir o artefato, os 69 registros
+esperados para a versão observada e a partição anual. Depois, processar
+`siconv_emenda.zip` para ligar número, autoria e valor às propostas sem somar
+estágios nem atribuir autoria por mera semelhança de nome.
 
 ## Validação de produção em 13/08/2026
 

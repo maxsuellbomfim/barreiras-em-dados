@@ -75,3 +75,22 @@ test("Transferegov classifica cada ano desde 2021 sem entrada livre no shell", (
   assert.doesNotMatch(transferegovJob, /--year-from "\$\{\{/);
   assert.doesNotMatch(transferegovJob, /--year-to "\$\{\{/);
 });
+
+test("arquivo histórico de propostas exige opt-in e recorta Barreiras desde 2021", () => {
+  const transferegovJob = workflow.slice(workflow.indexOf("  transferegov:"));
+
+  assert.match(workflow, /include_transferegov_historical_proposals:/);
+  assert.match(
+    transferegovJob,
+    /if: github\.event_name == 'workflow_dispatch' && inputs\.include_transferegov_historical_proposals == true/,
+  );
+  assert.match(
+    transferegovJob,
+    /barreiras_collectors\.commands\.collect_transferegov_historical_proposals/,
+  );
+  assert.match(transferegovJob, /--year-from "2021"/);
+  assert.doesNotMatch(
+    transferegovJob,
+    /collect_transferegov_historical_proposals[\s\S]*--year-from "\$\{\{/,
+  );
+});

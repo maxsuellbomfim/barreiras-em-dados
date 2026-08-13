@@ -1428,6 +1428,9 @@ class PostgresCollectionRepository:
         run_id: str,
     ) -> str:
         headers = batch.page.response_headers
+        artifact_kind = getattr(batch.page, "artifact_kind", "http_response")
+        if artifact_kind not in {"http_response", "archive"}:
+            raise PersistenceContractError("Tipo de artefato bruto não permitido.")
         metadata = {
             "schema_name": batch.page.schema_name,
             "schema_version": batch.page.schema_version,
@@ -1435,6 +1438,18 @@ class PostgresCollectionRepository:
             "final_url": batch.page.final_url,
             "cursor": batch.page.cursor,
         }
+        if artifact_kind == "archive":
+            metadata.update(
+                {
+                    "catalog_blob_url": getattr(
+                        batch.page, "catalog_blob_url", None
+                    ),
+                    "catalog_etag": getattr(batch.page, "catalog_etag", None),
+                    "catalog_last_modified": getattr(
+                        batch.page, "catalog_last_modified", None
+                    ),
+                }
+            )
         row = connection.execute(
             """
             insert into raw.raw_artifacts (
@@ -1456,7 +1471,7 @@ class PostgresCollectionRepository:
               metadata
             )
             values (
-              %s::uuid, %s::uuid, %s, 'http_response', %s, %s::timestamptz,
+              %s::uuid, %s::uuid, %s, %s, %s, %s::timestamptz,
               %s, %s, %s, %s, %s, %s, %s, 'not-applicable',
               %s::jsonb, %s::jsonb
             )
@@ -1467,6 +1482,7 @@ class PostgresCollectionRepository:
                 run_id,
                 endpoint_id,
                 batch.artifact_idempotency_key,
+                artifact_kind,
                 batch.page.final_url,
                 batch.page.received_at,
                 headers.get("etag"),

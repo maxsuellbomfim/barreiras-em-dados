@@ -63,3 +63,43 @@ devolvida por este endpoint para o filtro e a data consultados”. A cobertura
 histórica será reconstruída separadamente pelos arquivos oficiais de dados
 abertos do Transferegov. Até que os CSVs sejam baixados, validados e filtrados
 por Barreiras, eles não alteram ranking, totais nem estados financeiros.
+
+## Cobertura histórica federal
+
+O arquivo nacional `siconv_proposta.zip` é preservado integralmente em área
+privada e validado contra o catálogo oficial por tamanho e ETag. A projeção
+normalizada mantém apenas propostas cujo `COD_MUNIC_IBGE` seja exatamente
+`2903201` e exclui dados bancários, endereço e CEP. Proposta não é emenda: esses
+registros ampliam a cobertura territorial, mas não entram no ranking de autoria
+até o relacionamento com `siconv_emenda.zip` ser comprovado.
+
+## Emendas estaduais da Bahia — próxima trilha
+
+Emendas estaduais serão coletadas e publicadas separadamente das federais. A
+fonte inicial será o conjunto oficial **Emendas Parlamentares Estaduais** do
+Portal de Dados Abertos da Bahia, alimentado pelo FIPLAN e atualizado
+diariamente. O Portal Transparência Bahia será usado como fonte complementar de
+execução orçamentária e financeira.
+
+O recorte territorial buscará Barreiras pelo identificador municipal e pelos
+campos estruturados de localidade/beneficiário da própria fonte. Cada registro
+deverá preservar, quando publicados:
+
+- deputado estadual autor e identificador oficial;
+- exercício, número da emenda e objeto;
+- órgão executor, beneficiário e município;
+- valor indicado, empenhado, liquidado e pago como estágios separados;
+- restos a pagar, cancelamentos e impedimentos, sem convertê-los em zero;
+- URL, data da coleta, hash e versão exata do arquivo de origem.
+
+O ranking mostrará primeiro fatos comparáveis: valor indicado e valor
+efetivamente pago a Barreiras em colunas distintas. Uma emenda anunciada ou
+indicada não será descrita como dinheiro recebido. Ausência na base estadual
+será exibida como “não encontrada na fonte consultada”, nunca como ausência
+definitiva ou falta de trabalho parlamentar.
+
+Fontes oficiais iniciais:
+
+- https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares
+- https://www.transparencia.ba.gov.br/
+- https://www.transparencia.ba.gov.br/MapaSite/
