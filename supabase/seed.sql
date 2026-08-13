@@ -396,8 +396,9 @@ values (
   104857600,
   array[
     'application/json',
-    'application/pdf',
     'application/octet-stream',
+    'application/pdf',
+    'application/xml',
     'text/html',
     'text/plain'
   ]::text[]

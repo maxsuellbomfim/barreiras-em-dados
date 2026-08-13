@@ -1064,6 +1064,27 @@ try {
     private_buckets: 1,
   });
 
+  const rawArtifactBucket = await database.query(`
+    select
+      public,
+      allowed_mime_types
+    from storage.buckets
+    where id = 'raw-artifacts'
+  `);
+  assert.deepEqual(rawArtifactBucket.rows, [
+    {
+      public: false,
+      allowed_mime_types: [
+        "application/json",
+        "application/octet-stream",
+        "application/pdf",
+        "application/xml",
+        "text/html",
+        "text/plain",
+      ],
+    },
+  ]);
+
   const transferegovDownloadCatalog = await database.query(`
     select
       source.slug as source_slug,
