@@ -143,6 +143,17 @@ export type HistoricalParliamentaryAmendmentRanking = Readonly<{
   methodologyVersion: "historical-parliamentary-amendment-ranking/1.0.0";
 }>;
 
+export type FederalTransferScopeSummary = Readonly<{
+  candidateProposalCount: number;
+  includedProposalCount: number;
+  excludedRegionalProposalCount: number;
+  candidateAmendmentCount: number;
+  includedAmendmentCount: number;
+  excludedRegionalAmendmentCount: number;
+  excludedRegionalDestinationAmount: string;
+  methodologyVersion: "federal-transfer-territorial-scope/1.0.0";
+}>;
+
 export type ParliamentaryTransfersResult =
   | Readonly<{
       state: "available";
@@ -154,6 +165,7 @@ export type ParliamentaryTransfersResult =
       historicalAmendments: readonly HistoricalParliamentaryAmendment[] | null;
       historicalPeople: readonly HistoricalParliamentaryAmendmentRanking[] | null;
       historicalCollectives: readonly HistoricalParliamentaryAmendmentRanking[] | null;
+      scopeSummary: FederalTransferScopeSummary | null;
     }>
   | Readonly<{ state: "unavailable" }>;
 
@@ -568,6 +580,39 @@ function parseHistoricalRankingRows(
     : parsed as HistoricalParliamentaryAmendmentRanking[];
 }
 
+function parseScopeSummary(rows: unknown[]): FederalTransferScopeSummary | null {
+  if (rows.length !== 1 || typeof rows[0] !== "object" || rows[0] === null) return null;
+  const row = rows[0] as Record<string, unknown>;
+  const candidateProposalCount = integer(row.candidate_proposal_count);
+  const includedProposalCount = integer(row.included_proposal_count);
+  const excludedRegionalProposalCount = integer(row.excluded_regional_proposal_count);
+  const candidateAmendmentCount = integer(row.candidate_amendment_count);
+  const includedAmendmentCount = integer(row.included_amendment_count);
+  const excludedRegionalAmendmentCount = integer(row.excluded_regional_amendment_count);
+  const excludedRegionalDestinationAmount = decimal(
+    row.excluded_regional_destination_amount,
+  );
+  if (
+    candidateProposalCount === null || includedProposalCount === null ||
+    excludedRegionalProposalCount === null || candidateAmendmentCount === null ||
+    includedAmendmentCount === null || excludedRegionalAmendmentCount === null ||
+    excludedRegionalDestinationAmount === null ||
+    includedProposalCount + excludedRegionalProposalCount !== candidateProposalCount ||
+    includedAmendmentCount + excludedRegionalAmendmentCount !== candidateAmendmentCount ||
+    row.methodology_version !== "federal-transfer-territorial-scope/1.0.0"
+  ) return null;
+  return {
+    candidateProposalCount,
+    includedProposalCount,
+    excludedRegionalProposalCount,
+    candidateAmendmentCount,
+    includedAmendmentCount,
+    excludedRegionalAmendmentCount,
+    excludedRegionalDestinationAmount,
+    methodologyVersion: "federal-transfer-territorial-scope/1.0.0",
+  };
+}
+
 type RpcRequest = Readonly<{
   headers: Readonly<Record<string, string>>;
   body: string;
@@ -631,6 +676,7 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       historicalAmendmentRows,
       historicalPeopleRows,
       historicalCollectiveRows,
+      scopeSummaryRows,
     ] = await Promise.all([
       callRpc("get_public_parliamentary_transfer_ranking", {
         author_scope: "person",
@@ -670,6 +716,7 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
         fiscal_year_filter: null,
         page_size: 50,
       }),
+      callRpc("get_public_federal_transfer_scope_summary", {}),
     ]);
     if (!peopleRows || !collectiveRows || !transferRows) return { state: "unavailable" };
 
@@ -693,6 +740,9 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
     const historicalCollectives = historicalCollectiveRows === null
       ? null
       : parseHistoricalRankingRows(historicalCollectiveRows);
+    const scopeSummary = scopeSummaryRows === null
+      ? null
+      : parseScopeSummary(scopeSummaryRows);
     return {
       state: "available",
       people,
@@ -703,6 +753,7 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       historicalAmendments,
       historicalPeople,
       historicalCollectives,
+      scopeSummary,
     };
   } catch {
     return { state: "unavailable" };

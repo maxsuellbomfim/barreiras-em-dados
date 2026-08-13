@@ -68,14 +68,23 @@ própria, mas não altera ranking, totais de emendas nem estados financeiros.
 
 O arquivo nacional `siconv_proposta.zip` é preservado integralmente em área
 privada e validado contra o catálogo oficial por tamanho e ETag. A projeção
-normalizada mantém apenas propostas cujo `COD_MUNIC_IBGE` seja exatamente
-`2903201` e exclui CNPJ, dados bancários, endereço e CEP da API pública. Cada
+normalizada forma o conjunto candidato com propostas cujo `COD_MUNIC_IBGE` seja
+exatamente `2903201` e exclui CNPJ, dados bancários, endereço e CEP da API pública. Cada
 registro publicado conserva número, ano, situação, objeto, órgão, valores
 propostos, URL e hash do ZIP preservado. Proposta não é emenda: esses registros
 ampliam a cobertura territorial. O relacionamento com `siconv_emenda.zip` usa
 somente `ID_PROPOSTA`, nunca semelhança de nomes ou de objetos. O recorte
-inicial comprovou nove linhas de emendas ligadas a oito propostas; os demais
+inicial encontrou nove linhas candidatas ligadas a oito propostas; os demais
 registros continuam sem autoria histórica atribuída por essa fonte.
+
+O município cadastrado para o proponente não basta para atribuir a Barreiras um
+projeto de consórcio regional. A publicação considera confirmado quando o objeto
+menciona Barreiras ou quando o recebedor local não é uma entidade regional.
+Consórcios sem destino municipal expresso permanecem preservados, aparecem no
+diagnóstico de exclusão e não entram em totais ou rankings. Na auditoria de
+13/08/2026, esse controle manteve 62 de 69 propostas e três de nove linhas de
+emenda; seis linhas regionais, inclusive objetos que citam Barra/BA, deixaram
+de ser atribuídas a Barreiras.
 
 O arquivo de emendas é preservado integralmente em área privada. A projeção
 normalizada separa número da emenda, programa, autor publicado, tipo de autoria,

@@ -4,6 +4,7 @@ import {
   getPublicParliamentaryTransfers,
   parliamentaryTransferAuthorAnchor,
   type FederalTransferProposal,
+  type FederalTransferScopeSummary,
   type HistoricalParliamentaryAmendment,
   type HistoricalParliamentaryAmendmentRanking,
   type ParliamentaryTransfer,
@@ -293,10 +294,12 @@ function HistoricalAmendmentsPanel({
   amendments,
   people,
   collectives,
+  scopeSummary,
 }: Readonly<{
   amendments: readonly HistoricalParliamentaryAmendment[] | null;
   people: readonly HistoricalParliamentaryAmendmentRanking[] | null;
   collectives: readonly HistoricalParliamentaryAmendmentRanking[] | null;
+  scopeSummary: FederalTransferScopeSummary | null;
 }>) {
   return (
     <section className="transfer-catalog" aria-labelledby="historical-amendments-title">
@@ -322,6 +325,22 @@ function HistoricalAmendmentsPanel({
           permanece separada da API atual para impedir dupla contagem.
         </p>
       </aside>
+
+      {scopeSummary && scopeSummary.excludedRegionalProposalCount > 0 ? (
+        <aside className="transfer-reading-guide" aria-label="Registros regionais excluídos">
+          <strong>
+            {scopeSummary.excludedRegionalAmendmentCount.toLocaleString("pt-BR")} registro(s)
+            regional(is) não atribuídos a Barreiras
+          </strong>
+          <p>
+            A fonte associa {scopeSummary.excludedRegionalProposalCount.toLocaleString("pt-BR")} proposta(s)
+            a um consórcio regional, mas não comprova que o objeto foi executado em
+            Barreiras. Por isso, {formatBrlDecimal(
+              scopeSummary.excludedRegionalDestinationAmount,
+            )} permanecem preservados para auditoria, mas não entram neste ranking.
+          </p>
+        </aside>
+      ) : null}
 
       {people !== null ? (
         <section className="transfer-ranking" aria-labelledby="historical-people-title">
@@ -693,6 +712,7 @@ export default async function ParliamentaryResourcesPage() {
               amendments={result.historicalAmendments}
               people={result.historicalPeople}
               collectives={result.historicalCollectives}
+              scopeSummary={result.scopeSummary}
             />
 
             <HistoricalProposalsPanel proposals={result.historicalProposals} />

@@ -291,7 +291,7 @@ O catálogo oficial dos arquivos históricos de transferências discricionárias
 e legais passa a ser preservado diariamente como uma fonte separada. O
 manifesto monitora oito conjuntos essenciais e interrompe a cobertura quando
 há paginação pendente, arquivo ausente ou URL fora do contêiner oficial. A
-primeira projeção histórica de `siconv_proposta.zip` filtra Barreiras pelo código
+primeira projeção histórica de `siconv_proposta.zip` forma o conjunto candidato pelo código
 IBGE oficial, preserva o ZIP nacional em área privada e exclui dados bancários e
 endereços dos registros municipais. O catálogo público mostra essas propostas
 separadas por ano, com situação, objeto e valores propostos, deixando explícito
@@ -300,7 +300,10 @@ que cadastro não prova transferência ou pagamento. O coletor de
 proposta, preserva o ZIP privado e minimiza o identificador do beneficiário.
 A projeção pública histórica já exibe essas emendas e um ranking próprio,
 mantendo autoria coletiva separada e sem chamar valor indicado de dinheiro
-pago. A próxima menor fatia federal é reconciliar, por chaves oficiais, a série
+pago. O recorte territorial estrito também impede que projetos de consórcio
+destinados a Barra/BA ou sem município comprovado sejam atribuídos a Barreiras;
+esses registros continuam preservados e aparecem apenas como exclusões
+metodológicas. A próxima menor fatia federal é reconciliar, por chaves oficiais, a série
 histórica e a API corrente; somente depois disso haverá ranking federal
 consolidado sem risco de dupla contagem.
 
