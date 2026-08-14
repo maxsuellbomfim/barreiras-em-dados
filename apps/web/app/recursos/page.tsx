@@ -15,6 +15,7 @@ import {
   type ParliamentaryTransferRanking,
   type ReconciledParliamentaryTransferRanking,
 } from "../../lib/parliamentary-transfers";
+import { buildCurrentTransferCitizenSummary } from "../../lib/parliamentary-transfer-citizen-summary.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
 
 export const revalidate = 300;
@@ -84,11 +85,12 @@ function CoveragePanel({
   rows,
 }: Readonly<{ rows: readonly ParliamentaryTransferCoverage[] | null }>) {
   return (
-    <section className="transfer-coverage" aria-labelledby="transfer-coverage-title">
+    <details className="transfer-methodology transfer-coverage">
+      <summary>Ver quais anos e fontes já foram conferidos</summary>
       <div className="transfer-section-heading">
         <div>
           <span className="eyebrow">Cobertura da API atual</span>
-          <h2 id="transfer-coverage-title">Quais anos já conferimos?</h2>
+          <h2>Quais anos já conferimos?</h2>
         </div>
         <p>O estado é calculado por código para cada ano, de forma independente.</p>
       </div>
@@ -117,6 +119,102 @@ function CoveragePanel({
         oficiais. Por isso, o arquivo histórico federal aparece em uma seção
         separada abaixo, sem transformar dado não coletado em zero.
       </p>
+    </details>
+  );
+}
+
+function CurrentFederalTransferPanel({
+  transfers,
+}: Readonly<{ transfers: readonly ParliamentaryTransfer[] }>) {
+  const summary = buildCurrentTransferCitizenSummary(transfers);
+  if (summary === null) {
+    return (
+      <section className="transfer-current-overview" aria-labelledby="current-federal-title">
+        <div className="transfer-section-heading">
+          <div>
+            <span className="eyebrow">API federal atual</span>
+            <h2 id="current-federal-title">Nenhuma emenda atual pronta para exibição</h2>
+          </div>
+        </div>
+        <p className="transfer-empty">
+          Isso não significa valor zero nem ausência de recursos. A cobertura da
+          fonte e o acervo histórico podem ser conferidos logo abaixo.
+        </p>
+      </section>
+    );
+  }
+
+  const currentTransfers = transfers.filter(
+    (transfer) => transfer.fiscalYear === summary.fiscalYear,
+  );
+  const paidCopy = summary.paidAmount === null
+    ? "Nenhum pagamento foi localizado nos endpoints consultados."
+    : `${formatBrlDecimal(summary.paidAmount)} chegaram ao estágio de pagamento confirmado em ${summary.paymentFoundCount.toLocaleString("pt-BR")} emenda(s).`;
+
+  return (
+    <section className="transfer-current-overview" aria-labelledby="current-federal-title">
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Resposta rápida · API federal atual</span>
+          <h2 id="current-federal-title">
+            {summary.fiscalYear}: {formatBrlDecimal(summary.destinationAmount)} destinados
+          </h2>
+        </div>
+        <p>{summary.transferCount.toLocaleString("pt-BR")} emenda(s) encontrada(s)</p>
+      </div>
+
+      <p className="transfer-current-answer">
+        {paidCopy} Destinar, empenhar, pagar e executar o objeto são etapas
+        diferentes; por isso, o painel não mistura esses valores.
+      </p>
+
+      <dl className="transfer-current-summary">
+        <div data-tone="destination">
+          <dt>Destinado nas emendas</dt>
+          <dd>{formatBrlDecimal(summary.destinationAmount)}</dd>
+          <span>Valor oficial atribuído às emendas encontradas.</span>
+        </div>
+        <div data-tone="commitment">
+          <dt>Empenho localizado</dt>
+          <dd>
+            {summary.committedAmount === null
+              ? "não encontrado"
+              : formatBrlDecimal(summary.committedAmount)}
+          </dd>
+          <span>
+            Encontrado em {summary.commitmentFoundCount.toLocaleString("pt-BR")} de {summary.transferCount.toLocaleString("pt-BR")} emenda(s).
+          </span>
+        </div>
+        <div data-tone="paid">
+          <dt>Pagamento confirmado</dt>
+          <dd>
+            {summary.paidAmount === null
+              ? "não encontrado"
+              : formatBrlDecimal(summary.paidAmount)}
+          </dd>
+          <span>Somente pagamentos marcados como pagos na fonte oficial.</span>
+        </div>
+        <div data-tone="pending">
+          <dt>Sem pagamento localizado</dt>
+          <dd>{formatBrlDecimal(summary.destinationWithoutPaymentAmount)}</dd>
+          <span>
+            Valor destinado em {summary.paymentNotFoundCount.toLocaleString("pt-BR")} emenda(s) sem pagamento localizado. Não é dívida nem perda.
+          </span>
+        </div>
+      </dl>
+
+      <div className="transfer-section-heading transfer-current-records-heading">
+        <div>
+          <span className="eyebrow">Quem destinou e para quê</span>
+          <h2>Emenda por emenda</h2>
+        </div>
+        <p>Autor, objeto, beneficiário e documento oficial.</p>
+      </div>
+      <div className="transfer-card-list">
+        {currentTransfers.map((transfer) => (
+          <TransferCard transfer={transfer} key={transfer.externalTransferKey} />
+        ))}
+      </div>
     </section>
   );
 }
@@ -987,8 +1085,6 @@ export default async function ParliamentaryResourcesPage() {
           </p>
         </aside>
 
-        {result.state === "available" ? <CoveragePanel rows={result.coverage} /> : null}
-
         {result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
             <div>
@@ -998,6 +1094,10 @@ export default async function ParliamentaryResourcesPage() {
           </div>
         ) : (
           <>
+            <CurrentFederalTransferPanel transfers={result.transfers} />
+
+            <CoveragePanel rows={result.coverage} />
+
             <StateLoaPanel
               amendments={result.stateLoaAmendments}
               ranking={result.stateLoaRanking}
@@ -1050,20 +1150,6 @@ export default async function ParliamentaryResourcesPage() {
             </section>
             ) : null}
 
-            <section className="transfer-catalog" aria-labelledby="transfer-catalog-title">
-              <div className="transfer-section-heading">
-                <div>
-                  <span className="eyebrow">Emenda por emenda</span>
-                  <h2 id="transfer-catalog-title">O caminho comprovado do recurso</h2>
-                </div>
-                <p>{result.transfers.length.toLocaleString("pt-BR")} registro(s) no recorte atual</p>
-              </div>
-              <div className="transfer-card-list">
-                {result.transfers.map((transfer) => (
-                  <TransferCard transfer={transfer} key={transfer.externalTransferKey} />
-                ))}
-              </div>
-            </section>
           </>
         )}
 
