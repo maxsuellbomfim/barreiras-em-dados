@@ -154,18 +154,19 @@ export default function LegislatureTransferRankings({
   return (
     <section
       id="emendas-por-legislatura"
-      className="representation-block representation-legislature-rankings"
+      className="transfer-legislature-rankings"
       aria-labelledby="legislature-rankings-title"
     >
       <div className="section-heading">
-        <span className="eyebrow">Recursos destinados ao município</span>
+        <span className="eyebrow">Comparação por mandato</span>
         <h2 id="legislature-rankings-title">
-          Recursos para Barreiras por parlamentar e legislatura
+          Quem destinou mais recursos a Barreiras em cada legislatura?
         </h2>
         <p>
-          Estadual e federal aparecem separados. A ordem usa o valor oficial
-          destinado ou autorizado; pagamento é outro estágio e nunca altera a
-          posição deste ranking.
+          Compare parlamentares sem misturar esferas ou mandatos. A ordem usa o
+          valor oficial destinado pela fonte federal ou autorizado na LOA da
+          Bahia; empenho, liquidação e pagamento aparecem separados e nunca
+          alteram a posição.
         </p>
       </div>
 
@@ -249,7 +250,13 @@ export default function LegislatureTransferRankings({
                     <a href={group.officialSourceUrl} target="_blank" rel="noreferrer">
                       Fonte oficial da legislatura →
                     </a>
-                    <a href="/recursos">Ver emendas, valores e documentos →</a>
+                    <a
+                      href={group.sphere === "state"
+                        ? "/recursos?origem=estadual"
+                        : "/recursos?origem=federal-historico"}
+                    >
+                      Explorar a fonte e os demais registros →
+                    </a>
                   </div>
                 </div>
               </details>

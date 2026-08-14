@@ -29,6 +29,11 @@ import {
   resolveStateLoaYear,
   stateLoaYears,
 } from "../../lib/state-loa-year-filter.mjs";
+import { getPublicParliamentaryLegislatureRankings } from
+  "../../lib/legislature-transfer-rankings";
+import { getPublicParliamentaryLegislatureCoverage } from
+  "../../lib/legislature-transfer-coverage";
+import LegislatureTransferRankings from "./legislature-transfer-rankings";
 
 export const revalidate = 300;
 
@@ -1317,9 +1322,29 @@ export default async function ParliamentaryResourcesPage({
     sourceSelection.showState ? params.ano : undefined,
     latestStateFiscalYear,
   ) ?? latestStateFiscalYear;
-  const result = await getPublicParliamentaryTransfers({
-    stateFiscalYear: selectedStateFiscalYear,
-  });
+  const [
+    result,
+    legislatureRankingsResult,
+    legislatureCoverageResult,
+  ] = await Promise.all([
+    getPublicParliamentaryTransfers({
+      stateFiscalYear: selectedStateFiscalYear,
+    }),
+    sourceSelection.showLegislatures
+      ? getPublicParliamentaryLegislatureRankings()
+      : Promise.resolve({ state: "unavailable" as const }),
+    sourceSelection.showLegislatures
+      ? getPublicParliamentaryLegislatureCoverage()
+      : Promise.resolve({ state: "unavailable" as const }),
+  ]);
+  const legislatureRankingGroups =
+    legislatureRankingsResult.state === "available"
+      ? legislatureRankingsResult.groups
+      : null;
+  const legislatureCoverage =
+    legislatureCoverageResult.state === "available"
+      ? legislatureCoverageResult.rows
+      : null;
   const selectedFiscalYear = result.state === "available" &&
       sourceSelection.showCurrentFederal
     ? resolveCurrentFederalTransferYear(params.ano, result.coverage)
@@ -1383,6 +1408,13 @@ export default async function ParliamentaryResourcesPage({
 
         <nav className="transfer-source-selector" aria-label="Escolher origem dos recursos">
           <a
+            href="/recursos?origem=legislaturas#emendas-por-legislatura"
+            aria-current={sourceSelection.source === "legislaturas" ? "page" : undefined}
+          >
+            <strong>Por legislatura</strong>
+            <span>Compare parlamentares estaduais e federais sem somar mandatos diferentes.</span>
+          </a>
+          <a
             href="/recursos?origem=federal-atual"
             aria-current={sourceSelection.source === "federal-atual" ? "page" : undefined}
           >
@@ -1405,7 +1437,12 @@ export default async function ParliamentaryResourcesPage({
           </a>
         </nav>
 
-        {result.state === "unavailable" ? (
+        {sourceSelection.showLegislatures ? (
+          <LegislatureTransferRankings
+            coverage={legislatureCoverage}
+            groups={legislatureRankingGroups}
+          />
+        ) : result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
             <div>
               <strong>Consulta temporariamente indisponível</strong>

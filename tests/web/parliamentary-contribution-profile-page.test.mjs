@@ -7,7 +7,7 @@ const clientPath = new URL(
   import.meta.url,
 );
 const rankingPath = new URL(
-  "../../apps/web/app/representantes/legislature-transfer-rankings.tsx",
+  "../../apps/web/app/recursos/legislature-transfer-rankings.tsx",
   import.meta.url,
 );
 const pagePath = new URL(
@@ -38,4 +38,13 @@ test("explains missing stages as unavailable instead of zero", async () => {
   assert.match(source, /não publicado neste recorte federal/u);
   assert.match(source, /nunca é convertido em R\$ 0,00/u);
   assert.match(source, /valor destinado ou autorizado não\s+significa dinheiro pago/u);
+});
+
+test("returns from an evidence page to the ranking in Recursos", async () => {
+  const source = await readFile(pagePath, "utf8");
+  assert.match(
+    source,
+    /href="\/recursos\?origem=legislaturas#emendas-por-legislatura"/u,
+  );
+  assert.doesNotMatch(source, /href="\/representantes#emendas-por-legislatura"/u);
 });

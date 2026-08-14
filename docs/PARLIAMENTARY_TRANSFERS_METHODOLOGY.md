@@ -332,11 +332,16 @@ por isso, não entra integralmente no recorte territorial de Barreiras.
 
 ## Ranking por legislatura e esfera
 
-A página de representantes também publica até dez autorias individuais encontradas por
+A página de Recursos publica até dez autorias individuais encontradas por
 legislatura, sempre em painéis separados para a Câmara dos Deputados e para a
 Assembleia Legislativa da Bahia. O agrupamento usa períodos oficiais registrados
 em `political.legislative_terms`; a projeção pública é a RPC
 `api.get_public_parliamentary_legislature_rankings`.
+
+A página Quem decide conserva somente o resumo individual da legislatura atual
+nos perfis vinculados por identificador oficial e conduz a comparação completa
+para Recursos. Assim, identidade e mandato não se confundem com a análise do
+dinheiro destinado ao município.
 
 As métricas não são intercambiáveis:
 

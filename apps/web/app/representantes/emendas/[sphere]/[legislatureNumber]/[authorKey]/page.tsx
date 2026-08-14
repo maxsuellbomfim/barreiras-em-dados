@@ -201,7 +201,7 @@ export default async function ParliamentaryContributionProfilePage({
       <main>
         <header className="site-header">
           <div className="nav-shell">
-            <a className="brand" href="/representantes#emendas-por-legislatura">
+            <a className="brand" href="/recursos?origem=legislaturas#emendas-por-legislatura">
               <span>← Emendas por legislatura</span>
             </a>
           </div>
@@ -232,7 +232,7 @@ export default async function ParliamentaryContributionProfilePage({
     <main>
       <header className="site-header">
         <div className="nav-shell">
-          <a className="brand" href="/representantes#emendas-por-legislatura">
+          <a className="brand" href="/recursos?origem=legislaturas#emendas-por-legislatura">
             <span>← Emendas por legislatura</span>
           </a>
           <nav className="nav-links" aria-label="Páginas públicas">
