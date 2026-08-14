@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from decimal import Decimal
 
 from barreiras_normalization.bahia_state_execution import StateExecutionAggregate
@@ -151,6 +152,40 @@ class BahiaStateExecutionRepositoryTests(unittest.TestCase):
             '"territorial_scope":"not_available_in_execution_archive"',
             params[4],
         )
+
+    def test_batches_multiple_results_in_one_database_statement(self) -> None:
+        connection = _Connection()
+        repository = self._repository(connection)
+        batch = _batch()
+        first = batch.aggregates[0]
+        second = replace(
+            first,
+            execution_code="2026.3.11.11101.422.3334.500069.6",
+            evidence_text="segunda linha oficial",
+            evidence_sha256="d" * 64,
+        )
+
+        result = repository.persist_extraction(
+            replace(batch, aggregates=(first, second))
+        )
+
+        result_queries = [
+            (query, params)
+            for query, params in connection.queries
+            if "insert into raw.extraction_results" in query
+        ]
+        self.assertEqual(result.results_inserted, 2)
+        self.assertEqual(len(result_queries), 1)
+        query, params = result_queries[0]
+        self.assertIn("jsonb_array_elements", query)
+        assert params is not None
+        payload_param = next(
+            value
+            for value in params
+            if isinstance(value, str) and value.startswith("[")
+        )
+        self.assertIn('"evidence_sha256":"' + "b" * 64 + '"', payload_param)
+        self.assertIn('"evidence_sha256":"' + "d" * 64 + '"', payload_param)
 
     def test_existing_successful_job_is_idempotent(self) -> None:
         connection = _Connection()

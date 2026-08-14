@@ -134,32 +134,34 @@ class BahiaStateExecutionRepository:
                 if job is None:
                     return StateExecutionPersistResult(False, 0)
 
-                inserted = 0
-                for aggregate in batch.aggregates:
-                    connection.execute(
-                        """
-                        insert into raw.extraction_results (
-                          extraction_job_id, candidate_type,
-                          extractor_version, validator_version,
-                          result_payload, confidence,
-                          validation_status, validation_errors
-                        )
-                        values (
-                          %s::uuid, %s, %s, %s, %s::jsonb,
-                          null, 'valid', '[]'::jsonb
-                        )
-                        """,
-                        (
-                            str(job["id"]),
-                            "bahia_state_execution_aggregate",
-                            batch.extractor_version,
-                            batch.validator_version,
-                            canonical_json(
-                                execution_payload(aggregate, batch.artifact)
-                            ),
-                        ),
+                payloads = canonical_json(
+                    [
+                        execution_payload(aggregate, batch.artifact)
+                        for aggregate in batch.aggregates
+                    ]
+                )
+                connection.execute(
+                    """
+                    insert into raw.extraction_results (
+                      extraction_job_id, candidate_type,
+                      extractor_version, validator_version,
+                      result_payload, confidence,
+                      validation_status, validation_errors
                     )
-                    inserted += 1
+                    select
+                      %s::uuid, %s, %s, %s, payload.value,
+                      null, 'valid', '[]'::jsonb
+                    from jsonb_array_elements(%s::jsonb) as payload(value)
+                    """,
+                    (
+                        str(job["id"]),
+                        "bahia_state_execution_aggregate",
+                        batch.extractor_version,
+                        batch.validator_version,
+                        payloads,
+                    ),
+                )
+                inserted = len(batch.aggregates)
             return StateExecutionPersistResult(True, inserted)
         finally:
             connection.close()

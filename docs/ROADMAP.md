@@ -107,6 +107,17 @@ Escopo:
 - migration fundamental;
 - conector paginado do Querido Diário com fixtures e testes.
 
+Auditoria operacional em 14/08/2026 encontrou 63 autorizações territoriais da
+LOA e nenhum agregado de execução persistido. O ZIP oficial estava íntegro,
+com 5.686 linhas na visão de despesas, mas a persistência fazia uma ida ao banco
+por linha. Uma execução controlada confirmou o gargalo: o download terminou em
+17 segundos e a normalização permaneceu ativa por horas. O processador passa a
+inserir o lote validado em uma única instrução transacional, e o workflow ganha
+o modo `bahia-state-only` para executar e diagnosticar apenas FIPLAN e LOA, sem
+abrir coletas municipais ou federais. O gate de reconciliação permanece fechado
+até o replay produzir agregados e a medição comprovar correspondências oficiais
+únicas.
+
 Gate:
 
 - documentação revisada;
