@@ -175,20 +175,27 @@ variações morfológicas e atos sem o termo esperado.
 
 ## PNCP
 
-O fluxo futuro deve começar por **órgãos/unidades vinculados a Barreiras**, não
-por busca de fornecedor. A identidade do órgão será confirmada por CNPJ e
-unidade; o nome “Barreiras” isolado não é chave confiável.
+O fluxo começa por **órgãos/unidades vinculados a Barreiras**, não por busca de
+fornecedor. A identidade do órgão é confirmada pelo CNPJ `13.654.405/0001-95`,
+ano e sequencial oficiais; o nome “Barreiras” isolado não é chave confiável.
 
 As APIs abertas permitem consultar contratações, atualizações globais, itens,
 resultados e contratos/empenhos. O manual de integração de 2026 também inclui
-histórico e empenhos associados. Antes de implementar:
+histórico e empenhos associados. O coletor:
 
-- congelar fixtures da versão documentada;
-- mapear número de controle PNCP, CNPJ, ano e sequencial;
-- implementar todas as páginas;
-- preservar documentos e histórico de atualização;
-- modelar orçamento sigiloso sem interpretar valor zero como preço real;
-- reconciliar fornecedor por CNPJ mascarado/ausente sem inventar identidade.
+- mantém fixtures da versão documentada;
+- mapeia número de controle PNCP, CNPJ, ano e sequencial;
+- percorre todas as páginas por modalidade;
+- preserva documentos e histórico de atualização;
+- modela orçamento sigiloso sem interpretar valor zero como preço real;
+- reconcilia fornecedor por CNPJ mascarado/ausente sem inventar identidade.
+
+A API de consulta pode devolver `204` para uma modalidade e ficar indisponível
+para outra na mesma janela. Nessa situação, as respostas válidas são preservadas,
+a cobertura fica `partial`, e modalidades falhas ou adiadas permanecem no
+checkpoint para nova tentativa. O cursor retroativo só avança por partições
+`complete` ou `empty` associadas a uma execução controlada bem-sucedida; uma
+resposta auxiliar isolada nunca prova cobertura do período inteiro.
 
 Referências:
 

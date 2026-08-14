@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
+from barreiras_collectors.commands import collect_pncp_contratacoes as command
 from barreiras_collectors.commands.collect_pncp_contratacoes import (
     PncpContratacoesCollectionSummary,
+    _collect_window,
     execute_controlled_pncp_contratacoes,
     resolve_window,
 )
@@ -267,8 +272,71 @@ class ControlledPncpContratacoesTests(unittest.TestCase):
         self.assertEqual(completed["outcome"].value, "partial")
         self.assertEqual(
             completed["checkpoint"],
-            {"truncated_modalities": [6]},
+            {
+                "truncated_modalities": [6],
+                "failed_modalities": [],
+                "deferred_modalities": [],
+            },
         )
+
+    def test_failed_modality_preserves_other_results_and_marks_partial(self) -> None:
+        requested: list[int] = []
+
+        def fetch_page(**values):
+            modalidade = values["modalidade"]
+            requested.append(modalidade)
+            if modalidade == 2:
+                raise PncpError("fonte indisponivel")
+            return SimpleNamespace(total_paginas=1)
+
+        class ServiceProbe:
+            def persist(self, _page):
+                return SimpleNamespace(inserted_records=1, existing_records=0)
+
+        with (
+            patch.object(command, "CONTRATACAO_MODALIDADES", (1, 2, 3)),
+            patch.object(command, "fetch_contratacoes_page", side_effect=fetch_page),
+        ):
+            summary = _collect_window(
+                service=ServiceProbe(),  # type: ignore[arg-type]
+                since="20260101",
+                until="20260131",
+                logger=logging.getLogger("test-pncp-partial"),
+            )
+
+        self.assertEqual(requested, [1, 2, 3])
+        self.assertEqual(summary.pages, 2)
+        self.assertEqual(summary.inserted_records, 2)
+        self.assertEqual(summary.failed_modalities, (2,))
+        self.assertEqual(summary.deferred_modalities, ())
+        self.assertEqual(summary.outcome.value, "partial")
+
+    def test_consecutive_failures_defer_remaining_modalities(self) -> None:
+        requested: list[int] = []
+
+        def fetch_page(**values):
+            requested.append(values["modalidade"])
+            raise PncpError("fonte indisponivel")
+
+        class ServiceProbe:
+            def persist(self, _page):
+                raise AssertionError("nenhuma pagina deveria ser persistida")
+
+        with (
+            patch.object(command, "CONTRATACAO_MODALIDADES", (1, 2, 3, 4)),
+            patch.object(command, "fetch_contratacoes_page", side_effect=fetch_page),
+        ):
+            summary = _collect_window(
+                service=ServiceProbe(),  # type: ignore[arg-type]
+                since="20260101",
+                until="20260131",
+                logger=logging.getLogger("test-pncp-circuit"),
+            )
+
+        self.assertEqual(requested, [1, 2])
+        self.assertEqual(summary.failed_modalities, (1, 2))
+        self.assertEqual(summary.deferred_modalities, (3, 4))
+        self.assertEqual(summary.outcome.value, "partial")
 
     def test_control_starts_before_external_setup(self) -> None:
         events: list[str] = []

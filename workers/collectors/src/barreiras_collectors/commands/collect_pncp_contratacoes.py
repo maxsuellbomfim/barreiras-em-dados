@@ -17,6 +17,7 @@ from ..collection_control import (
 from ..connectors.pncp import (
     CONTRATACAO_MODALIDADES,
     SOURCE_CODE,
+    PncpError,
     fetch_contratacoes_page,
 )
 from ..logging import log_event
@@ -25,12 +26,15 @@ from ..persistence.service import (
     PNCP_COLLECTOR_VERSION,
     PncpContratacoesPersistenceService,
 )
+from ..resilience import RetryPolicy
 from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import build_authenticated_object_store
 
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 MAX_WINDOW_DAYS = 31
 MAX_PAGES_PER_MODALIDADE = 30
+MAX_CONSECUTIVE_MODALITY_FAILURES = 2
+COLLECTION_RETRY_POLICY = RetryPolicy(max_attempts=2)
 # Barreiras foi validada no PNCP em 2021-07-28; nada existe antes.
 BACKFILL_HORIZON = date(2021, 7, 1)
 
@@ -41,6 +45,8 @@ class PncpContratacoesCollectionSummary:
     inserted_records: int
     existing_records: int
     truncated_modalities: tuple[int, ...]
+    failed_modalities: tuple[int, ...] = ()
+    deferred_modalities: tuple[int, ...] = ()
 
     @property
     def observed_records(self) -> int:
@@ -48,11 +54,23 @@ class PncpContratacoesCollectionSummary:
 
     @property
     def outcome(self) -> CollectionOutcome:
-        if self.truncated_modalities:
+        if (
+            self.truncated_modalities
+            or self.failed_modalities
+            or self.deferred_modalities
+        ):
             return CollectionOutcome.PARTIAL
         if self.observed_records == 0:
             return CollectionOutcome.EMPTY
         return CollectionOutcome.COMPLETE
+
+
+@dataclass(frozen=True)
+class PncpModalityCollectionSummary:
+    pages: int
+    inserted_records: int
+    existing_records: int
+    truncated: bool
 
 
 def execute_controlled_pncp_contratacoes(
@@ -68,12 +86,16 @@ def execute_controlled_pncp_contratacoes(
             observed_records=summary.observed_records,
             checkpoint={
                 "truncated_modalities": list(summary.truncated_modalities),
+                "failed_modalities": list(summary.failed_modalities),
+                "deferred_modalities": list(summary.deferred_modalities),
             },
             metrics={
                 "pages": summary.pages,
                 "inserted_records": summary.inserted_records,
                 "existing_records": summary.existing_records,
                 "truncated_modalities": list(summary.truncated_modalities),
+                "failed_modalities": list(summary.failed_modalities),
+                "deferred_modalities": list(summary.deferred_modalities),
             },
         )
     return summary
@@ -234,38 +256,47 @@ def _collect_window(
     records_inserted = 0
     records_existing = 0
     truncated_modalities: list[int] = []
-    for modalidade in CONTRATACAO_MODALIDADES:
-        pagina = 1
-        while pagina <= MAX_PAGES_PER_MODALIDADE:
-            page = fetch_contratacoes_page(
+    failed_modalities: list[int] = []
+    deferred_modalities: list[int] = []
+    consecutive_failures = 0
+    for index, modalidade in enumerate(CONTRATACAO_MODALIDADES):
+        try:
+            result = _collect_modality(
+                service=service,
                 since=since,
                 until=until,
                 modalidade=modalidade,
-                pagina=pagina,
                 logger=logger,
             )
-            if page is None:
-                break
-            result = service.persist(page)
-            pages_persisted += 1
-            records_inserted += result.inserted_records
-            records_existing += result.existing_records
+        except PncpError as error:
+            failed_modalities.append(modalidade)
+            consecutive_failures += 1
             log_event(
                 logger,
-                logging.INFO,
-                "collector_pncp_page_persisted",
+                logging.WARNING,
+                "collector_pncp_modality_failed",
                 source=SOURCE_CODE,
                 modalidade=modalidade,
-                pagina=pagina,
-                total_paginas=page.total_paginas,
-                inserted_records=result.inserted_records,
-                existing_records=result.existing_records,
+                error_type=type(error).__name__,
+                consecutive_failures=consecutive_failures,
             )
-            if pagina >= page.total_paginas:
+            if consecutive_failures >= MAX_CONSECUTIVE_MODALITY_FAILURES:
+                deferred_modalities.extend(CONTRATACAO_MODALIDADES[index + 1 :])
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "collector_pncp_modalities_deferred",
+                    source=SOURCE_CODE,
+                    modalidades=deferred_modalities,
+                    failure_budget=MAX_CONSECUTIVE_MODALITY_FAILURES,
+                )
                 break
-            pagina += 1
-        else:
-            # Nunca truncar em silêncio: registra e segue para replay manual.
+            continue
+        consecutive_failures = 0
+        pages_persisted += result.pages
+        records_inserted += result.inserted_records
+        records_existing += result.existing_records
+        if result.truncated:
             truncated_modalities.append(modalidade)
 
     if truncated_modalities:
@@ -283,6 +314,67 @@ def _collect_window(
         inserted_records=records_inserted,
         existing_records=records_existing,
         truncated_modalities=tuple(truncated_modalities),
+        failed_modalities=tuple(failed_modalities),
+        deferred_modalities=tuple(deferred_modalities),
+    )
+
+
+def _collect_modality(
+    *,
+    service: PncpContratacoesPersistenceService,
+    since: str,
+    until: str,
+    modalidade: int,
+    logger: logging.Logger,
+) -> PncpModalityCollectionSummary:
+    pages_persisted = 0
+    records_inserted = 0
+    records_existing = 0
+    pagina = 1
+    while pagina <= MAX_PAGES_PER_MODALIDADE:
+        page = fetch_contratacoes_page(
+            since=since,
+            until=until,
+            modalidade=modalidade,
+            pagina=pagina,
+            retry_policy=COLLECTION_RETRY_POLICY,
+            logger=logger,
+        )
+        if page is None:
+            return PncpModalityCollectionSummary(
+                pages=pages_persisted,
+                inserted_records=records_inserted,
+                existing_records=records_existing,
+                truncated=False,
+            )
+        result = service.persist(page)
+        pages_persisted += 1
+        records_inserted += result.inserted_records
+        records_existing += result.existing_records
+        log_event(
+            logger,
+            logging.INFO,
+            "collector_pncp_page_persisted",
+            source=SOURCE_CODE,
+            modalidade=modalidade,
+            pagina=pagina,
+            total_paginas=page.total_paginas,
+            inserted_records=result.inserted_records,
+            existing_records=result.existing_records,
+        )
+        if pagina >= page.total_paginas:
+            return PncpModalityCollectionSummary(
+                pages=pages_persisted,
+                inserted_records=records_inserted,
+                existing_records=records_existing,
+                truncated=False,
+            )
+        pagina += 1
+    return PncpModalityCollectionSummary(
+        pages=pages_persisted,
+        inserted_records=records_inserted,
+        existing_records=records_existing,
+        truncated=True,
     )
 
 
