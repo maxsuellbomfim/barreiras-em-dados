@@ -651,6 +651,12 @@ function StateLoaPanel({
           uma única linha da execução estadual. Ligações ambíguas ficam sem valor.
         </p>
         <p>
+          Nos anos anteriores, os documentos encontrados não trazem todos os
+          identificadores necessários para ligar cada autorização a uma linha
+          exclusiva da execução. Nesses casos, mostramos a limitação em cada
+          emenda e não inventamos empenho, liquidação ou pagamento.
+        </p>
+        <p>
           A ordem abaixo usa somente soma decimal em SQL. Não é nota de desempenho
           nem avaliação política; mostra quem aparece com maior valor autorizado
           nos anexos municipais encontrados.

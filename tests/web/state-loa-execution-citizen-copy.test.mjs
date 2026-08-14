@@ -74,3 +74,20 @@ test("ano ainda sem índice de escopo não fabrica conclusão financeira", () =>
     },
   );
 });
+
+test("fonte histórica sem chave oficial explica o bloqueio sem sugerir valor zero", () => {
+  assert.deepEqual(
+    stateLoaExecutionStatusCopy({
+      executionStatus: "official_link_key_unavailable",
+      loaScopeOccurrences: 0,
+      executionOccurrences: 0,
+      paidAmount: null,
+    }),
+    {
+      tone: "unavailable",
+      label: "Fonte sem chave para o cruzamento",
+      explanation:
+        "Nos documentos oficiais deste ano, não encontramos os identificadores necessários para ligar cada autorização a uma linha exclusiva da execução. Por isso, não atribuímos empenho, liquidação ou pagamento. Isso não significa valor zero.",
+    },
+  );
+});

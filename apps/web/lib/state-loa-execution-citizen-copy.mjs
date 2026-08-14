@@ -4,7 +4,8 @@
  *
  * @param {{
  *   executionStatus: "execution_confirmed" | "ambiguous_official_key" |
- *     "not_found_in_execution_source" | "scope_not_available",
+ *     "not_found_in_execution_source" | "official_link_key_unavailable" |
+ *     "scope_not_available",
  *   loaScopeOccurrences: number,
  *   executionOccurrences: number,
  *   paidAmount: string | null,
@@ -33,6 +34,14 @@ export function stateLoaExecutionStatusCopy(record) {
       label: "Não encontrada na execução consultada",
       explanation:
         "A autorização consta na LOA, mas nenhuma linha correspondente foi localizada no retrato estadual consultado. Isso não significa pagamento zero nem ausência definitiva.",
+    };
+  }
+  if (record.executionStatus === "official_link_key_unavailable") {
+    return {
+      tone: "unavailable",
+      label: "Fonte sem chave para o cruzamento",
+      explanation:
+        "Nos documentos oficiais deste ano, não encontramos os identificadores necessários para ligar cada autorização a uma linha exclusiva da execução. Por isso, não atribuímos empenho, liquidação ou pagamento. Isso não significa valor zero.",
     };
   }
   return {

@@ -20,6 +20,13 @@ const executionMigration = await readFile(
   ),
   "utf8",
 );
+const historicalExecutionMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260814124500_explain_historical_bahia_state_loa_linkage.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const page = await readFile(
   new URL("../../apps/web/app/recursos/page.tsx", import.meta.url),
   "utf8",
@@ -82,4 +89,18 @@ test("execucao estadual publica somente ligacoes unicas e explica a cobertura", 
   assert.match(page, /universo compar.vel aos est.gios abaixo/iu);
   assert.match(page, /n.o devem ser comparados diretamente/iu);
   assert.doesNotMatch(page, /ranking de pagamento/iu);
+});
+
+test("emendas historicas recebem diagnostico explicito sem fabricar execucao", () => {
+  assert.match(historicalExecutionMigration, /blocked_scope_year_not_indexed/);
+  assert.match(historicalExecutionMigration, /official_link_key_unavailable/);
+  assert.match(
+    historicalExecutionMigration,
+    /bahia-state-loa-public-execution\/1\.1\.0/,
+  );
+  assert.match(
+    client,
+    /get_public_bahia_state_loa_execution[\s\S]+fiscal_year_filter: null/,
+  );
+  assert.match(page, /identificadores necess.rios/iu);
 });

@@ -1137,7 +1137,7 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
         page_size: 50,
       }),
       callRpc("get_public_bahia_state_loa_execution", {
-        fiscal_year_filter: 2026,
+        fiscal_year_filter: null,
         author_key_filter: null,
         page_size: 200,
       }),
