@@ -4465,6 +4465,57 @@ footer {
   line-height: 1.6;
 }
 
+.transfer-year-filter {
+  margin-top: 1rem;
+  padding: 1rem 1.15rem;
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) auto minmax(16rem, 1fr);
+  align-items: end;
+  gap: 0.8rem;
+  border: 1px solid rgba(23, 105, 224, 0.16);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.transfer-year-filter label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #526078;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.transfer-year-filter select,
+.transfer-year-filter button {
+  min-height: 44px;
+  border-radius: 0.75rem;
+  font: inherit;
+}
+
+.transfer-year-filter select {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(28, 40, 61, 0.18);
+  background: #fff;
+  color: var(--ink);
+}
+
+.transfer-year-filter button {
+  padding: 0.65rem 1rem;
+  border: 1px solid #315bc7;
+  background: #315bc7;
+  color: #fff;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.transfer-year-filter p {
+  margin: 0 0 0.1rem;
+  color: #6d7890;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
 .transfer-coverage {
   margin-top: 2.2rem;
 }
@@ -4546,6 +4597,23 @@ footer {
 
 .transfer-current-records-heading {
   margin-top: 1.8rem;
+}
+
+.transfer-current-ranking-groups {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.transfer-current-ranking-groups > div > h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.transfer-current-ranking-groups > div > p {
+  margin: 0.3rem 0 0.85rem;
+  color: #6d7890;
+  font-size: 0.78rem;
 }
 
 .transfer-coverage-grid {
@@ -4922,6 +4990,14 @@ footer {
 }
 
 @media (max-width: 840px) {
+  .transfer-year-filter {
+    grid-template-columns: 1fr auto;
+  }
+
+  .transfer-year-filter p {
+    grid-column: 1 / -1;
+  }
+
   .transfer-current-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4940,6 +5016,14 @@ footer {
 }
 
 @media (max-width: 620px) {
+  .transfer-year-filter {
+    grid-template-columns: 1fr;
+  }
+
+  .transfer-year-filter p {
+    grid-column: auto;
+  }
+
   .transfer-section-heading,
   .transfer-card-heading {
     display: grid;
