@@ -622,6 +622,24 @@ try {
         'bahia-state-loa-deterministic/1.0.0',
         '{"fiscal_year":2026,"municipality":"Barreiras","amendment_number":"999","author_name":"Registro com job falho","authorized_amount":"999999","official_description":"Não publicar","page_number":99,"evidence_text":"NAO PUBLICAR","financial_stage":"authorized","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","evidence_sha256":"${"d".repeat(64)}"}',
         'valid', '[]', '2026-08-13 18:05:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009325',
+        '00000000-0000-0000-0000-000000009310',
+        'bahia_state_loa_authorized_amendment',
+        'bahia-state-loa-barreiras/1.1.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2023,"municipality":"Barreiras","amendment_number":"104","author_name":"Capitão Alden","authorized_amount":"700000","official_description":"Segurança em Barreiras","annex_code":"II","budget_unit_code":"1004","agency_code":"13","action_code":"2004","page_number":13,"evidence_text":"BARREIRAS CAPITAO ALDEN 700000","financial_stage":"authorized","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","evidence_sha256":"${"e".repeat(64)}"}',
+        'valid', '[]', '2026-08-13 18:06:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009326',
+        '00000000-0000-0000-0000-000000009310',
+        'bahia_state_loa_authorized_amendment',
+        'bahia-state-loa-barreiras/1.1.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2026,"municipality":"Barreiras","amendment_number":"105","author_external_code":"500123","author_name":"Diego Castro","authorized_amount":"600000","official_description":"Saúde em Barreiras","annex_code":"II","budget_unit_code":"1005","agency_code":"14","action_code":"2005","page_number":14,"evidence_text":"BARREIRAS DIEGO CASTRO 600000","financial_stage":"authorized","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","evidence_sha256":"${"f".repeat(64)}"}',
+        'valid', '[]', '2026-08-13 18:07:00+00'
       );
   `);
 
@@ -640,6 +658,16 @@ try {
     from api.get_public_bahia_state_loa_amendment_ranking(null, 50)
   `);
   assert.deepEqual(stateLoaDetails.rows, [
+    {
+      fiscal_year: 2026,
+      amendment_number: "105",
+      author_name: "Diego Castro",
+      authorized_amount: "600000.00",
+      financial_stage: "authorized",
+      source_artifact_sha256: "7".repeat(64),
+      evidence_sha256: "f".repeat(64),
+      methodology_version: "bahia-state-loa-amendments/1.0.0",
+    },
     {
       fiscal_year: 2026,
       amendment_number: "103",
@@ -661,6 +689,16 @@ try {
       methodology_version: "bahia-state-loa-amendments/1.0.0",
     },
     {
+      fiscal_year: 2023,
+      amendment_number: "104",
+      author_name: "Capitão Alden",
+      authorized_amount: "700000.00",
+      financial_stage: "authorized",
+      source_artifact_sha256: "7".repeat(64),
+      evidence_sha256: "e".repeat(64),
+      methodology_version: "bahia-state-loa-amendments/1.0.0",
+    },
+    {
       fiscal_year: 2022,
       amendment_number: "101",
       author_name: "Antônio Henrique Jr.",
@@ -674,6 +712,40 @@ try {
   assert.deepEqual(stateLoaRanking.rows, [
     {
       rank_position: 1,
+      author_key: "capitao alden",
+      author_name: "Capitão Alden",
+      author_external_code: null,
+      representative_source_kind: "federal",
+      representative_external_id: "220690",
+      representative_profile_url:
+        "https://www.camara.leg.br/deputados/220690",
+      association_status: "approved_official_crosswalk",
+      amendment_count: 1,
+      authorized_amount: "700000.00",
+      first_year: 2023,
+      last_year: 2023,
+      financial_stage: "authorized",
+      methodology_version: "bahia-state-loa-amendment-ranking/1.2.0",
+    },
+    {
+      rank_position: 2,
+      author_key: "diego castro",
+      author_name: "Diego Castro",
+      author_external_code: "500123",
+      representative_source_kind: "state",
+      representative_external_id: "932099",
+      representative_profile_url:
+        "https://www.al.ba.gov.br/deputados/deputado-estadual/932099",
+      association_status: "approved_official_crosswalk",
+      amendment_count: 1,
+      authorized_amount: "600000.00",
+      first_year: 2026,
+      last_year: 2026,
+      financial_stage: "authorized",
+      methodology_version: "bahia-state-loa-amendment-ranking/1.2.0",
+    },
+    {
+      rank_position: 3,
       author_key: "marcone amaral",
       author_name: "Marcone Amaral",
       author_external_code: "500144",
@@ -686,10 +758,10 @@ try {
       first_year: 2026,
       last_year: 2026,
       financial_stage: "authorized",
-      methodology_version: "bahia-state-loa-amendment-ranking/1.1.0",
+      methodology_version: "bahia-state-loa-amendment-ranking/1.2.0",
     },
     {
-      rank_position: 2,
+      rank_position: 4,
       author_key: "antonio henrique junior",
       author_name: "Antonio Henrique Júnior",
       author_external_code: "500069",
@@ -703,7 +775,7 @@ try {
       first_year: 2022,
       last_year: 2026,
       financial_stage: "authorized",
-      methodology_version: "bahia-state-loa-amendment-ranking/1.1.0",
+      methodology_version: "bahia-state-loa-amendment-ranking/1.2.0",
     },
   ]);
 

@@ -181,7 +181,7 @@ export type BahiaStateLoaAmendmentRanking = Readonly<{
   firstYear: number;
   lastYear: number;
   financialStage: "authorized";
-  methodologyVersion: "bahia-state-loa-amendment-ranking/1.1.0";
+  methodologyVersion: "bahia-state-loa-amendment-ranking/1.2.0";
 }>;
 
 export type FederalTransferScopeSummary = Readonly<{
@@ -749,15 +749,19 @@ function parseBahiaStateLoaRanking(
     !authorizedAmount || firstYear === null || lastYear === null || firstYear > lastYear ||
     !["approved_official_crosswalk", "not_linked"].includes(associationStatus ?? "") ||
     (associationStatus === "approved_official_crosswalk" && (
-      representativeSourceKind !== "state" || !representativeExternalId ||
-      !representativeProfileUrl?.startsWith("https://www.al.ba.gov.br/")
+      !representativeSourceKind || !["federal", "state"].includes(representativeSourceKind) ||
+      !representativeExternalId || !representativeProfileUrl ||
+      (representativeSourceKind === "state" &&
+        !representativeProfileUrl.startsWith("https://www.al.ba.gov.br/")) ||
+      (representativeSourceKind === "federal" &&
+        !representativeProfileUrl.startsWith("https://www.camara.leg.br/"))
     )) ||
     (associationStatus === "not_linked" && (
       representativeSourceKind !== null || representativeExternalId !== null ||
       representativeProfileUrl !== null
     )) ||
     row.financial_stage !== "authorized" ||
-    row.methodology_version !== "bahia-state-loa-amendment-ranking/1.1.0"
+    row.methodology_version !== "bahia-state-loa-amendment-ranking/1.2.0"
   ) return null;
   return {
     rankPosition,
@@ -777,7 +781,7 @@ function parseBahiaStateLoaRanking(
     firstYear,
     lastYear,
     financialStage: "authorized",
-    methodologyVersion: "bahia-state-loa-amendment-ranking/1.1.0",
+    methodologyVersion: "bahia-state-loa-amendment-ranking/1.2.0",
   };
 }
 
