@@ -104,6 +104,30 @@ test("modo somente Transferegov nao abre coletores independentes", () => {
   );
 });
 
+test("modo somente Bahia executa as duas trilhas estaduais sem abrir jobs alheios", () => {
+  const collectJob = workflow.slice(
+    workflow.indexOf("  collect:"),
+    workflow.indexOf("  transferegov:"),
+  );
+  const transferegovJob = workflow.slice(
+    workflow.indexOf("  transferegov:"),
+    workflow.indexOf("  bahia_state_amendments:"),
+  );
+  const stateExecutionJob = workflow.slice(
+    workflow.indexOf("  bahia_state_amendments:"),
+    workflow.indexOf("  bahia_state_loa_amendments:"),
+  );
+  const stateLoaJob = workflow.slice(
+    workflow.indexOf("  bahia_state_loa_amendments:"),
+  );
+
+  assert.match(workflow, /- "bahia-state-only"/);
+  assert.match(collectJob, /inputs\.resource != 'bahia-state-only'/);
+  assert.match(transferegovJob, /inputs\.resource != 'bahia-state-only'/);
+  assert.match(stateExecutionJob, /inputs\.resource == 'bahia-state-only'/);
+  assert.match(stateLoaJob, /inputs\.resource == 'bahia-state-only'/);
+});
+
 test("LOA estadual e extraida deterministicamente depois da preservacao", () => {
   const loaJob = workflow.slice(
     workflow.indexOf("  bahia_state_loa_amendments:"),
