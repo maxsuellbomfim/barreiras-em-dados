@@ -248,7 +248,12 @@ jobs:
 
   bahia_state_amendments:
     name: Preservar emendas estaduais da Bahia
-    needs: collect
+    # Os jobs complementares usam a mesma role PostgreSQL no plano gratuito.
+    # Encadeá-los evita que Transferegov, FIPLAN e LOA abram conexões ao
+    # mesmo tempo depois que a matriz municipal termina.
+    needs:
+      - collect
+      - transferegov
     if: >-
       always() &&
       (
@@ -312,7 +317,10 @@ jobs:
 
   bahia_state_loa_amendments:
     name: Preservar anexos territoriais da LOA da Bahia
-    needs: collect
+    needs:
+      - collect
+      - transferegov
+      - bahia_state_amendments
     if: >-
       always() &&
       (
