@@ -61,6 +61,13 @@ visível como falha, mas não cancela fontes independentes nem posterga o
 tratamento privado de identidade. Um job final consolida a saúde sem transformar
 falha em ausência de registros.
 
+Após uma indisponibilidade temporária da página HTML da ALBA, a execução manual
+passa a aceitar uma fonte isolada (`federal`, `municipal`, `state`, `executive`
+ou `elections`). O retry de `state` repete somente a ALBA; não baixa novamente
+o arquivo eleitoral nem executa identidades privadas. A consolidação exige
+`success` apenas dos jobs selecionados e exige `skipped` dos demais, de modo que
+uma falha continua vermelha e nunca é convertida em sucesso por exclusão.
+
 O leiaute oficial do cadastro de candidaturas de 2024 usa o valor numérico `-4`
 quando um dado pessoal não é divulgável. O importador passa a classificar esse
 caso como `not_disclosed_by_source`, em vez de `invalid_official_value`. Lacunas
