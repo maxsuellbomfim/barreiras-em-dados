@@ -4,7 +4,20 @@ on:
   schedule:
     # Semanal: o quadro de parlamentares muda pouco entre sessões.
     - cron: "27 10 * * 2"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Fonte a coletar; use all para a rotina completa
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - federal
+          - municipal
+          - state
+          - executive
+          - elections
 
 permissions:
   contents: read
@@ -14,8 +27,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    name: Planejar fontes selecionadas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      profile_matrix: ${{ steps.plan.outputs.profile_matrix }}
+      profile_count: ${{ steps.plan.outputs.profile_count }}
+      collect_profiles: ${{ steps.plan.outputs.collect_profiles }}
+      collect_elections: ${{ steps.plan.outputs.collect_elections }}
+      collect_private_identities: ${{ steps.plan.outputs.collect_private_identities }}
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Resolver plano sem executar fontes não selecionadas
+        id: plan
+        shell: bash
+        env:
+          REQUESTED_SOURCE: ${{ github.event_name == 'workflow_dispatch' && inputs.source || 'all' }}
+        run: |
+          set -euo pipefail
+          PLAN_JSON="$(node .github/scripts/resolve-representation-plan.mjs "$REQUESTED_SOURCE")"
+          PROFILE_COUNT="$(printf '%s' "$PLAN_JSON" | jq -r '.profiles | length')"
+          echo "profile_matrix=$(printf '%s' "$PLAN_JSON" | jq -c '.profiles')" >> "$GITHUB_OUTPUT"
+          echo "profile_count=$PROFILE_COUNT" >> "$GITHUB_OUTPUT"
+          echo "collect_profiles=$([ "$PROFILE_COUNT" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "collect_elections=$(printf '%s' "$PLAN_JSON" | jq -r '.collectElections')" >> "$GITHUB_OUTPUT"
+          echo "collect_private_identities=$(printf '%s' "$PLAN_JSON" | jq -r '.collectPrivateIdentities')" >> "$GITHUB_OUTPUT"
+
   collect-profiles:
     name: Preservar ${{ matrix.label }}
+    needs: plan
+    if: needs.plan.outputs.collect_profiles == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -24,19 +68,7 @@ jobs:
       # A role de coleta admite duas conexões: uma fica disponível ao job TSE.
       max-parallel: 1
       matrix:
-        include:
-          - source: federal
-            label: deputados federais da Bahia
-            module: barreiras_collectors.commands.collect_camara_deputies
-          - source: municipal
-            label: vereadores de Barreiras
-            module: barreiras_collectors.commands.collect_vereadores
-          - source: state
-            label: deputados estaduais da Bahia
-            module: barreiras_collectors.commands.collect_alba_deputies
-          - source: executive
-            label: prefeito, vice e secretarias de Barreiras
-            module: barreiras_collectors.commands.collect_municipal_executive
+        include: ${{ fromJSON(needs.plan.outputs.profile_matrix) }}
     env:
       APP_ENV: production
       LOG_LEVEL: INFO
@@ -75,6 +107,8 @@ jobs:
 
   collect-elections:
     name: Preservar votação recebida em Barreiras
+    needs: plan
+    if: needs.plan.outputs.collect_elections == 'true'
     runs-on: ubuntu-latest
     # O arquivo do TSE é grande; esta fonte não deve dividir o runner com as demais.
     timeout-minutes: 30
@@ -116,7 +150,7 @@ jobs:
     name: Registrar identidades privadas oficiais
     # O importador depende apenas do acervo eleitoral, não das APIs parlamentares.
     needs: collect-elections
-    if: ${{ always() }}
+    if: needs.collect-elections.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -187,6 +221,7 @@ jobs:
   summarize:
     name: Consolidar saúde da representação
     needs:
+      - plan
       - collect-profiles
       - collect-elections
       - private-identities
@@ -196,17 +231,36 @@ jobs:
       PROFILES_RESULT: ${{ needs.collect-profiles.result }}
       ELECTIONS_RESULT: ${{ needs.collect-elections.result }}
       IDENTITIES_RESULT: ${{ needs.private-identities.result }}
+      PROFILES_REQUIRED: ${{ needs.plan.outputs.collect_profiles }}
+      ELECTIONS_REQUIRED: ${{ needs.plan.outputs.collect_elections }}
+      IDENTITIES_REQUIRED: ${{ needs.plan.outputs.collect_private_identities }}
     steps:
       - name: Exibir resultado sem ocultar falhas
         shell: bash
         run: |
-          printf 'perfis=%s\neleicoes=%s\nidentidades=%s\n' \
-            "$PROFILES_RESULT" \
-            "$ELECTIONS_RESULT" \
-            "$IDENTITIES_RESULT"
-          if [ "$PROFILES_RESULT" != "success" ] || \
-             [ "$ELECTIONS_RESULT" != "success" ] || \
-             [ "$IDENTITIES_RESULT" != "success" ]; then
+          set -euo pipefail
+          failed=false
+
+          verify_result() {
+            local label="$1"
+            local required="$2"
+            local actual="$3"
+            local expected="skipped"
+            if [ "$required" = "true" ]; then
+              expected="success"
+            fi
+            printf '%s=%s esperado=%s\n' "$label" "$actual" "$expected"
+            if [ "$actual" != "$expected" ]; then
+              failed=true
+            fi
+          }
+
+          verify_result perfis "$PROFILES_REQUIRED" "$PROFILES_RESULT"
+          verify_result eleicoes "$ELECTIONS_REQUIRED" "$ELECTIONS_RESULT"
+          verify_result identidades "$IDENTITIES_REQUIRED" "$IDENTITIES_RESULT"
+          echo "Jobs não selecionados: esperado=skipped."
+
+          if [ "$failed" = "true" ]; then
             echo "Uma ou mais fontes de representação falharam; consulte o job isolado correspondente."
             exit 1
           fi

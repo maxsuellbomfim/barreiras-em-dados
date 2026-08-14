@@ -406,6 +406,12 @@ ainda não publicado não é apresentado como zero representantes. Na API da
 Câmara Municipal, `leis` e `indicacoes` alimentam endpoints de cobertura
 separados para que uma coleção saudável não esconda o atraso da outra.
 
+O workflow de representação permite retry manual por fonte. Essa seleção reduz
+requisições e tempo de recuperação quando, por exemplo, apenas o HTML da ALBA
+fica temporariamente indisponível. As tentativas anteriores permanecem no
+controle de cobertura e nos logs; executar novamente somente `state` não altera
+o estado nem a data das fontes federais, municipais, eleitorais ou do Executivo.
+
 A prestação de contas eleitoral disponibiliza receitas e despesas de campanha.
 Doadores devem ser ligados pelo identificador da candidatura, nunca apenas por
 nome+UF. CPF, endereço, conta e outros dados de pessoa natural não entram na
