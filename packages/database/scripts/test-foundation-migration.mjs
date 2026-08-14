@@ -1451,6 +1451,7 @@ try {
         "application/octet-stream",
         "application/pdf",
         "application/xml",
+        "image/png",
         "text/html",
         "text/plain",
       ],
