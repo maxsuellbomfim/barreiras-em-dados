@@ -430,6 +430,7 @@ function StateLoaRankingTable({
       {rows.map((row) => (
         <article
           className="transfer-ranking-card"
+          id={parliamentaryTransferAuthorAnchor(row.authorKey)}
           key={`state-loa:${row.authorKey}`}
         >
           <span className="transfer-rank" aria-label={`posição ${row.rankPosition}`}>

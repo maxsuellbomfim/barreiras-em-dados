@@ -470,9 +470,13 @@ ADR adicional.
   ranking de execução enquanto a cobertura permanecer parcial.
 - [x] preservar o diagrama oficial das relações do FIPLAN com hash auditável e
   explicar publicamente que a base de execução não fornece município.
-- [ ] estender o índice de escopo e a reconciliação segura aos exercícios de
-  2022 a 2025, preservando 2021 como bloqueado enquanto o anexo oficial apontar
-  para exercício divergente.
+- [x] testar a reconciliação segura de 2022 a 2025 e registrar que os anexos
+  disponíveis não fornecem uma chave oficial única; os estágios permanecem
+  nulos, e 2021 continua bloqueado enquanto o anexo oficial apontar para
+  exercício divergente.
+- [x] publicar nos perfis ligados uma linha do tempo anual que separa o total
+  autorizado do subconjunto com execução conciliada e liga cada exercício às
+  evidências no catálogo estadual.
 
 ## Backlog deliberadamente adiado
 

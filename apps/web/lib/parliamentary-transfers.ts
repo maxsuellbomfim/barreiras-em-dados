@@ -8,11 +8,17 @@ import {
   type StateLoaExecutionRecord,
   type StateLoaExecutionSummary,
 } from "./state-loa-execution.mjs";
+import {
+  parseStateLoaRepresentativeContributions,
+  type StateLoaRepresentativeContribution,
+} from "./state-loa-representative-contributions.mjs";
 
 export type {
   StateLoaExecutionRecord,
   StateLoaExecutionSummary,
 } from "./state-loa-execution.mjs";
+export type { StateLoaRepresentativeContribution } from
+  "./state-loa-representative-contributions.mjs";
 
 export type ParliamentaryAuthorKind =
   | "person"
@@ -51,6 +57,13 @@ export type ParliamentaryTransferRankingsResult =
       state: "available";
       people: readonly ParliamentaryTransferRanking[];
       collectives: readonly ParliamentaryTransferRanking[];
+    }>
+  | Readonly<{ state: "unavailable" }>;
+
+export type StateLoaRepresentativeContributionsResult =
+  | Readonly<{
+      state: "available";
+      contributions: readonly StateLoaRepresentativeContribution[];
     }>
   | Readonly<{ state: "unavailable" }>;
 
@@ -1300,6 +1313,24 @@ export async function getPublicCurrentParliamentaryTransfers(
         return parsed ? [parsed] : [];
       }),
     };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function getPublicStateLoaRepresentativeContributions(): Promise<
+  StateLoaRepresentativeContributionsResult
+> {
+  try {
+    const rows = await callRpc(
+      "get_public_bahia_state_loa_representative_contributions",
+      { page_size: 200 },
+    );
+    if (rows === null) return { state: "unavailable" };
+    const contributions = parseStateLoaRepresentativeContributions(rows);
+    return contributions === null
+      ? { state: "unavailable" }
+      : { state: "available", contributions };
   } catch {
     return { state: "unavailable" };
   }

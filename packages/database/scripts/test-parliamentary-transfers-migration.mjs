@@ -126,6 +126,9 @@ try {
       to_regprocedure(
         'api.get_public_bahia_state_loa_execution_summary(smallint)'
       )::text as state_loa_execution_summary_rpc,
+      to_regprocedure(
+        'api.get_public_bahia_state_loa_representative_contributions(integer)'
+      )::text as state_loa_representative_contributions_rpc,
       has_schema_privilege('anon', 'territory', 'USAGE') as anon_territory_usage,
       has_function_privilege(
         'anon',
@@ -186,7 +189,12 @@ try {
         'anon',
         'api.get_public_bahia_state_loa_execution_summary(smallint)',
         'EXECUTE'
-      ) as anon_state_loa_execution_summary_rpc
+      ) as anon_state_loa_execution_summary_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_bahia_state_loa_representative_contributions(integer)',
+        'EXECUTE'
+      ) as anon_state_loa_representative_contributions_rpc
   `);
   assert.deepEqual(contracts.rows, [{
     transfer_projection: "territory.parliamentary_transfers",
@@ -225,6 +233,8 @@ try {
       "api.get_public_bahia_state_loa_execution(smallint,text,integer)",
     state_loa_execution_summary_rpc:
       "api.get_public_bahia_state_loa_execution_summary(smallint)",
+    state_loa_representative_contributions_rpc:
+      "api.get_public_bahia_state_loa_representative_contributions(integer)",
     anon_territory_usage: false,
     anon_ranking_rpc: true,
     anon_detail_rpc: true,
@@ -238,6 +248,7 @@ try {
     anon_reconciliation_summary_rpc: true,
     anon_state_loa_execution_rpc: true,
     anon_state_loa_execution_summary_rpc: true,
+    anon_state_loa_representative_contributions_rpc: true,
   }]);
 
   await database.exec(`
@@ -940,6 +951,87 @@ try {
     methodology_version: "bahia-state-loa-public-execution-summary/1.0.0",
   }]);
 
+  const stateRepresentativeContributions = await database.query(`
+    select representative_source_kind, representative_external_id,
+      author_key, author_name, fiscal_year, amendment_count,
+      authorized_amount, matched_amendment_count, matched_authorized_amount,
+      committed_amount, liquidated_amount, paid_amount,
+      blocked_amendment_count, methodology_version
+    from api.get_public_bahia_state_loa_representative_contributions(200)
+    order by representative_source_kind, representative_external_id,
+      fiscal_year desc
+  `);
+  assert.deepEqual(stateRepresentativeContributions.rows, [
+    {
+      representative_source_kind: "federal",
+      representative_external_id: "220690",
+      author_key: "capitao alden",
+      author_name: "Capitão Alden",
+      fiscal_year: 2023,
+      amendment_count: 1,
+      authorized_amount: "700000.00",
+      matched_amendment_count: 0,
+      matched_authorized_amount: null,
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      blocked_amendment_count: 1,
+      methodology_version:
+        "bahia-state-loa-representative-contributions/1.0.0",
+    },
+    {
+      representative_source_kind: "state",
+      representative_external_id: "921264",
+      author_key: "antonio henrique junior",
+      author_name: "Antonio Henrique Júnior",
+      fiscal_year: 2026,
+      amendment_count: 1,
+      authorized_amount: "200000.00",
+      matched_amendment_count: 1,
+      matched_authorized_amount: "200000.00",
+      committed_amount: "150000.00",
+      liquidated_amount: "100000.00",
+      paid_amount: "90000.00",
+      blocked_amendment_count: 0,
+      methodology_version:
+        "bahia-state-loa-representative-contributions/1.0.0",
+    },
+    {
+      representative_source_kind: "state",
+      representative_external_id: "921264",
+      author_key: "antonio henrique junior",
+      author_name: "Antônio Henrique Jr.",
+      fiscal_year: 2022,
+      amendment_count: 1,
+      authorized_amount: "100000.00",
+      matched_amendment_count: 0,
+      matched_authorized_amount: null,
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      blocked_amendment_count: 1,
+      methodology_version:
+        "bahia-state-loa-representative-contributions/1.0.0",
+    },
+    {
+      representative_source_kind: "state",
+      representative_external_id: "932099",
+      author_key: "diego castro",
+      author_name: "Diego Castro",
+      fiscal_year: 2026,
+      amendment_count: 1,
+      authorized_amount: "600000.00",
+      matched_amendment_count: 0,
+      matched_authorized_amount: null,
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      blocked_amendment_count: 1,
+      methodology_version:
+        "bahia-state-loa-representative-contributions/1.0.0",
+    },
+  ]);
+
   const stateLoaDetails = await database.query(`
     select fiscal_year, amendment_number, author_name, authorized_amount,
       financial_stage, source_artifact_sha256, evidence_sha256,
@@ -1570,6 +1662,12 @@ try {
       "select * from api.get_public_bahia_state_loa_execution(2026::smallint, null, 201)",
     ),
     /limite da execucao estadual da LOA invalido/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_bahia_state_loa_representative_contributions(201)",
+    ),
+    /limite das contribuicoes estaduais por representante invalido/,
   );
   await assert.rejects(
     database.query(
