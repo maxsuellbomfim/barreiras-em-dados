@@ -114,3 +114,34 @@ test("site explica a ausencia de municipio e liga o diagrama oficial", () => {
   );
   assert.match(page, /Abrir diagrama oficial das rela..es/iu);
 });
+
+test("filtro anual estadual mantém ranking, emendas e execução no mesmo período", () => {
+  assert.match(
+    client,
+    /getPublicParliamentaryTransfers\([\s\S]*stateFiscalYear/,
+  );
+  assert.doesNotMatch(client, /stateFiscalYear\s*=\s*2026/);
+  assert.match(
+    client,
+    /get_public_bahia_state_loa_amendments[\s\S]+fiscal_year_filter:\s*stateFiscalYear/,
+  );
+  assert.match(
+    client,
+    /get_public_bahia_state_loa_amendment_ranking[\s\S]+fiscal_year_filter:\s*stateFiscalYear/,
+  );
+  assert.match(
+    client,
+    /get_public_bahia_state_loa_execution[\s\S]+fiscal_year_filter:\s*stateFiscalYear/,
+  );
+  assert.match(
+    page,
+    /aria-label="Filtrar emendas estaduais por ano"/,
+  );
+  assert.match(page, /name="origem" value="estadual"/);
+  assert.match(page, /Resumo de \{selectedFiscalYear\}/);
+  assert.match(
+    page,
+    /Recursos estaduais[^\n]+\{selectedFiscalYear\}/,
+  );
+  assert.doesNotMatch(page, /Para 2026, os est.gios/iu);
+});

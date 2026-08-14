@@ -25,6 +25,10 @@ import { resolveTransferSourceSelection } from "../../lib/parliamentary-transfer
 import { resolveCurrentFederalTransferYear } from "../../lib/parliamentary-transfer-year-filter.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
 import { stateLoaExecutionStatusCopy } from "../../lib/state-loa-execution-citizen-copy.mjs";
+import {
+  resolveStateLoaYear,
+  stateLoaYears,
+} from "../../lib/state-loa-year-filter.mjs";
 
 export const revalidate = 300;
 
@@ -624,11 +628,15 @@ function StateLoaPanel({
   amendments,
   execution,
   executionSummary,
+  selectedFiscalYear,
+  availableFiscalYears,
 }: Readonly<{
   ranking: readonly BahiaStateLoaAmendmentRanking[] | null;
   amendments: readonly BahiaStateLoaAmendment[] | null;
   execution: readonly StateLoaExecutionRecord[] | null;
   executionSummary: StateLoaExecutionSummary | null;
+  selectedFiscalYear: number;
+  availableFiscalYears: readonly number[];
 }>) {
   const executionByEvidence = new Map(
     (execution ?? []).map((row) => [row.loaEvidenceSha256, row]),
@@ -637,17 +645,44 @@ function StateLoaPanel({
     <section className="transfer-ranking" aria-labelledby="state-loa-title">
       <div className="transfer-section-heading">
         <div>
-          <span className="eyebrow">Recursos estaduais · 2022 a 2026</span>
+          <span className="eyebrow">
+            Recursos estaduais · {selectedFiscalYear}
+          </span>
           <h2 id="state-loa-title">Emendas estaduais autorizadas na LOA</h2>
         </div>
         <p>Fonte: anexos oficiais da Secretaria do Planejamento da Bahia.</p>
       </div>
+      <form
+        className="transfer-year-filter"
+        method="get"
+        aria-label="Filtrar emendas estaduais por ano"
+      >
+        <input type="hidden" name="origem" value="estadual" />
+        <div>
+          <label htmlFor="state-loa-year">Ano da LOA estadual</label>
+          <select
+            id="state-loa-year"
+            name="ano"
+            defaultValue={selectedFiscalYear}
+          >
+            {availableFiscalYears.map((year) => (
+              <option value={year} key={year}>{year}</option>
+            ))}
+          </select>
+        </div>
+        <button type="submit">Ver este ano</button>
+        <p>
+          Resumo de {selectedFiscalYear}: ranking, emendas e situação da execução
+          usam o mesmo exercício, sem somar anos diferentes.
+        </p>
+      </form>
       <aside className="transfer-reading-guide">
         <strong>O que estes valores realmente dizem</strong>
         <p>
           “Autorizado” significa que a emenda entrou no orçamento estadual. Isso
           não significa dinheiro pago, transferido a Barreiras ou obra executada.
-          Para 2026, os estágios aparecem somente quando a LOA pôde ser ligada a
+          No exercício selecionado, os estágios aparecem somente quando a LOA pôde
+          ser ligada a
           uma única linha da execução estadual. Ligações ambíguas ficam sem valor.
         </p>
         <p>
@@ -1270,7 +1305,20 @@ export default async function ParliamentaryResourcesPage({
 }: ParliamentaryResourcesPageProps) {
   const params = await searchParams;
   const sourceSelection = resolveTransferSourceSelection(params.origem);
-  const result = await getPublicParliamentaryTransfers();
+  const latestStateFiscalYear = Number(
+    new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      timeZone: "America/Bahia",
+    }).format(new Date()),
+  );
+  const availableStateFiscalYears = stateLoaYears(latestStateFiscalYear);
+  const selectedStateFiscalYear = resolveStateLoaYear(
+    sourceSelection.showState ? params.ano : undefined,
+    latestStateFiscalYear,
+  ) ?? latestStateFiscalYear;
+  const result = await getPublicParliamentaryTransfers({
+    stateFiscalYear: selectedStateFiscalYear,
+  });
   const selectedFiscalYear = result.state === "available" &&
       sourceSelection.showCurrentFederal
     ? resolveCurrentFederalTransferYear(params.ano, result.coverage)
@@ -1432,6 +1480,8 @@ export default async function ParliamentaryResourcesPage({
                 ranking={result.stateLoaRanking}
                 execution={result.stateLoaExecution}
                 executionSummary={result.stateLoaExecutionSummary}
+                selectedFiscalYear={selectedStateFiscalYear}
+                availableFiscalYears={availableStateFiscalYears}
               />
             ) : null}
 
