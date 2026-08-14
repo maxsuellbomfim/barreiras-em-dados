@@ -51,11 +51,14 @@ test("site separa autorizacao orcamentaria estadual de pagamento e execucao", ()
   assert.doesNotMatch(page, /pontua..o/iu);
 });
 
-test("ranking estadual liga somente autores com crosswalk oficial aprovado", () => {
+test("ranking estadual separa autoria historica do perfil oficial atual", () => {
   assert.match(client, /representativeSourceKind/);
   assert.match(client, /representativeExternalId/);
   assert.match(client, /representativeProfileUrl/);
   assert.match(client, /associationStatus/);
-  assert.match(page, /Ver perfil oficial e mandato/);
-  assert.match(page, /\/representantes#state-/);
+  assert.match(page, /Perfil oficial dispon.vel/);
+  assert.match(page, /perfil pode ser de outra Casa/);
+  assert.match(page, /Perfil atual ainda n.o confirmado/);
+  assert.match(page, /\/representantes#\$\{row\.representativeSourceKind\}-/);
+  assert.doesNotMatch(page, /row\.representativeSourceKind === "state"/);
 });

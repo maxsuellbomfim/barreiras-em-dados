@@ -4636,6 +4636,27 @@ footer {
   overflow-wrap: anywhere;
 }
 
+.transfer-profile-context {
+  grid-column: 2 / -1;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(28, 40, 61, 0.08);
+}
+
+.transfer-profile-context p {
+  margin: 0;
+  color: #65738a;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.transfer-profile-context .transfer-profile-link {
+  display: inline-flex;
+  margin-top: 0.55rem;
+  color: #285abf;
+  font-size: 0.76rem;
+  font-weight: 720;
+}
+
 .transfer-card {
   padding: 1.2rem;
   border: 1px solid rgba(28, 40, 61, 0.1);
@@ -4827,6 +4848,10 @@ footer {
   }
 
   .transfer-ranking-card dl {
+    grid-column: 1 / -1;
+  }
+
+  .transfer-profile-context {
     grid-column: 1 / -1;
   }
 }

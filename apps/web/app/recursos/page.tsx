@@ -239,6 +239,8 @@ function StateLoaRankingTable({
       </p>
     );
   }
+  const currentHouseLabel = (sourceKind: "federal" | "state") =>
+    sourceKind === "federal" ? "Câmara dos Deputados" : "ALBA";
   return (
     <div className="transfer-ranking-list">
       {rows.map((row) => (
@@ -268,15 +270,27 @@ function StateLoaRankingTable({
             </div>
           </dl>
           {row.associationStatus === "approved_official_crosswalk" &&
-          row.representativeSourceKind === "state" &&
-          row.representativeExternalId ? (
-            <a
-              className="transfer-profile-link"
-              href={`/representantes#state-${row.representativeExternalId}`}
-            >
-              Ver perfil oficial e mandato →
-            </a>
-          ) : null}
+          row.representativeSourceKind && row.representativeExternalId ? (
+            <div className="transfer-profile-context">
+              <p>
+                Perfil oficial disponível: {currentHouseLabel(row.representativeSourceKind)}.
+                O perfil pode ser de outra Casa; a autoria acima continua sendo a
+                publicada no anexo da LOA do ano indicado.
+              </p>
+              <a
+                className="transfer-profile-link"
+                href={`/representantes#${row.representativeSourceKind}-${row.representativeExternalId}`}
+              >
+                Ver perfil oficial na {currentHouseLabel(row.representativeSourceKind)} →
+              </a>
+            </div>
+          ) : (
+            <div className="transfer-profile-context">
+              <p>
+                Perfil atual ainda não confirmado com evidência oficial suficiente.
+              </p>
+            </div>
+          )}
         </article>
       ))}
     </div>

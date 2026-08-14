@@ -355,9 +355,13 @@ Segunda fatia concluída: extração determinística das linhas territoriais de
 Barreiras nos anexos oficiais da LOA 2022-2026, com evidência literal e estágio
 `authorized`. O replay de produção conferiu 63 linhas distintas contra os cinco
 PDFs, sem falhas, e a projeção pública passa a mostrar ranking e catálogo por
-autor, ano, objeto, página, URL e hashes. Oito dos onze autores foram ligados a
-perfis oficiais preservados da ALBA por crosswalk aprovado; os demais continuam
-sem link. O próximo gate é medir correspondências únicas, ambíguas e bloqueadas
+autor, ano, objeto, página, URL e hashes. Dez dos onze autores foram ligados a
+perfis oficiais por crosswalk TSE aprovado: nove perfis da ALBA e um perfil atual
+da Câmara dos Deputados. A interface separa a autoria publicada no orçamento do
+perfil oficial atualmente disponível, evitando transformar mudança de Casa em
+cargo retroativo. Marcone Amaral continua sem link até que uma fonte oficial
+suficiente confirme o perfil correspondente. O próximo gate é medir
+correspondências únicas, ambíguas e bloqueadas
 entre as autorizações territoriais e a execução estadual normalizada. Somente
 ligações determinísticas poderão alimentar a projeção pública; ausência será
 descrita como “não encontrada na fonte consultada”, nunca como zero ou falta de
