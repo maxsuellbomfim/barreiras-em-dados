@@ -458,8 +458,12 @@ ADR adicional.
 - [x] executar o replay após a migration e medir quais chaves de Barreiras são
   globalmente únicas também no retrato de execução: 9 pares únicos, 17 chaves
   repetidas no Anexo I da LOA e 1 chave ausente no retrato estadual de 2026;
-- [ ] publicar estágios financeiros somente para pares bidirecionalmente
-  únicos, mantendo colisões e ausências como bloqueios explicados.
+- [x] publicar estágios financeiros somente para pares bidirecionalmente
+  únicos, mantendo colisões e ausências como bloqueios explicados e sem criar
+  ranking de execução enquanto a cobertura permanecer parcial.
+- [ ] estender o índice de escopo e a reconciliação segura aos exercícios de
+  2022 a 2025, preservando 2021 como bloqueado enquanto o anexo oficial apontar
+  para exercício divergente.
 
 ## Backlog deliberadamente adiado
 

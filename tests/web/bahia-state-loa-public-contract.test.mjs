@@ -13,6 +13,13 @@ const client = await readFile(
   new URL("../../apps/web/lib/parliamentary-transfers.ts", import.meta.url),
   "utf8",
 );
+const executionMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260814111419_publish_bahia_state_loa_execution.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const page = await readFile(
   new URL("../../apps/web/app/recursos/page.tsx", import.meta.url),
   "utf8",
@@ -61,4 +68,18 @@ test("ranking estadual separa autoria historica do perfil oficial atual", () => 
   assert.match(page, /Perfil atual ainda n.o confirmado/);
   assert.match(page, /\/representantes#\$\{row\.representativeSourceKind\}-/);
   assert.doesNotMatch(page, /row\.representativeSourceKind === "state"/);
+});
+
+test("execucao estadual publica somente ligacoes unicas e explica a cobertura", () => {
+  assert.match(executionMigration, /get_public_bahia_state_loa_execution/);
+  assert.match(executionMigration, /matched_bidirectional_unique/);
+  assert.match(executionMigration, /ambiguous_official_key/);
+  assert.match(executionMigration, /security definer/);
+  assert.match(executionMigration, /revoke all[^;]+from public/s);
+  assert.match(client, /get_public_bahia_state_loa_execution/);
+  assert.match(client, /get_public_bahia_state_loa_execution_summary/);
+  assert.match(page, /O que aconteceu com as/);
+  assert.match(page, /universo compar.vel aos est.gios abaixo/iu);
+  assert.match(page, /n.o devem ser comparados diretamente/iu);
+  assert.doesNotMatch(page, /ranking de pagamento/iu);
 });

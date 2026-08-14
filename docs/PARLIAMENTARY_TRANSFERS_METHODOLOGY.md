@@ -240,8 +240,16 @@ A view `territory.bahia_state_loa_execution_reconciliation` é privada e não é
 exposta pelo PostgREST. Mesmo internamente, empenhado, liquidado, pago e a
 evidência da execução são retornados somente nos nove pares únicos. Nos outros
 18 registros, esses campos permanecem nulos e o status explica o bloqueio. A
-publicação desses nove pares exige uma projeção pública separada, com rótulos
-de estágio e avisos de cobertura; ela não faz parte deste checkpoint.
+projeção pública `api.get_public_bahia_state_loa_execution` conserva essa mesma
+regra: publica os estágios apenas nos nove pares e retorna valores nulos, nunca
+zero fabricado, nos demais. A função de resumo calcula os totais em SQL e
+separa explicitamente o total autorizado nas 27 emendas do universo comparável
+das nove ligações confirmadas. A interface não produz ranking de execução com
+essa cobertura parcial.
+
+Um `R$ 0,00` dentro de um par confirmado é um valor publicado pela fonte no
+retrato coletado. Fora de um par confirmado, ausência de valor significa
+“não atribuído com segurança”, e não pagamento zero.
 
 Fontes oficiais iniciais:
 
