@@ -61,6 +61,13 @@ visível como falha, mas não cancela fontes independentes nem posterga o
 tratamento privado de identidade. Um job final consolida a saúde sem transformar
 falha em ausência de registros.
 
+A coleta financeira programada também respeita esse orçamento. Depois da matriz
+municipal serializada, Transferegov, execução estadual do FIPLAN e anexos
+territoriais da LOA executam em cadeia. A mudança elimina a disputa simultânea
+pela role PostgreSQL do plano gratuito que, em 14/08/2026, interrompeu uma
+execução com `too many connections`; a falha permanece registrada e o replay
+posterior não é usado para apagar o incidente.
+
 Após uma indisponibilidade temporária da página HTML da ALBA, a execução manual
 passa a aceitar uma fonte isolada (`federal`, `municipal`, `state`, `executive`
 ou `elections`). O retry de `state` repete somente a ALBA; não baixa novamente

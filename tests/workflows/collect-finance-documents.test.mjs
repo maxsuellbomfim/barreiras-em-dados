@@ -13,6 +13,30 @@ test("coleta financeira respeita o orçamento de conexões", () => {
   assert.match(workflow, /--download-documents/);
 });
 
+test("coletores complementares aguardam uns aos outros para não saturar o Supabase", () => {
+  const transferegovJob = workflow.slice(
+    workflow.indexOf("  transferegov:"),
+    workflow.indexOf("  bahia_state_amendments:"),
+  );
+  const stateExecutionJob = workflow.slice(
+    workflow.indexOf("  bahia_state_amendments:"),
+    workflow.indexOf("  bahia_state_loa_amendments:"),
+  );
+  const stateLoaJob = workflow.slice(
+    workflow.indexOf("  bahia_state_loa_amendments:"),
+  );
+
+  assert.match(transferegovJob, /needs: collect/);
+  assert.match(
+    stateExecutionJob,
+    /needs:\s*\n\s*- collect\s*\n\s*- transferegov/,
+  );
+  assert.match(
+    stateLoaJob,
+    /needs:\s*\n\s*- collect\s*\n\s*- transferegov\s*\n\s*- bahia_state_amendments/,
+  );
+});
+
 test("coleta financeira permite backfill por recurso e documentos grandes", () => {
   assert.match(workflow, /resource:/);
   assert.match(workflow, /pdc-resumo-execucao-da-despesa/);
