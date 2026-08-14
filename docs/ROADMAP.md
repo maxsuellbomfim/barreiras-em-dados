@@ -449,6 +449,17 @@ Ativar apenas regras operacionais de baixo risco. Regras financeiras ou
 reputacionais exigem amostra anotada, especialista, revisão legal/editorial e
 ADR adicional.
 
+## Checkpoint — unicidade das emendas estaduais
+
+- [x] preservar e extrair deterministicamente o Anexo I da LOA 2026;
+- [x] validar 3.182 linhas estruturadas em 374 páginas, sem reduzir o universo
+  ao recorte de Barreiras;
+- [x] separar o índice estadual privado da projeção pública municipal;
+- [ ] executar o replay após a migration e medir quais chaves de Barreiras são
+  globalmente únicas também no retrato de execução;
+- [ ] publicar estágios financeiros somente para pares bidirecionalmente
+  únicos, mantendo colisões e ausências como bloqueios explicados.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;

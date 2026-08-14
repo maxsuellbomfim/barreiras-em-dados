@@ -209,6 +209,19 @@ coletor não desativa a validação: usa exclusivamente o intermediário OV R36 
 cross-sign R46/USERTrust publicados pela Sectigo, preservados no repositório e
 verificados por hash antes da execução.
 
+### Gate de unicidade estadual da LOA 2026
+
+Para 2026, a reconciliação exige unicidade no **anexo estadual inteiro**. O
+worker indexa privadamente cada linha estruturada do Anexo I, inclusive as que
+não pertencem a Barreiras, mas conserva nesse índice somente autor, número da
+emenda, órgão, unidade, ação, páginas e hashes de evidência. Município e valor
+de outros territórios não são normalizados nem publicados.
+
+Uma chave só poderá ligar a autorização de Barreiras à execução estadual
+quando ocorrer uma única vez em todo o anexo e uma única vez no retrato
+correspondente da execução. Colisão em qualquer lado mantém empenho,
+liquidação e pagamento bloqueados para publicação territorial.
+
 Fontes oficiais iniciais:
 
 - https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares

@@ -38,7 +38,11 @@ class FakeService:
     def process(self, target):
         if target.fiscal_year == 2024:
             raise LoaIncompleteTextError("formato mudou")
-        return BahiaStateLoaPersistResult(True, target.fiscal_year - 2020)
+        return BahiaStateLoaPersistResult(
+            True,
+            target.fiscal_year - 2020,
+            2,
+        )
 
 
 class ProcessBahiaStateLoaCommandTests(unittest.TestCase):
@@ -55,6 +59,7 @@ class ProcessBahiaStateLoaCommandTests(unittest.TestCase):
         self.assertEqual(summary.processed, 1)
         self.assertEqual(summary.failed, 1)
         self.assertEqual(summary.results_inserted, 5)
+        self.assertEqual(summary.scope_rows_inserted, 2)
         self.assertEqual(len(repository.failures), 1)
         self.assertEqual(repository.failures[0][1]["error_code"], "incomplete_text")
         self.assertNotIn("document.pdf", repository.failures[0][1]["error_detail"])

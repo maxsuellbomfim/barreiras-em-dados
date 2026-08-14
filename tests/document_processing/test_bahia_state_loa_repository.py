@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from decimal import Decimal
 
-from barreiras_docproc.bahia_state_loa import AuthorizedLoaAmendment
+from barreiras_docproc.bahia_state_loa import (
+    AuthorizedLoaAmendment,
+    Loa2026ScopeRow,
+)
 from barreiras_docproc.bahia_state_loa_processing import (
     LOA_BARREIRAS_PARSER_VERSION,
     LOA_EXTRACTION_JOB_TYPE,
@@ -107,6 +111,26 @@ def batch() -> BahiaStateLoaExtractionBatch:
     )
 
 
+def batch_with_scope() -> BahiaStateLoaExtractionBatch:
+    scope_row = Loa2026ScopeRow(
+        fiscal_year=2026,
+        annex_code="I",
+        amendment_number="3030",
+        author_name="Autor Teste",
+        author_external_code="500069",
+        agency_code="SESAB",
+        budget_unit_code="FESBA",
+        action_code="5607",
+        author_page_number=21,
+        author_evidence_text="Autor Teste - 500069 10.324.979",
+        author_evidence_sha256="e" * 64,
+        page_number=22,
+        evidence_text="3030 SESAB FESBA 5607 Aparelhamento",
+        evidence_sha256="f" * 64,
+    )
+    return replace(batch(), scope_rows=(scope_row,))
+
+
 class BahiaStateLoaRepositoryTests(unittest.TestCase):
     def setUp(self) -> None:
         self.connection = RecordingConnection()
@@ -136,6 +160,16 @@ class BahiaStateLoaRepositoryTests(unittest.TestCase):
         )
         self.assertIn("record.payload ->> 'content_sha256' = artifact.sha256", query)
         self.assertIn("result.extractor_version = %s", query)
+        self.assertIn("result.candidate_type = 'bahia_state_loa_2026_scope_row'", query)
+        self.assertIn(
+            "result.candidate_type = 'bahia_state_loa_authorized_amendment'",
+            query,
+        )
+        self.assertIn("(record.payload ->> 'fiscal_year')::integer = 2026", query)
+        self.assertEqual(
+            self.connection.queries[0][1][1],
+            "bahia-state-loa-scope/1.0.0",
+        )
         self.assertIn("job.status = 'dead_lettered'", query)
         self.assertIn("order by candidate.fiscal_year desc", query)
 
@@ -165,6 +199,26 @@ class BahiaStateLoaRepositoryTests(unittest.TestCase):
         self.assertIn('"authorized_amount":"100000"', payload_params[4])
         self.assertIn('"financial_stage":"authorized"', payload_params[4])
         self.assertNotIn("paid", payload_params[4])
+
+    def test_persists_statewide_scope_as_a_separate_private_candidate(self) -> None:
+        result = self.repository.persist_extraction(batch_with_scope())
+
+        self.assertEqual(result.results_inserted, 1)
+        self.assertEqual(result.scope_rows_inserted, 1)
+        scope_params = next(
+            params
+            for query, params in self.connection.queries
+            if "insert into raw.extraction_results" in query
+            and params is not None
+            and "bahia_state_loa_2026_scope_row" in query
+        )
+        self.assertIn('"visibility":"private_reconciliation_scope"', scope_params[2])
+        self.assertIn('"author_external_code":"500069"', scope_params[2])
+        self.assertIn(
+            '"extractor_version":"bahia-state-loa-scope/1.0.0"',
+            scope_params[2],
+        )
+        self.assertNotIn('"municipality"', scope_params[2])
 
     def test_existing_succeeded_job_is_idempotent(self) -> None:
         self.connection.job_row = None

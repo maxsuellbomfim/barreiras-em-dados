@@ -32,6 +32,7 @@ class LoaBatchSummary:
     failed: int
     jobs_created: int
     results_inserted: int
+    scope_rows_inserted: int
 
 
 class PendingRepository(Protocol):
@@ -79,6 +80,7 @@ def run_batch(
     failed = 0
     jobs_created = 0
     results_inserted = 0
+    scope_rows_inserted = 0
     for artifact in pending:
         try:
             result = service.process(artifact)
@@ -114,6 +116,7 @@ def run_batch(
         processed += 1
         jobs_created += int(result.job_created)
         results_inserted += result.results_inserted
+        scope_rows_inserted += result.scope_rows_inserted
         log_event(
             log,
             logging.INFO,
@@ -123,6 +126,7 @@ def run_batch(
             artifact_hash=artifact.sha256,
             job_created=result.job_created,
             authorized_amendments=result.results_inserted,
+            statewide_scope_rows=result.scope_rows_inserted,
         )
 
     summary = LoaBatchSummary(
@@ -131,6 +135,7 @@ def run_batch(
         failed=failed,
         jobs_created=jobs_created,
         results_inserted=results_inserted,
+        scope_rows_inserted=scope_rows_inserted,
     )
     log_event(
         log,
@@ -142,6 +147,7 @@ def run_batch(
         failed=summary.failed,
         jobs_created=summary.jobs_created,
         authorized_amendments=summary.results_inserted,
+        statewide_scope_rows=summary.scope_rows_inserted,
     )
     return summary
 

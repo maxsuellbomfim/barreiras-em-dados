@@ -45,3 +45,16 @@ publicado como zero.
 - 2021 permanece observavel como bloqueio de qualidade da fonte.
 - as linhas extraidas permanecem internas ate a conferencia do primeiro replay
   e a criacao de uma projecao publica separada dos valores executados.
+
+## Adendo de 14/08/2026 - unicidade no universo estadual
+
+A chave territorial de Barreiras prova onde a autorização foi destinada, mas
+não prova que a combinação autor, órgão, unidade e ação seja exclusiva no
+arquivo de execução. Para o Anexo I de 2026, o processador passa a indexar
+privadamente todas as linhas estruturadas do documento, sem normalizar nem
+publicar município ou valor de outros territórios.
+
+A reconciliação com empenho, liquidação e pagamento deverá exigir unicidade
+bidirecional: uma ocorrência da chave no anexo estadual inteiro e uma
+ocorrência no retrato de execução. Qualquer colisão mantém o estágio financeiro
+bloqueado e preserva as evidências das duas fontes para diagnóstico.
