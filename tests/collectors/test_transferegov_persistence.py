@@ -377,6 +377,7 @@ class ControlledTransferegovTests(unittest.TestCase):
     ) -> None:
         self.assertTrue(hasattr(command, "execute_yearly_backfill"))
         attempted: list[int] = []
+        related_control_years: list[int] = []
 
         class ControlProbe:
             def __enter__(self):
@@ -410,9 +411,13 @@ class ControlledTransferegovTests(unittest.TestCase):
                 control_factory=lambda _year: ControlProbe(),
                 operation_factory=operation_factory,
                 logger=logging.getLogger("test-transferegov-backfill"),
+                related_control_factory=lambda year: (
+                    related_control_years.append(year) or {}
+                ),
             )
 
         self.assertEqual(attempted, [2021, 2022, 2023])
+        self.assertEqual(related_control_years, [2021, 2022, 2023])
 
     def test_snapshot_walks_from_partnership_to_bank_order_without_skipping_stage(
         self,
@@ -521,6 +526,8 @@ class ControlledTransferegovTests(unittest.TestCase):
             ],
         )
         self.assertEqual(summary.observed_records, 7)
+        self.assertEqual(summary.distribution_records, 1)
+        self.assertEqual(summary.partnership_records, 1)
         self.assertEqual(summary.commitment_records, 1)
         self.assertEqual(summary.payable_document_records, 1)
         self.assertEqual(summary.payment_order_records, 1)
@@ -617,6 +624,146 @@ class ControlledTransferegovTests(unittest.TestCase):
         )
 
         self.assertEqual(summary.outcome, CollectionOutcome.EMPTY)
+
+    def test_related_controls_start_before_fetch_and_close_per_endpoint(self) -> None:
+        events: list[str] = []
+        completions: dict[str, dict[str, object]] = {}
+
+        class ControlProbe:
+            def __init__(self, endpoint: str) -> None:
+                self.endpoint = endpoint
+
+            def __enter__(self):
+                events.append(f"started:{self.endpoint}")
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                events.append(f"closed:{self.endpoint}")
+                return False
+
+            def complete(self, **values):
+                completions[self.endpoint] = values
+                events.append(f"completed:{self.endpoint}")
+
+        endpoint_records = {
+            "distribuicoes-proposta": 2,
+            "parcerias-proposta": 0,
+            "empenhos-parceria": 4,
+            "documentos-habeis-parceria": 0,
+            "ordens-pagamento-documento": 3,
+        }
+        primary = ControlProbe("propostas-barreiras")
+        related = {
+            endpoint: ControlProbe(endpoint) for endpoint in endpoint_records
+        }
+
+        def operation() -> TransferegovCollectionSummary:
+            self.assertEqual(
+                set(events),
+                {
+                    "started:propostas-barreiras",
+                    *(f"started:{endpoint}" for endpoint in endpoint_records),
+                },
+            )
+            return TransferegovCollectionSummary(
+                proposal_records=1,
+                related_records=2,
+                preserved_pages=6,
+                inserted_records=10,
+                existing_records=0,
+                distribution_records=2,
+                partnership_records=0,
+                commitment_records=4,
+                payable_document_records=0,
+                payment_order_records=3,
+            )
+
+        execute_controlled_transferegov(
+            control=primary,  # type: ignore[arg-type]
+            related_controls=related,  # type: ignore[arg-type]
+            fiscal_year=2026,
+            operation=operation,
+        )
+
+        self.assertEqual(
+            completions["distribuicoes-proposta"]["observed_records"],
+            2,
+        )
+        self.assertEqual(
+            completions["parcerias-proposta"]["outcome"],
+            CollectionOutcome.EMPTY,
+        )
+        self.assertEqual(
+            completions["empenhos-parceria"]["observed_records"],
+            4,
+        )
+        self.assertEqual(
+            completions["documentos-habeis-parceria"]["outcome"],
+            CollectionOutcome.EMPTY,
+        )
+        self.assertEqual(
+            completions["ordens-pagamento-documento"]["observed_records"],
+            3,
+        )
+        self.assertEqual(
+            events.index("completed:propostas-barreiras"),
+            max(
+                events.index(f"completed:{endpoint}")
+                for endpoint in endpoint_records
+            )
+            + 1,
+        )
+
+    def test_failure_is_visible_to_every_related_control(self) -> None:
+        failures: dict[str, type[BaseException] | None] = {}
+
+        class ControlProbe:
+            def __init__(self, endpoint: str) -> None:
+                self.endpoint = endpoint
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_value, traceback
+                failures[self.endpoint] = exc_type
+                return False
+
+            def complete(self, **_values):
+                raise AssertionError(
+                    "A cobertura nao pode ser concluida apos falha."
+                )
+
+        primary = ControlProbe("propostas-barreiras")
+        related = {
+            endpoint: ControlProbe(endpoint)
+            for endpoint in (
+                "distribuicoes-proposta",
+                "parcerias-proposta",
+                "empenhos-parceria",
+                "documentos-habeis-parceria",
+                "ordens-pagamento-documento",
+            )
+        }
+
+        with self.assertRaisesRegex(RuntimeError, "fonte indisponivel"):
+            execute_controlled_transferegov(
+                control=primary,  # type: ignore[arg-type]
+                related_controls=related,  # type: ignore[arg-type]
+                fiscal_year=2026,
+                operation=lambda: (_ for _ in ()).throw(
+                    RuntimeError("fonte indisponivel")
+                ),
+            )
+
+        self.assertEqual(
+            failures,
+            {
+                "propostas-barreiras": RuntimeError,
+                **{endpoint: RuntimeError for endpoint in related},
+            },
+        )
 
 
 if __name__ == "__main__":

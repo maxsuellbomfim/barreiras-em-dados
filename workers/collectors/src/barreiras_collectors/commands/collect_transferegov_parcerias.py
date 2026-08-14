@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import argparse
 import logging
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
@@ -41,6 +42,13 @@ from .pncp_runtime import build_authenticated_object_store
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 MAX_PAGES_PER_RESOURCE = 100
 MIN_FISCAL_YEAR = 2021
+RELATED_ENDPOINT_NAMESPACES = {
+    "distribuicoes-proposta": "tgov-distribuicoes",
+    "parcerias-proposta": "tgov-parcerias",
+    "empenhos-parceria": "tgov-empenhos",
+    "documentos-habeis-parceria": "tgov-documentos",
+    "ordens-pagamento-documento": "tgov-pagamentos",
+}
 
 
 @dataclass(frozen=True)
@@ -54,6 +62,8 @@ class TransferegovCollectionSummary:
     payable_document_records: int = 0
     payment_order_records: int = 0
     bank_order_records: int = 0
+    distribution_records: int = 0
+    partnership_records: int = 0
 
     @property
     def observed_records(self) -> int:
@@ -72,16 +82,60 @@ class TransferegovCollectionSummary:
             return CollectionOutcome.EMPTY
         return CollectionOutcome.COMPLETE
 
+    def records_for_endpoint(self, endpoint_code: str) -> int:
+        """Retorna a contagem observada no endpoint oficial correspondente."""
+        records_by_endpoint = {
+            "propostas-barreiras": self.proposal_records,
+            "distribuicoes-proposta": self.distribution_records,
+            "parcerias-proposta": self.partnership_records,
+            "empenhos-parceria": self.commitment_records,
+            "documentos-habeis-parceria": self.payable_document_records,
+            "ordens-pagamento-documento": self.payment_order_records,
+        }
+        try:
+            return records_by_endpoint[endpoint_code]
+        except KeyError as error:
+            raise ValueError(
+                f"Endpoint Transferegov sem contagem controlada: {endpoint_code}."
+            ) from error
+
 
 def execute_controlled_transferegov(
     *,
     control: CollectionControl,
+    related_controls: Mapping[str, CollectionControl] | None = None,
     fiscal_year: int,
     operation: Callable[[], TransferegovCollectionSummary],
 ) -> TransferegovCollectionSummary:
     """Registra a tentativa antes de autenticar ou consultar a fonte."""
-    with control:
+    with ExitStack() as stack:
+        stack.enter_context(control)
+        active_related_controls = {
+            endpoint_code: stack.enter_context(related_control)
+            for endpoint_code, related_control in (related_controls or {}).items()
+        }
         summary = operation()
+        for endpoint_code, related_control in active_related_controls.items():
+            observed_records = summary.records_for_endpoint(endpoint_code)
+            related_control.complete(
+                outcome=(
+                    CollectionOutcome.EMPTY
+                    if observed_records == 0
+                    else CollectionOutcome.COMPLETE
+                ),
+                observed_records=observed_records,
+                checkpoint={
+                    "fiscal_year": fiscal_year,
+                    "parent_endpoint": "propostas-barreiras",
+                    "proposal_records": summary.proposal_records,
+                    "coverage_derivation": "full_parent_traversal",
+                },
+                metrics={
+                    "fiscal_year": fiscal_year,
+                    "observed_records": observed_records,
+                    "proposal_records": summary.proposal_records,
+                },
+            )
         control.complete(
             outcome=summary.outcome,
             observed_records=summary.observed_records,
@@ -94,6 +148,8 @@ def execute_controlled_transferegov(
                 "fiscal_year": fiscal_year,
                 "proposal_records": summary.proposal_records,
                 "related_records": summary.related_records,
+                "distribution_records": summary.distribution_records,
+                "partnership_records": summary.partnership_records,
                 "preserved_pages": summary.preserved_pages,
                 "inserted_records": summary.inserted_records,
                 "existing_records": summary.existing_records,
@@ -133,6 +189,9 @@ def execute_yearly_backfill(
         [int], Callable[[], TransferegovCollectionSummary]
     ],
     logger: logging.Logger,
+    related_control_factory: (
+        Callable[[int], Mapping[str, CollectionControl]] | None
+    ) = None,
 ) -> tuple[tuple[int, TransferegovCollectionSummary], ...]:
     """Tenta cada ano isoladamente e só então reporta falhas agregadas."""
     completed: list[tuple[int, TransferegovCollectionSummary]] = []
@@ -141,6 +200,11 @@ def execute_yearly_backfill(
         try:
             summary = execute_controlled_transferegov(
                 control=control_factory(fiscal_year),
+                related_controls=(
+                    related_control_factory(fiscal_year)
+                    if related_control_factory is not None
+                    else None
+                ),
                 fiscal_year=fiscal_year,
                 operation=operation_factory(fiscal_year),
             )
@@ -181,6 +245,8 @@ def _log_year_completed(
         coverage_status=summary.outcome.value,
         proposal_records=summary.proposal_records,
         related_records=summary.related_records,
+        distribution_records=summary.distribution_records,
+        partnership_records=summary.partnership_records,
         preserved_pages=summary.preserved_pages,
         inserted_records=summary.inserted_records,
         existing_records=summary.existing_records,
@@ -291,11 +357,32 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         return operation
 
+    def related_control_factory(
+        fiscal_year: int,
+    ) -> Mapping[str, CollectionControl]:
+        return {
+            endpoint_code: CollectionControl(
+                repository=repository,
+                source_code=SOURCE_CODE,
+                endpoint_code=endpoint_code,
+                idempotency_key=build_execution_idempotency_key(
+                    f"{namespace}-{fiscal_year}"
+                ),
+                collector_version=TRANSFEREGOV_COLLECTOR_VERSION,
+                parser_version=TRANSFEREGOV_PARSER_VERSION,
+                partition_key=f"fiscal-year:{fiscal_year}",
+                period_start=date(fiscal_year, 1, 1),
+                period_end=date(fiscal_year, 12, 31),
+            )
+            for endpoint_code, namespace in RELATED_ENDPOINT_NAMESPACES.items()
+        }
+
     execute_yearly_backfill(
         fiscal_years=fiscal_years,
         control_factory=control_factory,
         operation_factory=operation_factory,
         logger=logger,
+        related_control_factory=related_control_factory,
     )
     return 0
 
@@ -310,6 +397,7 @@ def _collect_snapshot(
 ) -> TransferegovCollectionSummary:
     breaker = CircuitBreaker(failure_threshold=4)
     proposal_records = related_records = 0
+    distribution_records = partnership_records = 0
     commitment_records = payable_document_records = 0
     payment_order_records = bank_order_records = 0
     preserved_pages = inserted_records = existing_records = 0
@@ -377,6 +465,7 @@ def _collect_snapshot(
         for page in distribution_pages:
             preserve(page)
             related_records += len(page.items)
+            distribution_records += len(page.items)
 
         partnership_pages = _fetch_all_pages(
             fetch=lambda number, proposal_id=proposal_id: fetch_partnerships_page(
@@ -393,6 +482,7 @@ def _collect_snapshot(
         for page in partnership_pages:
             preserve(page)
             related_records += len(page.items)
+            partnership_records += len(page.items)
             for item in page.items:
                 identifier = item["id_parceria"]
                 if identifier in partnership_ids:
@@ -482,6 +572,8 @@ def _collect_snapshot(
         payable_document_records=payable_document_records,
         payment_order_records=payment_order_records,
         bank_order_records=bank_order_records,
+        distribution_records=distribution_records,
+        partnership_records=partnership_records,
     )
 
 

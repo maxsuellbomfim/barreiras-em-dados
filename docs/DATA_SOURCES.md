@@ -249,6 +249,15 @@ cobertura pública distingue `complete`, `empty`, `partial`, `failed`, `blocked`
 e `unclassified`: um ano vazio confirmado na API de Parcerias não é publicado
 como prova de ausência em outras bases oficiais.
 
+Cada execução anual também mantém partições próprias para distribuições de
+recursos, parcerias, empenhos, documentos hábeis e ordens de pagamento. Esses
+subrecursos são fechados como `complete` ou `empty` somente depois que todas as
+propostas e relações parentais daquele ano foram percorridas sem erro. Uma
+falha em qualquer etapa deixa todas as partições ainda abertas como falha; o
+painel não herda sucesso da proposta nem confunde recurso não consultado com
+recurso oficialmente ausente. Ordens bancárias continuam como registros
+derivados da resposta oficial de ordens de pagamento, sem partição fictícia.
+
 ### Downloads históricos de transferências discricionárias e legais
 
 O ambiente oficial de downloads expõe uma enumeração XML completa em
