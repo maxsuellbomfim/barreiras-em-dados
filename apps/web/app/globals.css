@@ -4469,6 +4469,85 @@ footer {
   margin-top: 2.2rem;
 }
 
+.transfer-current-overview {
+  margin-top: 2.2rem;
+  padding: clamp(1.1rem, 3vw, 1.6rem);
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1.35rem;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1rem 2.8rem rgba(34, 58, 102, 0.06);
+}
+
+.transfer-current-answer {
+  max-width: 68rem;
+  margin: 0 0 1.15rem;
+  color: #4e5d73;
+  font-size: clamp(0.92rem, 1.8vw, 1.05rem);
+  line-height: 1.65;
+}
+
+.transfer-current-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.transfer-current-summary > div {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(28, 40, 61, 0.08);
+  border-radius: 1rem;
+  background: #f7f9fc;
+}
+
+.transfer-current-summary dt {
+  color: #6e7b90;
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.transfer-current-summary dd {
+  margin: 0.35rem 0 0;
+  color: var(--ink);
+  font-size: clamp(1.05rem, 2.3vw, 1.4rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+
+.transfer-current-summary span {
+  display: block;
+  margin-top: 0.45rem;
+  color: #7b879a;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.transfer-current-summary [data-tone="destination"] {
+  border-top: 0.22rem solid #315bc7;
+}
+
+.transfer-current-summary [data-tone="paid"] {
+  border-top: 0.22rem solid #23865f;
+  background: rgba(235, 249, 242, 0.78);
+}
+
+.transfer-current-summary [data-tone="paid"] dd {
+  color: #16704f;
+}
+
+.transfer-current-summary [data-tone="pending"] {
+  border-top: 0.22rem solid #b47a18;
+  background: rgba(255, 248, 235, 0.78);
+}
+
+.transfer-current-records-heading {
+  margin-top: 1.8rem;
+}
+
 .transfer-coverage-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
@@ -4843,6 +4922,10 @@ footer {
 }
 
 @media (max-width: 840px) {
+  .transfer-current-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .transfer-ranking-card {
     grid-template-columns: auto 1fr;
   }
@@ -4867,6 +4950,7 @@ footer {
   }
 
   .transfer-ranking-card dl,
+  .transfer-current-summary,
   .transfer-stage-grid,
   .transfer-details dl {
     grid-template-columns: 1fr;
