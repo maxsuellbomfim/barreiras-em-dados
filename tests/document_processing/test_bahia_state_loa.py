@@ -236,6 +236,134 @@ Barreiras 200 .000
         self.assertEqual(rows[1].authorized_amount, Decimal("200000"))
         self.assertEqual(rows[1].page_number, 25)
 
+    def test_2026_recovers_municipality_appended_to_object_column(self) -> None:
+        page = LoaPage(
+            page_number=203,
+            text="""Marcone Amaral - 500144 10.324.979
+Total da Área de Educação 1.548.747
+5724 SEC APG 3390 Aquisição de Veículo para Transporte Escolar
+Ônibus Rural Escolar (ORE 1) - Transmissão Mecânica Barreiras 1.548.747
+""",
+        )
+
+        rows = parse_barreiras_loa_pages(
+            fiscal_year=2026,
+            annex_code="I",
+            pages=(page,),
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].amendment_number, "5724")
+        self.assertEqual(rows[0].author_name, "Marcone Amaral")
+        self.assertEqual(rows[0].authorized_amount, Decimal("1548747"))
+        self.assertEqual(
+            rows[0].official_description,
+            "Aquisição de Veículo para Transporte Escolar Ônibus Rural "
+            "Escolar (ORE 1) - Transmissão Mecânica",
+        )
+
+    def test_2026_recovers_municipality_split_by_pdf_layout(self) -> None:
+        page = LoaPage(
+            page_number=314,
+            text="""Robinson Almeida - 500112 10.324.979
+5794 SDR CAR 5040 Implantação de Infraestrutura Hídrica na Zona Rural
+Aquisição de kit reservatório de água de 1.000 litros Barr eiras 7.800
+5795 SDR CAR 5040 Implantação de Infraestrutura Hídrica na Zona Rural
+Aquisição de Kit Reservatório de água de 500L B arreiras 4.800
+""",
+        )
+
+        rows = parse_barreiras_loa_pages(
+            fiscal_year=2026,
+            annex_code="I",
+            pages=(page,),
+        )
+
+        self.assertEqual(
+            [(row.amendment_number, row.authorized_amount) for row in rows],
+            [("5794", Decimal("7800")), ("5795", Decimal("4800"))],
+        )
+
+    def test_2026_does_not_treat_object_mention_as_destination(self) -> None:
+        page = LoaPage(
+            page_number=94,
+            text="""Autor Teste - 500127 10.324.979
+2583 MPE FMMP 5092 Construção de Unidade do Ministério Público
+Construção da Promotoria Regional de Barreiras Salvador 200.000
+""",
+        )
+
+        rows = parse_barreiras_loa_pages(
+            fiscal_year=2026,
+            annex_code="I",
+            pages=(page,),
+        )
+
+        self.assertEqual(rows, ())
+
+    def test_2026_recovers_all_rows_found_by_independent_column_audit(self) -> None:
+        pages = (
+            LoaPage(
+                94,
+                """Hassan - 500127 10.324.979
+2583 MPE FMMP 5092 Construção de Unidade do Ministério Público
+Construção da Promotoria Regional de Barreiras Barr eiras 200.000
+""",
+            ),
+            LoaPage(
+                172,
+                """Luciano Simões Filho - 500080 10.324.979
+1276 SESAB FESBA 2875 Gerenciamento do Serviço Hospitalar
+Apoio financeiro a entidades de saúde B arreiras 100.000
+""",
+            ),
+            LoaPage(
+                203,
+                """Marcone Amaral - 500144 10.324.979
+5724 SEC APG 3390 Aquisição de Veículo para Transporte Escolar
+Ônibus Rural Escolar (ORE 1) - Transmissão Mecânica Barreiras 1.548.747
+""",
+            ),
+            LoaPage(
+                301,
+                """Robinson Almeida - 500112 10.324.979
+2006 SEC FAED 3363 Assistência Financeira para Unidade Escolar
+Apoio financeiro para o Colégio Estadual Herculano Faria Barreiras 20.000
+""",
+            ),
+            LoaPage(
+                314,
+                """Robinson Almeida - 500112 10.324.979
+5794 SDR CAR 5040 Implantação de Infraestrutura Hídrica
+Aquisição de kit reservatório de água de 1.000 litros Barreiras 7.800
+5795 SDR CAR 5040 Implantação de Infraestrutura Hídrica
+Aquisição de Kit Reservatório de água de 500L Barre iras 4.800
+""",
+            ),
+            LoaPage(
+                328,
+                """Samuel Júnior - 500092 10.324.979
+142 MPE FMMP 5092 Construção de Unidade do Ministério Público
+Construção da Promotoria Regional de Barreiras Barr eiras 300.000
+""",
+            ),
+        )
+
+        rows = parse_barreiras_loa_pages(
+            fiscal_year=2026,
+            annex_code="I",
+            pages=pages,
+        )
+
+        self.assertEqual(
+            [row.amendment_number for row in rows],
+            ["2583", "1276", "5724", "2006", "5794", "5795", "142"],
+        )
+        self.assertEqual(
+            sum((row.authorized_amount for row in rows), Decimal("0")),
+            Decimal("2181347"),
+        )
+
     def test_2026_scope_keeps_every_structured_row_not_only_barreiras(self) -> None:
         pages = (
             LoaPage(

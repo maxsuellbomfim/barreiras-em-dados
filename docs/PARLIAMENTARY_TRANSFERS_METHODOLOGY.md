@@ -304,6 +304,32 @@ nos valores de execução. Cada ano liga ao catálogo de emendas, objetos,
 páginas, documentos e hashes correspondentes. Essa linha do tempo não é um
 ranking de desempenho e não mede, isoladamente, o trabalho parlamentar.
 
+### Correção de layout do Anexo I de 2026
+
+O PDF oficial de 2026 organiza a tabela por autor. Em sete linhas, a extração
+de texto embutido anexou a coluna `Município` ao final do objeto ou separou
+letras de `Barreiras`. Uma leitura independente pelas coordenadas das colunas
+confirmou 34 linhas destinadas ao município, no total autorizado de
+R$ 11.198.888. O parser 1.2.0 reconhece somente a ocorrência territorial no fim
+da linha, imediatamente antes do valor. Uma menção a Barreiras dentro do objeto
+seguida de outro município continua excluída. A versão 1.1.0 permanece no
+histórico bruto; o novo job cria resultados versionados, sem sobrescrita.
+
+| Emenda | Autor publicado | Página | Valor autorizado recuperado |
+|---:|---|---:|---:|
+| 2583 | Hassan | 94 | R$ 200.000 |
+| 1276 | Luciano Simões Filho | 172 | R$ 100.000 |
+| 5724 | Marcone Amaral | 203 | R$ 1.548.747 |
+| 2006 | Robinson Almeida | 301 | R$ 20.000 |
+| 5794 | Robinson Almeida | 314 | R$ 7.800 |
+| 5795 | Robinson Almeida | 314 | R$ 4.800 |
+| 142 | Samuel Júnior | 328 | R$ 300.000 |
+
+As sete linhas somam R$ 2.181.347. O valor autorizado de Marcone Amaral para
+Barreiras em 2026 passa a quatro emendas e R$ 7.449.799. O total de
+R$ 10.324.979 exibido no cabeçalho do parlamentar inclui outros municípios e,
+por isso, não entra integralmente no recorte territorial de Barreiras.
+
 ## Ranking por legislatura e esfera
 
 A página de representantes também publica até dez autorias individuais encontradas por

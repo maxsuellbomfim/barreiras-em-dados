@@ -386,8 +386,12 @@ totais ou rankings municipais por simples menção textual.
 
 Segunda fatia concluída: extração determinística das linhas territoriais de
 Barreiras nos anexos oficiais da LOA 2022-2026, com evidência literal e estágio
-`authorized`. O replay de produção conferiu 63 linhas distintas contra os cinco
-PDFs, sem falhas, e a projeção pública passa a mostrar ranking e catálogo por
+`authorized`. O replay inicial de produção publicou 63 linhas distintas. Em
+14/08/2026, uma auditoria independente pelas coordenadas das colunas dos cinco
+PDFs confirmou integralmente 2022-2025 e encontrou 7 omissões em 2026, causadas
+pela união visual das colunas objeto e município no texto embutido. O parser
+1.2.0 recupera essas linhas e o replay deve totalizar 70 registros; a projeção
+pública mostra ranking e catálogo por
 autor, ano, objeto, página, URL e hashes. Dez dos onze autores foram ligados a
 perfis oficiais por crosswalk TSE aprovado: nove perfis da ALBA e um perfil atual
 da Câmara dos Deputados. A interface separa a autoria publicada no orçamento do
@@ -459,6 +463,11 @@ ADR adicional.
 ## Checkpoint — unicidade das emendas estaduais
 
 - [x] preservar e extrair deterministicamente o Anexo I da LOA 2026;
+- [x] confrontar o parser com uma leitura geométrica independente do Anexo I:
+  34 linhas e R$ 11.198.888 destinados a Barreiras em 2026; a versão anterior
+  encontrava 27 linhas e R$ 9.017.541;
+- [x] corrigir as 7 omissões de município colado ou separado pelo PDF, somando
+  R$ 2.181.347, sem aceitar simples menção a Barreiras dentro do objeto;
 - [x] validar 3.182 linhas estruturadas em 374 páginas, sem reduzir o universo
   ao recorte de Barreiras;
 - [x] separar o índice estadual privado da projeção pública municipal;
