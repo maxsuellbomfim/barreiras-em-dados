@@ -319,7 +319,11 @@ classifica separadamente cada exercício desde 2021, e a página pública mostra
 quando a fonte foi consultada, ficou vazia, falhou ou ainda não foi
 classificada. O primeiro crosswalk de autoria individual com perfil
 político foi implementado com evidência Câmara/TSE; novas associações exigem o
-mesmo padrão e não são inferidas por semelhança de nome.
+mesmo padrão e não são inferidas por semelhança de nome. A resposta cidadã e o
+ranking da API federal atual agora aceitam recorte anual explícito, escolhendo
+na abertura o exercício mais recente com emendas encontradas. Anos vazios
+continuam consultáveis e são descritos como ausência na fonte atual, nunca como
+valor financeiro zero; pessoas permanecem separadas de comissões e bancadas.
 
 O catálogo oficial dos arquivos históricos de transferências discricionárias
 e legais passa a ser preservado diariamente como uma fonte separada. O

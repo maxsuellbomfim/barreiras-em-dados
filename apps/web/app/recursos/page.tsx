@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 
 import {
+  getPublicCurrentParliamentaryTransfers,
   getPublicParliamentaryTransfers,
+  getPublicParliamentaryTransferRankings,
   parliamentaryTransferAuthorAnchor,
   type BahiaStateLoaAmendment,
   type BahiaStateLoaAmendmentRanking,
@@ -13,9 +15,11 @@ import {
   type ParliamentaryTransferCoverage,
   type ParliamentaryTransferReconciliationSummary,
   type ParliamentaryTransferRanking,
+  type ParliamentaryTransferRankingsResult,
   type ReconciledParliamentaryTransferRanking,
 } from "../../lib/parliamentary-transfers";
 import { buildCurrentTransferCitizenSummary } from "../../lib/parliamentary-transfer-citizen-summary.mjs";
+import { resolveCurrentFederalTransferYear } from "../../lib/parliamentary-transfer-year-filter.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
 
 export const revalidate = 300;
@@ -125,7 +129,28 @@ function CoveragePanel({
 
 function CurrentFederalTransferPanel({
   transfers,
-}: Readonly<{ transfers: readonly ParliamentaryTransfer[] }>) {
+  fiscalYear,
+  sourceAvailable,
+}: Readonly<{
+  transfers: readonly ParliamentaryTransfer[];
+  fiscalYear: number | null;
+  sourceAvailable: boolean;
+}>) {
+  if (!sourceAvailable) {
+    return (
+      <section className="transfer-current-overview" aria-labelledby="current-federal-title">
+        <div className="transfer-section-heading">
+          <div>
+            <span className="eyebrow">API federal atual</span>
+            <h2 id="current-federal-title">Consulta anual temporariamente indisponível</h2>
+          </div>
+        </div>
+        <p className="transfer-empty">
+          Isso é uma falha de consulta, não ausência de emendas nem valor zero.
+        </p>
+      </section>
+    );
+  }
   const summary = buildCurrentTransferCitizenSummary(transfers);
   if (summary === null) {
     return (
@@ -133,7 +158,11 @@ function CurrentFederalTransferPanel({
         <div className="transfer-section-heading">
           <div>
             <span className="eyebrow">API federal atual</span>
-            <h2 id="current-federal-title">Nenhuma emenda atual pronta para exibição</h2>
+            <h2 id="current-federal-title">
+              {fiscalYear === null
+                ? "Nenhuma emenda atual pronta para exibição"
+                : `Nenhuma emenda encontrada na API atual em ${fiscalYear}`}
+            </h2>
           </div>
         </div>
         <p className="transfer-empty">
@@ -219,6 +248,55 @@ function CurrentFederalTransferPanel({
   );
 }
 
+function CurrentFederalRankingPanel({
+  fiscalYear,
+  result,
+}: Readonly<{
+  fiscalYear: number;
+  result: ParliamentaryTransferRankingsResult;
+}>) {
+  return (
+    <section
+      className="transfer-ranking transfer-current-ranking"
+      aria-labelledby="current-ranking-title"
+    >
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Ranking de {fiscalYear} · API federal atual</span>
+          <h2 id="current-ranking-title">Quem destinou recursos neste ano?</h2>
+        </div>
+        <p>Ordenação: pagamento confirmado; depois, valor destinado.</p>
+      </div>
+
+      {result.state === "unavailable" ? (
+        <p className="transfer-empty">
+          O ranking deste ano está temporariamente indisponível. Isso não significa
+          ausência de emendas nem valor zero.
+        </p>
+      ) : (
+        <div className="transfer-current-ranking-groups">
+          <div>
+            <h3>Parlamentares que destinaram recursos</h3>
+            <p>Somente autoria individual confirmada pela fonte.</p>
+            <RankingTable
+              rows={result.people}
+              emptyCopy={`Nenhuma autoria individual foi encontrada na API atual em ${fiscalYear}.`}
+            />
+          </div>
+          <div>
+            <h3>Comissões e bancadas</h3>
+            <p>Autoria coletiva não é atribuída a um político individual.</p>
+            <RankingTable
+              rows={result.collectives}
+              emptyCopy={`Nenhuma autoria coletiva foi encontrada na API atual em ${fiscalYear}.`}
+            />
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function RankingTable({
   rows,
   emptyCopy,
@@ -288,7 +366,7 @@ function ReconciledRankingTable({
       {rows.map((row) => (
         <article
           className="transfer-ranking-card"
-          id={parliamentaryTransferAuthorAnchor(row.authorKey)}
+          id={`consolidado-${parliamentaryTransferAuthorAnchor(row.authorKey)}`}
           key={`reconciled:${row.authorKind}:${row.authorKey}`}
         >
           <span className="transfer-rank" aria-label={`posição ${row.rankPosition}`}>
@@ -1042,8 +1120,34 @@ function HistoricalProposalsPanel({
   );
 }
 
-export default async function ParliamentaryResourcesPage() {
+type ParliamentaryResourcesPageProps = Readonly<{
+  searchParams: Promise<{ ano?: string | string[] }>;
+}>;
+
+export default async function ParliamentaryResourcesPage({
+  searchParams,
+}: ParliamentaryResourcesPageProps) {
+  const params = await searchParams;
   const result = await getPublicParliamentaryTransfers();
+  const selectedFiscalYear = result.state === "available"
+    ? resolveCurrentFederalTransferYear(params.ano, result.coverage)
+    : null;
+  const [currentTransferResult, currentRankings] = selectedFiscalYear === null
+    ? [
+        { state: "unavailable" as const },
+        { state: "unavailable" as const },
+      ]
+    : await Promise.all([
+        getPublicCurrentParliamentaryTransfers(selectedFiscalYear),
+        getPublicParliamentaryTransferRankings(selectedFiscalYear),
+      ]);
+  const currentTransfers = currentTransferResult.state === "available"
+    ? currentTransferResult.transfers
+    : [];
+  const availableFiscalYears = result.state === "available" && result.coverage !== null
+    ? [...new Set(result.coverage.map((row) => row.fiscalYear))]
+      .sort((left, right) => right - left)
+    : [];
 
   return (
     <main>
@@ -1094,7 +1198,41 @@ export default async function ParliamentaryResourcesPage() {
           </div>
         ) : (
           <>
-            <CurrentFederalTransferPanel transfers={result.transfers} />
+            {selectedFiscalYear !== null && availableFiscalYears.length > 0 ? (
+              <form
+                className="transfer-year-filter"
+                method="get"
+                aria-label="Filtrar emendas federais atuais por ano"
+              >
+                <div>
+                  <label htmlFor="transfer-year">Ano da API federal atual</label>
+                  <select id="transfer-year" name="ano" defaultValue={selectedFiscalYear}>
+                    {availableFiscalYears.map((year) => (
+                      <option value={year} key={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                <button type="submit">Ver este ano</button>
+                <p>
+                  O filtro altera a resposta rápida, as emendas e o ranking da API
+                  federal atual. Arquivo histórico e emendas estaduais permanecem
+                  separados abaixo.
+                </p>
+              </form>
+            ) : null}
+
+            <CurrentFederalTransferPanel
+              transfers={currentTransfers}
+              fiscalYear={selectedFiscalYear}
+              sourceAvailable={currentTransferResult.state === "available"}
+            />
+
+            {selectedFiscalYear !== null ? (
+              <CurrentFederalRankingPanel
+                fiscalYear={selectedFiscalYear}
+                result={currentRankings}
+              />
+            ) : null}
 
             <CoveragePanel rows={result.coverage} />
 
@@ -1117,38 +1255,6 @@ export default async function ParliamentaryResourcesPage() {
             />
 
             <HistoricalProposalsPanel proposals={result.historicalProposals} />
-
-            {result.reconciledPeople === null ? (
-            <section className="transfer-ranking" aria-labelledby="people-ranking-title">
-              <div className="transfer-section-heading">
-                <div>
-                  <span className="eyebrow">Autoria individual</span>
-                  <h2 id="people-ranking-title">Parlamentares que destinaram recursos</h2>
-                </div>
-                <p>Ordenação principal: valor pago confirmado; depois, valor destinado.</p>
-              </div>
-              <RankingTable
-                rows={result.people}
-                emptyCopy="Nenhuma autoria individual foi encontrada no recorte oficial coletado."
-              />
-            </section>
-            ) : null}
-
-            {result.reconciledCollectives === null ? (
-            <section className="transfer-ranking" aria-labelledby="collective-ranking-title">
-              <div className="transfer-section-heading">
-                <div>
-                  <span className="eyebrow">Autoria coletiva</span>
-                  <h2 id="collective-ranking-title">Comissões e bancadas</h2>
-                </div>
-                <p>Estes valores não entram no ranking pessoal de nenhum parlamentar.</p>
-              </div>
-              <RankingTable
-                rows={result.collectives}
-                emptyCopy="Nenhuma autoria coletiva foi encontrada no recorte oficial coletado."
-              />
-            </section>
-            ) : null}
 
           </>
         )}

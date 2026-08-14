@@ -1,3 +1,8 @@
+import {
+  buildCurrentTransferRankingRequest,
+  buildCurrentTransfersRequest,
+} from "./parliamentary-transfer-year-filter.mjs";
+
 export type ParliamentaryAuthorKind =
   | "person"
   | "commission"
@@ -64,6 +69,13 @@ export type ParliamentaryTransfer = Readonly<{
   artifactSha256: string;
   methodologyVersion: "parliamentary-transfers/1.0.0";
 }>;
+
+export type CurrentParliamentaryTransfersResult =
+  | Readonly<{
+      state: "available";
+      transfers: readonly ParliamentaryTransfer[];
+    }>
+  | Readonly<{ state: "unavailable" }>;
 
 export type ParliamentaryTransferCoverageStatus =
   | "complete"
@@ -1211,25 +1223,47 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
   }
 }
 
-export async function getPublicParliamentaryTransferRankings(): Promise<ParliamentaryTransferRankingsResult> {
+export async function getPublicParliamentaryTransferRankings(
+  fiscalYear: number | null = null,
+): Promise<ParliamentaryTransferRankingsResult> {
   try {
     const [peopleRows, collectiveRows] = await Promise.all([
-      callRpc("get_public_parliamentary_transfer_ranking", {
-        author_scope: "person",
-        fiscal_year_filter: null,
-        page_size: 50,
-      }),
-      callRpc("get_public_parliamentary_transfer_ranking", {
-        author_scope: "collective",
-        fiscal_year_filter: null,
-        page_size: 50,
-      }),
+      callRpc(
+        "get_public_parliamentary_transfer_ranking",
+        buildCurrentTransferRankingRequest("person", fiscalYear),
+      ),
+      callRpc(
+        "get_public_parliamentary_transfer_ranking",
+        buildCurrentTransferRankingRequest("collective", fiscalYear),
+      ),
     ]);
     if (!peopleRows || !collectiveRows) return { state: "unavailable" };
     return {
       state: "available",
       people: parseRankingRows(peopleRows),
       collectives: parseRankingRows(collectiveRows),
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function getPublicCurrentParliamentaryTransfers(
+  fiscalYear: number,
+): Promise<CurrentParliamentaryTransfersResult> {
+  try {
+    const rows = await callRpc(
+      "get_public_parliamentary_transfers",
+      buildCurrentTransfersRequest(fiscalYear),
+    );
+    if (rows === null) return { state: "unavailable" };
+    return {
+      state: "available",
+      transfers: rows.flatMap((row) => {
+        if (typeof row !== "object" || row === null) return [];
+        const parsed = parseTransfer(row as Record<string, unknown>);
+        return parsed ? [parsed] : [];
+      }),
     };
   } catch {
     return { state: "unavailable" };
