@@ -10,8 +10,10 @@ from ..connectors.bahia_state_amendments import (
     BahiaStateAmendmentArchiveError,
     BahiaStateAmendmentArchiveSnapshot,
     BahiaStateAmendmentCatalogSnapshot,
+    BahiaStateAmendmentRelationshipSnapshot,
     parse_state_amendment_archive,
     parse_state_amendment_catalog,
+    validate_state_amendment_relationship_manifest,
 )
 from ..connectors.bahia_state_loa_amendments import (
     YEARLY_ANNEXES,
@@ -117,6 +119,9 @@ BAHIA_STATE_AMENDMENT_CATALOG_PARSER_VERSION = (
 )
 BAHIA_STATE_AMENDMENT_ARCHIVE_PARSER_VERSION = (
     "bahia-state-amendment-archive/1.2.0"
+)
+BAHIA_STATE_AMENDMENT_RELATIONSHIP_PARSER_VERSION = (
+    "bahia-state-amendment-relationship-diagram/1.0.0"
 )
 BAHIA_STATE_LOA_ANNEX_COLLECTOR_VERSION = (
     "bahia-state-loa-amendment-annex-collector/1.0.0"
@@ -1030,6 +1035,62 @@ class BahiaStateAmendmentArchivePersistenceService:
             object_store=self.object_store,
             repository=self.repository,
             restored_description="ZIP estadual restaurado",
+        )
+
+
+class BahiaStateAmendmentRelationshipPersistenceService:
+    """Preserva o diagrama oficial e somente seu manifesto técnico."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(
+        self,
+        snapshot: BahiaStateAmendmentRelationshipSnapshot,
+    ) -> PersistenceResult:
+        _verify_state_amendment_bytes(
+            snapshot,
+            description="diagrama estadual de relacionamento",
+        )
+        if len(snapshot.items) != 1:
+            raise ArtifactIntegrityError(
+                "O diagrama estadual não possui um manifesto único."
+            )
+        manifest = snapshot.items[0]
+        try:
+            validate_state_amendment_relationship_manifest(
+                snapshot.raw_body,
+                manifest,
+            )
+        except BahiaStateAmendmentArchiveError as error:
+            raise ArtifactIntegrityError(
+                "O diagrama estadual preservado perdeu seu contrato."
+            ) from error
+        record = _state_amendment_record(
+            payload=manifest,
+            source_record_key=(
+                "bahia:state-amendment-relationship-diagram:"
+                f"{manifest['resource_id']}:{manifest['content_sha256']}"
+            ),
+            record_type="bahia_state_amendment_relationship_diagram",
+            parser_version=BAHIA_STATE_AMENDMENT_RELATIONSHIP_PARSER_VERSION,
+            record_index=0,
+            snapshot_key=snapshot.idempotency_key,
+        )
+        object_key = (
+            "bahia/emendas-estaduais/relationship-diagram/sha256/"
+            f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.png"
+        )
+        return _persist_state_amendment_snapshot(
+            snapshot=snapshot,
+            records=(record,),
+            object_key=object_key,
+            collector_version=BAHIA_STATE_AMENDMENT_COLLECTOR_VERSION,
+            parser_version=BAHIA_STATE_AMENDMENT_RELATIONSHIP_PARSER_VERSION,
+            object_store=self.object_store,
+            repository=self.repository,
+            restored_description="diagrama estadual restaurado",
         )
 
 

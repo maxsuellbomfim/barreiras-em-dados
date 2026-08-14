@@ -15,6 +15,7 @@ import logging
 import os
 import random
 import re
+import struct
 import time
 import zipfile
 from collections.abc import Callable, Mapping
@@ -39,6 +40,8 @@ DATASET_ID = "1436b3e7-6594-4683-bfa5-b2e3a6c69e07"
 DATASET_NAME = "emendas-parlamentares"
 RESOURCE_ID = "2d284f2e-79cc-4e3c-a45b-6fc903a6e2d0"
 ARCHIVE_NAME = "emendasparlamentares.zip"
+RELATIONSHIP_RESOURCE_ID = "f463ff7d-569c-4b48-b1d3-c80f017779df"
+RELATIONSHIP_RESOURCE_NAME = "Emendas Parlamentares - Relacionamento_Views.png"
 CATALOG_URL = (
     "https://dados.ba.gov.br/api/3/action/"
     "package_show?id=emendas-parlamentares"
@@ -46,6 +49,11 @@ CATALOG_URL = (
 DOWNLOAD_URL = (
     f"https://dados.ba.gov.br/dataset/{DATASET_ID}/resource/{RESOURCE_ID}/"
     f"download/{ARCHIVE_NAME}"
+)
+RELATIONSHIP_DIAGRAM_URL = (
+    f"https://dados.ba.gov.br/dataset/{DATASET_ID}/resource/"
+    f"{RELATIONSHIP_RESOURCE_ID}/download/"
+    "emendas-parlamentares-relacionamento_views.png"
 )
 OFFICIAL_HOSTS = frozenset({"dados.ba.gov.br"})
 STATE_TLS_CA_BUNDLE = Path(
@@ -56,6 +64,7 @@ STATE_TLS_CA_BUNDLE = Path(
 )
 MAX_CATALOG_BYTES = 2 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 32 * 1024 * 1024
+MAX_RELATIONSHIP_DIAGRAM_BYTES = 2 * 1024 * 1024
 MAX_MEMBER_BYTES = 32 * 1024 * 1024
 MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
 MAX_COMPRESSION_RATIO = 100
@@ -168,6 +177,36 @@ class BahiaStateAmendmentCatalogSnapshot:
 
 @dataclass(frozen=True)
 class BahiaStateAmendmentArchiveSnapshot:
+    schema_name: str
+    schema_version: str
+    artifact_kind: str
+    source_code: str
+    endpoint_code: str
+    idempotency_key: str
+    request_url: str
+    final_url: str
+    requested_at: str
+    received_at: str
+    window_start: str
+    window_end: str
+    attempts: int
+    http_status: int
+    collection_status: str
+    body_sha256: str
+    body_size_bytes: int
+    media_type: str
+    response_headers: dict[str, str]
+    cursor: dict[str, int]
+    raw_body: bytes
+    items: tuple[dict[str, object], ...]
+    total_pages: int
+    total_items: int
+    catalog_sha256: str
+    resource_last_modified: str
+
+
+@dataclass(frozen=True)
+class BahiaStateAmendmentRelationshipSnapshot:
     schema_name: str
     schema_version: str
     artifact_kind: str
@@ -348,6 +387,108 @@ def fetch_state_amendment_archive(
         items=members,
         total_pages=1,
         total_items=len(members),
+        catalog_sha256=catalog.body_sha256,
+        resource_last_modified=str(resource["last_modified"]),
+    )
+
+
+def fetch_state_amendment_relationship_diagram(
+    *,
+    catalog: BahiaStateAmendmentCatalogSnapshot,
+    transport: HttpTransport | None = None,
+    retry_policy: RetryPolicy | None = None,
+    circuit_breaker: CircuitBreaker | None = None,
+    random_value: Callable[[], float] = random.random,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    sleep: Callable[[float], None] = time.sleep,
+    logger: logging.Logger | None = None,
+) -> BahiaStateAmendmentRelationshipSnapshot:
+    """Preserva o mapa oficial das chaves sem inferir ligação territorial."""
+    _catalog_resource(catalog)
+    resource = parse_state_amendment_relationship_resource(catalog.raw_body)
+    expected_size = int(resource["byte_size"])
+    active_transport = transport or UrllibTransport(
+        OFFICIAL_HOSTS,
+        additional_ca_bundle=STATE_TLS_CA_BUNDLE,
+    )
+    policy = retry_policy or RetryPolicy(max_attempts=4)
+    breaker = circuit_breaker or CircuitBreaker(failure_threshold=policy.max_attempts)
+    response, requested_at, received_at, attempts = _request(
+        url=RELATIONSHIP_DIAGRAM_URL,
+        accept="image/png",
+        max_body_bytes=expected_size,
+        unavailable_message="O diagrama estadual de relacionamento ficou indisponível.",
+        transport=active_transport,
+        policy=policy,
+        breaker=breaker,
+        random_value=random_value,
+        now=now,
+        sleep=sleep,
+        logger=logger,
+    )
+    _validate_exact_url(response.final_url, expected_url=RELATIONSHIP_DIAGRAM_URL)
+    headers = _normalized_headers(response.headers)
+    if len(response.body) != expected_size:
+        raise BahiaStateAmendmentArchiveError(
+            "O tamanho do diagrama diverge do catálogo oficial."
+        )
+    try:
+        content_length = int(headers.get("content-length", ""))
+    except ValueError as error:
+        raise BahiaStateAmendmentArchiveError(
+            "O Content-Length do diagrama estadual é inválido."
+        ) from error
+    if content_length != expected_size:
+        raise BahiaStateAmendmentArchiveError(
+            "O tamanho HTTP do diagrama diverge do catálogo oficial."
+        )
+    media_type = headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if media_type != "image/png":
+        raise BahiaStateAmendmentArchiveError(
+            "O tipo de conteúdo do diagrama estadual não é permitido."
+        )
+    width, height = _png_dimensions(response.body)
+    body_sha256 = hashlib.sha256(response.body).hexdigest()
+    manifest = {
+        **resource,
+        "content_sha256": body_sha256,
+        "width_pixels": width,
+        "height_pixels": height,
+        "relationship_scope": "execution_internal_codes_only",
+        "territorial_key": "not_available",
+    }
+    validate_state_amendment_relationship_manifest(response.body, manifest)
+    return BahiaStateAmendmentRelationshipSnapshot(
+        schema_name="bahia-state-amendment-relationship-diagram",
+        schema_version="1.0.0",
+        artifact_kind="document",
+        source_code=SOURCE_CODE,
+        endpoint_code=ENDPOINT_CODE,
+        idempotency_key=_digest(
+            {
+                "diagram_sha256": body_sha256,
+                "catalog_sha256": catalog.body_sha256,
+                "resource_last_modified": resource["last_modified"],
+            }
+        ),
+        request_url=RELATIONSHIP_DIAGRAM_URL,
+        final_url=response.final_url,
+        requested_at=requested_at,
+        received_at=received_at,
+        window_start=str(resource["last_modified"]),
+        window_end=received_at,
+        attempts=attempts,
+        http_status=200,
+        collection_status="success",
+        body_sha256=body_sha256,
+        body_size_bytes=len(response.body),
+        media_type=media_type,
+        response_headers=_safe_headers(response.headers),
+        cursor={"offset": 0, "size": 1},
+        raw_body=response.body,
+        items=(manifest,),
+        total_pages=1,
+        total_items=1,
         catalog_sha256=catalog.body_sha256,
         resource_last_modified=str(resource["last_modified"]),
     )
@@ -601,6 +742,93 @@ def parse_state_amendment_catalog(body: bytes) -> dict[str, object]:
         "last_modified": str(resource["last_modified"]),
         "dataset_modified": str(result["metadata_modified"]),
     }
+
+
+def parse_state_amendment_relationship_resource(
+    body: bytes,
+) -> dict[str, object]:
+    """Extrai o recurso oficial que documenta as chaves entre as cinco views."""
+    parse_state_amendment_catalog(body)
+    payload = json.loads(body)
+    result = payload["result"]
+    selected = [
+        item
+        for item in result["resources"]
+        if isinstance(item, dict)
+        and item.get("id") == RELATIONSHIP_RESOURCE_ID
+    ]
+    if len(selected) != 1:
+        raise BahiaStateAmendmentArchiveError(
+            "O diagrama oficial não aparece uma única vez no catálogo."
+        )
+    resource = selected[0]
+    size = resource.get("size")
+    if (
+        resource.get("name") != RELATIONSHIP_RESOURCE_NAME
+        or str(resource.get("format", "")).upper() != "PNG"
+        or resource.get("url") != RELATIONSHIP_DIAGRAM_URL
+        or not isinstance(size, int)
+        or isinstance(size, bool)
+        or not 1 <= size <= MAX_RELATIONSHIP_DIAGRAM_BYTES
+        or not isinstance(resource.get("last_modified"), str)
+        or not str(resource["last_modified"]).strip()
+    ):
+        raise BahiaStateAmendmentArchiveError(
+            "Os metadados do diagrama oficial estão incompletos."
+        )
+    _validate_exact_url(
+        str(resource["url"]),
+        expected_url=RELATIONSHIP_DIAGRAM_URL,
+    )
+    return {
+        "dataset_id": DATASET_ID,
+        "resource_id": RELATIONSHIP_RESOURCE_ID,
+        "resource_name": RELATIONSHIP_RESOURCE_NAME,
+        "download_url": RELATIONSHIP_DIAGRAM_URL,
+        "byte_size": size,
+        "last_modified": str(resource["last_modified"]),
+        "dataset_modified": str(result["metadata_modified"]),
+    }
+
+
+def _png_dimensions(body: bytes) -> tuple[int, int]:
+    if (
+        len(body) < 24
+        or body[:8] != b"\x89PNG\r\n\x1a\n"
+        or body[12:16] != b"IHDR"
+    ):
+        raise BahiaStateAmendmentArchiveError(
+            "O diagrama estadual não possui uma assinatura PNG válida."
+        )
+    width, height = struct.unpack(">II", body[16:24])
+    if not 1 <= width <= 10_000 or not 1 <= height <= 10_000:
+        raise BahiaStateAmendmentArchiveError(
+            "As dimensões do diagrama estadual violam o limite."
+        )
+    return width, height
+
+
+def validate_state_amendment_relationship_manifest(
+    body: bytes,
+    manifest: Mapping[str, object],
+) -> None:
+    """Revalida a evidência restaurada sem interpretar seu conteúdo visual."""
+    width, height = _png_dimensions(body)
+    if (
+        manifest.get("dataset_id") != DATASET_ID
+        or manifest.get("resource_id") != RELATIONSHIP_RESOURCE_ID
+        or manifest.get("resource_name") != RELATIONSHIP_RESOURCE_NAME
+        or manifest.get("download_url") != RELATIONSHIP_DIAGRAM_URL
+        or manifest.get("content_sha256") != hashlib.sha256(body).hexdigest()
+        or manifest.get("width_pixels") != width
+        or manifest.get("height_pixels") != height
+        or manifest.get("relationship_scope")
+        != "execution_internal_codes_only"
+        or manifest.get("territorial_key") != "not_available"
+    ):
+        raise BahiaStateAmendmentArchiveError(
+            "O manifesto do diagrama estadual diverge da evidência preservada."
+        )
 
 
 def _catalog_resource(

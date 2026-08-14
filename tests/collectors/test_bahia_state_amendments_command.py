@@ -27,7 +27,7 @@ class FakeControl:
 
 
 class BahiaStateAmendmentCommandTests(unittest.TestCase):
-    def test_control_starts_before_http_and_closes_after_both_artifacts(self) -> None:
+    def test_control_starts_before_http_and_closes_after_all_artifacts(self) -> None:
         control = FakeControl()
 
         def operation():
@@ -42,6 +42,9 @@ class BahiaStateAmendmentCommandTests(unittest.TestCase):
                 catalog_sha256="a" * 64,
                 archive_sha256="b" * 64,
                 resource_last_modified="2026-08-12T09:34:57",
+                relationship_diagram_bytes=55_123,
+                relationship_diagram_sha256="c" * 64,
+                relationship_diagram_last_modified="2025-02-13T11:06:47.506964",
             )
 
         summary = execute_controlled_state_amendments(
@@ -51,7 +54,7 @@ class BahiaStateAmendmentCommandTests(unittest.TestCase):
 
         self.assertEqual(summary.archive_members, 5)
         self.assertEqual(control.completed["outcome"], CollectionOutcome.COMPLETE)
-        self.assertEqual(control.completed["observed_records"], 5)
+        self.assertEqual(control.completed["observed_records"], 6)
         self.assertEqual(control.completed["metrics"]["archive_rows"], 87_123)
         self.assertEqual(
             control.completed["checkpoint"]["territorial_scope"],
@@ -73,6 +76,9 @@ class BahiaStateAmendmentCommandTests(unittest.TestCase):
             catalog_sha256="a" * 64,
             archive_sha256="b" * 64,
             resource_last_modified="2026-08-12T09:34:57",
+            relationship_diagram_bytes=55_123,
+            relationship_diagram_sha256="c" * 64,
+            relationship_diagram_last_modified="2025-02-13T11:06:47.506964",
         )
 
         execute_controlled_state_amendments(
@@ -101,6 +107,9 @@ class BahiaStateAmendmentCommandTests(unittest.TestCase):
             catalog_sha256="a" * 64,
             archive_sha256="b" * 64,
             resource_last_modified="2026-08-12T09:34:57",
+            relationship_diagram_bytes=55_123,
+            relationship_diagram_sha256="c" * 64,
+            relationship_diagram_last_modified="2025-02-13T11:06:47.506964",
         )
 
         execute_controlled_state_amendments(
@@ -112,6 +121,37 @@ class BahiaStateAmendmentCommandTests(unittest.TestCase):
         self.assertEqual(
             control.completed["metrics"].get("source_warning_rows"),
             32,
+        )
+
+    def test_relationship_diagram_hash_is_included_in_collection_audit(self) -> None:
+        control = FakeControl()
+        summary = BahiaStateAmendmentCollectionSummary(
+            archive_members=5,
+            archive_rows=68_990,
+            unparseable_members=(),
+            archive_bytes=2_469_201,
+            inserted_records=7,
+            existing_records=0,
+            catalog_sha256="a" * 64,
+            archive_sha256="b" * 64,
+            resource_last_modified="2026-08-14T09:53:15",
+            relationship_diagram_bytes=55_123,
+            relationship_diagram_sha256="c" * 64,
+            relationship_diagram_last_modified="2025-02-13T11:06:47.506964",
+        )
+
+        execute_controlled_state_amendments(
+            control=control,  # type: ignore[arg-type]
+            operation=lambda: summary,
+        )
+
+        self.assertEqual(
+            control.completed["metrics"].get("relationship_diagram_sha256"),
+            "c" * 64,
+        )
+        self.assertEqual(
+            control.completed["checkpoint"].get("relationship_diagram_preserved"),
+            True,
         )
 
 

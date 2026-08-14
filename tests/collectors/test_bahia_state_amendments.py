@@ -7,6 +7,7 @@ import json
 import ssl
 import unittest
 import zipfile
+from base64 import b64decode
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -19,6 +20,17 @@ from barreiras_collectors.connectors.bahia_state_amendments import (
 )
 from barreiras_collectors.http import HttpResponse, UrllibTransport
 from barreiras_collectors.resilience import RetryPolicy
+
+RELATIONSHIP_DIAGRAM_URL = (
+    "https://dados.ba.gov.br/dataset/"
+    "1436b3e7-6594-4683-bfa5-b2e3a6c69e07/resource/"
+    "f463ff7d-569c-4b48-b1d3-c80f017779df/download/"
+    "emendas-parlamentares-relacionamento_views.png"
+)
+RELATIONSHIP_DIAGRAM_PNG = b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
+    "/x8AAusB9Wl2n6sAAAAASUVORK5CYII="
+)
 
 
 def _csv_bytes(columns: tuple[str, ...], rows: list[tuple[str, ...]]) -> bytes:
@@ -98,6 +110,21 @@ def catalog_body(*, size: int, resource_url: str | None = None) -> bytes:
     ).encode()
 
 
+def catalog_body_with_relationship(*, archive_size: int) -> bytes:
+    payload = json.loads(catalog_body(size=archive_size))
+    payload["result"]["resources"].append(
+        {
+            "id": "f463ff7d-569c-4b48-b1d3-c80f017779df",
+            "name": "Emendas Parlamentares - Relacionamento_Views.png",
+            "format": "PNG",
+            "url": RELATIONSHIP_DIAGRAM_URL,
+            "last_modified": "2025-02-13T11:06:47.506964",
+            "size": len(RELATIONSHIP_DIAGRAM_PNG),
+        }
+    )
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
+
+
 class SequenceTransport:
     def __init__(self, responses: list[HttpResponse]) -> None:
         self.responses = responses
@@ -124,6 +151,64 @@ def response(body: bytes, *, final_url: str, content_type: str) -> HttpResponse:
 
 
 class BahiaStateAmendmentArchiveTests(unittest.TestCase):
+    def test_preserves_official_relationship_diagram_without_inventing_territory(
+        self,
+    ) -> None:
+        from barreiras_collectors.connectors import bahia_state_amendments
+
+        self.assertTrue(
+            hasattr(
+                bahia_state_amendments,
+                "fetch_state_amendment_relationship_diagram",
+            ),
+            "o conector ainda não preserva o diagrama oficial",
+        )
+        archive = archive_bytes()
+        transport = SequenceTransport(
+            [
+                response(
+                    catalog_body_with_relationship(archive_size=len(archive)),
+                    final_url=(
+                        "https://dados.ba.gov.br/api/3/action/"
+                        "package_show?id=emendas-parlamentares"
+                    ),
+                    content_type="application/json",
+                ),
+                response(
+                    RELATIONSHIP_DIAGRAM_PNG,
+                    final_url=RELATIONSHIP_DIAGRAM_URL,
+                    content_type="image/png",
+                ),
+            ]
+        )
+        catalog = fetch_state_amendment_catalog(
+            transport=transport,
+            retry_policy=RetryPolicy(max_attempts=1),
+            sleep=lambda _seconds: None,
+        )
+
+        snapshot = (
+            bahia_state_amendments.fetch_state_amendment_relationship_diagram(
+                catalog=catalog,
+                transport=transport,
+                retry_policy=RetryPolicy(max_attempts=1),
+                sleep=lambda _seconds: None,
+            )
+        )
+
+        self.assertEqual(snapshot.artifact_kind, "document")
+        self.assertEqual(snapshot.media_type, "image/png")
+        self.assertEqual(snapshot.body_size_bytes, len(RELATIONSHIP_DIAGRAM_PNG))
+        self.assertEqual(
+            snapshot.body_sha256,
+            hashlib.sha256(RELATIONSHIP_DIAGRAM_PNG).hexdigest(),
+        )
+        self.assertEqual(snapshot.items[0]["territorial_key"], "not_available")
+        self.assertEqual(
+            snapshot.items[0]["relationship_scope"],
+            "execution_internal_codes_only",
+        )
+
     def test_source_specific_ca_bundle_is_loaded_without_replacing_default_trust(
         self,
     ) -> None:
