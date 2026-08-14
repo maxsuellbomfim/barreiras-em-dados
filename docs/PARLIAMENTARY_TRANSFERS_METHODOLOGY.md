@@ -357,11 +357,18 @@ a 2022 para a 56ª Legislatura federal e a 19ª estadual; 2024 a 2026 para a 57�
 federal e a 20ª estadual. Isso evita atribuir retroativamente uma emenda ao
 mandato errado.
 
-O perfil oficial atual é apenas um vínculo de navegação. Se uma pessoa passou da
-ALBA para a Câmara dos Deputados, a emenda continua classificada pela esfera da
-fonte e pelo exercício em que foi publicada. Ausência de perfil associado não
-remove a autoria do ranking. Ausência de pagamento localizado é mostrada como
-limitação da fonte, nunca como valor zero.
+O perfil oficial relacionado é apenas um vínculo de identidade e navegação. Se
+uma pessoa passou da ALBA para a Câmara dos Deputados, a emenda continua
+classificada pela esfera da fonte e pelo exercício em que foi publicada.
+Ausência de perfil associado não remove a autoria do ranking. Ausência de
+pagamento localizado é mostrada como limitação da fonte, nunca como valor zero.
+
+Na verificação de produção de 14/08/2026, as 56ª e 57ª legislaturas federais
+reuniram três autores individuais no recorte coberto: Cláudio Cajado, Rogéria
+Santos e Ricardo Maia. Os três possuem ligação explícita entre a grafia do
+Transferegov, o perfil oficial da Câmara e um crosswalk TSE aprovado. A ligação
+serve para identidade e navegação; a posição continua sendo calculada somente
+pelos valores oficiais do recorte da legislatura.
 
 Este indicador mede somente recursos destinados ou autorizados para Barreiras
 encontrados nas fontes cobertas. Ele não mede sozinho todo o trabalho do

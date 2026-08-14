@@ -321,6 +321,27 @@ try {
       review_status: "approved",
     },
   ]);
+  const completedFederalAuthorCrosswalk = await database.query(`
+    select author_key, representative_source_kind,
+      representative_external_id, review_status
+    from political.parliamentary_transfer_author_crosswalk
+    where author_key in ('claudio cajado', 'rogeria santos')
+    order by author_key
+  `);
+  assert.deepEqual(completedFederalAuthorCrosswalk.rows, [
+    {
+      author_key: "claudio cajado",
+      representative_source_kind: "federal",
+      representative_external_id: "74537",
+      review_status: "approved",
+    },
+    {
+      author_key: "rogeria santos",
+      representative_source_kind: "federal",
+      representative_external_id: "220695",
+      review_status: "approved",
+    },
+  ]);
   const marconeTseCrosswalk = await database.query(`
     select representative_external_id, candidate_id, review_status
     from political.representative_tse_crosswalk

@@ -52,10 +52,10 @@ function LegislatureRankingRow({
         </p>
         {row.representativeProfileUrl ? (
           <a href={row.representativeProfileUrl} target="_blank" rel="noreferrer">
-            Perfil oficial atual →
+            Perfil oficial relacionado à autoria →
           </a>
         ) : (
-          <span>Perfil atual ainda não associado à autoria histórica</span>
+          <span>Perfil oficial ainda não associado à autoria</span>
         )}
         <a
           className="legislature-ranking-detail-link"
@@ -160,7 +160,7 @@ export default function LegislatureTransferRankings({
       <div className="section-heading">
         <span className="eyebrow">Recursos destinados ao município</span>
         <h2 id="legislature-rankings-title">
-          Quem mais destinou emendas a Barreiras, por legislatura
+          Recursos para Barreiras por parlamentar e legislatura
         </h2>
         <p>
           Estadual e federal aparecem separados. A ordem usa o valor oficial
@@ -188,6 +188,11 @@ export default function LegislatureTransferRankings({
               row.sphere === group.sphere &&
               row.legislatureNumber === group.legislatureNumber
             ) ?? null;
+            const foundAuthors = groupCoverage?.authorCount ??
+              group.rankings.length;
+            const rankingScopeLabel = group.rankings.length === 0
+              ? "sem registros no recorte"
+              : `${current ? "atual" : "encerrada"} · top ${group.rankings.length} de ${foundAuthors} autor(es) encontrado(s)`;
             return (
               <details
                 className="legislature-ranking-group"
@@ -203,11 +208,7 @@ export default function LegislatureTransferRankings({
                       {group.fullFiscalYearFrom}–{group.fullFiscalYearTo}
                     </small>
                   </span>
-                  <span>
-                    {group.rankings.length === 0
-                      ? "sem registros no recorte"
-                      : `${group.rankings.length} de até 10 nomes`}
-                  </span>
+                  <span>{rankingScopeLabel}</span>
                 </summary>
                 <div className="legislature-ranking-group-body">
                   <CoverageSummary coverage={groupCoverage} />
