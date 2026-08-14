@@ -384,3 +384,25 @@ recalcula o ranking e não usa IA para somar valores. O perfil mede somente as
 emendas para Barreiras encontradas nas fontes cobertas. Não é nota geral de
 desempenho parlamentar, não comprova pagamento e não comprova execução de obra
 ou serviço.
+
+## Diagnóstico de cobertura e cards da legislatura atual
+
+A RPC `api.get_public_parliamentary_legislature_coverage` publica, por esfera e
+legislatura, contagens agregadas de emendas, autores, objetos, beneficiários,
+estágios financeiros, conciliações e evidências oficiais. Ela não declara que o
+acervo está completo: descreve apenas o que foi observado nas fontes já
+preservadas. A interface informa essa ressalva junto ao ranking.
+
+Campo não oferecido pela fonte permanece `null` e recebe o estado
+`not_published_in_source`. Em particular, o recorte federal atual não oferece
+liquidação individual nesse contrato, enquanto o anexo estadual não oferece um
+beneficiário estruturado. Esses casos não podem ser convertidos em zero.
+
+Nos cards dos deputados atuais, o resumo da legislatura aparece somente quando
+o ranking possui crosswalk aprovado e coincidem exatamente esfera, ID externo
+do perfil oficial e período da legislatura. Semelhança de nome nunca basta. O
+card apresenta posição, quantidade, valor destinado federal ou autorizado
+estadual e pagamento localizado, além do link para todas as evidências daquela
+autoria. Como o ranking público possui até dez posições por legislatura, a
+ausência do resumo no card significa apenas que o perfil não está nesse top 10
+com ligação oficial aprovada; não significa ausência de emendas ou de trabalho.

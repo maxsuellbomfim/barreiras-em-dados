@@ -3440,6 +3440,58 @@ footer {
   border-top: 1px solid rgba(28, 40, 61, 0.07);
 }
 
+.legislature-coverage {
+  margin-top: 0.9rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(23, 105, 224, 0.14);
+  border-radius: 0.9rem;
+  background: #f6f9fe;
+}
+
+.legislature-coverage > strong {
+  color: var(--ink);
+  font-size: 0.74rem;
+}
+
+.legislature-coverage dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0.65rem 0;
+}
+
+.legislature-coverage dl > div {
+  padding: 0.55rem;
+  border-radius: 0.65rem;
+  background: #fff;
+}
+
+.legislature-coverage dt {
+  color: #738097;
+  font-size: 0.58rem;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
+.legislature-coverage dd {
+  margin: 0.2rem 0 0;
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 740;
+}
+
+.legislature-coverage p,
+.legislature-coverage-unavailable {
+  margin: 0;
+  color: #5f6d83;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.legislature-coverage-unavailable {
+  padding: 0.85rem 0 0;
+}
+
 .legislature-ranking-explanation,
 .legislature-ranking-empty {
   margin: 0;
@@ -3558,6 +3610,10 @@ footer {
 }
 
 @media (max-width: 620px) {
+  .legislature-coverage dl {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .legislature-ranking-group > summary,
   .legislature-ranking-row {
     align-items: flex-start;

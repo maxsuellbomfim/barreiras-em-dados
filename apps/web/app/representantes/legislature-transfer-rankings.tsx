@@ -3,6 +3,8 @@ import type {
   ParliamentaryLegislatureRankingGroup,
   ParliamentaryLegislatureRankingRow,
 } from "../../lib/parliamentary-legislature-rankings.mjs";
+import type { ParliamentaryLegislatureCoverageRow } from
+  "../../lib/parliamentary-legislature-coverage.mjs";
 
 function stageLabel(group: ParliamentaryLegislatureRankingGroup): string {
   return group.rankingAmountStage === "destination"
@@ -88,10 +90,66 @@ function LegislatureRankingRow({
   );
 }
 
+function CoverageSummary({
+  coverage,
+}: Readonly<{ coverage: ParliamentaryLegislatureCoverageRow | null }>) {
+  if (coverage === null) {
+    return (
+      <p className="legislature-coverage-unavailable">
+        Diagnóstico de cobertura indisponível nesta consulta. O ranking não deve
+        ser interpretado como acervo completo.
+      </p>
+    );
+  }
+  return (
+    <div className="legislature-coverage" role="note">
+      <strong>O que esta fonte permitiu conferir neste recorte</strong>
+      <dl>
+        <div>
+          <dt>Emendas encontradas</dt>
+          <dd>{coverage.contributionCount.toLocaleString("pt-BR")}</dd>
+        </div>
+        <div>
+          <dt>Autores identificados</dt>
+          <dd>
+            {coverage.authorCount.toLocaleString("pt-BR")} · {coverage.linkedAuthorCount.toLocaleString("pt-BR")} ligados a perfil oficial
+          </dd>
+        </div>
+        <div>
+          <dt>Objeto informado</dt>
+          <dd>{coverage.withObjectCount.toLocaleString("pt-BR")} de {coverage.contributionCount.toLocaleString("pt-BR")}</dd>
+        </div>
+        <div>
+          <dt>Beneficiário informado</dt>
+          <dd>
+            {coverage.withBeneficiaryCount === null
+              ? "campo não publicado nesta fonte"
+              : `${coverage.withBeneficiaryCount.toLocaleString("pt-BR")} de ${coverage.contributionCount.toLocaleString("pt-BR")}`}
+          </dd>
+        </div>
+        <div>
+          <dt>Execução ligada com segurança</dt>
+          <dd>{coverage.executionConfirmedCount.toLocaleString("pt-BR")} de {coverage.contributionCount.toLocaleString("pt-BR")}</dd>
+        </div>
+        <div>
+          <dt>Com evidência oficial preservada</dt>
+          <dd>{coverage.primaryEvidenceCount.toLocaleString("pt-BR")} de {coverage.contributionCount.toLocaleString("pt-BR")}</dd>
+        </div>
+      </dl>
+      <p>
+        Estes números descrevem a cobertura observada nas fontes já coletadas;
+        não provam que o universo oficial esteja completo.
+      </p>
+    </div>
+  );
+}
+
 export default function LegislatureTransferRankings({
   groups,
+  coverage,
 }: Readonly<{
   groups: readonly ParliamentaryLegislatureRankingGroup[] | null;
+  coverage: readonly ParliamentaryLegislatureCoverageRow[] | null;
 }>) {
   return (
     <section
@@ -126,6 +184,10 @@ export default function LegislatureTransferRankings({
           {groups.map((group) => {
             const today = new Date().toISOString().slice(0, 10);
             const current = group.beginsOn <= today && group.endsOn >= today;
+            const groupCoverage = coverage?.find((row) =>
+              row.sphere === group.sphere &&
+              row.legislatureNumber === group.legislatureNumber
+            ) ?? null;
             return (
               <details
                 className="legislature-ranking-group"
@@ -148,6 +210,7 @@ export default function LegislatureTransferRankings({
                   </span>
                 </summary>
                 <div className="legislature-ranking-group-body">
+                  <CoverageSummary coverage={groupCoverage} />
                   <p className="legislature-ranking-explanation">
                     {group.rankingAmountStage === "destination"
                       ? "A base federal informa o valor destinado a Barreiras. Empenho e pagamento aparecem separadamente quando localizados."
