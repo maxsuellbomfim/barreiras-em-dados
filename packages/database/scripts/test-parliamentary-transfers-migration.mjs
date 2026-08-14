@@ -292,6 +292,49 @@ try {
     worker_state_loa_execution_snapshot_refresh: true,
   }]);
 
+  const completedStateAuthorCrosswalk = await database.query(`
+    select author_key, representative_source_kind,
+      representative_external_id, review_status
+    from political.parliamentary_transfer_author_crosswalk
+    where author_key in (
+      'hassan', 'luciano simoes filho', 'marcone amaral'
+    )
+    order by author_key
+  `);
+  assert.deepEqual(completedStateAuthorCrosswalk.rows, [
+    {
+      author_key: "hassan",
+      representative_source_kind: "state",
+      representative_external_id: "932105",
+      review_status: "approved",
+    },
+    {
+      author_key: "luciano simoes filho",
+      representative_source_kind: "state",
+      representative_external_id: "921278",
+      review_status: "approved",
+    },
+    {
+      author_key: "marcone amaral",
+      representative_source_kind: "state",
+      representative_external_id: "935240",
+      review_status: "approved",
+    },
+  ]);
+  const marconeTseCrosswalk = await database.query(`
+    select representative_external_id, candidate_id, review_status
+    from political.representative_tse_crosswalk
+    where source_kind = 'state'
+      and representative_external_id = '935240'
+      and election_year = 2022
+      and office = 'Deputado Estadual'
+  `);
+  assert.deepEqual(marconeTseCrosswalk.rows, [{
+    representative_external_id: "935240",
+    candidate_id: "50001607304",
+    review_status: "approved",
+  }]);
+
   const stateLoaPublicFunctionDefinitions = await database.query(`
     select proname, pg_get_functiondef(procedure.oid) as definition
     from pg_proc as procedure
@@ -1143,6 +1186,23 @@ try {
       methodology_version:
         "bahia-state-loa-representative-contributions/1.0.1",
     },
+    {
+      representative_source_kind: "state",
+      representative_external_id: "935240",
+      author_key: "marcone amaral",
+      author_name: "Marcone Amaral",
+      fiscal_year: 2026,
+      amendment_count: 1,
+      authorized_amount: "500000.00",
+      matched_amendment_count: 0,
+      matched_authorized_amount: null,
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      blocked_amendment_count: 1,
+      methodology_version:
+        "bahia-state-loa-representative-contributions/1.0.1",
+    },
   ]);
 
   const stateLoaDetails = await database.query(`
@@ -1251,10 +1311,11 @@ try {
       author_key: "marcone amaral",
       author_name: "Marcone Amaral",
       author_external_code: "500144",
-      representative_source_kind: null,
-      representative_external_id: null,
-      representative_profile_url: null,
-      association_status: "not_linked",
+      representative_source_kind: "state",
+      representative_external_id: "935240",
+      representative_profile_url:
+        "https://www.al.ba.gov.br/deputados/deputado-estadual/935240",
+      association_status: "approved_official_crosswalk",
       amendment_count: 1,
       authorized_amount: "500000.00",
       first_year: 2026,
@@ -1388,8 +1449,8 @@ try {
       legislature_number: 20,
       contribution_count: 3,
       author_count: 3,
-      linked_author_count: 2,
-      unlinked_author_count: 1,
+      linked_author_count: 3,
+      unlinked_author_count: 0,
       beneficiary_field_status: "not_published_in_source",
       with_beneficiary_count: null,
       liquidated_field_status: "published_by_source",
@@ -1492,8 +1553,8 @@ try {
       legislature_number: 20,
       rank_position: 2,
       author_key: "marcone amaral",
-      representative_source_kind: null,
-      association_status: "not_linked",
+      representative_source_kind: "state",
+      association_status: "approved_official_crosswalk",
       amendment_count: 1,
       ranking_amount: "500000.00",
       committed_amount: null,
