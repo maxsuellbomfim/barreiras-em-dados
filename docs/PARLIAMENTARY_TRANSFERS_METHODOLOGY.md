@@ -222,6 +222,27 @@ quando ocorrer uma única vez em todo o anexo e uma única vez no retrato
 correspondente da execução. Colisão em qualquer lado mantém empenho,
 liquidação e pagamento bloqueados para publicação territorial.
 
+### Resultado do primeiro replay de reconciliação
+
+Em 14/08/2026, o workflow oficial reprocessou o Anexo I de 2026 e persistiu
+3.182 linhas de escopo privado. O diagnóstico das 27 autorizações destinadas a
+Barreiras encontrou:
+
+- 9 pares `matched_bidirectional_unique`, com uma ocorrência na LOA e uma na
+  execução;
+- 17 casos `blocked_non_unique_loa_key`, nos quais a combinação publicada se
+  repete de 2 a 76 vezes no anexo estadual;
+- 1 caso `not_found_in_execution_source`, com uma ocorrência na LOA e nenhuma
+  no retrato de execução;
+- nenhum caso de duplicidade no lado da execução entre as 27 autorizações.
+
+A view `territory.bahia_state_loa_execution_reconciliation` é privada e não é
+exposta pelo PostgREST. Mesmo internamente, empenhado, liquidado, pago e a
+evidência da execução são retornados somente nos nove pares únicos. Nos outros
+18 registros, esses campos permanecem nulos e o status explica o bloqueio. A
+publicação desses nove pares exige uma projeção pública separada, com rótulos
+de estágio e avisos de cobertura; ela não faz parte deste checkpoint.
+
 Fontes oficiais iniciais:
 
 - https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares
