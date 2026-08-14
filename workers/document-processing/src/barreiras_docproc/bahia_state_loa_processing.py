@@ -21,7 +21,7 @@ from .processing import PageInput
 
 # A versao no tipo permite que um parser futuro reprocesse artefatos que tenham
 # chegado a dead-letter sob um contrato antigo, sem apagar o historico.
-LOA_EXTRACTION_JOB_TYPE = "bahia_state_loa_authorized_amendments_and_scope_v2"
+LOA_EXTRACTION_JOB_TYPE = "bahia_state_loa_authorized_amendments_and_scope_v3"
 LOA_VALIDATOR_VERSION = "bahia-state-loa-deterministic/1.0.0"
 
 

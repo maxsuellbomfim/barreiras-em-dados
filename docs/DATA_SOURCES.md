@@ -31,7 +31,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | TCM-BA | dados municipais e prestações | P2 | descoberta |
 | Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | API atual, catálogo histórico, propostas municipais e recorte de emendas por ID implementados; demais CSVs pendentes |
 | Tesouro Transparente | transferências constitucionais/legais e emendas | P3 | documentação inicial |
-| Transparência Bahia / SEPLAN-BA | transferências a municípios, despesas e emendas estaduais | P3 | ZIP de execução preservado e normalizado como agregado estadual; 63 autorizações territoriais da LOA 2022-2026 validadas e projetadas publicamente; 10 de 11 autores ligados a perfil oficial sem confundir autoria histórica com Casa atual; diagnóstico privado de 2026 encontrou 9 pares únicos, 17 colisões na LOA e 1 ausência na execução |
+| Transparência Bahia / SEPLAN-BA | transferências a municípios, despesas e emendas estaduais | P3 | ZIP de execução preservado e normalizado como agregado estadual; 63 autorizações territoriais da LOA 2022-2026 estavam projetadas; auditoria independente das colunas oficiais identificou 7 linhas omitidas em 2026, com replay versionado preparado para elevar o acervo a 70; 10 de 11 autores ligados a perfil oficial sem confundir autoria histórica com Casa atual |
 | Câmara dos Deputados | mandatos, proposições, votações e despesas | P3 | API confirmada |
 | Assembleia Legislativa da Bahia | parlamentares, comissões e proposições | P3 | API indicada; contrato a descobrir |
 | TSE Dados Abertos | candidaturas, resultados e bens declarados | P4 | datasets confirmados |

@@ -727,7 +727,7 @@ try {
         '00000000-0000-0000-0000-000000009322',
         '00000000-0000-0000-0000-000000009310',
         'bahia_state_loa_authorized_amendment',
-        'bahia-state-loa-barreiras/1.1.0',
+        'bahia-state-loa-barreiras/1.2.0',
         'bahia-state-loa-deterministic/1.0.0',
         '{"fiscal_year":2026,"municipality":"Barreiras","amendment_number":"103","author_external_code":"500144","author_name":"Marcone Amaral","authorized_amount":"500000","official_description":"Infraestrutura em Barreiras","annex_code":"I","budget_unit_code":"1003","agency_code":"12","action_code":"2003","page_number":12,"evidence_text":"BARREIRAS MARCONE AMARAL 500000","financial_stage":"authorized","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","evidence_sha256":"${"c".repeat(64)}"}',
         'valid', '[]', '2026-08-13 18:03:00+00'

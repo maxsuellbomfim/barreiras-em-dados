@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
-LOA_BARREIRAS_PARSER_VERSION = "bahia-state-loa-barreiras/1.1.0"
+LOA_BARREIRAS_PARSER_VERSION = "bahia-state-loa-barreiras/1.2.0"
 LOA_SCOPE_PARSER_VERSION = "bahia-state-loa-scope/1.0.0"
 
 _TARGET_ROW = re.compile(r"^Barreiras\s+(?P<number>\d{1,6})\s+(?P<body>.+)$", re.I)
@@ -52,14 +52,16 @@ _ROW_2026 = re.compile(
     r"(?P<unit>[A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ][A-Z0-9ÁÀÂÃÉÊÍÓÔÕÚÜÇ/.-]{1,20})\s+"
     r"(?P<action>\d{1,8})\s+(?P<description>.+)$"
 )
+_TARGET_MUNICIPALITY_WORD = r"B\s*a\s*r\s*r\s*e\s*i\s*r\s*a\s*s"
 _TARGET_MUNICIPALITY_VALUE = re.compile(
-    r"^Barreiras\s+"
+    rf"^(?P<prefix>.*?)(?<!\w){_TARGET_MUNICIPALITY_WORD}\s+"
     r"(?P<amount>(?:\d{1,3}(?:\s*\.\s*\d{3})+|\d{1,12})(?:,\d{2})?)"
     r"\s*$",
     re.I,
 )
 _TARGET_MUNICIPALITY_CANDIDATE = re.compile(
-    r"^Barreiras\s*(?:[-|:\u2013\u2014]\s*)?"
+    rf"^(?P<prefix>.*?)(?<!\w){_TARGET_MUNICIPALITY_WORD}\s*"
+    r"(?:[-|:\u2013\u2014]\s*)?"
     r"(?:R\$\s*)?\d[\d .]*(?:,\d{2})?\s*$",
     re.I,
 )
@@ -395,14 +397,14 @@ def _parse_2026_row(
         raise LoaParseError(
             "A linha de Barreiras em 2026 não possui autor comprovado pelo cabeçalho."
         )
-    description = _collapse(
-        " ".join(
-            [
-                first.group("description"),
-                *pending.lines[1:territorial_index],
-            ]
-        )
-    )
+    territorial_prefix = territorial_match.group("prefix").strip()
+    description_parts = [
+        first.group("description"),
+        *pending.lines[1:territorial_index],
+    ]
+    if territorial_prefix:
+        description_parts.append(territorial_prefix)
+    description = _collapse(" ".join(description_parts))
     if not description:
         raise LoaParseError("A emenda de 2026 não possui descrição oficial.")
     evidence = "\n".join(pending.lines[: territorial_index + 1])
