@@ -137,6 +137,9 @@ try {
         'api.get_public_parliamentary_legislature_rankings(text,smallint,integer)'
       )::text as legislature_rankings_rpc,
       to_regprocedure(
+        'api.get_public_parliamentary_legislature_year_coverage(text,smallint)'
+      )::text as legislature_year_coverage_rpc,
+      to_regprocedure(
         'territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()'
       )::text as state_loa_execution_snapshot_refresh,
       has_schema_privilege('anon', 'territory', 'USAGE') as anon_territory_usage,
@@ -217,6 +220,11 @@ try {
       ) as anon_legislature_rankings_rpc,
       has_function_privilege(
         'anon',
+        'api.get_public_parliamentary_legislature_year_coverage(text,smallint)',
+        'EXECUTE'
+      ) as anon_legislature_year_coverage_rpc,
+      has_function_privilege(
+        'anon',
         'territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()',
         'EXECUTE'
       ) as anon_state_loa_execution_snapshot_refresh,
@@ -270,6 +278,8 @@ try {
       "api.get_public_bahia_state_loa_representative_contributions(integer)",
     legislature_rankings_rpc:
       "api.get_public_parliamentary_legislature_rankings(text,smallint,integer)",
+    legislature_year_coverage_rpc:
+      "api.get_public_parliamentary_legislature_year_coverage(text,smallint)",
     state_loa_execution_snapshot_refresh:
       "territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()",
     anon_territory_usage: false,
@@ -288,6 +298,7 @@ try {
     anon_state_loa_representative_contributions_rpc: true,
     anon_legislative_terms_select: false,
     anon_legislature_rankings_rpc: true,
+    anon_legislature_year_coverage_rpc: true,
     anon_state_loa_execution_snapshot_refresh: false,
     worker_state_loa_execution_snapshot_refresh: true,
   }]);
@@ -1530,9 +1541,41 @@ try {
       methodology_version: "parliamentary-legislature-coverage/1.0.0",
     },
   ]);
+  const legislatureYearCoverage = await database.query(`
+    select
+      count(*)::integer as expected_year_count,
+      count(*) filter (where observation_status = 'observed')::integer
+        as observed_year_count,
+      count(*) filter (where observation_status = 'not_observed')::integer
+        as not_observed_year_count,
+      bool_and(
+        (observation_status = 'observed' and contribution_count > 0)
+        or (observation_status = 'not_observed' and contribution_count = 0)
+      ) as statuses_are_coherent,
+      bool_and(author_count <= contribution_count) as authors_are_coherent,
+      bool_and(primary_evidence_count <= contribution_count)
+        as evidence_is_coherent
+    from api.get_public_parliamentary_legislature_year_coverage(null, null)
+  `);
+  assert.deepEqual(legislatureYearCoverage.rows, [{
+    expected_year_count: 12,
+    observed_year_count: 4,
+    not_observed_year_count: 8,
+    statuses_are_coherent: true,
+    authors_are_coherent: true,
+    evidence_is_coherent: true,
+  }]);
   await assert.rejects(
     database.query(`
       select * from api.get_public_parliamentary_legislature_coverage(
+        'municipal', null
+      )
+    `),
+    /esfera legislativa deve ser federal ou state/,
+  );
+  await assert.rejects(
+    database.query(`
+      select * from api.get_public_parliamentary_legislature_year_coverage(
         'municipal', null
       )
     `),

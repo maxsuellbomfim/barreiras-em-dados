@@ -22,11 +22,14 @@ test("keeps the complete legislature ranking in the Resources journey", () => {
   assert.match(resourcesPage, /import LegislatureTransferRankings from "\.\/legislature-transfer-rankings"/u);
   assert.match(resourcesPage, /getPublicParliamentaryLegislatureRankings\(\)/u);
   assert.match(resourcesPage, /getPublicParliamentaryLegislatureCoverage\(\)/u);
+  assert.match(resourcesPage, /getPublicParliamentaryLegislatureYearCoverage\(\)/u);
   assert.match(resourcesPage, /href="\/recursos\?origem=legislaturas#emendas-por-legislatura"/u);
   assert.match(resourcesPage, /sourceSelection\.showLegislatures/u);
   assert.match(resourcesPage, /<LegislatureTransferRankings/u);
+  assert.match(resourcesPage, /yearCoverage=\{legislatureYearCoverage\}/u);
   assert.match(rankingComponent, /id="emendas-por-legislatura"/u);
-  assert.match(rankingComponent, /Quem destinou mais recursos a Barreiras em cada legislatura\?/u);
+  assert.match(rankingComponent, /Quem aparece com mais recursos no acervo de cada legislatura\?/u);
+  assert.match(rankingComponent, /Recorte parcial:/u);
 });
 
 test("removes the complete ranking from Quem decide but preserves discovery", () => {

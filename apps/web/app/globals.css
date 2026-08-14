@@ -3429,11 +3429,13 @@ footer {
 }
 
 .legislature-ranking-group > summary > span:last-child {
-  flex: 0 0 auto;
+  flex: 0 1 16rem;
   padding: 0.38rem 0.55rem;
   border-radius: 999px;
   background: #eef3fb;
   font-weight: 700;
+  line-height: 1.35;
+  text-align: right;
 }
 
 .legislature-ranking-group-body {

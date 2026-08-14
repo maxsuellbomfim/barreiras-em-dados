@@ -33,6 +33,8 @@ import { getPublicParliamentaryLegislatureRankings } from
   "../../lib/legislature-transfer-rankings";
 import { getPublicParliamentaryLegislatureCoverage } from
   "../../lib/legislature-transfer-coverage";
+import { getPublicParliamentaryLegislatureYearCoverage } from
+  "../../lib/legislature-transfer-year-coverage";
 import LegislatureTransferRankings from "./legislature-transfer-rankings";
 
 export const revalidate = 300;
@@ -1326,6 +1328,7 @@ export default async function ParliamentaryResourcesPage({
     result,
     legislatureRankingsResult,
     legislatureCoverageResult,
+    legislatureYearCoverageResult,
   ] = await Promise.all([
     getPublicParliamentaryTransfers({
       stateFiscalYear: selectedStateFiscalYear,
@@ -1336,6 +1339,9 @@ export default async function ParliamentaryResourcesPage({
     sourceSelection.showLegislatures
       ? getPublicParliamentaryLegislatureCoverage()
       : Promise.resolve({ state: "unavailable" as const }),
+    sourceSelection.showLegislatures
+      ? getPublicParliamentaryLegislatureYearCoverage()
+      : Promise.resolve({ state: "unavailable" as const }),
   ]);
   const legislatureRankingGroups =
     legislatureRankingsResult.state === "available"
@@ -1344,6 +1350,10 @@ export default async function ParliamentaryResourcesPage({
   const legislatureCoverage =
     legislatureCoverageResult.state === "available"
       ? legislatureCoverageResult.rows
+      : null;
+  const legislatureYearCoverage =
+    legislatureYearCoverageResult.state === "available"
+      ? legislatureYearCoverageResult.rows
       : null;
   const selectedFiscalYear = result.state === "available" &&
       sourceSelection.showCurrentFederal
@@ -1441,6 +1451,7 @@ export default async function ParliamentaryResourcesPage({
           <LegislatureTransferRankings
             coverage={legislatureCoverage}
             groups={legislatureRankingGroups}
+            yearCoverage={legislatureYearCoverage}
           />
         ) : result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
