@@ -652,19 +652,23 @@ a:focus-visible {
 }
 
 .section-representatives > .representation-block-state {
-  order: 3;
-}
-
-.section-representatives > .representation-block-federal {
   order: 4;
 }
 
-.section-representatives > .representation-block-candidates {
+.section-representatives > .representation-block-federal {
   order: 5;
 }
 
-.section-representatives > .hero-note {
+.section-representatives > .representation-block-candidates {
   order: 6;
+}
+
+.section-representatives > .hero-note {
+  order: 7;
+}
+
+.section-representatives > .representation-legislature-rankings {
+  order: 3;
 }
 
 .representation-block {
@@ -3371,6 +3375,198 @@ footer {
   color: #718097;
   font-size: 0.72rem;
   line-height: 1.25;
+}
+
+.representation-legislature-rankings > .section-heading {
+  max-width: 54rem;
+}
+
+.legislature-ranking-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+}
+
+.legislature-ranking-group {
+  align-self: start;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 12px 34px rgba(33, 46, 79, 0.05);
+}
+
+.legislature-ranking-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.legislature-ranking-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.legislature-ranking-group > summary > span:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.legislature-ranking-group > summary strong {
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+
+.legislature-ranking-group > summary small,
+.legislature-ranking-group > summary > span:last-child {
+  color: #718097;
+  font-size: 0.7rem;
+}
+
+.legislature-ranking-group > summary > span:last-child {
+  flex: 0 0 auto;
+  padding: 0.38rem 0.55rem;
+  border-radius: 999px;
+  background: #eef3fb;
+  font-weight: 700;
+}
+
+.legislature-ranking-group-body {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid rgba(28, 40, 61, 0.07);
+}
+
+.legislature-ranking-explanation,
+.legislature-ranking-empty {
+  margin: 0;
+  padding: 0.9rem 0;
+  color: #5f6d83;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.legislature-ranking-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.legislature-ranking-row {
+  display: grid;
+  grid-template-columns: auto minmax(9rem, 0.8fr) minmax(13rem, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(28, 40, 61, 0.08);
+  border-radius: 1rem;
+  background: #f8fafd;
+}
+
+.legislature-ranking-person h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.86rem;
+  letter-spacing: -0.02em;
+}
+
+.legislature-ranking-person p,
+.legislature-ranking-person span,
+.legislature-ranking-person a {
+  margin: 0.25rem 0 0;
+  color: #738097;
+  font-size: 0.67rem;
+  line-height: 1.4;
+}
+
+.legislature-ranking-person span,
+.legislature-ranking-person a {
+  display: block;
+}
+
+.legislature-ranking-person a {
+  color: var(--blue-dark);
+  font-weight: 700;
+}
+
+.legislature-ranking-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.legislature-ranking-values > div {
+  min-width: 0;
+  padding: 0.62rem;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.legislature-ranking-values dt {
+  color: #7b879b;
+  font-size: 0.58rem;
+  font-weight: 720;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.legislature-ranking-values dd {
+  margin: 0.2rem 0 0;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 760;
+  overflow-wrap: anywhere;
+}
+
+.legislature-ranking-methodology {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(23, 105, 224, 0.12);
+  border-radius: 0.9rem;
+  background: #f0f5fd;
+}
+
+.legislature-ranking-methodology p {
+  margin: 0;
+  color: #5f6d83;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.legislature-ranking-methodology a {
+  color: var(--blue-dark);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .legislature-ranking-groups {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .legislature-ranking-group > summary,
+  .legislature-ranking-row {
+    align-items: flex-start;
+  }
+
+  .legislature-ranking-group > summary {
+    flex-direction: column;
+  }
+
+  .legislature-ranking-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .legislature-ranking-values {
+    grid-column: 1 / -1;
+  }
 }
 
 .representation-collapsible {

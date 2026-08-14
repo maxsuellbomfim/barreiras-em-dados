@@ -35,6 +35,9 @@ import {
 import { stateLoaContributionsForRepresentative } from
   "../../lib/state-loa-representative-contributions.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
+import { getPublicParliamentaryLegislatureRankings } from
+  "../../lib/legislature-transfer-rankings";
+import LegislatureTransferRankings from "./legislature-transfer-rankings";
 
 export const revalidate = 300;
 
@@ -620,6 +623,7 @@ export default async function RepresentativesPage() {
     representativeVotesResult,
     transferRankingsResult,
     stateLoaContributionsResult,
+    legislatureRankingsResult,
   ] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
@@ -629,6 +633,7 @@ export default async function RepresentativesPage() {
     getRepresentativeVotes(),
     getPublicParliamentaryTransferRankings(),
     getPublicStateLoaRepresentativeContributions(),
+    getPublicParliamentaryLegislatureRankings(),
   ]);
   const legacyVotes = votesResult.state === "available" ? votesResult.votes : [];
   const representativeVotes =
@@ -643,6 +648,10 @@ export default async function RepresentativesPage() {
     stateLoaContributionsResult.state === "available"
       ? stateLoaContributionsResult.contributions
       : [];
+  const legislatureRankingGroups =
+    legislatureRankingsResult.state === "available"
+      ? legislatureRankingsResult.groups
+      : null;
 
   return (
     <main>
@@ -666,7 +675,8 @@ export default async function RepresentativesPage() {
           <h1 id="people-title">Quem representa Barreiras</h1>
           <p>
             Perfis construídos apenas com registros oficiais, campo a campo
-            com fonte e data. Não há nota, ranking ou julgamento: quando um
+            com fonte e data. Não há nota ou julgamento: os rankings financeiros
+            usam critérios objetivos e explicados; quando um
             dado não foi coletado, está escrito &ldquo;não coletado&rdquo; —
             ausência de informação nunca é apresentada como elogio ou
             defeito.
@@ -714,6 +724,7 @@ export default async function RepresentativesPage() {
           <a href="#vereadores">Vereadores</a>
           <a href="#estaduais">Estaduais</a>
           <a href="#federais">Federais</a>
+          <a href="#emendas-por-legislatura">Emendas por legislatura</a>
           <a href="#vinculo">Vínculo com Barreiras</a>
           <a href="/recursos">Emendas e recursos</a>
         </nav>
@@ -736,6 +747,8 @@ export default async function RepresentativesPage() {
             <span>candidaturas históricas</span>
           </div>
         </div>
+
+        <LegislatureTransferRankings groups={legislatureRankingGroups} />
 
         <div id="executivo" className="representation-block representation-block-municipal-leadership">
           <section aria-labelledby="executive-title">
@@ -1141,7 +1154,7 @@ export default async function RepresentativesPage() {
           </div>
           <div className="footer-status">
             <span className="status-dot" />
-            Perfis com fonte por campo, sem ranking de pessoas
+            Perfis com fonte por campo e rankings financeiros com metodologia
           </div>
         </div>
       </footer>

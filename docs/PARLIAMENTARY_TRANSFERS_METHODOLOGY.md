@@ -304,9 +304,52 @@ nos valores de execução. Cada ano liga ao catálogo de emendas, objetos,
 páginas, documentos e hashes correspondentes. Essa linha do tempo não é um
 ranking de desempenho e não mede, isoladamente, o trabalho parlamentar.
 
+## Ranking por legislatura e esfera
+
+A página de representantes também publica até dez autorias individuais encontradas por
+legislatura, sempre em painéis separados para a Câmara dos Deputados e para a
+Assembleia Legislativa da Bahia. O agrupamento usa períodos oficiais registrados
+em `political.legislative_terms`; a projeção pública é a RPC
+`api.get_public_parliamentary_legislature_rankings`.
+
+As métricas não são intercambiáveis:
+
+- no recorte federal, a posição é determinada pelo valor **destinado** a
+  Barreiras na série reconciliada do Transferegov;
+- no recorte estadual, a posição é determinada pelo valor **autorizado** nos
+  anexos da LOA da Bahia para Barreiras;
+- empenho, liquidação e pagamento são exibidos separadamente e nunca alteram a
+  posição desse ranking;
+- somente autoria individual participa. Comissões, bancadas e outras autorias
+  coletivas permanecem nos recortes próprios.
+
+As fontes atualmente preservadas informam o exercício financeiro, mas não uma
+data individual confiável para toda emenda. Como as legislaturas mudaram em
+fevereiro de 2023, o exercício de 2023 é classificado como transição e fica fora
+dos rankings por legislatura. A plataforma usa apenas anos civis completos: 2020
+a 2022 para a 56ª Legislatura federal e a 19ª estadual; 2024 a 2026 para a 57ª
+federal e a 20ª estadual. Isso evita atribuir retroativamente uma emenda ao
+mandato errado.
+
+O perfil oficial atual é apenas um vínculo de navegação. Se uma pessoa passou da
+ALBA para a Câmara dos Deputados, a emenda continua classificada pela esfera da
+fonte e pelo exercício em que foi publicada. Ausência de perfil associado não
+remove a autoria do ranking. Ausência de pagamento localizado é mostrada como
+limitação da fonte, nunca como valor zero.
+
+Este indicador mede somente recursos destinados ou autorizados para Barreiras
+encontrados nas fontes cobertas. Ele não mede sozinho todo o trabalho do
+parlamentar, não avalia mérito, não é uma nota de desempenho e não prova
+execução do recurso. Quando a cobertura oficial tiver menos de dez autores, a
+interface exibirá somente os nomes efetivamente encontrados.
+
 Fontes oficiais iniciais:
 
 - https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares
 - https://www.ba.gov.br/seplan/orcamento/historico-de-loa
 - https://www.transparencia.ba.gov.br/
 - https://www.transparencia.ba.gov.br/MapaSite/
+- https://www2.camara.leg.br/transparencia/prestacao-de-contas/contas-da-camara/ano-de-2019/informativo-para-a-sociedade-2019
+- https://www2.camara.leg.br/atividade-legislativa/comissoes/grupos-de-trabalho/57a-legislatura/
+- https://www.al.ba.gov.br/midia-center/noticias/32631
+- https://www.al.ba.gov.br/midia-center/noticias/55953
