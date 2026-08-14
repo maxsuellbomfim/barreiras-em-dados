@@ -323,7 +323,11 @@ mesmo padrão e não são inferidas por semelhança de nome. A resposta cidadã 
 ranking da API federal atual agora aceitam recorte anual explícito, escolhendo
 na abertura o exercício mais recente com emendas encontradas. Anos vazios
 continuam consultáveis e são descritos como ausência na fonte atual, nunca como
-valor financeiro zero; pessoas permanecem separadas de comissões e bancadas.
+valor financeiro zero; pessoas permanecem separadas de comissões e bancadas. A
+página também separa a navegação entre API federal atual, arquivo federal
+histórico e emendas estaduais. Somente uma origem aparece por vez, impedindo
+que autorização estadual, indicação histórica e pagamento federal sejam lidos
+como etapas ou valores do mesmo conjunto.
 
 O catálogo oficial dos arquivos históricos de transferências discricionárias
 e legais passa a ser preservado diariamente como uma fonte separada. O

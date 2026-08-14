@@ -4465,6 +4465,54 @@ footer {
   line-height: 1.6;
 }
 
+.transfer-source-selector {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.transfer-source-selector a {
+  min-width: 0;
+  min-height: 7rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(28, 40, 61, 0.12);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.82);
+  color: #657187;
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.transfer-source-selector a:hover {
+  border-color: rgba(49, 91, 199, 0.38);
+  transform: translateY(-1px);
+}
+
+.transfer-source-selector a[aria-current="page"] {
+  border-color: #315bc7;
+  background: #edf2ff;
+  box-shadow: inset 0 0 0 1px rgba(49, 91, 199, 0.08);
+}
+
+.transfer-source-selector strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.transfer-source-selector a[aria-current="page"] strong {
+  color: #23469f;
+}
+
+.transfer-source-selector span {
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
 .transfer-year-filter {
   margin-top: 1rem;
   padding: 1rem 1.15rem;
@@ -4990,6 +5038,14 @@ footer {
 }
 
 @media (max-width: 840px) {
+  .transfer-source-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .transfer-source-selector a {
+    min-height: auto;
+  }
+
   .transfer-year-filter {
     grid-template-columns: 1fr auto;
   }

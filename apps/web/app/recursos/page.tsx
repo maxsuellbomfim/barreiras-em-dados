@@ -19,6 +19,7 @@ import {
   type ReconciledParliamentaryTransferRanking,
 } from "../../lib/parliamentary-transfers";
 import { buildCurrentTransferCitizenSummary } from "../../lib/parliamentary-transfer-citizen-summary.mjs";
+import { resolveTransferSourceSelection } from "../../lib/parliamentary-transfer-source-filter.mjs";
 import { resolveCurrentFederalTransferYear } from "../../lib/parliamentary-transfer-year-filter.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
 
@@ -1121,15 +1122,20 @@ function HistoricalProposalsPanel({
 }
 
 type ParliamentaryResourcesPageProps = Readonly<{
-  searchParams: Promise<{ ano?: string | string[] }>;
+  searchParams: Promise<{
+    ano?: string | string[];
+    origem?: string | string[];
+  }>;
 }>;
 
 export default async function ParliamentaryResourcesPage({
   searchParams,
 }: ParliamentaryResourcesPageProps) {
   const params = await searchParams;
+  const sourceSelection = resolveTransferSourceSelection(params.origem);
   const result = await getPublicParliamentaryTransfers();
-  const selectedFiscalYear = result.state === "available"
+  const selectedFiscalYear = result.state === "available" &&
+      sourceSelection.showCurrentFederal
     ? resolveCurrentFederalTransferYear(params.ano, result.coverage)
     : null;
   const [currentTransferResult, currentRankings] = selectedFiscalYear === null
@@ -1189,6 +1195,30 @@ export default async function ParliamentaryResourcesPage({
           </p>
         </aside>
 
+        <nav className="transfer-source-selector" aria-label="Escolher origem dos recursos">
+          <a
+            href="/recursos?origem=federal-atual"
+            aria-current={sourceSelection.source === "federal-atual" ? "page" : undefined}
+          >
+            <strong>Federal atual</strong>
+            <span>Emendas com estágios de pagamento consultados na API atual.</span>
+          </a>
+          <a
+            href="/recursos?origem=federal-historico"
+            aria-current={sourceSelection.source === "federal-historico" ? "page" : undefined}
+          >
+            <strong>Federal histórico</strong>
+            <span>Arquivo oficial antigo, propostas e conferência entre séries.</span>
+          </a>
+          <a
+            href="/recursos?origem=estadual"
+            aria-current={sourceSelection.source === "estadual" ? "page" : undefined}
+          >
+            <strong>Estadual</strong>
+            <span>Emendas autorizadas na LOA da Bahia, sem confundir com pagamento.</span>
+          </a>
+        </nav>
+
         {result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
             <div>
@@ -1198,63 +1228,73 @@ export default async function ParliamentaryResourcesPage({
           </div>
         ) : (
           <>
-            {selectedFiscalYear !== null && availableFiscalYears.length > 0 ? (
-              <form
-                className="transfer-year-filter"
-                method="get"
-                aria-label="Filtrar emendas federais atuais por ano"
-              >
-                <div>
-                  <label htmlFor="transfer-year">Ano da API federal atual</label>
-                  <select id="transfer-year" name="ano" defaultValue={selectedFiscalYear}>
-                    {availableFiscalYears.map((year) => (
-                      <option value={year} key={year}>{year}</option>
-                    ))}
-                  </select>
-                </div>
-                <button type="submit">Ver este ano</button>
-                <p>
-                  O filtro altera a resposta rápida, as emendas e o ranking da API
-                  federal atual. Arquivo histórico e emendas estaduais permanecem
-                  separados abaixo.
-                </p>
-              </form>
+            {sourceSelection.showCurrentFederal ? (
+              <>
+                {selectedFiscalYear !== null && availableFiscalYears.length > 0 ? (
+                  <form
+                    className="transfer-year-filter"
+                    method="get"
+                    aria-label="Filtrar emendas federais atuais por ano"
+                  >
+                    <input type="hidden" name="origem" value="federal-atual" />
+                    <div>
+                      <label htmlFor="transfer-year">Ano da API federal atual</label>
+                      <select id="transfer-year" name="ano" defaultValue={selectedFiscalYear}>
+                        {availableFiscalYears.map((year) => (
+                          <option value={year} key={year}>{year}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button type="submit">Ver este ano</button>
+                    <p>
+                      O filtro altera a resposta rápida, as emendas e o ranking da
+                      API federal atual. As outras origens permanecem nas abas acima.
+                    </p>
+                  </form>
+                ) : null}
+
+                <CurrentFederalTransferPanel
+                  transfers={currentTransfers}
+                  fiscalYear={selectedFiscalYear}
+                  sourceAvailable={currentTransferResult.state === "available"}
+                />
+
+                {selectedFiscalYear !== null ? (
+                  <CurrentFederalRankingPanel
+                    fiscalYear={selectedFiscalYear}
+                    result={currentRankings}
+                  />
+                ) : null}
+
+                <CoveragePanel rows={result.coverage} />
+              </>
             ) : null}
 
-            <CurrentFederalTransferPanel
-              transfers={currentTransfers}
-              fiscalYear={selectedFiscalYear}
-              sourceAvailable={currentTransferResult.state === "available"}
-            />
+            {sourceSelection.showHistoricalFederal ? (
+              <>
+                <ReconciledRankingPanel
+                  people={result.reconciledPeople}
+                  collectives={result.reconciledCollectives}
+                  summary={result.reconciliationSummary}
+                />
 
-            {selectedFiscalYear !== null ? (
-              <CurrentFederalRankingPanel
-                fiscalYear={selectedFiscalYear}
-                result={currentRankings}
+                <HistoricalAmendmentsPanel
+                  amendments={result.historicalAmendments}
+                  people={result.historicalPeople}
+                  collectives={result.historicalCollectives}
+                  scopeSummary={result.scopeSummary}
+                />
+
+                <HistoricalProposalsPanel proposals={result.historicalProposals} />
+              </>
+            ) : null}
+
+            {sourceSelection.showState ? (
+              <StateLoaPanel
+                amendments={result.stateLoaAmendments}
+                ranking={result.stateLoaRanking}
               />
             ) : null}
-
-            <CoveragePanel rows={result.coverage} />
-
-            <StateLoaPanel
-              amendments={result.stateLoaAmendments}
-              ranking={result.stateLoaRanking}
-            />
-
-            <ReconciledRankingPanel
-              people={result.reconciledPeople}
-              collectives={result.reconciledCollectives}
-              summary={result.reconciliationSummary}
-            />
-
-            <HistoricalAmendmentsPanel
-              amendments={result.historicalAmendments}
-              people={result.historicalPeople}
-              collectives={result.historicalCollectives}
-              scopeSummary={result.scopeSummary}
-            />
-
-            <HistoricalProposalsPanel proposals={result.historicalProposals} />
 
           </>
         )}
