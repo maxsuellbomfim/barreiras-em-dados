@@ -1068,7 +1068,11 @@ async function callRpc(
   return Array.isArray(payload) ? payload : null;
 }
 
-export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTransfersResult> {
+export async function getPublicParliamentaryTransfers({
+  stateFiscalYear,
+}: Readonly<{
+  stateFiscalYear: number;
+}>): Promise<ParliamentaryTransfersResult> {
   try {
     const [
       peopleRows,
@@ -1128,21 +1132,21 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
         page_size: 50,
       }),
       callRpc("get_public_bahia_state_loa_amendments", {
-        fiscal_year_filter: null,
+        fiscal_year_filter: stateFiscalYear,
         author_key_filter: null,
         page_size: 200,
       }),
       callRpc("get_public_bahia_state_loa_amendment_ranking", {
-        fiscal_year_filter: null,
+        fiscal_year_filter: stateFiscalYear,
         page_size: 50,
       }),
       callRpc("get_public_bahia_state_loa_execution", {
-        fiscal_year_filter: null,
+        fiscal_year_filter: stateFiscalYear,
         author_key_filter: null,
         page_size: 200,
       }),
       callRpc("get_public_bahia_state_loa_execution_summary", {
-        fiscal_year_filter: 2026,
+        fiscal_year_filter: stateFiscalYear,
       }),
       callRpc("get_public_federal_transfer_scope_summary", {}),
       callRpc("get_public_reconciled_parliamentary_transfers", {
