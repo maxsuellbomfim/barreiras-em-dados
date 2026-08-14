@@ -89,6 +89,7 @@ try {
       )::text as state_loa_execution_reconciliation_snapshot,
       to_regclass('political.parliamentary_transfer_author_crosswalk')::text
         as author_crosswalk,
+      to_regclass('political.legislative_terms')::text as legislative_terms,
       to_regclass('raw.raw_records_transferegov_latest_idx')::text as latest_index,
       to_regclass('raw.raw_records_transferegov_proposal_idx')::text as proposal_index,
       to_regclass('raw.raw_records_transferegov_partnership_idx')::text as partnership_index,
@@ -132,6 +133,9 @@ try {
       to_regprocedure(
         'api.get_public_bahia_state_loa_representative_contributions(integer)'
       )::text as state_loa_representative_contributions_rpc,
+      to_regprocedure(
+        'api.get_public_parliamentary_legislature_rankings(text,smallint,integer)'
+      )::text as legislature_rankings_rpc,
       to_regprocedure(
         'territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()'
       )::text as state_loa_execution_snapshot_refresh,
@@ -201,6 +205,16 @@ try {
         'api.get_public_bahia_state_loa_representative_contributions(integer)',
         'EXECUTE'
       ) as anon_state_loa_representative_contributions_rpc,
+      has_table_privilege(
+        'anon',
+        'political.legislative_terms',
+        'SELECT'
+      ) as anon_legislative_terms_select,
+      has_function_privilege(
+        'anon',
+        'api.get_public_parliamentary_legislature_rankings(text,smallint,integer)',
+        'EXECUTE'
+      ) as anon_legislature_rankings_rpc,
       has_function_privilege(
         'anon',
         'territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()',
@@ -225,6 +239,7 @@ try {
     state_loa_execution_reconciliation_snapshot:
       "territory.bahia_state_loa_execution_reconciliation_snapshot",
     author_crosswalk: "political.parliamentary_transfer_author_crosswalk",
+    legislative_terms: "political.legislative_terms",
     latest_index: "raw.raw_records_transferegov_latest_idx",
     proposal_index: "raw.raw_records_transferegov_proposal_idx",
     partnership_index: "raw.raw_records_transferegov_partnership_idx",
@@ -253,6 +268,8 @@ try {
       "api.get_public_bahia_state_loa_execution_summary(smallint)",
     state_loa_representative_contributions_rpc:
       "api.get_public_bahia_state_loa_representative_contributions(integer)",
+    legislature_rankings_rpc:
+      "api.get_public_parliamentary_legislature_rankings(text,smallint,integer)",
     state_loa_execution_snapshot_refresh:
       "territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()",
     anon_territory_usage: false,
@@ -269,6 +286,8 @@ try {
     anon_state_loa_execution_rpc: true,
     anon_state_loa_execution_summary_rpc: true,
     anon_state_loa_representative_contributions_rpc: true,
+    anon_legislative_terms_select: false,
+    anon_legislature_rankings_rpc: true,
     anon_state_loa_execution_snapshot_refresh: false,
     worker_state_loa_execution_snapshot_refresh: true,
   }]);
@@ -297,6 +316,30 @@ try {
       `${row.proname} nao pode recalcular JSON bruto em requisicao publica`,
     );
   }
+
+  const legislatureRankingDefinition = await database.query(`
+    select pg_get_functiondef(procedure.oid) as definition
+    from pg_proc as procedure
+    join pg_namespace as namespace on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'api'
+      and procedure.proname = 'get_public_parliamentary_legislature_rankings'
+  `);
+  assert.equal(legislatureRankingDefinition.rows.length, 1);
+  assert.match(
+    legislatureRankingDefinition.rows[0].definition,
+    /territory\.bahia_state_loa_execution_reconciliation_snapshot/,
+    "ranking por legislatura deve usar o snapshot estadual materializado",
+  );
+  assert.match(
+    legislatureRankingDefinition.rows[0].definition,
+    /territory\.reconciled_parliamentary_transfers/,
+    "ranking federal deve usar a serie reconciliada",
+  );
+  assert.doesNotMatch(
+    legislatureRankingDefinition.rows[0].definition,
+    /raw\.(raw_records|extraction_results)/,
+    "RPC publica nao pode recalcular registros brutos",
+  );
 
   await database.exec(`
     insert into source.collection_runs (
@@ -1239,6 +1282,140 @@ try {
   ]);
 
   await database.exec("set role anon");
+  const legislatureRankings = await database.query(`
+    select sphere, legislature_number, rank_position, author_key,
+      representative_source_kind, association_status, amendment_count,
+      ranking_amount, committed_amount, liquidated_amount, paid_amount,
+      first_year, last_year, ranking_amount_stage,
+      excluded_transition_years::text as excluded_transition_years,
+      methodology_version
+    from api.get_public_parliamentary_legislature_rankings(null, null, 10)
+    order by case sphere when 'state' then 0 else 1 end,
+      legislature_number desc, rank_position
+  `);
+  assert.deepEqual(legislatureRankings.rows, [
+    {
+      sphere: "state",
+      legislature_number: 20,
+      rank_position: 1,
+      author_key: "diego castro",
+      representative_source_kind: "state",
+      association_status: "approved_official_crosswalk",
+      amendment_count: 1,
+      ranking_amount: "600000.00",
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      first_year: 2026,
+      last_year: 2026,
+      ranking_amount_stage: "authorized",
+      excluded_transition_years: "{2023}",
+      methodology_version:
+        "parliamentary-legislature-transfer-ranking/1.0.0",
+    },
+    {
+      sphere: "state",
+      legislature_number: 20,
+      rank_position: 2,
+      author_key: "marcone amaral",
+      representative_source_kind: null,
+      association_status: "not_linked",
+      amendment_count: 1,
+      ranking_amount: "500000.00",
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      first_year: 2026,
+      last_year: 2026,
+      ranking_amount_stage: "authorized",
+      excluded_transition_years: "{2023}",
+      methodology_version:
+        "parliamentary-legislature-transfer-ranking/1.0.0",
+    },
+    {
+      sphere: "state",
+      legislature_number: 20,
+      rank_position: 3,
+      author_key: "antonio henrique junior",
+      representative_source_kind: "state",
+      association_status: "approved_official_crosswalk",
+      amendment_count: 1,
+      ranking_amount: "200000.00",
+      committed_amount: "150000.00",
+      liquidated_amount: "100000.00",
+      paid_amount: "90000.00",
+      first_year: 2026,
+      last_year: 2026,
+      ranking_amount_stage: "authorized",
+      excluded_transition_years: "{2023}",
+      methodology_version:
+        "parliamentary-legislature-transfer-ranking/1.0.0",
+    },
+    {
+      sphere: "state",
+      legislature_number: 19,
+      rank_position: 1,
+      author_key: "antonio henrique junior",
+      representative_source_kind: "state",
+      association_status: "approved_official_crosswalk",
+      amendment_count: 1,
+      ranking_amount: "100000.00",
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      first_year: 2022,
+      last_year: 2022,
+      ranking_amount_stage: "authorized",
+      excluded_transition_years: "{2023}",
+      methodology_version:
+        "parliamentary-legislature-transfer-ranking/1.0.0",
+    },
+    {
+      sphere: "federal",
+      legislature_number: 57,
+      rank_position: 1,
+      author_key: "ricardo maia",
+      representative_source_kind: "federal",
+      association_status: "approved_official_crosswalk",
+      amendment_count: 1,
+      ranking_amount: "250000.00",
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      first_year: 2025,
+      last_year: 2025,
+      ranking_amount_stage: "destination",
+      excluded_transition_years: "{2023}",
+      methodology_version:
+        "parliamentary-legislature-transfer-ranking/1.0.0",
+    },
+    {
+      sphere: "federal",
+      legislature_number: 56,
+      rank_position: 1,
+      author_key: "afonso florence",
+      representative_source_kind: null,
+      association_status: "not_linked",
+      amendment_count: 2,
+      ranking_amount: "900000.00",
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      first_year: 2021,
+      last_year: 2021,
+      ranking_amount_stage: "destination",
+      excluded_transition_years: "{2023}",
+      methodology_version:
+        "parliamentary-legislature-transfer-ranking/1.0.0",
+    },
+  ]);
+  assert.equal(
+    legislatureRankings.rows.some((row) =>
+      row.first_year === 2023 || row.last_year === 2023
+    ),
+    false,
+    "2023 nao pode ser atribuido a uma legislatura sem data individual da emenda",
+  );
   const people = await database.query(`
     select author_name, author_kind, representative_source_kind,
       representative_external_id, representative_profile_url,
@@ -1674,6 +1851,10 @@ try {
     /permission denied/,
   );
   await assert.rejects(
+    database.query("select * from political.legislative_terms"),
+    /permission denied/,
+  );
+  await assert.rejects(
     database.query("select * from source.collection_partitions"),
     /permission denied/,
   );
@@ -1682,6 +1863,18 @@ try {
       "select * from api.get_public_parliamentary_transfer_ranking('all', 2025::smallint, 50)",
     ),
     /author_scope deve ser person ou collective/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_parliamentary_legislature_rankings('municipal', null, 10)",
+    ),
+    /esfera legislativa deve ser federal ou state/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_parliamentary_legislature_rankings(null, null, 11)",
+    ),
+    /limite por legislatura deve estar entre 1 e 10/,
   );
   await assert.rejects(
     database.query(
