@@ -543,6 +543,15 @@ O TCM-BA e partes não cobertas dos portais permanecem em descoberta. A tarefa d
 7. divergências com PNCP/SICONFI/Diário;
 8. recomendação de coletor API/download antes de spider HTML.
 
+### Universo privado do Anexo I da LOA 2026
+
+O Anexo I de 2026 possui 374 páginas. A validação integral realizada em
+14/08/2026 reconheceu 3.182 linhas estruturadas de 63 autores e manteve as 27
+linhas territoriais de Barreiras em uma projeção separada. O universo estadual
+fica privado e sem valores ou municípios de terceiros; sua finalidade única é
+provar se a combinação autor, órgão, unidade e ação é realmente exclusiva antes
+de associar empenho, liquidação ou pagamento a Barreiras.
+
 ## Hierarquia em conflitos
 
 Não haverá uma “fonte vencedora” global. Preferência é definida por campo e

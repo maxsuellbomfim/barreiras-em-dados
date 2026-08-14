@@ -9,6 +9,7 @@ from barreiras_docproc.bahia_state_loa import (
     LoaPage,
     LoaParseError,
     parse_barreiras_loa_pages,
+    parse_loa_2026_scope_pages,
 )
 
 
@@ -234,6 +235,84 @@ Barreiras 200 .000
         self.assertEqual(rows[0].authorized_amount, Decimal("80000"))
         self.assertEqual(rows[1].authorized_amount, Decimal("200000"))
         self.assertEqual(rows[1].page_number, 25)
+
+    def test_2026_scope_keeps_every_structured_row_not_only_barreiras(self) -> None:
+        pages = (
+            LoaPage(
+                page_number=21,
+                text="""Autor Teste - 500069 10.324.979
+3030 SESAB FESBA 5607 Aparelhamento de Unidade de Saude
+Aquisição de equipamento
+Barreiras 80.000
+3031 SESAB FESBA 5607 Aparelhamento de Unidade de Saude
+Aquisição de outro equipamento
+Salvador 90.000
+""",
+            ),
+        )
+
+        scope = parse_loa_2026_scope_pages(annex_code="I", pages=pages)
+        barreiras = parse_barreiras_loa_pages(
+            fiscal_year=2026,
+            annex_code="I",
+            pages=pages,
+        )
+
+        self.assertEqual([row.amendment_number for row in scope], ["3030", "3031"])
+        self.assertEqual(len(barreiras), 1)
+        self.assertEqual(
+            {
+                (
+                    row.author_external_code,
+                    row.agency_code,
+                    row.budget_unit_code,
+                    row.action_code,
+                )
+                for row in scope
+            },
+            {("500069", "SESAB", "FESBA", "5607")},
+        )
+
+    def test_2026_scope_preserves_author_and_row_page_evidence(self) -> None:
+        pages = (
+            LoaPage(
+                page_number=21,
+                text="""Autor Teste - 500069 10.324.979
+Total da Área de Saúde 5.162.490
+""",
+            ),
+            LoaPage(
+                page_number=22,
+                text="""3030 SESAB FESBA 5607 Aparelhamento de Unidade de Saude
+Aquisição de equipamento
+Luís Eduardo Ma-
+galhães
+1.000.000
+""",
+            ),
+        )
+
+        scope = parse_loa_2026_scope_pages(annex_code="I", pages=pages)
+
+        self.assertEqual(len(scope), 1)
+        self.assertEqual(scope[0].author_page_number, 21)
+        self.assertEqual(scope[0].page_number, 22)
+        self.assertEqual(
+            scope[0].author_evidence_text,
+            "Autor Teste - 500069 10.324.979",
+        )
+        self.assertTrue(scope[0].evidence_text.startswith("3030 SESAB FESBA 5607"))
+
+    def test_2026_scope_rejects_any_structured_row_without_proven_author(self) -> None:
+        page = LoaPage(
+            page_number=1,
+            text="""3030 SESAB FESBA 5607 Aparelhamento de Unidade de Saude
+Salvador 80.000
+""",
+        )
+
+        with self.assertRaisesRegex(LoaParseError, "autor"):
+            parse_loa_2026_scope_pages(annex_code="I", pages=(page,))
 
     def test_2026_refuses_barreiras_row_without_proven_author(self) -> None:
         page = LoaPage(

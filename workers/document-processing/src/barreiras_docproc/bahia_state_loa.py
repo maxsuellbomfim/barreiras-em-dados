@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 LOA_BARREIRAS_PARSER_VERSION = "bahia-state-loa-barreiras/1.1.0"
+LOA_SCOPE_PARSER_VERSION = "bahia-state-loa-scope/1.0.0"
 
 _TARGET_ROW = re.compile(r"^Barreiras\s+(?P<number>\d{1,6})\s+(?P<body>.+)$", re.I)
 _PRE_2026_TERRITORIAL_CANDIDATE = re.compile(
@@ -98,12 +99,35 @@ class AuthorizedLoaAmendment:
     parser_version: str = LOA_BARREIRAS_PARSER_VERSION
 
 
+@dataclass(frozen=True)
+class Loa2026ScopeRow:
+    """Linha estrutural privada usada para provar unicidade no anexo inteiro."""
+
+    fiscal_year: int
+    annex_code: str
+    amendment_number: str
+    author_name: str
+    author_external_code: str
+    agency_code: str
+    budget_unit_code: str
+    action_code: str
+    author_page_number: int
+    author_evidence_text: str
+    author_evidence_sha256: str
+    page_number: int
+    evidence_text: str
+    evidence_sha256: str
+    parser_version: str = LOA_SCOPE_PARSER_VERSION
+
+
 @dataclass
 class _Pending2026Row:
     page_number: int
     lines: list[str]
     author_name: str | None
     author_external_code: str | None
+    author_page_number: int | None
+    author_evidence_text: str | None
 
 
 def parse_barreiras_loa_pages(
@@ -119,11 +143,26 @@ def parse_barreiras_loa_pages(
         raise LoaParseError("O documento contém página duplicada.")
 
     if fiscal_year == 2026:
-        rows = _parse_2026(ordered_pages, fiscal_year, annex_code)
+        _scope, rows = _scan_2026(ordered_pages, fiscal_year, annex_code)
     else:
         rows = _parse_pre_2026(ordered_pages, fiscal_year, annex_code)
     _reject_duplicate_rows(rows)
     return tuple(rows)
+
+
+def parse_loa_2026_scope_pages(
+    *,
+    annex_code: str,
+    pages: tuple[LoaPage, ...],
+) -> tuple[Loa2026ScopeRow, ...]:
+    """Indexa todas as linhas estruturadas de 2026 sem publicar outros municípios."""
+    _validate_contract(fiscal_year=2026, annex_code=annex_code)
+    ordered_pages = tuple(sorted(pages, key=lambda page: page.page_number))
+    if len({page.page_number for page in ordered_pages}) != len(ordered_pages):
+        raise LoaParseError("O documento contém página duplicada.")
+    scope, _barreiras = _scan_2026(ordered_pages, 2026, annex_code)
+    _reject_duplicate_scope_rows(scope)
+    return tuple(scope)
 
 
 def _validate_contract(*, fiscal_year: int, annex_code: str) -> None:
@@ -215,20 +254,30 @@ def _parse_pre_2026_row(
     )
 
 
-def _parse_2026(
+def _scan_2026(
     pages: tuple[LoaPage, ...],
     fiscal_year: int,
     annex_code: str,
-) -> list[AuthorizedLoaAmendment]:
+) -> tuple[list[Loa2026ScopeRow], list[AuthorizedLoaAmendment]]:
+    scope_rows: list[Loa2026ScopeRow] = []
     rows: list[AuthorizedLoaAmendment] = []
     author_name: str | None = None
     author_code: str | None = None
+    author_page_number: int | None = None
+    author_evidence_text: str | None = None
     pending: _Pending2026Row | None = None
 
     def flush() -> None:
         nonlocal pending
         if pending is None:
             return
+        scope_rows.append(
+            _parse_2026_scope_row(
+                pending,
+                fiscal_year=fiscal_year,
+                annex_code=annex_code,
+            )
+        )
         parsed = _parse_2026_row(
             pending,
             fiscal_year=fiscal_year,
@@ -245,6 +294,8 @@ def _parse_2026(
                 flush()
                 author_name = _collapse(header.group("name"))
                 author_code = header.group("code")
+                author_page_number = page.page_number
+                author_evidence_text = line
                 continue
             if _TOTAL_LINE.match(line):
                 flush()
@@ -256,12 +307,52 @@ def _parse_2026(
                     lines=[line],
                     author_name=author_name,
                     author_external_code=author_code,
+                    author_page_number=author_page_number,
+                    author_evidence_text=author_evidence_text,
                 )
                 continue
             if pending is not None:
                 pending.lines.append(line)
     flush()
-    return rows
+    _reject_duplicate_scope_rows(scope_rows)
+    return scope_rows, rows
+
+
+def _parse_2026_scope_row(
+    pending: _Pending2026Row,
+    *,
+    fiscal_year: int,
+    annex_code: str,
+) -> Loa2026ScopeRow:
+    first = _ROW_2026.match(pending.lines[0])
+    if first is None:
+        raise LoaParseError("A linha de 2026 perdeu seu início estruturado.")
+    if (
+        pending.author_name is None
+        or pending.author_external_code is None
+        or pending.author_page_number is None
+        or pending.author_evidence_text is None
+    ):
+        raise LoaParseError(
+            "Uma linha estruturada de 2026 não possui autor comprovado pelo cabeçalho."
+        )
+    evidence = pending.lines[0]
+    return Loa2026ScopeRow(
+        fiscal_year=fiscal_year,
+        annex_code=annex_code,
+        amendment_number=first.group("number"),
+        author_name=pending.author_name,
+        author_external_code=pending.author_external_code,
+        agency_code=first.group("agency"),
+        budget_unit_code=first.group("unit"),
+        action_code=first.group("action"),
+        author_page_number=pending.author_page_number,
+        author_evidence_text=pending.author_evidence_text,
+        author_evidence_sha256=_sha256(pending.author_evidence_text),
+        page_number=pending.page_number,
+        evidence_text=evidence,
+        evidence_sha256=_sha256(evidence),
+    )
 
 
 def _parse_2026_row(
@@ -359,5 +450,16 @@ def _reject_duplicate_rows(rows: list[AuthorizedLoaAmendment]) -> None:
         if key in seen:
             raise LoaParseError(
                 "A mesma emenda foi extraída de forma duplicada para o autor."
+            )
+        seen.add(key)
+
+
+def _reject_duplicate_scope_rows(rows: list[Loa2026ScopeRow]) -> None:
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        key = (row.author_external_code, row.amendment_number)
+        if key in seen:
+            raise LoaParseError(
+                "A mesma linha estrutural foi extraída de forma duplicada para o autor."
             )
         seen.add(key)

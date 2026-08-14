@@ -31,7 +31,11 @@ class FakeRepository:
         return type(
             "Result",
             (),
-            {"job_created": True, "results_inserted": len(batch.amendments)},
+            {
+                "job_created": True,
+                "results_inserted": len(batch.amendments),
+                "scope_rows_inserted": len(batch.scope_rows),
+            },
         )()
 
 
@@ -112,6 +116,29 @@ class BahiaStateLoaExtractionServiceTests(unittest.TestCase):
 
         with self.assertRaisesRegex(LoaIncompleteTextError, "Barreiras"):
             service.process(artifact)
+
+    def test_2026_persists_statewide_scope_alongside_barreiras_projection(self) -> None:
+        body = build_pdf(
+            [
+                "Autor Teste - 500069 10.324.979\n"
+                "3030 SESAB FESBA 5607 Aparelhamento de Unidade de Saude\n"
+                "Barreiras 80.000\n"
+                "3031 SESAB FESBA 5607 Aparelhamento de Unidade de Saude\n"
+                "Salvador 90.000"
+            ]
+        )
+        artifact = artifact_for(body, year=2026)
+        repository = FakeRepository()
+        service = BahiaStateLoaExtractionService(
+            object_reader=FakeReader({artifact.object_key: body}),
+            repository=repository,
+        )
+
+        result = service.process(artifact)
+
+        self.assertEqual(result.results_inserted, 1)
+        self.assertEqual(result.scope_rows_inserted, 2)
+        self.assertEqual(len(repository.batches[0].scope_rows), 2)
 
 
 if __name__ == "__main__":

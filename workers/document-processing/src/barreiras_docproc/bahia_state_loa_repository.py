@@ -6,7 +6,10 @@ from collections.abc import Callable
 
 from barreiras_collectors.persistence.postgres import DatabaseConnection
 
-from .bahia_state_loa import LOA_BARREIRAS_PARSER_VERSION
+from .bahia_state_loa import (
+    LOA_BARREIRAS_PARSER_VERSION,
+    LOA_SCOPE_PARSER_VERSION,
+)
 from .bahia_state_loa_processing import (
     LOA_EXTRACTION_JOB_TYPE,
     BahiaStateLoaArtifact,
@@ -15,6 +18,7 @@ from .bahia_state_loa_processing import (
     LoaProcessingError,
     amendment_payload,
     canonical_json,
+    scope_row_payload,
 )
 
 
@@ -65,7 +69,20 @@ class BahiaStateLoaExtractionRepository:
                       where job.raw_artifact_id = artifact.id
                         and job.job_type = %s
                         and job.status = 'succeeded'
-                        and result.extractor_version = %s
+                        and (
+                          (
+                            (record.payload ->> 'fiscal_year')::integer = 2026
+                            and result.candidate_type =
+                              'bahia_state_loa_2026_scope_row'
+                            and result.extractor_version = %s
+                          )
+                          or (
+                            (record.payload ->> 'fiscal_year')::integer < 2026
+                            and result.candidate_type =
+                              'bahia_state_loa_authorized_amendment'
+                            and result.extractor_version = %s
+                          )
+                        )
                     )
                     and not exists (
                       select 1
@@ -81,6 +98,7 @@ class BahiaStateLoaExtractionRepository:
                 """,
                 (
                     LOA_EXTRACTION_JOB_TYPE,
+                    LOA_SCOPE_PARSER_VERSION,
                     LOA_BARREIRAS_PARSER_VERSION,
                     LOA_EXTRACTION_JOB_TYPE,
                     limit,
@@ -210,7 +228,44 @@ class BahiaStateLoaExtractionRepository:
                         ),
                     )
                     inserted += 1
-            return BahiaStateLoaPersistResult(True, inserted)
+                scope_inserted = len(batch.scope_rows)
+                if batch.scope_rows:
+                    scope_payloads = [
+                        {
+                            "extractor_version": scope_row.parser_version,
+                            "result_payload": scope_row_payload(
+                                scope_row,
+                                batch.artifact,
+                            ),
+                        }
+                        for scope_row in batch.scope_rows
+                    ]
+                    connection.execute(
+                        """
+                        insert into raw.extraction_results (
+                          extraction_job_id, candidate_type,
+                          extractor_version, validator_version,
+                          result_payload, confidence,
+                          validation_status, validation_errors
+                        )
+                        select
+                          %s::uuid,
+                          'bahia_state_loa_2026_scope_row',
+                          item ->> 'extractor_version',
+                          %s,
+                          item -> 'result_payload',
+                          null,
+                          'valid',
+                          '[]'::jsonb
+                        from jsonb_array_elements(%s::jsonb) as item
+                        """,
+                        (
+                            str(job["id"]),
+                            batch.validator_version,
+                            canonical_json(scope_payloads),
+                        ),
+                    )
+            return BahiaStateLoaPersistResult(True, inserted, scope_inserted)
         finally:
             connection.close()
 
