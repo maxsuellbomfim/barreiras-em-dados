@@ -37,7 +37,12 @@ insert into source.source_endpoints (
   rate_limit_per_minute,
   request_timeout_seconds,
   enabled,
-  config
+  config,
+  freshness_policy_kind,
+  freshness_expected_hours,
+  freshness_grace_hours,
+  freshness_policy_note,
+  freshness_policy_version
 )
 values (
   '00000000-0000-4000-8000-000000000101',
@@ -49,7 +54,12 @@ values (
   60,
   30,
   true,
-  '{"territory_id":"2903201","municipality":"Barreiras","state_code":"BA"}'::jsonb
+  '{"territory_id":"2903201","municipality":"Barreiras","state_code":"BA"}'::jsonb,
+  'scheduled',
+  24,
+  24,
+  'Rotina diária; alerta após 48 horas sem atualização válida.',
+  'source-freshness/1.0.0'
 )
 on conflict (data_source_id, slug) do update
 set
@@ -57,7 +67,12 @@ set
   rate_limit_per_minute = excluded.rate_limit_per_minute,
   request_timeout_seconds = excluded.request_timeout_seconds,
   enabled = excluded.enabled,
-  config = excluded.config;
+  config = excluded.config,
+  freshness_policy_kind = excluded.freshness_policy_kind,
+  freshness_expected_hours = excluded.freshness_expected_hours,
+  freshness_grace_hours = excluded.freshness_grace_hours,
+  freshness_policy_note = excluded.freshness_policy_note,
+  freshness_policy_version = excluded.freshness_policy_version;
 
 insert into source.data_sources (
   id,

@@ -43,5 +43,4 @@ apresentado como ausência de publicação na fonte oficial direta.
   como sem cobertura.
 - O avanço retroativo do Diário pode ser acompanhado sem consultar logs ou o
   banco, e a próxima janela permanece derivada de evidência persistida.
-- Alertas por atraso dependerão de SLAs documentados por fonte em decisão
-  futura.
+- Alertas por atraso seguem os prazos operacionais documentados no ADR 0063.
