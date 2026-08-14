@@ -76,6 +76,34 @@ test("Transferegov classifica cada ano desde 2021 sem entrada livre no shell", (
   assert.doesNotMatch(transferegovJob, /--year-to "\$\{\{/);
 });
 
+test("modo somente Transferegov nao abre coletores independentes", () => {
+  const collectJob = workflow.slice(
+    workflow.indexOf("  collect:"),
+    workflow.indexOf("  transferegov:"),
+  );
+  const transferegovJob = workflow.slice(
+    workflow.indexOf("  transferegov:"),
+    workflow.indexOf("  bahia_state_amendments:"),
+  );
+  const stateJobs = workflow.slice(
+    workflow.indexOf("  bahia_state_amendments:"),
+  );
+
+  assert.match(workflow, /- "transferegov-only"/);
+  assert.match(
+    collectJob,
+    /inputs\.resource != 'transferegov-only'/,
+  );
+  assert.match(
+    transferegovJob,
+    /inputs\.resource == 'transferegov-only'/,
+  );
+  assert.match(
+    stateJobs,
+    /inputs\.resource != 'transferegov-only'/,
+  );
+});
+
 test("LOA estadual e extraida deterministicamente depois da preservacao", () => {
   const loaJob = workflow.slice(
     workflow.indexOf("  bahia_state_loa_amendments:"),

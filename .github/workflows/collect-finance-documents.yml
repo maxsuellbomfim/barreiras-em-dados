@@ -34,6 +34,7 @@ on:
         type: choice
         options:
           - "all"
+          - "transferegov-only"
           - "balancetes"
           - "pdc-contas-anuais"
           - "pdc-receita-tributaria"
@@ -79,6 +80,9 @@ concurrency:
 
 jobs:
   collect:
+    if: >-
+      github.event_name == 'schedule' ||
+      inputs.resource != 'transferegov-only'
     name: Preservar catalogo financeiro (${{ matrix.resource }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -175,7 +179,11 @@ jobs:
     needs: collect
     if: >-
       always() &&
-      (github.event_name == 'schedule' || inputs.include_transferegov == true)
+      (
+        github.event_name == 'schedule' ||
+        inputs.include_transferegov == true ||
+        inputs.resource == 'transferegov-only'
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -238,6 +246,7 @@ jobs:
     needs: collect
     if: >-
       always() &&
+      inputs.resource != 'transferegov-only' &&
       (github.event_name == 'schedule' || inputs.include_bahia_state_amendments == true)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -293,6 +302,7 @@ jobs:
     needs: collect
     if: >-
       always() &&
+      inputs.resource != 'transferegov-only' &&
       (github.event_name == 'schedule' || inputs.include_bahia_state_loa_amendments == true)
     runs-on: ubuntu-latest
     timeout-minutes: 20
