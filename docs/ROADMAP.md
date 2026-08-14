@@ -427,6 +427,8 @@ Gate:
 - mandatos estaduais e federais acompanhados;
 - proposições, votações, comissões, agenda e despesas;
 - emendas relacionadas a Barreiras;
+- rankings estadual e federal separados por legislatura, com todos os autores
+  individuais observados no recorte atual ligados a perfis oficiais;
 - declarações eleitorais por pleito, com limitações;
 - fotos oficiais com metadados e histórico.
 

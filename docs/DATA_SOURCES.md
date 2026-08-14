@@ -29,7 +29,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | PNCP | contratações, itens, resultados, contratos, documentos | P1 | documentação inicial |
 | SICONFI | demonstrativos contábeis e fiscais | P2 | documentação inicial |
 | TCM-BA | dados municipais e prestações | P2 | descoberta |
-| Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | API atual, catálogo histórico, propostas municipais e recorte de emendas por ID implementados; demais CSVs pendentes |
+| Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | API atual, catálogo histórico, propostas municipais e recorte de emendas por ID implementados; os três autores individuais observados nos rankings federais de 2021-2026 estão ligados a perfis oficiais por crosswalk TSE aprovado; demais CSVs pendentes |
 | Tesouro Transparente | transferências constitucionais/legais e emendas | P3 | documentação inicial |
 | Transparência Bahia / SEPLAN-BA | transferências a municípios, despesas e emendas estaduais | P3 | ZIP de execução preservado e normalizado como agregado estadual; replay versionado confirmou 70 autorizações territoriais da LOA 2022-2026, sendo 34 em 2026; os 13 autores observados estão ligados a perfis oficiais por crosswalk TSE aprovado, sem confundir autoria histórica, legislatura e Casa atual |
 | Câmara dos Deputados | mandatos, proposições, votações e despesas | P3 | API confirmada |
