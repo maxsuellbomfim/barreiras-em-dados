@@ -5,6 +5,8 @@ import type {
 } from "../../lib/parliamentary-legislature-rankings.mjs";
 import type { ParliamentaryLegislatureCoverageRow } from
   "../../lib/parliamentary-legislature-coverage.mjs";
+import type { ParliamentaryLegislatureYearCoverageRow } from
+  "../../lib/parliamentary-legislature-year-coverage.mjs";
 
 function stageLabel(group: ParliamentaryLegislatureRankingGroup): string {
   return group.rankingAmountStage === "destination"
@@ -92,7 +94,11 @@ function LegislatureRankingRow({
 
 function CoverageSummary({
   coverage,
-}: Readonly<{ coverage: ParliamentaryLegislatureCoverageRow | null }>) {
+  years,
+}: Readonly<{
+  coverage: ParliamentaryLegislatureCoverageRow | null;
+  years: readonly ParliamentaryLegislatureYearCoverageRow[] | null;
+}>) {
   if (coverage === null) {
     return (
       <p className="legislature-coverage-unavailable">
@@ -101,10 +107,26 @@ function CoverageSummary({
       </p>
     );
   }
+  const observedYears = years?.filter((row) =>
+    row.observationStatus === "observed"
+  ).map((row) => row.fiscalYear) ?? [];
+  const notObservedYears = years?.filter((row) =>
+    row.observationStatus === "not_observed"
+  ).map((row) => row.fiscalYear) ?? [];
   return (
     <div className="legislature-coverage" role="note">
       <strong>O que esta fonte permitiu conferir neste recorte</strong>
       <dl>
+        <div>
+          <dt>Anos com registros</dt>
+          <dd>
+            {years === null
+              ? "diagnóstico indisponível"
+              : observedYears.length === 0
+                ? "nenhum ano observado"
+                : observedYears.join(", ")}
+          </dd>
+        </div>
         <div>
           <dt>Emendas encontradas</dt>
           <dd>{coverage.contributionCount.toLocaleString("pt-BR")}</dd>
@@ -137,8 +159,11 @@ function CoverageSummary({
         </div>
       </dl>
       <p>
-        Estes números descrevem a cobertura observada nas fontes já coletadas;
-        não provam que o universo oficial esteja completo.
+        {years === null
+          ? "A cobertura por ano está temporariamente indisponível; este ranking não deve ser lido como acervo completo."
+          : notObservedYears.length > 0
+            ? `Recorte parcial: ${notObservedYears.join(", ")} ainda não têm registros individuais no ranking. Isso não significa valor zero.`
+            : "Todos os anos previstos têm ao menos um registro individual no ranking. Isso ainda não prova que o universo oficial esteja completo."}
       </p>
     </div>
   );
@@ -147,9 +172,11 @@ function CoverageSummary({
 export default function LegislatureTransferRankings({
   groups,
   coverage,
+  yearCoverage,
 }: Readonly<{
   groups: readonly ParliamentaryLegislatureRankingGroup[] | null;
   coverage: readonly ParliamentaryLegislatureCoverageRow[] | null;
+  yearCoverage: readonly ParliamentaryLegislatureYearCoverageRow[] | null;
 }>) {
   return (
     <section
@@ -160,7 +187,7 @@ export default function LegislatureTransferRankings({
       <div className="section-heading">
         <span className="eyebrow">Comparação por mandato</span>
         <h2 id="legislature-rankings-title">
-          Quem destinou mais recursos a Barreiras em cada legislatura?
+          Quem aparece com mais recursos no acervo de cada legislatura?
         </h2>
         <p>
           Compare parlamentares sem misturar esferas ou mandatos. A ordem usa o
@@ -189,11 +216,29 @@ export default function LegislatureTransferRankings({
               row.sphere === group.sphere &&
               row.legislatureNumber === group.legislatureNumber
             ) ?? null;
+            const matchedYearCoverage = yearCoverage?.filter((row) =>
+              row.sphere === group.sphere &&
+              row.legislatureNumber === group.legislatureNumber
+            ) ?? null;
+            const expectedYearCount =
+              group.fullFiscalYearTo - group.fullFiscalYearFrom + 1;
+            const groupYearCoverage = matchedYearCoverage?.length ===
+              expectedYearCount
+              ? matchedYearCoverage
+              : null;
+            const missingYears = groupYearCoverage?.filter((row) =>
+              row.observationStatus === "not_observed"
+            ).map((row) => row.fiscalYear) ?? [];
+            const yearCoverageLabel = groupYearCoverage === null
+              ? "cobertura anual indisponível"
+              : missingYears.length > 0
+                ? `recorte parcial · faltam registros de ${missingYears.join(", ")}`
+                : "todos os anos previstos têm registros";
             const foundAuthors = groupCoverage?.authorCount ??
               group.rankings.length;
             const rankingScopeLabel = group.rankings.length === 0
               ? "sem registros no recorte"
-              : `${current ? "atual" : "encerrada"} · top ${group.rankings.length} de ${foundAuthors} autor(es) encontrado(s)`;
+              : `${current ? "atual" : "encerrada"} · ${yearCoverageLabel} · top ${group.rankings.length} de ${foundAuthors} autor(es) encontrado(s)`;
             return (
               <details
                 className="legislature-ranking-group"
@@ -212,7 +257,10 @@ export default function LegislatureTransferRankings({
                   <span>{rankingScopeLabel}</span>
                 </summary>
                 <div className="legislature-ranking-group-body">
-                  <CoverageSummary coverage={groupCoverage} />
+                  <CoverageSummary
+                    coverage={groupCoverage}
+                    years={groupYearCoverage}
+                  />
                   <p className="legislature-ranking-explanation">
                     {group.rankingAmountStage === "destination"
                       ? "A base federal informa o valor destinado a Barreiras. Empenho e pagamento aparecem separadamente quando localizados."
