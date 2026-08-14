@@ -242,6 +242,12 @@ e autoria coletiva permanecem separados. Ausência em um endpoint não é
 publicada como zero. Metodologia completa em
 `docs/PARLIAMENTARY_TRANSFERS_METHODOLOGY.md`.
 
+Para reprocessamentos manuais sem acionar fontes independentes, o workflow
+financeiro oferece o recurso `transferegov-only`. Nesse modo, somente o
+catálogo, as propostas e os eventos do Transferegov são executados; os
+coletores municipais e estaduais ficam suspensos. As execuções agendadas
+continuam cobrindo todas as fontes normalmente.
+
 A coleta de propostas é particionada por ano fiscal, de 2021 ao ano municipal
 atual, usando simultaneamente `cd_ibge_recebedor=2903201` e `ano_proposta`.
 Cada resposta é conferida contra os dois filtros antes de ser preservada. A
