@@ -1,4 +1,9 @@
-const SOURCES = new Set(["federal-atual", "federal-historico", "estadual"]);
+const SOURCES = new Set([
+  "legislaturas",
+  "federal-atual",
+  "federal-historico",
+  "estadual",
+]);
 
 /**
  * Mantém as séries oficiais visivelmente separadas. Entradas múltiplas ou fora
@@ -13,6 +18,7 @@ export function resolveTransferSourceSelection(requestedSource) {
 
   return {
     source,
+    showLegislatures: source === "legislaturas",
     showCurrentFederal: source === "federal-atual",
     showHistoricalFederal: source === "federal-historico",
     showState: source === "estadual",

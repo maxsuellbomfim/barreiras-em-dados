@@ -667,10 +667,6 @@ a:focus-visible {
   order: 7;
 }
 
-.section-representatives > .representation-legislature-rankings {
-  order: 3;
-}
-
 .representation-block {
   margin-top: 3.5rem;
 }
@@ -3377,7 +3373,12 @@ footer {
   line-height: 1.25;
 }
 
-.representation-legislature-rankings > .section-heading {
+.transfer-legislature-rankings {
+  margin-top: 2.75rem;
+  scroll-margin-top: 6rem;
+}
+
+.transfer-legislature-rankings > .section-heading {
   max-width: 54rem;
 }
 
@@ -5096,7 +5097,7 @@ footer {
 .transfer-source-selector {
   margin-top: 1rem;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.7rem;
 }
 
@@ -5119,6 +5120,10 @@ footer {
 .transfer-source-selector a:hover {
   border-color: rgba(49, 91, 199, 0.38);
   transform: translateY(-1px);
+}
+
+.transfer-source-selector a:active {
+  transform: scale(0.985);
 }
 
 .transfer-source-selector a[aria-current="page"] {
@@ -5663,6 +5668,12 @@ footer {
   margin-bottom: 2rem;
   border-color: rgba(28, 40, 61, 0.1);
   background: rgba(248, 250, 253, 0.86);
+}
+
+@media (max-width: 1100px) {
+  .transfer-source-selector {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 840px) {

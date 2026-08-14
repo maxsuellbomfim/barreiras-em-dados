@@ -8,6 +8,7 @@ const sourceModule = await import(
 const resolveTransferSourceSelection =
   sourceModule.resolveTransferSourceSelection ?? (() => ({
     source: "federal-atual",
+    showLegislatures: false,
     showCurrentFederal: true,
     showHistoricalFederal: true,
     showState: true,
@@ -16,7 +17,18 @@ const resolveTransferSourceSelection =
 test("sem origem solicitada abre somente a API federal atual", () => {
   assert.deepEqual(resolveTransferSourceSelection(undefined), {
     source: "federal-atual",
+    showLegislatures: false,
     showCurrentFederal: true,
+    showHistoricalFederal: false,
+    showState: false,
+  });
+});
+
+test("ranking por legislatura aparece como recorte próprio em Recursos", () => {
+  assert.deepEqual(resolveTransferSourceSelection("legislaturas"), {
+    source: "legislaturas",
+    showLegislatures: true,
+    showCurrentFederal: false,
     showHistoricalFederal: false,
     showState: false,
   });
@@ -25,6 +37,7 @@ test("sem origem solicitada abre somente a API federal atual", () => {
 test("arquivo federal histórico não exibe a API atual nem a fonte estadual", () => {
   assert.deepEqual(resolveTransferSourceSelection("federal-historico"), {
     source: "federal-historico",
+    showLegislatures: false,
     showCurrentFederal: false,
     showHistoricalFederal: true,
     showState: false,
@@ -34,6 +47,7 @@ test("arquivo federal histórico não exibe a API atual nem a fonte estadual", (
 test("fonte estadual aparece isolada das duas séries federais", () => {
   assert.deepEqual(resolveTransferSourceSelection("estadual"), {
     source: "estadual",
+    showLegislatures: false,
     showCurrentFederal: false,
     showHistoricalFederal: false,
     showState: true,

@@ -34,13 +34,10 @@ import { stateLoaContributionsForRepresentative } from
 import { formatBrlDecimal } from "../../lib/revenues";
 import { getPublicParliamentaryLegislatureRankings } from
   "../../lib/legislature-transfer-rankings";
-import { getPublicParliamentaryLegislatureCoverage } from
-  "../../lib/legislature-transfer-coverage";
 import {
   legislatureRankingForRepresentative,
   type ParliamentaryRepresentativeLegislatureRanking,
 } from "../../lib/parliamentary-legislature-rankings.mjs";
-import LegislatureTransferRankings from "./legislature-transfer-rankings";
 
 export const revalidate = 300;
 
@@ -641,7 +638,6 @@ export default async function RepresentativesPage() {
     representativeVotesResult,
     stateLoaContributionsResult,
     legislatureRankingsResult,
-    legislatureCoverageResult,
   ] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
@@ -651,7 +647,6 @@ export default async function RepresentativesPage() {
     getRepresentativeVotes(),
     getPublicStateLoaRepresentativeContributions(),
     getPublicParliamentaryLegislatureRankings(),
-    getPublicParliamentaryLegislatureCoverage(),
   ]);
   const legacyVotes = votesResult.state === "available" ? votesResult.votes : [];
   const representativeVotes =
@@ -665,10 +660,6 @@ export default async function RepresentativesPage() {
   const legislatureRankingGroups =
     legislatureRankingsResult.state === "available"
       ? legislatureRankingsResult.groups
-      : null;
-  const legislatureCoverage =
-    legislatureCoverageResult.state === "available"
-      ? legislatureCoverageResult.rows
       : null;
   const currentDate = new Date().toISOString().slice(0, 10);
 
@@ -694,8 +685,8 @@ export default async function RepresentativesPage() {
           <h1 id="people-title">Quem representa Barreiras</h1>
           <p>
             Perfis construídos apenas com registros oficiais, campo a campo
-            com fonte e data. Não há nota ou julgamento: os rankings financeiros
-            usam critérios objetivos e explicados; quando um
+            com fonte e data. Não há nota ou julgamento: a comparação financeira
+            fica na página de Recursos e usa critérios objetivos e explicados; quando um
             dado não foi coletado, está escrito &ldquo;não coletado&rdquo; —
             ausência de informação nunca é apresentada como elogio ou
             defeito.
@@ -743,7 +734,7 @@ export default async function RepresentativesPage() {
           <a href="#vereadores">Vereadores</a>
           <a href="#estaduais">Estaduais</a>
           <a href="#federais">Federais</a>
-          <a href="#emendas-por-legislatura">Emendas por legislatura</a>
+          <a href="/recursos?origem=legislaturas#emendas-por-legislatura">Emendas por legislatura</a>
           <a href="#vinculo">Vínculo com Barreiras</a>
           <a href="/recursos">Emendas e recursos</a>
         </nav>
@@ -766,11 +757,6 @@ export default async function RepresentativesPage() {
             <span>candidaturas históricas</span>
           </div>
         </div>
-
-        <LegislatureTransferRankings
-          coverage={legislatureCoverage}
-          groups={legislatureRankingGroups}
-        />
 
         <div id="executivo" className="representation-block representation-block-municipal-leadership">
           <section aria-labelledby="executive-title">
