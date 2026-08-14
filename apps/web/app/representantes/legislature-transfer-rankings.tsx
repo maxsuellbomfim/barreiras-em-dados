@@ -32,7 +32,8 @@ function LegislatureRankingRow({
 }>) {
   if (
     row.rankPosition === null || row.authorName === null ||
-    row.amendmentCount === null || row.rankingAmount === null
+    row.authorKey === null || row.amendmentCount === null ||
+    row.rankingAmount === null
   ) return null;
   return (
     <article className="legislature-ranking-row">
@@ -54,6 +55,12 @@ function LegislatureRankingRow({
         ) : (
           <span>Perfil atual ainda não associado à autoria histórica</span>
         )}
+        <a
+          className="legislature-ranking-detail-link"
+          href={`/representantes/emendas/${group.sphere}/${group.legislatureNumber}/${encodeURIComponent(row.authorKey)}`}
+        >
+          Ver emendas, valores e documentos →
+        </a>
       </div>
       <dl className="legislature-ranking-values">
         <div>

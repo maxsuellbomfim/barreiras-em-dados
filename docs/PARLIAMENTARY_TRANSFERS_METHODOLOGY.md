@@ -353,3 +353,34 @@ Fontes oficiais iniciais:
 - https://www2.camara.leg.br/atividade-legislativa/comissoes/grupos-de-trabalho/57a-legislatura/
 - https://www.al.ba.gov.br/midia-center/noticias/32631
 - https://www.al.ba.gov.br/midia-center/noticias/55953
+
+## Perfil individual de contribuições por legislatura
+
+Cada autoria presente no ranking por legislatura possui uma página pública
+própria. A projeção
+`api.get_public_parliamentary_legislature_contributions` recebe esfera, número
+da legislatura e a chave normalizada exata do autor. Ela não pesquisa por
+semelhança nominal e não mistura legislaturas, esferas ou anos de transição.
+
+A página apresenta até 25 registros por vez e conserva:
+
+- número e exercício da emenda;
+- objeto e beneficiário quando publicados pela fonte;
+- valor destinado no recorte federal ou autorizado no recorte estadual;
+- empenho, liquidação e pagamento em campos independentes;
+- situação da reconciliação entre as fontes;
+- URL oficial, hash SHA-256, página e trecho literal quando disponíveis;
+- chave auditável e versão da metodologia.
+
+No recorte federal, a fonte atualmente usada pela projeção não publica
+liquidação individual nesse contrato; a interface diz isso expressamente em
+vez de inferir o estágio. No recorte estadual, valores de execução aparecem
+somente quando a chave oficial é única nos dois lados. Uma chave ambígua, não
+localizada ou inexistente permanece nula e recebe uma explicação documental.
+
+Os totais do perfil são calculados no PostgreSQL sobre todo o recorte antes da
+paginação. A aplicação apenas formata os decimais publicados pela RPC; não
+recalcula o ranking e não usa IA para somar valores. O perfil mede somente as
+emendas para Barreiras encontradas nas fontes cobertas. Não é nota geral de
+desempenho parlamentar, não comprova pagamento e não comprova execução de obra
+ou serviço.

@@ -1282,6 +1282,95 @@ try {
   ]);
 
   await database.exec("set role anon");
+  const federalContributionProfile = await database.query(`
+    select sphere, legislature_number, author_key, total_amendment_count,
+      total_ranking_amount, row_position, fiscal_year, amendment_number,
+      ranking_amount, execution_status, primary_source_url,
+      methodology_version
+    from api.get_public_parliamentary_legislature_contributions(
+      'federal', 57::smallint, 'ricardo maia', 25, 0
+    )
+    order by row_position
+  `);
+  assert.deepEqual(federalContributionProfile.rows, [{
+    sphere: "federal",
+    legislature_number: 57,
+    author_key: "ricardo maia",
+    total_amendment_count: 1,
+    total_ranking_amount: "250000.00",
+    row_position: 1,
+    fiscal_year: 2025,
+    amendment_number: "2025.4460.0002",
+    ranking_amount: "250000.00",
+    execution_status: "matched_exact",
+    primary_source_url:
+      "https://api-publica.transferegov.gestao.gov.br/parcerias/proposta?cd_ibge_recebedor=2903201",
+    methodology_version:
+      "parliamentary-legislature-contributions/1.0.0",
+  }]);
+
+  const stateContributionProfile = await database.query(`
+    select sphere, legislature_number, author_key, total_amendment_count,
+      total_ranking_amount, total_committed_amount, total_liquidated_amount,
+      total_paid_amount, row_position, fiscal_year, amendment_number,
+      ranking_amount, execution_status, primary_source_url,
+      methodology_version
+    from api.get_public_parliamentary_legislature_contributions(
+      'state', 20::smallint, 'antonio henrique junior', 25, 0
+    )
+    order by row_position
+  `);
+  assert.deepEqual(stateContributionProfile.rows, [{
+    sphere: "state",
+    legislature_number: 20,
+    author_key: "antonio henrique junior",
+    total_amendment_count: 1,
+    total_ranking_amount: "200000.00",
+    total_committed_amount: "150000.00",
+    total_liquidated_amount: "100000.00",
+    total_paid_amount: "90000.00",
+    row_position: 1,
+    fiscal_year: 2026,
+    amendment_number: "102",
+    ranking_amount: "200000.00",
+    execution_status: "execution_confirmed",
+    primary_source_url: "https://www.ba.gov.br/seplan/loa-fixture.pdf",
+    methodology_version:
+      "parliamentary-legislature-contributions/1.0.0",
+  }]);
+
+  const excludedTransitionContribution = await database.query(`
+    select *
+    from api.get_public_parliamentary_legislature_contributions(
+      'state', 20::smallint, 'capitao alden', 25, 0
+    )
+  `);
+  assert.equal(excludedTransitionContribution.rows.length, 0);
+
+  await assert.rejects(
+    database.query(`
+      select * from api.get_public_parliamentary_legislature_contributions(
+        'municipal', 20::smallint, 'autor', 25, 0
+      )
+    `),
+    /esfera legislativa deve ser federal ou state/,
+  );
+  await assert.rejects(
+    database.query(`
+      select * from api.get_public_parliamentary_legislature_contributions(
+        'state', 20::smallint, '', 25, 0
+      )
+    `),
+    /autor legislativo invalido/,
+  );
+  await assert.rejects(
+    database.query(`
+      select * from api.get_public_parliamentary_legislature_contributions(
+        'state', 20::smallint, 'autor', 101, 0
+      )
+    `),
+    /limite de contribuicoes deve estar entre 1 e 100/,
+  );
   const legislatureRankings = await database.query(`
     select sphere, legislature_number, rank_position, author_key,
       representative_source_kind, association_status, amendment_count,
