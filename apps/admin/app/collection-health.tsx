@@ -39,6 +39,11 @@ export type CollectionHealthItem = Readonly<{
   latest_failure_retryable: boolean | null;
   latest_failure_next_retry_at: string | null;
   latest_failure_at: string | null;
+  latest_successful_partition_status: "complete" | "empty" | null;
+  latest_successful_period_start: string | null;
+  latest_successful_period_end: string | null;
+  latest_successful_observed_records: number | null;
+  latest_successful_completed_at: string | null;
   backfill_horizon: string | null;
   continuous_coverage_start: string | null;
   continuous_coverage_end: string | null;
@@ -272,11 +277,21 @@ function CollectionHealthCard({
           </dd>
         </div>
         <div>
-          <dt>Última tentativa</dt>
+          <dt>Tentativa mais recente</dt>
           <dd>
             {item.latest_attempted_at
               ? new Date(item.latest_attempted_at).toLocaleString("pt-BR")
               : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt>Última atualização válida</dt>
+          <dd>
+            {item.latest_successful_completed_at
+              ? new Date(item.latest_successful_completed_at).toLocaleString(
+                  "pt-BR",
+                )
+              : "Ainda não há atualização concluída"}
           </dd>
         </div>
         <div>

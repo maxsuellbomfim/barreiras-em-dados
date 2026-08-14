@@ -23,6 +23,10 @@ execução, conteúdo de documentos, identificadores pessoais ou segredos. O
 frontend não deduz atraso por um prazo arbitrário: apenas apresenta a idade da
 última tentativa e os estados gravados pelo coletor.
 
+A versão 1.2 da projeção separa a tentativa mais recente da última atualização
+válida. Uma falha nova permanece visível sem apagar a data da partição
+`complete` ou `empty` mais recente vinculada a uma execução bem-sucedida.
+
 Para o endpoint do Querido Diário, a projeção também calcula a faixa contínua de
 partições `complete` ou `empty` associadas a execuções bem-sucedidas, desde o
 horizonte de 01/01/2021. O painel mostra a próxima janela anterior de sete dias.

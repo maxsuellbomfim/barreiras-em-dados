@@ -47,3 +47,9 @@ test("painel informa a defasagem entre periodo da fonte e tentativa", () => {
   assert.match(component, /Defasagem/);
   assert.match(component, /Sem atraso/);
 });
+
+test("painel separa ultima tentativa da ultima atualizacao valida", () => {
+  assert.match(component, /latest_successful_completed_at/);
+  assert.match(component, /Última atualização válida/);
+  assert.match(component, /Tentativa mais recente/);
+});

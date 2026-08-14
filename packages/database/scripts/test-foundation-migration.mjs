@@ -607,6 +607,10 @@ try {
     database.query("select * from api.get_collection_health(200)"),
     /acesso restrito a revisores ativos/,
   );
+  await assert.rejects(
+    database.query("select * from api.get_collection_health_v2(200)"),
+    /acesso restrito a revisores ativos/,
+  );
 
   await database.exec(`
     insert into audit.reviewer_identities (
@@ -655,6 +659,28 @@ try {
         'empty', 0, '00000000-0000-0000-0000-000000000412',
         '2026-08-05 17:33:00+00', '2026-08-05 17:33:00+00'
       );
+
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version,
+      parser_version, collection_window_start, collection_window_end,
+      status, attempt_count, started_at, completed_at
+    ) values (
+      '00000000-0000-0000-0000-000000000415', '${endpointId}',
+      '${"c".repeat(64)}', 'test/retry', 'parser/1',
+      '2026-08-05 00:00:00+00', '2026-08-11 23:59:59+00',
+      'failed', 1, '2026-08-12 10:00:00+00',
+      '2026-08-12 10:01:00+00'
+    );
+
+    insert into source.collection_partitions (
+      id, source_endpoint_id, partition_key, period_start, period_end,
+      status, observed_records, collection_run_id, last_attempted_at
+    ) values (
+      '00000000-0000-0000-0000-000000000416', '${endpointId}',
+      'published:2026-08-05:2026-08-11', '2026-08-05', '2026-08-11',
+      'failed', 0, '00000000-0000-0000-0000-000000000415',
+      '2026-08-12 10:01:00+00'
+    );
   `);
 
   await assert.rejects(
@@ -667,6 +693,10 @@ try {
     database.query("select * from api.get_collection_health(200)"),
     /permission denied/,
   );
+  await assert.rejects(
+    database.query("select * from api.get_collection_health_v2(200)"),
+    /permission denied/,
+  );
   await database.exec("reset role;");
 
   await database.exec("set role authenticated;");
@@ -675,27 +705,36 @@ try {
       latest_partition_status,
       latest_run_status,
       latest_collector_version,
+      latest_successful_partition_status,
+      latest_successful_period_end::text as latest_successful_period_end,
+      to_char(
+        latest_successful_completed_at at time zone 'UTC',
+        'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+      ) as latest_successful_completed_at,
       complete_partitions::integer as complete_partitions,
       failed_partitions::integer as failed_partitions,
       unresolved_failures::integer as unresolved_failures,
       latest_failure_type,
       latest_failure_detail,
       methodology_version
-    from api.get_collection_health(200)
+    from api.get_collection_health_v2(200)
     where endpoint_id = '${endpointId}'
   `);
   await database.exec("reset role;");
   assert.deepEqual(collectionHealth.rows, [
     {
-      latest_partition_status: "empty",
-      latest_run_status: "succeeded",
-      latest_collector_version: "test/backfill",
+      latest_partition_status: "failed",
+      latest_run_status: "failed",
+      latest_collector_version: "test/retry",
+      latest_successful_partition_status: "empty",
+      latest_successful_period_end: "2026-08-04",
+      latest_successful_completed_at: "2026-08-05T17:33:00Z",
       complete_partitions: 1,
-      failed_partitions: 1,
+      failed_partitions: 2,
       unresolved_failures: 1,
       latest_failure_type: "upstream_timeout",
       latest_failure_detail: "A fonte oficial excedeu o tempo de resposta.",
-      methodology_version: "collection-health/1.1.0",
+      methodology_version: "collection-health/1.2.0",
     },
   ]);
 
