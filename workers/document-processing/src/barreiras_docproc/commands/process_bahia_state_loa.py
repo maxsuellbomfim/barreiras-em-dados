@@ -33,6 +33,8 @@ class LoaBatchSummary:
     jobs_created: int
     results_inserted: int
     scope_rows_inserted: int
+    snapshot_refreshed: bool
+    snapshot_rows: int
 
 
 class PendingRepository(Protocol):
@@ -46,6 +48,8 @@ class PendingRepository(Protocol):
         error_code: str,
         error_detail: str,
     ) -> None: ...
+
+    def refresh_execution_snapshot(self) -> int: ...
 
 
 class ProcessingService(Protocol):
@@ -129,6 +133,7 @@ def run_batch(
             statewide_scope_rows=result.scope_rows_inserted,
         )
 
+    snapshot_rows = repository.refresh_execution_snapshot()
     summary = LoaBatchSummary(
         pending_found=len(pending),
         processed=processed,
@@ -136,6 +141,8 @@ def run_batch(
         jobs_created=jobs_created,
         results_inserted=results_inserted,
         scope_rows_inserted=scope_rows_inserted,
+        snapshot_refreshed=True,
+        snapshot_rows=snapshot_rows,
     )
     log_event(
         log,
@@ -148,6 +155,8 @@ def run_batch(
         jobs_created=summary.jobs_created,
         authorized_amendments=summary.results_inserted,
         statewide_scope_rows=summary.scope_rows_inserted,
+        execution_snapshot_refreshed=summary.snapshot_refreshed,
+        execution_snapshot_rows=summary.snapshot_rows,
     )
     return summary
 

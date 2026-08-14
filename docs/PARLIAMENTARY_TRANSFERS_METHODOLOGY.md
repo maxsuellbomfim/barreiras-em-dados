@@ -254,6 +254,14 @@ separa explicitamente o total autorizado nas 27 emendas do universo comparável
 das nove ligações confirmadas. A interface não produz ranking de execução com
 essa cobertura parcial.
 
+Para manter a consulta pública previsível, o resultado dessa view é copiado
+atomicamente para o snapshot privado
+`territory.bahia_state_loa_execution_reconciliation_snapshot` ao fim de cada
+processamento. Os endpoints públicos leem o snapshot indexado e nunca refazem
+o cruzamento de JSON bruto durante a requisição. O snapshot não altera regras,
+valores ou evidências: é somente uma projeção operacional versionada e
+auditável da mesma reconciliação determinística.
+
 Um `R$ 0,00` dentro de um par confirmado é um valor publicado pela fonte no
 retrato coletado. Fora de um par confirmado, ausência de valor significa
 “não atribuído com segurança”, e não pagamento zero.

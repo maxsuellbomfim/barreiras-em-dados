@@ -1,5 +1,9 @@
 const DECIMAL = /^-?\d+(?:\.\d{1,2})?$/;
 const SOURCE_KINDS = new Set(["federal", "state"]);
+const METHODOLOGY_VERSIONS = new Set([
+  "bahia-state-loa-representative-contributions/1.0.0",
+  "bahia-state-loa-representative-contributions/1.0.1",
+]);
 
 function requiredText(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -37,8 +41,7 @@ function parseContribution(row) {
       !representativeProfileUrl.startsWith("https://www.al.ba.gov.br/")) ||
     (representativeSourceKind === "federal" &&
       !representativeProfileUrl.startsWith("https://www.camara.leg.br/")) ||
-    row.methodology_version !==
-      "bahia-state-loa-representative-contributions/1.0.0"
+    !METHODOLOGY_VERSIONS.has(row.methodology_version)
   ) return null;
 
   const matchedAuthorizedAmount = row.matched_authorized_amount === null
@@ -77,8 +80,7 @@ function parseContribution(row) {
     liquidatedAmount,
     paidAmount,
     blockedAmendmentCount,
-    methodologyVersion:
-      "bahia-state-loa-representative-contributions/1.0.0",
+    methodologyVersion: row.methodology_version,
   };
 }
 

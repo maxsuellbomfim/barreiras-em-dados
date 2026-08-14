@@ -29,7 +29,7 @@ const linked2026 = {
   liquidated_amount: "100000.00",
   paid_amount: "90000.00",
   blocked_amendment_count: 1,
-  methodology_version: "bahia-state-loa-representative-contributions/1.0.0",
+  methodology_version: "bahia-state-loa-representative-contributions/1.0.1",
 };
 
 test("valida contribuição anual sem transformar execução bloqueada em zero", () => {
@@ -52,6 +52,16 @@ test("valida contribuição anual sem transformar execução bloqueada em zero",
   assert.equal(rows?.length, 2);
   assert.equal(rows?.[1]?.paidAmount, null);
   assert.equal(rows?.[1]?.blockedAmendmentCount, 1);
+});
+
+test("aceita temporariamente a versao anterior durante o deploy da migration", () => {
+  const rows = parseStateLoaRepresentativeContributions([{
+    ...linked2026,
+    methodology_version: "bahia-state-loa-representative-contributions/1.0.0",
+  }]);
+
+  assert.equal(rows?.[0]?.methodologyVersion,
+    "bahia-state-loa-representative-contributions/1.0.0");
 });
 
 test("rejeita total financeiro quando nenhuma emenda possui ligação única", () => {

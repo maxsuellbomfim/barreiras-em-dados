@@ -78,3 +78,17 @@ totais financeiros apenas do subconjunto conciliado. A página deve explicar os
 dois universos e não poderá construir ranking de pagamento com cobertura
 parcial. Valor zero é aceito somente quando consta na fonte de execução de um
 par confirmado; campo ausente ou ligação bloqueada permanece nulo.
+
+## Adendo de 14/08/2026 - snapshot para leitura pública
+
+A view de reconciliação permanece como cálculo privado e fonte canônica, mas
+não é mais executada durante requisições públicas. O plano medido em produção
+reprocessava milhares de linhas JSON e excedia o timeout do PostgREST, embora o
+resultado final tivesse somente dezenas de registros.
+
+Uma tabela privada materializa o resultado validado. A atualização ocorre em
+uma única transação ao fim do processamento da LOA, inclusive quando não há
+novo anexo pendente, para incorporar um retrato de execução mais recente. As
+APIs leem exclusivamente esse snapshot indexado. A role pública não pode ler a
+tabela nem executar a rotina de atualização; somente o worker recebe esse
+privilégio. Cada refresh registra contagem e versão metodológica na auditoria.

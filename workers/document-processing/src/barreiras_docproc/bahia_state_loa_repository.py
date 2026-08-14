@@ -312,3 +312,26 @@ class BahiaStateLoaExtractionRepository:
                 )
         finally:
             connection.close()
+
+    def refresh_execution_snapshot(self) -> int:
+        """Atualiza a projecao publica depois de concluir o lote oficial."""
+
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '120s'")
+                connection.execute("set local lock_timeout = '5s'")
+                row = connection.execute(
+                    """
+                    select
+                      territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()
+                        as refreshed_rows
+                    """
+                ).fetchone()
+                if row is None:
+                    raise LoaProcessingError(
+                        "A atualizacao da projecao estadual nao retornou contagem."
+                    )
+                return int(row["refreshed_rows"])
+        finally:
+            connection.close()

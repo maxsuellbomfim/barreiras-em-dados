@@ -26,12 +26,17 @@ class FakeRepository:
     def __init__(self, artifacts) -> None:
         self.artifacts = tuple(artifacts)
         self.failures = []
+        self.snapshot_refreshes = 0
 
     def pending_artifacts(self, limit: int):
         return self.artifacts[:limit]
 
     def persist_failure(self, target, **kwargs) -> None:
         self.failures.append((target, kwargs))
+
+    def refresh_execution_snapshot(self) -> int:
+        self.snapshot_refreshes += 1
+        return 5
 
 
 class FakeService:
@@ -60,9 +65,26 @@ class ProcessBahiaStateLoaCommandTests(unittest.TestCase):
         self.assertEqual(summary.failed, 1)
         self.assertEqual(summary.results_inserted, 5)
         self.assertEqual(summary.scope_rows_inserted, 2)
+        self.assertTrue(summary.snapshot_refreshed)
+        self.assertEqual(summary.snapshot_rows, 5)
+        self.assertEqual(repository.snapshot_refreshes, 1)
         self.assertEqual(len(repository.failures), 1)
         self.assertEqual(repository.failures[0][1]["error_code"], "incomplete_text")
         self.assertNotIn("document.pdf", repository.failures[0][1]["error_detail"])
+
+    def test_refreshes_snapshot_even_when_no_new_loa_artifact_exists(self) -> None:
+        repository = FakeRepository([])
+
+        summary = run_batch(
+            repository=repository,  # type: ignore[arg-type]
+            service=FakeService(),  # type: ignore[arg-type]
+            limit=5,
+        )
+
+        self.assertEqual(summary.pending_found, 0)
+        self.assertTrue(summary.snapshot_refreshed)
+        self.assertEqual(summary.snapshot_rows, 5)
+        self.assertEqual(repository.snapshot_refreshes, 1)
 
 
 if __name__ == "__main__":
