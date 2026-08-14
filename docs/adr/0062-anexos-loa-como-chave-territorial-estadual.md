@@ -58,3 +58,10 @@ A reconciliação com empenho, liquidação e pagamento deverá exigir unicidade
 bidirecional: uma ocorrência da chave no anexo estadual inteiro e uma
 ocorrência no retrato de execução. Qualquer colisão mantém o estágio financeiro
 bloqueado e preserva as evidências das duas fontes para diagnóstico.
+
+O replay de 14/08/2026 confirmou a necessidade desse gate. Das 27 autorizações
+de Barreiras em 2026, 9 possuem chave única nos dois lados, 17 colidem no anexo
+estadual e 1 não foi encontrada no retrato de execução. A decisão passa a ser
+materializada em uma view privada: somente os 9 pares únicos carregam valores e
+evidência de execução; os outros 18 retornam valores nulos e um motivo de
+bloqueio. Nenhum valor executado é publicado por esta ADR.

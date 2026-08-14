@@ -82,6 +82,8 @@ try {
         as territorial_scope_projection,
       to_regclass('territory.reconciled_parliamentary_transfers')::text
         as reconciled_transfer_projection,
+      to_regclass('territory.bahia_state_loa_execution_reconciliation')::text
+        as state_loa_execution_reconciliation,
       to_regclass('political.parliamentary_transfer_author_crosswalk')::text
         as author_crosswalk,
       to_regclass('raw.raw_records_transferegov_latest_idx')::text as latest_index,
@@ -178,6 +180,8 @@ try {
     territorial_scope_projection: "territory.federal_transfer_proposal_scope",
     reconciled_transfer_projection:
       "territory.reconciled_parliamentary_transfers",
+    state_loa_execution_reconciliation:
+      "territory.bahia_state_loa_execution_reconciliation",
     author_crosswalk: "political.parliamentary_transfer_author_crosswalk",
     latest_index: "raw.raw_records_transferegov_latest_idx",
     proposal_index: "raw.raw_records_transferegov_proposal_idx",
@@ -642,6 +646,187 @@ try {
         'valid', '[]', '2026-08-13 18:07:00+00'
       );
   `);
+
+  await database.exec(`
+    insert into raw.extraction_jobs (
+      id, raw_artifact_id, job_type, idempotency_key, status
+    ) values (
+      '00000000-0000-0000-0000-000000009330',
+      '00000000-0000-0000-0000-000000009302',
+      'bahia_state_loa_authorized_amendments_and_scope_v2',
+      'state-loa-scope-fixture-job-ok', 'succeeded'
+    );
+    insert into raw.extraction_results (
+      id, extraction_job_id, candidate_type, extractor_version,
+      validator_version, result_payload, validation_status, validation_errors,
+      created_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009331',
+        '00000000-0000-0000-0000-000000009330',
+        'bahia_state_loa_2026_scope_row',
+        'bahia-state-loa-scope/1.0.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2026,"amendment_number":"102","author_external_code":"500069","author_name":"Antonio Henrique Junior","agency_code":"11","budget_unit_code":"1002","action_code":"2002","page_number":11,"evidence_text":"ESCOPO 102","evidence_sha256":"${"1".repeat(64)}","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","visibility":"private_reconciliation_scope"}',
+        'valid', '[]', '2026-08-14 09:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009332',
+        '00000000-0000-0000-0000-000000009330',
+        'bahia_state_loa_2026_scope_row',
+        'bahia-state-loa-scope/1.0.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2026,"amendment_number":"103","author_external_code":"500144","author_name":"Marcone Amaral","agency_code":"12","budget_unit_code":"1003","action_code":"2003","page_number":12,"evidence_text":"ESCOPO 103 A","evidence_sha256":"${"2".repeat(64)}","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","visibility":"private_reconciliation_scope"}',
+        'valid', '[]', '2026-08-14 09:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009333',
+        '00000000-0000-0000-0000-000000009330',
+        'bahia_state_loa_2026_scope_row',
+        'bahia-state-loa-scope/1.0.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2026,"amendment_number":"999","author_external_code":"500144","author_name":"Marcone Amaral","agency_code":"12","budget_unit_code":"1003","action_code":"2003","page_number":99,"evidence_text":"ESCOPO 103 B","evidence_sha256":"${"3".repeat(64)}","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","visibility":"private_reconciliation_scope"}',
+        'valid', '[]', '2026-08-14 09:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009334',
+        '00000000-0000-0000-0000-000000009330',
+        'bahia_state_loa_2026_scope_row',
+        'bahia-state-loa-scope/1.0.0',
+        'bahia-state-loa-deterministic/1.0.0',
+        '{"fiscal_year":2026,"amendment_number":"105","author_external_code":"500123","author_name":"Diego Castro","agency_code":"14","budget_unit_code":"1005","action_code":"2005","page_number":14,"evidence_text":"ESCOPO 105","evidence_sha256":"${"4".repeat(64)}","source_url":"https://www.ba.gov.br/seplan/loa-fixture.pdf","source_artifact_sha256":"${"7".repeat(64)}","visibility":"private_reconciliation_scope"}',
+        'valid', '[]', '2026-08-14 09:00:00+00'
+      );
+
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000009340',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'bahia-open-data'
+         and endpoint.slug = 'state-parliamentary-amendments'),
+      'state-execution-fixture-run', 'test/1', 'succeeded'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key, collector_version
+    ) values (
+      '00000000-0000-0000-0000-000000009341',
+      '00000000-0000-0000-0000-000000009340',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'bahia-open-data'
+         and endpoint.slug = 'state-parliamentary-amendments'),
+      'state-execution-fixture-artifact', 'archive',
+      'https://dados.ba.gov.br/emendas-fixture.zip',
+      '2026-08-14 09:10:00+00', 1000, '${"8".repeat(64)}',
+      'fixtures/bahia-execution.zip', 'test/1'
+    );
+    insert into raw.extraction_jobs (
+      id, raw_artifact_id, job_type, idempotency_key, status
+    ) values (
+      '00000000-0000-0000-0000-000000009342',
+      '00000000-0000-0000-0000-000000009341',
+      'bahia_state_execution_aggregates_v1',
+      'state-execution-fixture-job-ok', 'succeeded'
+    );
+    insert into raw.extraction_results (
+      id, extraction_job_id, candidate_type, extractor_version,
+      validator_version, result_payload, validation_status, validation_errors,
+      created_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009343',
+        '00000000-0000-0000-0000-000000009342',
+        'bahia_state_execution_aggregate',
+        'bahia-state-execution-aggregate/1.0.0',
+        'bahia-state-execution-deterministic/1.0.0',
+        '{"fiscal_year":2026,"author_external_code":"500069","author_name":"Antonio Henrique Junior","agency_code":"11","budget_unit_code":"1002","action_code":"2002","execution_code":"2026.1.1.1.1.2002.500069.1","initial_budget_amount":"200000.00","current_budget_amount":"190000.00","committed_amount":"150000.00","liquidated_amount":"100000.00","paid_amount":"90000.00","evidence_text":"EXECUCAO 102","evidence_sha256":"${"5".repeat(64)}","source_url":"https://dados.ba.gov.br/emendas-fixture.zip","source_artifact_sha256":"${"8".repeat(64)}","source_collected_at":"2026-08-14T09:10:00+00:00","territorial_scope":"not_available_in_execution_archive"}',
+        'valid', '[]', '2026-08-14 09:11:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009344',
+        '00000000-0000-0000-0000-000000009342',
+        'bahia_state_execution_aggregate',
+        'bahia-state-execution-aggregate/1.0.0',
+        'bahia-state-execution-deterministic/1.0.0',
+        '{"fiscal_year":2026,"author_external_code":"500123","author_name":"Diego Castro","agency_code":"14","budget_unit_code":"1005","action_code":"2005","execution_code":"2026.1.1.1.1.2005.500123.1","initial_budget_amount":"600000.00","current_budget_amount":"600000.00","committed_amount":"300000.00","liquidated_amount":"200000.00","paid_amount":"100000.00","evidence_text":"EXECUCAO 105 A","evidence_sha256":"${"6".repeat(64)}","source_url":"https://dados.ba.gov.br/emendas-fixture.zip","source_artifact_sha256":"${"8".repeat(64)}","source_collected_at":"2026-08-14T09:10:00+00:00","territorial_scope":"not_available_in_execution_archive"}',
+        'valid', '[]', '2026-08-14 09:11:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009345',
+        '00000000-0000-0000-0000-000000009342',
+        'bahia_state_execution_aggregate',
+        'bahia-state-execution-aggregate/1.0.0',
+        'bahia-state-execution-deterministic/1.0.0',
+        '{"fiscal_year":2026,"author_external_code":"500123","author_name":"Diego Castro","agency_code":"14","budget_unit_code":"1005","action_code":"2005","execution_code":"2026.1.1.1.1.2005.500123.2","initial_budget_amount":"100000.00","current_budget_amount":"100000.00","committed_amount":"50000.00","liquidated_amount":"40000.00","paid_amount":"30000.00","evidence_text":"EXECUCAO 105 B","evidence_sha256":"${"9".repeat(64)}","source_url":"https://dados.ba.gov.br/emendas-fixture.zip","source_artifact_sha256":"${"8".repeat(64)}","source_collected_at":"2026-08-14T09:10:00+00:00","territorial_scope":"not_available_in_execution_archive"}',
+        'valid', '[]', '2026-08-14 09:11:00+00'
+      );
+  `);
+
+  const stateExecutionReconciliation = await database.query(`
+    select amendment_number, reconciliation_status,
+      loa_scope_occurrences, execution_occurrences,
+      committed_amount, liquidated_amount, paid_amount,
+      execution_evidence_sha256
+    from territory.bahia_state_loa_execution_reconciliation
+    order by amendment_number
+  `);
+  assert.deepEqual(stateExecutionReconciliation.rows, [
+    {
+      amendment_number: "101",
+      reconciliation_status: "blocked_scope_year_not_indexed",
+      loa_scope_occurrences: 0,
+      execution_occurrences: 0,
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      execution_evidence_sha256: null,
+    },
+    {
+      amendment_number: "102",
+      reconciliation_status: "matched_bidirectional_unique",
+      loa_scope_occurrences: 1,
+      execution_occurrences: 1,
+      committed_amount: "150000.00",
+      liquidated_amount: "100000.00",
+      paid_amount: "90000.00",
+      execution_evidence_sha256: "5".repeat(64),
+    },
+    {
+      amendment_number: "103",
+      reconciliation_status: "blocked_non_unique_loa_key",
+      loa_scope_occurrences: 2,
+      execution_occurrences: 0,
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      execution_evidence_sha256: null,
+    },
+    {
+      amendment_number: "104",
+      reconciliation_status: "blocked_scope_year_not_indexed",
+      loa_scope_occurrences: 0,
+      execution_occurrences: 0,
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      execution_evidence_sha256: null,
+    },
+    {
+      amendment_number: "105",
+      reconciliation_status: "blocked_non_unique_execution_key",
+      loa_scope_occurrences: 1,
+      execution_occurrences: 2,
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      execution_evidence_sha256: null,
+    },
+  ]);
 
   const stateLoaDetails = await database.query(`
     select fiscal_year, amendment_number, author_name, authorized_amount,
@@ -1254,6 +1439,12 @@ try {
   );
   await assert.rejects(
     database.query("select * from territory.bahia_state_loa_amendments"),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from territory.bahia_state_loa_execution_reconciliation",
+    ),
     /permission denied/,
   );
   await assert.rejects(

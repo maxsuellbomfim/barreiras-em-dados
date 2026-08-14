@@ -455,8 +455,9 @@ ADR adicional.
 - [x] validar 3.182 linhas estruturadas em 374 páginas, sem reduzir o universo
   ao recorte de Barreiras;
 - [x] separar o índice estadual privado da projeção pública municipal;
-- [ ] executar o replay após a migration e medir quais chaves de Barreiras são
-  globalmente únicas também no retrato de execução;
+- [x] executar o replay após a migration e medir quais chaves de Barreiras são
+  globalmente únicas também no retrato de execução: 9 pares únicos, 17 chaves
+  repetidas no Anexo I da LOA e 1 chave ausente no retrato estadual de 2026;
 - [ ] publicar estágios financeiros somente para pares bidirecionalmente
   únicos, mantendo colisões e ausências como bloqueios explicados.
 

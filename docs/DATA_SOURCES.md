@@ -31,7 +31,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | TCM-BA | dados municipais e prestações | P2 | descoberta |
 | Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | API atual, catálogo histórico, propostas municipais e recorte de emendas por ID implementados; demais CSVs pendentes |
 | Tesouro Transparente | transferências constitucionais/legais e emendas | P3 | documentação inicial |
-| Transparência Bahia / SEPLAN-BA | transferências a municípios, despesas e emendas estaduais | P3 | ZIP de execução preservado e normalizado como agregado estadual; 63 autorizações territoriais da LOA 2022-2026 validadas e projetadas publicamente; 10 de 11 autores ligados a perfil oficial sem confundir autoria histórica com Casa atual; reconciliação territorial pendente |
+| Transparência Bahia / SEPLAN-BA | transferências a municípios, despesas e emendas estaduais | P3 | ZIP de execução preservado e normalizado como agregado estadual; 63 autorizações territoriais da LOA 2022-2026 validadas e projetadas publicamente; 10 de 11 autores ligados a perfil oficial sem confundir autoria histórica com Casa atual; diagnóstico privado de 2026 encontrou 9 pares únicos, 17 colisões na LOA e 1 ausência na execução |
 | Câmara dos Deputados | mandatos, proposições, votações e despesas | P3 | API confirmada |
 | Assembleia Legislativa da Bahia | parlamentares, comissões e proposições | P3 | API indicada; contrato a descobrir |
 | TSE Dados Abertos | candidaturas, resultados e bens declarados | P4 | datasets confirmados |
@@ -348,6 +348,15 @@ literal, hash da evidência e valor decimal autorizado. O processamento recusa
 PDF parcial, hash divergente e mudança de formato; os resultados ficam internos
 até o replay de produção ser conferido. A linha territorial precisa declarar
 `Barreiras`: citar a cidade apenas no objeto não basta.
+
+O replay operacional de 14/08/2026 indexou as 3.182 linhas do Anexo I de 2026
+e confrontou as 27 autorizações de Barreiras com o retrato mais recente da
+execução estadual. Nove chaves ocorreram exatamente uma vez nos dois lados.
+Dezessete autorizações compartilharam a mesma chave com outra linha do anexo e
+uma não apareceu no retrato de execução. A projeção de diagnóstico permanece
+privada: valores executados só serão elegíveis à API pública para os nove pares
+bidirecionalmente únicos. Colisão e ausência preservam valores nulos, nunca
+zero.
 
 O link oficial rotulado como Anexo III da LOA 2021 aponta para o arquivo de
 2020. O período fica `blocked`, com a divergência documentada, em vez de receber
