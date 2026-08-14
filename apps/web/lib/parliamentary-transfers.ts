@@ -2,6 +2,17 @@ import {
   buildCurrentTransferRankingRequest,
   buildCurrentTransfersRequest,
 } from "./parliamentary-transfer-year-filter.mjs";
+import {
+  parseStateLoaExecutionRows,
+  parseStateLoaExecutionSummary,
+  type StateLoaExecutionRecord,
+  type StateLoaExecutionSummary,
+} from "./state-loa-execution.mjs";
+
+export type {
+  StateLoaExecutionRecord,
+  StateLoaExecutionSummary,
+} from "./state-loa-execution.mjs";
 
 export type ParliamentaryAuthorKind =
   | "person"
@@ -278,6 +289,8 @@ export type ParliamentaryTransfersResult =
       historicalCollectives: readonly HistoricalParliamentaryAmendmentRanking[] | null;
       stateLoaAmendments: readonly BahiaStateLoaAmendment[] | null;
       stateLoaRanking: readonly BahiaStateLoaAmendmentRanking[] | null;
+      stateLoaExecution: readonly StateLoaExecutionRecord[] | null;
+      stateLoaExecutionSummary: StateLoaExecutionSummary | null;
       scopeSummary: FederalTransferScopeSummary | null;
       reconciledTransfers: readonly ReconciledParliamentaryTransfer[] | null;
       reconciledPeople: readonly ReconciledParliamentaryTransferRanking[] | null;
@@ -1068,6 +1081,8 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       historicalCollectiveRows,
       stateLoaAmendmentRows,
       stateLoaRankingRows,
+      stateLoaExecutionRows,
+      stateLoaExecutionSummaryRows,
       scopeSummaryRows,
       reconciledTransferRows,
       reconciledPeopleRows,
@@ -1121,6 +1136,14 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
         fiscal_year_filter: null,
         page_size: 50,
       }),
+      callRpc("get_public_bahia_state_loa_execution", {
+        fiscal_year_filter: 2026,
+        author_key_filter: null,
+        page_size: 200,
+      }),
+      callRpc("get_public_bahia_state_loa_execution_summary", {
+        fiscal_year_filter: 2026,
+      }),
       callRpc("get_public_federal_transfer_scope_summary", {}),
       callRpc("get_public_reconciled_parliamentary_transfers", {
         fiscal_year_filter: null,
@@ -1170,6 +1193,12 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
     const stateLoaRanking = stateLoaRankingRows === null
       ? null
       : parseBahiaStateLoaRows(stateLoaRankingRows, parseBahiaStateLoaRanking);
+    const stateLoaExecution = stateLoaExecutionRows === null
+      ? null
+      : parseStateLoaExecutionRows(stateLoaExecutionRows);
+    const stateLoaExecutionSummary = stateLoaExecutionSummaryRows === null
+      ? null
+      : parseStateLoaExecutionSummary(stateLoaExecutionSummaryRows);
     const scopeSummary = scopeSummaryRows === null
       ? null
       : parseScopeSummary(scopeSummaryRows);
@@ -1206,6 +1235,8 @@ export async function getPublicParliamentaryTransfers(): Promise<ParliamentaryTr
       historicalCollectives,
       stateLoaAmendments,
       stateLoaRanking,
+      stateLoaExecution,
+      stateLoaExecutionSummary,
       scopeSummary,
       reconciledTransfers: reconciledTransfers?.some((row) => row === null)
         ? null

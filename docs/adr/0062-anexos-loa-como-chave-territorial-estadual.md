@@ -64,4 +64,17 @@ de Barreiras em 2026, 9 possuem chave única nos dois lados, 17 colidem no anexo
 estadual e 1 não foi encontrada no retrato de execução. A decisão passa a ser
 materializada em uma view privada: somente os 9 pares únicos carregam valores e
 evidência de execução; os outros 18 retornam valores nulos e um motivo de
-bloqueio. Nenhum valor executado é publicado por esta ADR.
+bloqueio. Nenhum valor executado é publicado por este primeiro adendo.
+
+## Adendo de 14/08/2026 - projeção pública com cobertura explícita
+
+Os nove pares bidirecionalmente únicos passam a ser elegíveis à projeção
+pública de empenho, liquidação e pagamento. Os outros 18 registros continuam
+públicos como autorizações da LOA, mas sem valores de execução e com o motivo
+determinístico do bloqueio.
+
+A API fornece separadamente o total autorizado de todas as 27 emendas e os
+totais financeiros apenas do subconjunto conciliado. A página deve explicar os
+dois universos e não poderá construir ranking de pagamento com cobertura
+parcial. Valor zero é aceito somente quando consta na fonte de execução de um
+par confirmado; campo ausente ou ligação bloqueada permanece nulo.

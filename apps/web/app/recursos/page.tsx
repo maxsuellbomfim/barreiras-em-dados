@@ -17,11 +17,14 @@ import {
   type ParliamentaryTransferRanking,
   type ParliamentaryTransferRankingsResult,
   type ReconciledParliamentaryTransferRanking,
+  type StateLoaExecutionRecord,
+  type StateLoaExecutionSummary,
 } from "../../lib/parliamentary-transfers";
 import { buildCurrentTransferCitizenSummary } from "../../lib/parliamentary-transfer-citizen-summary.mjs";
 import { resolveTransferSourceSelection } from "../../lib/parliamentary-transfer-source-filter.mjs";
 import { resolveCurrentFederalTransferYear } from "../../lib/parliamentary-transfer-year-filter.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
+import { stateLoaExecutionStatusCopy } from "../../lib/state-loa-execution-citizen-copy.mjs";
 
 export const revalidate = 300;
 
@@ -474,9 +477,76 @@ function StateLoaRankingTable({
   );
 }
 
+function StateLoaExecutionSummaryPanel({
+  summary,
+}: Readonly<{ summary: StateLoaExecutionSummary | null }>) {
+  if (summary === null) {
+    return (
+      <p className="transfer-empty">
+        O cruzamento com a execução financeira estadual ainda não está disponível
+        no banco público. Isso não significa que os valores sejam zero.
+      </p>
+    );
+  }
+
+  return (
+    <aside className="transfer-reading-guide" aria-labelledby="state-loa-execution-title">
+      <strong id="state-loa-execution-title">
+        O que aconteceu com as {summary.totalAmendmentCount.toLocaleString("pt-BR")} emendas de {summary.fiscalYear}
+      </strong>
+      <p>
+        Encontramos uma ligação oficial única para {summary.matchedAmendmentCount.toLocaleString("pt-BR")} emenda(s).
+        Outras {summary.ambiguousAmendmentCount.toLocaleString("pt-BR")} têm chave repetida e {summary.notFoundAmendmentCount.toLocaleString("pt-BR")} não foi localizada
+        na execução consultada. {summary.unavailableScopeCount > 0
+          ? `${summary.unavailableScopeCount.toLocaleString("pt-BR")} permanece(m) fora do escopo disponível.`
+          : "Nenhuma ficou fora do escopo deste exercício."}
+      </p>
+      <dl className="transfer-current-summary">
+        <div data-tone="destination">
+          <dt>Autorizado nas {summary.totalAmendmentCount.toLocaleString("pt-BR")} emendas</dt>
+          <dd>{formatBrlDecimal(summary.authorizedTotal)}</dd>
+          <span>Total da LOA; não significa pagamento.</span>
+        </div>
+        <div>
+          <dt>Autorizado nas {summary.matchedAmendmentCount.toLocaleString("pt-BR")} ligadas</dt>
+          <dd>{summary.matchedAuthorizedTotal === null ? "não disponível" : formatBrlDecimal(summary.matchedAuthorizedTotal)}</dd>
+          <span>Este é o universo comparável aos estágios abaixo.</span>
+        </div>
+        <div>
+          <dt>Empenhado nas ligações confirmadas</dt>
+          <dd>{summary.committedTotal === null ? "não disponível" : formatBrlDecimal(summary.committedTotal)}</dd>
+          <span>Reserva orçamentária registrada na execução estadual.</span>
+        </div>
+        <div>
+          <dt>Liquidado nas ligações confirmadas</dt>
+          <dd>{summary.liquidatedTotal === null ? "não disponível" : formatBrlDecimal(summary.liquidatedTotal)}</dd>
+          <span>Despesa reconhecida após comprovação do objeto.</span>
+        </div>
+        <div data-tone="paid">
+          <dt>Pago nas ligações confirmadas</dt>
+          <dd>{summary.paidTotal === null ? "não disponível" : formatBrlDecimal(summary.paidTotal)}</dd>
+          <span>Pagamento informado pela fonte estadual consultada.</span>
+        </div>
+      </dl>
+      <p>
+        Os valores de empenho, liquidação e pagamento abrangem somente as {summary.matchedAmendmentCount.toLocaleString("pt-BR")} ligações seguras.
+        Por isso, não devem ser comparados diretamente com o total autorizado das {summary.totalAmendmentCount.toLocaleString("pt-BR")} emendas.
+      </p>
+    </aside>
+  );
+}
+
 function StateLoaAmendmentCard({
   amendment,
-}: Readonly<{ amendment: BahiaStateLoaAmendment }>) {
+  execution,
+}: Readonly<{
+  amendment: BahiaStateLoaAmendment;
+  execution: StateLoaExecutionRecord | null;
+}>) {
+  const executionCopy = execution === null
+    ? null
+    : stateLoaExecutionStatusCopy(execution);
+  const executionConfirmed = execution?.executionStatus === "execution_confirmed";
   return (
     <article className="transfer-card">
       <div className="transfer-card-heading">
@@ -485,7 +555,9 @@ function StateLoaAmendmentCard({
           <h3>{amendment.authorName}</h3>
           <p>Emenda {amendment.amendmentNumber} · página {amendment.pageNumber}</p>
         </div>
-        <span className="transfer-status">autorizada no orçamento</span>
+        <span className="transfer-status">
+          {executionCopy?.label ?? "autorizada no orçamento"}
+        </span>
       </div>
       <p className="transfer-object">{amendment.officialDescription}</p>
       <dl className="transfer-stage-grid">
@@ -505,6 +577,20 @@ function StateLoaAmendmentCard({
           <span>Anexo {amendment.annexCode ?? "não informado"}</span>
         </div>
       </dl>
+      {executionCopy ? (
+        <aside className="transfer-reading-guide" data-tone={executionCopy.tone}>
+          <strong>{executionCopy.label}</strong>
+          <p>{executionCopy.explanation}</p>
+          {executionConfirmed ? (
+            <dl className="transfer-stage-grid">
+              <div><dt>Autorizado</dt><dd>{formatBrlDecimal(execution.authorizedAmount)}</dd><span>Valor aprovado na LOA.</span></div>
+              <div><dt>Empenhado</dt><dd>{formatBrlDecimal(execution.committedAmount!)}</dd><span>Reserva registrada na execução.</span></div>
+              <div><dt>Liquidado</dt><dd>{formatBrlDecimal(execution.liquidatedAmount!)}</dd><span>Despesa reconhecida pela fonte.</span></div>
+              <div><dt>Pago</dt><dd>{formatBrlDecimal(execution.paidAmount!)}</dd><span>Pagamento informado pela fonte.</span></div>
+            </dl>
+          ) : null}
+        </aside>
+      ) : null}
       <details className="transfer-details">
         <summary>Trecho exato que sustenta este registro</summary>
         <p>{amendment.evidenceText}</p>
@@ -513,14 +599,22 @@ function StateLoaAmendmentCard({
           Hash do trecho: <code>{amendment.evidenceSha256}</code>
         </p>
       </details>
-      <a
-        className="transfer-source-link"
-        href={amendment.sourceUrl}
-        rel="noreferrer"
-        target="_blank"
-      >
+      <a className="transfer-source-link" href={amendment.sourceUrl} rel="noreferrer" target="_blank">
         Abrir anexo oficial da LOA →
       </a>
+      {executionConfirmed && execution.executionSourceUrl ? (
+        <details className="transfer-details">
+          <summary>Conferir a fonte da execução estadual</summary>
+          <p>
+            Coletada em {dateTimeFormatter.format(new Date(execution.executionSourceCollectedAt!))}.<br />
+            Hash do arquivo: <code>{execution.executionSourceArtifactSha256}</code><br />
+            Hash da evidência: <code>{execution.executionEvidenceSha256}</code>
+          </p>
+          <a className="transfer-source-link" href={execution.executionSourceUrl} rel="noreferrer" target="_blank">
+            Abrir fonte oficial da execução →
+          </a>
+        </details>
+      ) : null}
     </article>
   );
 }
@@ -528,10 +622,17 @@ function StateLoaAmendmentCard({
 function StateLoaPanel({
   ranking,
   amendments,
+  execution,
+  executionSummary,
 }: Readonly<{
   ranking: readonly BahiaStateLoaAmendmentRanking[] | null;
   amendments: readonly BahiaStateLoaAmendment[] | null;
+  execution: readonly StateLoaExecutionRecord[] | null;
+  executionSummary: StateLoaExecutionSummary | null;
 }>) {
+  const executionByEvidence = new Map(
+    (execution ?? []).map((row) => [row.loaEvidenceSha256, row]),
+  );
   return (
     <section className="transfer-ranking" aria-labelledby="state-loa-title">
       <div className="transfer-section-heading">
@@ -546,7 +647,8 @@ function StateLoaPanel({
         <p>
           “Autorizado” significa que a emenda entrou no orçamento estadual. Isso
           não significa dinheiro pago, transferido a Barreiras ou obra executada.
-          Essas etapas só serão exibidas quando outra fonte oficial as comprovar.
+          Para 2026, os estágios aparecem somente quando a LOA pôde ser ligada a
+          uma única linha da execução estadual. Ligações ambíguas ficam sem valor.
         </p>
         <p>
           A ordem abaixo usa somente soma decimal em SQL. Não é nota de desempenho
@@ -554,6 +656,7 @@ function StateLoaPanel({
           nos anexos municipais encontrados.
         </p>
       </aside>
+      <StateLoaExecutionSummaryPanel summary={executionSummary} />
       {ranking === null ? (
         <p className="transfer-empty">
           A projeção estadual ainda não está disponível no banco público. Isso não
@@ -569,6 +672,7 @@ function StateLoaPanel({
             {amendments.map((amendment) => (
               <StateLoaAmendmentCard
                 amendment={amendment}
+                execution={executionByEvidence.get(amendment.evidenceSha256) ?? null}
                 key={`${amendment.fiscalYear}:${amendment.amendmentNumber}:${amendment.evidenceSha256}`}
               />
             ))}
@@ -1293,6 +1397,8 @@ export default async function ParliamentaryResourcesPage({
               <StateLoaPanel
                 amendments={result.stateLoaAmendments}
                 ranking={result.stateLoaRanking}
+                execution={result.stateLoaExecution}
+                executionSummary={result.stateLoaExecutionSummary}
               />
             ) : null}
 

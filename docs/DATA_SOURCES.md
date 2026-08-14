@@ -353,10 +353,12 @@ O replay operacional de 14/08/2026 indexou as 3.182 linhas do Anexo I de 2026
 e confrontou as 27 autorizações de Barreiras com o retrato mais recente da
 execução estadual. Nove chaves ocorreram exatamente uma vez nos dois lados.
 Dezessete autorizações compartilharam a mesma chave com outra linha do anexo e
-uma não apareceu no retrato de execução. A projeção de diagnóstico permanece
-privada: valores executados só serão elegíveis à API pública para os nove pares
-bidirecionalmente únicos. Colisão e ausência preservam valores nulos, nunca
-zero.
+uma não apareceu no retrato de execução. A projeção detalhada de diagnóstico
+permanece privada. A API pública expõe valores executados somente para os nove
+pares bidirecionalmente únicos e, nos outros 18 casos, publica apenas o motivo
+do bloqueio. Colisão e ausência preservam valores nulos, nunca zero. O resumo
+público separa o total autorizado nas 27 emendas dos totais de execução do
+universo conciliado, para que o cidadão não compare bases diferentes.
 
 O link oficial rotulado como Anexo III da LOA 2021 aponta para o arquivo de
 2020. O período fica `blocked`, com a divergência documentada, em vez de receber

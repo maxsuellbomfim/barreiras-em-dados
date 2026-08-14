@@ -120,6 +120,12 @@ try {
       to_regprocedure(
         'api.get_public_parliamentary_transfer_reconciliation_summary()'
       )::text as reconciliation_summary_rpc,
+      to_regprocedure(
+        'api.get_public_bahia_state_loa_execution(smallint,text,integer)'
+      )::text as state_loa_execution_rpc,
+      to_regprocedure(
+        'api.get_public_bahia_state_loa_execution_summary(smallint)'
+      )::text as state_loa_execution_summary_rpc,
       has_schema_privilege('anon', 'territory', 'USAGE') as anon_territory_usage,
       has_function_privilege(
         'anon',
@@ -170,7 +176,17 @@ try {
         'anon',
         'api.get_public_parliamentary_transfer_reconciliation_summary()',
         'EXECUTE'
-      ) as anon_reconciliation_summary_rpc
+      ) as anon_reconciliation_summary_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_bahia_state_loa_execution(smallint,text,integer)',
+        'EXECUTE'
+      ) as anon_state_loa_execution_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_bahia_state_loa_execution_summary(smallint)',
+        'EXECUTE'
+      ) as anon_state_loa_execution_summary_rpc
   `);
   assert.deepEqual(contracts.rows, [{
     transfer_projection: "territory.parliamentary_transfers",
@@ -205,6 +221,10 @@ try {
       "api.get_public_reconciled_parliamentary_transfer_ranking(text,smallint,integer)",
     reconciliation_summary_rpc:
       "api.get_public_parliamentary_transfer_reconciliation_summary()",
+    state_loa_execution_rpc:
+      "api.get_public_bahia_state_loa_execution(smallint,text,integer)",
+    state_loa_execution_summary_rpc:
+      "api.get_public_bahia_state_loa_execution_summary(smallint)",
     anon_territory_usage: false,
     anon_ranking_rpc: true,
     anon_detail_rpc: true,
@@ -216,6 +236,8 @@ try {
     anon_reconciled_transfer_rpc: true,
     anon_reconciled_ranking_rpc: true,
     anon_reconciliation_summary_rpc: true,
+    anon_state_loa_execution_rpc: true,
+    anon_state_loa_execution_summary_rpc: true,
   }]);
 
   await database.exec(`
@@ -827,6 +849,79 @@ try {
       execution_evidence_sha256: null,
     },
   ]);
+
+  const publicStateExecution = await database.query(`
+    select amendment_number, execution_status,
+      loa_scope_occurrences, execution_occurrences,
+      authorized_amount, committed_amount, liquidated_amount, paid_amount,
+      execution_source_url, execution_evidence_sha256, methodology_version
+    from api.get_public_bahia_state_loa_execution(2026::smallint, null, 200)
+    order by amendment_number
+  `);
+  assert.deepEqual(publicStateExecution.rows, [
+    {
+      amendment_number: "102",
+      execution_status: "execution_confirmed",
+      loa_scope_occurrences: 1,
+      execution_occurrences: 1,
+      authorized_amount: "200000.00",
+      committed_amount: "150000.00",
+      liquidated_amount: "100000.00",
+      paid_amount: "90000.00",
+      execution_source_url: "https://dados.ba.gov.br/emendas-fixture.zip",
+      execution_evidence_sha256: "5".repeat(64),
+      methodology_version: "bahia-state-loa-public-execution/1.0.0",
+    },
+    {
+      amendment_number: "103",
+      execution_status: "ambiguous_official_key",
+      loa_scope_occurrences: 2,
+      execution_occurrences: 0,
+      authorized_amount: "500000.00",
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      execution_source_url: null,
+      execution_evidence_sha256: null,
+      methodology_version: "bahia-state-loa-public-execution/1.0.0",
+    },
+    {
+      amendment_number: "105",
+      execution_status: "ambiguous_official_key",
+      loa_scope_occurrences: 1,
+      execution_occurrences: 2,
+      authorized_amount: "600000.00",
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      execution_source_url: null,
+      execution_evidence_sha256: null,
+      methodology_version: "bahia-state-loa-public-execution/1.0.0",
+    },
+  ]);
+
+  const publicStateExecutionSummary = await database.query(`
+    select fiscal_year, total_amendment_count, matched_amendment_count,
+      ambiguous_amendment_count, not_found_amendment_count,
+      unavailable_scope_count, authorized_total,
+      matched_authorized_total, committed_total, liquidated_total, paid_total,
+      methodology_version
+    from api.get_public_bahia_state_loa_execution_summary(2026::smallint)
+  `);
+  assert.deepEqual(publicStateExecutionSummary.rows, [{
+    fiscal_year: 2026,
+    total_amendment_count: 3,
+    matched_amendment_count: 1,
+    ambiguous_amendment_count: 2,
+    not_found_amendment_count: 0,
+    unavailable_scope_count: 0,
+    authorized_total: "1300000.00",
+    matched_authorized_total: "200000.00",
+    committed_total: "150000.00",
+    liquidated_total: "100000.00",
+    paid_total: "90000.00",
+    methodology_version: "bahia-state-loa-public-execution-summary/1.0.0",
+  }]);
 
   const stateLoaDetails = await database.query(`
     select fiscal_year, amendment_number, author_name, authorized_amount,
@@ -1452,6 +1547,12 @@ try {
       "select * from api.get_public_bahia_state_loa_amendments(null, null, 201)",
     ),
     /limite de emendas estaduais da LOA invalido/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_bahia_state_loa_execution(2026::smallint, null, 201)",
+    ),
+    /limite da execucao estadual da LOA invalido/,
   );
   await assert.rejects(
     database.query(
