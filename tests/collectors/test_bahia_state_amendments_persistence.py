@@ -7,7 +7,9 @@ from types import SimpleNamespace
 from barreiras_collectors.connectors.bahia_state_amendments import (
     fetch_state_amendment_archive,
     fetch_state_amendment_catalog,
+    fetch_state_amendment_relationship_diagram,
 )
+from barreiras_collectors.persistence import service as persistence_service
 from barreiras_collectors.persistence.models import ArtifactIntegrityError
 from barreiras_collectors.persistence.service import (
     BahiaStateAmendmentArchivePersistenceService,
@@ -16,9 +18,12 @@ from barreiras_collectors.persistence.service import (
 from barreiras_collectors.resilience import RetryPolicy
 
 from tests.collectors.test_bahia_state_amendments import (
+    RELATIONSHIP_DIAGRAM_PNG,
+    RELATIONSHIP_DIAGRAM_URL,
     SequenceTransport,
     archive_bytes,
     catalog_body,
+    catalog_body_with_relationship,
     response,
 )
 
@@ -98,7 +103,67 @@ def snapshots():
     return catalog, collected_archive
 
 
+def relationship_snapshot():
+    archive = archive_bytes()
+    transport = SequenceTransport(
+        [
+            response(
+                catalog_body_with_relationship(archive_size=len(archive)),
+                final_url=CATALOG_URL,
+                content_type="application/json",
+            ),
+            response(
+                RELATIONSHIP_DIAGRAM_PNG,
+                final_url=RELATIONSHIP_DIAGRAM_URL,
+                content_type="image/png",
+            ),
+        ]
+    )
+    catalog = fetch_state_amendment_catalog(
+        transport=transport,
+        retry_policy=RetryPolicy(max_attempts=1),
+        sleep=lambda _seconds: None,
+    )
+    return fetch_state_amendment_relationship_diagram(
+        catalog=catalog,
+        transport=transport,
+        retry_policy=RetryPolicy(max_attempts=1),
+        sleep=lambda _seconds: None,
+    )
+
+
 class BahiaStateAmendmentPersistenceTests(unittest.TestCase):
+    def test_preserves_relationship_diagram_as_immutable_source_evidence(
+        self,
+    ) -> None:
+        self.assertTrue(
+            hasattr(
+                persistence_service,
+                "BahiaStateAmendmentRelationshipPersistenceService",
+            ),
+            "o serviço ainda não preserva o diagrama oficial",
+        )
+        snapshot = relationship_snapshot()
+        repository = FakeRepository()
+        service_class = (
+            persistence_service.BahiaStateAmendmentRelationshipPersistenceService
+        )
+
+        result = service_class(
+            object_store=FakeObjectStore(),
+            repository=repository,
+        ).persist(snapshot)
+
+        self.assertTrue(result.object_key.endswith(f"/{snapshot.body_sha256}.png"))
+        self.assertEqual(len(repository.batches), 1)
+        record = repository.batches[0].records[0]
+        self.assertEqual(
+            record.record_type,
+            "bahia_state_amendment_relationship_diagram",
+        )
+        self.assertEqual(record.payload["territorial_key"], "not_available")
+        self.assertNotIn("image_bytes", record.payload)
+
     def test_preserves_catalog_and_archive_as_separate_immutable_artifacts(
         self,
     ) -> None:

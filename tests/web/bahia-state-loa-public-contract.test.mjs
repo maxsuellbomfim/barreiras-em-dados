@@ -104,3 +104,13 @@ test("emendas historicas recebem diagnostico explicito sem fabricar execucao", (
   );
   assert.match(page, /identificadores necess.rios/iu);
 });
+
+test("site explica a ausencia de municipio e liga o diagrama oficial", () => {
+  assert.match(page, /Como a Bahia relaciona os dados/);
+  assert.match(page, /arquivo de execu..o n.o publica munic.pio/iu);
+  assert.match(
+    page,
+    /https:\/\/dados\.ba\.gov\.br\/dataset\/1436b3e7-6594-4683-bfa5-b2e3a6c69e07\/resource\/f463ff7d-569c-4b48-b1d3-c80f017779df\/download\/emendas-parlamentares-relacionamento_views\.png/,
+  );
+  assert.match(page, /Abrir diagrama oficial das rela..es/iu);
+});

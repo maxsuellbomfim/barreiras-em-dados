@@ -468,6 +468,8 @@ ADR adicional.
 - [x] publicar estágios financeiros somente para pares bidirecionalmente
   únicos, mantendo colisões e ausências como bloqueios explicados e sem criar
   ranking de execução enquanto a cobertura permanecer parcial.
+- [x] preservar o diagrama oficial das relações do FIPLAN com hash auditável e
+  explicar publicamente que a base de execução não fornece município.
 - [ ] estender o índice de escopo e a reconciliação segura aos exercícios de
   2022 a 2025, preservando 2021 como bloqueado enquanto o anexo oficial apontar
   para exercício divergente.

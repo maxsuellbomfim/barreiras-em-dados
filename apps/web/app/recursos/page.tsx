@@ -662,6 +662,33 @@ function StateLoaPanel({
           nos anexos municipais encontrados.
         </p>
       </aside>
+      <details className="transfer-methodology">
+        <summary>Como a Bahia relaciona os dados</summary>
+        <p>
+          O arquivo de execução não publica município. Ele liga despesas,
+          liquidações e pagamentos por códigos internos do FIPLAN. Por isso, o
+          Barreiras 360 usa os anexos da LOA para identificar as autorizações de
+          Barreiras e só mostra execução quando os identificadores oficiais formam
+          uma ligação única. Ausência de ligação não significa valor zero.
+        </p>
+        <p>
+          <a
+            href="https://dados.ba.gov.br/dataset/1436b3e7-6594-4683-bfa5-b2e3a6c69e07/resource/f463ff7d-569c-4b48-b1d3-c80f017779df/download/emendas-parlamentares-relacionamento_views.png"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Abrir diagrama oficial das relações ↗
+          </a>
+          {" · "}
+          <a
+            href="https://www.transparencia.ba.gov.br/EmendasParlamentares/PainelEmendasParlamentares"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Consultar o painel oficial da Bahia ↗
+          </a>
+        </p>
+      </details>
       <StateLoaExecutionSummaryPanel summary={executionSummary} />
       {ranking === null ? (
         <p className="transfer-empty">

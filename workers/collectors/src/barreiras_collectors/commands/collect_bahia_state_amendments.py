@@ -1,4 +1,4 @@
-"""Preserva o catálogo e o ZIP diário de emendas estaduais da Bahia."""
+"""Preserva o catálogo, o ZIP e o diagrama oficial de emendas da Bahia."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from ..connectors.bahia_state_amendments import (
     SOURCE_CODE,
     fetch_state_amendment_archive,
     fetch_state_amendment_catalog,
+    fetch_state_amendment_relationship_diagram,
 )
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
@@ -27,6 +28,7 @@ from ..persistence.service import (
     BAHIA_STATE_AMENDMENT_COLLECTOR_VERSION,
     BahiaStateAmendmentArchivePersistenceService,
     BahiaStateAmendmentCatalogPersistenceService,
+    BahiaStateAmendmentRelationshipPersistenceService,
 )
 from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import build_authenticated_object_store
@@ -45,6 +47,9 @@ class BahiaStateAmendmentCollectionSummary:
     catalog_sha256: str
     archive_sha256: str
     resource_last_modified: str
+    relationship_diagram_bytes: int
+    relationship_diagram_sha256: str
+    relationship_diagram_last_modified: str
     source_warning_rows: int = 0
 
 
@@ -53,13 +58,17 @@ def execute_controlled_state_amendments(
     control: CollectionControl,
     operation: Callable[[], BahiaStateAmendmentCollectionSummary],
 ) -> BahiaStateAmendmentCollectionSummary:
-    """Registra a execução antes da autenticação, do catálogo e do ZIP."""
+    """Registra a execução antes da autenticação e dos três artefatos."""
     with control:
         summary = operation()
         if summary.archive_members != 5:
             raise RuntimeError(
                 "A coleta estadual não preservou as cinco views obrigatórias."
             )
+        if summary.relationship_diagram_bytes <= 0:
+            raise RuntimeError("O diagrama oficial de relacionamento está vazio.")
+        if len(summary.relationship_diagram_sha256) != 64:
+            raise RuntimeError("Hash inválido do diagrama oficial de relacionamento.")
         outcome = (
             CollectionOutcome.PARTIAL
             if summary.unparseable_members
@@ -67,10 +76,17 @@ def execute_controlled_state_amendments(
         )
         control.complete(
             outcome=outcome,
-            observed_records=summary.archive_members,
+            observed_records=summary.archive_members + 1,
             checkpoint={
                 "archive_members": summary.archive_members,
                 "resource_last_modified": summary.resource_last_modified,
+                "relationship_diagram_preserved": True,
+                "relationship_diagram_sha256": (
+                    summary.relationship_diagram_sha256
+                ),
+                "relationship_diagram_last_modified": (
+                    summary.relationship_diagram_last_modified
+                ),
                 "territorial_scope": "not_available_in_archive",
             },
             metrics={
@@ -84,6 +100,15 @@ def execute_controlled_state_amendments(
                 "catalog_sha256": summary.catalog_sha256,
                 "archive_sha256": summary.archive_sha256,
                 "resource_last_modified": summary.resource_last_modified,
+                "relationship_diagram_bytes": (
+                    summary.relationship_diagram_bytes
+                ),
+                "relationship_diagram_sha256": (
+                    summary.relationship_diagram_sha256
+                ),
+                "relationship_diagram_last_modified": (
+                    summary.relationship_diagram_last_modified
+                ),
                 "territorial_scope": "not_available_in_archive",
             },
         )
@@ -93,8 +118,8 @@ def execute_controlled_state_amendments(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Preserva catálogo e ZIP das emendas estaduais; valida as cinco "
-            "views, sem atribuir registros a Barreiras nesta etapa."
+            "Preserva catálogo, ZIP e diagrama oficial das emendas estaduais; "
+            "valida as cinco views, sem atribuir registros a Barreiras nesta etapa."
         )
     )
     parser.parse_args(argv)
@@ -137,6 +162,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             object_store=object_store,
             repository=repository,
         ).persist(catalog)
+        relationship_diagram = fetch_state_amendment_relationship_diagram(
+            catalog=catalog,
+            logger=logging.getLogger(__name__),
+        )
+        relationship_result = BahiaStateAmendmentRelationshipPersistenceService(
+            object_store=object_store,
+            repository=repository,
+        ).persist(relationship_diagram)
         archive = fetch_state_amendment_archive(
             catalog=catalog,
             logger=logging.getLogger(__name__),
@@ -159,14 +192,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             archive_bytes=archive.body_size_bytes,
             inserted_records=(
-                catalog_result.inserted_records + archive_result.inserted_records
+                catalog_result.inserted_records
+                + relationship_result.inserted_records
+                + archive_result.inserted_records
             ),
             existing_records=(
-                catalog_result.existing_records + archive_result.existing_records
+                catalog_result.existing_records
+                + relationship_result.existing_records
+                + archive_result.existing_records
             ),
             catalog_sha256=catalog.body_sha256,
             archive_sha256=archive.body_sha256,
             resource_last_modified=archive.resource_last_modified,
+            relationship_diagram_bytes=relationship_diagram.body_size_bytes,
+            relationship_diagram_sha256=relationship_diagram.body_sha256,
+            relationship_diagram_last_modified=(
+                relationship_diagram.resource_last_modified
+            ),
             source_warning_rows=sum(
                 int(warnings.get("missing_check_digit_rows", 0))
                 for item in archive.items
@@ -196,6 +238,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         artifact_hash=summary.archive_sha256,
         catalog_hash=summary.catalog_sha256,
         resource_last_modified=summary.resource_last_modified,
+        relationship_diagram_bytes=summary.relationship_diagram_bytes,
+        relationship_diagram_hash=summary.relationship_diagram_sha256,
+        relationship_diagram_last_modified=(
+            summary.relationship_diagram_last_modified
+        ),
         territorial_scope="not_available_in_archive",
     )
     return 0

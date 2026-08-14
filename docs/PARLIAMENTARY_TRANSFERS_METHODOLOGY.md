@@ -123,6 +123,13 @@ ZIP sem linhas financeiras, com estrutura alterada ou com bytes divergentes do
 hash falha e segue para nova tentativa ou fila de falhas; nunca produz total
 zero.
 
+O diagrama de relacionamento publicado no mesmo catálogo é preservado
+separadamente do ZIP. O PNG, sua URL oficial, data de modificação, tamanho,
+MIME e SHA-256 passam pelo mesmo contrato imutável. Ele comprova quais códigos
+internos conectam despesas, liquidações e pagamentos, mas não apresenta campo
+de município. Portanto, o diagrama fundamenta a reconciliação financeira e
+também documenta por que a territorialização depende dos anexos da LOA.
+
 A normalização registra obrigatoriamente
 `territorial_scope=not_available_in_execution_archive`. Portanto, esses valores
 descrevem execução agregada estadual e ainda não são “pagos a Barreiras”. A

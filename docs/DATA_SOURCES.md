@@ -335,6 +335,13 @@ orçamentária e financeira. A preservação bruta já possui fonte, endpoint,
 parser e partições próprios; dados estaduais não são agregados silenciosamente
 aos federais.
 
+O catálogo também publica o
+[diagrama oficial das relações entre as views](https://dados.ba.gov.br/dataset/1436b3e7-6594-4683-bfa5-b2e3a6c69e07/resource/f463ff7d-569c-4b48-b1d3-c80f017779df/download/emendas-parlamentares-relacionamento_views.png).
+O coletor preserva o PNG como artefato imutável, com URL, data observada, MIME,
+tamanho e SHA-256, e registra esse hash no checkpoint da execução. O diagrama
+documenta ligações internas entre despesas, liquidações e pagamentos, mas não
+oferece uma chave territorial de município.
+
 Os anexos da LOA publicados pela SEPLAN-BA fornecem a chave territorial que o
 ZIP diário não possui. O Anexo III cobre município e autor em 2022-2025; o
 Anexo I de 2026 também publica município por emenda. Esses PDFs representam
