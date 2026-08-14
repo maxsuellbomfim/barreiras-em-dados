@@ -274,6 +274,28 @@ visíveis, enquanto empenho, liquidação, pagamento e evidência de execução 
 nulos. Isso representa uma limitação documental da ligação entre as fontes, não
 valor zero e nem prova de que o recurso não foi executado.
 
+### Linha do tempo nos perfis dos representantes
+
+Os perfis oficiais ligados por crosswalk aprovado recebem uma linha do tempo
+anual das emendas estaduais destinadas a Barreiras. A autoria acompanha o ano
+da LOA, mesmo quando o parlamentar hoje exerce mandato em outra Casa. A página
+não transforma o cargo atual em cargo retroativo.
+
+Cada exercício apresenta dois universos distintos:
+
+- **todas as emendas territoriais do autor**: quantidade e valor autorizado na
+  LOA para Barreiras;
+- **subconjunto conciliado**: quantidade, valor autorizado comparável,
+  empenhado, liquidado e pago somente das emendas com ligação bidirecional
+  única ao retrato financeiro estadual.
+
+Quando nenhuma emenda possui ligação única, os estágios de execução ficam
+nulos e a interface informa que não foi possível atribuí-los com segurança.
+Quando a conciliação é parcial, a quantidade bloqueada é exibida e não entra
+nos valores de execução. Cada ano liga ao catálogo de emendas, objetos,
+páginas, documentos e hashes correspondentes. Essa linha do tempo não é um
+ranking de desempenho e não mede, isoladamente, o trabalho parlamentar.
+
 Fontes oficiais iniciais:
 
 - https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares

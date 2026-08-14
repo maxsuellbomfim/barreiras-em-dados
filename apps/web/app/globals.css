@@ -3985,6 +3985,111 @@ footer {
   text-decoration: underline;
 }
 
+.person-state-loa-timeline {
+  margin: 0.9rem 0;
+  border: 1px solid rgba(39, 126, 86, 0.2);
+  border-radius: 0.95rem;
+  background: rgba(239, 249, 244, 0.82);
+  color: #405c50;
+  font-size: 0.78rem;
+}
+
+.person-state-loa-timeline > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.person-state-loa-timeline > summary::-webkit-details-marker {
+  display: none;
+}
+
+.person-state-loa-timeline > summary span:first-child {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.person-state-loa-timeline > summary strong {
+  color: #185d40;
+}
+
+.person-state-loa-timeline > summary small,
+.person-state-loa-timeline > summary span:last-child {
+  color: #64796f;
+  font-size: 0.69rem;
+}
+
+.person-state-loa-timeline-body {
+  padding: 0 0.85rem 0.85rem;
+  border-top: 1px solid rgba(39, 126, 86, 0.14);
+}
+
+.person-state-loa-timeline-body > p {
+  margin: 0.75rem 0;
+  line-height: 1.55;
+}
+
+.person-state-loa-year {
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(39, 126, 86, 0.14);
+}
+
+.person-state-loa-year-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.person-state-loa-year-heading h3 {
+  margin: 0;
+  color: #173d2c;
+  font-size: 0.95rem;
+}
+
+.person-state-loa-year dl {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.6rem 0;
+}
+
+.person-state-loa-year dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid rgba(39, 126, 86, 0.12);
+}
+
+.person-state-loa-year dd {
+  margin: 0;
+  color: #173d2c;
+  font-weight: 700;
+  text-align: right;
+}
+
+.person-state-loa-limit {
+  margin: 0.55rem 0;
+  color: #64796f;
+  line-height: 1.5;
+}
+
+.person-state-loa-year a {
+  color: #176f4b;
+  font-weight: 680;
+  text-decoration: none;
+}
+
+.person-state-loa-year a:hover,
+.person-state-loa-year a:focus-visible {
+  text-decoration: underline;
+}
+
 .person-trajectory {
   margin: 0.9rem 0;
   border: 1px solid rgba(75, 113, 205, 0.18);

@@ -26,10 +26,14 @@ import {
 } from "../../lib/executive-profiles";
 import {
   getPublicParliamentaryTransferRankings,
+  getPublicStateLoaRepresentativeContributions,
   parliamentaryTransferAuthorAnchor,
   transferSummaryForRepresentative,
   type ParliamentaryTransferRanking,
+  type StateLoaRepresentativeContribution,
 } from "../../lib/parliamentary-transfers";
+import { stateLoaContributionsForRepresentative } from
+  "../../lib/state-loa-representative-contributions.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
 
 export const revalidate = 300;
@@ -88,14 +92,100 @@ function RepresentativeTransferSummary({
   );
 }
 
+function StateLoaContributionTimeline({
+  rows,
+}: Readonly<{ rows: readonly StateLoaRepresentativeContribution[] }>) {
+  if (rows.length === 0) return null;
+  return (
+    <details className="person-state-loa-timeline">
+      <summary>
+        <span>
+          <strong>Emendas estaduais para Barreiras</strong>
+          <small>autoria ligada por identificadores oficiais</small>
+        </span>
+        <span>{rows.length.toLocaleString("pt-BR")} ano(s)</span>
+      </summary>
+      <div className="person-state-loa-timeline-body">
+        <p>
+          Autorização na LOA não significa pagamento. Os valores de execução
+          aparecem somente quando a emenda possui ligação oficial única com o
+          arquivo financeiro estadual.
+        </p>
+        {rows.map((row) => (
+          <section
+            className="person-state-loa-year"
+            key={`${row.authorKey}:${row.fiscalYear}`}
+          >
+            <div className="person-state-loa-year-heading">
+              <h3>{row.fiscalYear}</h3>
+              <span>{row.amendmentCount.toLocaleString("pt-BR")} emenda(s)</span>
+            </div>
+            <dl>
+              <div>
+                <dt>Autorizado na LOA</dt>
+                <dd>{formatBrlDecimal(row.authorizedAmount)}</dd>
+              </div>
+              {row.matchedAmendmentCount > 0 ? (
+                <>
+                  <div>
+                    <dt>Emendas com ligação única</dt>
+                    <dd>
+                      {row.matchedAmendmentCount.toLocaleString("pt-BR")} de{" "}
+                      {row.amendmentCount.toLocaleString("pt-BR")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Autorizado no subconjunto conciliado</dt>
+                    <dd>{formatBrlDecimal(row.matchedAuthorizedAmount!)}</dd>
+                  </div>
+                  <div>
+                    <dt>Empenhado no subconjunto conciliado</dt>
+                    <dd>{formatBrlDecimal(row.committedAmount!)}</dd>
+                  </div>
+                  <div>
+                    <dt>Liquidação no subconjunto conciliado</dt>
+                    <dd>{formatBrlDecimal(row.liquidatedAmount!)}</dd>
+                  </div>
+                  <div>
+                    <dt>Pago no subconjunto conciliado</dt>
+                    <dd>{formatBrlDecimal(row.paidAmount!)}</dd>
+                  </div>
+                </>
+              ) : null}
+            </dl>
+            {row.matchedAmendmentCount === 0 ? (
+              <p className="person-state-loa-limit">
+                Execução financeira não atribuída com segurança neste exercício;
+                isso não significa valor zero nem ausência de execução.
+              </p>
+            ) : row.blockedAmendmentCount > 0 ? (
+              <p className="person-state-loa-limit">
+                {row.blockedAmendmentCount.toLocaleString("pt-BR")} emenda(s) sem
+                ligação financeira única ficaram fora dos valores de execução.
+              </p>
+            ) : null}
+            <a
+              href={`/recursos?origem=estadual&ano=${row.fiscalYear}#${parliamentaryTransferAuthorAnchor(row.authorKey)}`}
+            >
+              Conferir emendas, objetos e documentos de {row.fiscalYear} →
+            </a>
+          </section>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function RepresentativeCard({
   person,
   voteLinks,
   transferSummary,
+  stateLoaContributions,
 }: Readonly<{
   person: FederalRepresentative;
   voteLinks: readonly RepresentativeVote[];
   transferSummary: ParliamentaryTransferRanking | null;
+  stateLoaContributions: readonly StateLoaRepresentativeContribution[];
 }>) {
   const camaraUrl = `https://www.camara.leg.br/deputados/${person.externalId}`;
   return (
@@ -181,6 +271,7 @@ function RepresentativeCard({
         votes={voteLinks}
       />
       <RepresentativeTransferSummary summary={transferSummary} />
+      <StateLoaContributionTimeline rows={stateLoaContributions} />
 
       <p className="act-evidence">
         <a href={camaraUrl} target="_blank" rel="noreferrer">
@@ -262,10 +353,12 @@ function StateRepresentativeCard({
   person,
   voteLinks,
   transferSummary,
+  stateLoaContributions,
 }: Readonly<{
   person: StateRepresentative;
   voteLinks: readonly RepresentativeVote[];
   transferSummary: ParliamentaryTransferRanking | null;
+  stateLoaContributions: readonly StateLoaRepresentativeContribution[];
 }>) {
   const initials = person.displayName
     .split(/\s+/)
@@ -314,6 +407,7 @@ function StateRepresentativeCard({
         votes={voteLinks}
       />
       <RepresentativeTransferSummary summary={transferSummary} />
+      <StateLoaContributionTimeline rows={stateLoaContributions} />
       {person.education || person.professionalActivity || person.electiveMandate || person.parliamentaryActivity ? (
         <details className="person-biography">
           <summary>Biografia oficial publicada pela ALBA</summary>
@@ -525,6 +619,7 @@ export default async function RepresentativesPage() {
     executiveProfilesResult,
     representativeVotesResult,
     transferRankingsResult,
+    stateLoaContributionsResult,
   ] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
@@ -533,6 +628,7 @@ export default async function RepresentativesPage() {
     getExecutiveProfiles(),
     getRepresentativeVotes(),
     getPublicParliamentaryTransferRankings(),
+    getPublicStateLoaRepresentativeContributions(),
   ]);
   const legacyVotes = votesResult.state === "available" ? votesResult.votes : [];
   const representativeVotes =
@@ -542,6 +638,10 @@ export default async function RepresentativesPage() {
   const transferRankings =
     transferRankingsResult.state === "available"
       ? transferRankingsResult.people
+      : [];
+  const stateLoaContributions =
+    stateLoaContributionsResult.state === "available"
+      ? stateLoaContributionsResult.contributions
       : [];
 
   return (
@@ -851,6 +951,11 @@ export default async function RepresentativesPage() {
                         "state",
                         person.externalId,
                       )}
+                      stateLoaContributions={stateLoaContributionsForRepresentative(
+                        stateLoaContributions,
+                        "state",
+                        person.externalId,
+                      )}
                     />
                   ))}
                 </div>
@@ -916,6 +1021,11 @@ export default async function RepresentativesPage() {
                       )}
                       transferSummary={transferSummaryForRepresentative(
                         transferRankings,
+                        "federal",
+                        person.externalId,
+                      )}
+                      stateLoaContributions={stateLoaContributionsForRepresentative(
+                        stateLoaContributions,
                         "federal",
                         person.externalId,
                       )}
