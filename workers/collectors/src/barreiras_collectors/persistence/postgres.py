@@ -894,21 +894,24 @@ class PostgresCollectionRepository:
             connection.close()
 
     def pncp_backfill_anchor(self) -> date | None:
-        """Data mais antiga já coberta pela consulta de contratações."""
+        """Data mais antiga com cobertura integral classificada no PNCP."""
         connection = self.connection_factory()
         try:
             row = connection.execute(
                 """
-                select min(run.collection_window_start)::date as anchor
-                from source.collection_runs as run
+                select min(partition.period_start)::date as anchor
+                from source.collection_partitions as partition
+                join source.collection_runs as run
+                  on run.id = partition.collection_run_id
                 join source.source_endpoints as endpoint
-                  on endpoint.id = run.source_endpoint_id
+                  on endpoint.id = partition.source_endpoint_id
                 join source.data_sources as data_source
                   on data_source.id = endpoint.data_source_id
                 where data_source.slug = 'pncp'
                   and endpoint.slug = 'consulta-contratacoes'
+                  and partition.status in ('complete', 'empty')
                   and run.status = 'succeeded'
-                  and run.collection_window_start is not null
+                  and partition.period_start is not null
                 """
             ).fetchone()
         finally:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from datetime import date
 
 from barreiras_collectors.persistence.postgres import PostgresCollectionRepository
 
@@ -91,6 +92,27 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
 
         self.assertIn("offset %s", connection.calls[0][0].lower())
         self.assertEqual(connection.calls[0][1], (120, 51, 50))
+
+    def test_pncp_backfill_anchor_uses_only_classified_control_partitions(
+        self,
+    ) -> None:
+        class CoverageConnection(CheckpointConnection):
+            def execute(self, query, params=None):
+                self.calls.append((query, params))
+                normalized = " ".join(query.lower().split())
+                if (
+                    "source.collection_partitions" in normalized
+                    and "partition.status in ('complete', 'empty')" in normalized
+                    and "run.status = 'succeeded'" in normalized
+                ):
+                    return QueryResult({"anchor": date(2025, 6, 8)})
+                return QueryResult({"anchor": date(2025, 4, 9)})
+
+        connection = CoverageConnection(None)
+        repository = PostgresCollectionRepository(lambda: connection)
+
+        self.assertEqual(repository.pncp_backfill_anchor(), date(2025, 6, 8))
+        self.assertTrue(connection.closed)
 
 
 if __name__ == "__main__":
