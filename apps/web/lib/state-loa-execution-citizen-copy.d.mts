@@ -2,6 +2,7 @@ export type StateLoaExecutionPublicStatus =
   | "execution_confirmed"
   | "ambiguous_official_key"
   | "not_found_in_execution_source"
+  | "official_link_key_unavailable"
   | "scope_not_available";
 
 export type StateLoaExecutionStatusCopy = Readonly<{

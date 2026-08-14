@@ -251,6 +251,22 @@ Um `R$ 0,00` dentro de um par confirmado é um valor publicado pela fonte no
 retrato coletado. Fora de um par confirmado, ausência de valor significa
 “não atribuído com segurança”, e não pagamento zero.
 
+### Limite histórico de 2022 a 2025
+
+Os anexos territoriais encontrados para 2022 a 2025 identificam a autorização,
+o autor, o órgão, a unidade e o valor destinado a Barreiras, mas não publicam o
+mesmo conjunto de identificadores usado pelo arquivo estadual de execução. Em
+14/08/2026, a auditoria determinística tentou as combinações disponíveis —
+inclusive autor, órgão, unidade e valor — nas 34 autorizações normalizadas desses
+anos. Nenhuma combinação resultou em correspondência única.
+
+Por esse motivo, o sistema não usa semelhança nominal para atribuir execução.
+Essas emendas recebem publicamente o status
+`official_link_key_unavailable`: a autorização e sua evidência permanecem
+visíveis, enquanto empenho, liquidação, pagamento e evidência de execução ficam
+nulos. Isso representa uma limitação documental da ligação entre as fontes, não
+valor zero e nem prova de que o recurso não foi executado.
+
 Fontes oficiais iniciais:
 
 - https://dados.ba.gov.br/pt_BR/dataset/emendas-parlamentares

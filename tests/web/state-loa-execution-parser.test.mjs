@@ -36,7 +36,7 @@ const confirmedRow = {
   execution_source_artifact_sha256: "c".repeat(64),
   execution_evidence_sha256: "d".repeat(64),
   execution_source_collected_at: "2026-08-14T09:10:00+00:00",
-  methodology_version: "bahia-state-loa-public-execution/1.0.0",
+  methodology_version: "bahia-state-loa-public-execution/1.1.0",
 };
 
 test("valida correspondência única e preserva zero oficial como valor", () => {
@@ -76,6 +76,26 @@ test("aceita bloqueio auditável quando todos os campos de execução estão aus
   }]);
   assert.equal(rows?.[0]?.executionStatus, "not_found_in_execution_source");
   assert.equal(rows?.[0]?.paidAmount, null);
+});
+
+test("aceita falta documentada de chave oficial somente sem valores de execução", () => {
+  const rows = parseStateLoaExecutionRows([{
+    ...confirmedRow,
+    fiscal_year: 2025,
+    execution_status: "official_link_key_unavailable",
+    loa_scope_occurrences: 0,
+    execution_occurrences: 0,
+    committed_amount: null,
+    liquidated_amount: null,
+    paid_amount: null,
+    execution_source_url: null,
+    execution_source_artifact_sha256: null,
+    execution_evidence_sha256: null,
+    execution_source_collected_at: null,
+    methodology_version: "bahia-state-loa-public-execution/1.1.0",
+  }]);
+  assert.equal(rows?.[0]?.executionStatus, "official_link_key_unavailable");
+  assert.equal(rows?.[0]?.methodologyVersion, "bahia-state-loa-public-execution/1.1.0");
 });
 
 test("valida o resumo SQL sem recalcular valores no frontend", () => {

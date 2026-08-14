@@ -4,6 +4,7 @@ const STATUSES = new Set([
   "execution_confirmed",
   "ambiguous_official_key",
   "not_found_in_execution_source",
+  "official_link_key_unavailable",
   "scope_not_available",
 ]);
 
@@ -48,7 +49,7 @@ function parseExecutionRow(row) {
     !loaEvidenceSha256 || !SHA256.test(loaEvidenceSha256) ||
     !executionStatus || !STATUSES.has(executionStatus) ||
     loaScopeOccurrences === null || executionOccurrences === null ||
-    row.methodology_version !== "bahia-state-loa-public-execution/1.0.0"
+    row.methodology_version !== "bahia-state-loa-public-execution/1.1.0"
   ) return null;
 
   const committedAmount = row.committed_amount === null
@@ -105,7 +106,7 @@ function parseExecutionRow(row) {
     executionSourceArtifactSha256,
     executionEvidenceSha256,
     executionSourceCollectedAt,
-    methodologyVersion: "bahia-state-loa-public-execution/1.0.0",
+    methodologyVersion: "bahia-state-loa-public-execution/1.1.0",
   };
 }
 

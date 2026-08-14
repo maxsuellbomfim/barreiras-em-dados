@@ -25,7 +25,7 @@ export type StateLoaExecutionRecord = Readonly<{
   executionSourceArtifactSha256: string | null;
   executionEvidenceSha256: string | null;
   executionSourceCollectedAt: string | null;
-  methodologyVersion: "bahia-state-loa-public-execution/1.0.0";
+  methodologyVersion: "bahia-state-loa-public-execution/1.1.0";
 }>;
 
 export type StateLoaExecutionSummary = Readonly<{

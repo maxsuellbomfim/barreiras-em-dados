@@ -870,7 +870,7 @@ try {
       paid_amount: "90000.00",
       execution_source_url: "https://dados.ba.gov.br/emendas-fixture.zip",
       execution_evidence_sha256: "5".repeat(64),
-      methodology_version: "bahia-state-loa-public-execution/1.0.0",
+      methodology_version: "bahia-state-loa-public-execution/1.1.0",
     },
     {
       amendment_number: "103",
@@ -883,7 +883,7 @@ try {
       paid_amount: null,
       execution_source_url: null,
       execution_evidence_sha256: null,
-      methodology_version: "bahia-state-loa-public-execution/1.0.0",
+      methodology_version: "bahia-state-loa-public-execution/1.1.0",
     },
     {
       amendment_number: "105",
@@ -896,9 +896,26 @@ try {
       paid_amount: null,
       execution_source_url: null,
       execution_evidence_sha256: null,
-      methodology_version: "bahia-state-loa-public-execution/1.0.0",
+      methodology_version: "bahia-state-loa-public-execution/1.1.0",
     },
   ]);
+
+  const historicalStateExecution = await database.query(`
+    select amendment_number, execution_status, committed_amount,
+      liquidated_amount, paid_amount, execution_source_url,
+      methodology_version
+    from api.get_public_bahia_state_loa_execution(2022::smallint, null, 200)
+    order by amendment_number
+  `);
+  assert.deepEqual(historicalStateExecution.rows, [{
+    amendment_number: "101",
+    execution_status: "official_link_key_unavailable",
+    committed_amount: null,
+    liquidated_amount: null,
+    paid_amount: null,
+    execution_source_url: null,
+    methodology_version: "bahia-state-loa-public-execution/1.1.0",
+  }]);
 
   const publicStateExecutionSummary = await database.query(`
     select fiscal_year, total_amendment_count, matched_amendment_count,
