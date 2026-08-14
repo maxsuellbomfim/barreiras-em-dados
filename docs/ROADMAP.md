@@ -390,14 +390,14 @@ Barreiras nos anexos oficiais da LOA 2022-2026, com evidência literal e estági
 14/08/2026, uma auditoria independente pelas coordenadas das colunas dos cinco
 PDFs confirmou integralmente 2022-2025 e encontrou 7 omissões em 2026, causadas
 pela união visual das colunas objeto e município no texto embutido. O parser
-1.2.0 recupera essas linhas e o replay deve totalizar 70 registros; a projeção
+1.2.0 recuperou essas linhas e o replay totalizou 70 registros; a projeção
 pública mostra ranking e catálogo por
-autor, ano, objeto, página, URL e hashes. Dez dos onze autores foram ligados a
-perfis oficiais por crosswalk TSE aprovado: nove perfis da ALBA e um perfil atual
-da Câmara dos Deputados. A interface separa a autoria publicada no orçamento do
-perfil oficial atualmente disponível, evitando transformar mudança de Casa em
-cargo retroativo. Marcone Amaral continua sem link até que uma fonte oficial
-suficiente confirme o perfil correspondente. O próximo gate é medir
+autor, ano, objeto, página, URL e hashes. Os 13 autores observados foram ligados
+a perfis oficiais por crosswalk TSE aprovado. Marcone Amaral foi associado ao
+perfil histórico oficial da ALBA e à candidatura de 2022, preservando no texto
+que o mandato temporário ocorreu entre 29/01/2025 e 06/04/2026. A interface
+separa a autoria publicada no orçamento do perfil oficial atualmente disponível,
+evitando transformar mudança de Casa ou suplência em cargo retroativo. O próximo gate é medir
 correspondências únicas, ambíguas e bloqueadas
 entre as autorizações territoriais e a execução estadual normalizada. Somente
 ligações determinísticas poderão alimentar a projeção pública; ausência será
@@ -472,8 +472,8 @@ ADR adicional.
   ao recorte de Barreiras;
 - [x] separar o índice estadual privado da projeção pública municipal;
 - [x] executar o replay após a migration e medir quais chaves de Barreiras são
-  globalmente únicas também no retrato de execução: 9 pares únicos, 17 chaves
-  repetidas no Anexo I da LOA e 1 chave ausente no retrato estadual de 2026;
+  globalmente únicas também no retrato de execução: 10 pares únicos, 21 chaves
+  repetidas no Anexo I da LOA e 3 chaves ausentes no retrato estadual de 2026;
 - [x] publicar estágios financeiros somente para pares bidirecionalmente
   únicos, mantendo colisões e ausências como bloqueios explicados e sem criar
   ranking de execução enquanto a cobertura permanecer parcial.

@@ -151,9 +151,9 @@ Validação local e replay de produção dos PDFs oficiais em 13/08/2026:
 - 2023: 14 linhas; R$ 1.090.200 autorizados;
 - 2024: 13 linhas; R$ 2.245.028 autorizados;
 - 2025: 7 linhas; R$ 997.600 autorizados;
-- 2026: 27 linhas; R$ 9.017.541 autorizados.
+- 2026: 34 linhas; R$ 11.198.888 autorizados.
 
-O replay persistiu 63 resultados válidos, com 63 chaves de evidência distintas,
+O replay persistiu 70 resultados válidos, com 70 chaves de evidência distintas,
 cinco jobs concluídos e nenhuma falha. A projeção pública aceita somente jobs
 concluídos, parser e validador fixados, URL HTTPS, hash do PDF, hash do trecho e
 estágio `authorized`. Esses números ainda não provam empenho, liquidação,
@@ -232,26 +232,26 @@ liquidação e pagamento bloqueados para publicação territorial.
 ### Resultado do primeiro replay de reconciliação
 
 Em 14/08/2026, o workflow oficial reprocessou o Anexo I de 2026 e persistiu
-3.182 linhas de escopo privado. O diagnóstico das 27 autorizações destinadas a
+3.182 linhas de escopo privado. O diagnóstico das 34 autorizações destinadas a
 Barreiras encontrou:
 
-- 9 pares `matched_bidirectional_unique`, com uma ocorrência na LOA e uma na
+- 10 pares `matched_bidirectional_unique`, com uma ocorrência na LOA e uma na
   execução;
-- 17 casos `blocked_non_unique_loa_key`, nos quais a combinação publicada se
+- 21 casos `blocked_non_unique_loa_key`, nos quais a combinação publicada se
   repete de 2 a 76 vezes no anexo estadual;
-- 1 caso `not_found_in_execution_source`, com uma ocorrência na LOA e nenhuma
+- 3 casos `not_found_in_execution_source`, com uma ocorrência na LOA e nenhuma
   no retrato de execução;
-- nenhum caso de duplicidade no lado da execução entre as 27 autorizações.
+- nenhum caso de duplicidade no lado da execução entre as 34 autorizações.
 
 A view `territory.bahia_state_loa_execution_reconciliation` é privada e não é
 exposta pelo PostgREST. Mesmo internamente, empenhado, liquidado, pago e a
-evidência da execução são retornados somente nos nove pares únicos. Nos outros
-18 registros, esses campos permanecem nulos e o status explica o bloqueio. A
+evidência da execução são retornados somente nos dez pares únicos. Nos outros
+24 registros, esses campos permanecem nulos e o status explica o bloqueio. A
 projeção pública `api.get_public_bahia_state_loa_execution` conserva essa mesma
-regra: publica os estágios apenas nos nove pares e retorna valores nulos, nunca
+regra: publica os estágios apenas nos dez pares e retorna valores nulos, nunca
 zero fabricado, nos demais. A função de resumo calcula os totais em SQL e
-separa explicitamente o total autorizado nas 27 emendas do universo comparável
-das nove ligações confirmadas. A interface não produz ranking de execução com
+separa explicitamente o total autorizado nas 34 emendas do universo comparável
+das dez ligações confirmadas. A interface não produz ranking de execução com
 essa cobertura parcial.
 
 Para manter a consulta pública previsível, o resultado dessa view é copiado
