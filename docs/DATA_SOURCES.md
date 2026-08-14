@@ -93,6 +93,11 @@ grande ou lento não impede a atualização pública do estado da fonte.
 - o HTML é preservado como `raw.raw_artifact` por SHA-256 e cada publicação
   como `barreiras_diario_publication`, permitindo corrigir a projeção sem
   alterar o histórico bruto;
+- cada consulta diária ao catálogo abre uma execução controlada antes da
+  autenticação e do HTTP. O retrato só atualiza a saúde da fonte depois que o
+  HTML e todas as publicações validadas são preservados; falha de autenticação,
+  rede ou persistência permanece registrada como falha, nunca como catálogo
+  vazio;
 - cada publicação do catálogo ainda sem documento preservado vira um alvo
   explícito de coleta. Uma numeração ausente não interrompe as edições
   posteriores conhecidas;
