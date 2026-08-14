@@ -97,9 +97,10 @@ test("revisão de alias não confunde parâmetro e coluna review_note", () => {
   assert.match(aliasReviewFix, /update political\.representative_alias_suggestions as suggestion_row/);
 });
 
-test("perfil federal recebe resumo de emendas somente por identificador aprovado", () => {
-  assert.match(representativesPage, /getPublicParliamentaryTransferRankings/);
-  assert.match(representativesPage, /transferSummaryForRepresentative/);
-  assert.match(representativesPage, /Recursos destinados a Barreiras/);
+test("perfil federal recebe resumo da legislatura somente por identificador aprovado", () => {
+  assert.match(representativesPage, /getPublicParliamentaryLegislatureRankings/);
+  assert.match(representativesPage, /legislatureRankingForRepresentative/);
+  assert.match(representativesPage, /Emendas encontradas na legislatura atual/);
+  assert.match(representativesPage, /currentDate/);
   assert.match(representativesPage, /id={`federal-\${person\.externalId}`}/);
 });

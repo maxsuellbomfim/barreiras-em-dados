@@ -47,9 +47,20 @@ export type ParliamentaryLegislatureRankingGroup = Readonly<{
   rankings: readonly ParliamentaryLegislatureRankingRow[];
 }>;
 
+export type ParliamentaryRepresentativeLegislatureRanking = Readonly<{
+  group: ParliamentaryLegislatureRankingGroup;
+  row: ParliamentaryLegislatureRankingRow;
+}>;
+
 export function parseParliamentaryLegislatureRankingRows(
   rows: unknown,
 ): ParliamentaryLegislatureRankingRow[] | null;
 export function groupParliamentaryLegislatureRankings(
   rows: readonly ParliamentaryLegislatureRankingRow[],
 ): ParliamentaryLegislatureRankingGroup[];
+export function legislatureRankingForRepresentative(
+  groups: readonly ParliamentaryLegislatureRankingGroup[],
+  representativeSourceKind: ParliamentaryLegislatureSphere,
+  representativeExternalId: string,
+  currentDate: string,
+): ParliamentaryRepresentativeLegislatureRanking | null;

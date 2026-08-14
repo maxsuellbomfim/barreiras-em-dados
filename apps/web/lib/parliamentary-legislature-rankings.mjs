@@ -264,3 +264,36 @@ export function groupParliamentaryLegislatureRankings(rows) {
       right.legislatureNumber - left.legislatureNumber
     );
 }
+
+export function legislatureRankingForRepresentative(
+  groups,
+  representativeSourceKind,
+  representativeExternalId,
+  currentDate,
+) {
+  const normalizedExternalId = text(representativeExternalId);
+  const normalizedDate = date(currentDate);
+  if (
+    !SOURCE_KINDS.has(representativeSourceKind) ||
+    !normalizedExternalId ||
+    !normalizedDate ||
+    !Array.isArray(groups)
+  ) return null;
+
+  const matches = groups.flatMap((group) => {
+    if (
+      group?.sphere !== representativeSourceKind ||
+      group.beginsOn > normalizedDate ||
+      group.endsOn < normalizedDate ||
+      !Array.isArray(group.rankings)
+    ) return [];
+    return group.rankings
+      .filter((row) =>
+        row.associationStatus === "approved_official_crosswalk" &&
+        row.representativeSourceKind === representativeSourceKind &&
+        row.representativeExternalId === normalizedExternalId
+      )
+      .map((row) => ({ group, row }));
+  });
+  return matches.length === 1 ? matches[0] : null;
+}

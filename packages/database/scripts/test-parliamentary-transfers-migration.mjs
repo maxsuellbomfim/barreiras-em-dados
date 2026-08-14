@@ -1371,6 +1371,91 @@ try {
     `),
     /limite de contribuicoes deve estar entre 1 e 100/,
   );
+  const legislatureCoverage = await database.query(`
+    select sphere, legislature_number, contribution_count, author_count,
+      linked_author_count, unlinked_author_count,
+      beneficiary_field_status, with_beneficiary_count,
+      liquidated_field_status, with_liquidated_count,
+      execution_confirmed_count, execution_unresolved_count,
+      primary_evidence_count, methodology_version
+    from api.get_public_parliamentary_legislature_coverage(null, null)
+    order by case sphere when 'state' then 0 else 1 end,
+      legislature_number desc
+  `);
+  assert.deepEqual(legislatureCoverage.rows, [
+    {
+      sphere: "state",
+      legislature_number: 20,
+      contribution_count: 3,
+      author_count: 3,
+      linked_author_count: 2,
+      unlinked_author_count: 1,
+      beneficiary_field_status: "not_published_in_source",
+      with_beneficiary_count: null,
+      liquidated_field_status: "published_by_source",
+      with_liquidated_count: 1,
+      execution_confirmed_count: 1,
+      execution_unresolved_count: 2,
+      primary_evidence_count: 3,
+      methodology_version: "parliamentary-legislature-coverage/1.0.0",
+    },
+    {
+      sphere: "state",
+      legislature_number: 19,
+      contribution_count: 1,
+      author_count: 1,
+      linked_author_count: 1,
+      unlinked_author_count: 0,
+      beneficiary_field_status: "not_published_in_source",
+      with_beneficiary_count: null,
+      liquidated_field_status: "published_by_source",
+      with_liquidated_count: 0,
+      execution_confirmed_count: 0,
+      execution_unresolved_count: 1,
+      primary_evidence_count: 1,
+      methodology_version: "parliamentary-legislature-coverage/1.0.0",
+    },
+    {
+      sphere: "federal",
+      legislature_number: 57,
+      contribution_count: 1,
+      author_count: 1,
+      linked_author_count: 1,
+      unlinked_author_count: 0,
+      beneficiary_field_status: "published_by_source",
+      with_beneficiary_count: 1,
+      liquidated_field_status: "not_published_in_source",
+      with_liquidated_count: null,
+      execution_confirmed_count: 1,
+      execution_unresolved_count: 0,
+      primary_evidence_count: 1,
+      methodology_version: "parliamentary-legislature-coverage/1.0.0",
+    },
+    {
+      sphere: "federal",
+      legislature_number: 56,
+      contribution_count: 2,
+      author_count: 1,
+      linked_author_count: 0,
+      unlinked_author_count: 1,
+      beneficiary_field_status: "published_by_source",
+      with_beneficiary_count: 2,
+      liquidated_field_status: "not_published_in_source",
+      with_liquidated_count: null,
+      execution_confirmed_count: 0,
+      execution_unresolved_count: 2,
+      primary_evidence_count: 2,
+      methodology_version: "parliamentary-legislature-coverage/1.0.0",
+    },
+  ]);
+  await assert.rejects(
+    database.query(`
+      select * from api.get_public_parliamentary_legislature_coverage(
+        'municipal', null
+      )
+    `),
+    /esfera legislativa deve ser federal ou state/,
+  );
   const legislatureRankings = await database.query(`
     select sphere, legislature_number, rank_position, author_key,
       representative_source_kind, association_status, amendment_count,

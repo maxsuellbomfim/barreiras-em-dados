@@ -25,11 +25,8 @@ import {
   type ExecutiveProfile,
 } from "../../lib/executive-profiles";
 import {
-  getPublicParliamentaryTransferRankings,
   getPublicStateLoaRepresentativeContributions,
   parliamentaryTransferAuthorAnchor,
-  transferSummaryForRepresentative,
-  type ParliamentaryTransferRanking,
   type StateLoaRepresentativeContribution,
 } from "../../lib/parliamentary-transfers";
 import { stateLoaContributionsForRepresentative } from
@@ -37,6 +34,12 @@ import { stateLoaContributionsForRepresentative } from
 import { formatBrlDecimal } from "../../lib/revenues";
 import { getPublicParliamentaryLegislatureRankings } from
   "../../lib/legislature-transfer-rankings";
+import { getPublicParliamentaryLegislatureCoverage } from
+  "../../lib/legislature-transfer-coverage";
+import {
+  legislatureRankingForRepresentative,
+  type ParliamentaryRepresentativeLegislatureRanking,
+} from "../../lib/parliamentary-legislature-rankings.mjs";
 import LegislatureTransferRankings from "./legislature-transfer-rankings";
 
 export const revalidate = 300;
@@ -59,37 +62,52 @@ function countLabel(count: number | null): string {
   return count === null ? "—" : count.toLocaleString("pt-BR");
 }
 
-function RepresentativeTransferSummary({
-  summary,
-}: Readonly<{ summary: ParliamentaryTransferRanking | null }>) {
-  if (!summary) return null;
+function CurrentLegislatureContributionSummary({
+  contribution,
+}: Readonly<{
+  contribution: ParliamentaryRepresentativeLegislatureRanking | null;
+}>) {
+  if (!contribution) return null;
+  const { group, row } = contribution;
+  if (
+    row.rankPosition === null || row.authorKey === null ||
+    row.amendmentCount === null || row.rankingAmount === null
+  ) return null;
+  const rankingStage = group.rankingAmountStage === "destination"
+    ? "Destinado a Barreiras"
+    : "Autorizado na LOA para Barreiras";
   return (
-    <div className="person-vote-summary person-transfer-summary" aria-label="Emendas para Barreiras">
+    <div className="person-vote-summary person-transfer-summary" aria-label="Emendas da legislatura atual para Barreiras">
       <div className="person-vote-summary-heading">
-        <strong>Recursos destinados a Barreiras</strong>
-        <span className="person-vote-summary-badge">autoria confirmada</span>
+        <strong>Emendas encontradas na legislatura atual</strong>
+        <span className="person-vote-summary-badge">
+          {row.rankPosition}º no recorte
+        </span>
       </div>
       <ul>
         <li>
-          <span>Valor destinado</span>
-          <strong>{formatBrlDecimal(summary.destinationAmount)}</strong>
+          <span>{rankingStage}</span>
+          <strong>{formatBrlDecimal(row.rankingAmount)}</strong>
         </li>
         <li>
           <span>Pagamento confirmado</span>
           <strong>
-            {summary.paidAmount === null
+            {row.paidAmount === null
               ? "não encontrado na fonte"
-              : formatBrlDecimal(summary.paidAmount)}
+              : formatBrlDecimal(row.paidAmount)}
           </strong>
         </li>
         <li>
           <span>Emendas no recorte</span>
-          <strong>{summary.amendmentCount.toLocaleString("pt-BR")}</strong>
+          <strong>{row.amendmentCount.toLocaleString("pt-BR")}</strong>
         </li>
       </ul>
-      <p>Valores oficiais por estágio; recurso destinado não significa recurso pago.</p>
-      <a href={`/recursos#${parliamentaryTransferAuthorAnchor(summary.authorKey)}`}>
-        Ver emendas e documentos →
+      <p>
+        {group.legislatureLabel}. O ranking compara apenas o recorte encontrado
+        nas fontes; autorização ou destinação não significa pagamento.
+      </p>
+      <a href={`/representantes/emendas/${group.sphere}/${group.legislatureNumber}/${encodeURIComponent(row.authorKey)}`}>
+        Ver emendas, valores e documentos →
       </a>
     </div>
   );
@@ -182,12 +200,12 @@ function StateLoaContributionTimeline({
 function RepresentativeCard({
   person,
   voteLinks,
-  transferSummary,
+  legislatureContribution,
   stateLoaContributions,
 }: Readonly<{
   person: FederalRepresentative;
   voteLinks: readonly RepresentativeVote[];
-  transferSummary: ParliamentaryTransferRanking | null;
+  legislatureContribution: ParliamentaryRepresentativeLegislatureRanking | null;
   stateLoaContributions: readonly StateLoaRepresentativeContribution[];
 }>) {
   const camaraUrl = `https://www.camara.leg.br/deputados/${person.externalId}`;
@@ -273,7 +291,7 @@ function RepresentativeCard({
         }}
         votes={voteLinks}
       />
-      <RepresentativeTransferSummary summary={transferSummary} />
+      <CurrentLegislatureContributionSummary contribution={legislatureContribution} />
       <StateLoaContributionTimeline rows={stateLoaContributions} />
 
       <p className="act-evidence">
@@ -355,12 +373,12 @@ function CouncillorCard({
 function StateRepresentativeCard({
   person,
   voteLinks,
-  transferSummary,
+  legislatureContribution,
   stateLoaContributions,
 }: Readonly<{
   person: StateRepresentative;
   voteLinks: readonly RepresentativeVote[];
-  transferSummary: ParliamentaryTransferRanking | null;
+  legislatureContribution: ParliamentaryRepresentativeLegislatureRanking | null;
   stateLoaContributions: readonly StateLoaRepresentativeContribution[];
 }>) {
   const initials = person.displayName
@@ -409,7 +427,7 @@ function StateRepresentativeCard({
         }}
         votes={voteLinks}
       />
-      <RepresentativeTransferSummary summary={transferSummary} />
+      <CurrentLegislatureContributionSummary contribution={legislatureContribution} />
       <StateLoaContributionTimeline rows={stateLoaContributions} />
       {person.education || person.professionalActivity || person.electiveMandate || person.parliamentaryActivity ? (
         <details className="person-biography">
@@ -621,9 +639,9 @@ export default async function RepresentativesPage() {
     votesResult,
     executiveProfilesResult,
     representativeVotesResult,
-    transferRankingsResult,
     stateLoaContributionsResult,
     legislatureRankingsResult,
+    legislatureCoverageResult,
   ] = await Promise.all([
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
@@ -631,18 +649,14 @@ export default async function RepresentativesPage() {
     getTseBarreirasVotes(),
     getExecutiveProfiles(),
     getRepresentativeVotes(),
-    getPublicParliamentaryTransferRankings(),
     getPublicStateLoaRepresentativeContributions(),
     getPublicParliamentaryLegislatureRankings(),
+    getPublicParliamentaryLegislatureCoverage(),
   ]);
   const legacyVotes = votesResult.state === "available" ? votesResult.votes : [];
   const representativeVotes =
     representativeVotesResult.state === "available"
       ? representativeVotesResult.votes
-      : [];
-  const transferRankings =
-    transferRankingsResult.state === "available"
-      ? transferRankingsResult.people
       : [];
   const stateLoaContributions =
     stateLoaContributionsResult.state === "available"
@@ -652,6 +666,11 @@ export default async function RepresentativesPage() {
     legislatureRankingsResult.state === "available"
       ? legislatureRankingsResult.groups
       : null;
+  const legislatureCoverage =
+    legislatureCoverageResult.state === "available"
+      ? legislatureCoverageResult.rows
+      : null;
+  const currentDate = new Date().toISOString().slice(0, 10);
 
   return (
     <main>
@@ -748,7 +767,10 @@ export default async function RepresentativesPage() {
           </div>
         </div>
 
-        <LegislatureTransferRankings groups={legislatureRankingGroups} />
+        <LegislatureTransferRankings
+          coverage={legislatureCoverage}
+          groups={legislatureRankingGroups}
+        />
 
         <div id="executivo" className="representation-block representation-block-municipal-leadership">
           <section aria-labelledby="executive-title">
@@ -959,10 +981,11 @@ export default async function RepresentativesPage() {
                         "state",
                         person.externalId,
                       )}
-                      transferSummary={transferSummaryForRepresentative(
-                        transferRankings,
+                      legislatureContribution={legislatureRankingForRepresentative(
+                        legislatureRankingGroups ?? [],
                         "state",
                         person.externalId,
+                        currentDate,
                       )}
                       stateLoaContributions={stateLoaContributionsForRepresentative(
                         stateLoaContributions,
@@ -1032,10 +1055,11 @@ export default async function RepresentativesPage() {
                         "federal",
                         person.externalId,
                       )}
-                      transferSummary={transferSummaryForRepresentative(
-                        transferRankings,
+                      legislatureContribution={legislatureRankingForRepresentative(
+                        legislatureRankingGroups ?? [],
                         "federal",
                         person.externalId,
+                        currentDate,
                       )}
                       stateLoaContributions={stateLoaContributionsForRepresentative(
                         stateLoaContributions,
