@@ -1,6 +1,11 @@
 "use client";
 
 import { formatBackfillProgress } from "./collection-backfill.mjs";
+import {
+  formatFreshnessPolicy,
+  formatFreshnessStatus,
+  freshnessRequiresAttention,
+} from "./collection-freshness.mjs";
 
 export type CollectionHealthItem = Readonly<{
   endpoint_id: string;
@@ -44,6 +49,17 @@ export type CollectionHealthItem = Readonly<{
   latest_successful_period_end: string | null;
   latest_successful_observed_records: number | null;
   latest_successful_completed_at: string | null;
+  freshness_policy_kind: "scheduled" | "publication_driven" | "manual";
+  freshness_expected_hours: number | null;
+  freshness_grace_hours: number;
+  freshness_policy_note: string;
+  freshness_due_at: string | null;
+  freshness_status:
+    | "current"
+    | "overdue"
+    | "never_updated"
+    | "not_monitored";
+  freshness_overdue_hours: number | null;
   backfill_horizon: string | null;
   continuous_coverage_start: string | null;
   continuous_coverage_end: string | null;
@@ -79,7 +95,6 @@ function healthLabel(
 }
 
 function healthTone(item: CollectionHealthItem): string {
-  if (item.latest_partition_status === null) return "unknown";
   if (
     item.latest_partition_status === "failed" ||
     item.latest_partition_status === "blocked"
@@ -89,10 +104,12 @@ function healthTone(item: CollectionHealthItem): string {
   if (
     item.latest_partition_status === "partial" ||
     item.unresolved_failures > 0 ||
-    item.source_status === "degraded"
+    item.source_status === "degraded" ||
+    freshnessRequiresAttention(item)
   ) {
     return "attention";
   }
+  if (item.latest_partition_status === null) return "unknown";
   return "healthy";
 }
 
@@ -162,6 +179,9 @@ export function CollectionHealth({
   const withoutCoverage = items.filter(
     (item) => item.latest_partition_status === null,
   ).length;
+  const overdueUpdates = items.filter(
+    (item) => item.freshness_status === "overdue",
+  ).length;
   const requiringAttention = items.filter((item) => {
     const tone = healthTone(item);
     return tone === "failed" || tone === "attention";
@@ -204,6 +224,10 @@ export function CollectionHealth({
             <div>
               <dt>Sem cobertura registrada</dt>
               <dd>{withoutCoverage.toLocaleString("pt-BR")}</dd>
+            </div>
+            <div>
+              <dt>Atualizações atrasadas</dt>
+              <dd>{overdueUpdates.toLocaleString("pt-BR")}</dd>
             </div>
             <div>
               <dt>Requerem atenção</dt>
@@ -295,6 +319,19 @@ function CollectionHealthCard({
           </dd>
         </div>
         <div>
+          <dt>Prazo operacional</dt>
+          <dd>{formatFreshnessPolicy(item)}</dd>
+        </div>
+        <div>
+          <dt>Situação do prazo</dt>
+          <dd>
+            {formatFreshnessStatus(item)}
+            {item.freshness_due_at && item.freshness_status === "current"
+              ? ` · próxima até ${new Date(item.freshness_due_at).toLocaleString("pt-BR")}`
+              : ""}
+          </dd>
+        </div>
+        <div>
           <dt>Defasagem da fonte</dt>
           <dd>{formatLag(item)}</dd>
         </div>
@@ -314,6 +351,9 @@ function CollectionHealthCard({
         {item.partial_partitions.toLocaleString("pt-BR")} parciais ·{" "}
         {item.failed_partitions.toLocaleString("pt-BR")} falhas ·{" "}
         {item.blocked_partitions.toLocaleString("pt-BR")} bloqueadas
+      </p>
+      <p className="source-health-policy-note">
+        {item.freshness_policy_note}
       </p>
       {backfill ? (
         <section

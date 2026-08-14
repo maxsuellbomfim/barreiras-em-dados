@@ -53,3 +53,11 @@ test("painel separa ultima tentativa da ultima atualizacao valida", () => {
   assert.match(component, /Última atualização válida/);
   assert.match(component, /Tentativa mais recente/);
 });
+
+test("painel mostra alertas de atualidade sem chamar fonte sazonal de atrasada", () => {
+  assert.match(component, /Atualizações atrasadas/);
+  assert.match(component, /Prazo operacional/);
+  assert.match(component, /Situação do prazo/);
+  assert.match(component, /formatFreshnessStatus/);
+  assert.match(component, /not_monitored/);
+});

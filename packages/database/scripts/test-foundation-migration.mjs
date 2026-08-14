@@ -611,6 +611,10 @@ try {
     database.query("select * from api.get_collection_health_v2(200)"),
     /acesso restrito a revisores ativos/,
   );
+  await assert.rejects(
+    database.query("select * from api.get_collection_health_v3(200)"),
+    /acesso restrito a revisores ativos/,
+  );
 
   await database.exec(`
     insert into audit.reviewer_identities (
@@ -681,6 +685,48 @@ try {
       'failed', 0, '00000000-0000-0000-0000-000000000415',
       '2026-08-12 10:01:00+00'
     );
+
+    insert into source.source_endpoints (
+      id, data_source_id, slug, endpoint_kind, base_url, enabled,
+      freshness_policy_kind, freshness_expected_hours,
+      freshness_grace_hours, freshness_policy_note,
+      freshness_policy_version
+    ) values (
+      '00000000-0000-4000-8000-000000000417',
+      (select id from source.data_sources where slug = 'querido-diario'),
+      'freshness-current-test', 'api',
+      'https://api.queridodiario.ok.org.br/freshness-test', true,
+      'scheduled', 24, 24,
+      'Fixture diária com tolerância operacional.',
+      'source-freshness/1.0.0'
+    );
+
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version,
+      parser_version, collection_window_start, collection_window_end,
+      status, attempt_count, started_at, completed_at
+    ) values (
+      '00000000-0000-0000-0000-000000000418',
+      '00000000-0000-4000-8000-000000000417',
+      '${"d".repeat(64)}', 'test/freshness', 'parser/1',
+      statement_timestamp() - interval '2 hours',
+      statement_timestamp() - interval '1 hour',
+      'succeeded', 1, statement_timestamp() - interval '70 minutes',
+      statement_timestamp() - interval '1 hour'
+    );
+
+    insert into source.collection_partitions (
+      id, source_endpoint_id, partition_key, period_start, period_end,
+      status, observed_records, collection_run_id, last_attempted_at,
+      completed_at
+    ) values (
+      '00000000-0000-0000-0000-000000000419',
+      '00000000-0000-4000-8000-000000000417',
+      'freshness-current', current_date, current_date, 'complete', 1,
+      '00000000-0000-0000-0000-000000000418',
+      statement_timestamp() - interval '1 hour',
+      statement_timestamp() - interval '1 hour'
+    );
   `);
 
   await assert.rejects(
@@ -695,6 +741,10 @@ try {
   );
   await assert.rejects(
     database.query("select * from api.get_collection_health_v2(200)"),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query("select * from api.get_collection_health_v3(200)"),
     /permission denied/,
   );
   await database.exec("reset role;");
@@ -737,6 +787,50 @@ try {
       methodology_version: "collection-health/1.2.0",
     },
   ]);
+
+  await database.exec("set role authenticated;");
+  const collectionFreshness = await database.query(`
+    select
+      endpoint_slug,
+      freshness_policy_kind,
+      freshness_expected_hours,
+      freshness_grace_hours,
+      freshness_status,
+      (freshness_overdue_hours > 0) as freshness_overdue,
+      methodology_version
+    from api.get_collection_health_v3(200)
+    where endpoint_slug in ('gazettes-api', 'freshness-current-test')
+    order by endpoint_slug
+  `);
+  await database.exec("reset role;");
+  assert.deepEqual(collectionFreshness.rows, [
+    {
+      endpoint_slug: "freshness-current-test",
+      freshness_policy_kind: "scheduled",
+      freshness_expected_hours: 24,
+      freshness_grace_hours: 24,
+      freshness_status: "current",
+      freshness_overdue: false,
+      methodology_version: "collection-health/1.3.0",
+    },
+    {
+      endpoint_slug: "gazettes-api",
+      freshness_policy_kind: "scheduled",
+      freshness_expected_hours: 24,
+      freshness_grace_hours: 24,
+      freshness_status: "overdue",
+      freshness_overdue: true,
+      methodology_version: "collection-health/1.3.0",
+    },
+  ]);
+  await database.exec(`
+    delete from source.collection_partitions
+    where source_endpoint_id = '00000000-0000-4000-8000-000000000417';
+    delete from source.collection_runs
+    where source_endpoint_id = '00000000-0000-4000-8000-000000000417';
+    delete from source.source_endpoints
+    where id = '00000000-0000-4000-8000-000000000417';
+  `);
 
   const queridoDiarioBackfill = await database.query(`
     select row_to_json(health) as health
