@@ -84,6 +84,9 @@ try {
         as reconciled_transfer_projection,
       to_regclass('territory.bahia_state_loa_execution_reconciliation')::text
         as state_loa_execution_reconciliation,
+      to_regclass(
+        'territory.bahia_state_loa_execution_reconciliation_snapshot'
+      )::text as state_loa_execution_reconciliation_snapshot,
       to_regclass('political.parliamentary_transfer_author_crosswalk')::text
         as author_crosswalk,
       to_regclass('raw.raw_records_transferegov_latest_idx')::text as latest_index,
@@ -129,6 +132,9 @@ try {
       to_regprocedure(
         'api.get_public_bahia_state_loa_representative_contributions(integer)'
       )::text as state_loa_representative_contributions_rpc,
+      to_regprocedure(
+        'territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()'
+      )::text as state_loa_execution_snapshot_refresh,
       has_schema_privilege('anon', 'territory', 'USAGE') as anon_territory_usage,
       has_function_privilege(
         'anon',
@@ -194,7 +200,17 @@ try {
         'anon',
         'api.get_public_bahia_state_loa_representative_contributions(integer)',
         'EXECUTE'
-      ) as anon_state_loa_representative_contributions_rpc
+      ) as anon_state_loa_representative_contributions_rpc,
+      has_function_privilege(
+        'anon',
+        'territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()',
+        'EXECUTE'
+      ) as anon_state_loa_execution_snapshot_refresh,
+      has_function_privilege(
+        'collector_worker',
+        'territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()',
+        'EXECUTE'
+      ) as worker_state_loa_execution_snapshot_refresh
   `);
   assert.deepEqual(contracts.rows, [{
     transfer_projection: "territory.parliamentary_transfers",
@@ -206,6 +222,8 @@ try {
       "territory.reconciled_parliamentary_transfers",
     state_loa_execution_reconciliation:
       "territory.bahia_state_loa_execution_reconciliation",
+    state_loa_execution_reconciliation_snapshot:
+      "territory.bahia_state_loa_execution_reconciliation_snapshot",
     author_crosswalk: "political.parliamentary_transfer_author_crosswalk",
     latest_index: "raw.raw_records_transferegov_latest_idx",
     proposal_index: "raw.raw_records_transferegov_proposal_idx",
@@ -235,6 +253,8 @@ try {
       "api.get_public_bahia_state_loa_execution_summary(smallint)",
     state_loa_representative_contributions_rpc:
       "api.get_public_bahia_state_loa_representative_contributions(integer)",
+    state_loa_execution_snapshot_refresh:
+      "territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()",
     anon_territory_usage: false,
     anon_ranking_rpc: true,
     anon_detail_rpc: true,
@@ -249,7 +269,34 @@ try {
     anon_state_loa_execution_rpc: true,
     anon_state_loa_execution_summary_rpc: true,
     anon_state_loa_representative_contributions_rpc: true,
+    anon_state_loa_execution_snapshot_refresh: false,
+    worker_state_loa_execution_snapshot_refresh: true,
   }]);
+
+  const stateLoaPublicFunctionDefinitions = await database.query(`
+    select proname, pg_get_functiondef(procedure.oid) as definition
+    from pg_proc as procedure
+    join pg_namespace as namespace on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'api'
+      and procedure.proname in (
+        'get_public_bahia_state_loa_execution',
+        'get_public_bahia_state_loa_execution_summary',
+        'get_public_bahia_state_loa_representative_contributions'
+      )
+    order by proname
+  `);
+  for (const row of stateLoaPublicFunctionDefinitions.rows) {
+    assert.match(
+      row.definition,
+      /territory\.bahia_state_loa_execution_reconciliation_snapshot/,
+      `${row.proname} deve ler a projecao materializada`,
+    );
+    assert.doesNotMatch(
+      row.definition,
+      /from territory\.bahia_state_loa_execution_reconciliation as reconciliation/,
+      `${row.proname} nao pode recalcular JSON bruto em requisicao publica`,
+    );
+  }
 
   await database.exec(`
     insert into source.collection_runs (
@@ -861,6 +908,29 @@ try {
     },
   ]);
 
+  const refreshedStateExecutionSnapshot = await database.query(`
+    select territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()
+      as refreshed_rows
+  `);
+  assert.deepEqual(refreshedStateExecutionSnapshot.rows, [{ refreshed_rows: 5 }]);
+  const stateExecutionSnapshot = await database.query(`
+    select amendment_number, reconciliation_status,
+      committed_amount, liquidated_amount, paid_amount
+    from territory.bahia_state_loa_execution_reconciliation_snapshot
+    order by amendment_number
+  `);
+  assert.equal(stateExecutionSnapshot.rows.length, 5);
+  assert.deepEqual(
+    stateExecutionSnapshot.rows.find((row) => row.amendment_number === "102"),
+    {
+      amendment_number: "102",
+      reconciliation_status: "matched_bidirectional_unique",
+      committed_amount: "150000.00",
+      liquidated_amount: "100000.00",
+      paid_amount: "90000.00",
+    },
+  );
+
   const publicStateExecution = await database.query(`
     select amendment_number, execution_status,
       loa_scope_occurrences, execution_occurrences,
@@ -977,7 +1047,7 @@ try {
       paid_amount: null,
       blocked_amendment_count: 1,
       methodology_version:
-        "bahia-state-loa-representative-contributions/1.0.0",
+        "bahia-state-loa-representative-contributions/1.0.1",
     },
     {
       representative_source_kind: "state",
@@ -994,7 +1064,7 @@ try {
       paid_amount: "90000.00",
       blocked_amendment_count: 0,
       methodology_version:
-        "bahia-state-loa-representative-contributions/1.0.0",
+        "bahia-state-loa-representative-contributions/1.0.1",
     },
     {
       representative_source_kind: "state",
@@ -1011,7 +1081,7 @@ try {
       paid_amount: null,
       blocked_amendment_count: 1,
       methodology_version:
-        "bahia-state-loa-representative-contributions/1.0.0",
+        "bahia-state-loa-representative-contributions/1.0.1",
     },
     {
       representative_source_kind: "state",
@@ -1028,7 +1098,7 @@ try {
       paid_amount: null,
       blocked_amendment_count: 1,
       methodology_version:
-        "bahia-state-loa-representative-contributions/1.0.0",
+        "bahia-state-loa-representative-contributions/1.0.1",
     },
   ]);
 
@@ -1648,6 +1718,18 @@ try {
   await assert.rejects(
     database.query(
       "select * from territory.bahia_state_loa_execution_reconciliation",
+    ),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from territory.bahia_state_loa_execution_reconciliation_snapshot",
+    ),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()",
     ),
     /permission denied/,
   );

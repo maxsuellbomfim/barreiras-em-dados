@@ -65,6 +65,8 @@ class RecordingConnection:
             return Cursor(row=self.existing_page_row)
         if "insert into raw.extraction_jobs" in normalized:
             return Cursor(row=self.job_row)
+        if "refresh_bahia_state_loa_execution_reconciliation_snapshot" in normalized:
+            return Cursor(row={"refreshed_rows": 5})
         return Cursor()
 
     def transaction(self):
@@ -256,6 +258,19 @@ class BahiaStateLoaRepositoryTests(unittest.TestCase):
 
         with self.assertRaisesRegex(LoaProcessingError, "pagina"):
             self.repository.persist_extraction(batch())
+
+    def test_refreshes_the_public_execution_snapshot_with_bounded_timeout(self) -> None:
+        refreshed_rows = self.repository.refresh_execution_snapshot()
+
+        self.assertEqual(refreshed_rows, 5)
+        queries = [query for query, _params in self.connection.queries]
+        self.assertIn("set local statement_timeout = '120s'", queries)
+        self.assertTrue(
+            any(
+                "refresh_bahia_state_loa_execution_reconciliation_snapshot" in query
+                for query in queries
+            )
+        )
 
 
 if __name__ == "__main__":
