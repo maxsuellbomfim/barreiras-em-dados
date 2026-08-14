@@ -454,6 +454,28 @@ try {
         '00000000-0000-0000-0000-000000009001',
         '{"fiscal_year":2025,"proposal_records":3}',
         '2026-08-12 18:00:00+00', '2026-08-12 18:00:01+00'
+      ),
+      (
+        (select endpoint.id
+         from source.source_endpoints endpoint
+         join source.data_sources source on source.id = endpoint.data_source_id
+         where source.slug = 'transferegov-parcerias'
+           and endpoint.slug = 'propostas-barreiras'),
+        'fiscal-year:2022', '2022-01-01', '2022-12-31', 'empty', 0,
+        '00000000-0000-0000-0000-000000009001',
+        '{"fiscal_year":2022,"proposal_records":0}',
+        '2026-08-12 18:10:00+00', '2026-08-12 18:10:01+00'
+      ),
+      (
+        (select endpoint.id
+         from source.source_endpoints endpoint
+         join source.data_sources source on source.id = endpoint.data_source_id
+         where source.slug = 'transferegov-parcerias'
+           and endpoint.slug = 'propostas-barreiras'),
+        'fiscal-year:2026', '2026-01-01', '2026-12-31', 'failed', 0,
+        '00000000-0000-0000-0000-000000009001',
+        '{"fiscal_year":2026,"proposal_records":0}',
+        '2026-08-12 18:20:00+00', null
       );
     insert into raw.raw_artifacts (
       id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
@@ -744,6 +766,33 @@ try {
          and endpoint.slug = 'state-loa-amendment-annexes'),
       'state-loa-public-fixture-run', 'test/1', 'succeeded'
     );
+    insert into source.collection_partitions (
+      source_endpoint_id, partition_key, period_start, period_end, status,
+      observed_records, collection_run_id, checkpoint, block_reason,
+      last_attempted_at, completed_at
+    ) values
+      (
+        (select endpoint.id
+         from source.source_endpoints endpoint
+         join source.data_sources source on source.id = endpoint.data_source_id
+         where source.slug = 'bahia-seplan-budget'
+           and endpoint.slug = 'state-loa-amendment-annexes'),
+        'loa-annex:2021', '2021-01-01', '2021-12-31', 'blocked', 0,
+        '00000000-0000-0000-0000-000000009301',
+        '{"fiscal_year":2021}', 'link oficial aponta para o ano errado',
+        '2026-08-13 17:00:00+00', '2026-08-13 17:00:01+00'
+      ),
+      (
+        (select endpoint.id
+         from source.source_endpoints endpoint
+         join source.data_sources source on source.id = endpoint.data_source_id
+         where source.slug = 'bahia-seplan-budget'
+           and endpoint.slug = 'state-loa-amendment-annexes'),
+        'loa-annex:2024', '2024-01-01', '2024-12-31', 'complete', 1,
+        '00000000-0000-0000-0000-000000009301',
+        '{"fiscal_year":2024}', null,
+        '2026-08-13 17:10:00+00', '2026-08-13 17:10:01+00'
+      );
     insert into raw.raw_artifacts (
       id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
       source_url, retrieved_at, byte_size, sha256, object_key, collector_version
@@ -1546,11 +1595,19 @@ try {
       count(*)::integer as expected_year_count,
       count(*) filter (where observation_status = 'observed')::integer
         as observed_year_count,
-      count(*) filter (where observation_status = 'not_observed')::integer
-        as not_observed_year_count,
+      count(*) filter (where observation_status = 'source_empty')::integer
+        as source_empty_year_count,
+      count(*) filter (where observation_status = 'collection_incomplete')::integer
+        as collection_incomplete_year_count,
+      count(*) filter (where observation_status = 'source_blocked')::integer
+        as source_blocked_year_count,
+      count(*) filter (where observation_status = 'collected_no_record')::integer
+        as collected_no_record_year_count,
+      count(*) filter (where observation_status = 'not_collected')::integer
+        as not_collected_year_count,
       bool_and(
         (observation_status = 'observed' and contribution_count > 0)
-        or (observation_status = 'not_observed' and contribution_count = 0)
+        or (observation_status <> 'observed' and contribution_count = 0)
       ) as statuses_are_coherent,
       bool_and(author_count <= contribution_count) as authors_are_coherent,
       bool_and(primary_evidence_count <= contribution_count)
@@ -1560,7 +1617,11 @@ try {
   assert.deepEqual(legislatureYearCoverage.rows, [{
     expected_year_count: 12,
     observed_year_count: 4,
-    not_observed_year_count: 8,
+    source_empty_year_count: 1,
+    collection_incomplete_year_count: 1,
+    source_blocked_year_count: 1,
+    collected_no_record_year_count: 1,
+    not_collected_year_count: 4,
     statuses_are_coherent: true,
     authors_are_coherent: true,
     evidence_is_coherent: true,
@@ -1921,10 +1982,10 @@ try {
     },
     {
       fiscal_year: 2022,
-      coverage_status: "unclassified",
-      proposal_count: null,
-      published_amendment_count: null,
-      last_attempted_at: null,
+      coverage_status: "empty",
+      proposal_count: 0,
+      published_amendment_count: 0,
+      last_attempted_at: "2026-08-12T18:10:00Z",
       methodology_version: "parliamentary-transfer-coverage/1.0.0",
     },
     {

@@ -431,6 +431,25 @@ estágios financeiros, conciliações e evidências oficiais. Ela não declara q
 acervo está completo: descreve apenas o que foi observado nas fontes já
 preservadas. A interface informa essa ressalva junto ao ranking.
 
+A RPC anual `api.get_public_parliamentary_legislature_year_coverage` cruza os
+registros do ranking com o controle de coleta da fonte correspondente. A versão
+`parliamentary-legislature-year-coverage/1.1.0` distingue:
+
+- `observed`: há ao menos um registro individual com valor e evidência;
+- `source_empty`: a partição oficial foi consultada e não publicou registro no
+  recorte contratado;
+- `collection_incomplete`: a última coleta ficou parcial ou falhou;
+- `source_blocked`: a própria fonte apresenta impedimento documentado, como o
+  link da LOA 2021 que aponta para o arquivo de 2020;
+- `collected_no_record`: o documento foi preservado, mas nenhum registro
+  individual chegou ao ranking validado;
+- `not_collected`: não existe partição classificada para aquele ano.
+
+Somente `observed` possui contagem positiva. Todos os demais estados preservam
+contagem zero apenas como cardinalidade do ranking atual, nunca como afirmação
+de que o parlamentar destinou zero reais ou de que a fonte oficial não possui
+outros documentos.
+
 Campo não oferecido pela fonte permanece `null` e recebe o estado
 `not_published_in_source`. Em particular, o recorte federal atual não oferece
 liquidação individual nesse contrato, enquanto o anexo estadual não oferece um

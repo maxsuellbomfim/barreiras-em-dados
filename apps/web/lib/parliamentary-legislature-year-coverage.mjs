@@ -1,6 +1,29 @@
 const SPHERES = new Set(["federal", "state"]);
-const STATUSES = new Set(["observed", "not_observed"]);
-const METHOD = "parliamentary-legislature-year-coverage/1.0.0";
+const STATUSES = new Set([
+  "observed",
+  "not_observed",
+  "source_empty",
+  "collection_incomplete",
+  "source_blocked",
+  "collected_no_record",
+  "not_collected",
+]);
+const METHODS = new Set([
+  "parliamentary-legislature-year-coverage/1.0.0",
+  "parliamentary-legislature-year-coverage/1.1.0",
+]);
+const STATUS_DESCRIPTIONS = new Map([
+  ["observed", "dados encontrados"],
+  ["source_empty", "fonte consultada sem registro individual"],
+  ["collection_incomplete", "coleta incompleta ou com falha"],
+  ["source_blocked", "fonte oficial bloqueada para este ano"],
+  [
+    "collected_no_record",
+    "documento coletado, sem registro individual no ranking",
+  ],
+  ["not_collected", "ano ainda não coletado"],
+  ["not_observed", "registro individual ainda não observado"],
+]);
 
 function text(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -26,8 +49,8 @@ function parseRow(row) {
     primaryEvidenceCount === null || authorCount > contributionCount ||
     primaryEvidenceCount > contributionCount ||
     (observationStatus === "observed" && contributionCount === 0) ||
-    (observationStatus === "not_observed" && contributionCount !== 0) ||
-    row.methodology_version !== METHOD
+    (observationStatus !== "observed" && contributionCount !== 0) ||
+    !METHODS.has(row.methodology_version)
   ) return null;
   return {
     sphere,
@@ -37,7 +60,7 @@ function parseRow(row) {
     contributionCount,
     authorCount,
     primaryEvidenceCount,
-    methodologyVersion: METHOD,
+    methodologyVersion: row.methodology_version,
   };
 }
 
@@ -52,4 +75,8 @@ export function parseParliamentaryLegislatureYearCoverageRows(rows) {
     keys.add(key);
   }
   return parsed;
+}
+
+export function describeParliamentaryYearCoverageStatus(status) {
+  return STATUS_DESCRIPTIONS.get(status) ?? null;
 }
