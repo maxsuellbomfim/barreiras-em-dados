@@ -264,6 +264,12 @@ painel não herda sucesso da proposta nem confunde recurso não consultado com
 recurso oficialmente ausente. Ordens bancárias continuam como registros
 derivados da resposta oficial de ordens de pagamento, sem partição fictícia.
 
+O ranking por legislatura também expõe a situação anual da fonte. Ele separa
+ano com registro, partição oficialmente vazia, coleta incompleta, fonte
+bloqueada, documento coletado ainda sem linha validada e ano não coletado. Essa
+classificação explica a lacuna operacional; nenhuma dessas categorias autoriza
+publicar “R$ 0” como contribuição parlamentar.
+
 ### Downloads históricos de transferências discricionárias e legais
 
 O ambiente oficial de downloads expõe uma enumeração XML completa em
