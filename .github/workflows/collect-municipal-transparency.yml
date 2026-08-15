@@ -31,7 +31,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: collect-municipal-transparency-production
+  group: municipal-finance-collection-production
   cancel-in-progress: false
 
 jobs:

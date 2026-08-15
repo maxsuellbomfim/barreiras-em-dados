@@ -49,7 +49,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-financial-expenses-production
+  group: municipal-finance-publication-production
   cancel-in-progress: false
 
 jobs:
