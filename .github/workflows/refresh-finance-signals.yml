@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: refresh-finance-signals-production
+  group: municipal-finance-publication-production
   cancel-in-progress: false
 
 jobs:

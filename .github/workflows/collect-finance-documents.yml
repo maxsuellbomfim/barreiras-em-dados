@@ -76,7 +76,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: collect-finance-documents-production
+  group: municipal-finance-collection-production
   cancel-in-progress: false
 
 jobs:

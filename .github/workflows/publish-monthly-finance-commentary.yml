@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-monthly-finance-commentary-production
+  group: municipal-finance-publication-production
   cancel-in-progress: false
 
 jobs:

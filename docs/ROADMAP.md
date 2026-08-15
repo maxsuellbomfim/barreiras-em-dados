@@ -66,7 +66,12 @@ municipal serializada, Transferegov, execução estadual do FIPLAN e anexos
 territoriais da LOA executam em cadeia. A mudança elimina a disputa simultânea
 pela role PostgreSQL do plano gratuito que, em 14/08/2026, interrompeu uma
 execução com `too many connections`; a falha permanece registrada e o replay
-posterior não é usado para apagar o incidente.
+posterior não é usado para apagar o incidente. O replay isolado
+`31855664796` recuperou as dez falhas pendentes do Transferegov. Todos os
+workflows que usam a role financeira compartilham agora duas filas limitadas:
+uma para coletas e outra para publicações. No máximo uma execução de cada classe
+chega ao banco, impedindo que agendas independentes voltem a exceder as duas
+conexões sem represar todas as publicações atrás de uma coleta longa.
 
 Após uma indisponibilidade temporária da página HTML da ALBA, a execução manual
 passa a aceitar uma fonte isolada (`federal`, `municipal`, `state`, `executive`

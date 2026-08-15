@@ -7,6 +7,38 @@ const workflow = await readFile(
   "utf8",
 );
 
+const financeWorkflowGroups = new Map([
+  ["collect-finance-documents.yml", "municipal-finance-collection-production"],
+  ["collect-municipal-transparency.yml", "municipal-finance-collection-production"],
+  ["publish-financial-revenues.yml", "municipal-finance-publication-production"],
+  ["publish-financial-expenses.yml", "municipal-finance-publication-production"],
+  ["publish-monthly-finance-commentary.yml", "municipal-finance-publication-production"],
+  ["refresh-finance-signals.yml", "municipal-finance-publication-production"],
+]);
+
+const financeWorkflows = await Promise.all(
+  [...financeWorkflowGroups].map(async ([fileName, concurrencyGroup]) => ({
+    fileName,
+    concurrencyGroup,
+    contents: await readFile(
+      new URL(`../../.github/workflows/${fileName}`, import.meta.url),
+      "utf8",
+    ),
+  })),
+);
+
+test("workflows financeiros respeitam as duas filas da role PostgreSQL limitada", () => {
+  for (const { fileName, concurrencyGroup, contents } of financeWorkflows) {
+    assert.match(
+      contents,
+      new RegExp(
+        `concurrency:\\s*\\n\\s+group: ${concurrencyGroup}\\s*\\n\\s+cancel-in-progress: false`,
+      ),
+      `${fileName} precisa usar a fila financeira correspondente`,
+    );
+  }
+});
+
 test("coleta financeira respeita o orçamento de conexões", () => {
   assert.match(workflow, /max-parallel: \$\{\{ \(inputs\.resource == 'all' \|\| inputs\.resource == ''\) && 1 \|\| 8 \}\}/);
   assert.match(workflow, /QUERIDO_DIARIO_DATABASE_URL/);
