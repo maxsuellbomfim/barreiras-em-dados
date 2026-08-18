@@ -1,14 +1,26 @@
 import {
+  groupCguLegislatureRankings,
   parseCguFederalAmendmentRankingRows,
   parseCguFederalAmendmentRows,
+  parseCguLegislatureRankingRows,
   type CguFederalAmendment,
   type CguFederalAmendmentRanking,
+  type CguLegislatureRankingGroup,
 } from "./cgu-federal-amendments.mjs";
 
 export type {
   CguFederalAmendment,
   CguFederalAmendmentRanking,
+  CguLegislatureRankingGroup,
+  CguLegislatureRankingRow,
 } from "./cgu-federal-amendments.mjs";
+
+export type CguLegislatureRankingsResult =
+  | Readonly<{
+      state: "available";
+      groups: readonly CguLegislatureRankingGroup[];
+    }>
+  | Readonly<{ state: "unavailable" }>;
 
 export type CguFederalAmendmentsResult =
   | Readonly<{
@@ -98,6 +110,29 @@ export async function getPublicCguFederalAmendments(): Promise<
       return { state: "unavailable" };
     }
     return { state: "available", amendments, people, collectives };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function getPublicCguFederalAmendmentLegislatureRankings(): Promise<
+  CguLegislatureRankingsResult
+> {
+  const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const publishableKey = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (!supabaseUrl?.startsWith("https://") || !publishableKey?.startsWith("sb_publishable_")) {
+    return { state: "unavailable" };
+  }
+  try {
+    const rows = await callRpc(
+      supabaseUrl,
+      publishableKey,
+      "get_public_cgu_federal_amendment_legislature_ranking",
+      { page_size_per_legislature: 10 },
+    );
+    const parsed = parseCguLegislatureRankingRows(rows);
+    if (parsed === null) return { state: "unavailable" };
+    return { state: "available", groups: groupCguLegislatureRankings(parsed) };
   } catch {
     return { state: "unavailable" };
   }

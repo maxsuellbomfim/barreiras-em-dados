@@ -1,5 +1,9 @@
 import { formatBrlDecimal } from "../../lib/revenues";
 import type {
+  CguLegislatureRankingGroup,
+  CguLegislatureRankingRow,
+} from "../../lib/cgu-federal-amendments.mjs";
+import type {
   ParliamentaryLegislatureRankingGroup,
   ParliamentaryLegislatureRankingRow,
 } from "../../lib/parliamentary-legislature-rankings.mjs";
@@ -94,6 +98,100 @@ function LegislatureRankingRow({
   );
 }
 
+function CguLegislatureRow({
+  row,
+}: Readonly<{ row: CguLegislatureRankingRow }>) {
+  return (
+    <article className="legislature-ranking-row">
+      <span className="transfer-rank" aria-label={`${row.rankPosition}º lugar`}>
+        {row.rankPosition}º
+      </span>
+      <div className="legislature-ranking-person">
+        <h4>{row.authorName}</h4>
+        <p>
+          {row.amendmentCount.toLocaleString("pt-BR")} emenda(s) executada(s)
+          {row.firstYear === row.lastYear
+            ? ` em ${row.firstYear}`
+            : ` entre ${row.firstYear} e ${row.lastYear}`}
+        </p>
+        <a
+          className="legislature-ranking-detail-link"
+          href="/recursos?origem=federal-execucao"
+        >
+          Ver cada emenda no arquivo da CGU →
+        </a>
+      </div>
+      <dl className="legislature-ranking-values">
+        <div>
+          <dt>Empenhado no orçamento federal</dt>
+          <dd>{formatBrlDecimal(row.committedAmount)}</dd>
+        </div>
+        <div>
+          <dt>Pago efetivo (pago + restos pagos)</dt>
+          <dd>{formatBrlDecimal(row.effectivePaidAmount)}</dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
+function CguLegislatureBlock({
+  group,
+}: Readonly<{ group: CguLegislatureRankingGroup | null }>) {
+  return (
+    <div className="legislature-ranking-methodology" role="note">
+      <p>
+        <strong>Outra fonte, outro caminho do dinheiro: execução direta (CGU).</strong>{" "}
+        O painel acima cobre convênios e transferências registrados no
+        Transferegov. Emendas executadas diretamente no orçamento de órgãos
+        federais não passam por lá — aparecem no arquivo aberto da CGU. As duas
+        séries ficam separadas e nunca são somadas; um mesmo parlamentar pode
+        aparecer só em uma delas sem que isso seja erro.
+      </p>
+      {group === null ? (
+        <p>
+          O arquivo da CGU não publicou linhas para Barreiras nos anos completos
+          desta legislatura. Isso descreve a fonte, não prova ausência de
+          emendas.
+        </p>
+      ) : (
+        <>
+          {group.people.length > 0 ? (
+            <div className="legislature-ranking-list">
+              {group.people.map((row) => (
+                <CguLegislatureRow key={`cgu:person:${row.authorKey}`} row={row} />
+              ))}
+            </div>
+          ) : null}
+          {group.collectives.length > 0 ? (
+            <>
+              <p>
+                Autoria coletiva (bancadas e comissões) — nunca atribuída a um
+                parlamentar individual:
+              </p>
+              <div className="legislature-ranking-list">
+                {group.collectives.map((row) => (
+                  <CguLegislatureRow
+                    key={`cgu:collective:${row.authorKey}`}
+                    row={row}
+                  />
+                ))}
+              </div>
+            </>
+          ) : null}
+        </>
+      )}
+      <p>
+        Exercícios fora dos anos completos desta legislatura (inclusive o ano de
+        transição 2023) permanecem visíveis na aba Execução federal.
+      </p>
+      <a href="/recursos?origem=federal-execucao">
+        Conferir a série completa da CGU, emenda por emenda →
+      </a>
+    </div>
+  );
+}
+
 function CoverageSummary({
   coverage,
   years,
@@ -177,10 +275,12 @@ export default function LegislatureTransferRankings({
   groups,
   coverage,
   yearCoverage,
+  cguGroups,
 }: Readonly<{
   groups: readonly ParliamentaryLegislatureRankingGroup[] | null;
   coverage: readonly ParliamentaryLegislatureCoverageRow[] | null;
   yearCoverage: readonly ParliamentaryLegislatureYearCoverageRow[] | null;
+  cguGroups: readonly CguLegislatureRankingGroup[] | null;
 }>) {
   return (
     <section
@@ -197,7 +297,9 @@ export default function LegislatureTransferRankings({
           Compare parlamentares sem misturar esferas ou mandatos. A ordem usa o
           valor oficial destinado pela fonte federal ou autorizado na LOA da
           Bahia; empenho, liquidação e pagamento aparecem separados e nunca
-          alteram a posição.
+          alteram a posição. Nas legislaturas federais, a execução direta do
+          orçamento (arquivo da CGU) aparece como série própria, separada e
+          nunca somada aos convênios.
         </p>
       </div>
 
@@ -286,6 +388,13 @@ export default function LegislatureTransferRankings({
                       ))}
                     </div>
                   )}
+                  {group.sphere === "federal" ? (
+                    <CguLegislatureBlock
+                      group={cguGroups?.find((cgu) =>
+                        cgu.legislatureNumber === group.legislatureNumber
+                      ) ?? null}
+                    />
+                  ) : null}
                   <div className="legislature-ranking-methodology" role="note">
                     <p>{group.officialSourceNote}</p>
                     <p>

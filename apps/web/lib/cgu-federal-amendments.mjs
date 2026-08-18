@@ -179,3 +179,92 @@ export function parseCguFederalAmendmentRankingRows(rows, scope) {
   const parsed = rows.map((row, index) => parseRankingRow(row, scope, index + 1));
   return parsed.some((row) => row === null) ? null : parsed;
 }
+
+const LEGISLATURE_RANKING_METHODOLOGY =
+  "cgu-federal-amendment-legislature-ranking/1.0.0";
+
+function parseLegislatureRankingRow(row) {
+  if (typeof row !== "object" || row === null) return null;
+  const legislatureNumber = integer(row.legislature_number, 1);
+  const legislatureLabel = requiredText(row.legislature_label);
+  const fullFiscalYearFrom = integer(row.full_fiscal_year_from, 2000);
+  const fullFiscalYearTo = integer(row.full_fiscal_year_to, 2000);
+  const authorScope = requiredText(row.author_scope);
+  const rankPosition = integer(row.rank_position, 1);
+  const authorKind = requiredText(row.author_kind);
+  const authorKey = requiredText(row.author_key);
+  const authorName = requiredText(row.author_name);
+  const amendmentCount = integer(row.amendment_count, 1);
+  const committedAmount = decimal(row.committed_amount);
+  const effectivePaidAmount = decimal(row.effective_paid_amount);
+  const firstYear = integer(row.first_year, 2000);
+  const lastYear = integer(row.last_year, 2000);
+  const scopeMatchesKind = authorScope === "person"
+    ? authorKind === "person"
+    : authorScope === "collective" && (
+      authorKind === "commission" || authorKind === "bench" ||
+      authorKind === "collective"
+    );
+  if (
+    legislatureNumber === null || !legislatureLabel ||
+    fullFiscalYearFrom === null || fullFiscalYearTo === null ||
+    fullFiscalYearFrom > fullFiscalYearTo || !authorScope ||
+    rankPosition === null || !authorKind || !scopeMatchesKind ||
+    !authorKey || !authorName || amendmentCount === null ||
+    !committedAmount || !effectivePaidAmount ||
+    firstYear === null || lastYear === null || firstYear > lastYear ||
+    firstYear < fullFiscalYearFrom || lastYear > fullFiscalYearTo ||
+    row.ranking_amount_stage !== "committed" ||
+    row.methodology_version !== LEGISLATURE_RANKING_METHODOLOGY
+  ) return null;
+  return {
+    legislatureNumber,
+    legislatureLabel,
+    fullFiscalYearFrom,
+    fullFiscalYearTo,
+    authorScope,
+    rankPosition,
+    authorKind,
+    authorKey,
+    authorName,
+    amendmentCount,
+    committedAmount,
+    effectivePaidAmount,
+    firstYear,
+    lastYear,
+    rankingAmountStage: "committed",
+    methodologyVersion: LEGISLATURE_RANKING_METHODOLOGY,
+  };
+}
+
+export function parseCguLegislatureRankingRows(rows) {
+  if (!Array.isArray(rows)) return null;
+  const parsed = rows.map(parseLegislatureRankingRow);
+  if (parsed.some((row) => row === null)) return null;
+  const positions = new Map();
+  for (const row of parsed) {
+    const partition = `${row.legislatureNumber}:${row.authorScope}`;
+    const expected = (positions.get(partition) ?? 0) + 1;
+    if (row.rankPosition !== expected) return null;
+    positions.set(partition, expected);
+  }
+  return parsed;
+}
+
+export function groupCguLegislatureRankings(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const group = groups.get(row.legislatureNumber) ?? {
+      legislatureNumber: row.legislatureNumber,
+      legislatureLabel: row.legislatureLabel,
+      fullFiscalYearFrom: row.fullFiscalYearFrom,
+      fullFiscalYearTo: row.fullFiscalYearTo,
+      people: [],
+      collectives: [],
+    };
+    if (row.authorScope === "person") group.people.push(row);
+    else group.collectives.push(row);
+    groups.set(row.legislatureNumber, group);
+  }
+  return [...groups.values()];
+}

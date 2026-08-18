@@ -31,6 +31,7 @@ import {
 } from "../../lib/state-loa-year-filter.mjs";
 import {
   getPublicCguFederalAmendments,
+  getPublicCguFederalAmendmentLegislatureRankings,
   type CguFederalAmendment,
   type CguFederalAmendmentRanking,
   type CguFederalAmendmentsResult,
@@ -948,7 +949,11 @@ function CguFederalExecutionPanel({
         <p>
           Emendas que também existem no Transferegov são apenas rotuladas pelo
           código oficial — os valores de cada fonte permanecem separados, sem
-          dupla contagem.
+          dupla contagem. Para convênios e transferências pactuados com a
+          cidade,{" "}
+          <a href="/recursos?origem=federal-historico">
+            veja as abas de convênios do Transferegov →
+          </a>
         </p>
       </aside>
       <h3>Autoria individual</h3>
@@ -1016,14 +1021,25 @@ function ReconciledRankingPanel({
       <aside className="transfer-reading-guide">
         <strong>Como conferimos</strong>
         <p>
-          Cruzamos proposta e número oficial da emenda. As {summary.exactMatchCount.toLocaleString("pt-BR")} correspondência(s)
-          exata(s) contam uma única vez; {summary.conflictCount.toLocaleString("pt-BR")} conflito(s)
-          ficam visíveis para auditoria, mas fora dos totais.
+          {summary.exactMatchCount === 0
+            ? "Cruzamos proposta e número oficial da emenda. Até agora, nenhuma emenda aparece nas duas bases ao mesmo tempo — cada registro abaixo vem de uma única fonte e conta uma única vez."
+            : `Cruzamos proposta e número oficial da emenda. As ${summary.exactMatchCount.toLocaleString("pt-BR")} correspondência(s) exata(s) contam uma única vez.`}
+          {summary.conflictCount > 0
+            ? ` ${summary.conflictCount.toLocaleString("pt-BR")} conflito(s) entre as bases ficam visíveis para auditoria, mas fora dos totais.`
+            : ""}
         </p>
         <p>
           Há {summary.currentOnlyCount.toLocaleString("pt-BR")} registro(s) apenas na API atual e {" "}
           {summary.historicalOnlyCount.toLocaleString("pt-BR")} apenas no arquivo histórico. Isso indica cobertura diferente,
           não erro nem irregularidade.
+        </p>
+        <p>
+          Estas duas bases cobrem <strong>convênios e transferências</strong>.
+          Emendas executadas diretamente no orçamento de órgãos federais não
+          passam por aqui:{" "}
+          <a href="/recursos?origem=federal-execucao">
+            veja a aba Federal · execução direta (CGU) →
+          </a>
         </p>
       </aside>
       <h3>Autoria individual</h3>
@@ -1550,6 +1566,7 @@ export default async function ParliamentaryResourcesPage({
     legislatureCoverageResult,
     legislatureYearCoverageResult,
     cguFederalAmendmentsResult,
+    cguLegislatureRankingsResult,
   ] = await Promise.all([
     getPublicParliamentaryTransfers({
       stateFiscalYear: selectedStateFiscalYear,
@@ -1565,6 +1582,9 @@ export default async function ParliamentaryResourcesPage({
       : Promise.resolve({ state: "unavailable" as const }),
     sourceSelection.showCguExecution
       ? getPublicCguFederalAmendments()
+      : Promise.resolve({ state: "unavailable" as const }),
+    sourceSelection.showLegislatures
+      ? getPublicCguFederalAmendmentLegislatureRankings()
       : Promise.resolve({ state: "unavailable" as const }),
   ]);
   const legislatureRankingGroups =
@@ -1640,41 +1660,67 @@ export default async function ParliamentaryResourcesPage({
           </p>
         </aside>
 
+        <details className="transfer-methodology" open={false}>
+          <summary>Por que um parlamentar aparece em uma aba e não em outra?</summary>
+          <p>
+            Cada aba mostra <strong>uma fonte oficial diferente</strong>, e cada
+            fonte enxerga um caminho diferente do dinheiro. O Transferegov
+            registra convênios e transferências pactuados com quem recebe. O
+            arquivo da CGU registra a execução do orçamento federal
+            regionalizada em Barreiras — inclusive emendas aplicadas
+            diretamente por órgãos federais, que nunca passam por convênio. A
+            LOA da Bahia registra o que deputados estaduais autorizaram no
+            orçamento do estado.
+          </p>
+          <p>
+            Por isso, um mesmo parlamentar pode aparecer em uma fonte e não em
+            outra — por exemplo, quem executou emendas direto em órgãos
+            federais aparece na aba Execução federal e pode não ter nenhum
+            convênio no arquivo histórico. Isso é diferença de cobertura entre
+            fontes oficiais, não erro e não omissão do portal.
+          </p>
+          <p>
+            Para impedir dupla contagem, valores de fontes diferentes{" "}
+            <strong>nunca são somados</strong>. Quando uma mesma emenda aparece
+            em duas fontes, ela é apenas rotulada pelo código oficial.
+          </p>
+        </details>
+
         <nav className="transfer-source-selector" aria-label="Escolher origem dos recursos">
           <a
             href="/recursos?origem=legislaturas#emendas-por-legislatura"
             aria-current={sourceSelection.source === "legislaturas" ? "page" : undefined}
           >
-            <strong>Por legislatura</strong>
-            <span>Compare parlamentares estaduais e federais sem somar mandatos diferentes.</span>
+            <strong>Comparar por legislatura</strong>
+            <span>Deputados federais e estaduais lado a lado, mandato por mandato, com todas as fontes visíveis.</span>
           </a>
           <a
             href="/recursos?origem=federal-atual"
             aria-current={sourceSelection.source === "federal-atual" ? "page" : undefined}
           >
-            <strong>Federal atual</strong>
-            <span>Emendas com estágios de pagamento consultados na API atual.</span>
+            <strong>Federal · convênios atuais</strong>
+            <span>Emendas recentes com destino e pagamento consultados na API do Transferegov.</span>
           </a>
           <a
             href="/recursos?origem=federal-historico"
             aria-current={sourceSelection.source === "federal-historico" ? "page" : undefined}
           >
-            <strong>Federal histórico</strong>
-            <span>Arquivo oficial antigo, propostas e conferência entre séries.</span>
+            <strong>Federal · arquivo de convênios</strong>
+            <span>Acervo histórico do Transferegov e conferência entre as duas séries de convênios.</span>
           </a>
           <a
             href="/recursos?origem=federal-execucao"
             aria-current={sourceSelection.source === "federal-execucao" ? "page" : undefined}
           >
-            <strong>Execução federal</strong>
-            <span>Arquivo aberto da CGU com empenho e pagamento regionalizados para Barreiras.</span>
+            <strong>Federal · execução direta (CGU)</strong>
+            <span>Orçamento federal executado em Barreiras, inclusive fora de convênios.</span>
           </a>
           <a
             href="/recursos?origem=estadual"
             aria-current={sourceSelection.source === "estadual" ? "page" : undefined}
           >
-            <strong>Estadual</strong>
-            <span>Emendas autorizadas na LOA da Bahia, sem confundir com pagamento.</span>
+            <strong>Estadual · LOA da Bahia</strong>
+            <span>O que deputados estaduais autorizaram no orçamento do estado, com execução conferida.</span>
           </a>
         </nav>
 
@@ -1683,6 +1729,9 @@ export default async function ParliamentaryResourcesPage({
             coverage={legislatureCoverage}
             groups={legislatureRankingGroups}
             yearCoverage={legislatureYearCoverage}
+            cguGroups={cguLegislatureRankingsResult.state === "available"
+              ? cguLegislatureRankingsResult.groups
+              : null}
           />
         ) : sourceSelection.showCguExecution ? (
           <CguFederalExecutionPanel result={cguFederalAmendmentsResult} />

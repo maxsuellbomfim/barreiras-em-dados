@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  groupCguLegislatureRankings,
   parseCguFederalAmendmentRankingRows,
   parseCguFederalAmendmentRows,
+  parseCguLegislatureRankingRows,
 } from "../../apps/web/lib/cgu-federal-amendments.mjs";
 
 const SHA = "c".repeat(64);
@@ -274,6 +276,97 @@ test("ranking coletivo aceita bancadas e comissões, nunca pessoas", () => {
   assert.equal(
     parseCguFederalAmendmentRankingRows([rankingRow()], "todas"),
     null,
+  );
+});
+
+function legislatureRow(overrides = {}) {
+  return {
+    legislature_number: 56,
+    legislature_label: "56ª Legislatura da Câmara dos Deputados",
+    full_fiscal_year_from: 2020,
+    full_fiscal_year_to: 2022,
+    author_scope: "person",
+    rank_position: 1,
+    author_kind: "person",
+    author_key: "tito",
+    author_name: "TITO",
+    author_code: "4072",
+    amendment_count: 6,
+    committed_amount: 1756799.72,
+    effective_paid_amount: 1645872.6,
+    first_year: 2020,
+    last_year: 2022,
+    ranking_amount_stage: "committed",
+    methodology_version: "cgu-federal-amendment-legislature-ranking/1.0.0",
+    ...overrides,
+  };
+}
+
+test("série CGU por legislatura mantém janelas, escopos e sequência", () => {
+  const rows = parseCguLegislatureRankingRows([
+    legislatureRow(),
+    legislatureRow({
+      rank_position: 2,
+      author_key: "afonso florence",
+      author_name: "AFONSO FLORENCE",
+      author_code: "1111",
+      amendment_count: 1,
+      committed_amount: 400000,
+      effective_paid_amount: 400000,
+      first_year: 2021,
+      last_year: 2021,
+    }),
+    legislatureRow({
+      author_scope: "collective",
+      author_kind: "bench",
+      author_key: "bancada da bahia",
+      author_name: "BANCADA DA BAHIA",
+      author_code: "7106",
+      amendment_count: 3,
+      committed_amount: 4416350,
+      effective_paid_amount: 4416350,
+      first_year: 2020,
+      last_year: 2022,
+    }),
+  ]);
+  assert.notEqual(rows, null);
+  const groups = groupCguLegislatureRankings(rows);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].legislatureNumber, 56);
+  assert.equal(groups[0].people.length, 2);
+  assert.equal(groups[0].collectives.length, 1);
+  assert.equal(groups[0].people[0].committedAmount, "1756799.72");
+});
+
+test("série CGU por legislatura rejeita respostas incoerentes", () => {
+  assert.equal(
+    parseCguLegislatureRankingRows([
+      legislatureRow({ first_year: 2019 }),
+    ]),
+    null,
+    "ano fora da janela de anos completos da legislatura",
+  );
+  assert.equal(
+    parseCguLegislatureRankingRows([
+      legislatureRow(),
+      legislatureRow({ rank_position: 3, author_key: "outro" }),
+    ]),
+    null,
+    "posições fora de sequência dentro da mesma legislatura e escopo",
+  );
+  assert.equal(
+    parseCguLegislatureRankingRows([
+      legislatureRow({ author_scope: "collective" }),
+    ]),
+    null,
+    "pessoa não pode aparecer no escopo coletivo",
+  );
+  assert.equal(
+    parseCguLegislatureRankingRows([
+      legislatureRow({ ranking_amount_stage: "destination" }),
+    ]),
+    null,
+    "estágio de destinação pertence ao Transferegov, nunca à série CGU",
   );
 });
 
