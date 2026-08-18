@@ -654,6 +654,58 @@ try {
     methodology_version: "admin-finance-integrity/1.0.0",
   }]);
 
+  await database.exec(`
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000008101',
+        '00000000-0000-0000-0000-000000008002', 'contrato-1549',
+        'municipal_transparency_contratos', 90,
+        '{"id":"1549","contratoNumero":"222/2024","contratoObjeto":"Aquisição de materiais de expediente.","favorecido":"COMERCIAL VALOIS LTDA","documento":"44.493.204/0001-87","valor_contrato":"R$ 105.460,50","modalidade":"6","categoria":"2","vigencia_inicio":"11/09/2024","vigencia":"11/09/2025","url":"https://barreiras.mtransparente.com.br/admin/data/CONTRATO1549.pdf"}'::jsonb,
+        '${"e".repeat(64)}', 'test/1', 'municipal-contract-fixture-cnpj',
+        '2026-08-18 18:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000008102',
+        '00000000-0000-0000-0000-000000008002', 'contrato-1546',
+        'municipal_transparency_contratos', 91,
+        '{"id":"1546","contratoNumero":"013-FMS/2026","contratoObjeto":"Prestação de serviços profissionais.","favorecido":"PESSOA FISICA CONTRATADA","documento":"463.000.000-00","valor_contrato":"R$ 84.000,00","url":"https://barreiras.mtransparente.com.br/admin/data/CONTRATO1546.pdf"}'::jsonb,
+        '${"f".repeat(64)}', 'test/1', 'municipal-contract-fixture-cpf',
+        '2026-08-18 18:00:00+00'
+      );
+  `);
+  const municipalContracts = await database.query(`
+    select
+      source_contract_id,
+      supplier_document_kind,
+      supplier_document,
+      contract_value_text,
+      methodology_version
+    from api.get_public_municipal_contracts(100)
+  `);
+  assert.deepEqual(municipalContracts.rows, [
+    {
+      source_contract_id: "1549",
+      supplier_document_kind: "cnpj",
+      supplier_document: "44493204000187",
+      contract_value_text: "R$ 105.460,50",
+      methodology_version: "municipal-contracts/1.0.0",
+    },
+    {
+      source_contract_id: "1546",
+      supplier_document_kind: "cpf_pessoa_fisica",
+      supplier_document: null,
+      contract_value_text: "R$ 84.000,00",
+      methodology_version: "municipal-contracts/1.0.0",
+    },
+  ]);
+  assert.ok(
+    !JSON.stringify(municipalContracts.rows).includes("463"),
+    "nenhum dígito de CPF pode escapar da projeção de contratos",
+  );
+
   await database.exec("set role anon");
   await rejects("select * from finance.public_obligations", /permission denied/);
   await rejects(
