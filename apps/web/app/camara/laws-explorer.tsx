@@ -22,7 +22,16 @@ function LegislativeCard({ item }: Readonly<{ item: CamaraLegislativeItem }>) {
       <dl className="procurement-values">
         <div><dt>Autoria informada pela Câmara</dt><dd>{item.authorName ?? "não informada"}</dd></div>
         <div><dt>{item.itemKind === "indicacao" ? "Protocolo" : "Identificador"}</dt><dd>{item.protocolNumber ?? item.itemId}</dd></div>
-        {item.situation ? <div><dt>Situação na fonte</dt><dd>{item.situation}</dd></div> : null}
+        {item.situation ? (
+          <div>
+            <dt>Situação na fonte</dt>
+            <dd>
+              {/^\d+$/.test(item.situation)
+                ? `código ${item.situation} (a Câmara publica apenas o código, sem legenda)`
+                : item.situation}
+            </dd>
+          </div>
+        ) : null}
       </dl>
       {item.itemKind === "indicacao" ? <p className="act-review-mode">Indicação é uma proposição legislativa. Este registro não significa que a obra ou serviço foi executado.</p> : item.authorName ? <p className="act-review-mode">A autoria é exibida como publicada pela Câmara; não é uma avaliação do mandato.</p> : <p className="act-review-mode">A fonte não informou autoria individual neste registro. Nenhum vereador foi associado por semelhança de nome.</p>}
       <p className="act-evidence">{item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">Ver documento oficial</a> : <span>Documento oficial não informado no registro</span>} · publicado em {formatDate(item.publicationDate)} · coletado em {formatDate(item.collectedAt)}</p>

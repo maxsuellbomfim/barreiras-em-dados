@@ -24,6 +24,11 @@ export const metadata: Metadata = {
   title: "Diário Oficial organizado",
   description:
     "Texto integral do Diário Oficial de Barreiras, separado por edição e documento, com fonte e hash verificáveis.",
+  openGraph: {
+    title: "Diário Oficial de Barreiras, organizado e pesquisável",
+    description:
+      "Texto integral de cada edição, separado por documento, com fonte e hash verificáveis.",
+  },
 };
 
 const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {

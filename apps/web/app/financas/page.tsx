@@ -19,6 +19,7 @@ import {
   type PublicMonthlyFinanceClosure,
 } from "../../lib/monthly-finance";
 import { monthlyFinanceHref } from "../../lib/monthly-finance-detail.mjs";
+import ShareLink from "../share-link";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
 import { getPublicFinanceCoverage, type PublicFinanceCoverageRow } from "../../lib/finance-coverage";
 import {
@@ -35,6 +36,11 @@ export const metadata: Metadata = {
   title: "Finanças públicas",
   description:
     "Receitas, despesas e documentos financeiros municipais com fonte verificável.",
+  openGraph: {
+    title: "Quanto a Prefeitura de Barreiras arrecadou e pagou",
+    description:
+      "Receitas e despesas mês a mês, com o relatório oficial que comprova cada valor.",
+  },
 };
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -132,7 +138,7 @@ function financeStatusHeading(closure: PublicMonthlyFinanceClosure | null): stri
 
 function financeStatusDescription(closure: PublicMonthlyFinanceClosure | null): string {
   if (!closure) {
-    return "Quando houver relatórios de receita e pagamento do mesmo período, o fechamento aparecerá aqui.";
+    return "Os pagamentos de cada mês já aparecem na seção Despesas, logo abaixo. O fechamento completo — receita e pagamento do mesmo período lado a lado — é publicado quando os dois relatórios oficiais do mês estiverem reconciliados.";
   }
   if (closure.closureStatus !== "operational") return closure.coverageNote;
   return "Esta é uma diferença operacional calculada por código, não uma conclusão de superávit ou déficit fiscal. Ela não inclui ainda todas as dívidas, restos a pagar e demais obrigações.";
@@ -290,6 +296,10 @@ export default async function FinancesPage() {
             Quando um valor ainda estiver em um PDF, mostramos o documento e
             deixamos explícito que a extração numérica ainda não foi validada.
           </p>
+          <ShareLink
+            path="/financas"
+            message="Quanto a Prefeitura de Barreiras arrecadou e pagou, com o relatório oficial de cada valor:"
+          />
         </div>
 
         <section className="finance-guide" aria-labelledby="finance-guide-title">

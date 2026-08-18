@@ -43,6 +43,7 @@ import { getPublicParliamentaryLegislatureCoverage } from
 import { getPublicParliamentaryLegislatureYearCoverage } from
   "../../lib/legislature-transfer-year-coverage";
 import LegislatureTransferRankings from "./legislature-transfer-rankings";
+import ShareLink from "../share-link";
 
 export const revalidate = 300;
 
@@ -50,6 +51,11 @@ export const metadata: Metadata = {
   title: "Recursos destinados a Barreiras",
   description:
     "Propostas federais e emendas destinadas a Barreiras, com autoria e estágios financeiros separados por fonte oficial.",
+  openGraph: {
+    title: "Quem destinou recursos para Barreiras",
+    description:
+      "Emendas federais e estaduais, deputado por deputado, com valores oficiais e o documento que comprova cada etapa.",
+  },
 };
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -1658,6 +1664,10 @@ export default async function ParliamentaryResourcesPage({
             valor significa que o dado não foi encontrado nos endpoints oficiais
             consultados — nunca que o valor é zero.
           </p>
+          <ShareLink
+            path={`/recursos?origem=${sourceSelection.source}`}
+            message="Veja quem destinou recursos para Barreiras, com o documento oficial em cada registro:"
+          />
         </aside>
 
         <details className="transfer-methodology" open={false}>

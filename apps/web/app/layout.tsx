@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://barreiras-em-dados.vercel.app"),
   title: {
     default: "Barreiras 360",
     template: "%s | Barreiras 360",
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
     siteName: "Barreiras 360",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Barreiras 360",
     description:
       "O panorama público de Barreiras: contas, decisões, obras e representantes com fonte e contexto.",

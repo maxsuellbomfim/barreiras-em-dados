@@ -434,6 +434,10 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <p style={{ textAlign: "center", margin: "0 0 1rem" }}>
+        <a href="/sobre">Sobre o projeto: o que é, como funciona e como contestar um dado →</a>
+      </p>
+
       <details className="technical-details">
         <summary>Ver como os dados são coletados e revisados</summary>
         <div className="technical-details-content">
