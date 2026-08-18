@@ -26,6 +26,9 @@ function integer(value, minimum) {
 }
 
 function decimal(value) {
+  // PostgREST serializa numeric(20,2) como número JSON; a string mais curta
+  // que o representa preserva os centavos nesta ordem de grandeza.
+  if (typeof value === "number" && Number.isFinite(value)) value = String(value);
   return typeof value === "string" && DECIMAL.test(value) ? value : null;
 }
 

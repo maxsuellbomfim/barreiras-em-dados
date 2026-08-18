@@ -68,6 +68,43 @@ function rankingRow(overrides = {}) {
   };
 }
 
+test("valores numéricos do PostgREST são aceitos sem perder centavos", () => {
+  const parsed = parseCguFederalAmendmentRows([
+    executionRow({
+      committed_amount: 500000.0,
+      liquidated_amount: 500000.0,
+      paid_amount: 88306.04,
+      outstanding_registered_amount: 411693.96,
+      outstanding_cancelled_amount: 0.0,
+      outstanding_paid_amount: 411693.96,
+      effective_paid_amount: 500000.0,
+    }),
+  ]);
+  assert.notEqual(parsed, null);
+  assert.equal(parsed[0].paidAmount, "88306.04");
+  assert.equal(parsed[0].effectivePaidAmount, "500000");
+  const ranking = parseCguFederalAmendmentRankingRows(
+    [
+      rankingRow({
+        committed_amount: 1956725.4,
+        effective_paid_amount: 1845798.28,
+      }),
+    ],
+    "person",
+  );
+  assert.notEqual(ranking, null);
+  assert.equal(ranking[0].committedAmount, "1956725.4");
+  assert.equal(
+    parseCguFederalAmendmentRows([
+      executionRow({
+        committed_amount: Number.POSITIVE_INFINITY,
+      }),
+    ]),
+    null,
+    "números não finitos continuam rejeitados",
+  );
+});
+
 test("linha oficial da CGU preserva estágios separados e evidência", () => {
   const parsed = parseCguFederalAmendmentRows([executionRow()]);
   assert.notEqual(parsed, null);
