@@ -105,6 +105,27 @@ proposta` são mostrados separadamente. Nenhum deles é rotulado como dinheiro
 recebido, empenhado ou pago. Ausência de autoria no arquivo de propostas é
 exibida como limite da fonte, não preenchida por IA ou semelhança de nome.
 
+### Série complementar de execução da CGU
+
+O arquivo aberto de emendas do Portal da Transparência é uma série
+complementar. Ele é filtrado pelo código IBGE `2903201` e fornece execução
+regionalizada mesmo quando a linha não aparece entre as propostas do
+Transferegov. A auditoria do retrato publicado em 16/08/2026 encontrou 15
+linhas, cinco autorias e exercícios de 2014 a 2023.
+
+Para Carlos Tito, a fonte publicou sete linhas: três em 2020, três em 2022 e
+uma em 2023 (`202340720005`). A soma determinística do valor empenhado dessas
+sete linhas é R$ 1.956.725,40. O valor pago, calculado exclusivamente como
+`pago no exercício + restos a pagar pagos`, é R$ 1.845.798,28. Liquidação,
+restos inscritos e cancelamentos não são adicionados a esses totais.
+
+A interface deve chamar essa camada de **execução federal regionalizada para
+Barreiras**. Ela não será rotulada como repasse direto à Prefeitura, obra
+concluída ou recurso efetivamente usado sem uma fonte posterior que comprove
+essas etapas. Pessoas e autorias coletivas terão rankings separados. Cada
+linha manterá URL oficial, hash do ZIP, data da coleta e os estágios financeiros
+originais.
+
 ## Emendas estaduais da Bahia — autorização e execução separadas
 
 Emendas estaduais são coletadas e serão publicadas separadamente das federais. A

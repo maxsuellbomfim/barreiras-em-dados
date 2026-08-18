@@ -132,6 +132,23 @@ test("Transferegov classifica cada ano desde 2021 sem entrada livre no shell", (
   assert.doesNotMatch(transferegovJob, /--year-to "\$\{\{/);
 });
 
+test("CGU federal completa emendas de Barreiras sem chave privada", () => {
+  const transferegovJob = workflow.slice(
+    workflow.indexOf("  transferegov:"),
+    workflow.indexOf("  bahia_state_amendments:"),
+  );
+
+  assert.match(
+    transferegovJob,
+    /barreiras_collectors\.commands\.collect_cgu_federal_amendments/,
+  );
+  assert.doesNotMatch(transferegovJob, /TRANSPARENCIA_API_KEY/);
+  assert.ok(
+    transferegovJob.indexOf("collect_cgu_federal_amendments") <
+      transferegovJob.indexOf("collect_transferegov_parcerias"),
+  );
+});
+
 test("modo somente Transferegov nao abre coletores independentes", () => {
   const collectJob = workflow.slice(
     workflow.indexOf("  collect:"),

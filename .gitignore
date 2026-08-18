@@ -29,6 +29,7 @@ data/
 artifacts/
 downloads/
 supabase/.temp/
+tmp/
 
 # External reference archives — local inspiration, never part of the product
 honestidade-politicos-brasil-main.zip
