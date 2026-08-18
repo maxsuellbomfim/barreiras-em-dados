@@ -50,6 +50,28 @@ O Portal da Transparência da Prefeitura publica `balancetes`,
 documentos-base para localizar empréstimos, precatórios, restos a pagar e
 outros passivos.
 
+### Recursos municipais verificados em 18/08/2026
+
+Sondas com o contrato exato do coletor (`resource`/`count`/`data`) confirmaram
+quatro recursos adicionais no portal da Prefeitura:
+
+- `pdc-convenios-transferencias-realizadas` e `pdc-obras-pdc` têm o mesmo
+  formato de catálogo documental dos demais `pdc-*` (título, período, URL do
+  PDF) e **entraram na coleta diária e no catálogo público**
+  (`public-finance-documents/1.5.0`). O acervo de obras mistura, na própria
+  fonte, documentos de outros temas (ex.: convocações de processo seletivo);
+  o título literal é preservado sem reclassificação.
+- `contratos` retorna linhas estruturadas por contrato: favorecido, CNPJ,
+  `valor_contrato` como texto (`"R$ 105.460,50"`), número, objeto, vigência e
+  URL do PDF. `processos` retorna processos licitatórios com objeto, datas,
+  valores e códigos numéricos de situação/resultado sem legenda na fonte.
+  Ambos aguardam fatia própria com fixture sanitizada e teste de contrato
+  antes de qualquer coleta; valores monetários chegam como texto formatado e
+  não devem ser convertidos sem regra determinística versionada.
+- `servidores` (folha de pagamento) existe na API, mas contém dados pessoais
+  de pessoas naturais; permanece **fora da coleta** até passar pelo gate de
+  minimização e finalidade (LGPD) previsto no ADR 0009.
+
 Nenhum desses documentos, isoladamente, representa o total da dívida do
 Município. A consolidação futura exigirá natureza da obrigação, competência,
 saldo inicial e final, baixas, retificações e reconciliação com SICONFI e

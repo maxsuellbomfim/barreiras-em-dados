@@ -44,6 +44,8 @@ on:
           - "pdc-resumo-execucao-da-despesa"
           - "pdc-transferencia"
           - "pdc-emendas-parlamentares-receitas"
+          - "pdc-convenios-transferencias-realizadas"
+          - "pdc-obras-pdc"
           - "rreo"
           - "rgf"
       include_transferegov:
@@ -106,7 +108,7 @@ jobs:
         resource: >-
           ${{ fromJSON(
             (inputs.resource == '' || inputs.resource == 'all')
-              && '["balancetes","pdc-contas-anuais","pdc-receita-tributaria","pdc-recursos-extraordinarios","pdc-resumo-execucao-da-receita","pdc-resumo-execucao-da-despesa","pdc-transferencia","pdc-emendas-parlamentares-receitas","rreo","rgf"]'
+              && '["balancetes","pdc-contas-anuais","pdc-receita-tributaria","pdc-recursos-extraordinarios","pdc-resumo-execucao-da-receita","pdc-resumo-execucao-da-despesa","pdc-transferencia","pdc-emendas-parlamentares-receitas","pdc-convenios-transferencias-realizadas","pdc-obras-pdc","rreo","rgf"]'
               || format('["{0}"]', inputs.resource)
           ) }}
     env:
