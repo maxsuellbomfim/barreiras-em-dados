@@ -99,6 +99,15 @@ function ActCard({ act }: Readonly<{ act: ApprovedGazetteAct }>) {
   );
 }
 
+function organizationKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("pt-BR");
+}
+
 function searchableText(act: ApprovedGazetteAct) {
   return [
     act.personName,
@@ -122,17 +131,29 @@ export function ActExplorer({
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
-  const organizations = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          acts
-            .map((act) => act.organization)
-            .filter((value): value is string => value !== null),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [acts],
-  );
+  // O campo vem literal do documento oficial; para o FILTRO (só exibição),
+  // variantes de caixa/acento são agrupadas e transbordos de extração
+  // (frases longas ou com ":") ficam fora da lista. Os registros continuam
+  // íntegros e alcançáveis por "Todos" e pela busca textual.
+  const organizations = useMemo(() => {
+    const byKey = new Map<string, string>();
+    for (const act of acts) {
+      const value = act.organization?.replace(/\s+/g, " ").trim();
+      if (!value || value.length > 60 || value.includes(":")) continue;
+      const key = organizationKey(value);
+      const current = byKey.get(key);
+      const currentIsAllCaps =
+        current !== undefined &&
+        current === current.toLocaleUpperCase("pt-BR");
+      const valueIsAllCaps = value === value.toLocaleUpperCase("pt-BR");
+      if (current === undefined || (currentIsAllCaps && !valueIsAllCaps)) {
+        byKey.set(key, value);
+      }
+    }
+    return [...byKey.entries()]
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [acts]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
@@ -143,7 +164,10 @@ export function ActExplorer({
       if (type !== "all" && act.actType !== type) {
         return false;
       }
-      if (organization !== "all" && act.organization !== organization) {
+      if (
+        organization !== "all" &&
+        organizationKey(act.organization ?? "") !== organization
+      ) {
         return false;
       }
       if (from && (!act.gazetteDate || act.gazetteDate < from)) {
@@ -191,9 +215,9 @@ export function ActExplorer({
             onChange={(event) => setOrganization(event.target.value)}
           >
             <option value="all">Todos</option>
-            {organizations.map((value) => (
-              <option key={value} value={value}>
-                {value}
+            {organizations.map((entry) => (
+              <option key={entry.key} value={entry.key}>
+                {entry.label}
               </option>
             ))}
           </select>

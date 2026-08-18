@@ -46,6 +46,11 @@ export const metadata: Metadata = {
   description:
     "Deputados, vereadores e secretários com registro público e vínculo " +
     "territorial explícito — cada informação com fonte verificável.",
+  openGraph: {
+    title: "Quem decide por Barreiras",
+    description:
+      "Prefeitura, vereadores e deputados com registro oficial, votação na cidade e emendas destinadas ao município.",
+  },
 };
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {

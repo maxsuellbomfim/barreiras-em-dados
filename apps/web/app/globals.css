@@ -340,7 +340,7 @@ a:focus-visible {
 .hero-note {
   max-width: 37rem;
   margin: 1.5rem 0 0;
-  color: #727c8d;
+  color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.55;
 }
@@ -531,15 +531,15 @@ a:focus-visible {
 
 .proof-stats span {
   color: #69758a;
-  font-size: 0.63rem;
+  font-size: 0.7rem;
   font-weight: 560;
   line-height: 1.28;
 }
 
 .proof-caption {
   margin: 0.8rem 0.3rem 0.2rem;
-  color: #828b9a;
-  font-size: 0.65rem;
+  color: var(--muted);
+  font-size: 0.7rem;
   line-height: 1.45;
 }
 
@@ -820,7 +820,7 @@ a:focus-visible {
 }
 
 .collection-metrics dt {
-  color: #758094;
+  color: var(--muted);
   font-size: 0.68rem;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -988,7 +988,7 @@ a:focus-visible {
 }
 
 .step-number {
-  color: #9aa4b3;
+  color: var(--muted);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 0.72rem;
 }
@@ -1079,7 +1079,7 @@ a:focus-visible {
 
 .source-card p {
   margin: 0;
-  color: #758094;
+  color: var(--muted);
   font-size: 0.78rem;
 }
 
@@ -1327,13 +1327,30 @@ footer {
     border-radius: 1rem;
   }
 
+  /* Em telas estreitas a navegação vira uma fileira rolável em vez de
+     desaparecer: todas as seções continuam alcançáveis de qualquer página. */
   .nav-links {
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    gap: 0.9rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-links::-webkit-scrollbar {
     display: none;
+  }
+
+  .nav-links a {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 0.8rem;
   }
 
   .nav-cta {
     margin-left: auto;
     min-height: 2.45rem;
+    flex-shrink: 0;
   }
 
   .hero {
@@ -1544,8 +1561,8 @@ footer {
 }
 
 .acts-filters label > span {
-  color: #758094;
-  font-size: 0.66rem;
+  color: var(--muted);
+  font-size: 0.7rem;
   font-weight: 680;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1577,7 +1594,7 @@ footer {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-  color: #758094;
+  color: var(--muted);
   font-size: 0.78rem;
 }
 
@@ -1598,7 +1615,7 @@ footer {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  color: #758094;
+  color: var(--muted);
   font-size: 0.76rem;
 }
 
@@ -1629,7 +1646,7 @@ footer {
 }
 
 .legislative-kpis span {
-  color: #758094;
+  color: var(--muted);
   font-size: 0.7rem;
   line-height: 1.25;
 }
@@ -1688,7 +1705,7 @@ footer {
 .legislative-pagination > :last-child { justify-self: end; }
 
 .legislative-pagination > span:not(:empty) {
-  color: #758094;
+  color: var(--muted);
   font-size: 0.78rem;
   text-align: center;
 }
@@ -2314,7 +2331,6 @@ footer {
 
 .finance-coverage-row strong {
   color: #273d9c;
-  text-transform: capitalize;
 }
 
 .finance-coverage-row small {
@@ -2543,7 +2559,7 @@ footer {
 
 .procurement-filter-note {
   margin: -0.65rem 0 0;
-  color: #758094;
+  color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -2649,7 +2665,6 @@ footer {
 
 .finance-month-title {
   margin-bottom: 0.15rem;
-  text-transform: capitalize;
 }
 
 .finance-month-link,
@@ -3532,7 +3547,7 @@ footer {
 .legislature-ranking-person a {
   margin: 0.25rem 0 0;
   color: #738097;
-  font-size: 0.67rem;
+  font-size: 0.7rem;
   line-height: 1.4;
 }
 
@@ -4457,7 +4472,7 @@ footer {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   color: #5f6d86;
-  font-size: 0.67rem;
+  font-size: 0.7rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -4661,7 +4676,7 @@ footer {
 
 .person-trajectory > summary small {
   color: #738098;
-  font-size: 0.67rem;
+  font-size: 0.7rem;
   font-weight: 500;
 }
 
@@ -4715,7 +4730,7 @@ footer {
 
 .person-trajectory-period {
   color: #7a879c;
-  font-size: 0.64rem;
+  font-size: 0.7rem;
 }
 
 .person-trajectory-event strong {
@@ -4802,7 +4817,7 @@ footer {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-  color: #758094;
+  color: var(--muted);
   font-size: 0.78rem;
 }
 
@@ -4857,8 +4872,8 @@ footer {
 }
 
 .procurement-values dt {
-  color: #758094;
-  font-size: 0.66rem;
+  color: var(--muted);
+  font-size: 0.7rem;
   font-weight: 680;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -5450,7 +5465,7 @@ footer {
 .transfer-stage-grid dt,
 .transfer-details dt {
   color: #77849a;
-  font-size: 0.67rem;
+  font-size: 0.7rem;
   font-weight: 720;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -5740,4 +5755,35 @@ footer {
   .transfer-status {
     width: fit-content;
   }
+}
+
+.share-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid rgba(22, 163, 106, 0.35);
+  border-radius: 999px;
+  background: rgba(22, 163, 106, 0.1);
+  color: #0d7a4e;
+  font-size: 0.82rem;
+  font-weight: 620;
+  transition: background 0.15s ease;
+}
+
+.share-whatsapp::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--green);
+}
+
+.share-whatsapp:hover {
+  background: rgba(22, 163, 106, 0.18);
+}
+
+.finance-month-title::first-letter,
+.finance-coverage-row strong::first-letter {
+  text-transform: uppercase;
 }

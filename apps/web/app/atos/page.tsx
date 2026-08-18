@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   description:
     "Atos públicos do Diário Oficial de Barreiras, com busca, resumo assistido " +
     "e ligação verificável ao documento oficial.",
+  openGraph: {
+    title: "Nomeações e exonerações em Barreiras",
+    description:
+      "Quem entrou e quem saiu da Prefeitura, com o trecho literal do Diário Oficial em cada registro.",
+  },
 };
 
 const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {

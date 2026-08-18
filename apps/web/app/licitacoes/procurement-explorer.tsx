@@ -328,7 +328,9 @@ export function ProcurementExplorer({
           {procurements.length} {procurements.length === 1 ? "registro" : "registros"} carregados
         </strong>
         <span>
-          Soma dos valores homologados carregados: {currencyFormatter.format(loadedHomologatedTotal)}
+          {loadedHomologatedTotal > 0
+            ? `Soma dos valores homologados carregados: ${currencyFormatter.format(loadedHomologatedTotal)}`
+            : "Nenhum valor homologado publicado entre os registros carregados — ausência de valor não significa custo zero."}
         </span>
       </div>
       {procurements.length > 0 ? (

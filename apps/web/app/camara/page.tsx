@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   title: "Leis e indicações da Câmara Municipal",
   description:
     "Leis e registros legislativos de Barreiras preservados a partir da API oficial da Câmara Municipal.",
+  openGraph: {
+    title: "O que a Câmara de Barreiras propõe e aprova",
+    description:
+      "Leis e indicações dos vereadores, em linguagem acessível, com o documento oficial em cada registro.",
+  },
 };
 
 function pageNumber(value: unknown): number {

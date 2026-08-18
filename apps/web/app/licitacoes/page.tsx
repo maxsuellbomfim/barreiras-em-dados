@@ -19,6 +19,11 @@ export const metadata: Metadata = {
   description:
     "Contratações públicas de Barreiras registradas no PNCP: objeto, " +
     "valores oficiais e quem venceu cada item, com fonte verificável.",
+  openGraph: {
+    title: "O que Barreiras está comprando, e de quem",
+    description:
+      "Licitações e contratações registradas no PNCP, com valores oficiais e o vencedor de cada item.",
+  },
 };
 
 function formatShare(value: string): string {
