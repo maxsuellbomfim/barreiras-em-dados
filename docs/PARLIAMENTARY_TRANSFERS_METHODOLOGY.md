@@ -126,6 +126,22 @@ essas etapas. Pessoas e autorias coletivas terão rankings separados. Cada
 linha manterá URL oficial, hash do ZIP, data da coleta e os estágios financeiros
 originais.
 
+A projeção pública dessa série vive em
+`territory.cgu_federal_amendment_executions` e é servida pelas RPCs
+`api.get_public_cgu_federal_amendment_executions` e
+`api.get_public_cgu_federal_amendment_ranking`, exibidas na aba **Execução
+federal** de `/recursos`. O ranking ordena pelo valor empenhado
+(`ranking_amount_stage = committed`) e mostra o pago efetivo ao lado, sem
+misturar estágios. Linhas cujo autor a fonte publica como `Sem informação`
+permanecem visíveis na listagem, mas nunca viram posição nominal de ranking.
+Cada linha carrega um vínculo por código oficial com a série do Transferegov
+(`territory.cgu_transferegov_amendment_links`): o código de 12 dígitos da CGU
+equivale ao ano seguido do número de emenda de 8 dígitos do arquivo histórico.
+O vínculo apenas rotula sobreposição (`matched_transferegov_unique`,
+`not_found_in_transferegov`, `code_unavailable`,
+`conflict_non_unique_transferegov`); valores de fontes diferentes nunca são
+somados em um mesmo total.
+
 ## Emendas estaduais da Bahia — autorização e execução separadas
 
 Emendas estaduais são coletadas e serão publicadas separadamente das federais. A

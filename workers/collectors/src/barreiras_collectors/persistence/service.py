@@ -969,7 +969,8 @@ class CGUFederalAmendmentPersistenceService:
 
         records: list[RawRecordInput] = []
         for index, item in enumerate(snapshot.items):
-            identity_fields = (
+            fiscal_year = item.get("fiscal_year")
+            text_identity_fields = (
                 item.get("amendment_code"),
                 item.get("municipality_ibge"),
                 item.get("function_code"),
@@ -978,14 +979,15 @@ class CGUFederalAmendmentPersistenceService:
                 item.get("action_code"),
                 item.get("budget_plan_code"),
             )
-            if any(
+            if not isinstance(fiscal_year, int) or any(
                 not isinstance(value, str) or not value
-                for value in identity_fields
+                for value in text_identity_fields
             ):
                 raise PersistenceContractError(
                     f"Emenda federal {index} não possui identidade completa."
                 )
-            identity = ":".join(str(value) for value in identity_fields)
+            identity_fields = (str(fiscal_year), *text_identity_fields)
+            identity = ":".join(identity_fields)
             identity_hash = hashlib.sha256(identity.encode("utf-8")).hexdigest()
             canonical = json.dumps(
                 item,

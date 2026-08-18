@@ -86,7 +86,7 @@ class CGUFederalAmendmentPersistenceTests(unittest.TestCase):
         self.assertEqual(record.parser_version, "cgu-federal-amendments/1.0.0")
         self.assertTrue(
             record.source_record_key.startswith(
-                "cgu:federal-amendment:202340720005:2903201:"
+                "cgu:federal-amendment:2023:202340720005:"
             )
         )
         self.assertNotIn("total_paid_amount", record.payload)

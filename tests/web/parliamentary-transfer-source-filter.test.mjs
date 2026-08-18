@@ -11,6 +11,7 @@ const resolveTransferSourceSelection =
     showLegislatures: false,
     showCurrentFederal: true,
     showHistoricalFederal: true,
+    showCguExecution: true,
     showState: true,
   }));
 
@@ -20,6 +21,7 @@ test("sem origem solicitada abre somente a API federal atual", () => {
     showLegislatures: false,
     showCurrentFederal: true,
     showHistoricalFederal: false,
+    showCguExecution: false,
     showState: false,
   });
 });
@@ -30,6 +32,7 @@ test("ranking por legislatura aparece como recorte próprio em Recursos", () => 
     showLegislatures: true,
     showCurrentFederal: false,
     showHistoricalFederal: false,
+    showCguExecution: false,
     showState: false,
   });
 });
@@ -40,6 +43,18 @@ test("arquivo federal histórico não exibe a API atual nem a fonte estadual", (
     showLegislatures: false,
     showCurrentFederal: false,
     showHistoricalFederal: true,
+    showCguExecution: false,
+    showState: false,
+  });
+});
+
+test("execução federal da CGU aparece isolada das demais séries", () => {
+  assert.deepEqual(resolveTransferSourceSelection("federal-execucao"), {
+    source: "federal-execucao",
+    showLegislatures: false,
+    showCurrentFederal: false,
+    showHistoricalFederal: false,
+    showCguExecution: true,
     showState: false,
   });
 });
@@ -50,6 +65,7 @@ test("fonte estadual aparece isolada das duas séries federais", () => {
     showLegislatures: false,
     showCurrentFederal: false,
     showHistoricalFederal: false,
+    showCguExecution: false,
     showState: true,
   });
 });

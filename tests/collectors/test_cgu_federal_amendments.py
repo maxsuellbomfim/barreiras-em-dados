@@ -199,6 +199,28 @@ class CGUFederalAmendmentParserTests(unittest.TestCase):
                 archive_bytes([amendment_row(), amendment_row()])
             )
 
+    def test_rows_without_official_code_in_distinct_years_are_not_duplicates(
+        self,
+    ) -> None:
+        unavailable = {
+            "Código da Emenda": "Sem informação",
+            "Código do Autor da Emenda": "S/I",
+            "Nome do Autor da Emenda": "Sem informação",
+            "Número da emenda": "S/I",
+        }
+        selected = parse_cgu_federal_amendments_archive(
+            archive_bytes(
+                [
+                    amendment_row(**unavailable, **{"Ano da Emenda": "2014"}),
+                    amendment_row(**unavailable, **{"Ano da Emenda": "2015"}),
+                ]
+            )
+        )
+        self.assertEqual(
+            [item["fiscal_year"] for item in selected], [2014, 2015]
+        )
+        self.assertEqual(selected[0]["amendment_code"], "Sem informação")
+
 
 class CGUFederalAmendmentDownloadTests(unittest.TestCase):
     def test_binds_redirected_download_to_official_host_and_snapshot(self) -> None:

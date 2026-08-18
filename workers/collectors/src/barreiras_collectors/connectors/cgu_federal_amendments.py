@@ -498,6 +498,7 @@ def _natural_identity(item: Mapping[str, object]) -> tuple[str, ...]:
     return tuple(
         str(item[name])
         for name in (
+            "fiscal_year",
             "amendment_code",
             "municipality_ibge",
             "function_code",

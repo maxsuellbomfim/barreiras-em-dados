@@ -2,6 +2,7 @@ const SOURCES = new Set([
   "legislaturas",
   "federal-atual",
   "federal-historico",
+  "federal-execucao",
   "estadual",
 ]);
 
@@ -21,6 +22,7 @@ export function resolveTransferSourceSelection(requestedSource) {
     showLegislatures: source === "legislaturas",
     showCurrentFederal: source === "federal-atual",
     showHistoricalFederal: source === "federal-historico",
+    showCguExecution: source === "federal-execucao",
     showState: source === "estadual",
   };
 }

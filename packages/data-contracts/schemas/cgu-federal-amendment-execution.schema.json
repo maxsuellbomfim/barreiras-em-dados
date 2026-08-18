@@ -16,12 +16,12 @@
     "outstanding_cancelled_amount", "outstanding_paid_amount", "source_row_number"
   ],
   "properties": {
-    "amendment_code": { "type": "string", "pattern": "^\\d+$" },
+    "amendment_code": { "$ref": "#/$defs/code_or_source_sentinel" },
     "fiscal_year": { "type": "integer", "minimum": 2000, "maximum": 2100 },
     "amendment_type": { "type": "string", "minLength": 1, "maxLength": 4000 },
-    "author_code": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "author_code": { "$ref": "#/$defs/code_or_source_sentinel" },
     "author_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
-    "amendment_number": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "amendment_number": { "$ref": "#/$defs/code_or_source_sentinel" },
     "locality": { "type": "string", "minLength": 1, "maxLength": 4000 },
     "municipality_ibge": { "const": "2903201" },
     "municipality_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
@@ -47,6 +47,12 @@
     "source_row_number": { "type": "integer", "minimum": 2 }
   },
   "$defs": {
-    "money": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" }
+    "money": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "code_or_source_sentinel": {
+      "type": "string",
+      "description": "Codigo numerico oficial ou o sentinela literal publicado pela fonte (ex.: 'Sem informação', 'S/I').",
+      "minLength": 1,
+      "maxLength": 4000
+    }
   }
 }
