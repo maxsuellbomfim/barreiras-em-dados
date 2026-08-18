@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -26,7 +26,7 @@ function contractRow(overrides = {}) {
     contract_id: "9c1c6a1e-0000-4000-8000-000000000001",
     source_contract_id: "1549",
     contract_number: "222/2024",
-    contract_object: "AquisiÃ§Ã£o de materiais de expediente.",
+    contract_object: "Aquisição de materiais de expediente.",
     supplier_name: "COMERCIAL VALOIS LTDA",
     supplier_document_kind: "cnpj",
     supplier_document: "44493204000187",
@@ -48,7 +48,7 @@ function contractRow(overrides = {}) {
   };
 }
 
-test("contrato com CNPJ Ã© publicado com valor literal e evidÃªncia", () => {
+test("contrato com CNPJ é publicado com valor literal e evidência", () => {
   const parsed = parseMunicipalContractRows([contractRow()]);
   assert.notEqual(parsed, null);
   assert.equal(parsed[0].contractValueText, "R$ 105.460,50");
@@ -59,7 +59,7 @@ test("contrato com CNPJ Ã© publicado com valor literal e evidÃªncia", () => 
   );
 });
 
-test("pessoa fÃ­sica aparece sem nenhum dÃ­gito de CPF, em qualquer camada", () => {
+test("pessoa física aparece sem nenhum dígito de CPF, em qualquer camada", () => {
   const parsed = parseMunicipalContractRows([
     contractRow({
       supplier_name: "ALMERY MESSIAS DA SILVEIRA",
@@ -69,7 +69,7 @@ test("pessoa fÃ­sica aparece sem nenhum dÃ­gito de CPF, em qualquer camada",
   ]);
   assert.notEqual(parsed, null);
   assert.equal(parsed[0].supplierDocument, null);
-  assert.match(municipalSupplierLabel(parsed[0]), /CPF nÃ£o publicado/);
+  assert.match(municipalSupplierLabel(parsed[0]), /CPF não publicado/);
   assert.equal(
     parseMunicipalContractRows([
       contractRow({
@@ -85,16 +85,16 @@ test("pessoa fÃ­sica aparece sem nenhum dÃ­gito de CPF, em qualquer camada",
       contractRow({ supplier_document: "463.000.000-00" }),
     ]),
     null,
-    "documento fora do formato CNPJ de 14 dÃ­gitos Ã© rejeitado",
+    "documento fora do formato CNPJ de 14 dígitos é rejeitado",
   );
 });
 
-test("a projeÃ§Ã£o SQL nunca publica CPF nem converte valores", () => {
+test("a projeção SQL nunca publica CPF nem converte valores", () => {
   assert.match(migration, /cpf_pessoa_fisica/);
   assert.match(
     migration,
     /when length\(candidate\.document_digits\) = 14\s*\n\s*then candidate\.document_digits/,
-    "apenas o CNPJ de 14 dÃ­gitos sai da projeÃ§Ã£o",
+    "apenas o CNPJ de 14 dígitos sai da projeção",
   );
   assert.doesNotMatch(
     migration,
@@ -104,8 +104,8 @@ test("a projeÃ§Ã£o SQL nunca publica CPF nem converte valores", () => {
   assert.match(migration, /municipal-contracts\/1\.0\.0/);
 });
 
-test("a pÃ¡gina cita a sÃ©rie municipal sem prometer avaliaÃ§Ã£o", () => {
+test("a página cita a série municipal sem prometer avaliação", () => {
   assert.match(page, /Contratos da Prefeitura/);
-  assert.match(page, /CPF de pessoa\s+fÃ­sica nunca Ã© exibido/);
-  assert.match(page, /nÃ£o sÃ£o convertidos nem somados/);
+  assert.match(page, /CPF de pessoa\s+física nunca é exibido/);
+  assert.match(page, /não são convertidos nem somados/);
 });
