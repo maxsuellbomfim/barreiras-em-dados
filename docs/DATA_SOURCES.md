@@ -435,9 +435,18 @@ registrada como `missing_check_digit_rows` e nenhum dígito é inferido. Essa
 validação fecha a cobertura estrutural do ZIP, mas não normaliza valores, não
 autoriza totais e não remove o bloqueio territorial de Barreiras.
 
-Em 17/07/2026, o Transferegov anunciou novo ambiente de APIs e descontinuação do
-ambiente anterior em 31/08/2026. O conector deverá apontar para o ambiente novo
-e registrar versão do contrato.
+Em 17/07/2026, o Transferegov anunciou novo ambiente de APIs e descontinuação
+do ambiente anterior em 31/08/2026. **Resolvido em 18/08/2026**: o Comunicado
+23/2026 confirma que o ambiente que permanece é exatamente
+`api-publica.transferegov.gestao.gov.br` — o único que este repositório usa
+nos quatro conectores (parcerias, catálogo e arquivos históricos). Os hosts
+descontinuados (`repositorio.dados.gov.br/seges/detru`,
+`docs.api.transferegov.gestao.gov.br`, `api.obrasgov.gestao.gov.br`) nunca
+foram referenciados. Verificação: sondas HTTP 200 na API de parcerias com a
+query real, no catálogo Azure (`restype=container&comp=list`) e no ZIP
+histórico, além de execução completa do workflow em produção no mesmo dia.
+O contrato verificado ficou registrado no config dos endpoints
+(migration `record_transferegov_environment`).
 
 Referências:
 
