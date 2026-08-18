@@ -114,6 +114,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
             FINANCIAL_DOCUMENT_RESOURCES,
         )
         self.assertIn("pdc-obras-pdc", FINANCIAL_DOCUMENT_RESOURCES)
+        self.assertIn("contratos", FINANCIAL_DOCUMENT_RESOURCES)
 
     def test_catalog_and_document_drain_use_distinct_execution_namespaces(
         self,

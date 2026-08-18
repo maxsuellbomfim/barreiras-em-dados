@@ -67,6 +67,7 @@ FINANCIAL_DOCUMENT_RESOURCES = frozenset(
         "pdc-emendas-parlamentares-receitas",
         "pdc-convenios-transferencias-realizadas",
         "pdc-obras-pdc",
+        "contratos",
         "rreo",
         "rgf",
     }

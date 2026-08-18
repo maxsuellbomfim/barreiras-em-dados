@@ -10,6 +10,11 @@ import {
   type PublicSupplierConcentration,
 } from "../../lib/supplier-concentration";
 import { formatBrlDecimal } from "../../lib/revenues";
+import {
+  getPublicMunicipalContracts,
+  municipalSupplierLabel,
+  type MunicipalContract,
+} from "../../lib/municipal-contracts";
 import { ProcurementExplorer } from "./procurement-explorer";
 
 export const revalidate = 300;
@@ -91,6 +96,103 @@ type ProcurementsPageProps = {
   }>;
 };
 
+function MunicipalContractCard({
+  contract,
+}: Readonly<{ contract: MunicipalContract }>) {
+  return (
+    <article className="digest-card">
+      <div className="track-top">
+        <span>Contrato {contract.contractNumber}</span>
+        <span className="track-status">
+          {contract.validityStartText
+            ? `vigência ${contract.validityStartText}${contract.validityEndText ? ` a ${contract.validityEndText}` : ""}`
+            : "vigência não informada"}
+        </span>
+      </div>
+      <h3 className="procurement-object">
+        {contract.contractObject ?? "Objeto não informado no registro da fonte"}
+      </h3>
+      <dl className="procurement-values">
+        <div>
+          <dt>Contratado</dt>
+          <dd>{contract.supplierName}</dd>
+        </div>
+        <div>
+          <dt>Identificação</dt>
+          <dd>{municipalSupplierLabel(contract)}</dd>
+        </div>
+        <div>
+          <dt>Valor publicado pela fonte</dt>
+          <dd>{contract.contractValueText ?? "não informado no registro"}</dd>
+        </div>
+        {contract.modalityCode ? (
+          <div>
+            <dt>Modalidade</dt>
+            <dd>
+              código {contract.modalityCode} (a fonte publica apenas o código)
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+      <p className="act-evidence">
+        <a href={contract.documentUrl} target="_blank" rel="noreferrer">
+          Abrir contrato oficial →
+        </a>{" "}
+        · resposta da API preservada · {contract.documentPreserved
+          ? "PDF preservado"
+          : "PDF ainda não preservado"}{" "}
+        · hash {contract.artifactSha256.slice(0, 12)}…
+      </p>
+    </article>
+  );
+}
+
+function MunicipalContractsPanel({
+  result,
+}: Readonly<{
+  result: Awaited<ReturnType<typeof getPublicMunicipalContracts>>;
+}>) {
+  if (result.state === "unavailable" || result.contracts.length === 0) {
+    return (
+      <section className="finance-documents" aria-labelledby="municipal-contracts-title">
+        <div className="section-heading compact">
+          <span className="eyebrow">Portal municipal</span>
+          <h2 id="municipal-contracts-title">Contratos da Prefeitura</h2>
+          <p>
+            A série de contratos do portal municipal ainda não está disponível
+            nesta consulta. Isso é limitação de coleta ou consulta — não
+            significa ausência de contratos.
+          </p>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="finance-documents" aria-labelledby="municipal-contracts-title">
+      <div className="section-heading compact">
+        <span className="eyebrow">Portal municipal</span>
+        <h2 id="municipal-contracts-title">Contratos da Prefeitura</h2>
+        <p>
+          Série complementar ao PNCP, espelhada do portal de transparência
+          municipal: contratado, valor publicado como texto oficial e o PDF do
+          contrato. Valores não são convertidos nem somados. CPF de pessoa
+          física nunca é exibido.
+        </p>
+      </div>
+      <details className="finance-details">
+        <summary>
+          Ver os {result.contracts.length.toLocaleString("pt-BR")} contratos mais recentes
+        </summary>
+        <div className="digest-grid">
+          {result.contracts.map((contract) => (
+            <MunicipalContractCard contract={contract} key={contract.contractId} />
+          ))}
+        </div>
+      </details>
+    </section>
+  );
+}
+
 export default async function ProcurementsPage({ searchParams }: ProcurementsPageProps) {
   const params = await searchParams;
   const filters: ProcurementFilters = {
@@ -109,13 +211,15 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
       filters.status ||
       filters.unit,
   );
-  const [result, supplierResult, filterOptionsResult] = await Promise.all([
-    getPncpProcurements(filters),
-    hasFilters
-      ? Promise.resolve({ state: "available" as const, suppliers: [] as const })
-      : getPublicSupplierConcentration(),
-    getPncpProcurementFilterOptions(),
-  ]);
+  const [result, supplierResult, filterOptionsResult, municipalContractsResult] =
+    await Promise.all([
+      getPncpProcurements(filters),
+      hasFilters
+        ? Promise.resolve({ state: "available" as const, suppliers: [] as const })
+        : getPublicSupplierConcentration(),
+      getPncpProcurementFilterOptions(),
+      getPublicMunicipalContracts(),
+    ]);
   const filterOptions =
     filterOptionsResult.state === "available" ? filterOptionsResult.options : [];
 
@@ -265,6 +369,8 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
             <ProcurementExplorer procurements={result.procurements} />
           </>
         )}
+
+        <MunicipalContractsPanel result={municipalContractsResult} />
 
         <p className="hero-note">
           Metodologia: espelho fiel dos registros do PNCP, preservados como
