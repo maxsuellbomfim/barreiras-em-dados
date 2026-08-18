@@ -18,7 +18,7 @@ const obligationMigration = await readFile(
 );
 const catalogMigration = await readFile(
   new URL(
-    "../../supabase/migrations/20260818160000_expand_finance_document_catalog.sql",
+    "../../supabase/migrations/20260818151806_expand_finance_document_catalog.sql",
     import.meta.url,
   ),
   "utf8",
