@@ -133,6 +133,14 @@ test("series corrente e historica sao reconciliadas sem dupla contagem", () => {
   assert.match(client, /get_public_reconciled_parliamentary_transfer_ranking/);
   assert.match(client, /get_public_parliamentary_transfer_reconciliation_summary/);
   assert.match(page, /Ranking consolidado e audit.vel/);
-  assert.match(page, /correspond.ncia\(s\)\s+exata\(s\) contam uma .nica vez/);
-  assert.match(page, /conflito\(s\)\s+ficam vis.veis para auditoria, mas fora dos totais/);
+  assert.match(page, /correspond.ncia\(s\) exata\(s\) contam uma .nica vez/);
+  assert.match(
+    page,
+    /conflito\(s\) entre as bases ficam vis.veis para auditoria, mas fora dos totais/,
+  );
+  assert.match(
+    page,
+    /nenhuma emenda aparece nas duas bases ao mesmo tempo/,
+    "com zero correspondências a página explica em vez de exibir contagem vazia",
+  );
 });

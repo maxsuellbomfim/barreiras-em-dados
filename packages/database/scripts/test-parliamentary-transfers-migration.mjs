@@ -2459,6 +2459,68 @@ try {
     { author_name: "AFONSO FLORENCE" },
   ]);
 
+  const cguLegislatureRanking = await database.query(`
+    select
+      legislature_number,
+      author_scope,
+      rank_position,
+      author_name,
+      amendment_count,
+      committed_amount,
+      effective_paid_amount,
+      first_year,
+      last_year
+    from api.get_public_cgu_federal_amendment_legislature_ranking(10)
+  `);
+  assert.deepEqual(cguLegislatureRanking.rows, [
+    {
+      legislature_number: 56,
+      author_scope: "collective",
+      rank_position: 1,
+      author_name: "BANCADA DA BAHIA",
+      amendment_count: 1,
+      committed_amount: "3013986.00",
+      effective_paid_amount: "3013986.00",
+      first_year: 2021,
+      last_year: 2021,
+    },
+    {
+      legislature_number: 56,
+      author_scope: "person",
+      rank_position: 1,
+      author_name: "TITO",
+      amendment_count: 1,
+      committed_amount: "500000.00",
+      effective_paid_amount: "500000.00",
+      first_year: 2022,
+      last_year: 2022,
+    },
+    {
+      legislature_number: 56,
+      author_scope: "person",
+      rank_position: 2,
+      author_name: "AFONSO FLORENCE",
+      amendment_count: 1,
+      committed_amount: "400000.00",
+      effective_paid_amount: "400000.00",
+      first_year: 2021,
+      last_year: 2021,
+    },
+  ]);
+  const cguLegislatureRankingDefinition = await database.query(`
+    select pg_get_functiondef(procedure.oid) as definition
+    from pg_proc as procedure
+    join pg_namespace as namespace on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'api'
+      and procedure.proname = 'get_public_cgu_federal_amendment_legislature_ranking'
+  `);
+  assert.equal(cguLegislatureRankingDefinition.rows.length, 1);
+  assert.doesNotMatch(
+    cguLegislatureRankingDefinition.rows[0].definition,
+    /reconciled_parliamentary_transfers|destination_amount/,
+    "a serie CGU por legislatura nao pode misturar valores do Transferegov",
+  );
+
   await database.exec("set role anon");
   await assert.rejects(
     database.query("select * from territory.parliamentary_transfers"),
