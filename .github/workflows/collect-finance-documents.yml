@@ -179,7 +179,7 @@ jobs:
           --allow-partial
 
   transferegov:
-    name: Preservar parcerias e emendas do Transferegov
+    name: Preservar emendas federais e parcerias
     needs: collect
     if: >-
       always() &&
@@ -239,6 +239,11 @@ jobs:
           python -B -m
           barreiras_collectors.commands.collect_transferegov_historical_amendments
           --year-from "2021"
+
+      - name: Preservar execução federal de emendas em Barreiras
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.collect_cgu_federal_amendments
 
       - name: Preservar retrato do Transferegov
         run: >-

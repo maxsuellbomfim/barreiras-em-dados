@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreiras360.org/schemas/cgu-federal-amendment-execution/1-0-0",
+  "title": "CGU federal parliamentary amendment execution in Barreiras",
+  "description": "Linha oficial de execucao federal regionalizada para o municipio IBGE 2903201, sem somar estagios financeiros.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "amendment_code", "fiscal_year", "amendment_type", "author_code",
+    "author_name", "amendment_number", "locality", "municipality_ibge",
+    "municipality_name", "state_ibge", "state_name", "region_name",
+    "function_code", "function_name", "subfunction_code", "subfunction_name",
+    "program_code", "program_name", "action_code", "action_name",
+    "budget_plan_code", "budget_plan_name", "committed_amount",
+    "liquidated_amount", "paid_amount", "outstanding_registered_amount",
+    "outstanding_cancelled_amount", "outstanding_paid_amount", "source_row_number"
+  ],
+  "properties": {
+    "amendment_code": { "type": "string", "pattern": "^\\d+$" },
+    "fiscal_year": { "type": "integer", "minimum": 2000, "maximum": 2100 },
+    "amendment_type": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "author_code": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "author_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "amendment_number": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "locality": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "municipality_ibge": { "const": "2903201" },
+    "municipality_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "state_ibge": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "state_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "region_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "function_code": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "function_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "subfunction_code": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "subfunction_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "program_code": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "program_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "action_code": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "action_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "budget_plan_code": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "budget_plan_name": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "committed_amount": { "$ref": "#/$defs/money" },
+    "liquidated_amount": { "$ref": "#/$defs/money" },
+    "paid_amount": { "$ref": "#/$defs/money" },
+    "outstanding_registered_amount": { "$ref": "#/$defs/money" },
+    "outstanding_cancelled_amount": { "$ref": "#/$defs/money" },
+    "outstanding_paid_amount": { "$ref": "#/$defs/money" },
+    "source_row_number": { "type": "integer", "minimum": 2 }
+  },
+  "$defs": {
+    "money": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" }
+  }
+}

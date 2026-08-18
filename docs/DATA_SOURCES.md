@@ -36,7 +36,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | Assembleia Legislativa da Bahia | parlamentares, comissões e proposições | P3 | API indicada; contrato a descobrir |
 | TSE Dados Abertos | candidaturas, resultados e bens declarados | P4 | datasets confirmados |
 | TSE Prestação de Contas | receitas, despesas e doadores por candidatura | P4 | dataset confirmado; minimização pendente |
-| CGU/Portal da Transparência | CEIS, CNEP, CEPIM, CEAF, acordos e emendas | P4 | API confirmada; token necessário |
+| CGU/Portal da Transparência | CEIS, CNEP, CEPIM, CEAF, acordos e emendas | P3 | ZIP nacional de execução de emendas implementado sem token; APIs de sanções continuam dependentes de chave |
 | Receita Federal — CNPJ aberto | empresas e QSA | P4 | download em lote; descoberta |
 | IBAMA | autos de infração ambiental | bloqueada | fonte confirmada; gate reputacional |
 | ANAC/RAB | aeronaves e dados cadastrais | bloqueada | dataset confirmado; finalidade/LGPD pendentes |
@@ -332,6 +332,31 @@ Se tamanho ou ETag do catálogo e do proxy divergirem durante uma atualização,
 a coleta falha de forma explícita e aguarda sincronização; uma versão anterior
 não é silenciosamente tratada como o retrato atual.
 
+### Execução federal regionalizada da CGU
+
+O Portal da Transparência publica um ZIP nacional de emendas parlamentares
+que não exige a chave da API. O coletor preserva o arquivo integral, valida
+host final, caminho, `Content-Length`, `ETag`, `Last-Modified`, membros e
+cabeçalhos, e materializa somente as linhas cujo `Código Município IBGE` seja
+exatamente `2903201`. O bruto nacional continua privado.
+
+O recorte observado em 16/08/2026 encontrou 15 linhas territoriais, entre 2014
+e 2023. Sete pertencem a Carlos Tito e incluem a emenda `202340720005`, de
+2023. O código nunca soma empenhado, liquidado e pago como se fossem valores
+aditivos. `Pago no exercício`, `restos a pagar pagos` e `restos a pagar
+cancelados` permanecem separados; um total efetivamente pago só pode ser
+calculado deterministicamente como pago no exercício mais restos a pagar pagos.
+
+O município nessa fonte indica localização da execução orçamentária. Não
+prova, isoladamente, repasse direto à Prefeitura, conclusão do objeto ou
+regularidade. Anos posteriores a 2023 ausentes no retrato observado ficam
+marcados como não encontrados nessa fonte, nunca como valor zero.
+
+Referências:
+
+- [Download de emendas parlamentares](https://portaldatransparencia.gov.br/download-de-dados/emendas-parlamentares)
+- [Dicionário de dados de emendas](https://portaldatransparencia.gov.br/dicionario-de-dados/emendas-parlamentares)
+
 ### Emendas parlamentares estaduais da Bahia
 
 O Portal de Dados Abertos da Bahia publica o conjunto **Emendas Parlamentares
@@ -504,8 +529,9 @@ Referências:
 ## Sanções e vínculos societários
 
 A API do Portal da Transparência/CGU oferece CEIS, CNEP, CEPIM, CEAF e acordos
-de leniência. O consumo requer token por e-mail e respeita limites por horário.
-Consultas volumosas devem preferir downloads de dados abertos.
+de leniência. O consumo desses endpoints requer token por e-mail e respeita
+limites por horário. Isso não se aplica ao ZIP público de emendas usado pela
+coleta em lote. Consultas volumosas devem preferir downloads de dados abertos.
 
 O CNPJ aberto da Receita Federal contém estabelecimentos, empresas e QSA em
 arquivos de lote. A API de consulta CNPJ do Conecta gov.br não deve ser
