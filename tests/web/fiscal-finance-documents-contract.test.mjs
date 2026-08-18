@@ -16,6 +16,13 @@ const obligationMigration = await readFile(
   ),
   "utf8",
 );
+const catalogMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260818160000_expand_finance_document_catalog.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(new URL("../../apps/web/lib/finance-documents.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/financas/page.tsx", import.meta.url), "utf8");
 
@@ -27,7 +34,8 @@ test("catalogo fiscal usa ano_ref e informacoes de RREO/RGF", () => {
 });
 
 test("cliente valida a nova versao do catalogo fiscal", () => {
-  assert.match(client, /public-finance-documents\/1\.4\.0/);
+  assert.match(client, /public-finance-documents\/1\.5\.0/);
+  assert.doesNotMatch(client, /public-finance-documents\/1\.4\.0/);
 });
 
 test("projecao publica inclui RGF e documentos de obrigacoes sem inferir saldo", () => {
@@ -36,9 +44,25 @@ test("projecao publica inclui RGF e documentos de obrigacoes sem inferir saldo",
   assert.match(obligationMigration, /municipal_transparency_pdc-contas-anuais/);
   assert.match(obligationMigration, /public-finance-documents\/1\.4\.0/);
   assert.match(obligationMigration, /source_record_key/);
-  assert.match(client, /public-finance-documents\/1\.4\.0/);
   assert.match(page, /Dívidas e obrigações em apuração/);
   assert.match(page, /não\s+representa o total da dívida municipal/);
+});
+
+test("catalogo 1.5.0 publica transferencias concedidas e obras sem somar valores", () => {
+  assert.match(
+    catalogMigration,
+    /municipal_transparency_pdc-convenios-transferencias-realizadas/,
+  );
+  assert.match(catalogMigration, /municipal_transparency_pdc-obras-pdc/);
+  assert.match(catalogMigration, /public-finance-documents\/1\.5\.0/);
+  assert.match(catalogMigration, /source_record_key/);
+  assert.doesNotMatch(
+    catalogMigration,
+    /sum\(|::numeric/,
+    "o catalogo documental nunca converte ou soma valores",
+  );
+  assert.match(client, /"pdc-convenios-transferencias-realizadas": "Transferencias concedidas"/);
+  assert.match(client, /"pdc-obras-pdc": "Obras e prestacao de contas"/);
 });
 
 test("interface separa demonstrativos fiscais de fechamentos mensais", () => {
