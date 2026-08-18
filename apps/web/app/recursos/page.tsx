@@ -29,6 +29,12 @@ import {
   resolveStateLoaYear,
   stateLoaYears,
 } from "../../lib/state-loa-year-filter.mjs";
+import {
+  getPublicCguFederalAmendments,
+  type CguFederalAmendment,
+  type CguFederalAmendmentRanking,
+  type CguFederalAmendmentsResult,
+} from "../../lib/cgu-federal-amendments";
 import { getPublicParliamentaryLegislatureRankings } from
   "../../lib/legislature-transfer-rankings";
 import { getPublicParliamentaryLegislatureCoverage } from
@@ -759,6 +765,220 @@ function StateLoaPanel({
   );
 }
 
+const CGU_LINK_STATUS_COPY: Readonly<Record<
+  CguFederalAmendment["transferegovLinkStatus"],
+  string
+>> = {
+  code_unavailable:
+    "A fonte não publicou o código oficial desta emenda; o vínculo com o Transferegov não pode ser conferido.",
+  not_found_in_transferegov:
+    "Não localizada nas bases preservadas do Transferegov. As coberturas das fontes diferem; isso não é erro.",
+  matched_transferegov_unique:
+    "Também aparece no Transferegov com o mesmo código oficial. Os valores não são somados entre fontes.",
+  conflict_non_unique_transferegov:
+    "O código oficial aparece mais de uma vez no Transferegov; o vínculo fica suspenso para auditoria.",
+};
+
+function CguRankingList({
+  rows,
+  scopeLabel,
+}: Readonly<{
+  rows: readonly CguFederalAmendmentRanking[];
+  scopeLabel: string;
+}>) {
+  if (rows.length === 0) {
+    return (
+      <p className="transfer-empty">
+        Nenhuma autoria {scopeLabel} identificada pela fonte neste recorte.
+      </p>
+    );
+  }
+  return (
+    <div className="transfer-ranking-list">
+      {rows.map((row) => (
+        <article
+          className="transfer-ranking-card"
+          id={parliamentaryTransferAuthorAnchor(row.authorKey)}
+          key={`cgu:${row.authorKind}:${row.authorKey}`}
+        >
+          <span className="transfer-rank" aria-label={`posição ${row.rankPosition}`}>
+            {row.rankPosition}
+          </span>
+          <div className="transfer-ranking-name">
+            <h3>{row.authorName}</h3>
+            <span>Autoria publicada no arquivo aberto da CGU</span>
+          </div>
+          <dl>
+            <div>
+              <dt>Empenhado</dt>
+              <dd>{formatBrlDecimal(row.committedAmount)}</dd>
+            </div>
+            <div>
+              <dt>Pago efetivo</dt>
+              <dd>{formatBrlDecimal(row.effectivePaidAmount)}</dd>
+            </div>
+            <div>
+              <dt>Emendas encontradas</dt>
+              <dd>{row.amendmentCount.toLocaleString("pt-BR")}</dd>
+            </div>
+            <div>
+              <dt>Período</dt>
+              <dd>{row.firstYear === row.lastYear ? row.firstYear : `${row.firstYear}–${row.lastYear}`}</dd>
+            </div>
+          </dl>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function CguAmendmentCard({
+  amendment,
+}: Readonly<{ amendment: CguFederalAmendment }>) {
+  return (
+    <article className="transfer-card">
+      <div className="transfer-card-heading">
+        <div>
+          <span className="transfer-card-kind">
+            Execução federal (CGU) · {amendment.fiscalYear}
+          </span>
+          <h3>{amendment.authorName}</h3>
+          <p>
+            {amendment.hasOfficialCode
+              ? `Emenda ${amendment.amendmentCode}`
+              : "Código da emenda não publicado pela fonte"}
+            {" · "}{amendment.amendmentType}
+          </p>
+        </div>
+        <span className="transfer-status">{amendment.functionName}</span>
+      </div>
+      <p className="transfer-object">
+        {amendment.actionName} · {amendment.programName}
+      </p>
+      <dl className="transfer-stage-grid">
+        <div>
+          <dt>Empenhado</dt>
+          <dd>{formatBrlDecimal(amendment.committedAmount)}</dd>
+          <span>Reserva registrada no orçamento federal.</span>
+        </div>
+        <div>
+          <dt>Liquidado</dt>
+          <dd>{formatBrlDecimal(amendment.liquidatedAmount)}</dd>
+          <span>Despesa reconhecida pela fonte.</span>
+        </div>
+        <div>
+          <dt>Pago no exercício</dt>
+          <dd>{formatBrlDecimal(amendment.paidAmount)}</dd>
+          <span>Pagamento dentro do próprio ano.</span>
+        </div>
+        <div>
+          <dt>Restos pagos</dt>
+          <dd>{formatBrlDecimal(amendment.outstandingPaidAmount)}</dd>
+          <span>Pagamento de anos seguintes (restos a pagar).</span>
+        </div>
+        <div>
+          <dt>Pago efetivo</dt>
+          <dd>{formatBrlDecimal(amendment.effectivePaidAmount)}</dd>
+          <span>Único total derivado: pago no exercício + restos pagos.</span>
+        </div>
+      </dl>
+      <aside className="transfer-reading-guide">
+        <strong>Vínculo com o Transferegov</strong>
+        <p>{CGU_LINK_STATUS_COPY[amendment.transferegovLinkStatus]}</p>
+      </aside>
+      <details className="transfer-details">
+        <summary>Evidência oficial desta linha</summary>
+        <p>
+          Linha {amendment.sourceRowNumber.toLocaleString("pt-BR")} do arquivo
+          nacional, coletada em {dateTimeFormatter.format(new Date(amendment.collectedAt))}.<br />
+          Hash do ZIP oficial: <code>{amendment.artifactSha256}</code>
+        </p>
+      </details>
+      <a className="transfer-source-link" href={amendment.sourceUrl} rel="noreferrer" target="_blank">
+        Abrir arquivo oficial da CGU →
+      </a>
+    </article>
+  );
+}
+
+function CguFederalExecutionPanel({
+  result,
+}: Readonly<{ result: CguFederalAmendmentsResult }>) {
+  if (result.state === "unavailable") {
+    return (
+      <section className="transfer-ranking" aria-labelledby="cgu-execution-title">
+        <div className="transfer-section-heading">
+          <div>
+            <span className="eyebrow">Execução federal regionalizada</span>
+            <h2 id="cgu-execution-title">Série da CGU em preparação</h2>
+          </div>
+        </div>
+        <p className="transfer-empty">
+          A série do Portal da Transparência ainda não está disponível no banco
+          público. Isso é uma limitação de consulta ou de coleta, nunca prova de
+          ausência de emendas.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="transfer-ranking" aria-labelledby="cgu-execution-title">
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Execução federal regionalizada</span>
+          <h2 id="cgu-execution-title">
+            Emendas executadas em Barreiras segundo a CGU
+          </h2>
+        </div>
+        <p>Fonte: arquivo aberto de emendas do Portal da Transparência.</p>
+      </div>
+      <aside className="transfer-reading-guide">
+        <strong>O que esta série realmente diz</strong>
+        <p>
+          O município nesta fonte indica onde a execução orçamentária foi
+          regionalizada. Não prova, sozinho, repasse direto à Prefeitura,
+          conclusão de obra ou regularidade do gasto.
+        </p>
+        <p>
+          Empenhado, liquidado, pago no exercício e restos a pagar são etapas
+          diferentes e nunca são somados entre si. O único total derivado é o
+          pago efetivo: pago no exercício mais restos a pagar pagos. Anos
+          ausentes significam “não encontrado nesta fonte”, nunca valor zero.
+        </p>
+        <p>
+          Emendas que também existem no Transferegov são apenas rotuladas pelo
+          código oficial — os valores de cada fonte permanecem separados, sem
+          dupla contagem.
+        </p>
+      </aside>
+      <h3>Autoria individual</h3>
+      <CguRankingList rows={result.people} scopeLabel="individual" />
+      <h3>Comissões e bancadas</h3>
+      <CguRankingList rows={result.collectives} scopeLabel="coletiva" />
+      {result.amendments.length > 0 ? (
+        <details className="transfer-methodology">
+          <summary>
+            Conferir as {result.amendments.length.toLocaleString("pt-BR")} linhas oficiais, estágios e evidências
+          </summary>
+          <div className="transfer-card-list">
+            {result.amendments.map((amendment) => (
+              <CguAmendmentCard
+                amendment={amendment}
+                key={`${amendment.fiscalYear}:${amendment.amendmentCode}:${amendment.sourceRowNumber}`}
+              />
+            ))}
+          </div>
+        </details>
+      ) : (
+        <p className="transfer-empty">
+          O retrato preservado não trouxe linhas para Barreiras. Isso descreve a
+          fonte, não a realidade completa das emendas.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function ReconciledRankingPanel({
   people,
   collectives,
@@ -1329,6 +1549,7 @@ export default async function ParliamentaryResourcesPage({
     legislatureRankingsResult,
     legislatureCoverageResult,
     legislatureYearCoverageResult,
+    cguFederalAmendmentsResult,
   ] = await Promise.all([
     getPublicParliamentaryTransfers({
       stateFiscalYear: selectedStateFiscalYear,
@@ -1341,6 +1562,9 @@ export default async function ParliamentaryResourcesPage({
       : Promise.resolve({ state: "unavailable" as const }),
     sourceSelection.showLegislatures
       ? getPublicParliamentaryLegislatureYearCoverage()
+      : Promise.resolve({ state: "unavailable" as const }),
+    sourceSelection.showCguExecution
+      ? getPublicCguFederalAmendments()
       : Promise.resolve({ state: "unavailable" as const }),
   ]);
   const legislatureRankingGroups =
@@ -1439,6 +1663,13 @@ export default async function ParliamentaryResourcesPage({
             <span>Arquivo oficial antigo, propostas e conferência entre séries.</span>
           </a>
           <a
+            href="/recursos?origem=federal-execucao"
+            aria-current={sourceSelection.source === "federal-execucao" ? "page" : undefined}
+          >
+            <strong>Execução federal</strong>
+            <span>Arquivo aberto da CGU com empenho e pagamento regionalizados para Barreiras.</span>
+          </a>
+          <a
             href="/recursos?origem=estadual"
             aria-current={sourceSelection.source === "estadual" ? "page" : undefined}
           >
@@ -1453,6 +1684,8 @@ export default async function ParliamentaryResourcesPage({
             groups={legislatureRankingGroups}
             yearCoverage={legislatureYearCoverage}
           />
+        ) : sourceSelection.showCguExecution ? (
+          <CguFederalExecutionPanel result={cguFederalAmendmentsResult} />
         ) : result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
             <div>

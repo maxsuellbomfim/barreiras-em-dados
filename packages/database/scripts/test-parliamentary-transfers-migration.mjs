@@ -2201,6 +2201,264 @@ try {
     methodology_version: "parliamentary-transfer-reconciliation/1.0.0",
   }]);
 
+  const cguContracts = await database.query(`
+    select
+      to_regclass('territory.latest_cgu_federal_amendment_executions')::text
+        as cgu_latest_projection,
+      to_regclass('territory.cgu_federal_amendment_executions')::text
+        as cgu_execution_projection,
+      to_regclass('territory.cgu_transferegov_amendment_links')::text
+        as cgu_link_projection,
+      to_regprocedure(
+        'api.get_public_cgu_federal_amendment_executions(smallint,text,integer)'
+      )::text as cgu_execution_rpc,
+      to_regprocedure(
+        'api.get_public_cgu_federal_amendment_ranking(text,smallint,integer)'
+      )::text as cgu_ranking_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_cgu_federal_amendment_executions(smallint,text,integer)',
+        'EXECUTE'
+      ) as anon_cgu_execution_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_cgu_federal_amendment_ranking(text,smallint,integer)',
+        'EXECUTE'
+      ) as anon_cgu_ranking_rpc
+  `);
+  assert.deepEqual(cguContracts.rows, [{
+    cgu_latest_projection: "territory.latest_cgu_federal_amendment_executions",
+    cgu_execution_projection: "territory.cgu_federal_amendment_executions",
+    cgu_link_projection: "territory.cgu_transferegov_amendment_links",
+    cgu_execution_rpc:
+      "api.get_public_cgu_federal_amendment_executions(smallint,text,integer)",
+    cgu_ranking_rpc:
+      "api.get_public_cgu_federal_amendment_ranking(text,smallint,integer)",
+    anon_cgu_execution_rpc: true,
+    anon_cgu_ranking_rpc: true,
+  }]);
+
+  await database.exec(`
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000009401',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'cgu-portal-transparencia'
+         and endpoint.slug = 'federal-amendments-open-data'),
+      'cgu-federal-amendment-fixture-run', 'test/1', 'succeeded'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key, collector_version
+    ) values (
+      '00000000-0000-0000-0000-000000009402',
+      '00000000-0000-0000-0000-000000009401',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'cgu-portal-transparencia'
+         and endpoint.slug = 'federal-amendments-open-data'),
+      'cgu-federal-amendment-fixture-artifact', 'archive',
+      'https://dadosabertos-download.cgu.gov.br/PortalDaTransparencia/saida/emendas-parlamentares/EmendasParlamentares.zip',
+      '2026-08-16 12:00:00+00', 32110890, '${"ce".repeat(32)}',
+      'cgu/emendas-federais/fixture.zip', 'test/1'
+    );
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009410',
+        '00000000-0000-0000-0000-000000009402',
+        'cgu:federal-amendment:2023:202340720005:fixture',
+        'cgu_federal_amendment_execution', 0,
+        '{"fiscal_year":2023,"amendment_code":"202340720005","amendment_number":"0005","amendment_type":"Emenda Individual - Transferências com Finalidade Definida","author_code":"4072","author_name":"TITO","locality":"BARREIRAS - BA","municipality_ibge":"2903201","municipality_name":"BARREIRAS","state_ibge":"2900000","state_name":"BAHIA","region_name":"Nordeste","function_code":"05","function_name":"Defesa nacional","subfunction_code":"153","subfunction_name":"Defesa terrestre","program_code":"6012","program_name":"DEFESA NACIONAL","action_code":"219D","action_name":"ADEQUACAO DE ATIVOS","budget_plan_code":"0000","budget_plan_name":"DESPESAS DIVERSAS","committed_amount":"199925.68","liquidated_amount":"0.00","paid_amount":"0.00","outstanding_registered_amount":"0.00","outstanding_cancelled_amount":"0.00","outstanding_paid_amount":"0.00","source_row_number":75382}',
+        '${"d1".repeat(32)}', 'cgu-federal-amendments/1.0.0',
+        'cgu-fixture-record-0001-stale', '2026-08-15 12:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009411',
+        '00000000-0000-0000-0000-000000009402',
+        'cgu:federal-amendment:2023:202340720005:fixture',
+        'cgu_federal_amendment_execution', 1,
+        '{"fiscal_year":2023,"amendment_code":"202340720005","amendment_number":"0005","amendment_type":"Emenda Individual - Transferências com Finalidade Definida","author_code":"4072","author_name":"TITO","locality":"BARREIRAS - BA","municipality_ibge":"2903201","municipality_name":"BARREIRAS","state_ibge":"2900000","state_name":"BAHIA","region_name":"Nordeste","function_code":"05","function_name":"Defesa nacional","subfunction_code":"153","subfunction_name":"Defesa terrestre","program_code":"6012","program_name":"DEFESA NACIONAL","action_code":"219D","action_name":"ADEQUACAO DE ATIVOS","budget_plan_code":"0000","budget_plan_name":"DESPESAS DIVERSAS","committed_amount":"199925.68","liquidated_amount":"199925.68","paid_amount":"199925.68","outstanding_registered_amount":"0.00","outstanding_cancelled_amount":"0.00","outstanding_paid_amount":"0.00","source_row_number":75382}',
+        '${"d2".repeat(32)}', 'cgu-federal-amendments/1.0.0',
+        'cgu-fixture-record-0001', '2026-08-16 12:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009412',
+        '00000000-0000-0000-0000-000000009402',
+        'cgu:federal-amendment:2022:202240720004:fixture',
+        'cgu_federal_amendment_execution', 2,
+        '{"fiscal_year":2022,"amendment_code":"202240720004","amendment_number":"0004","amendment_type":"Emenda Individual - Transferências com Finalidade Definida","author_code":"4072","author_name":"TITO","locality":"BARREIRAS - BA","municipality_ibge":"2903201","municipality_name":"BARREIRAS","state_ibge":"2900000","state_name":"BAHIA","region_name":"Nordeste","function_code":"06","function_name":"Segurança pública","subfunction_code":"181","subfunction_name":"Policiamento","program_code":"5016","program_name":"SEGURANCA PUBLICA","action_code":"154T","action_name":"CONSTRUCAO DE UNIDADES DA PRF","budget_plan_code":"0000","budget_plan_name":"DESPESAS DIVERSAS","committed_amount":"500000.00","liquidated_amount":"500000.00","paid_amount":"88306.04","outstanding_registered_amount":"411693.96","outstanding_cancelled_amount":"0.00","outstanding_paid_amount":"411693.96","source_row_number":69236}',
+        '${"d3".repeat(32)}', 'cgu-federal-amendments/1.0.0',
+        'cgu-fixture-record-0002', '2026-08-16 12:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009413',
+        '00000000-0000-0000-0000-000000009402',
+        'cgu:federal-amendment:2021:202111110001:fixture',
+        'cgu_federal_amendment_execution', 3,
+        '{"fiscal_year":2021,"amendment_code":"202111110001","amendment_number":"0001","amendment_type":"Emenda Individual - Transferências com Finalidade Definida","author_code":"1111","author_name":"AFONSO FLORENCE","locality":"BARREIRAS - BA","municipality_ibge":"2903201","municipality_name":"BARREIRAS","state_ibge":"2900000","state_name":"BAHIA","region_name":"Nordeste","function_code":"15","function_name":"Urbanismo","subfunction_code":"451","subfunction_name":"infra-estrutura urbana","program_code":"2054","program_name":"PLANEJAMENTO URBANO","action_code":"1D73","action_name":"APOIO A POLITICA DE DESENVOLVIMENTO URBANO","budget_plan_code":"0000","budget_plan_name":"DESPESAS DIVERSAS","committed_amount":"400000.00","liquidated_amount":"0.00","paid_amount":"0.00","outstanding_registered_amount":"400000.00","outstanding_cancelled_amount":"0.00","outstanding_paid_amount":"400000.00","source_row_number":57000}',
+        '${"d4".repeat(32)}', 'cgu-federal-amendments/1.0.0',
+        'cgu-fixture-record-0003', '2026-08-16 12:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009414',
+        '00000000-0000-0000-0000-000000009402',
+        'cgu:federal-amendment:2021:202171060005:fixture',
+        'cgu_federal_amendment_execution', 4,
+        '{"fiscal_year":2021,"amendment_code":"202171060005","amendment_number":"0005","amendment_type":"Emenda de Bancada","author_code":"7106","author_name":"BANCADA DA BAHIA","locality":"BARREIRAS - BA","municipality_ibge":"2903201","municipality_name":"BARREIRAS","state_ibge":"2900000","state_name":"BAHIA","region_name":"Nordeste","function_code":"26","function_name":"Transporte","subfunction_code":"781","subfunction_name":"Transporte aéreo","program_code":"3004","program_name":"AVIACAO CIVIL","action_code":"14UB","action_name":"REFORMA DE AEROPORTOS REGIONAIS","budget_plan_code":"0000","budget_plan_name":"DESPESAS DIVERSAS","committed_amount":"3013986.00","liquidated_amount":"89899.44","paid_amount":"89899.44","outstanding_registered_amount":"5848173.12","outstanding_cancelled_amount":"0.00","outstanding_paid_amount":"2924086.56","source_row_number":57444}',
+        '${"d5".repeat(32)}', 'cgu-federal-amendments/1.0.0',
+        'cgu-fixture-record-0004', '2026-08-16 12:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009415',
+        '00000000-0000-0000-0000-000000009402',
+        'cgu:federal-amendment:2014:Sem informação:fixture',
+        'cgu_federal_amendment_execution', 5,
+        '{"fiscal_year":2014,"amendment_code":"Sem informação","amendment_number":"S/I","amendment_type":"Emenda Individual - Transferências com Finalidade Definida","author_code":"S/I","author_name":"Sem informação","locality":"BARREIRAS - BA","municipality_ibge":"2903201","municipality_name":"BARREIRAS","state_ibge":"2900000","state_name":"BAHIA","region_name":"Nordeste","function_code":"15","function_name":"Urbanismo","subfunction_code":"451","subfunction_name":"infra-estrutura urbana","program_code":"2054","program_name":"PLANEJAMENTO URBANO","action_code":"1D73","action_name":"APOIO A POLITICA DE DESENVOLVIMENTO URBANO","budget_plan_code":"0000","budget_plan_name":"APOIO - DESPESAS DIVERSAS","committed_amount":"1976600.00","liquidated_amount":"0.00","paid_amount":"0.00","outstanding_registered_amount":"0.00","outstanding_cancelled_amount":"228103.60","outstanding_paid_amount":"1748496.40","source_row_number":1308}',
+        '${"d6".repeat(32)}', 'cgu-federal-amendments/1.0.0',
+        'cgu-fixture-record-0005', '2026-08-16 12:00:00+00'
+      );
+  `);
+
+  const cguExecutions = await database.query(`
+    select
+      fiscal_year,
+      amendment_code,
+      author_name,
+      author_kind,
+      author_identified,
+      paid_amount,
+      effective_paid_amount,
+      transferegov_link_status,
+      transferegov_reconciliation_key
+    from api.get_public_cgu_federal_amendment_executions(null, null, 100)
+  `);
+  assert.deepEqual(cguExecutions.rows, [
+    {
+      fiscal_year: 2023,
+      amendment_code: "202340720005",
+      author_name: "TITO",
+      author_kind: "person",
+      author_identified: true,
+      paid_amount: "199925.68",
+      effective_paid_amount: "199925.68",
+      transferegov_link_status: "not_found_in_transferegov",
+      transferegov_reconciliation_key: null,
+    },
+    {
+      fiscal_year: 2022,
+      amendment_code: "202240720004",
+      author_name: "TITO",
+      author_kind: "person",
+      author_identified: true,
+      paid_amount: "88306.04",
+      effective_paid_amount: "500000.00",
+      transferegov_link_status: "not_found_in_transferegov",
+      transferegov_reconciliation_key: null,
+    },
+    {
+      fiscal_year: 2021,
+      amendment_code: "202171060005",
+      author_name: "BANCADA DA BAHIA",
+      author_kind: "bench",
+      author_identified: true,
+      paid_amount: "89899.44",
+      effective_paid_amount: "3013986.00",
+      transferegov_link_status: "not_found_in_transferegov",
+      transferegov_reconciliation_key: null,
+    },
+    {
+      fiscal_year: 2021,
+      amendment_code: "202111110001",
+      author_name: "AFONSO FLORENCE",
+      author_kind: "person",
+      author_identified: true,
+      paid_amount: "0.00",
+      effective_paid_amount: "400000.00",
+      transferegov_link_status: "matched_transferegov_unique",
+      transferegov_reconciliation_key: "official:9001:11110001",
+    },
+    {
+      fiscal_year: 2014,
+      amendment_code: "Sem informação",
+      author_name: "Sem informação",
+      author_kind: "person",
+      author_identified: false,
+      paid_amount: "0.00",
+      effective_paid_amount: "1748496.40",
+      transferegov_link_status: "code_unavailable",
+      transferegov_reconciliation_key: null,
+    },
+  ]);
+
+  const cguPersonRanking = await database.query(`
+    select
+      rank_position,
+      author_kind,
+      author_name,
+      amendment_count,
+      committed_amount,
+      effective_paid_amount,
+      first_year,
+      last_year,
+      ranking_amount_stage,
+      methodology_version
+    from api.get_public_cgu_federal_amendment_ranking('person', null, 50)
+  `);
+  assert.deepEqual(cguPersonRanking.rows, [
+    {
+      rank_position: 1,
+      author_kind: "person",
+      author_name: "TITO",
+      amendment_count: 2,
+      committed_amount: "699925.68",
+      effective_paid_amount: "699925.68",
+      first_year: 2022,
+      last_year: 2023,
+      ranking_amount_stage: "committed",
+      methodology_version: "cgu-federal-amendment-ranking/1.0.0",
+    },
+    {
+      rank_position: 2,
+      author_kind: "person",
+      author_name: "AFONSO FLORENCE",
+      amendment_count: 1,
+      committed_amount: "400000.00",
+      effective_paid_amount: "400000.00",
+      first_year: 2021,
+      last_year: 2021,
+      ranking_amount_stage: "committed",
+      methodology_version: "cgu-federal-amendment-ranking/1.0.0",
+    },
+  ]);
+
+  const cguCollectiveRanking = await database.query(`
+    select author_name, author_kind, committed_amount, effective_paid_amount
+    from api.get_public_cgu_federal_amendment_ranking('collective', null, 50)
+  `);
+  assert.deepEqual(cguCollectiveRanking.rows, [
+    {
+      author_name: "BANCADA DA BAHIA",
+      author_kind: "bench",
+      committed_amount: "3013986.00",
+      effective_paid_amount: "3013986.00",
+    },
+  ]);
+
+  const cguFilteredRanking = await database.query(`
+    select author_name
+    from api.get_public_cgu_federal_amendment_ranking('person', 2021::smallint, 50)
+  `);
+  assert.deepEqual(cguFilteredRanking.rows, [
+    { author_name: "AFONSO FLORENCE" },
+  ]);
+
   await database.exec("set role anon");
   await assert.rejects(
     database.query("select * from territory.parliamentary_transfers"),
@@ -2315,6 +2573,36 @@ try {
       "select * from api.get_public_historical_parliamentary_amendments(null, null, 201)",
     ),
     /limite de emendas historicas invalido/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from territory.cgu_federal_amendment_executions",
+    ),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from territory.cgu_transferegov_amendment_links",
+    ),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from territory.latest_cgu_federal_amendment_executions",
+    ),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_cgu_federal_amendment_executions(null, null, 201)",
+    ),
+    /limite de emendas federais da CGU invalido/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_cgu_federal_amendment_ranking('all', null, 50)",
+    ),
+    /author_scope deve ser person ou collective/,
   );
   await database.exec("reset role");
 

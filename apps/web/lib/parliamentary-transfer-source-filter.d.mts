@@ -2,6 +2,7 @@ export type ParliamentaryTransferSource =
   | "legislaturas"
   | "federal-atual"
   | "federal-historico"
+  | "federal-execucao"
   | "estadual";
 
 export type ParliamentaryTransferSourceSelection = Readonly<{
@@ -9,6 +10,7 @@ export type ParliamentaryTransferSourceSelection = Readonly<{
   showLegislatures: boolean;
   showCurrentFederal: boolean;
   showHistoricalFederal: boolean;
+  showCguExecution: boolean;
   showState: boolean;
 }>;
 
