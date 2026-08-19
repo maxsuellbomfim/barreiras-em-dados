@@ -82,7 +82,9 @@ def cepim_record(record_id: int = 5150) -> dict:
     }
 
 
-def leniency_record(record_id: int = 9021, cnpj_formatado: str = "44.493.204/0001-87") -> dict:
+def leniency_record(
+    record_id: int = 9021, cnpj_formatado: str = "44.493.204/0001-87"
+) -> dict:
     return {
         "id": record_id,
         "dataInicioAcordo": "10/07/2019",
