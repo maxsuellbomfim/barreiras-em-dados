@@ -63,11 +63,17 @@ quatro recursos adicionais no portal da Prefeitura:
   o título literal é preservado sem reclassificação.
 - `contratos` retorna linhas estruturadas por contrato: favorecido, CNPJ,
   `valor_contrato` como texto (`"R$ 105.460,50"`), número, objeto, vigência e
-  URL do PDF. `processos` retorna processos licitatórios com objeto, datas,
-  valores e códigos numéricos de situação/resultado sem legenda na fonte.
-  Ambos aguardam fatia própria com fixture sanitizada e teste de contrato
-  antes de qualquer coleta; valores monetários chegam como texto formatado e
-  não devem ser convertidos sem regra determinística versionada.
+  URL do PDF — **implementado em 18/08/2026** com gate de CPF em três
+  camadas. `processos` retorna processos licitatórios com objeto, datas,
+  valores como texto (`"14237586.12"`) e códigos numéricos —
+  **implementado em 19/08/2026**: linhas mutáveis na fonte (a situação
+  avança), então a projeção pública deduplica pelo `id` estável e entrega o
+  estado mais recente preservado. Situação e resultado não têm legenda
+  publicada pela fonte e saem como código literal; modalidade e categoria
+  usam a legenda capturada em 19/08/2026 do filtro público do próprio portal
+  (17 modalidades, 9 categorias), versionada na camada web e sempre exibida
+  com o código ao lado. Valores monetários seguem como texto e não são
+  convertidos sem regra determinística versionada.
 - `servidores` (folha de pagamento) existe na API, mas contém dados pessoais
   de pessoas naturais; permanece **fora da coleta** até passar pelo gate de
   minimização e finalidade (LGPD) previsto no ADR 0009.
