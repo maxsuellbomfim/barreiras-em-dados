@@ -19,6 +19,20 @@ const page = await readFile(
   new URL("../../apps/web/app/licitacoes/page.tsx", import.meta.url),
   "utf8",
 );
+const sanctionCard = await readFile(
+  new URL(
+    "../../apps/web/app/licitacoes/supplier-sanction-card.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const supplierPage = await readFile(
+  new URL(
+    "../../apps/web/app/licitacoes/fornecedor/[supplierKey]/page.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const connector = await readFile(
   new URL(
     "../../workers/collectors/src/barreiras_collectors/connectors/cgu_sanctions.py",
@@ -103,6 +117,26 @@ test("a projeção SQL gate-a pessoa física e o coletor nunca a materializa", (
 
 test("a página enquadra o painel como espelho, sem afirmação de culpa", () => {
   assert.match(page, /Fornecedores conferidos no CEIS e no CNEP/);
-  assert.match(page, /não\s+afirma culpa nem irregularidade/);
+  assert.match(sanctionCard, /não\s+afirma culpa nem irregularidade/);
   assert.match(page, /nenhum fornecedor verificado constava/);
+});
+
+test("a página do fornecedor liga o CNPJ às sanções com estados explícitos", () => {
+  assert.match(supplierPage, /Este CNPJ no CEIS e no CNEP/);
+  assert.match(
+    supplierPage,
+    /falha de consulta, não ausência ou existência\s+de sanção/,
+    "indisponibilidade da consulta nunca vira certidão de nada",
+  );
+  assert.match(
+    supplierPage,
+    /não uma\s+certidão negativa/,
+    "zero registro é espelho da última coleta, não certidão",
+  );
+  assert.match(
+    supplierPage,
+    /CNPJ_KEY\.test\(decodedKey\)/,
+    "sanções só são consultadas quando a chave do fornecedor é um CNPJ",
+  );
+  assert.match(supplierPage, /sanction\.supplierCnpj === cnpj/);
 });

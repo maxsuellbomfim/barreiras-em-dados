@@ -2,6 +2,13 @@ import type { Metadata } from "next";
 
 import { formatBrlDecimal } from "../../../../lib/revenues";
 import { getPublicSupplierHistory } from "../../../../lib/supplier-history";
+import {
+  getPublicSupplierSanctions,
+  type SupplierSanctionsResult,
+} from "../../../../lib/supplier-sanctions";
+import { SupplierSanctionCard } from "../../supplier-sanction-card";
+
+const CNPJ_KEY = /^\d{14}$/;
 
 export const revalidate = 300;
 
@@ -27,10 +34,70 @@ type SupplierHistoryPageProps = {
   params: Promise<{ supplierKey: string }>;
 };
 
+function SupplierSanctionSection({
+  cnpj,
+  result,
+}: Readonly<{ cnpj: string; result: SupplierSanctionsResult }>) {
+  const matched =
+    result.state === "available"
+      ? result.sanctions.filter((sanction) => sanction.supplierCnpj === cnpj)
+      : [];
+  return (
+    <section
+      className="finance-documents"
+      aria-labelledby="supplier-sanctions-title"
+    >
+      <div className="section-heading compact">
+        <span className="eyebrow">Cadastros federais de sanções</span>
+        <h2 id="supplier-sanctions-title">Este CNPJ no CEIS e no CNEP</h2>
+        <p>
+          Conferência do CNPJ deste fornecedor nos cadastros federais de
+          empresas sancionadas (CEIS e CNEP), mantidos pela CGU. O resultado é
+          um espelho literal do cadastro na data da consulta — não uma
+          avaliação nossa.
+        </p>
+      </div>
+      {result.state === "unavailable" ? (
+        <div className="collection-unavailable" role="status">
+          <strong>Consulta aos cadastros temporariamente indisponível</strong>
+          <p>
+            Isso representa uma falha de consulta, não ausência ou existência
+            de sanção.
+          </p>
+        </div>
+      ) : matched.length === 0 ? (
+        <p className="act-review-mode">
+          Nenhum registro para este CNPJ no espelho mais recente dos cadastros
+          CEIS e CNEP. Isso reflete a última consulta preservada, não uma
+          certidão negativa.
+        </p>
+      ) : (
+        <div className="digest-grid">
+          {matched.map((sanction) => (
+            <SupplierSanctionCard
+              key={`${sanction.registry}-${sanction.sanctionId}`}
+              sanction={sanction}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default async function SupplierHistoryPage({ params }: SupplierHistoryPageProps) {
   const { supplierKey } = await params;
   const decodedKey = decodeURIComponent(supplierKey);
-  const result = await getPublicSupplierHistory(decodedKey);
+  const isCnpjKey = CNPJ_KEY.test(decodedKey);
+  // ponytail: a RPC de sanções não filtra por CNPJ; com ~60 sanções hoje,
+  // filtrar as 200 primeiras no servidor basta. Criar filtro SQL se o
+  // espelho crescer além da página única.
+  const [result, sanctionsResult] = await Promise.all([
+    getPublicSupplierHistory(decodedKey),
+    isCnpjKey
+      ? getPublicSupplierSanctions()
+      : Promise.resolve<SupplierSanctionsResult>({ state: "unavailable" }),
+  ]);
   const supplierName = result.state === "available" ? result.rows[0]?.supplierName : null;
 
   return (
@@ -88,6 +155,10 @@ export default async function SupplierHistoryPage({ params }: SupplierHistoryPag
             ))}
           </div>
         )}
+
+        {isCnpjKey ? (
+          <SupplierSanctionSection cnpj={decodedKey} result={sanctionsResult} />
+        ) : null}
 
         <p className="hero-note">
           Metodologia: resultados deduplicados por compra, item e sequência; valores são os informados pelo PNCP.
