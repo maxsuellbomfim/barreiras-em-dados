@@ -176,6 +176,65 @@ export function enrichIntegralGazetteEditions(
   });
 }
 
+export type IntegralGazetteEditionResult =
+  | Readonly<{ state: "available"; edition: IntegralGazetteEdition | null }>
+  | Readonly<{ state: "unavailable" }>;
+
+export async function getIntegralGazetteEdition(
+  editionYear: number,
+  edition: number,
+): Promise<IntegralGazetteEditionResult> {
+  if (
+    !positiveInteger(edition) ||
+    !positiveInteger(editionYear) ||
+    editionYear < 2000 ||
+    editionYear > 2100
+  ) {
+    return { state: "available", edition: null };
+  }
+  const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const publishableKey =
+    process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (
+    !supabaseUrl ||
+    !publishableKey ||
+    !supabaseUrl.startsWith("https://") ||
+    !publishableKey.startsWith("sb_publishable_")
+  ) {
+    return { state: "unavailable" };
+  }
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/get_integral_gazette_edition`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Profile": "api",
+          apikey: publishableKey,
+          "Content-Profile": "api",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          target_edition_year: editionYear,
+          target_edition: edition,
+        }),
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) return { state: "unavailable" };
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return { state: "unavailable" };
+    if (payload.length === 0) return { state: "available", edition: null };
+    const parsed = parseIntegralGazetteEdition(payload[0]);
+    if (parsed === null) return { state: "unavailable" };
+    return { state: "available", edition: parsed };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
 export async function getIntegralGazetteEditions(
   options: IntegralGazettePageOptions = {},
 ): Promise<IntegralGazetteResult> {

@@ -116,8 +116,13 @@ export function IntegralGazetteExplorer({
                 <div>
                   <span className="eyebrow">Edição oficial</span>
                   <h2>
-                    Diário Oficial — edição {edition.edition}/
-                    {edition.editionYear}
+                    <a
+                      className="integral-edition-permalink"
+                      href={`/diario/${edition.editionYear}/${edition.edition}`}
+                    >
+                      Diário Oficial — edição {edition.edition}/
+                      {edition.editionYear}
+                    </a>
                   </h2>
                   <p>{formatDate(edition.editionDate ?? edition.catalogDate)}</p>
                 </div>
