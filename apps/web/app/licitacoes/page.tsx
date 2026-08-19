@@ -15,6 +15,13 @@ import {
   municipalSupplierLabel,
   type MunicipalContract,
 } from "../../lib/municipal-contracts";
+import {
+  getPublicMunicipalProcurementProcesses,
+  municipalCategoryLabel,
+  municipalModalityLabel,
+  municipalSourceCodeLabel,
+  type MunicipalProcurementProcess,
+} from "../../lib/municipal-procurement-processes";
 import { getPublicSupplierSanctions } from "../../lib/supplier-sanctions";
 import { ProcurementExplorer } from "./procurement-explorer";
 import { SupplierSanctionCard } from "./supplier-sanction-card";
@@ -193,6 +200,124 @@ function MunicipalContractCard({
   );
 }
 
+function MunicipalProcessCard({
+  process,
+}: Readonly<{ process: MunicipalProcurementProcess }>) {
+  return (
+    <article className="digest-card">
+      <div className="track-top">
+        <span>Processo {process.processNumber}</span>
+        <span className="track-status">
+          {process.publicationDateText
+            ? `publicado em ${process.publicationDateText}`
+            : "data de publicação não informada"}
+        </span>
+      </div>
+      <h3 className="procurement-object">{process.processObject}</h3>
+      <dl className="procurement-values">
+        <div>
+          <dt>Modalidade</dt>
+          <dd>{municipalModalityLabel(process.modalityCode)}</dd>
+        </div>
+        <div>
+          <dt>Categoria</dt>
+          <dd>{municipalCategoryLabel(process.categoryCode)}</dd>
+        </div>
+        <div>
+          <dt>Situação na fonte</dt>
+          <dd>{municipalSourceCodeLabel(process.situationCode)}</dd>
+        </div>
+        <div>
+          <dt>Resultado na fonte</dt>
+          <dd>{municipalSourceCodeLabel(process.resultCode)}</dd>
+        </div>
+        <div>
+          <dt>Valor estimado (texto da fonte)</dt>
+          <dd>{process.estimatedValueText ?? "não informado"}</dd>
+        </div>
+        <div>
+          <dt>Valor (texto da fonte)</dt>
+          <dd>{process.awardedValueText ?? "não informado"}</dd>
+        </div>
+        {process.openingDateText ? (
+          <div>
+            <dt>Abertura</dt>
+            <dd>{process.openingDateText}</dd>
+          </div>
+        ) : null}
+        {process.noticeNumber ? (
+          <div>
+            <dt>Edital</dt>
+            <dd>{process.noticeNumber}</dd>
+          </div>
+        ) : null}
+      </dl>
+      <p className="act-evidence">
+        Resposta da API municipal preservada · hash{" "}
+        {process.artifactSha256.slice(0, 12)}…
+      </p>
+    </article>
+  );
+}
+
+function MunicipalProcessesPanel({
+  result,
+}: Readonly<{
+  result: Awaited<ReturnType<typeof getPublicMunicipalProcurementProcesses>>;
+}>) {
+  return (
+    <section
+      className="finance-documents"
+      aria-labelledby="municipal-processes-title"
+    >
+      <div className="section-heading compact">
+        <span className="eyebrow">Portal municipal</span>
+        <h2 id="municipal-processes-title">
+          Processos licitatórios da Prefeitura
+        </h2>
+        <p>
+          Espelho literal do portal de transparência municipal: objeto, datas e
+          valores exatamente como publicados, sem conversão nem soma. Situação
+          e resultado aparecem como códigos porque a fonte não publica a
+          legenda; modalidade e categoria usam a legenda do próprio filtro do
+          portal, sempre com o código ao lado.
+        </p>
+      </div>
+      {result.state === "unavailable" ? (
+        <div className="collection-unavailable" role="status">
+          <div>
+            <strong>Consulta aos processos temporariamente indisponível</strong>
+            <p>
+              Isso representa uma limitação de coleta ou consulta, não ausência
+              de processos licitatórios.
+            </p>
+          </div>
+        </div>
+      ) : result.processes.length === 0 ? (
+        <p className="act-review-mode">
+          Nenhum processo preservado ainda nesta série. A coleta agendada
+          preenche o acervo aos poucos.
+        </p>
+      ) : (
+        <details className="finance-details">
+          <summary>
+            Ver os {result.processes.length.toLocaleString("pt-BR")} processos
+            mais recentes
+          </summary>
+          <div className="digest-grid">
+            {result.processes.map((process) => (
+              <MunicipalProcessCard
+                process={process}
+                key={process.processRecordId}
+              />
+            ))}
+          </div>
+        </details>
+      )}
+    </section>
+  );
+}
+
 function MunicipalContractsPanel({
   result,
 }: Readonly<{
@@ -262,6 +387,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
     supplierResult,
     filterOptionsResult,
     municipalContractsResult,
+    municipalProcessesResult,
     supplierSanctionsResult,
   ] = await Promise.all([
     getPncpProcurements(filters),
@@ -270,6 +396,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
       : getPublicSupplierConcentration(),
     getPncpProcurementFilterOptions(),
     getPublicMunicipalContracts(),
+    getPublicMunicipalProcurementProcesses(),
     getPublicSupplierSanctions(),
   ]);
   const filterOptions =
@@ -425,6 +552,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
         <SupplierSanctionsPanel result={supplierSanctionsResult} />
 
         <MunicipalContractsPanel result={municipalContractsResult} />
+        <MunicipalProcessesPanel result={municipalProcessesResult} />
 
         <p className="hero-note">
           Metodologia: espelho fiel dos registros do PNCP, preservados como

@@ -47,6 +47,7 @@ on:
           - "pdc-convenios-transferencias-realizadas"
           - "pdc-obras-pdc"
           - "contratos"
+          - "processos"
           - "rreo"
           - "rgf"
       include_transferegov:
@@ -109,7 +110,7 @@ jobs:
         resource: >-
           ${{ fromJSON(
             (inputs.resource == '' || inputs.resource == 'all')
-              && '["balancetes","pdc-contas-anuais","pdc-receita-tributaria","pdc-recursos-extraordinarios","pdc-resumo-execucao-da-receita","pdc-resumo-execucao-da-despesa","pdc-transferencia","pdc-emendas-parlamentares-receitas","pdc-convenios-transferencias-realizadas","pdc-obras-pdc","contratos","rreo","rgf"]'
+              && '["balancetes","pdc-contas-anuais","pdc-receita-tributaria","pdc-recursos-extraordinarios","pdc-resumo-execucao-da-receita","pdc-resumo-execucao-da-despesa","pdc-transferencia","pdc-emendas-parlamentares-receitas","pdc-convenios-transferencias-realizadas","pdc-obras-pdc","contratos","processos","rreo","rgf"]'
               || format('["{0}"]', inputs.resource)
           ) }}
     env:
@@ -164,6 +165,9 @@ jobs:
           $COVERAGE_ARGUMENTS
 
       - name: Drenar documentos financeiros
+        # Processos licitatórios são linhas estruturadas sem URL de PDF; o
+        # download de documentos não se aplica e o comando o recusaria.
+        if: matrix.resource != 'processos'
         env:
           DRAIN_LIMIT: >-
             ${{ matrix.resource == 'balancetes' && '500' || inputs.limit || '50' }}
