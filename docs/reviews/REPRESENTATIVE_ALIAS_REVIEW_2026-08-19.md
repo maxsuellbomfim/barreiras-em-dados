@@ -69,14 +69,44 @@ registro histórico (`political.historical_representatives`) está vazio:
 Nota sugerida: "Autor(a) de legislatura anterior; fora do elenco atual.
 Aguardando povoamento do registro histórico."
 
-## Caso especial (1 sugestão)
+## Caso especial (1 sugestão) — RESOLVIDO
 
 - "VEREADORA MARIA DAS GRAÇAS MELO DE OLIVEIRA" — o sobrenome diverge do
   canônico ("de Oliveira" × "do Espírito Santo"). A única "Maria das Graças
-  Melo" no TSE 2022/2024 é a Drª Graça (eleita 2024), o que sugere erro de
-  grafia da fonte, mas **não é verificável literalmente**. Aceitar como
-  `other` somente se o revisor reconhecer o erro de grafia; caso contrário,
-  `needs_more_evidence`.
+  Melo" no TSE 2022/2024 é a Drª Graça (eleita 2024). **Confirmado pelo
+  titular em 19/08/2026: é a mesma pessoa (Drª. Graça)** — o sobrenome é
+  grafia da fonte. Decisão: aceitar como `other`, com a confirmação
+  registrada na nota da revisão.
+
+## Oito sugestões novas de 19/08 (revisadas no mesmo lote)
+
+A execução semanal do sugestor criou mais 8 pendências depois da primeira
+análise; todas revisadas com o mesmo critério:
+
+**ACEITAR (5):** "BEN-HIR AIRES DE SANTANA" com quebras de linha CRLF;
+"HIPÓLITO DOS PASSOS DE DEUS" com CRLF; "Hipólito Dos Passos de Deus"
+(igualdade literal — a cascata reteve por validação, não por dúvida);
+"Hipólito Dos Passos De Deusa" (typo "Deusa" da própria fonte, mesma classe
+de Figueredo/Bomfim); "Izabel Rosa Oliveira Dos Santos" (sem o "de").
+
+**NÃO VINCULAR (3):** "ANTONIO CARLOS DE ALMEIDA MATOS" e "Eugênio De
+Araújo Fernandez" (Fernandez/Fernandes — legislatura anterior, sem
+identidade no acervo); e **"OTONIEL NASCIMENTO TEIXEIRA" — é o Prefeito
+eleito em 2024 (TSE, urna OTONIEL)**: autoria do Executivo em leis. O
+conjunto fechado desta fila só contém vereadores, então o vínculo correto
+exige modelagem de autoria do Executivo (lacuna estrutural nº 4: leis de
+iniciativa do Prefeito continuarão re-sugerindo esse nome até existir esse
+perfil).
+
+## Aplicação da revisão
+
+As 48 decisões (32 aceitar, 16 `needs_more_evidence`) estão prontas
+em `supabase/migrations/20260819063000_apply_alias_review_2026_08_19.sql`.
+O arquivo é executado **pelo próprio revisor ativo** no SQL Editor — a
+execução é o ato de revisão registrada (reviewed_by/approved_by com a
+identidade dele) — e só toca sugestões ainda pendentes: o que já tiver
+sido decidido na fila do admin permanece intocado. A alternativa continua
+sendo revisar item a item no `apps/admin` com esta tabela ao lado.
 
 ## Lacunas estruturais observadas (para fatias futuras)
 
