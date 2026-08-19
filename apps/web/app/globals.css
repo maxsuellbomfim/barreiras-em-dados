@@ -1826,6 +1826,17 @@ footer {
   font-size: 0.8rem;
 }
 
+.integral-edition-permalink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.integral-edition-permalink:hover,
+.integral-edition-permalink:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
 .integral-edition-count {
   flex: 0 0 auto;
   padding: 0.45rem 0.7rem;
