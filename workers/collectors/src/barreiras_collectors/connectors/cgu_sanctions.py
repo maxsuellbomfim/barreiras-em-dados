@@ -283,7 +283,7 @@ def fetch_cgu_supplier_sanctions(
         body_size_bytes=len(raw_body),
         media_type="application/json",
         response_headers={},
-        cursor={"queries": total_requests},
+        cursor={"offset": 0, "size": len(items)},
         raw_body=raw_body,
         items=items,
         total_pages=total_requests,

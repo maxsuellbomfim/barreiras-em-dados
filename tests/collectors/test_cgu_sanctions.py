@@ -139,6 +139,8 @@ class CGUSanctionFetchTests(unittest.TestCase):
         self.assertIn("/ceis?codigoSancionado=", urls[0])
         self.assertIn("/cnep?codigoSancionado=", urls[1])
         self.assertEqual(snapshot.collection_status, "complete")
+        # O repositório de persistência exige o contrato offset/size no cursor.
+        self.assertEqual(snapshot.cursor, {"offset": 0, "size": 0})
 
     def test_rejects_non_cnpj_input_and_missing_key(self) -> None:
         with self.assertRaisesRegex(CGUSanctionError, "somente CNPJ"):
