@@ -564,6 +564,18 @@ de leniência. O consumo desses endpoints requer token por e-mail e respeita
 limites por horário. Isso não se aplica ao ZIP público de emendas usado pela
 coleta em lote. Consultas volumosas devem preferir downloads de dados abertos.
 
+**CEIS e CNEP implementados em 18/08/2026**: o coletor `collect_cgu_sanctions`
+consulta os dois cadastros **somente por CNPJ de fornecedor já publicado**
+(união dos resultados PNCP e dos contratos municipais), autenticado pelo
+secret `TRANSPARENCIA_API_KEY` no GitHub Actions, com intervalo de 1,2s entre
+requisições. A API expõe CPF integral em `sancionado.codigoFormatado` para
+pessoas físicas; por isso o parser descarta pessoa física antes de
+materializar, a projeção pública (`api.get_public_supplier_sanctions`) exige
+documento de 14 dígitos e o cliente web invalida o lote se qualquer documento
+fora do CNPJ chegar. O painel público enquadra o resultado como espelho do
+cadastro na data da consulta — sanções podem estar sub judice e nada é
+afirmado como culpa. CEPIM, CEAF e acordos de leniência seguem pendentes.
+
 O CNPJ aberto da Receita Federal contém estabelecimentos, empresas e QSA em
 arquivos de lote. A API de consulta CNPJ do Conecta gov.br não deve ser
 presumida pública para este projeto: a documentação a destina a órgãos e
