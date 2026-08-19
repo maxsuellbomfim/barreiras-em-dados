@@ -125,8 +125,8 @@ CGU_FEDERAL_AMENDMENT_COLLECTOR_VERSION = (
     "cgu-federal-amendments-collector/1.0.0"
 )
 CGU_FEDERAL_AMENDMENT_PARSER_VERSION = "cgu-federal-amendments/1.0.0"
-CGU_SANCTION_COLLECTOR_VERSION = "cgu-sanctions-collector/1.0.0"
-CGU_SANCTION_PARSER_VERSION = "cgu-sanctions/1.0.0"
+CGU_SANCTION_COLLECTOR_VERSION = "cgu-sanctions-collector/1.1.0"
+CGU_SANCTION_PARSER_VERSION = "cgu-sanctions/1.1.0"
 BAHIA_STATE_AMENDMENT_COLLECTOR_VERSION = (
     "bahia-state-amendments-collector/1.0.0"
 )
@@ -1116,9 +1116,22 @@ class CGUSanctionPersistenceService:
                 separators=(",", ":"),
             ).encode("utf-8")
             payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            supplier_cnpj = item.get("supplier_cnpj")
+            if not isinstance(supplier_cnpj, str) or len(supplier_cnpj) != 14:
+                raise PersistenceContractError(
+                    f"Sanção {index} não aponta o CNPJ consultado."
+                )
+            # CEIS/CNEP mantêm a chave histórica; um acordo de leniência pode
+            # alcançar mais de um fornecedor publicado, então o CNPJ entra na
+            # identidade dos cadastros novos.
+            record_key = (
+                f"cgu:sanction:{registry}:{sanction_id}"
+                if registry in ("ceis", "cnep")
+                else f"cgu:sanction:{registry}:{sanction_id}:{supplier_cnpj}"
+            )
             records.append(
                 RawRecordInput(
-                    source_record_key=f"cgu:sanction:{registry}:{sanction_id}",
+                    source_record_key=record_key,
                     record_type="cgu_sanction",
                     record_index=index,
                     payload=item,

@@ -574,7 +574,15 @@ materializar, a projeção pública (`api.get_public_supplier_sanctions`) exige
 documento de 14 dígitos e o cliente web invalida o lote se qualquer documento
 fora do CNPJ chegar. O painel público enquadra o resultado como espelho do
 cadastro na data da consulta — sanções podem estar sub judice e nada é
-afirmado como culpa. CEPIM, CEAF e acordos de leniência seguem pendentes.
+afirmado como culpa.
+
+**CEPIM e acordos de leniência implementados em 19/08/2026** no mesmo
+coletor e corredor (`cgu/sancoes/`): CEPIM via `cnpjSancionado` (o DTO expõe
+`cpfFormatado`; o mesmo gate de pessoa física se aplica) e
+`acordos-leniencia` via `cnpjSancionado`, materializando o acordo apenas
+para a empresa cujo CNPJ foi consultado. **CEAF permanece fora por
+definição**: é cadastro de pessoas físicas expulsas consultado por CPF, o
+que o gate de dados pessoais do projeto veda.
 
 O CNPJ aberto da Receita Federal contém estabelecimentos, empresas e QSA em
 arquivos de lote. A API de consulta CNPJ do Conecta gov.br não deve ser

@@ -1,10 +1,12 @@
-"""Sanções federais (CEIS/CNEP) consultadas por CNPJ de fornecedor publicado.
+"""Sanções federais (CEIS/CNEP/CEPIM/leniência) por CNPJ de fornecedor.
 
 A consulta é sempre dirigida: apenas CNPJs que já aparecem nas contratações
 publicadas de Barreiras são verificados. O registro espelha o cadastro oficial
 da CGU e nunca vira acusação. Pessoas físicas retornadas pela API — o CEIS
-expõe CPF integral em ``sancionado.codigoFormatado`` — jamais entram nos
-itens materializados; permanecem apenas contadas e no bruto privado.
+expõe CPF integral em ``sancionado.codigoFormatado`` e o CEPIM expõe
+``cpfFormatado`` — jamais entram nos itens materializados; permanecem apenas
+contadas e no bruto privado. O CEAF fica fora por definição: é consulta por
+CPF de pessoa física, vedada pelo gate de dados pessoais do projeto.
 """
 
 from __future__ import annotations
@@ -31,7 +33,14 @@ SOURCE_CODE = "cgu-portal-transparencia"
 ENDPOINT_CODE = "sanctions-api"
 BASE_URL = "https://api.portaldatransparencia.gov.br/api-de-dados"
 OFFICIAL_HOSTS = frozenset({"api.portaldatransparencia.gov.br"})
-REGISTRIES = ("ceis", "cnep")
+REGISTRIES = ("ceis", "cnep", "cepim", "leniencia")
+# Caminho e nome do parâmetro de CNPJ variam por cadastro na API oficial.
+_REGISTRY_REQUESTS = {
+    "ceis": ("ceis", "codigoSancionado"),
+    "cnep": ("cnep", "codigoSancionado"),
+    "cepim": ("cepim", "cnpjSancionado"),
+    "leniencia": ("acordos-leniencia", "cnpjSancionado"),
+}
 API_PAGE_SIZE = 15
 MAX_PAGES_PER_QUERY = 5
 TIMEOUT_SECONDS = 60.0
@@ -130,10 +139,111 @@ def _normalize_item(registry: str, cnpj: str, record: dict) -> dict[str, object]
     }
 
 
+def _normalize_cepim_item(cnpj: str, record: dict) -> dict[str, object]:
+    return {
+        "registry": "cepim",
+        "sanction_id": _text(record.get("id")),
+        "supplier_cnpj": cnpj,
+        "sanctioned_document": re.sub(
+            r"\D", "", _text(_nested(record, "pessoaJuridica", "cnpjFormatado"))
+        ),
+        "sanctioned_name": _text(_nested(record, "pessoaJuridica", "nome"))
+        or _text(_nested(record, "pessoaJuridica", "razaoSocialReceita")),
+        "person_type": _text(_nested(record, "pessoaJuridica", "tipo")),
+        "company_name": _text(
+            _nested(record, "pessoaJuridica", "razaoSocialReceita")
+        ),
+        "sanction_type": _text(record.get("motivo")),
+        "sanctioning_body": _text(_nested(record, "orgaoSuperior", "nome")),
+        "sanctioning_body_sphere": _text(
+            _nested(record, "orgaoSuperior", "descricaoPoder")
+        ),
+        "sanctioning_body_uf": "",
+        "sanction_source": "",
+        "process_number": "",
+        "start_date_text": "",
+        "end_date_text": "",
+        "publication_date_text": "",
+        "reference_date_text": _text(record.get("dataReferencia")),
+        "legal_basis_codes": [],
+    }
+
+
+def _normalize_leniency_items(cnpj: str, record: dict) -> list[dict[str, object]]:
+    """Materializa o acordo somente para a empresa com o CNPJ consultado."""
+    companies = record.get("sancoes")
+    if not isinstance(companies, list):
+        return []
+    for company in companies:
+        if not isinstance(company, dict):
+            continue
+        digits = re.sub(
+            r"\D",
+            "",
+            _text(company.get("cnpjFormatado")) or _text(company.get("cnpj")),
+        )
+        if digits != cnpj:
+            continue
+        return [
+            {
+                "registry": "leniencia",
+                "sanction_id": _text(record.get("id")),
+                "supplier_cnpj": cnpj,
+                "sanctioned_document": digits,
+                "sanctioned_name": _text(company.get("razaoSocial"))
+                or _text(company.get("nomeInformadoOrgaoResponsavel"))
+                or _text(company.get("nomeFantasia")),
+                "person_type": "",
+                "company_name": _text(company.get("razaoSocial")),
+                "sanction_type": _text(record.get("situacaoAcordo")),
+                "sanctioning_body": _text(record.get("orgaoResponsavel")),
+                "sanctioning_body_sphere": "",
+                "sanctioning_body_uf": "",
+                "sanction_source": "",
+                "process_number": "",
+                "start_date_text": _text(record.get("dataInicioAcordo")),
+                "end_date_text": _text(record.get("dataFimAcordo")),
+                "publication_date_text": "",
+                "reference_date_text": "",
+                "legal_basis_codes": [],
+            }
+        ]
+    return []
+
+
+def _materialize_records(
+    registry: str, cnpj: str, record: dict
+) -> tuple[list[dict[str, object]], int]:
+    """Retorna (itens materializáveis, descartados por PF ou sem o CNPJ)."""
+    if registry in ("ceis", "cnep"):
+        digits = _document_digits(record)
+        person_type = _text(_nested(record, "pessoa", "tipo"))
+        if len(digits) != 14 or person_type == "Pessoa Física":
+            return [], 1
+        return [_normalize_item(registry, cnpj, record)], 0
+    if registry == "cepim":
+        item = _normalize_cepim_item(cnpj, record)
+        if (
+            len(str(item["sanctioned_document"])) != 14
+            or item["person_type"] == "Pessoa Física"
+        ):
+            return [], 1
+        return [item], 0
+    leniency_items = _normalize_leniency_items(cnpj, record)
+    if not leniency_items:
+        return [], 1
+    return leniency_items, 0
+
+
 def parse_cgu_sanctions_bundle(
     raw_body: bytes,
 ) -> tuple[tuple[dict[str, object], ...], int]:
-    """Reconstrói itens do pacote preservado; retorna (itens, PF ignoradas)."""
+    """Reconstrói itens do pacote preservado.
+
+    Retorna ``(itens, descartados)``: descartados cobrem pessoa física (CEIS,
+    CNEP e CEPIM nunca materializam PF) e acordos de leniência devolvidos pela
+    API sem empresa correspondente ao CNPJ consultado.
+    """
     try:
         bundle = json.loads(raw_body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -141,7 +251,7 @@ def parse_cgu_sanctions_bundle(
     if not isinstance(bundle, list):
         raise CGUSanctionError("O pacote preservado perdeu seu contrato.")
     items: list[dict[str, object]] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
     skipped_natural_persons = 0
     for query in bundle:
         if not isinstance(query, dict):
@@ -158,21 +268,19 @@ def parse_cgu_sanctions_bundle(
         for record in records:
             if not isinstance(record, dict):
                 raise CGUSanctionError("Sanção preservada em formato inesperado.")
-            digits = _document_digits(record)
-            person_type = _text(_nested(record, "pessoa", "tipo"))
-            if len(digits) != 14 or person_type == "Pessoa Física":
-                skipped_natural_persons += 1
-                continue
-            item = _normalize_item(registry, cnpj, record)
-            if not item["sanction_id"]:
-                raise CGUSanctionError("Sanção preservada sem identificador.")
-            identity = (registry, str(item["sanction_id"]))
-            if identity in seen:
-                raise CGUSanctionError(
-                    f"Sanção duplicada no pacote: {registry}:{item['sanction_id']}."
-                )
-            seen.add(identity)
-            items.append(item)
+            materialized, skipped = _materialize_records(registry, cnpj, record)
+            skipped_natural_persons += skipped
+            for item in materialized:
+                if not item["sanction_id"]:
+                    raise CGUSanctionError("Sanção preservada sem identificador.")
+                identity = (registry, str(item["sanction_id"]), cnpj)
+                if identity in seen:
+                    raise CGUSanctionError(
+                        "Sanção duplicada no pacote: "
+                        f"{registry}:{item['sanction_id']}."
+                    )
+                seen.add(identity)
+                items.append(item)
     return tuple(items), skipped_natural_persons
 
 
@@ -218,11 +326,12 @@ def fetch_cgu_supplier_sanctions(
     total_requests = 0
     for cnpj in unique_cnpjs:
         for registry in REGISTRIES:
+            path, cnpj_parameter = _REGISTRY_REQUESTS[registry]
             page = 1
             while page <= MAX_PAGES_PER_QUERY:
                 url = (
-                    f"{BASE_URL}/{registry}"
-                    f"?codigoSancionado={cnpj}&pagina={page}"
+                    f"{BASE_URL}/{path}"
+                    f"?{cnpj_parameter}={cnpj}&pagina={page}"
                 )
                 records = _fetch_page(
                     url,
@@ -263,7 +372,7 @@ def fetch_cgu_supplier_sanctions(
     sanctioned = {str(item["supplier_cnpj"]) for item in items}
     return CGUSanctionSnapshot(
         schema_name="cgu-supplier-sanctions-bundle",
-        schema_version="1.0.0",
+        schema_version="1.1.0",
         artifact_kind="http_response",
         source_code=SOURCE_CODE,
         endpoint_code=ENDPOINT_CODE,

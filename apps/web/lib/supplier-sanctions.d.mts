@@ -1,6 +1,8 @@
+export type SanctionRegistry = "ceis" | "cnep" | "cepim" | "leniencia";
+
 export type SupplierSanction = Readonly<{
   sanctionRecordId: string | null;
-  registry: "ceis" | "cnep";
+  registry: SanctionRegistry;
   sanctionId: string;
   supplierCnpj: string;
   sanctionedName: string;
@@ -28,4 +30,6 @@ export function parseSupplierSanctionRows(
 
 export function formatSanctionCnpj(cnpj: string): string;
 
-export function sanctionRegistryLabel(registry: "ceis" | "cnep"): string;
+export function sanctionRegistryLabel(registry: SanctionRegistry): string;
+
+export function sanctionPortalUrl(cnpj: string): string;
