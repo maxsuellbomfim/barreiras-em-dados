@@ -10,9 +10,9 @@ from .gazette_documents import (
     DocumentBlock,
     GazetteDocumentDraft,
     join_literal_blocks,
-    literal_title,
     ordered_blocks,
 )
+from .gazette_segmentation import document_title
 
 VALIDATOR_VERSION = "gazette-integrity/1.0.0"
 
@@ -42,7 +42,7 @@ def _fallback(blocks: tuple[DocumentBlock, ...]) -> GazetteDocumentDraft:
         last_block=len(blocks) - 1,
         page_start=blocks[0].page_number,
         page_end=blocks[-1].page_number,
-        literal_title=literal_title(blocks[0].text),
+        literal_title=document_title(blocks[0].text),
         full_text=text,
         status="edition_fallback",
     )

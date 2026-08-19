@@ -163,8 +163,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--edition", type=int)
     parser.add_argument("--edition-year", type=int)
     arguments = parser.parse_args(argv)
-    if not 1 <= arguments.limit <= 20:
-        parser.error("--limit deve estar entre 1 e 20.")
+    if not 1 <= arguments.limit <= 300:
+        parser.error("--limit deve estar entre 1 e 300.")
     if (arguments.edition is None) != (arguments.edition_year is None):
         parser.error("--edition e --edition-year devem ser informados juntos.")
     collector_settings = CollectorSettings.from_env()
