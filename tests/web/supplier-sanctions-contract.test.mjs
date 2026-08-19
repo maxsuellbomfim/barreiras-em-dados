@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   formatSanctionCnpj,
   parseSupplierSanctionRows,
+  sanctionPortalUrl,
   sanctionRegistryLabel,
 } from "../../apps/web/lib/supplier-sanctions.mjs";
 
@@ -79,6 +80,35 @@ test("sanção de fornecedor é publicada como espelho literal com evidência", 
   assert.deepEqual(parsed[0].legalBasisCodes, ["LEI 8666 - ART. 87"]);
   assert.equal(formatSanctionCnpj(parsed[0].supplierCnpj), "44.493.204/0001-87");
   assert.match(sanctionRegistryLabel("cnep"), /Lei Anticorrupção/);
+});
+
+test("cadastros CEPIM e leniência entram no mesmo contrato literal", () => {
+  const parsed = parseSupplierSanctionRows([
+    sanctionRow({ registry: "cepim", sanction_id: "5150" }),
+    sanctionRow({ registry: "leniencia", sanction_id: "9021" }),
+  ]);
+  assert.notEqual(parsed, null);
+  assert.match(sanctionRegistryLabel("cepim"), /Entidades sem Fins Lucrativos/);
+  assert.match(sanctionRegistryLabel("leniencia"), /Acordo de Leniência/);
+  assert.equal(
+    sanctionPortalUrl("44493204000187"),
+    "https://portaldatransparencia.gov.br/sancoes/consulta?cpfCnpj=44493204000187",
+  );
+  assert.match(
+    connector,
+    /cepim.*cnpjSancionado|cnpjSancionado.*cepim/s,
+    "o CEPIM usa o parâmetro cnpjSancionado da API oficial",
+  );
+  assert.match(
+    connector,
+    /acordos-leniencia/,
+    "acordos de leniência vêm do endpoint oficial",
+  );
+  assert.match(
+    connector,
+    /CEAF fica fora|CEAF.*CPF/s,
+    "o CEAF permanece excluído por ser consulta por CPF de pessoa física",
+  );
 });
 
 test("documento fora do CNPJ de 14 dígitos invalida o lote no navegador", () => {

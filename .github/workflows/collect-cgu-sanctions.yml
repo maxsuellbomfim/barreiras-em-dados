@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   collect:
-    name: Consultar CEIS/CNEP por fornecedor publicado
+    name: Consultar CEIS/CNEP/CEPIM/leniência por fornecedor publicado
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

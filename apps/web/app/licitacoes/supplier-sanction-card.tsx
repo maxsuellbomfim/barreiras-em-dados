@@ -1,5 +1,6 @@
 import {
   formatSanctionCnpj,
+  sanctionPortalUrl,
   sanctionRegistryLabel,
   type SupplierSanction,
 } from "../../lib/supplier-sanctions";
@@ -53,7 +54,7 @@ export function SupplierSanctionCard({
       <p className="act-evidence">
         Consulta oficial preservada · hash {sanction.artifactSha256.slice(0, 12)}… ·{" "}
         <a
-          href={`https://portaldatransparencia.gov.br/sancoes/consulta?cadastro=1&cpfCnpj=${sanction.supplierCnpj}`}
+          href={sanctionPortalUrl(sanction.supplierCnpj)}
           target="_blank"
           rel="noreferrer"
         >

@@ -6,6 +6,7 @@ import {
 export type { SupplierSanction } from "./supplier-sanctions.mjs";
 export {
   formatSanctionCnpj,
+  sanctionPortalUrl,
   sanctionRegistryLabel,
 } from "./supplier-sanctions.mjs";
 

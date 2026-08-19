@@ -1,6 +1,6 @@
 const SHA256 = /^[0-9a-f]{64}$/;
 const CNPJ = /^\d{14}$/;
-const REGISTRIES = new Set(["ceis", "cnep"]);
+const REGISTRIES = new Set(["ceis", "cnep", "cepim", "leniencia"]);
 const METHODOLOGY = "supplier-sanctions/1.0.0";
 
 function requiredText(value) {
@@ -69,8 +69,18 @@ export function formatSanctionCnpj(cnpj) {
   return `${cnpj.slice(0, 2)}.${cnpj.slice(2, 5)}.${cnpj.slice(5, 8)}/${cnpj.slice(8, 12)}-${cnpj.slice(12)}`;
 }
 
+const REGISTRY_LABELS = {
+  ceis: "CEIS — Empresas Inidôneas e Suspensas",
+  cnep: "CNEP — Empresas Punidas (Lei Anticorrupção)",
+  cepim: "CEPIM — Entidades sem Fins Lucrativos Impedidas",
+  leniencia: "Acordo de Leniência — Lei Anticorrupção",
+};
+
 export function sanctionRegistryLabel(registry) {
-  return registry === "ceis"
-    ? "CEIS — Empresas Inidôneas e Suspensas"
-    : "CNEP — Empresas Punidas (Lei Anticorrupção)";
+  return REGISTRY_LABELS[registry] ?? registry;
+}
+
+export function sanctionPortalUrl(cnpj) {
+  // A consulta oficial cobre todos os cadastros para o documento informado.
+  return `https://portaldatransparencia.gov.br/sancoes/consulta?cpfCnpj=${cnpj}`;
 }
