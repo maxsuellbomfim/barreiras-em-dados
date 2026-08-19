@@ -26,6 +26,11 @@ from ..connectors.cgu_federal_amendments import (
     CGUFederalAmendmentSnapshot,
     parse_cgu_federal_amendments_archive,
 )
+from ..connectors.cgu_sanctions import (
+    CGUSanctionError,
+    CGUSanctionSnapshot,
+    parse_cgu_sanctions_bundle,
+)
 from ..connectors.direct_diary import ENDPOINT_CODE, SOURCE_CODE, DirectEdition
 from ..connectors.gazette_documents import CollectedDocument
 from ..connectors.municipal_transparency import MunicipalTransparencyPage
@@ -120,6 +125,8 @@ CGU_FEDERAL_AMENDMENT_COLLECTOR_VERSION = (
     "cgu-federal-amendments-collector/1.0.0"
 )
 CGU_FEDERAL_AMENDMENT_PARSER_VERSION = "cgu-federal-amendments/1.0.0"
+CGU_SANCTION_COLLECTOR_VERSION = "cgu-sanctions-collector/1.0.0"
+CGU_SANCTION_PARSER_VERSION = "cgu-sanctions/1.0.0"
 BAHIA_STATE_AMENDMENT_COLLECTOR_VERSION = (
     "bahia-state-amendments-collector/1.0.0"
 )
@@ -1045,6 +1052,116 @@ class CGUFederalAmendmentPersistenceService:
                 ).hexdigest(),
                 collector_version=CGU_FEDERAL_AMENDMENT_COLLECTOR_VERSION,
                 parser_version=CGU_FEDERAL_AMENDMENT_PARSER_VERSION,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=snapshot.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+
+class CGUSanctionPersistenceService:
+    """Preserva o pacote de consultas CEIS/CNEP antes de materializar itens."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, snapshot: CGUSanctionSnapshot) -> PersistenceResult:
+        actual_hash = hashlib.sha256(snapshot.raw_body).hexdigest()
+        if (
+            actual_hash != snapshot.body_sha256
+            or len(snapshot.raw_body) != snapshot.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "O pacote de sanções diverge dos metadados coletados."
+            )
+        try:
+            raw_items, _skipped = parse_cgu_sanctions_bundle(snapshot.raw_body)
+        except CGUSanctionError as error:
+            raise ArtifactIntegrityError(
+                "O pacote preservado perdeu seu contrato de sanções."
+            ) from error
+        if raw_items != snapshot.items:
+            raise ArtifactIntegrityError(
+                "As sanções materializadas divergem do pacote preservado."
+            )
+
+        records: list[RawRecordInput] = []
+        for index, item in enumerate(snapshot.items):
+            registry = item.get("registry")
+            sanction_id = item.get("sanction_id")
+            document = item.get("sanctioned_document")
+            if (
+                not isinstance(registry, str)
+                or not registry
+                or not isinstance(sanction_id, str)
+                or not sanction_id
+                or not isinstance(document, str)
+                or len(document) != 14
+            ):
+                raise PersistenceContractError(
+                    f"Sanção {index} não possui identidade completa."
+                )
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            records.append(
+                RawRecordInput(
+                    source_record_key=f"cgu:sanction:{registry}:{sanction_id}",
+                    record_type="cgu_sanction",
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=CGU_SANCTION_PARSER_VERSION,
+                    idempotency_key=hashlib.sha256(
+                        (
+                            "cgu-sanction-record:"
+                            f"{snapshot.body_sha256}:{registry}:"
+                            f"{sanction_id}:{payload_sha256}"
+                        ).encode()
+                    ).hexdigest(),
+                )
+            )
+
+        object_key = (
+            "cgu/sancoes/sha256/"
+            f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.json"
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=snapshot.raw_body,
+            content_type=snapshot.media_type,
+            expected_sha256=snapshot.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != snapshot.body_sha256
+            or len(restored) != snapshot.body_size_bytes
+            or stored.sha256 != snapshot.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "O pacote de sanções restaurado diverge do coletado."
+            )
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=snapshot,  # type: ignore[arg-type]
+                object_key=object_key,
+                artifact_idempotency_key=hashlib.sha256(
+                    f"raw-artifact:{snapshot.idempotency_key}".encode()
+                ).hexdigest(),
+                collector_version=CGU_SANCTION_COLLECTOR_VERSION,
+                parser_version=CGU_SANCTION_PARSER_VERSION,
                 records=tuple(records),
             )
         )

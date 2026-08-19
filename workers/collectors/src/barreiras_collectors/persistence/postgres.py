@@ -145,6 +145,33 @@ class PostgresCollectionRepository:
         finally:
             connection.close()
 
+    def published_supplier_cnpjs(self) -> frozenset[str]:
+        """CNPJs de fornecedores já publicados (PNCP e contratos municipais)."""
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select distinct record.payload ->> 'niFornecedor' as cnpj
+                from raw.raw_records as record
+                where record.record_type = 'pncp_resultado'
+                  and record.payload ->> 'niFornecedor' ~ '^[0-9]{14}$'
+                union
+                select distinct regexp_replace(
+                  record.payload ->> 'documento', '[^0-9]', '', 'g'
+                ) as cnpj
+                from raw.raw_records as record
+                where record.record_type = 'municipal_transparency_contratos'
+                  and length(regexp_replace(
+                    coalesce(record.payload ->> 'documento', ''), '[^0-9]', '', 'g'
+                  )) = 14
+                order by cnpj
+                """,
+                (),
+            ).fetchall()
+            return frozenset(str(row["cnpj"]) for row in rows)
+        finally:
+            connection.close()
+
     def start_controlled_run(
         self,
         *,

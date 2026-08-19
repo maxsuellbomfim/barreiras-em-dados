@@ -706,6 +706,77 @@ try {
     "nenhum dígito de CPF pode escapar da projeção de contratos",
   );
 
+  await database.exec(`
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000008201',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'cgu-portal-transparencia'
+         and endpoint.slug = 'sanctions-api'),
+      'cgu-sanction-fixture-run', 'test/1', 'succeeded'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key, collector_version
+    ) values (
+      '00000000-0000-0000-0000-000000008202',
+      '00000000-0000-0000-0000-000000008201',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'cgu-portal-transparencia'
+         and endpoint.slug = 'sanctions-api'),
+      'cgu-sanction-fixture-artifact', 'http_response',
+      'https://api.portaldatransparencia.gov.br/api-de-dados/ceis',
+      '2026-08-18 21:00:00+00', 900, '${"ab".repeat(32)}',
+      'cgu/sancoes/fixture.json', 'test/1'
+    );
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000008210',
+        '00000000-0000-0000-0000-000000008202',
+        'cgu:sanction:ceis:288186', 'cgu_sanction', 0,
+        '{"registry":"ceis","sanction_id":"288186","supplier_cnpj":"44493204000187","sanctioned_document":"44493204000187","sanctioned_name":"COMERCIAL EXEMPLO LTDA","person_type":"Pessoa Jurídica","company_name":"COMERCIAL EXEMPLO LTDA","sanction_type":"Impedimento/proibição de contratar","sanctioning_body":"Prefeitura Municipal de Exemplo","sanctioning_body_sphere":"MUNICIPAL","sanctioning_body_uf":"BA","sanction_source":"CGU","process_number":"0000509","start_date_text":"14/12/2022","end_date_text":"14/12/2032","publication_date_text":"Sem informação","reference_date_text":"18/08/2026","legal_basis_codes":["LEI 8666 - ART. 87"]}',
+        '${"cd".repeat(32)}', 'cgu-sanctions/1.0.0',
+        'cgu-sanction-fixture-0001', '2026-08-18 21:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000008211',
+        '00000000-0000-0000-0000-000000008202',
+        'cgu:sanction:ceis:999001', 'cgu_sanction', 1,
+        '{"registry":"ceis","sanction_id":"999001","supplier_cnpj":"44493204000187","sanctioned_document":"43515770453","sanctioned_name":"PESSOA FISICA QUE NAO DEVE SAIR","person_type":"Pessoa Física","company_name":"","sanction_type":"Impedimento","sanctioning_body":"Orgao","sanctioning_body_sphere":"ESTADUAL","sanctioning_body_uf":"PE","sanction_source":"CGU","process_number":"1","start_date_text":"01/01/2020","end_date_text":"01/01/2030","publication_date_text":"","reference_date_text":"18/08/2026","legal_basis_codes":[]}',
+        '${"ef".repeat(32)}', 'cgu-sanctions/1.0.0',
+        'cgu-sanction-fixture-0002', '2026-08-18 21:00:00+00'
+      );
+  `);
+  const supplierSanctions = await database.query(`
+    select registry, sanction_id, supplier_cnpj, sanctioned_name,
+           start_date_text, methodology_version
+    from api.get_public_supplier_sanctions(100)
+  `);
+  assert.deepEqual(supplierSanctions.rows, [
+    {
+      registry: "ceis",
+      sanction_id: "288186",
+      supplier_cnpj: "44493204000187",
+      sanctioned_name: "COMERCIAL EXEMPLO LTDA",
+      start_date_text: "14/12/2022",
+      methodology_version: "supplier-sanctions/1.0.0",
+    },
+  ]);
+  const sanctionsSerialized = JSON.stringify(supplierSanctions.rows);
+  assert.ok(
+    !sanctionsSerialized.includes("43515770453") &&
+      !sanctionsSerialized.includes("PESSOA FISICA"),
+    "sancao de pessoa fisica jamais sai da projecao publica",
+  );
+
   await database.exec("set role anon");
   await rejects("select * from finance.public_obligations", /permission denied/);
   await rejects(
