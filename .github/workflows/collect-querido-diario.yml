@@ -19,7 +19,7 @@ on:
       integral_limit:
         description: Máximo de edições integrais processadas nesta execução
         required: false
-        default: "6"
+        default: "300"
         type: string
       integral_edition:
         description: EdiÃ§Ã£o especÃ­fica para replay integral (opcional)
@@ -193,7 +193,7 @@ jobs:
         if: steps.window.outputs.mode != 'backfill'
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
-          INTEGRAL_LIMIT: ${{ inputs.integral_limit || '6' }}
+          INTEGRAL_LIMIT: ${{ inputs.integral_limit || '300' }}
           INTEGRAL_EDITION: ${{ inputs.integral_edition }}
           INTEGRAL_YEAR: ${{ inputs.integral_year }}
         run: |

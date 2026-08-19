@@ -118,7 +118,7 @@ class SegmentGazetteCommandTests(unittest.TestCase):
         self.assertEqual(len(repository.batches), 2)
         self.assertEqual(
             repository.batches[0].segmenter_version,
-            "gazette-structural-segmenter/1.1.0",
+            "gazette-structural-segmenter/2.0.0",
         )
         self.assertEqual(
             repository.batches[0].validator_version, "gazette-integrity/1.0.0"
@@ -250,13 +250,13 @@ class SegmentGazetteCommandTests(unittest.TestCase):
                 integral_gazette_idempotency_key(
                     newest.sha256,
                     ((1, "parser/1"),),
-                    "gazette-structural-segmenter/1.1.0",
+                    "gazette-structural-segmenter/2.0.0",
                     "gazette-integrity/1.0.0",
                 ),
                 integral_gazette_idempotency_key(
                     skipped.sha256,
                     ((1, "parser/1"),),
-                    "gazette-structural-segmenter/1.1.0",
+                    "gazette-structural-segmenter/2.0.0",
                     "gazette-integrity/1.0.0",
                 ),
             }
