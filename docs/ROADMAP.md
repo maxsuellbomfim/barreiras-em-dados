@@ -484,6 +484,14 @@ fabricar execução e limita os totais executados de 2026 às ligações oficiai
 únicas. A próxima entrega é ampliar o índice integral de execução para os anos
 anteriores, começando por 2025.
 
+Checkpoint adicional em 21/08/2026: a fonte oficial de Transferências
+Especiais passou a gerar, em job versionado, cobertura anual sanitizada do
+retrato integral. O resultado separa linhas da fonte e ocorrências territoriais
+literais, não conserva dados de credor e não converte ausência de linha em
+ausência de recurso. A próxima menor entrega é projetar esse diagnóstico no
+portal como estado de cobertura, sem somá-lo aos valores de LOA ou
+Transferegov.
+
 Gate:
 
 - identidade e vínculo territorial revisados;

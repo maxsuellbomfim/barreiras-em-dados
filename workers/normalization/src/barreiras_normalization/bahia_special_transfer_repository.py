@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 
 from barreiras_collectors.persistence.postgres import DatabaseConnection
 
@@ -168,6 +169,58 @@ class BahiaSpecialTransferRepository:
                         batch.extractor_version,
                         batch.validator_version,
                         summary_payload,
+                    ),
+                )
+
+                coverage_end_year = datetime.fromisoformat(
+                    batch.artifact.collected_at.replace("Z", "+00:00")
+                ).year
+                coverage_payload = canonical_json(
+                    {
+                        "schema_name": (
+                            "bahia-special-transfer-annual-coverage"
+                        ),
+                        "schema_version": "1.0.0",
+                        "coverage_start_year": 2021,
+                        "coverage_end_year": coverage_end_year,
+                        "years": [
+                            {
+                                "fiscal_year": row.fiscal_year,
+                                "source_payment_count": row.source_payment_count,
+                                "territorial_payment_count": (
+                                    row.territorial_payment_count
+                                ),
+                            }
+                            for row in batch.annual_coverage
+                        ],
+                        "territorial_scope": (
+                            "payment_object_literal_barreiras"
+                        ),
+                        "source_url": batch.artifact.source_url,
+                        "source_artifact_sha256": batch.artifact.sha256,
+                        "source_collected_at": batch.artifact.collected_at,
+                        "parser_version": batch.extractor_version,
+                    }
+                )
+                connection.execute(
+                    """
+                    insert into raw.extraction_results (
+                      extraction_job_id, candidate_type,
+                      extractor_version, validator_version,
+                      result_payload, confidence,
+                      validation_status, validation_errors
+                    )
+                    values (
+                      %s::uuid, %s, %s, %s, %s::jsonb,
+                      null, 'valid', '[]'::jsonb
+                    )
+                    """,
+                    (
+                        str(job["id"]),
+                        "bahia_special_transfer_annual_coverage",
+                        batch.extractor_version,
+                        batch.validator_version,
+                        coverage_payload,
                     ),
                 )
 

@@ -41,6 +41,18 @@ def _body(object_text: str = "Peças para poços em Barreiras") -> bytes:
 
 
 class BahiaSpecialTransferProcessingTests(unittest.TestCase):
+    def test_job_version_forces_one_replay_with_annual_coverage(self) -> None:
+        try:
+            from barreiras_normalization.bahia_special_transfer_processing import (
+                SPECIAL_TRANSFER_JOB_TYPE,
+            )
+        except ImportError:
+            self.fail("o job de cobertura anual ainda não existe")
+        self.assertEqual(
+            SPECIAL_TRANSFER_JOB_TYPE,
+            "bahia_special_transfer_payments_v2",
+        )
+
     def _imports(self):
         try:
             from barreiras_normalization.bahia_special_transfer_processing import (
@@ -81,6 +93,14 @@ class BahiaSpecialTransferProcessingTests(unittest.TestCase):
         self.assertTrue(result.job_created)
         self.assertEqual(result.results_inserted, 1)
         self.assertEqual(repository.batches[0].candidates[0].author_name, "Tito")
+        self.assertEqual(
+            repository.batches[0].annual_coverage[0].source_payment_count,
+            1,
+        )
+        self.assertEqual(
+            repository.batches[0].annual_coverage[0].territorial_payment_count,
+            1,
+        )
         self.assertEqual(len(repository.batches[0].idempotency_key), 64)
 
     def test_rejects_bytes_that_diverge_from_collected_hash(self) -> None:

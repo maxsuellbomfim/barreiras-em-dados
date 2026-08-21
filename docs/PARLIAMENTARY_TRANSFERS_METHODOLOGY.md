@@ -568,6 +568,15 @@ Campo não oferecido pela fonte permanece `null` e recebe o estado
 liquidação individual nesse contrato, enquanto o anexo estadual não oferece um
 beneficiário estruturado. Esses casos não podem ser convertidos em zero.
 
+A base estadual de Transferências Especiais possui ainda um contrato separado
+de cobertura anual. Ele conta todas as linhas de pagamento efetivamente
+processadas no retrato oficial e quantas delas mencionam literalmente
+`Barreiras` no objeto. As contagens não são somas financeiras e não demonstram
+recebimento municipal, execução física ou ausência de outras modalidades de
+repasse. Exercício sem linha no retrato não pode ser apresentado como zero:
+deve permanecer não observado ou não coletado, conforme o controle da fonte.
+Nenhum identificador ou nome de credor integra essa projeção.
+
 Nos cards dos deputados atuais, o resumo da legislatura aparece somente quando
 o ranking possui crosswalk aprovado e coincidem exatamente esfera, ID externo
 do perfil oficial e período da legislatura. Semelhança de nome nunca basta. O

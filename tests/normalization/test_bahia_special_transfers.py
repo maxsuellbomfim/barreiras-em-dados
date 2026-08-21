@@ -114,6 +114,38 @@ def _payment(
 
 
 class BahiaSpecialTransferNormalizationTests(unittest.TestCase):
+    def test_counts_every_payment_by_year_without_exposing_creditor_data(
+        self,
+    ) -> None:
+        try:
+            from barreiras_normalization.bahia_special_transfers import (
+                analyze_special_transfer_payments,
+            )
+        except ImportError:
+            self.fail("a cobertura anual das transferências especiais não existe")
+        archive = _archive(
+            centralization_rows=[_centralization()],
+            expense_rows=[_expense()],
+            payment_rows=[
+                _payment(),
+                _payment(
+                    payment_id="2234567890123456789",
+                    object_text="Perfuração de poços em Barreirinhas/MA",
+                ),
+            ],
+        )
+
+        analysis = analyze_special_transfer_payments(archive)
+
+        self.assertEqual(len(analysis.candidates), 1)
+        self.assertEqual(len(analysis.annual_coverage), 1)
+        coverage = analysis.annual_coverage[0]
+        self.assertEqual(coverage.fiscal_year, 2022)
+        self.assertEqual(coverage.source_payment_count, 2)
+        self.assertEqual(coverage.territorial_payment_count, 1)
+        self.assertNotIn("98765432100", str(coverage))
+        self.assertNotIn("CREDOR QUE NÃO DEVE SER PUBLICADO", str(coverage))
+
     def test_joins_official_keys_and_keeps_only_literal_barreiras_candidate(
         self,
     ) -> None:
