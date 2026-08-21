@@ -5039,6 +5039,125 @@ footer {
   gap: 0.75rem;
 }
 
+.finance-payroll-section {
+  margin: 2rem 0 3.5rem;
+}
+
+.finance-payroll-card {
+  padding: clamp(1.1rem, 2.8vw, 1.65rem);
+  border: 1px solid rgba(28, 40, 61, 0.12);
+  border-radius: 1.45rem;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 16px 42px rgba(33, 46, 79, 0.06);
+  backdrop-filter: blur(18px) saturate(135%);
+}
+
+.finance-payroll-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.finance-payroll-kicker {
+  color: #65728a;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.finance-payroll-header h3 {
+  margin: 0.35rem 0 0;
+  color: var(--ink);
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+
+.finance-payroll-header p {
+  max-width: 46rem;
+  margin: 0.55rem 0 0;
+  color: #65728a;
+  line-height: 1.55;
+}
+
+.finance-payroll-header p strong {
+  color: var(--ink);
+}
+
+.finance-payroll-status {
+  flex: 0 0 auto;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+  background: #eaf6ee;
+  color: #21613a;
+  font-size: 0.72rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.finance-payroll-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1.3rem 0 0;
+}
+
+.finance-payroll-values > div {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(248, 250, 253, 0.84);
+}
+
+.finance-payroll-values dt {
+  color: #627087;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.finance-payroll-values dt small {
+  display: block;
+  margin-top: 0.25rem;
+  color: #8590a2;
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.finance-payroll-values dd {
+  margin: 0.75rem 0 0;
+  color: var(--ink);
+  font-size: clamp(1.05rem, 2.2vw, 1.4rem);
+  font-weight: 760;
+  letter-spacing: -0.03em;
+}
+
+.finance-payroll-gross dd,
+.finance-payroll-net dd {
+  color: #a33434;
+}
+
+.finance-payroll-reading {
+  margin-top: 1rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(55, 91, 232, 0.12);
+  border-radius: 1rem;
+  background: rgba(242, 246, 255, 0.72);
+}
+
+.finance-payroll-reading strong {
+  color: #25418e;
+  font-size: 0.8rem;
+}
+
+.finance-payroll-reading p {
+  margin: 0.4rem 0 0;
+  color: #56657c;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
 .finance-glance-card {
   display: grid;
   gap: 0.35rem;
@@ -5072,6 +5191,25 @@ footer {
 @media (max-width: 700px) {
   .finance-at-a-glance-grid {
     grid-template-columns: 1fr;
+  }
+
+  .finance-payroll-header {
+    display: grid;
+  }
+
+  .finance-payroll-status {
+    justify-self: start;
+  }
+
+  .finance-payroll-values {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .finance-payroll-card {
+    background: #ffffff;
+    backdrop-filter: none;
   }
 }
 

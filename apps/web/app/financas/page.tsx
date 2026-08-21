@@ -29,6 +29,10 @@ import {
   type PublicObligation,
   type PublicObligationCoverageRow,
 } from "../../lib/public-obligations.mjs";
+import {
+  getPublicPayrollMonths,
+  type PublicPayrollMonth,
+} from "../../lib/public-payroll.mjs";
 
 export const revalidate = 300;
 
@@ -199,6 +203,7 @@ export default async function FinancesPage() {
     coverageResult,
     obligationsResult,
     obligationCoverageResult,
+    payrollResult,
   ] = await Promise.all([
     getPublicExpenseReports(),
     getPublicExpenseLines(),
@@ -209,6 +214,7 @@ export default async function FinancesPage() {
     getPublicFinanceCoverage(),
     getPublicObligations(),
     getPublicObligationCoverage(),
+    getPublicPayrollMonths(),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -232,6 +238,9 @@ export default async function FinancesPage() {
     obligationCoverageResult.state === "available"
       ? obligationCoverageResult.rows
       : [];
+  const payrollMonths =
+    payrollResult.state === "available" ? payrollResult.months : [];
+  const latestPayroll: PublicPayrollMonth | null = payrollMonths[0] ?? null;
   const obligationCoverageGaps = publicObligationCoverage.filter(
     (row) => row.coverageStatus !== "published",
   );
@@ -382,6 +391,101 @@ export default async function FinancesPage() {
               <small>Nenhum total é publicado antes da reconciliação das obrigações.</small>
             </article>
           </div>
+        </section>
+
+        <section
+          className="finance-payroll-section"
+          aria-labelledby="finance-payroll-title"
+        >
+          <div className="section-heading compact">
+            <span className="eyebrow">Folha mensal</span>
+            <h2 id="finance-payroll-title">Quanto custa a folha da Prefeitura</h2>
+            <p>
+              Valores consolidados do relatório oficial, sem publicar nomes,
+              matrículas, contas bancárias ou descontos individuais.
+            </p>
+          </div>
+          {latestPayroll ? (
+            <article className="finance-payroll-card">
+              <div className="finance-payroll-header">
+                <div>
+                  <span className="finance-payroll-kicker">
+                    {latestPayroll.publicBodyName}
+                  </span>
+                  <h3>{formatMonthTitle(latestPayroll.referenceMonth)}</h3>
+                  <p>
+                    O documento informa{" "}
+                    <strong>
+                      {latestPayroll.employeeCount.toLocaleString("pt-BR")} vínculos
+                    </strong>
+                    . Um vínculo não representa necessariamente uma pessoa única.
+                  </p>
+                </div>
+                <span className="finance-payroll-status">
+                  PDF integral reconciliado
+                </span>
+              </div>
+              <dl className="finance-payroll-values">
+                <div className="finance-payroll-gross">
+                  <dt>
+                    Proventos brutos
+                    <small>Total antes dos descontos do relatório</small>
+                  </dt>
+                  <dd>{formatBrlDecimal(latestPayroll.grossAmount)}</dd>
+                </div>
+                <div>
+                  <dt>
+                    Descontos
+                    <small>Retenções consolidadas, sem detalhe pessoal</small>
+                  </dt>
+                  <dd>{formatBrlDecimal(latestPayroll.deductionAmount)}</dd>
+                </div>
+                <div className="finance-payroll-net">
+                  <dt>
+                    Líquido no relatório
+                    <small>Bruto menos descontos; não é confirmação bancária</small>
+                  </dt>
+                  <dd>{formatBrlDecimal(latestPayroll.netAmount)}</dd>
+                </div>
+              </dl>
+              <div className="finance-payroll-reading">
+                <strong>Como ler este mês</strong>
+                <p>
+                  A folha bruta reportada foi de{" "}
+                  {formatBrlDecimal(latestPayroll.grossAmount)}. O próprio PDF
+                  registra {formatBrlDecimal(latestPayroll.deductionAmount)} em
+                  descontos e chega a {formatBrlDecimal(latestPayroll.netAmount)}
+                  líquidos. Essa conta foi refeita por código e conferida contra{" "}
+                  {latestPayroll.subtotalCount.toLocaleString("pt-BR")} subtotais.
+                </p>
+              </div>
+              <details className="finance-details">
+                <summary>Conferir cálculo, fonte e documento</summary>
+                <p className="finance-details-note">
+                  Regra determinística: proventos brutos − descontos = líquido.
+                  O Barreiras 360 não usa IA para calcular esses valores.
+                </p>
+                <p className="act-evidence">
+                  <a href={latestPayroll.sourceUrl} target="_blank" rel="noreferrer">
+                    Abrir PDF oficial →
+                  </a>{" "}
+                  · coletado em {formatCollectedAt(latestPayroll.sourceRetrievedAt)}
+                  · hash {latestPayroll.artifactSha256.slice(0, 12)}… · parser{" "}
+                  {latestPayroll.parserVersion}
+                </p>
+              </details>
+            </article>
+          ) : (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Folha mensal ainda não disponível nesta projeção</strong>
+                <p>
+                  Isso não significa gasto zero. O portal só publica o mês quando
+                  todos os subtotais fecham com o total do PDF oficial.
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         {coverageResult.state === "available" ? (

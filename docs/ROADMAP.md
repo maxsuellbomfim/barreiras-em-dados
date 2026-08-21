@@ -363,9 +363,12 @@ aritmética exata e projeção pública mínima pela RPC
 PDFs `tipo=1`, confere hash e tamanho, exige reconciliação integral, registra
 falhas versionadas e grava agregado e evidência na mesma transação. A execução
 manual pode fixar uma competência `AAAA-MM`, evitando validar um mês diferente
-do pretendido. A próxima fatia publica julho/2026 em produção e apresenta esse
-fechamento no portal em linguagem simples; descontos pessoais e campos
-sensíveis permanecem vedados.
+do pretendido. Julho/2026 foi publicado em produção com 8.184 vínculos e 133
+subtotais reconciliados. A página de finanças apresenta bruto, descontos e
+líquido com linguagem popular, ressalva conceitual, fonte e hash; descontos
+pessoais e campos sensíveis permanecem vedados. A próxima fatia amplia o
+backfill `tipo=1` competência por competência e classifica ausências sem
+confundi-las com gasto zero.
 
 ## Etapa 5 — Fluxos territoriais
 
