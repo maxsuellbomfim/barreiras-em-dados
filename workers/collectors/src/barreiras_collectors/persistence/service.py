@@ -6,6 +6,13 @@ import hashlib
 import json
 from typing import Any, ClassVar
 
+from ..connectors.bahia_special_transfers import (
+    BahiaSpecialTransferArchiveError,
+    BahiaSpecialTransferArchiveSnapshot,
+    BahiaSpecialTransferCatalogSnapshot,
+    parse_special_transfer_archive,
+    parse_special_transfer_catalog,
+)
 from ..connectors.bahia_state_amendments import (
     BahiaStateAmendmentArchiveError,
     BahiaStateAmendmentArchiveSnapshot,
@@ -138,6 +145,15 @@ BAHIA_STATE_AMENDMENT_ARCHIVE_PARSER_VERSION = (
 )
 BAHIA_STATE_AMENDMENT_RELATIONSHIP_PARSER_VERSION = (
     "bahia-state-amendment-relationship-diagram/1.0.0"
+)
+BAHIA_SPECIAL_TRANSFER_COLLECTOR_VERSION = (
+    "bahia-special-transfers-collector/1.0.0"
+)
+BAHIA_SPECIAL_TRANSFER_CATALOG_PARSER_VERSION = (
+    "bahia-special-transfer-catalog/1.0.0"
+)
+BAHIA_SPECIAL_TRANSFER_ARCHIVE_PARSER_VERSION = (
+    "bahia-special-transfer-archive/1.0.0"
 )
 BAHIA_STATE_LOA_ANNEX_COLLECTOR_VERSION = (
     "bahia-state-loa-amendment-annex-collector/1.0.0"
@@ -1349,6 +1365,113 @@ class BahiaStateAmendmentRelationshipPersistenceService:
             object_store=self.object_store,
             repository=self.repository,
             restored_description="diagrama estadual restaurado",
+        )
+
+
+class BahiaSpecialTransferCatalogPersistenceService:
+    """Preserva o catálogo CKAN sem expor o conteúdo do ZIP."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(
+        self,
+        snapshot: BahiaSpecialTransferCatalogSnapshot,
+    ) -> PersistenceResult:
+        _verify_state_amendment_bytes(
+            snapshot,
+            description="catálogo de transferências especiais",
+        )
+        try:
+            resource = parse_special_transfer_catalog(snapshot.raw_body)
+        except BahiaSpecialTransferArchiveError as error:
+            raise ArtifactIntegrityError(
+                "O catálogo de transferências especiais perdeu seu contrato."
+            ) from error
+        if snapshot.items != (resource,):
+            raise ArtifactIntegrityError(
+                "O recurso diverge do catálogo de transferências especiais."
+            )
+        record = _state_amendment_record(
+            payload=resource,
+            source_record_key=(
+                "bahia:special-transfer-catalog:"
+                f"{resource['resource_id']}"
+            ),
+            record_type="bahia_special_transfer_catalog_resource",
+            parser_version=BAHIA_SPECIAL_TRANSFER_CATALOG_PARSER_VERSION,
+            record_index=0,
+            snapshot_key=snapshot.idempotency_key,
+        )
+        object_key = (
+            "bahia/transferencias-especiais/catalog/sha256/"
+            f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.json"
+        )
+        return _persist_state_amendment_snapshot(
+            snapshot=snapshot,
+            records=(record,),
+            object_key=object_key,
+            collector_version=BAHIA_SPECIAL_TRANSFER_COLLECTOR_VERSION,
+            parser_version=BAHIA_SPECIAL_TRANSFER_CATALOG_PARSER_VERSION,
+            object_store=self.object_store,
+            repository=self.repository,
+            restored_description="catálogo de transferências especiais restaurado",
+        )
+
+
+class BahiaSpecialTransferArchivePersistenceService:
+    """Preserva o ZIP privado e materializa somente manifestos sem linhas."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(
+        self,
+        snapshot: BahiaSpecialTransferArchiveSnapshot,
+    ) -> PersistenceResult:
+        _verify_state_amendment_bytes(
+            snapshot,
+            description="ZIP de transferências especiais",
+        )
+        try:
+            members = parse_special_transfer_archive(snapshot.raw_body)
+        except BahiaSpecialTransferArchiveError as error:
+            raise ArtifactIntegrityError(
+                "O ZIP de transferências especiais perdeu seu contrato."
+            ) from error
+        if members != snapshot.items:
+            raise ArtifactIntegrityError(
+                "O manifesto diverge do ZIP de transferências especiais."
+            )
+        records = tuple(
+            _state_amendment_record(
+                payload=member,
+                source_record_key=(
+                    "bahia:special-transfer-archive-member:"
+                    f"{member['member_name']}:{member['content_sha256']}"
+                ),
+                record_type="bahia_special_transfer_archive_member",
+                parser_version=BAHIA_SPECIAL_TRANSFER_ARCHIVE_PARSER_VERSION,
+                record_index=index,
+                snapshot_key=snapshot.idempotency_key,
+            )
+            for index, member in enumerate(members)
+        )
+        object_key = (
+            "bahia/transferencias-especiais/archive/sha256/"
+            f"{snapshot.body_sha256[:2]}/{snapshot.body_sha256}.zip"
+        )
+        return _persist_state_amendment_snapshot(
+            snapshot=snapshot,
+            records=records,
+            object_key=object_key,
+            collector_version=BAHIA_SPECIAL_TRANSFER_COLLECTOR_VERSION,
+            parser_version=BAHIA_SPECIAL_TRANSFER_ARCHIVE_PARSER_VERSION,
+            object_store=self.object_store,
+            repository=self.repository,
+            restored_description="ZIP de transferências especiais restaurado",
         )
 
 

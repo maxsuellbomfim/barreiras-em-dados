@@ -359,6 +359,26 @@ visíveis, enquanto empenho, liquidação, pagamento e evidência de execução 
 nulos. Isso representa uma limitação documental da ligação entre as fontes, não
 valor zero e nem prova de que o recurso não foi executado.
 
+### Fonte complementar de Transferências Especiais da Bahia
+
+O conjunto oficial **Transferências Especiais** é preservado em corredor
+privado separado. Suas cinco views relacionam despesa, liquidação e pagamento
+por códigos internos, mas não publicam uma coluna municipal na despesa. A view
+de pagamentos contém CPF/CNPJ de credor e, por isso, nenhuma linha bruta é
+exposta por API, manifesto, log ou interface.
+
+No retrato de 20/08/2026, três pagamentos possuem `Barreiras` literalmente no
+objeto e ligam de forma única a duas emendas publicadas com o autor `Tito`:
+R$ 594.841,25 na emenda 40720003/2021 e R$ 162.063,50 em dois pagamentos da
+emenda 40720005/2021. Esses R$ 756.904,75 são descritos apenas como pagamentos
+estaduais com objeto que menciona Barreiras. Não são somados ao valor recebido
+pela Prefeitura nem a ranking parlamentar enquanto esfera, pessoa, território
+e evidência por linha não forem reconciliados deterministicamente.
+
+O documento de descoberta e os contratos do conector registram as contagens,
+o CSV malformado da fonte e o gate de publicação em
+`docs/reviews/BAHIA_SPECIAL_TRANSFERS_SOURCE_DISCOVERY.md`.
+
 ### Linha do tempo nos perfis dos representantes
 
 Os perfis oficiais ligados por crosswalk aprovado recebem uma linha do tempo
