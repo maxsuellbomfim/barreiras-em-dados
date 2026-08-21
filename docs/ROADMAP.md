@@ -628,6 +628,20 @@ vínculos. O próximo lote passa a aceitar competência exata, usando `ano_ref`,
 `mes_ref` e `tipo` do catálogo para evitar a drenagem sequencial de PDFs sem
 relação com o mês solicitado.
 
+Em 22/08/2026, o backfill dirigido validou em produção setembro, outubro,
+novembro e dezembro de 2024. Dezembro preserva e soma separadamente a folha
+regular e a parcela final do 13º, enquanto a quantidade de vínculos continua
+vindo apenas da folha regular. Janeiro de 2025 foi retirado da projeção por uma
+invalidação append-only: o próprio cabeçalho oficial mistura folha normal e
+adiantamento do 13º, sem permitir separar os valores com segurança. O workflow
+`backfill-payroll.yml` automatiza lotes contíguos de até seis competências, da
+mais recente para a mais antiga, preserva somente documentos de servidores
+e interrompe o lote se o catálogo não contiver o PDF oficial correspondente ou
+se a preservação ficar parcial. A publicação só encerra com sucesso quando a
+competência aparece na projeção pública determinística; seguem valendo o parser
+versionado, a aritmética exata, a linhagem e os bloqueios de ciclo desconhecido
+ou misto.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;

@@ -18,9 +18,7 @@ from ..payroll_report_pdf import PayrollReportContractError
 from ..revenue_publisher import ArtifactMismatchError
 from .publish_expense_reports import _cloud_client
 
-PYPDF_LAYOUT_LOGGER = (
-    "pypdf._text_extraction._layout_mode._fixed_width_page"
-)
+PYPDF_LAYOUT_LOGGER = "pypdf._text_extraction._layout_mode._fixed_width_page"
 PYPDF_UNBALANCED_TARGET_PREFIX = "Unbalanced target operations, expected "
 
 
@@ -34,9 +32,7 @@ class KnownPypdfLayoutWarningFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         is_known_recoverable_warning = (
             record.levelno == logging.WARNING
-            and record.getMessage().startswith(
-                PYPDF_UNBALANCED_TARGET_PREFIX
-            )
+            and record.getMessage().startswith(PYPDF_UNBALANCED_TARGET_PREFIX)
         )
         if is_known_recoverable_warning:
             self.suppressed_count += 1
@@ -53,6 +49,33 @@ def _parse_reference_month(value: str) -> date:
     return date(year, month, 1)
 
 
+def strict_publication_error(
+    *,
+    reference_month: date,
+    needs_review: int,
+    unresolved_documents: int,
+    is_public: bool,
+) -> str | None:
+    """Explica por que uma competência não pode encerrar como sucesso."""
+
+    if needs_review:
+        return (
+            f"Competência {reference_month:%Y-%m} gerou {needs_review} "
+            "documento(s) para revisão."
+        )
+    if unresolved_documents:
+        return (
+            f"Competência {reference_month:%Y-%m} ainda possui "
+            f"{unresolved_documents} documento(s) oficial(is) sem agregado válido."
+        )
+    if not is_public:
+        return (
+            f"Competência {reference_month:%Y-%m} não apareceu na projeção pública "
+            "determinística."
+        )
+    return None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Publica totais determinísticos da folha municipal."
@@ -61,17 +84,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--fiscal-year-from", type=int, default=2021)
     parser.add_argument("--fiscal-year-to", type=int, default=date.today().year)
     parser.add_argument("--reference-month", type=_parse_reference_month)
+    parser.add_argument(
+        "--require-complete-month",
+        action="store_true",
+        help="falha se a competência não terminar validada na projeção pública",
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 20:
         parser.error("--limit deve estar entre 1 e 20")
     if not 1900 <= args.fiscal_year_from <= args.fiscal_year_to <= 2200:
         parser.error("intervalo fiscal inválido")
     if args.reference_month is not None and not (
-        args.fiscal_year_from
-        <= args.reference_month.year
-        <= args.fiscal_year_to
+        args.fiscal_year_from <= args.reference_month.year <= args.fiscal_year_to
     ):
         parser.error("competência fora do intervalo fiscal")
+    if args.require_complete_month and args.reference_month is None:
+        parser.error("--require-complete-month exige --reference-month")
 
     from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
     from barreiras_collectors.settings import PersistenceSettings
@@ -79,9 +107,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     settings = PersistenceSettings.from_env()
     logging.basicConfig(level="INFO", format="%(message)s", force=True)
     client = _cloud_client(settings)
-    repository = PostgresPayrollPublicationRepository.from_dsn(
-        settings.database_url
-    )
+    repository = PostgresPayrollPublicationRepository.from_dsn(settings.database_url)
     reader = SupabaseStorageObjectStore(
         client.storage.from_(settings.raw_artifacts_bucket)
     )
@@ -141,8 +167,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if warning_filter.suppressed_count:
         logger.info(
-            "payroll_pdf_recoverable_warnings kind=unbalanced_target "
-            "suppressed=%s",
+            "payroll_pdf_recoverable_warnings kind=unbalanced_target suppressed=%s",
             warning_filter.suppressed_count,
         )
 
@@ -154,6 +179,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         already_published,
         needs_review,
     )
+    if args.require_complete_month:
+        error = strict_publication_error(
+            reference_month=args.reference_month,
+            needs_review=needs_review,
+            unresolved_documents=repository.unresolved_document_count(
+                args.reference_month
+            ),
+            is_public=repository.has_public_month(args.reference_month),
+        )
+        if error is not None:
+            logger.error("payroll_publication_incomplete error=%s", error)
+            return 1
     return 0
 
 

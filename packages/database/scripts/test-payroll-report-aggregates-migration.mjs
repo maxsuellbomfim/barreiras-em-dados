@@ -54,6 +54,8 @@ try {
       to_regclass('hr.payroll_report_aggregate_invalidations')::text
         as invalidation_table,
       to_regprocedure('api.get_public_payroll_months(integer)')::text as public_rpc,
+      to_regprocedure('hr.payroll_month_is_public(date)')::text
+        as completion_function,
       (select relrowsecurity from pg_class
        where oid = 'hr.payroll_report_aggregates'::regclass) as rls,
       (select relforcerowsecurity from pg_class
@@ -78,14 +80,32 @@ try {
       has_function_privilege(
         'anon', 'api.get_public_payroll_months(integer)', 'EXECUTE'
       ) as anon_rpc,
+      has_function_privilege(
+        'collector_worker', 'hr.payroll_month_is_public(date)', 'EXECUTE'
+      ) as worker_completion_execute,
+      has_function_privilege(
+        'anon', 'hr.payroll_month_is_public(date)', 'EXECUTE'
+      ) as anon_completion_execute,
+      has_function_privilege(
+        'authenticated', 'hr.payroll_month_is_public(date)', 'EXECUTE'
+      ) as authenticated_completion_execute,
+      pg_get_functiondef(
+        'hr.payroll_month_is_public(date)'::regprocedure
+      ) as completion_definition,
       to_regclass(
         'hr.payroll_report_aggregates_series_version_unique_idx'
       )::text as series_version_index
   `);
-  assert.deepEqual(contracts.rows, [{
+  assert.equal(contracts.rows.length, 1);
+  const [{ completion_definition: completionDefinition, ...contract }] =
+    contracts.rows;
+  assert.match(completionDefinition, /public_body\.ibge_code = '2903201'/);
+  assert.match(completionDefinition, /public_body\.body_type = 'executive'/);
+  assert.deepEqual(contract, {
     aggregate_table: "hr.payroll_report_aggregates",
     invalidation_table: "hr.payroll_report_aggregate_invalidations",
     public_rpc: "api.get_public_payroll_months(integer)",
+    completion_function: "hr.payroll_month_is_public(date)",
     rls: true,
     force_rls: true,
     invalidation_rls: true,
@@ -96,8 +116,11 @@ try {
     anon_invalidation_select: false,
     worker_invalidation_insert: false,
     anon_rpc: true,
+    worker_completion_execute: true,
+    anon_completion_execute: false,
+    authenticated_completion_execute: false,
     series_version_index: "hr.payroll_report_aggregates_series_version_unique_idx",
-  }]);
+  });
 
   await database.exec(`
     insert into source.data_sources (
@@ -335,6 +358,13 @@ try {
   );
   await database.exec("reset role");
 
+  await database.exec("set role collector_worker");
+  const completedMonth = await database.query(
+    "select hr.payroll_month_is_public('2026-07-01') as completed",
+  );
+  await database.exec("reset role");
+  assert.equal(completedMonth.rows[0].completed, true);
+
   assert.equal(publicRows.rows.length, 2);
   const [publicRow, historicalRow] = publicRows.rows;
   const sourceDocuments = publicRow.source_documents;
@@ -433,6 +463,12 @@ try {
     "select * from api.get_public_payroll_months(24)",
   );
   await database.exec("reset role");
+  await database.exec("set role collector_worker");
+  const invalidatedMonth = await database.query(
+    "select hr.payroll_month_is_public('2026-07-01') as completed",
+  );
+  await database.exec("reset role");
+  assert.equal(invalidatedMonth.rows[0].completed, false);
   assert.deepEqual(
     rowsAfterInvalidation.rows.map((row) => row.reference_month),
     ["2025-02-01"],

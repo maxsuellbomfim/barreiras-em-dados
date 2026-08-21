@@ -17,6 +17,8 @@ from .payroll_report_pdf import (
 from .revenue_publisher import ArtifactMismatchError
 
 PAYROLL_PUBLICATION_JOB_TYPE = "payroll_report_publication/1.2.0"
+PAYROLL_SOURCE_CODE = "prefeitura-barreiras-transparencia"
+PAYROLL_ENDPOINT_CODE = "dados-abertos-api"
 
 
 @dataclass(frozen=True)
@@ -63,6 +65,10 @@ class PayrollPublicationRepository(Protocol):
         error_code: str,
         error_detail: str,
     ) -> None: ...
+
+    def has_public_month(self, reference_month: date) -> bool: ...
+
+    def unresolved_document_count(self, reference_month: date) -> int: ...
 
 
 def default_payroll_pdf_text_extractor(raw_body: bytes) -> str:
@@ -155,7 +161,8 @@ class PostgresPayrollPublicationRepository:
                     record.id::text as parent_record_id,
                     document.source_url,
                     case
-                      when record.payload ->> 'ano_ref' ~ '^[0-9]{4}$'
+                      when record.payload ->> 'ano_ref'
+                        ~ '^(20[2-9][0-9]|2100)$'
                         and record.payload ->> 'mes_ref'
                           ~ '^(?:[1-9]|1[0-2])$'
                       then make_date(
@@ -170,7 +177,13 @@ class PostgresPayrollPublicationRepository:
                     on parent_artifact.id = document.parent_artifact_id
                   join raw.raw_records as record
                     on record.raw_artifact_id = parent_artifact.id
+                  join source.source_endpoints as endpoint
+                    on endpoint.id = parent_artifact.source_endpoint_id
+                  join source.data_sources as data_source
+                    on data_source.id = endpoint.data_source_id
                   where document.artifact_kind = 'document'
+                    and data_source.slug = %s
+                    and endpoint.slug = %s
                     and document.metadata ->> 'schema_name'
                       = 'municipal-transparency-document'
                     and document.metadata ->> 'source_record_key'
@@ -198,7 +211,8 @@ class PostgresPayrollPublicationRepository:
                       )
                     )
                     and case
-                      when record.payload ->> 'ano_ref' ~ '^[0-9]{4}$'
+                      when record.payload ->> 'ano_ref'
+                        ~ '^(20[2-9][0-9]|2100)$'
                         and record.payload ->> 'mes_ref'
                           ~ '^(?:[1-9]|1[0-2])$'
                       then
@@ -240,6 +254,8 @@ class PostgresPayrollPublicationRepository:
                 limit %s
                 """,
                 (
+                    PAYROLL_SOURCE_CODE,
+                    PAYROLL_ENDPOINT_CODE,
                     fiscal_year_from,
                     fiscal_year_to,
                     reference_month,
@@ -260,6 +276,86 @@ class PostgresPayrollPublicationRepository:
                 )
                 for row in result.fetchall()
             )
+        finally:
+            connection.close()
+
+    def unresolved_document_count(self, reference_month: date) -> int:
+        """Conta PDFs oficiais do mês ainda sem agregado na versão vigente."""
+
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select count(distinct document.id)::integer as unresolved_count
+                from raw.raw_artifacts as document
+                join raw.raw_artifacts as parent_artifact
+                  on parent_artifact.id = document.parent_artifact_id
+                join raw.raw_records as record
+                  on record.raw_artifact_id = parent_artifact.id
+                join source.source_endpoints as endpoint
+                  on endpoint.id = parent_artifact.source_endpoint_id
+                join source.data_sources as data_source
+                  on data_source.id = endpoint.data_source_id
+                where document.artifact_kind = 'document'
+                  and document.metadata ->> 'schema_name'
+                    = 'municipal-transparency-document'
+                  and document.metadata ->> 'source_record_key'
+                    = record.source_record_key
+                  and document.source_url = record.payload ->> 'url'
+                  and record.record_type
+                    = 'municipal_transparency_servidores'
+                  and data_source.slug = %s
+                  and endpoint.slug = %s
+                  and (
+                    record.payload ->> 'tipo' = '1'
+                    or (
+                      coalesce(trim(record.payload ->> 'tipo'), '') = ''
+                      and regexp_replace(
+                        translate(
+                          lower(trim(coalesce(record.payload ->> 'titulo', ''))),
+                          'áàâãäéèêëíìîïóòôõöúùûüç',
+                          'aaaaaeeeeiiiiooooouuuuc'
+                        ),
+                        '[[:space:]]+', ' ', 'g'
+                      ) = 'relacao de servidores'
+                    )
+                  )
+                  and record.payload ->> 'ano_ref'
+                    ~ '^(20[2-9][0-9]|2100)$'
+                  and record.payload ->> 'mes_ref' ~ '^(?:[1-9]|1[0-2])$'
+                  and make_date(
+                    (record.payload ->> 'ano_ref')::integer,
+                    (record.payload ->> 'mes_ref')::integer,
+                    1
+                  ) = %s::date
+                  and not exists (
+                    select 1
+                    from hr.payroll_report_aggregates as aggregate
+                    where aggregate.source_document_artifact_id = document.id
+                      and aggregate.parser_version = %s
+                  )
+                """,
+                (
+                    PAYROLL_SOURCE_CODE,
+                    PAYROLL_ENDPOINT_CODE,
+                    reference_month,
+                    PAYROLL_REPORT_PARSER_VERSION,
+                ),
+            ).fetchone()
+            return 0 if row is None else int(row["unresolved_count"])
+        finally:
+            connection.close()
+
+    def has_public_month(self, reference_month: date) -> bool:
+        """Confirma a competência na mesma projeção determinística do portal."""
+
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                "select hr.payroll_month_is_public(%s::date) as is_public",
+                (reference_month,),
+            ).fetchone()
+            return row is not None and bool(row["is_public"])
         finally:
             connection.close()
 
