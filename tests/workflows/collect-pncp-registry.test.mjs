@@ -15,6 +15,23 @@ test("workflow PNCP preserva contratos/empenhos depois de itens e resultados", (
   assert.match(workflow, /SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts/);
 });
 
+test("falha em itens nao impede contratos e permanece visivel no resultado", () => {
+  assert.match(
+    workflow,
+    /id: collect_items[\s\S]*?continue-on-error: true[\s\S]*?collect_pncp_itens/,
+  );
+  assert.match(
+    workflow,
+    /id: collect_contracts[\s\S]*?collect_pncp_contratos/,
+  );
+  assert.match(
+    workflow,
+    /PNCP_ITEMS_OUTCOME: \$\{\{ steps\.collect_items\.outcome \}\}/,
+  );
+  assert.match(workflow, /if \[ "\$PNCP_ITEMS_OUTCOME" = "failure" \]/);
+  assert.match(workflow, /exit 1/);
+});
+
 test("workflow manual oferece execucao apenas de contratos", () => {
   assert.match(workflow, /contracts_only/);
   assert.match(workflow, /inputs\.mode != 'contracts_only'/);

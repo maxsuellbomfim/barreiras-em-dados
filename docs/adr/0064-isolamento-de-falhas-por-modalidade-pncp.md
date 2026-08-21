@@ -21,6 +21,10 @@ de páginas como se comprovassem a cobertura integral do período.
    vinculadas a uma execução controlada `succeeded`.
 6. Uma partição parcial é reprocessada de forma idempotente até que todas as
    modalidades tenham cobertura classificada.
+7. Os subrecursos de itens/resultados e contratos/empenhos são independentes no
+   workflow. Se a consulta de itens esgotar as tentativas, contratos e a
+   normalização ainda serão executados; ao final, o workflow permanece com
+   falha explícita para não esconder a cobertura parcial.
 
 ## Consequências
 
@@ -31,3 +35,5 @@ de páginas como se comprovassem a cobertura integral do período.
   página registrada como sucesso.
 - Falhas persistentes continuam observáveis por modalidade; `partial` não
   significa cobertura completa nem ausência de contratações.
+- Uma indisponibilidade de itens não impede a atualização de contratos e
+  empenhos já acessíveis, mas também não produz um falso selo verde.
