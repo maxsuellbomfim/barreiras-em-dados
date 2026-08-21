@@ -126,6 +126,13 @@ essas etapas. Pessoas e autorias coletivas terão rankings separados. Cada
 linha manterá URL oficial, hash do ZIP, data da coleta e os estágios financeiros
 originais.
 
+Na consulta pública, os filtros de parlamentar e ano atuam somente sobre as
+linhas oficiais exibidas para conferência. Eles não recalculam nem recortam o
+ranking, que permanece produzido deterministicamente sobre todo o acervo
+validado. O exercício de 2023 continua pesquisável nessa visão anual, inclusive
+com autoria e evidência, mas é identificado como ano de transição e não integra
+ranking por legislatura.
+
 A projeção pública dessa série vive em
 `territory.cgu_federal_amendment_executions` e é servida pelas RPCs
 `api.get_public_cgu_federal_amendment_executions` e

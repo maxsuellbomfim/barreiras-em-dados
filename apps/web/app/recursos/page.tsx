@@ -36,6 +36,10 @@ import {
   type CguFederalAmendmentRanking,
   type CguFederalAmendmentsResult,
 } from "../../lib/cgu-federal-amendments";
+import {
+  filterCguExecutionAmendments,
+  resolveCguExecutionFilters,
+} from "../../lib/cgu-execution-filter.mjs";
 import { getPublicParliamentaryLegislatureRankings } from
   "../../lib/legislature-transfer-rankings";
 import { getPublicParliamentaryLegislatureCoverage } from
@@ -910,7 +914,13 @@ function CguAmendmentCard({
 
 function CguFederalExecutionPanel({
   result,
-}: Readonly<{ result: CguFederalAmendmentsResult }>) {
+  requestedAuthor,
+  requestedYear,
+}: Readonly<{
+  result: CguFederalAmendmentsResult;
+  requestedAuthor: string | readonly string[] | undefined;
+  requestedYear: string | readonly string[] | undefined;
+}>) {
   if (result.state === "unavailable") {
     return (
       <section className="transfer-ranking" aria-labelledby="cgu-execution-title">
@@ -928,6 +938,20 @@ function CguFederalExecutionPanel({
       </section>
     );
   }
+  const filters = resolveCguExecutionFilters(
+    requestedAuthor,
+    requestedYear,
+    result.amendments,
+  );
+  const filteredAmendments = filterCguExecutionAmendments(
+    result.amendments,
+    filters,
+  );
+  const availableYears = [...new Set(
+    result.amendments.map((amendment) => amendment.fiscalYear),
+  )].sort((left, right) => right - left);
+  const availablePeople = [...result.people]
+    .sort((left, right) => left.authorName.localeCompare(right.authorName, "pt-BR"));
   return (
     <section className="transfer-ranking" aria-labelledby="cgu-execution-title">
       <div className="transfer-section-heading">
@@ -962,17 +986,68 @@ function CguFederalExecutionPanel({
           </a>
         </p>
       </aside>
+      <form
+        className="transfer-year-filter transfer-execution-filters"
+        method="get"
+        aria-label="Filtrar execução federal por parlamentar e ano"
+      >
+        <input type="hidden" name="origem" value="federal-execucao" />
+        <div>
+          <label htmlFor="cgu-author-filter">Parlamentar</label>
+          <select
+            defaultValue={filters.authorKey ?? ""}
+            id="cgu-author-filter"
+            name="autor"
+          >
+            <option value="">Todos os autores individuais</option>
+            {availablePeople.map((person) => (
+              <option key={person.authorKey} value={person.authorKey}>
+                {person.authorName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="cgu-year-filter">Ano da execução</label>
+          <select
+            defaultValue={filters.fiscalYear?.toString() ?? ""}
+            id="cgu-year-filter"
+            name="ano"
+          >
+            <option value="">Todos os anos</option>
+            {availableYears.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+        </div>
+        <button type="submit">Aplicar filtros</button>
+        <a href="/recursos?origem=federal-execucao">Limpar</a>
+        <p>
+          <strong>{filteredAmendments.length.toLocaleString("pt-BR")}</strong>{" "}
+          linhas oficiais encontradas com estes filtros. O ranking abaixo
+          permanece calculado sobre todo o acervo desta fonte.
+        </p>
+      </form>
+      <aside className="transfer-transition-note">
+        <strong>Como tratamos 2023</strong>
+        <p>
+          2023 é um ano de transição entre duas legislaturas. A emenda continua
+          visível nesta execução anual, com autor, valores e fonte, mas não
+          entra no ranking por legislatura para evitar atribuição ao mandato
+          errado.
+        </p>
+      </aside>
       <h3>Autoria individual</h3>
       <CguRankingList rows={result.people} scopeLabel="individual" />
       <h3>Comissões e bancadas</h3>
       <CguRankingList rows={result.collectives} scopeLabel="coletiva" />
-      {result.amendments.length > 0 ? (
+      {filteredAmendments.length > 0 ? (
         <details className="transfer-methodology">
           <summary>
-            Conferir as {result.amendments.length.toLocaleString("pt-BR")} linhas oficiais, estágios e evidências
+            Conferir as {filteredAmendments.length.toLocaleString("pt-BR")} linhas oficiais, estágios e evidências
           </summary>
           <div className="transfer-card-list">
-            {result.amendments.map((amendment) => (
+            {filteredAmendments.map((amendment) => (
               <CguAmendmentCard
                 amendment={amendment}
                 key={`${amendment.fiscalYear}:${amendment.amendmentCode}:${amendment.sourceRowNumber}`}
@@ -982,8 +1057,8 @@ function CguFederalExecutionPanel({
         </details>
       ) : (
         <p className="transfer-empty">
-          O retrato preservado não trouxe linhas para Barreiras. Isso descreve a
-          fonte, não a realidade completa das emendas.
+          Nenhuma linha combina os filtros selecionados. Isso não altera nem
+          apaga o acervo oficial; limpe um dos filtros para ampliar a consulta.
         </p>
       )}
     </section>
@@ -1546,6 +1621,7 @@ function HistoricalProposalsPanel({
 type ParliamentaryResourcesPageProps = Readonly<{
   searchParams: Promise<{
     ano?: string | string[];
+    autor?: string | string[];
     origem?: string | string[];
   }>;
 }>;
@@ -1744,7 +1820,11 @@ export default async function ParliamentaryResourcesPage({
               : null}
           />
         ) : sourceSelection.showCguExecution ? (
-          <CguFederalExecutionPanel result={cguFederalAmendmentsResult} />
+          <CguFederalExecutionPanel
+            requestedAuthor={params.autor}
+            requestedYear={params.ano}
+            result={cguFederalAmendmentsResult}
+          />
         ) : result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
             <div>
