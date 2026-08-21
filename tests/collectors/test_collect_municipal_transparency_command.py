@@ -18,6 +18,7 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
     build_balancete_monthly_searches,
     execute_controlled_municipal_transparency,
     matches_document_reference,
+    require_complete_document_match,
     resolve_endpoint_code,
     resolve_execution_namespace,
     resolve_municipal_document_role,
@@ -28,6 +29,55 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
 
 
 class MunicipalTransparencyCommandTests(unittest.TestCase):
+    def test_exact_document_contract_accepts_preserved_or_new_matches(self) -> None:
+        require_complete_document_match(
+            MunicipalTransparencyCollectionSummary(
+                pages=1,
+                inserted_records=0,
+                existing_records=200,
+                documents_persisted=1,
+                documents_failed=0,
+                documents_skipped=0,
+                pagination_capped=False,
+                availability_partial=False,
+                next_offset=0,
+                documents_matched=2,
+                documents_already_preserved=1,
+            )
+        )
+
+    def test_exact_document_contract_rejects_absence_and_partial_coverage(
+        self,
+    ) -> None:
+        empty = MunicipalTransparencyCollectionSummary(
+            pages=1,
+            inserted_records=0,
+            existing_records=200,
+            documents_persisted=0,
+            documents_failed=0,
+            documents_skipped=0,
+            pagination_capped=False,
+            availability_partial=False,
+            next_offset=0,
+        )
+        partial = MunicipalTransparencyCollectionSummary(
+            pages=1,
+            inserted_records=0,
+            existing_records=200,
+            documents_persisted=0,
+            documents_failed=0,
+            documents_skipped=1,
+            pagination_capped=False,
+            availability_partial=False,
+            next_offset=0,
+            documents_matched=1,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "Nenhum documento oficial"):
+            require_complete_document_match(empty)
+        with self.assertRaisesRegex(RuntimeError, "cobertura parcial"):
+            require_complete_document_match(partial)
+
     def test_builds_monthly_searches_without_turning_absence_into_zero(
         self,
     ) -> None:

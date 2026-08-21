@@ -172,6 +172,8 @@ class MunicipalTransparencyCollectionSummary:
     start_offset: int = 0
     documents_bytes_persisted: int = 0
     documents_byte_budget_exhausted: bool = False
+    documents_matched: int = 0
+    documents_already_preserved: int = 0
 
     @property
     def observed_records(self) -> int:
@@ -304,6 +306,8 @@ def execute_controlled_municipal_transparency(
                 "documents_persisted": summary.documents_persisted,
                 "documents_failed": summary.documents_failed,
                 "documents_skipped": summary.documents_skipped,
+                "documents_matched": summary.documents_matched,
+                "documents_already_preserved": (summary.documents_already_preserved),
                 "documents_bytes_persisted": summary.documents_bytes_persisted,
                 "documents_byte_budget_exhausted": (
                     summary.documents_byte_budget_exhausted
@@ -314,6 +318,24 @@ def execute_controlled_municipal_transparency(
             },
         )
     return summary
+
+
+def require_complete_document_match(
+    summary: MunicipalTransparencyCollectionSummary,
+) -> None:
+    """Recusa falso sucesso quando um lote documental exato não foi fechado."""
+
+    if summary.outcome is not CollectionOutcome.COMPLETE:
+        raise RuntimeError("Seleção documental exata terminou com cobertura parcial.")
+    if summary.documents_matched < 1:
+        raise RuntimeError(
+            "Nenhum documento oficial corresponde à competência e ao tipo exigidos."
+        )
+    completed = summary.documents_persisted + summary.documents_already_preserved
+    if completed != summary.documents_matched:
+        raise RuntimeError(
+            "Nem todos os documentos oficiais correspondentes foram preservados."
+        )
 
 
 def resolve_resume_offset(
@@ -406,6 +428,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="baixa e preserva PDFs oficiais apontados pelos registros financeiros",
     )
     parser.add_argument(
+        "--require-document-match",
+        action="store_true",
+        help=(
+            "falha se a seleção exata não encontrar e preservar todos os PDFs "
+            "correspondentes"
+        ),
+    )
+    parser.add_argument(
         "--max-documents",
         type=int,
         default=None,
@@ -463,6 +493,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("filtro de competência/tipo exige download do recurso servidores.")
     if args.allow_untyped_document_title is not None and args.document_type is None:
         parser.error("título sem tipo exige ao menos um --document-type permitido.")
+    if args.require_document_match and (
+        not args.download_documents or document_reference_month is None
+    ):
+        parser.error(
+            "--require-document-match exige download e competência documental exata."
+        )
     document_types = (
         frozenset(args.document_type) if args.document_type is not None else None
     )
@@ -551,7 +587,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             partition_key=partition_key,
         )
         effective_offset = resolve_resume_offset(
-            explicit_offset=(0 if args.coverage_year_from is not None else args.offset),
+            explicit_offset=(
+                0
+                if args.coverage_year_from is not None or args.require_document_match
+                else args.offset
+            ),
             checkpoint=checkpoint,
         )
         client = _cloud_client(persistence_settings)
@@ -561,7 +601,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             repository=repository,
         )
-        return _collect_resource(
+        summary = _collect_resource(
             service=service,
             source_code=source_code,
             endpoint_code=endpoint_code,
@@ -594,6 +634,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else None
             ),
         )
+        if args.require_document_match:
+            require_complete_document_match(summary)
+        return summary
 
     summary = execute_controlled_municipal_transparency(
         control=control,
@@ -613,6 +656,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         documents_persisted=summary.documents_persisted,
         documents_failed=summary.documents_failed,
         documents_skipped=summary.documents_skipped,
+        documents_matched=summary.documents_matched,
+        documents_already_preserved=summary.documents_already_preserved,
         documents_bytes_persisted=summary.documents_bytes_persisted,
         documents_byte_budget_exhausted=(summary.documents_byte_budget_exhausted),
         pagination_capped=summary.pagination_capped,
@@ -702,6 +747,8 @@ def _collect_resource(
     document_byte_budget_exhausted = False
     failed_documents = 0
     skipped_documents = 0
+    matched_documents = 0
+    already_preserved_documents = 0
     last_page_size = 0
     availability_partial = False
     page_evidence: list[tuple[PersistenceResult, MunicipalTransparencyPage]] = []
@@ -726,8 +773,18 @@ def _collect_resource(
                         allowed_untyped_titles=untyped_document_titles,
                     ):
                         continue
+                    matched_documents += 1
                     document_url = item.get("url")
                     if not isinstance(document_url, str) or not document_url.strip():
+                        skipped_documents += 1
+                        log_event(
+                            logger,
+                            logging.WARNING,
+                            "collector_municipal_transparency_document_skipped",
+                            source=source_code,
+                            resource=page.resource,
+                            reason="missing_document_url",
+                        )
                         continue
                     document_role = resolve_municipal_document_role(document_url)
                     if document_role is None:
@@ -758,6 +815,7 @@ def _collect_resource(
                         else max(0, max_documents - persisted_documents)
                     ),
                 )
+                already_preserved_documents += selection.already_preserved
                 skipped_documents += selection.deferred
                 log_event(
                     logger,
@@ -922,6 +980,8 @@ def _collect_resource(
         start_offset=offset,
         documents_bytes_persisted=persisted_document_bytes,
         documents_byte_budget_exhausted=document_byte_budget_exhausted,
+        documents_matched=matched_documents,
+        documents_already_preserved=already_preserved_documents,
     )
 
 

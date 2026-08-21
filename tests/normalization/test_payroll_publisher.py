@@ -10,6 +10,7 @@ from pathlib import Path
 from barreiras_normalization.commands.publish_payroll_reports import (
     KnownPypdfLayoutWarningFilter,
     _parse_reference_month,
+    strict_publication_error,
 )
 from barreiras_normalization.payroll_publisher import (
     PAYROLL_PUBLICATION_JOB_TYPE,
@@ -88,6 +89,80 @@ def artifact_for(body: bytes = PDF_BODY) -> PayrollArtifact:
 
 
 class PayrollPublisherTests(unittest.TestCase):
+    def test_strict_completion_requires_public_month_without_review(self) -> None:
+        month = date(2024, 8, 1)
+        self.assertIsNone(
+            strict_publication_error(
+                reference_month=month,
+                needs_review=0,
+                unresolved_documents=0,
+                is_public=True,
+            )
+        )
+        self.assertIn(
+            "revisão",
+            strict_publication_error(
+                reference_month=month,
+                needs_review=1,
+                unresolved_documents=0,
+                is_public=True,
+            ),
+        )
+        self.assertIn(
+            "projeção pública",
+            strict_publication_error(
+                reference_month=month,
+                needs_review=0,
+                unresolved_documents=0,
+                is_public=False,
+            ),
+        )
+        self.assertIn(
+            "sem agregado válido",
+            strict_publication_error(
+                reference_month=month,
+                needs_review=0,
+                unresolved_documents=1,
+                is_public=True,
+            ),
+        )
+
+    def test_public_month_check_uses_exact_month_and_invalidation_rules(self) -> None:
+        connection = CapturingConnection([{"is_public": True}])
+        repository = PostgresPayrollPublicationRepository(lambda: connection)
+
+        self.assertTrue(repository.has_public_month(date(2024, 8, 1)))
+
+        query = " ".join(connection.query.lower().split())
+        self.assertIn("hr.payroll_month_is_public(%s::date)", query)
+        self.assertEqual(connection.parameters, (date(2024, 8, 1),))
+        self.assertTrue(connection.closed)
+
+    def test_unresolved_count_is_limited_to_exact_official_source(self) -> None:
+        connection = CapturingConnection([{"unresolved_count": 2}])
+        repository = PostgresPayrollPublicationRepository(lambda: connection)
+
+        self.assertEqual(
+            repository.unresolved_document_count(date(2024, 8, 1)),
+            2,
+        )
+
+        query = " ".join(connection.query.lower().split())
+        self.assertIn("data_source.slug = %s", query)
+        self.assertIn("endpoint.slug = %s", query)
+        self.assertIn("aggregate.parser_version = %s", query)
+        self.assertIn("~ '^(20[2-9][0-9]|2100)$'", query)
+        self.assertEqual(
+            connection.parameters,
+            (
+                "prefeitura-barreiras-transparencia",
+                "dados-abertos-api",
+                date(2024, 8, 1),
+                "payroll-report-aggregate/1.3.0",
+            ),
+        )
+        self.assertTrue(connection.closed)
+
     def test_known_layout_warning_filter_condenses_only_recoverable_noise(
         self,
     ) -> None:
@@ -175,16 +250,24 @@ class PayrollPublisherTests(unittest.TestCase):
             "record.record_type = 'municipal_transparency_servidores'",
             query,
         )
+        self.assertIn("data_source.slug = %s", query)
+        self.assertIn("endpoint.slug = %s", query)
         self.assertIn(
             "aggregate.parser_version = %s",
             query,
         )
         self.assertIn("job.status in ('failed', 'dead_lettered')", query)
         self.assertIn("make_date(", query)
+        self.assertGreaterEqual(
+            query.count("~ '^(20[2-9][0-9]|2100)$'"),
+            2,
+        )
         self.assertIn("coalesce( %s::date", query)
         self.assertEqual(
             connection.parameters,
             (
+                "prefeitura-barreiras-transparencia",
+                "dados-abertos-api",
                 2021,
                 2026,
                 date(2026, 7, 1),
