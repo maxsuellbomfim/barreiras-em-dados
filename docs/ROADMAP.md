@@ -364,14 +364,17 @@ PDFs `tipo=1`, confere hash e tamanho, exige reconciliação integral, registra
 falhas versionadas e grava agregado e evidência na mesma transação. A execução
 manual pode fixar uma competência `AAAA-MM`, evitando validar um mês diferente
 do pretendido. Julho/2026 foi publicado em produção com 8.184 vínculos e 133
-subtotais reconciliados. Em 21/08/2026, junho/2026 também passou pelo mesmo gate
-determinístico em execução isolada, sem registros enviados para revisão. A
-página de finanças apresenta o mês mais recente em destaque e mantém as
-competências anteriores recolhidas, cada qual com bruto, descontos, líquido,
-quantidade de vínculos, fonte e hash próprios; descontos pessoais e campos
-sensíveis permanecem vedados. A próxima fatia amplia o backfill `tipo=1`
-competência por competência, trata versões repetidas como possíveis
-retificações e classifica ausências sem confundi-las com gasto zero.
+subtotais reconciliados. Em 21/08/2026, maio e junho de 2026 também passaram
+pelo mesmo gate determinístico em execuções isoladas, sem registros enviados
+para revisão. A página de finanças apresenta o mês mais recente em destaque e
+mantém as competências anteriores recolhidas, cada qual com bruto, descontos,
+líquido, quantidade de vínculos, fonte e hash próprios; descontos pessoais e
+campos sensíveis permanecem vedados. Avisos recuperáveis e repetidos de
+estrutura gráfica do PDF são condensados em um contador estruturado, enquanto
+avisos de conteúdo incompleto e erros continuam visíveis. A próxima fatia
+amplia o backfill `tipo=1` competência por competência, trata versões repetidas
+como possíveis retificações e classifica ausências sem confundi-las com gasto
+zero.
 
 ## Etapa 5 — Fluxos territoriais
 

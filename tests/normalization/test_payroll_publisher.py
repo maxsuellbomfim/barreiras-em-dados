@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import unittest
 from argparse import ArgumentTypeError
 from datetime import date
 from pathlib import Path
 
 from barreiras_normalization.commands.publish_payroll_reports import (
+    KnownPypdfLayoutWarningFilter,
     _parse_reference_month,
 )
 from barreiras_normalization.payroll_publisher import (
@@ -86,6 +88,45 @@ def artifact_for(body: bytes = PDF_BODY) -> PayrollArtifact:
 
 
 class PayrollPublisherTests(unittest.TestCase):
+    def test_known_layout_warning_filter_condenses_only_recoverable_noise(
+        self,
+    ) -> None:
+        warning_filter = KnownPypdfLayoutWarningFilter()
+        known_warning = logging.LogRecord(
+            name=(
+                "pypdf._text_extraction._layout_mode._fixed_width_page"
+            ),
+            level=logging.WARNING,
+            pathname=__file__,
+            lineno=1,
+            msg="Unbalanced target operations, expected %r.",
+            args=(b"Q",),
+            exc_info=None,
+        )
+        different_warning = logging.LogRecord(
+            name=known_warning.name,
+            level=logging.WARNING,
+            pathname=__file__,
+            lineno=1,
+            msg="Rotated text discovered. Output will be incomplete.",
+            args=(),
+            exc_info=None,
+        )
+        same_message_as_error = logging.LogRecord(
+            name=known_warning.name,
+            level=logging.ERROR,
+            pathname=__file__,
+            lineno=1,
+            msg=known_warning.msg,
+            args=known_warning.args,
+            exc_info=None,
+        )
+
+        self.assertFalse(warning_filter.filter(known_warning))
+        self.assertTrue(warning_filter.filter(different_warning))
+        self.assertTrue(warning_filter.filter(same_message_as_error))
+        self.assertEqual(warning_filter.suppressed_count, 1)
+
     def test_reference_month_requires_year_and_two_digit_month(self) -> None:
         self.assertEqual(_parse_reference_month("2026-07"), date(2026, 7, 1))
         for invalid in ("2026-7", "07-2026", "2026-13", "texto"):
