@@ -70,7 +70,10 @@ class PayrollReportPdfTests(unittest.TestCase):
             "1-Normal, 3-Complementar, 9-Rescisão",
             "8-Folha desconhecida",
         )
-        mixed = f"{regular}\nListagem Sintética E-TCM 6-13º Final"
+        mixed = (
+            f"{regular}\nListagem Sintética E-TCM\n"
+            "6-13º FinalFOLHA.........:"
+        )
 
         with self.assertRaisesRegex(PayrollReportContractError, "processamento"):
             parse_payroll_report_aggregate(unknown)
@@ -79,7 +82,8 @@ class PayrollReportPdfTests(unittest.TestCase):
 
     def test_accepts_mojibake_observed_in_official_pdf_text(self) -> None:
         text = (
-            "Listagem Sintética E-TCM 1-Normal\n"
+            "Listagem Sint�tica E-TCM\n"
+            "<Todos>FOLHA.........:\n"
             "Mat. Nome Cargo Regime/V�nculo Local de Trabalho "
             "Admiss�o C. Hor�ria Provento Desconto L�quido\n"
             "Total de Funcion�rios: 2 5.000,00 1.000,00 4.000,00\n"
@@ -89,6 +93,7 @@ class PayrollReportPdfTests(unittest.TestCase):
         report = parse_payroll_report_aggregate(text)
 
         self.assertEqual(report.employee_count, 2)
+        self.assertEqual(report.payroll_cycle, "regular")
 
     def test_rejects_grand_total_that_does_not_match_subtotals(self) -> None:
         text = FIXTURE.read_text(encoding="utf-8").replace(

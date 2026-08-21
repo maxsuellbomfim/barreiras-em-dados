@@ -20,7 +20,8 @@ export type PublicPayrollMonth = Readonly<{
     sourceRetrievedAt: string;
     parserVersion:
       | "payroll-report-aggregate/1.0.0"
-      | "payroll-report-aggregate/1.1.0";
+      | "payroll-report-aggregate/1.1.0"
+      | "payroll-report-aggregate/1.2.0";
   }>[];
 }>;
 
