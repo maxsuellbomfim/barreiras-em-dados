@@ -13,6 +13,8 @@ from barreiras_collectors.commands.collect_pncp_contratos import (
 )
 from barreiras_collectors.commands.collect_pncp_itens import (
     PncpItensCollectionSummary,
+    PncpItensPageBatch,
+    _collect_pending,
     collect_itens_batch,
     collect_itens_pages,
     execute_controlled_pncp_itens,
@@ -265,9 +267,80 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
             {
                 "pending_truncated": True,
                 "item_pages_truncated_controls": [CONTROL],
+                "failed_controls": [],
                 "next_offset": 50,
             },
         )
+
+    def test_one_unavailable_control_does_not_abort_remaining_backlog(self) -> None:
+        other_control = "13654405000195-1-000010/2025"
+        repository = SimpleNamespace(
+            pncp_pending_itens=lambda **_kwargs: [
+                (CONTROL, 2025, 9),
+                (other_control, 2025, 10),
+            ],
+            pncp_itens_com_resultado=lambda _control: set(),
+        )
+
+        with patch(
+            "barreiras_collectors.commands.collect_pncp_itens."
+            "collect_itens_batch",
+            side_effect=[
+                PncpError("fonte indisponivel"),
+                PncpItensPageBatch((), False),
+            ],
+        ):
+            summary = _collect_pending(
+                service=SimpleNamespace(),  # type: ignore[arg-type]
+                repository=repository,  # type: ignore[arg-type]
+                logger=logging.getLogger("test"),
+                start_offset=0,
+            )
+
+        self.assertEqual(summary.contratacoes_processed, 1)
+        self.assertEqual(summary.failed_controls, (CONTROL,))
+        self.assertEqual(summary.next_offset, 0)
+        self.assertEqual(summary.outcome.value, "partial")
+
+    def test_unavailable_item_result_keeps_control_pending_for_retry(self) -> None:
+        page = SimpleNamespace(
+            items=[{"numeroItem": 1, "temResultado": True}],
+        )
+        repository = SimpleNamespace(
+            pncp_pending_itens=lambda **_kwargs: [(CONTROL, 2025, 9)],
+            pncp_itens_com_resultado=lambda _control: set(),
+        )
+        service = SimpleNamespace(
+            persist_itens=lambda _page, *, control: SimpleNamespace(
+                inserted_records=1
+            ),
+        )
+
+        with (
+            patch(
+                "barreiras_collectors.commands.collect_pncp_itens."
+                "collect_itens_batch",
+                return_value=PncpItensPageBatch((page,), False),
+            ),
+            patch(
+                "barreiras_collectors.commands.collect_pncp_itens."
+                "fetch_resultados_page",
+                side_effect=PncpError("resultado indisponivel"),
+            ),
+        ):
+            summary = _collect_pending(
+                service=service,  # type: ignore[arg-type]
+                repository=repository,  # type: ignore[arg-type]
+                logger=logging.getLogger("test"),
+                start_offset=20,
+            )
+
+        self.assertEqual(summary.contratacoes_processed, 0)
+        self.assertEqual(summary.itens_inserted, 1)
+        self.assertEqual(summary.resultados_inserted, 0)
+        self.assertEqual(summary.failed_controls, (CONTROL,))
+        self.assertEqual(summary.next_offset, 0)
+        self.assertEqual(summary.outcome.value, "partial")
 
     def test_empty_items_backlog_is_explicit_empty(self) -> None:
         completed: dict[str, object] = {}

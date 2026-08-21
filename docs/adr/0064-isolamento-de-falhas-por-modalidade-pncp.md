@@ -22,9 +22,12 @@ de páginas como se comprovassem a cobertura integral do período.
 6. Uma partição parcial é reprocessada de forma idempotente até que todas as
    modalidades tenham cobertura classificada.
 7. Os subrecursos de itens/resultados e contratos/empenhos são independentes no
-   workflow. Se a consulta de itens esgotar as tentativas, contratos e a
-   normalização ainda serão executados; ao final, o workflow permanece com
-   falha explícita para não esconder a cobertura parcial.
+   workflow. Se o comando de itens terminar com falha não controlada, contratos
+   e a normalização ainda serão executados; ao final, o workflow permanece com
+   falha explícita para não esconder a interrupção.
+8. Dentro do backlog de itens, uma contratação ou resultado indisponível é
+   adiado individualmente. Os demais controles continuam, o checkpoint volta ao
+   início do backlog para não pular o controle falho e a partição fica `partial`.
 
 ## Consequências
 
@@ -37,3 +40,5 @@ de páginas como se comprovassem a cobertura integral do período.
   significa cobertura completa nem ausência de contratações.
 - Uma indisponibilidade de itens não impede a atualização de contratos e
   empenhos já acessíveis, mas também não produz um falso selo verde.
+- Repetições decorrentes da retomada são seguras por idempotência; nenhum
+  controle adiado é tratado como comprovadamente vazio.
