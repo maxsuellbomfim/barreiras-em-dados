@@ -62,7 +62,7 @@ outra base.
 ### Cobertura pública anual das emendas estaduais
 
 A RPC `api.get_public_state_amendment_source_coverage` publica somente agregados
-anuais e usa a metodologia `state-amendment-source-coverage/1.0.0`. Ela separa
+anuais e usa a metodologia `state-amendment-source-coverage/1.1.0`. Ela separa
 duas perguntas: se o anexo da LOA foi preservado e se cada autorização pôde ser
 ligada à execução financeira estadual por chave oficial única. Checkpoints,
 erros internos e identificadores pessoais não são expostos.
@@ -70,8 +70,9 @@ erros internos e identificadores pessoais não são expostos.
 Em 2021, o link apresentado pelo catálogo da SEPLAN como Anexo III da LOA 2021
 aponta para um PDF cuja capa, cabeçalho e LDO identificam a LOA 2020. O período
 permanece `blocked`: nenhum valor de 2020 é atribuído a 2021. De 2022 a 2025,
-os anexos territoriais foram preservados, mas o índice estadual integral ainda
-não cobre esses exercícios; execução financeira permanece nula, nunca zero.
+os anexos territoriais e o arquivo estadual de execução foram preservados, mas
+as duas fontes não publicam uma chave oficial comum. O estado público é
+`blocked_missing_official_key`; execução financeira permanece nula, nunca zero.
 Em 2026, os totais de empenho, liquidação e pagamento abrangem somente as
 ligações bidirecionalmente únicas descritas no gate de unicidade abaixo.
 
@@ -358,12 +359,12 @@ Os anexos territoriais encontrados para 2022 a 2025 identificam a autorização,
 o autor, o órgão, a unidade e o valor destinado a Barreiras, mas não publicam o
 mesmo conjunto de identificadores usado pelo arquivo estadual de execução. Em
 14/08/2026, a auditoria determinística tentou as combinações disponíveis —
-inclusive autor, órgão, unidade e valor — nas 34 autorizações normalizadas desses
+inclusive autor, órgão, unidade e valor — nas 36 autorizações normalizadas desses
 anos. Nenhuma combinação resultou em correspondência única.
 
 Por esse motivo, o sistema não usa semelhança nominal para atribuir execução.
 Essas emendas recebem publicamente o status
-`official_link_key_unavailable`: a autorização e sua evidência permanecem
+`blocked_missing_official_key`: a autorização e sua evidência permanecem
 visíveis, enquanto empenho, liquidação, pagamento e evidência de execução ficam
 nulos. Isso representa uma limitação documental da ligação entre as fontes, não
 valor zero e nem prova de que o recurso não foi executado.

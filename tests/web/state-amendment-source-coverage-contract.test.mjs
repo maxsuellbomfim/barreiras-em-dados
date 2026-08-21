@@ -13,6 +13,13 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const historicalKeyGapMigration = readFileSync(
+  new URL(
+    "../../supabase/migrations/20260821183000_explain_historical_state_execution_key_gap.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const page = readFileSync(
   new URL("../../apps/web/app/recursos/page.tsx", import.meta.url),
   "utf8",
@@ -83,6 +90,50 @@ test("parser conserva ausência financeira e aceita bloqueio oficial", () => {
   assert.equal(parsed[2].authorizedAmount, null);
 });
 
+test("parser distingue ausência de chave oficial de escopo ainda não indexado", () => {
+  const parsed = parseStateAmendmentSourceCoverageRows([
+    row({
+      fiscal_year: 2025,
+      amendment_count: 7,
+      author_count: 4,
+      authorized_amount: "997600.00",
+      execution_status: "blocked_missing_official_key",
+      matched_count: null,
+      ambiguous_count: null,
+      not_found_count: null,
+      unavailable_scope_count: null,
+      committed_amount: null,
+      liquidated_amount: null,
+      paid_amount: null,
+      methodology_version: "state-amendment-source-coverage/1.1.0",
+    }),
+  ]);
+  assert.notEqual(parsed, null);
+  assert.equal(parsed[0].executionStatus, "blocked_missing_official_key");
+  assert.equal(parsed[0].paidAmount, null);
+
+  assert.equal(
+    parseStateAmendmentSourceCoverageRows([
+      row({
+        fiscal_year: 2025,
+        amendment_count: 7,
+        author_count: 4,
+        authorized_amount: "997600.00",
+        execution_status: "blocked_missing_official_key",
+        matched_count: 0,
+        ambiguous_count: 0,
+        not_found_count: 0,
+        unavailable_scope_count: 7,
+        committed_amount: null,
+        liquidated_amount: null,
+        paid_amount: null,
+        methodology_version: "state-amendment-source-coverage/1.1.0",
+      }),
+    ]),
+    null,
+  );
+});
+
 test("parser aceita decimais numéricos enviados pelo PostgREST", () => {
   const parsed = parseStateAmendmentSourceCoverageRows([
     row({
@@ -130,10 +181,25 @@ test("migration publica somente agregado anual sanitizado", () => {
   assert.doesNotMatch(migration, /error_detail/);
 });
 
+test("migration histórica classifica a lacuna documental sem fabricar contagens", () => {
+  assert.match(
+    historicalKeyGapMigration,
+    /blocked_missing_official_key/,
+  );
+  assert.match(
+    historicalKeyGapMigration,
+    /state-amendment-source-coverage\/1\.1\.0/,
+  );
+  assert.match(historicalKeyGapMigration, /between 2022 and 2025/);
+  assert.doesNotMatch(historicalKeyGapMigration, /similarity\s*\(/i);
+});
+
 test("página explica cobertura estadual sem inventar pagamento", () => {
   assert.match(page, /Quais anos estaduais já foram conferidos/);
   assert.match(page, /link rotulado como 2021 aponta para o anexo de 2020/);
   assert.match(page, /não é R\$ 0/);
+  assert.match(page, /não publica os códigos necessários/);
+  assert.match(page, /não significa que o recurso não foi executado/);
   assert.match(page, /getPublicStateAmendmentSourceCoverage/);
-  assert.match(methodology, /state-amendment-source-coverage\/1\.0\.0/);
+  assert.match(methodology, /state-amendment-source-coverage\/1\.1\.0/);
 });

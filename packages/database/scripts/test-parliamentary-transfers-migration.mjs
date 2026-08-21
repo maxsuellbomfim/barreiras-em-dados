@@ -898,6 +898,17 @@ try {
          join source.data_sources source on source.id = endpoint.data_source_id
          where source.slug = 'bahia-seplan-budget'
            and endpoint.slug = 'state-loa-amendment-annexes'),
+        'loa-annex:2022', '2022-01-01', '2022-12-31', 'complete', 1,
+        '00000000-0000-0000-0000-000000009301',
+        '{"fiscal_year":2022}', null,
+        '2026-08-13 17:05:00+00', '2026-08-13 17:05:01+00'
+      ),
+      (
+        (select endpoint.id
+         from source.source_endpoints endpoint
+         join source.data_sources source on source.id = endpoint.data_source_id
+         where source.slug = 'bahia-seplan-budget'
+           and endpoint.slug = 'state-loa-amendment-annexes'),
         'loa-annex:2024', '2024-01-01', '2024-12-31', 'complete', 1,
         '00000000-0000-0000-0000-000000009301',
         '{"fiscal_year":2024}', null,
@@ -1217,6 +1228,30 @@ try {
       execution_evidence_sha256: null,
     },
   ]);
+
+  const historicalStateSourceCoverage = await database.query(`
+    select fiscal_year, loa_status, amendment_count, authorized_amount,
+      execution_status, matched_count, ambiguous_count, not_found_count,
+      unavailable_scope_count, committed_amount, liquidated_amount, paid_amount,
+      methodology_version
+    from api.get_public_state_amendment_source_coverage()
+    where fiscal_year = 2022
+  `);
+  assert.deepEqual(historicalStateSourceCoverage.rows, [{
+    fiscal_year: 2022,
+    loa_status: "observed",
+    amendment_count: 1,
+    authorized_amount: "100000.00",
+    execution_status: "blocked_missing_official_key",
+    matched_count: null,
+    ambiguous_count: null,
+    not_found_count: null,
+    unavailable_scope_count: null,
+    committed_amount: null,
+    liquidated_amount: null,
+    paid_amount: null,
+    methodology_version: "state-amendment-source-coverage/1.1.0",
+  }]);
 
   const refreshedStateExecutionSnapshot = await database.query(`
     select territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()
