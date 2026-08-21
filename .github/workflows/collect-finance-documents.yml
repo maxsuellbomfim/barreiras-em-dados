@@ -1,4 +1,4 @@
-name: Coletar documentos financeiros municipais
+name: Coletar finanças e documentos de pessoal
 
 on:
   schedule:
@@ -50,6 +50,7 @@ on:
           - "processos"
           - "rreo"
           - "rgf"
+          - "servidores"
       include_transferegov:
         description: "Preservar também propostas e parcerias destinadas a Barreiras"
         required: false
@@ -96,7 +97,7 @@ jobs:
         inputs.resource != 'transferegov-only' &&
         inputs.resource != 'bahia-state-only'
       )
-    name: Preservar catalogo financeiro (${{ matrix.resource }})
+    name: Preservar catálogo municipal (${{ matrix.resource }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -115,7 +116,7 @@ jobs:
         resource: >-
           ${{ fromJSON(
             (inputs.resource == '' || inputs.resource == 'all')
-              && '["balancetes","pdc-contas-anuais","pdc-receita-tributaria","pdc-recursos-extraordinarios","pdc-resumo-execucao-da-receita","pdc-resumo-execucao-da-despesa","pdc-transferencia","pdc-emendas-parlamentares-receitas","pdc-convenios-transferencias-realizadas","pdc-obras-pdc","contratos","processos","rreo","rgf"]'
+              && '["balancetes","pdc-contas-anuais","pdc-receita-tributaria","pdc-recursos-extraordinarios","pdc-resumo-execucao-da-receita","pdc-resumo-execucao-da-despesa","pdc-transferencia","pdc-emendas-parlamentares-receitas","pdc-convenios-transferencias-realizadas","pdc-obras-pdc","contratos","processos","rreo","rgf","servidores"]'
               || format('["{0}"]', inputs.resource)
           ) }}
     env:
@@ -154,10 +155,10 @@ jobs:
           echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
           | sha256sum --check --strict
 
-      - name: Preservar documento financeiro
+      - name: Preservar catálogo municipal
         env:
           COLLECT_LIMIT: >-
-            ${{ matrix.resource == 'balancetes' && '500' || inputs.limit || '50' }}
+            ${{ (matrix.resource == 'balancetes' || matrix.resource == 'servidores') && '500' || inputs.limit || '50' }}
           COVERAGE_ARGUMENTS: >-
             ${{ matrix.resource == 'balancetes' && '--coverage-year-from 2021' || '' }}
         run: >-
@@ -169,17 +170,17 @@ jobs:
           --allow-partial
           $COVERAGE_ARGUMENTS
 
-      - name: Drenar documentos financeiros
+      - name: Drenar documentos municipais
         # Processos licitatórios são linhas estruturadas sem URL de PDF; o
         # download de documentos não se aplica e o comando o recusaria.
         if: matrix.resource != 'processos'
         env:
           DRAIN_LIMIT: >-
-            ${{ matrix.resource == 'balancetes' && '500' || inputs.limit || '50' }}
+            ${{ (matrix.resource == 'balancetes' || matrix.resource == 'servidores') && '500' || inputs.limit || '50' }}
           DRAIN_MAX_DOCUMENTS: >-
-            ${{ matrix.resource == 'balancetes' && '5' || inputs.limit || '50' }}
+            ${{ (matrix.resource == 'balancetes' || matrix.resource == 'servidores') && '5' || inputs.limit || '50' }}
           DRAIN_MAX_PAGES: >-
-            ${{ matrix.resource == 'balancetes' && '1' || inputs.max_pages || '3' }}
+            ${{ (matrix.resource == 'balancetes' || matrix.resource == 'servidores') && '1' || inputs.max_pages || '3' }}
         run: >-
           python -B -m barreiras_collectors.commands.collect_municipal_transparency
           --source prefeitura

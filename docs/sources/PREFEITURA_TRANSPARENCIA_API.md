@@ -57,9 +57,12 @@ Regras verificadas:
 | `rreo` | documentos RREO | `ano` | reconciliar SICONFI |
 | `pdc-obras-em-andamento` | documentos de obras | não confirmado | futuro painel de obras |
 
-`servidores` não é uma API de linhas de folha: é um catálogo de PDFs. Nenhuma
-linha individual deve ser inferida antes de baixar, preservar, classificar e
-revisar o documento.
+`servidores` não é uma API de linhas de folha: é um catálogo de PDFs. Em
+21/08/2026, a consulta completa retornou 200 metadados, com competências entre
+2018 e 2026 e documentos distintos para servidores, estagiários e
+terceirizados. O catálogo e até cinco PDFs ainda não preservados por execução
+entram no corredor bruto privado. Nenhuma linha individual, desconto ou total
+é publicado nesta etapa: extração e agregação dependem do gate de minimização.
 
 ## Tipos e divergências
 
