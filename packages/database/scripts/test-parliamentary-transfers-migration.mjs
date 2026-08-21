@@ -2615,7 +2615,7 @@ try {
         '00000000-0000-0000-0000-000000009503',
         'bahia_special_transfer_payment_candidate',
         'bahia-special-transfer-payment/1.0.0',
-        'bahia-special-transfer-payment-validator/1.0.0',
+        'bahia-special-transfer-territorial-deterministic/1.0.0',
         '{"schema_name":"bahia-special-transfer-payment-candidate","schema_version":"1.0.0","fiscal_year":2022,"amendment_number":"40720003","amendment_year":2021,"author_name":"Tito","agency_name":"Secretaria estadual","agency_code":"SEAGRI","budget_unit_name":"Unidade estadual","budget_unit_code":"UO1","action_name":"Apoio hidrico","expense_code":"2022.1.1.1.1.1.1.1.1","execution_code":"2022.1.1.1.1.1.1.1.1","liquidation_codes":["L1"],"payment_id":"123456789012345678","payment_number":"P1","payment_date":"2022-10-05","payment_amount":"594841.25","gcv_amount":null,"payment_status":"Sim","object_text":"Pecas para pocos em Barreiras","payment_url":"https://www.transparencia.ba.gov.br/pagamento/1","territorial_scope":"payment_object_literal_barreiras","evidence_text":"evidencia 1","evidence_sha256":"${"a1".repeat(32)}","parser_version":"bahia-special-transfer-payment/1.0.0","source_url":"https://dados.ba.gov.br/transferencias-especiais","source_artifact_sha256":"${"95".repeat(32)}","source_collected_at":"2026-08-21T05:00:00+00:00"}',
         'valid'
       ),
@@ -2624,7 +2624,7 @@ try {
         '00000000-0000-0000-0000-000000009503',
         'bahia_special_transfer_payment_candidate',
         'bahia-special-transfer-payment/1.0.0',
-        'bahia-special-transfer-payment-validator/1.0.0',
+        'bahia-special-transfer-territorial-deterministic/1.0.0',
         '{"schema_name":"bahia-special-transfer-payment-candidate","schema_version":"1.0.0","fiscal_year":2022,"amendment_number":"40720005","amendment_year":2021,"author_name":"Tito","agency_name":"Secretaria estadual","agency_code":"SEAGRI","budget_unit_name":"Unidade estadual","budget_unit_code":"UO1","action_name":"Apoio hidrico","expense_code":"2022.1.1.1.1.1.1.1.2","execution_code":"2022.1.1.1.1.1.1.1.2","liquidation_codes":["L2"],"payment_id":"123456789012345679","payment_number":"P2","payment_date":"2022-11-17","payment_amount":"75300.00","gcv_amount":null,"payment_status":"Sim","object_text":"Equipamentos para pocos em Barreiras","payment_url":"https://www.transparencia.ba.gov.br/pagamento/2","territorial_scope":"payment_object_literal_barreiras","evidence_text":"evidencia 2","evidence_sha256":"${"a2".repeat(32)}","parser_version":"bahia-special-transfer-payment/1.0.0","source_url":"https://dados.ba.gov.br/transferencias-especiais","source_artifact_sha256":"${"95".repeat(32)}","source_collected_at":"2026-08-21T05:00:00+00:00"}',
         'valid'
       ),
@@ -2633,7 +2633,7 @@ try {
         '00000000-0000-0000-0000-000000009503',
         'bahia_special_transfer_payment_candidate',
         'bahia-special-transfer-payment/1.0.0',
-        'bahia-special-transfer-payment-validator/1.0.0',
+        'bahia-special-transfer-territorial-deterministic/1.0.0',
         '{"schema_name":"bahia-special-transfer-payment-candidate","schema_version":"1.0.0","fiscal_year":2022,"amendment_number":"40720005","amendment_year":2021,"author_name":"Tito","agency_name":"Secretaria estadual","agency_code":"SEAGRI","budget_unit_name":"Unidade estadual","budget_unit_code":"UO1","action_name":"Apoio hidrico","expense_code":"2022.1.1.1.1.1.1.1.3","execution_code":"2022.1.1.1.1.1.1.1.3","liquidation_codes":["L3"],"payment_id":"123456789012345680","payment_number":"P3","payment_date":"2022-11-17","payment_amount":"86763.50","gcv_amount":null,"payment_status":"Sim","object_text":"Equipamentos para pocos em Barreiras","payment_url":"https://www.transparencia.ba.gov.br/pagamento/3","territorial_scope":"payment_object_literal_barreiras","evidence_text":"evidencia 3","evidence_sha256":"${"a3".repeat(32)}","parser_version":"bahia-special-transfer-payment/1.0.0","source_url":"https://dados.ba.gov.br/transferencias-especiais","source_artifact_sha256":"${"95".repeat(32)}","source_collected_at":"2026-08-21T05:00:00+00:00"}',
         'valid'
       );
