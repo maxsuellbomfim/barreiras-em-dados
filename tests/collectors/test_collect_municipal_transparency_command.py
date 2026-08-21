@@ -17,6 +17,7 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
     _collect_resource,
     build_balancete_monthly_searches,
     execute_controlled_municipal_transparency,
+    matches_document_reference,
     resolve_endpoint_code,
     resolve_execution_namespace,
     resolve_municipal_document_role,
@@ -173,6 +174,42 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
         self.assertEqual(selection.already_preserved, 1)
         self.assertEqual(selection.deferred, 1)
 
+    def test_personnel_document_filter_uses_official_month_and_type(self) -> None:
+        regular = {
+            "ano_ref": "2025",
+            "mes_ref": "12",
+            "tipo": "1",
+        }
+
+        self.assertTrue(
+            matches_document_reference(
+                regular,
+                reference_month=date(2025, 12, 1),
+                allowed_types=frozenset({"1"}),
+            )
+        )
+        self.assertFalse(
+            matches_document_reference(
+                {**regular, "tipo": "4"},
+                reference_month=date(2025, 12, 1),
+                allowed_types=frozenset({"1"}),
+            )
+        )
+        self.assertFalse(
+            matches_document_reference(
+                {**regular, "mes_ref": "11"},
+                reference_month=date(2025, 12, 1),
+                allowed_types=frozenset({"1"}),
+            )
+        )
+        self.assertFalse(
+            matches_document_reference(
+                {"ano_ref": "inválido", "mes_ref": "12", "tipo": "1"},
+                reference_month=date(2025, 12, 1),
+                allowed_types=frozenset({"1"}),
+            )
+        )
+
     def test_bounded_env_int_rejects_values_outside_safe_window(self) -> None:
         with patch.dict("os.environ", {"TEST_MUNICIPAL_LIMIT": "61"}, clear=False):
             with self.assertRaises(RuntimeError):
@@ -247,9 +284,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
 
         service = ServiceProbe()
         environment = {
-            "MUNICIPAL_TRANSPARENCY_MAX_BATCH_DOCUMENT_BYTES": str(
-                64 * 1024 * 1024
-            )
+            "MUNICIPAL_TRANSPARENCY_MAX_BATCH_DOCUMENT_BYTES": str(64 * 1024 * 1024)
         }
         module = "barreiras_collectors.commands.collect_municipal_transparency"
         with (
@@ -408,9 +443,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
             completed["metrics"]["documents_bytes_persisted"],
             63 * 1024 * 1024,
         )
-        self.assertTrue(
-            completed["metrics"]["documents_byte_budget_exhausted"]
-        )
+        self.assertTrue(completed["metrics"]["documents_byte_budget_exhausted"])
 
 
 if __name__ == "__main__":

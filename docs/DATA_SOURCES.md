@@ -86,7 +86,10 @@ quatro recursos adicionais no portal da Prefeitura:
   de servidores, estagiários e terceirizados. O catálogo e os PDFs entram na
   preservação privada e idempotente em lotes de até cinco e orçamento agregado
   suave de 64 MiB por execução; nenhum nome, desconto ou valor individual é
-  projetado publicamente antes do gate de minimização do ADR 0072. O primeiro
+  projetado publicamente antes do gate de minimização do ADR 0072. O dreno pode
+  ser dirigido por `ano_ref`, `mes_ref` e `tipo` oficiais; para a folha mensal,
+  somente `tipo=1` é selecionado, sem confundir relações de estagiários ou
+  terceirizados com o processamento da folha. O primeiro
   PDF pode ultrapassar sozinho o teto para impedir inanição da fila; o restante
   é adiado com cobertura `partial`, nunca descartado silenciosamente.
   Em amostra `tipo=1` de julho/2026, 133 subtotais do PDF fecharam exatamente
