@@ -477,6 +477,13 @@ materializados, sem busca repetida por pessoa. O contrato preserva exatamente
 nome, perfil, foto e biografia transcritos da fonte e não transforma mandato
 estadual em vínculo automático com Barreiras.
 
+Checkpoint em 21/08/2026: a cobertura estadual anual passou a ser pública em
+duas etapas independentes — anexo da LOA e execução financeira. O painel torna
+visível o bloqueio documental de 2021, preserva a autorização de 2022-2025 sem
+fabricar execução e limita os totais executados de 2026 às ligações oficiais
+únicas. A próxima entrega é ampliar o índice integral de execução para os anos
+anteriores, começando por 2025.
+
 Gate:
 
 - identidade e vínculo territorial revisados;

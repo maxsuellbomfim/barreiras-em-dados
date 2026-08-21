@@ -5186,6 +5186,15 @@ footer {
   color: #a14646;
 }
 
+.transfer-source-coverage td[data-status="partial"] strong,
+.transfer-source-coverage td[data-status="scope_not_indexed"] strong {
+  color: #8a521f;
+}
+
+.transfer-source-coverage td[data-status="loa_unavailable"] strong {
+  color: var(--muted);
+}
+
 .transfer-source-coverage td[data-status="outside"] strong,
 .transfer-source-coverage td[data-status="unclassified"] strong {
   color: #7c899d;

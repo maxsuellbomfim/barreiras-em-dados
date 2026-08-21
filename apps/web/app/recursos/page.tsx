@@ -49,6 +49,10 @@ import {
   type FederalTransferSourceCoverage,
   type FederalTransferSourceKey,
 } from "../../lib/federal-transfer-source-coverage.mjs";
+import { getPublicStateAmendmentSourceCoverage } from
+  "../../lib/state-amendment-source-coverage";
+import type { StateAmendmentSourceCoverage } from
+  "../../lib/state-amendment-source-coverage.mjs";
 import { getPublicParliamentaryLegislatureRankings } from
   "../../lib/legislature-transfer-rankings";
 import { getPublicParliamentaryLegislatureCoverage } from
@@ -266,6 +270,114 @@ function FederalTransferSourceCoveragePanel({
                       </td>
                     );
                   })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </details>
+  );
+}
+
+function stateLoaCoverageCopy(row: StateAmendmentSourceCoverage): string {
+  if (row.loaStatus === "observed") {
+    return `${row.amendmentCount?.toLocaleString("pt-BR")} emenda(s) · ${formatBrlDecimal(row.authorizedAmount!)}`;
+  }
+  if (row.loaStatus === "empty") return "anexo conferido, sem linha para Barreiras";
+  if (row.loaStatus === "blocked" && row.fiscalYear === 2021) {
+    return "link rotulado como 2021 aponta para o anexo de 2020";
+  }
+  if (row.loaStatus === "partial") return "anexo coletado parcialmente";
+  if (row.loaStatus === "failed") return "consulta ao anexo falhou";
+  return "anexo ainda não classificado";
+}
+
+function stateExecutionCoverageCopy(row: StateAmendmentSourceCoverage): string {
+  if (row.executionStatus === "observed") {
+    return `${row.matchedCount?.toLocaleString("pt-BR")} ligação(ões) confirmada(s)`;
+  }
+  if (row.executionStatus === "partial") {
+    return `${row.matchedCount?.toLocaleString("pt-BR")} segura(s) · ${row.ambiguousCount?.toLocaleString("pt-BR")} ambígua(s) · ${row.notFoundCount?.toLocaleString("pt-BR")} não localizada(s)`;
+  }
+  if (row.executionStatus === "scope_not_indexed") {
+    return "execução territorial ainda não indexada";
+  }
+  if (row.executionStatus === "loa_unavailable") {
+    return "não comparável sem anexo válido";
+  }
+  return "execução ainda não classificada";
+}
+
+function StateAmendmentSourceCoveragePanel({
+  rows,
+}: Readonly<{ rows: readonly StateAmendmentSourceCoverage[] | null }>) {
+  const sourceUrl = rows?.[0]?.sourceUrl;
+  return (
+    <details className="transfer-methodology transfer-source-coverage">
+      <summary>Quais anos estaduais já foram conferidos?</summary>
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Cobertura verificável</span>
+          <h2>Anexo da LOA e execução são duas etapas diferentes</h2>
+        </div>
+        <p>
+          Primeiro confirmamos a autorização no orçamento. Depois tentamos ligar
+          essa autorização à execução financeira estadual sem ambiguidade.
+        </p>
+      </div>
+      <p>
+        Campo financeiro indisponível <strong>não é R$ 0</strong>. Significa que a
+        fonte ainda não permite atribuir empenho, liquidação ou pagamento àquela
+        autorização de Barreiras com segurança.
+      </p>
+      <p>
+        Em 2021, o próprio catálogo oficial apresenta um link rotulado como 2021
+        que aponta para o anexo de 2020. O Barreiras 360 bloqueia o ano para não
+        publicar valores do exercício errado.
+      </p>
+      {rows === null || rows.length === 0 ? (
+        <p className="transfer-coverage-unavailable">
+          O diagnóstico estadual está temporariamente indisponível. As emendas e
+          evidências já publicadas abaixo permanecem preservadas.
+        </p>
+      ) : (
+        <div className="transfer-source-coverage-scroll">
+          <table>
+            <caption>Cobertura anual das emendas estaduais destinadas a Barreiras</caption>
+            <thead>
+              <tr>
+                <th scope="col">Ano</th>
+                <th scope="col">
+                  {sourceUrl ? (
+                    <a href={sourceUrl} rel="noreferrer" target="_blank">
+                      Anexo oficial da LOA
+                    </a>
+                  ) : "Anexo oficial da LOA"}
+                </th>
+                <th scope="col">Execução financeira estadual</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.fiscalYear}>
+                  <th scope="row">{row.fiscalYear}</th>
+                  <td data-status={row.loaStatus}>
+                    <strong>{stateLoaCoverageCopy(row)}</strong>
+                    {row.lastAttemptedAt ? (
+                      <small>
+                        Conferido em {dateTimeFormatter.format(new Date(row.lastAttemptedAt))}
+                      </small>
+                    ) : null}
+                  </td>
+                  <td data-status={row.executionStatus}>
+                    <strong>{stateExecutionCoverageCopy(row)}</strong>
+                    {row.matchedCount !== null && row.matchedCount > 0 ? (
+                      <small>
+                        Pago nas ligações seguras: {formatBrlDecimal(row.paidAmount!)}
+                      </small>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -772,6 +884,7 @@ function StateLoaPanel({
   executionSummary,
   selectedFiscalYear,
   availableFiscalYears,
+  coverage,
 }: Readonly<{
   ranking: readonly BahiaStateLoaAmendmentRanking[] | null;
   amendments: readonly BahiaStateLoaAmendment[] | null;
@@ -779,6 +892,7 @@ function StateLoaPanel({
   executionSummary: StateLoaExecutionSummary | null;
   selectedFiscalYear: number;
   availableFiscalYears: readonly number[];
+  coverage: readonly StateAmendmentSourceCoverage[] | null;
 }>) {
   const executionByEvidence = new Map(
     (execution ?? []).map((row) => [row.loaEvidenceSha256, row]),
@@ -866,6 +980,7 @@ function StateLoaPanel({
           </a>
         </p>
       </details>
+      <StateAmendmentSourceCoveragePanel rows={coverage} />
       <StateLoaExecutionSummaryPanel summary={executionSummary} />
       {ranking === null ? (
         <p className="transfer-empty">
@@ -1777,6 +1892,7 @@ export default async function ParliamentaryResourcesPage({
     cguFederalAmendmentsResult,
     cguLegislatureRankingsResult,
     federalSourceCoverageResult,
+    stateSourceCoverageResult,
   ] = await Promise.all([
     getPublicParliamentaryTransfers({
       stateFiscalYear: selectedStateFiscalYear,
@@ -1799,9 +1915,15 @@ export default async function ParliamentaryResourcesPage({
     sourceSelection.showState
       ? Promise.resolve({ state: "unavailable" as const })
       : getPublicFederalTransferSourceCoverage(),
+    sourceSelection.showState
+      ? getPublicStateAmendmentSourceCoverage()
+      : Promise.resolve({ state: "unavailable" as const }),
   ]);
   const federalSourceCoverage = federalSourceCoverageResult.state === "available"
     ? federalSourceCoverageResult.rows
+    : null;
+  const stateSourceCoverage = stateSourceCoverageResult.state === "available"
+    ? stateSourceCoverageResult.rows
     : null;
   const legislatureRankingGroups =
     legislatureRankingsResult.state === "available"
@@ -2041,6 +2163,7 @@ export default async function ParliamentaryResourcesPage({
                 executionSummary={result.stateLoaExecutionSummary}
                 selectedFiscalYear={selectedStateFiscalYear}
                 availableFiscalYears={availableStateFiscalYears}
+                coverage={stateSourceCoverage}
               />
             ) : null}
 
