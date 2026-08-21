@@ -487,8 +487,10 @@ Checkpoint em 21/08/2026: a cobertura estadual anual passou a ser pública em
 duas etapas independentes — anexo da LOA e execução financeira. O painel torna
 visível o bloqueio documental de 2021, preserva a autorização de 2022-2025 sem
 fabricar execução e limita os totais executados de 2026 às ligações oficiais
-únicas. A próxima entrega é ampliar o índice integral de execução para os anos
-anteriores, começando por 2025.
+únicas. A auditoria do arquivo integral confirmou que 2022-2025 não compartilha
+com os anexos territoriais uma chave oficial suficiente. Esses anos passam a
+ser classificados como `blocked_missing_official_key`; o próximo passo é buscar
+outra fonte oficial que publique o identificador comum, sem aproximação nominal.
 
 Checkpoint adicional em 21/08/2026: a fonte oficial de Transferências
 Especiais passou a gerar, em job versionado, cobertura anual sanitizada do
@@ -497,7 +499,8 @@ literais, não conserva dados de credor e não converte ausência de linha em
 ausência de recurso. O diagnóstico passou a ter RPC sanitizada e apresentação
 pública recolhida, sem somá-lo aos valores de LOA ou Transferegov. A próxima
 menor entrega é classificar a disponibilidade histórica das fontes estaduais
-por ano e avançar a busca oficial do retrato de execução de 2025.
+por ano e buscar uma fonte oficial complementar que permita ligar a execução de
+2022-2025 por identificador inequívoco.
 
 Gate:
 

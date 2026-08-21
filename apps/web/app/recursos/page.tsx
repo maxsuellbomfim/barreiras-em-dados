@@ -309,6 +309,9 @@ function stateExecutionCoverageCopy(row: StateAmendmentSourceCoverage): string {
   if (row.executionStatus === "partial") {
     return `${row.matchedCount?.toLocaleString("pt-BR")} segura(s) · ${row.ambiguousCount?.toLocaleString("pt-BR")} ambígua(s) · ${row.notFoundCount?.toLocaleString("pt-BR")} não localizada(s)`;
   }
+  if (row.executionStatus === "blocked_missing_official_key") {
+    return "fonte coletada, mas sem chave oficial para ligar a execução";
+  }
   if (row.executionStatus === "scope_not_indexed") {
     return "execução territorial ainda não indexada";
   }
@@ -333,6 +336,10 @@ function StateAmendmentSourceCoveragePanel({
         <p>
           Primeiro confirmamos a autorização no orçamento. Depois tentamos ligar
           essa autorização à execução financeira estadual sem ambiguidade.
+          Nos anexos de 2022 a 2025, a fonte não publica os códigos necessários
+          para essa ligação. Isso não significa que o recurso não foi executado:
+          significa apenas que não atribuímos empenho, liquidação ou pagamento
+          sem uma chave oficial comum.
         </p>
       </div>
       <p>

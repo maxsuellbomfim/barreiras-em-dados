@@ -9,12 +9,16 @@ const LOA_STATUSES = new Set([
 const EXECUTION_STATUSES = new Set([
   "observed",
   "partial",
+  "blocked_missing_official_key",
   "scope_not_indexed",
   "loa_unavailable",
   "unclassified",
 ]);
 const DECIMAL = /^-?\d+(?:\.\d{1,2})?$/;
-const METHOD = "state-amendment-source-coverage/1.0.0";
+const METHODS = new Set([
+  "state-amendment-source-coverage/1.0.0",
+  "state-amendment-source-coverage/1.1.0",
+]);
 
 function count(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : null;
@@ -81,7 +85,8 @@ function parseRow(row) {
     : null;
   if (
     fiscalYear === null || !loaStatus || !executionStatus || !sourceUrl ||
-    row.methodology_version !== METHOD
+    typeof row.methodology_version !== "string" ||
+    !METHODS.has(row.methodology_version)
   ) return null;
 
   const loaObserved = loaStatus === "observed";
@@ -106,6 +111,12 @@ function parseRow(row) {
     unavailableScopeCount,
   ];
   const financialAmounts = [committedAmount, liquidatedAmount, paidAmount];
+  if (
+    executionStatus === "blocked_missing_official_key" && (
+      !loaObserved || executionCounts.some((value) => value !== null) ||
+      financialAmounts.some((value) => value !== null)
+    )
+  ) return null;
   if (
     executionStatus === "loa_unavailable" && (
       loaObserved || executionCounts.some((value) => value !== null) ||
@@ -157,7 +168,7 @@ function parseRow(row) {
     paidAmount,
     lastAttemptedAt,
     sourceUrl,
-    methodologyVersion: METHOD,
+    methodologyVersion: row.methodology_version,
   };
 }
 
