@@ -168,6 +168,8 @@ class MunicipalTransparencyCollectionSummary:
     availability_partial: bool
     next_offset: int
     start_offset: int = 0
+    documents_bytes_persisted: int = 0
+    documents_byte_budget_exhausted: bool = False
 
     @property
     def observed_records(self) -> int:
@@ -180,6 +182,7 @@ class MunicipalTransparencyCollectionSummary:
             or self.documents_skipped
             or self.pagination_capped
             or self.availability_partial
+            or self.documents_byte_budget_exhausted
         ):
             return CollectionOutcome.PARTIAL
         if self.observed_records == 0:
@@ -216,6 +219,28 @@ def select_pending_document_indexes(
     )
 
 
+def should_defer_document_for_byte_budget(
+    *,
+    persisted_documents: int,
+    persisted_bytes: int,
+    next_document_bytes: int,
+    max_batch_bytes: int,
+) -> bool:
+    """Aplica teto agregado sem deixar um único PDF grande bloquear a fila."""
+
+    values = (
+        persisted_documents,
+        persisted_bytes,
+        next_document_bytes,
+        max_batch_bytes,
+    )
+    if any(value < 0 for value in values) or max_batch_bytes < 1:
+        raise ValueError("Orçamento documental exige inteiros não negativos.")
+    if persisted_documents == 0:
+        return False
+    return persisted_bytes + next_document_bytes > max_batch_bytes
+
+
 def execute_controlled_municipal_transparency(
     *,
     control: CollectionControl,
@@ -235,6 +260,10 @@ def execute_controlled_municipal_transparency(
                 "documents_persisted": summary.documents_persisted,
                 "documents_failed": summary.documents_failed,
                 "documents_skipped": summary.documents_skipped,
+                "documents_bytes_persisted": summary.documents_bytes_persisted,
+                "documents_byte_budget_exhausted": (
+                    summary.documents_byte_budget_exhausted
+                ),
                 "pagination_capped": summary.pagination_capped,
                 "availability_partial": summary.availability_partial,
                 "start_offset": summary.start_offset,
@@ -470,6 +499,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         documents_persisted=summary.documents_persisted,
         documents_failed=summary.documents_failed,
         documents_skipped=summary.documents_skipped,
+        documents_bytes_persisted=summary.documents_bytes_persisted,
+        documents_byte_budget_exhausted=(
+            summary.documents_byte_budget_exhausted
+        ),
         pagination_capped=summary.pagination_capped,
         availability_partial=summary.availability_partial,
         start_offset=summary.start_offset,
@@ -497,6 +530,7 @@ def _collect_resource(
     coverage_period: tuple[date, date] | None = None,
 ) -> MunicipalTransparencyCollectionSummary:
     document_client = None
+    max_batch_document_bytes = 0
     if download_documents:
         if resource not in DOCUMENT_RESOURCES:
             raise ValueError(
@@ -517,6 +551,12 @@ def _collect_resource(
             ),
             timeout_seconds=collector_settings.read_timeout_seconds,
             logger=logger,
+        )
+        max_batch_document_bytes = _bounded_env_int(
+            "MUNICIPAL_TRANSPARENCY_MAX_BATCH_DOCUMENT_BYTES",
+            default=64 * 1024 * 1024,
+            minimum=1024 * 1024,
+            maximum=1024 * 1024 * 1024,
         )
 
     pages = iter_resource_pages(
@@ -545,6 +585,8 @@ def _collect_resource(
     inserted_records = 0
     existing_records = 0
     persisted_documents = 0
+    persisted_document_bytes = 0
+    document_byte_budget_exhausted = False
     failed_documents = 0
     skipped_documents = 0
     last_page_size = 0
@@ -590,7 +632,11 @@ def _collect_resource(
                 selection = select_pending_document_indexes(
                     candidates,
                     preserved=preserved,
-                    max_documents=max(0, max_documents - persisted_documents),
+                    max_documents=(
+                        0
+                        if document_byte_budget_exhausted
+                        else max(0, max_documents - persisted_documents)
+                    ),
                 )
                 skipped_documents += selection.deferred
                 log_event(
@@ -604,7 +650,7 @@ def _collect_resource(
                     selected=len(selection.indexes),
                     deferred=selection.deferred,
                 )
-                for index in selection.indexes:
+                for selection_position, index in enumerate(selection.indexes):
                     item = page.items[index]
                     document_url = str(item["url"]).strip()
                     document_role = resolve_municipal_document_role(document_url)
@@ -615,6 +661,34 @@ def _collect_resource(
                             document_url.strip(),
                             role=document_role,
                         )
+                        if should_defer_document_for_byte_budget(
+                            persisted_documents=persisted_documents,
+                            persisted_bytes=persisted_document_bytes,
+                            next_document_bytes=document.body_size_bytes,
+                            max_batch_bytes=max_batch_document_bytes,
+                        ):
+                            deferred_selected = (
+                                len(selection.indexes) - selection_position
+                            )
+                            skipped_documents += deferred_selected
+                            document_byte_budget_exhausted = True
+                            log_event(
+                                logger,
+                                logging.WARNING,
+                                "collector_municipal_transparency_document_byte_budget_exhausted",
+                                source=source_code,
+                                resource=page.resource,
+                                documents_persisted=persisted_documents,
+                                documents_bytes_persisted=(
+                                    persisted_document_bytes
+                                ),
+                                next_document_bytes=document.body_size_bytes,
+                                max_batch_document_bytes=(
+                                    max_batch_document_bytes
+                                ),
+                                deferred_documents=deferred_selected,
+                            )
+                            break
                         service.persist_document(
                             page_result=result,
                             record=records[index],
@@ -623,6 +697,7 @@ def _collect_resource(
                             endpoint_code=endpoint_code,
                         )
                         persisted_documents += 1
+                        persisted_document_bytes += document.body_size_bytes
                     except (
                         CircuitOpenError,
                         OSError,
@@ -657,6 +732,10 @@ def _collect_resource(
                 documents_persisted=persisted_documents,
                 documents_failed=failed_documents,
                 documents_skipped=skipped_documents,
+                documents_bytes_persisted=persisted_document_bytes,
+                documents_byte_budget_exhausted=(
+                    document_byte_budget_exhausted
+                ),
             )
     except MunicipalTransparencyAvailabilityError as error:
         if not allow_partial or persisted_pages == 0:
@@ -676,6 +755,8 @@ def _collect_resource(
             documents_persisted=persisted_documents,
             documents_failed=failed_documents,
             documents_skipped=skipped_documents,
+            documents_bytes_persisted=persisted_document_bytes,
+            documents_byte_budget_exhausted=document_byte_budget_exhausted,
         )
 
     pagination_capped = persisted_pages == max_pages and last_page_size == limit
@@ -714,6 +795,8 @@ def _collect_resource(
         availability_partial=availability_partial,
         next_offset=next_offset,
         start_offset=offset,
+        documents_bytes_persisted=persisted_document_bytes,
+        documents_byte_budget_exhausted=document_byte_budget_exhausted,
     )
 
 
