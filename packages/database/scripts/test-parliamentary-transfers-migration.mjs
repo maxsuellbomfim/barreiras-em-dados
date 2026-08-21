@@ -2872,6 +2872,103 @@ try {
   assert.equal(JSON.stringify(specialTransferPayments.rows).includes("cnpj"), false);
   assert.equal(JSON.stringify(specialTransferPayments.rows).includes("creditor"), false);
 
+  await database.exec(`
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000009801',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'cgu-portal-transparencia'
+         and endpoint.slug = 'federal-amendment-documents-open-data'),
+      'cgu-document-fixture-run', 'test/1', 'succeeded'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key,
+      collector_version, content_type
+    ) values (
+      '00000000-0000-0000-0000-000000009802',
+      '00000000-0000-0000-0000-000000009801',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'cgu-portal-transparencia'
+         and endpoint.slug = 'federal-amendment-documents-open-data'),
+      'cgu-document-fixture-artifact', 'archive',
+      'https://dadosabertos-download.cgu.gov.br/PortalDaTransparencia/saida/emendas-parlamentares-documentos/2024_EmendasParlamentaresPorDocumento.zip',
+      '2026-08-21 20:00:00+00', 15625915, '${"98".repeat(32)}',
+      'cgu/emendas-federais/documentos/2024/fixture.zip', 'test/1',
+      'application/zip'
+    );
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009810',
+        '00000000-0000-0000-0000-000000009802',
+        'cgu:federal-amendment-document:2024:202450410002:fixture-1',
+        'cgu_federal_amendment_document', 0,
+        '{"archive_year":2024,"amendment_year":2024,"amendment_code":"202450410002","amendment_number":"0002","amendment_type":"Emenda de Comissão","author_code":"5041","author_name":"COM. DA SAUDE","document_date":"2024-06-12","document_code":"257001000012024NE400001","expense_stage":"commitment","expense_stage_source":"Empenho","committed_amount":"5000000.00","paid_amount":"0.00","beneficiary_name":"FUNDO MUNICIPAL DE SAUDE DE BARREIRAS","beneficiary_type":"FUNDO PUBLICO","beneficiary_municipality":"BARREIRAS","locality":"BARREIRAS - BA","municipality_ibge":"2903201","agency_name":"MINISTERIO DA SAUDE","superior_agency_name":"MINISTERIO DA SAUDE","function_name":"SAUDE","subfunction_name":"ASSISTENCIA HOSPITALAR","program_name":"ATENCAO ESPECIALIZADA","action_name":"CUSTEIO DA SAUDE","citizen_language":"Apoio ao custeio da saude","document_line_fingerprint":"${"81".repeat(32)}","source_row_number":100}',
+        '${"81".repeat(32)}', 'cgu-federal-amendment-documents/1.0.0',
+        'cgu-document-fixture-record-1', '2026-08-21 20:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009811',
+        '00000000-0000-0000-0000-000000009802',
+        'cgu:federal-amendment-document:2024:202450410002:fixture-2',
+        'cgu_federal_amendment_document', 1,
+        '{"archive_year":2024,"amendment_year":2024,"amendment_code":"202450410002","amendment_number":"0002","amendment_type":"Emenda de Comissão","author_code":"5041","author_name":"COM. DA SAUDE","document_date":"2024-06-24","document_code":"257001000012024OB018682","expense_stage":"payment","expense_stage_source":"Pagamento","committed_amount":"0.00","paid_amount":"7500000.00","beneficiary_name":"FUNDO MUNICIPAL DE SAUDE DE BARREIRAS","beneficiary_type":"FUNDO PUBLICO","beneficiary_municipality":"BARREIRAS","locality":"BARREIRAS - BA","municipality_ibge":"2903201","agency_name":"MINISTERIO DA SAUDE","superior_agency_name":"MINISTERIO DA SAUDE","function_name":"SAUDE","subfunction_name":"ASSISTENCIA HOSPITALAR","program_name":"ATENCAO ESPECIALIZADA","action_name":"CUSTEIO DA SAUDE","citizen_language":"Apoio ao custeio da saude","document_line_fingerprint":"${"82".repeat(32)}","source_row_number":101}',
+        '${"82".repeat(32)}', 'cgu-federal-amendment-documents/1.0.0',
+        'cgu-document-fixture-record-2', '2026-08-21 20:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009812',
+        '00000000-0000-0000-0000-000000009802',
+        'cgu:federal-amendment-document:2024:202450410002:fixture-3',
+        'cgu_federal_amendment_document', 2,
+        '{"archive_year":2024,"amendment_year":2024,"amendment_code":"202450410002","amendment_number":"0002","amendment_type":"Emenda de Comissão","author_code":"5041","author_name":"COM. DA SAUDE","document_date":"2024-06-24","document_code":"257001000012024OB018682","expense_stage":"payment","expense_stage_source":"Pagamento","committed_amount":"0.00","paid_amount":"2500000.00","beneficiary_name":"FUNDO MUNICIPAL DE SAUDE DE BARREIRAS","beneficiary_type":"FUNDO PUBLICO","beneficiary_municipality":"BARREIRAS","locality":"BARREIRAS - BA","municipality_ibge":"2903201","agency_name":"MINISTERIO DA SAUDE","superior_agency_name":"MINISTERIO DA SAUDE","function_name":"SAUDE","subfunction_name":"ASSISTENCIA HOSPITALAR","program_name":"ATENCAO ESPECIALIZADA","action_name":"CUSTEIO DA SAUDE","citizen_language":"Apoio ao custeio da saude","document_line_fingerprint":"${"83".repeat(32)}","source_row_number":102}',
+        '${"83".repeat(32)}', 'cgu-federal-amendment-documents/1.0.0',
+        'cgu-document-fixture-record-3', '2026-08-21 20:00:00+00'
+      );
+  `);
+
+  const cguDocumentContracts = await database.query(`
+    select
+      to_regclass('territory.cgu_federal_amendment_documents')::text
+        as document_projection,
+      to_regprocedure(
+        'api.get_public_cgu_federal_amendment_documents(smallint,text,integer)'
+      )::text as document_rpc,
+      to_regprocedure(
+        'api.get_public_cgu_federal_amendment_document_ranking(smallint,integer)'
+      )::text as ranking_rpc
+  `);
+  assert.deepEqual(cguDocumentContracts.rows, [{
+    document_projection: "territory.cgu_federal_amendment_documents",
+    document_rpc:
+      "api.get_public_cgu_federal_amendment_documents(smallint,text,integer)",
+    ranking_rpc:
+      "api.get_public_cgu_federal_amendment_document_ranking(smallint,integer)",
+  }]);
+  const cguDocumentRanking = await database.query(`
+    select author_name, amendment_count, document_count,
+      committed_amount, paid_amount, aggregation_policy
+    from api.get_public_cgu_federal_amendment_document_ranking(
+      2024::smallint, 10
+    )
+  `);
+  assert.deepEqual(cguDocumentRanking.rows, [{
+    author_name: "COM. DA SAUDE",
+    amendment_count: 1,
+    document_count: 2,
+    committed_amount: "5000000.00",
+    paid_amount: "10000000.00",
+    aggregation_policy: "single_document_source_no_cross_source_sum",
+  }]);
+
   await database.exec("set role anon");
   await assert.rejects(
     database.query("select * from territory.parliamentary_transfers"),

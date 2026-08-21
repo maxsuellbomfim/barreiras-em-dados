@@ -28,6 +28,11 @@ from ..connectors.bahia_state_loa_amendments import (
     StateLoaAnnexSnapshot,
     build_state_loa_annex_manifest,
 )
+from ..connectors.cgu_federal_amendment_documents import (
+    CGUFederalAmendmentDocumentArchiveError,
+    CGUFederalAmendmentDocumentSnapshot,
+    parse_cgu_federal_amendment_documents_archive,
+)
 from ..connectors.cgu_federal_amendments import (
     CGUFederalAmendmentArchiveError,
     CGUFederalAmendmentSnapshot,
@@ -132,6 +137,12 @@ CGU_FEDERAL_AMENDMENT_COLLECTOR_VERSION = (
     "cgu-federal-amendments-collector/1.0.0"
 )
 CGU_FEDERAL_AMENDMENT_PARSER_VERSION = "cgu-federal-amendments/1.0.0"
+CGU_FEDERAL_AMENDMENT_DOCUMENT_COLLECTOR_VERSION = (
+    "cgu-federal-amendment-documents-collector/1.0.0"
+)
+CGU_FEDERAL_AMENDMENT_DOCUMENT_PARSER_VERSION = (
+    "cgu-federal-amendment-documents/1.0.0"
+)
 CGU_SANCTION_COLLECTOR_VERSION = "cgu-sanctions-collector/1.1.0"
 CGU_SANCTION_PARSER_VERSION = "cgu-sanctions/1.1.0"
 BAHIA_STATE_AMENDMENT_COLLECTOR_VERSION = (
@@ -1068,6 +1079,138 @@ class CGUFederalAmendmentPersistenceService:
                 ).hexdigest(),
                 collector_version=CGU_FEDERAL_AMENDMENT_COLLECTOR_VERSION,
                 parser_version=CGU_FEDERAL_AMENDMENT_PARSER_VERSION,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=snapshot.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+
+class CGUFederalAmendmentDocumentPersistenceService:
+    """Preserva um ZIP documental anual antes de materializar suas linhas."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(
+        self, snapshot: CGUFederalAmendmentDocumentSnapshot
+    ) -> PersistenceResult:
+        actual_hash = hashlib.sha256(snapshot.raw_body).hexdigest()
+        if (
+            actual_hash != snapshot.body_sha256
+            or len(snapshot.raw_body) != snapshot.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "O ZIP documental da CGU diverge dos metadados coletados."
+            )
+        try:
+            raw_items = parse_cgu_federal_amendment_documents_archive(
+                snapshot.raw_body,
+                archive_year=snapshot.archive_year,
+            )
+        except CGUFederalAmendmentDocumentArchiveError as error:
+            raise ArtifactIntegrityError(
+                "O ZIP preservado perdeu seu contrato documental federal."
+            ) from error
+        if raw_items != snapshot.items:
+            raise ArtifactIntegrityError(
+                "Os documentos de Barreiras divergem do ZIP preservado."
+            )
+
+        records: list[RawRecordInput] = []
+        for index, item in enumerate(snapshot.items):
+            identity_fields = tuple(
+                item.get(name)
+                for name in (
+                    "archive_year",
+                    "amendment_code",
+                    "document_code",
+                    "beneficiary_code",
+                    "budget_plan_code",
+                    "expense_element_code",
+                    "action_code",
+                    "localizer_code",
+                    "document_line_fingerprint",
+                )
+            )
+            if not isinstance(identity_fields[0], int) or any(
+                not isinstance(value, str) for value in identity_fields[1:]
+            ):
+                raise PersistenceContractError(
+                    f"Documento federal {index} não possui identidade completa."
+                )
+            identity = ":".join(str(value) for value in identity_fields)
+            identity_hash = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            records.append(
+                RawRecordInput(
+                    source_record_key=(
+                        "cgu:federal-amendment-document:"
+                        f"{identity_fields[0]}:{identity_fields[1]}:"
+                        f"{identity_hash[:24]}"
+                    ),
+                    record_type="cgu_federal_amendment_document",
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=(
+                        CGU_FEDERAL_AMENDMENT_DOCUMENT_PARSER_VERSION
+                    ),
+                    idempotency_key=hashlib.sha256(
+                        (
+                            "cgu-federal-amendment-document-record:"
+                            f"{snapshot.body_sha256}:{identity_hash}:"
+                            f"{payload_sha256}"
+                        ).encode()
+                    ).hexdigest(),
+                )
+            )
+
+        object_key = (
+            "cgu/emendas-federais/documentos/"
+            f"{snapshot.archive_year}/sha256/{snapshot.body_sha256[:2]}/"
+            f"{snapshot.body_sha256}.zip"
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=snapshot.raw_body,
+            content_type=snapshot.media_type,
+            expected_sha256=snapshot.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != snapshot.body_sha256
+            or len(restored) != snapshot.body_size_bytes
+            or stored.sha256 != snapshot.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "O ZIP documental federal restaurado diverge do coletado."
+            )
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=snapshot,  # type: ignore[arg-type]
+                object_key=object_key,
+                artifact_idempotency_key=hashlib.sha256(
+                    f"raw-artifact:{snapshot.idempotency_key}".encode()
+                ).hexdigest(),
+                collector_version=(
+                    CGU_FEDERAL_AMENDMENT_DOCUMENT_COLLECTOR_VERSION
+                ),
+                parser_version=CGU_FEDERAL_AMENDMENT_DOCUMENT_PARSER_VERSION,
                 records=tuple(records),
             )
         )
