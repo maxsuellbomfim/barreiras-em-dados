@@ -553,6 +553,14 @@ test("ranking cria atalho seguro para as linhas oficiais do parlamentar", () => 
     "/recursos?origem=federal-execucao&autor=tito%20%26%20comiss%C3%A3o",
   );
   assert.match(resourcesPage, /Ver linhas oficiais deste parlamentar/);
+  assert.match(
+    legislatureRankingPage,
+    /cguExecutionAuthorHref\(row\.authorKey\)/,
+  );
+  assert.doesNotMatch(
+    legislatureRankingPage,
+    /href="\/recursos\?origem=federal-execucao#cgu-documents-title"/,
+  );
 });
 
 test("página oferece investigação por parlamentar e ano e explica 2023", () => {
