@@ -128,6 +128,12 @@ test("coleta de pessoal aceita uma competencia exata sem baixar outros tipos", (
     workflow,
     /--allow-untyped-document-title "Relação de Servidores"/,
   );
+  assert.match(workflow, /--document-title "Relação de Servidores"/);
+  assert.match(workflow, /--document-title "Relação Servidores"/);
+  assert.match(
+    workflow,
+    /--document-title "Relação de Servidores 13º Salário"/,
+  );
   assert.match(
     workflow,
     /\^20\[2-9\]\[0-9\]-\(0\[1-9\]\|1\[0-2\]\)\$/,

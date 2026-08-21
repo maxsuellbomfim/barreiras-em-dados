@@ -88,10 +88,14 @@ quatro recursos adicionais no portal da Prefeitura:
   suave de 64 MiB por execução; nenhum nome, desconto ou valor individual é
   projetado publicamente antes do gate de minimização do ADR 0072. O dreno pode
   ser dirigido por `ano_ref`, `mes_ref` e `tipo` oficiais; para a folha mensal,
-  somente `tipo=1` é selecionado. Registros históricos em que a própria fonte
-  omitiu `tipo` só entram quando o título normalizado é exatamente
-  `Relação de Servidores`. Títulos de estagiários e terceirizados continuam
-  excluídos, mesmo quando o tipo está vazio. O primeiro
+  `tipo=1` só é aceito em conjunto com um título oficial de folha de servidores.
+  Essa validação dupla é necessária porque a fonte já classificou uma
+  `Relação de Estagiários` como `tipo=1`. Registros históricos em que a própria
+  fonte omitiu `tipo` só entram quando o título normalizado é exatamente
+  `Relação de Servidores`. Relações de estagiários e terceirizados continuam
+  excluídas mesmo com tipo incorreto; ocorrências antigas já publicadas são
+  invalidadas de forma append-only, sem apagar o artefato ou o agregado. Título
+  ausente permanece bloqueado por falta de evidência, nunca é presumido. O primeiro
   PDF pode ultrapassar sozinho o teto para impedir inanição da fila; o restante
   é adiado com cobertura `partial`, nunca descartado silenciosamente.
   Em amostra `tipo=1` de julho/2026, 133 subtotais do PDF fecharam exatamente

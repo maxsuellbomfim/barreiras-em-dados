@@ -229,7 +229,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
             "ano_ref": "2025",
             "mes_ref": "12",
             "tipo": "1",
-            "titulo": "Relação de Servidores",
+            "titulo": "\u00a0RELAC\u0327A\u0303O\u00a0DE\u00a0SERVIDORES\u00a0",
         }
         historical_untyped = {
             "ano_ref": "2025",
@@ -238,12 +238,20 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
             "titulo": "RELAÇÃO   DE SERVIDORES",
         }
         allowed_untyped_titles = frozenset({"Relação de Servidores"})
+        allowed_titles = frozenset(
+            {
+                "Relação de Servidores",
+                "Relação Servidores",
+                "Relação de Servidores 13º Salário",
+            }
+        )
 
         self.assertTrue(
             matches_document_reference(
                 regular,
                 reference_month=date(2025, 12, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
                 allowed_untyped_titles=allowed_untyped_titles,
             )
         )
@@ -252,6 +260,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 historical_untyped,
                 reference_month=date(2025, 2, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
                 allowed_untyped_titles=allowed_untyped_titles,
             )
         )
@@ -260,6 +269,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 {**regular, "tipo": "4"},
                 reference_month=date(2025, 12, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
                 allowed_untyped_titles=allowed_untyped_titles,
             )
         )
@@ -271,6 +281,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 },
                 reference_month=date(2025, 2, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
                 allowed_untyped_titles=allowed_untyped_titles,
             )
         )
@@ -282,6 +293,34 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 },
                 reference_month=date(2025, 2, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
+                allowed_untyped_titles=allowed_untyped_titles,
+            )
+        )
+        self.assertFalse(
+            matches_document_reference(
+                {**regular, "titulo": "Relação de Estagiários"},
+                reference_month=date(2025, 12, 1),
+                allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
+                allowed_untyped_titles=allowed_untyped_titles,
+            )
+        )
+        self.assertFalse(
+            matches_document_reference(
+                {**regular, "titulo": "Relação de Funcionários Terceirizados"},
+                reference_month=date(2025, 12, 1),
+                allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
+                allowed_untyped_titles=allowed_untyped_titles,
+            )
+        )
+        self.assertTrue(
+            matches_document_reference(
+                {**regular, "titulo": "Relação de Servidores 13º Salário"},
+                reference_month=date(2025, 12, 1),
+                allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
                 allowed_untyped_titles=allowed_untyped_titles,
             )
         )
@@ -290,6 +329,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 {**regular, "mes_ref": "11"},
                 reference_month=date(2025, 12, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
                 allowed_untyped_titles=allowed_untyped_titles,
             )
         )
@@ -298,6 +338,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 {"ano_ref": "inválido", "mes_ref": "12", "tipo": "1"},
                 reference_month=date(2025, 12, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
                 allowed_untyped_titles=allowed_untyped_titles,
             )
         )

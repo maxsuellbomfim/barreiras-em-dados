@@ -228,9 +228,10 @@ def matches_document_reference(
     *,
     reference_month: date | None,
     allowed_types: frozenset[str] | None,
+    allowed_titles: frozenset[str] | None = None,
     allowed_untyped_titles: frozenset[str] | None = None,
 ) -> bool:
-    """Filtra por competência, tipo e exceções históricas de título exato."""
+    """Filtra por competência, tipo e título oficial semanticamente exato."""
 
     if reference_month is not None:
         try:
@@ -240,11 +241,16 @@ def matches_document_reference(
             return False
         if (year, month) != (reference_month.year, reference_month.month):
             return False
+    normalized_title = _normalize_document_title(str(item.get("titulo", "")))
+    normalized_allowed_titles = {
+        _normalize_document_title(title) for title in (allowed_titles or frozenset())
+    }
+    if normalized_allowed_titles and normalized_title not in normalized_allowed_titles:
+        return False
     if allowed_types is not None:
         document_type = str(item.get("tipo", "")).strip()
         if document_type:
             return document_type in allowed_types
-        normalized_title = _normalize_document_title(str(item.get("titulo", "")))
         normalized_allowlist = {
             _normalize_document_title(title)
             for title in (allowed_untyped_titles or frozenset())
@@ -454,6 +460,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="tipo oficial de documento de pessoal; pode ser repetido",
     )
     parser.add_argument(
+        "--document-title",
+        action="append",
+        default=None,
+        help=(
+            "título oficial exato exigido inclusive quando a fonte informa o tipo; "
+            "pode ser repetido"
+        ),
+    )
+    parser.add_argument(
         "--allow-untyped-document-title",
         action="append",
         default=None,
@@ -488,11 +503,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if (
         document_reference_month is not None
         or args.document_type is not None
+        or args.document_title is not None
         or args.allow_untyped_document_title is not None
     ) and (not args.download_documents or args.resource != "servidores"):
         parser.error("filtro de competência/tipo exige download do recurso servidores.")
     if args.allow_untyped_document_title is not None and args.document_type is None:
         parser.error("título sem tipo exige ao menos um --document-type permitido.")
+    if args.document_title is not None and args.document_type is None:
+        parser.error("título documental exige ao menos um --document-type permitido.")
     if args.require_document_match and (
         not args.download_documents or document_reference_month is None
     ):
@@ -501,6 +519,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     document_types = (
         frozenset(args.document_type) if args.document_type is not None else None
+    )
+    document_titles = (
+        frozenset(title.strip() for title in args.document_title if title.strip())
+        if args.document_title is not None
+        else None
     )
     untyped_document_titles = (
         frozenset(
@@ -513,6 +536,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     if args.allow_untyped_document_title is not None and not untyped_document_titles:
         parser.error("título sem tipo não pode ser vazio.")
+    if args.document_title is not None and not document_titles:
+        parser.error("título documental não pode ser vazio.")
     if args.coverage_year_from is not None and (
         args.resource != "balancetes"
         or args.offset not in (None, 0)
@@ -553,6 +578,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         partition_key += f":document-reference:{document_reference_month:%Y-%m}"
     if document_types is not None:
         partition_key += f":document-types:{','.join(sorted(document_types))}"
+    if document_titles is not None:
+        normalized_titles = "|".join(
+            sorted(_normalize_document_title(title) for title in document_titles)
+        )
+        partition_key += (
+            ":document-title-sha256:"
+            f"{sha256(normalized_titles.encode('utf-8')).hexdigest()[:16]}"
+        )
     if untyped_document_titles is not None:
         normalized_titles = "|".join(
             sorted(
@@ -617,6 +650,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             logger=logger,
             document_reference_month=document_reference_month,
             document_types=document_types,
+            document_titles=document_titles,
             untyped_document_titles=untyped_document_titles,
             coverage_period=(
                 (
@@ -686,6 +720,7 @@ def _collect_resource(
     logger: logging.Logger,
     document_reference_month: date | None = None,
     document_types: frozenset[str] | None = None,
+    document_titles: frozenset[str] | None = None,
     untyped_document_titles: frozenset[str] | None = None,
     coverage_period: tuple[date, date] | None = None,
 ) -> MunicipalTransparencyCollectionSummary:
@@ -770,6 +805,7 @@ def _collect_resource(
                         item,
                         reference_month=document_reference_month,
                         allowed_types=document_types,
+                        allowed_titles=document_titles,
                         allowed_untyped_titles=untyped_document_titles,
                     ):
                         continue
@@ -834,6 +870,9 @@ def _collect_resource(
                     ),
                     document_types=(
                         sorted(document_types) if document_types is not None else None
+                    ),
+                    document_titles=(
+                        sorted(document_titles) if document_titles is not None else None
                     ),
                     untyped_document_titles=(
                         sorted(untyped_document_titles)

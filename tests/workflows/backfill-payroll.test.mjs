@@ -61,6 +61,12 @@ test("cada competencia preserva somente folha regular e publica depois", () => {
     workflow,
     /--allow-untyped-document-title "Relação de Servidores"/,
   );
+  assert.match(workflow, /--document-title "Relação de Servidores"/);
+  assert.match(workflow, /--document-title "Relação Servidores"/);
+  assert.match(
+    workflow,
+    /--document-title "Relação de Servidores 13º Salário"/,
+  );
   assert.match(workflow, /--max-pages 20/);
   assert.match(workflow, /--max-documents 20/);
   assert.match(workflow, /--require-document-match/);
