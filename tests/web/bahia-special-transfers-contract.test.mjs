@@ -135,3 +135,11 @@ test("aba estadual separa pagamento, receita municipal e entrega fisica", () => 
   assert.match(panel, /Ranking desta fonte estadual/);
   assert.match(panel, /Trecho oficial e rastreabilidade/);
 });
+
+test("cabecalho distingue achado, vazio comprovado e fonte indisponivel", () => {
+  assert.match(panel, /Execução estadual encontrada/);
+  assert.match(panel, /Fonte processada sem pagamentos territoriais localizados/);
+  assert.match(panel, /Processamento estadual ainda indisponível/);
+  assert.match(panel, /payments === null \|\| ranking === null/);
+  assert.match(panel, /payments\.length === 0/);
+});

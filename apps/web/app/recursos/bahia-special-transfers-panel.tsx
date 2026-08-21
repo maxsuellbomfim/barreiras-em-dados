@@ -114,11 +114,17 @@ export default function BahiaSpecialTransfersPanel({
   const paidTotal = sumDecimalAmounts(
     payments?.map((payment) => payment.paymentAmount) ?? [],
   );
+  const panelState =
+    payments === null || ranking === null
+      ? "Processamento estadual ainda indisponível"
+      : payments.length === 0
+        ? "Fonte processada sem pagamentos territoriais localizados"
+        : "Execução estadual encontrada";
   return (
     <section className="transfer-ranking" aria-labelledby="bahia-special-title">
       <div className="transfer-section-heading">
         <div>
-          <span className="eyebrow">Execução estadual encontrada</span>
+          <span className="eyebrow">{panelState}</span>
           <h2 id="bahia-special-title">
             Pagamentos do Estado cujo objeto menciona Barreiras
           </h2>
