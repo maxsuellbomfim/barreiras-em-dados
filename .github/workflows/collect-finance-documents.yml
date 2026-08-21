@@ -205,6 +205,7 @@ jobs:
             extra_args+=(
               --document-reference-month "$INPUT_PERSONNEL_REFERENCE_MONTH"
               --document-type "1"
+              --allow-untyped-document-title "Relação de Servidores"
             )
           fi
           python -B -m barreiras_collectors.commands.collect_municipal_transparency \
