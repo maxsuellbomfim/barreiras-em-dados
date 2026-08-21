@@ -15,3 +15,5 @@ export function filterCguExecutionAmendments(
   amendments: readonly CguFederalAmendment[],
   filters: CguExecutionFilters,
 ): readonly CguFederalAmendment[];
+
+export function cguExecutionResultCountCopy(count: number): string;

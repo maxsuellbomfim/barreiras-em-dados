@@ -39,3 +39,12 @@ export function filterCguExecutionAmendments(amendments, filters) {
     (filters.fiscalYear === null || row.fiscalYear === filters.fiscalYear)
   ));
 }
+
+/**
+ * @param {number} count
+ */
+export function cguExecutionResultCountCopy(count) {
+  return count === 1
+    ? "1 linha oficial encontrada com estes filtros."
+    : `${count.toLocaleString("pt-BR")} linhas oficiais encontradas com estes filtros.`;
+}

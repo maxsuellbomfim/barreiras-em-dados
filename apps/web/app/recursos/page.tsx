@@ -37,6 +37,7 @@ import {
   type CguFederalAmendmentsResult,
 } from "../../lib/cgu-federal-amendments";
 import {
+  cguExecutionResultCountCopy,
   filterCguExecutionAmendments,
   resolveCguExecutionFilters,
 } from "../../lib/cgu-execution-filter.mjs";
@@ -1023,9 +1024,8 @@ function CguFederalExecutionPanel({
         <button type="submit">Aplicar filtros</button>
         <a href="/recursos?origem=federal-execucao">Limpar</a>
         <p>
-          <strong>{filteredAmendments.length.toLocaleString("pt-BR")}</strong>{" "}
-          linhas oficiais encontradas com estes filtros. O ranking abaixo
-          permanece calculado sobre todo o acervo desta fonte.
+          <strong>{cguExecutionResultCountCopy(filteredAmendments.length)}</strong>{" "}
+          O ranking abaixo permanece calculado sobre todo o acervo desta fonte.
         </p>
       </form>
       <aside className="transfer-transition-note">
