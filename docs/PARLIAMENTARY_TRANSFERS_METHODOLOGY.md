@@ -625,3 +625,22 @@ estadual e pagamento localizado, além do link para todas as evidências daquela
 autoria. Como o ranking público possui até dez posições por legislatura, a
 ausência do resumo no card significa apenas que o perfil não está nesse top 10
 com ligação oficial aprovada; não significa ausência de emendas ou de trabalho.
+
+## Autoria documental atual por código oficial
+
+O ranking documental da CGU não associa uma pessoa por semelhança de nome. Para
+a 57ª legislatura, os blocos `4319` e `4460` foram ligados, respectivamente,
+aos perfis oficiais de Capitão Alden (`220690`) e Ricardo Maia (`220694`). Cada
+ligação exige simultaneamente:
+
+- o código completo da emenda e o autor publicados pelo Portal da
+  Transparência;
+- o perfil institucional da Câmara no mandato 2023-2027;
+- o crosswalk TSE de 2022 já aprovado para o mesmo perfil e cargo;
+- coincidência exata entre código, nome normalizado e ano da emenda durante a
+  consulta pública.
+
+Essa ligação serve somente para abrir o perfil oficial e organizar evidências.
+Ela não altera valores, não soma séries diferentes e não transforma valores
+estaduais ou nacionais em recursos destinados a Barreiras. Quando qualquer
+uma dessas provas estiver ausente ou conflitante, o autor permanece sem link.

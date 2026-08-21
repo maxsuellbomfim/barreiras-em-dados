@@ -413,6 +413,47 @@ try {
     anon_crosswalk_select: false,
   }]);
 
+  const currentCguDocumentAuthorCrosswalk = await database.query(`
+    select source_author_code, source_author_name, official_author_name,
+      representative_source_kind, representative_external_id,
+      representative_profile_url, valid_from_year, valid_to_year,
+      review_status, methodology_version
+    from political.parliamentary_author_code_crosswalk
+    where source_system = 'federal_amendment_author_code'
+      and source_author_code in ('4319', '4460')
+    order by source_author_code
+  `);
+  assert.deepEqual(currentCguDocumentAuthorCrosswalk.rows, [
+    {
+      source_author_code: "4319",
+      source_author_name: "CAPITAO ALDEN",
+      official_author_name: "Capitão Alden",
+      representative_source_kind: "federal",
+      representative_external_id: "220690",
+      representative_profile_url:
+        "https://www.camara.leg.br/deputados/220690",
+      valid_from_year: 2023,
+      valid_to_year: 2027,
+      review_status: "approved",
+      methodology_version:
+        "parliamentary-author-code-crosswalk/1.1.0",
+    },
+    {
+      source_author_code: "4460",
+      source_author_name: "RICARDO MAIA",
+      official_author_name: "Ricardo Maia",
+      representative_source_kind: "federal",
+      representative_external_id: "220694",
+      representative_profile_url:
+        "https://www.camara.leg.br/deputados/220694",
+      valid_from_year: 2023,
+      valid_to_year: 2027,
+      review_status: "approved",
+      methodology_version:
+        "parliamentary-author-code-crosswalk/1.1.0",
+    },
+  ]);
+
   const completedStateAuthorCrosswalk = await database.query(`
     select author_key, representative_source_kind,
       representative_external_id, review_status
