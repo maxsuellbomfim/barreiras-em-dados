@@ -70,6 +70,21 @@ histórica é reconstruída separadamente pelos arquivos oficiais de dados
 abertos do Transferegov. O arquivo de propostas já possui projeção pública
 própria, mas não altera ranking, totais de emendas nem estados financeiros.
 
+A matriz pública de cobertura por fonte e exercício usa a RPC
+`api.get_public_federal_transfer_source_coverage`. Ela não publica checkpoint,
+erro interno ou conteúdo bruto: mostra apenas o estado sanitizado e a quantidade
+de linhas municipais já normalizadas. `observed` significa linha oficial
+encontrada; `empty` significa fonte integralmente consultada sem linha atribuída
+a Barreiras; `partial`, `failed`, `blocked` e `unclassified` impedem qualquer
+apresentação de zero. As três séries permanecem separadas e nunca são somadas.
+
+Na auditoria de 20/08/2026, a integridade determinística encontrou zero chaves
+duplicadas, zero URL insegura, zero hash inválido e zero divergência na fórmula
+de pagamento efetivo. O retrato continha 15 linhas na execução da CGU, nove no
+arquivo histórico do Transferegov e três na API atual. A ausência de
+correspondência entre séries é registrada como diferença de cobertura, não como
+erro nem prova de ausência de recurso.
+
 ## Cobertura histórica federal
 
 O arquivo nacional `siconv_proposta.zip` é preservado integralmente em área

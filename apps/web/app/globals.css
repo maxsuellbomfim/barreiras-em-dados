@@ -5109,6 +5109,102 @@ footer {
   color: #56647a;
 }
 
+.transfer-source-coverage-scroll {
+  max-width: 100%;
+  margin-top: 1rem;
+  overflow-x: auto;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.transfer-source-coverage table {
+  width: 100%;
+  min-width: 48rem;
+  border-collapse: collapse;
+  color: var(--ink);
+  font-size: 0.76rem;
+}
+
+.transfer-source-coverage caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.transfer-source-coverage th,
+.transfer-source-coverage td {
+  padding: 0.8rem;
+  border-bottom: 1px solid rgba(28, 40, 61, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.transfer-source-coverage thead th {
+  color: #56647a;
+  background: rgba(237, 243, 255, 0.76);
+}
+
+.transfer-source-coverage thead a {
+  color: #315bc7;
+  text-underline-offset: 0.18em;
+}
+
+.transfer-source-coverage tbody th {
+  width: 4.5rem;
+  font-size: 0.86rem;
+}
+
+.transfer-source-coverage td strong,
+.transfer-source-coverage td small {
+  display: block;
+}
+
+.transfer-source-coverage td small {
+  margin-top: 0.3rem;
+  color: #7c899d;
+  font-size: 0.66rem;
+  font-weight: 500;
+}
+
+.transfer-source-coverage td[data-status="observed"] strong {
+  color: #16704b;
+}
+
+.transfer-source-coverage td[data-status="empty"] strong {
+  color: #715d39;
+}
+
+.transfer-source-coverage td[data-status="failed"] strong,
+.transfer-source-coverage td[data-status="blocked"] strong {
+  color: #a14646;
+}
+
+.transfer-source-coverage td[data-status="outside"] strong,
+.transfer-source-coverage td[data-status="unclassified"] strong {
+  color: #7c899d;
+  font-weight: 600;
+}
+
+.transfer-ranking-action {
+  margin-top: 0.8rem;
+  color: #315bc7;
+  font-size: 0.74rem;
+  font-weight: 720;
+  text-decoration: none;
+}
+
+.transfer-ranking-action:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
 .transfer-reading-guide strong {
   color: var(--ink);
   font-size: 0.9rem;

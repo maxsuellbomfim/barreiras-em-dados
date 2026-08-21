@@ -9,6 +9,7 @@ import {
   parseCguLegislatureRankingRows,
 } from "../../apps/web/lib/cgu-federal-amendments.mjs";
 import {
+  cguExecutionAuthorHref,
   cguExecutionResultCountCopy,
   filterCguExecutionAmendments,
   resolveCguExecutionFilters,
@@ -447,6 +448,14 @@ test("contador da consulta usa singular e plural em português", () => {
     cguExecutionResultCountCopy(2),
     "2 linhas oficiais encontradas com estes filtros.",
   );
+});
+
+test("ranking cria atalho seguro para as linhas oficiais do parlamentar", () => {
+  assert.equal(
+    cguExecutionAuthorHref("tito & comissão"),
+    "/recursos?origem=federal-execucao&autor=tito%20%26%20comiss%C3%A3o",
+  );
+  assert.match(resourcesPage, /Ver linhas oficiais deste parlamentar/);
 });
 
 test("página oferece investigação por parlamentar e ano e explica 2023", () => {
