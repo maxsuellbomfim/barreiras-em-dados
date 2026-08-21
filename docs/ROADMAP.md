@@ -321,6 +321,14 @@ despesa. A próxima menor fatia é executar o backfill idempotente dos balancete
 desde 2021 e, em seguida, normalizar empréstimos e saldos de obrigações sem
 confundir dívida, pagamento e despesa do mês.
 
+Checkpoint em 20/08/2026: o fechamento mensal e a cobertura financeira passaram
+a resolver a linhagem documental em conjunto, eliminando o timeout observado na
+página geral. A mesma estratégia foi aplicada às listas públicas de receitas e
+linhas de despesa, sem alterar valores, filtros, versões metodológicas ou a
+exigência de correspondência exata entre registro bruto e PDF. O teste de banco
+descartável continua cobrindo tanto a evidência direta quanto a proveniência
+corrigida e impede a volta da validação linha a linha.
+
 Gate:
 
 - unidade/escala contábil verificadas;

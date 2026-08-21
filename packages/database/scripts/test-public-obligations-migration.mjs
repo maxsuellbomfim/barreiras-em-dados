@@ -1099,6 +1099,33 @@ try {
     );
   }
 
+  const financeRowDefinitions = await database.query(`
+    select
+      procedure.proname,
+      pg_get_functiondef(procedure.oid) as definition
+    from pg_proc as procedure
+    join pg_namespace as namespace on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'api'
+      and procedure.proname in (
+        'get_public_expense_lines',
+        'get_public_revenues'
+      )
+    order by procedure.proname
+  `);
+  assert.equal(financeRowDefinitions.rows.length, 2);
+  for (const row of financeRowDefinitions.rows) {
+    assert.doesNotMatch(
+      row.definition,
+      /finance\.has_exact_document_lineage\s*\(/,
+      `${row.proname} não pode validar linhagem linha a linha`,
+    );
+    assert.match(
+      row.definition,
+      /finance\.get_exact_document_lineage_pairs\s*\(/,
+      `${row.proname} deve usar a projeção set-based de linhagem`,
+    );
+  }
+
   const publicFinanceSignals = await database.query(`
     select finding_id from api.get_public_finance_signals(20)
     order by finding_id
