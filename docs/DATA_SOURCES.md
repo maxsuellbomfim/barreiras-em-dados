@@ -89,6 +89,10 @@ quatro recursos adicionais no portal da Prefeitura:
   projetado publicamente antes do gate de minimização do ADR 0072. O primeiro
   PDF pode ultrapassar sozinho o teto para impedir inanição da fila; o restante
   é adiado com cobertura `partial`, nunca descartado silenciosamente.
+  Em amostra `tipo=1` de julho/2026, 133 subtotais do PDF fecharam exatamente
+  com o total geral de quantidade, proventos, descontos e líquido. O parser
+  agregado não conserva nenhum campo individual; detalhes e hash estão em
+  `docs/reviews/STAGE_4_PAYROLL_LAYOUT_REVIEW.md`.
 
 Nenhum desses documentos, isoladamente, representa o total da dívida do
 Município. A consolidação futura exigirá natureza da obrigação, competência,
