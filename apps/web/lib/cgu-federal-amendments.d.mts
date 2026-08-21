@@ -68,13 +68,20 @@ export type CguLegislatureRankingRow = Readonly<{
   authorKind: Exclude<CguFederalAmendmentAuthorKind, "other">;
   authorKey: string;
   authorName: string;
+  authorCode: string;
+  representativeSourceKind: "federal" | null;
+  representativeExternalId: string | null;
+  representativeProfileUrl: string | null;
+  associationStatus:
+    | "approved_official_author_code_crosswalk"
+    | "not_linked";
   amendmentCount: number;
   committedAmount: string;
   effectivePaidAmount: string;
   firstYear: number;
   lastYear: number;
   rankingAmountStage: "committed";
-  methodologyVersion: "cgu-federal-amendment-legislature-ranking/1.0.0";
+  methodologyVersion: "cgu-federal-amendment-legislature-ranking/2.0.0";
 }>;
 
 export type CguLegislatureRankingGroup = Readonly<{

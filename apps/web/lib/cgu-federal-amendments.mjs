@@ -181,7 +181,7 @@ export function parseCguFederalAmendmentRankingRows(rows, scope) {
 }
 
 const LEGISLATURE_RANKING_METHODOLOGY =
-  "cgu-federal-amendment-legislature-ranking/1.0.0";
+  "cgu-federal-amendment-legislature-ranking/2.0.0";
 
 function parseLegislatureRankingRow(row) {
   if (typeof row !== "object" || row === null) return null;
@@ -194,6 +194,17 @@ function parseLegislatureRankingRow(row) {
   const authorKind = requiredText(row.author_kind);
   const authorKey = requiredText(row.author_key);
   const authorName = requiredText(row.author_name);
+  const authorCode = requiredText(row.author_code);
+  const representativeSourceKind = requiredText(
+    row.representative_source_kind,
+  );
+  const representativeExternalId = requiredText(
+    row.representative_external_id,
+  );
+  const representativeProfileUrl = requiredText(
+    row.representative_profile_url,
+  );
+  const associationStatus = requiredText(row.association_status);
   const amendmentCount = integer(row.amendment_count, 1);
   const committedAmount = decimal(row.committed_amount);
   const effectivePaidAmount = decimal(row.effective_paid_amount);
@@ -210,13 +221,22 @@ function parseLegislatureRankingRow(row) {
     fullFiscalYearFrom === null || fullFiscalYearTo === null ||
     fullFiscalYearFrom > fullFiscalYearTo || !authorScope ||
     rankPosition === null || !authorKind || !scopeMatchesKind ||
-    !authorKey || !authorName || amendmentCount === null ||
+    !authorKey || !authorName || !authorCode || amendmentCount === null ||
     !committedAmount || !effectivePaidAmount ||
     firstYear === null || lastYear === null || firstYear > lastYear ||
     firstYear < fullFiscalYearFrom || lastYear > fullFiscalYearTo ||
     row.ranking_amount_stage !== "committed" ||
     row.methodology_version !== LEGISLATURE_RANKING_METHODOLOGY
   ) return null;
+  const approvedAssociation =
+    associationStatus === "approved_official_author_code_crosswalk" &&
+    authorScope === "person" && representativeSourceKind === "federal" &&
+    Boolean(representativeExternalId) &&
+    representativeProfileUrl?.startsWith("https://");
+  const absentAssociation = associationStatus === "not_linked" &&
+    representativeSourceKind === null && representativeExternalId === null &&
+    representativeProfileUrl === null;
+  if (!approvedAssociation && !absentAssociation) return null;
   return {
     legislatureNumber,
     legislatureLabel,
@@ -227,6 +247,11 @@ function parseLegislatureRankingRow(row) {
     authorKind,
     authorKey,
     authorName,
+    authorCode,
+    representativeSourceKind,
+    representativeExternalId,
+    representativeProfileUrl,
+    associationStatus,
     amendmentCount,
     committedAmount,
     effectivePaidAmount,
