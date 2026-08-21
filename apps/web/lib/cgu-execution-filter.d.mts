@@ -17,3 +17,5 @@ export function filterCguExecutionAmendments(
 ): readonly CguFederalAmendment[];
 
 export function cguExecutionResultCountCopy(count: number): string;
+
+export function cguExecutionAuthorHref(authorKey: string): string;

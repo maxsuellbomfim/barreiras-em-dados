@@ -378,6 +378,14 @@ histórico e emendas estaduais. Somente uma origem aparece por vez, impedindo
 que autorização estadual, indicação histórica e pagamento federal sejam lidos
 como etapas ou valores do mesmo conjunto.
 
+A cobertura federal também passa a ser comparável por fonte e ano em uma matriz
+pública: execução regionalizada da CGU, arquivo histórico do Transferegov e API
+atual de convênios. Cada célula distingue registro encontrado, fonte conferida
+sem linha municipal e coleta incompleta. O ranking individual da CGU oferece um
+atalho para as linhas oficiais que o compõem. A próxima menor fatia é usar essa
+matriz para orientar o backfill dos anos/fontes ainda não classificados, sem
+fabricar zeros e sem somar séries sobrepostas.
+
 O catálogo oficial dos arquivos históricos de transferências discricionárias
 e legais passa a ser preservado diariamente como uma fonte separada. O
 manifesto monitora oito conjuntos essenciais e interrompe a cobertura quando

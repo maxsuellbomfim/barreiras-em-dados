@@ -37,10 +37,18 @@ import {
   type CguFederalAmendmentsResult,
 } from "../../lib/cgu-federal-amendments";
 import {
+  cguExecutionAuthorHref,
   cguExecutionResultCountCopy,
   filterCguExecutionAmendments,
   resolveCguExecutionFilters,
 } from "../../lib/cgu-execution-filter.mjs";
+import { getPublicFederalTransferSourceCoverage } from
+  "../../lib/federal-transfer-source-coverage";
+import {
+  groupFederalTransferSourceCoverage,
+  type FederalTransferSourceCoverage,
+  type FederalTransferSourceKey,
+} from "../../lib/federal-transfer-source-coverage.mjs";
 import { getPublicParliamentaryLegislatureRankings } from
   "../../lib/legislature-transfer-rankings";
 import { getPublicParliamentaryLegislatureCoverage } from
@@ -156,6 +164,108 @@ function CoveragePanel({
         oficiais. Por isso, o arquivo histórico federal aparece em uma seção
         separada abaixo, sem transformar dado não coletado em zero.
       </p>
+    </details>
+  );
+}
+
+const FEDERAL_COVERAGE_SOURCES: readonly Readonly<{
+  key: FederalTransferSourceKey;
+  label: string;
+}>[] = [
+  { key: "cgu_execution", label: "Execução direta · CGU" },
+  { key: "transferegov_historical", label: "Arquivo de convênios" },
+  { key: "transferegov_current", label: "API atual de convênios" },
+];
+
+function federalCoverageStatusCopy(
+  row: FederalTransferSourceCoverage | undefined,
+): string {
+  if (!row) return "fora do recorte desta fonte";
+  if (row.coverageStatus === "observed") {
+    return row.recordCount === 1
+      ? "1 linha oficial encontrada"
+      : `${row.recordCount?.toLocaleString("pt-BR")} linhas oficiais encontradas`;
+  }
+  if (row.coverageStatus === "empty") {
+    return "nenhuma linha atribuída a Barreiras";
+  }
+  if (row.coverageStatus === "partial") return "coleta parcial";
+  if (row.coverageStatus === "failed") return "consulta falhou";
+  if (row.coverageStatus === "blocked") return "fonte bloqueou a coleta";
+  return "ainda não classificado";
+}
+
+function FederalTransferSourceCoveragePanel({
+  rows,
+}: Readonly<{ rows: readonly FederalTransferSourceCoverage[] | null }>) {
+  const groups = rows ? groupFederalTransferSourceCoverage(rows) : [];
+  const sourceUrls = new Map<FederalTransferSourceKey, string>();
+  for (const row of rows ?? []) sourceUrls.set(row.sourceKey, row.sourceUrl);
+
+  return (
+    <details className="transfer-methodology transfer-source-coverage">
+      <summary>Quais anos cada fonte federal já conferiu?</summary>
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Cobertura verificável</span>
+          <h2>O que foi encontrado em cada base oficial</h2>
+        </div>
+        <p>
+          Cada coluna é uma fonte diferente. Elas não são somadas e podem cobrir
+          caminhos distintos do recurso público.
+        </p>
+      </div>
+      <p>
+        <strong>“Nenhuma linha atribuída a Barreiras”</strong> significa que a
+        fonte foi consultada e não devolveu registro municipal naquele ano. Isso
+        não prova ausência em outras bases e <strong>não significa valor financeiro zero</strong>.
+      </p>
+      {groups.length === 0 ? (
+        <p className="transfer-coverage-unavailable">
+          O diagnóstico comparativo está temporariamente indisponível. Os registros
+          oficiais já publicados abaixo permanecem preservados.
+        </p>
+      ) : (
+        <div className="transfer-source-coverage-scroll">
+          <table>
+            <caption>Cobertura anual das três séries federais consultadas</caption>
+            <thead>
+              <tr>
+                <th scope="col">Ano</th>
+                {FEDERAL_COVERAGE_SOURCES.map((source) => (
+                  <th scope="col" key={source.key}>
+                    {sourceUrls.has(source.key) ? (
+                      <a href={sourceUrls.get(source.key)} rel="noreferrer" target="_blank">
+                        {source.label}
+                      </a>
+                    ) : source.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((group) => (
+                <tr key={group.fiscalYear}>
+                  <th scope="row">{group.fiscalYear}</th>
+                  {FEDERAL_COVERAGE_SOURCES.map((source) => {
+                    const row = group.sources.find((item) => item.sourceKey === source.key);
+                    return (
+                      <td data-status={row?.coverageStatus ?? "outside"} key={source.key}>
+                        <strong>{federalCoverageStatusCopy(row)}</strong>
+                        {row?.lastAttemptedAt ? (
+                          <small>
+                            Conferido em {dateTimeFormatter.format(new Date(row.lastAttemptedAt))}
+                          </small>
+                        ) : null}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </details>
   );
 }
@@ -794,9 +904,11 @@ const CGU_LINK_STATUS_COPY: Readonly<Record<
 function CguRankingList({
   rows,
   scopeLabel,
+  showInvestigationLink = false,
 }: Readonly<{
   rows: readonly CguFederalAmendmentRanking[];
   scopeLabel: string;
+  showInvestigationLink?: boolean;
 }>) {
   if (rows.length === 0) {
     return (
@@ -838,6 +950,11 @@ function CguRankingList({
               <dd>{row.firstYear === row.lastYear ? row.firstYear : `${row.firstYear}–${row.lastYear}`}</dd>
             </div>
           </dl>
+          {showInvestigationLink ? (
+            <a className="transfer-ranking-action" href={cguExecutionAuthorHref(row.authorKey)}>
+              Ver linhas oficiais deste parlamentar
+            </a>
+          ) : null}
         </article>
       ))}
     </div>
@@ -1038,7 +1155,11 @@ function CguFederalExecutionPanel({
         </p>
       </aside>
       <h3>Autoria individual</h3>
-      <CguRankingList rows={result.people} scopeLabel="individual" />
+      <CguRankingList
+        rows={result.people}
+        scopeLabel="individual"
+        showInvestigationLink
+      />
       <h3>Comissões e bancadas</h3>
       <CguRankingList rows={result.collectives} scopeLabel="coletiva" />
       {filteredAmendments.length > 0 ? (
@@ -1649,6 +1770,7 @@ export default async function ParliamentaryResourcesPage({
     legislatureYearCoverageResult,
     cguFederalAmendmentsResult,
     cguLegislatureRankingsResult,
+    federalSourceCoverageResult,
   ] = await Promise.all([
     getPublicParliamentaryTransfers({
       stateFiscalYear: selectedStateFiscalYear,
@@ -1668,7 +1790,13 @@ export default async function ParliamentaryResourcesPage({
     sourceSelection.showLegislatures
       ? getPublicCguFederalAmendmentLegislatureRankings()
       : Promise.resolve({ state: "unavailable" as const }),
+    sourceSelection.showState
+      ? Promise.resolve({ state: "unavailable" as const })
+      : getPublicFederalTransferSourceCoverage(),
   ]);
+  const federalSourceCoverage = federalSourceCoverageResult.state === "available"
+    ? federalSourceCoverageResult.rows
+    : null;
   const legislatureRankingGroups =
     legislatureRankingsResult.state === "available"
       ? legislatureRankingsResult.groups
@@ -1809,6 +1937,10 @@ export default async function ParliamentaryResourcesPage({
             <span>O que deputados estaduais autorizaram no orçamento do estado, com execução conferida.</span>
           </a>
         </nav>
+
+        {!sourceSelection.showState ? (
+          <FederalTransferSourceCoveragePanel rows={federalSourceCoverage} />
+        ) : null}
 
         {sourceSelection.showLegislatures ? (
           <LegislatureTransferRankings

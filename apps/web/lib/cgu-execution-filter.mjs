@@ -48,3 +48,10 @@ export function cguExecutionResultCountCopy(count) {
     ? "1 linha oficial encontrada com estes filtros."
     : `${count.toLocaleString("pt-BR")} linhas oficiais encontradas com estes filtros.`;
 }
+
+/**
+ * @param {string} authorKey
+ */
+export function cguExecutionAuthorHref(authorKey) {
+  return `/recursos?origem=federal-execucao&autor=${encodeURIComponent(authorKey)}`;
+}
