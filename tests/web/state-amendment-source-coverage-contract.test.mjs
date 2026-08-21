@@ -20,6 +20,13 @@ const historicalKeyGapMigration = readFileSync(
   ),
   "utf8",
 );
+const timeoutFixMigration = readFileSync(
+  new URL(
+    "../../supabase/migrations/20260821190000_fix_state_coverage_rpc_timeout.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const page = readFileSync(
   new URL("../../apps/web/app/recursos/page.tsx", import.meta.url),
   "utf8",
@@ -192,6 +199,19 @@ test("migration histórica classifica a lacuna documental sem fabricar contagens
   );
   assert.match(historicalKeyGapMigration, /between 2022 and 2025/);
   assert.doesNotMatch(historicalKeyGapMigration, /similarity\s*\(/i);
+});
+
+test("RPC anual usa o snapshot e não recalcula a reconciliação bruta", () => {
+  assert.match(
+    timeoutFixMigration,
+    /from territory\.bahia_state_loa_execution_reconciliation_snapshot\s+as reconciliation/,
+  );
+  assert.doesNotMatch(
+    timeoutFixMigration,
+    /from territory\.bahia_state_loa_execution_reconciliation\s+as reconciliation/,
+  );
+  assert.match(timeoutFixMigration, /set search_path = ''/);
+  assert.match(timeoutFixMigration, /revoke all on function[\s\S]+from public/);
 });
 
 test("página explica cobertura estadual sem inventar pagamento", () => {
