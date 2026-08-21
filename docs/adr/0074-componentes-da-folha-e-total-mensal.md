@@ -41,3 +41,14 @@ oficiais sem dupla contagem de vínculos. Um segundo PDF não é tratado como
 retificação sem evidência. Relatórios de terceirizados e estagiários permanecem
 fora desta projeção até receberem classificação documental própria; sua ausência
 no total será documentada, nunca convertida em zero.
+
+## Correção de classificação em 21 de agosto de 2026
+
+O PDF oficial de janeiro de 2025 trouxe `1-Normal, 4-Adiant. 13º` no mesmo
+campo `FOLHA.........:`. O parser 1.2.0 avaliava os marcadores em ordem e
+classificou indevidamente o documento inteiro como adiantamento do 13º. A
+versão 1.3.0 passa a detectar todos os marcadores de forma independente e
+rejeita esse documento como ciclo misto. O agregado produzido pela versão
+anterior permanece preservado, mas recebe invalidação append-only e deixa de
+compor a projeção pública. Sem um PDF que separe os ciclos, janeiro não é
+apresentado como folha regular nem como total mensal fechado.

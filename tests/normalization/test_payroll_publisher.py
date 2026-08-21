@@ -188,7 +188,7 @@ class PayrollPublisherTests(unittest.TestCase):
                 2021,
                 2026,
                 date(2026, 7, 1),
-                "payroll-report-aggregate/1.2.0",
+                "payroll-report-aggregate/1.3.0",
                 PAYROLL_PUBLICATION_JOB_TYPE,
                 5,
             ),

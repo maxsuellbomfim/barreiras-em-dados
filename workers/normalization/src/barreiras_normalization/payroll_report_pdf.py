@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.2.0"
+PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.3.0"
 PayrollCycle = Literal[
     "regular",
     "thirteenth_advance",
@@ -136,15 +136,19 @@ def _payroll_cycle(text: str) -> PayrollCycle:
                 )
             )
     for label in labels:
-        if re.search(r"\b4\s*-\s*Adiant", label, re.IGNORECASE):
-            observed.add("thirteenth_advance")
-        elif re.search(r"\b6\s*-\s*13\S*\s+Final", label, re.IGNORECASE):
-            observed.add("thirteenth_final")
-        elif re.search(r"\b1\s*-\s*Normal", label, re.IGNORECASE) or re.search(
+        matched = False
+        if re.search(r"\b1\s*-\s*Normal", label, re.IGNORECASE) or re.search(
             r"<\s*Todos\s*>", label, re.IGNORECASE
         ):
             observed.add("regular")
-        else:
+            matched = True
+        if re.search(r"\b4\s*-\s*Adiant", label, re.IGNORECASE):
+            observed.add("thirteenth_advance")
+            matched = True
+        if re.search(r"\b6\s*-\s*13\S*\s+Final", label, re.IGNORECASE):
+            observed.add("thirteenth_final")
+            matched = True
+        if not matched:
             unknown_header = True
     if not header_found or unknown_header or len(observed) != 1:
         raise PayrollReportContractError(

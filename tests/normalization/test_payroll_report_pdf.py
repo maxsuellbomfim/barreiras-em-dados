@@ -80,6 +80,18 @@ class PayrollReportPdfTests(unittest.TestCase):
         with self.assertRaisesRegex(PayrollReportContractError, "processamento"):
             parse_payroll_report_aggregate(mixed)
 
+    def test_rejects_mixed_cycles_listed_in_the_same_official_field(
+        self,
+    ) -> None:
+        regular = FIXTURE.read_text(encoding="utf-8")
+        mixed = regular.replace(
+            "1-Normal, 3-Complementar, 9-Rescisão",
+            "1-Normal, 4-Adiant. 13º",
+        )
+
+        with self.assertRaisesRegex(PayrollReportContractError, "misto"):
+            parse_payroll_report_aggregate(mixed)
+
     def test_accepts_mojibake_observed_in_official_pdf_text(self) -> None:
         text = (
             "Listagem Sint�tica E-TCM\n"
