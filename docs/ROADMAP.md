@@ -236,6 +236,13 @@ explicação simples); canal público de correção via issues do repositório
 decisão do titular; obrigatório antes do lançamento), dupla revisão de
 amostra e testes negativos de autorização em produção.
 
+Checkpoint de estabilidade em 20/08/2026: a projeção pública de atos passou
+a resolver, em conjuntos materializados, a revisão editorial vigente, o
+enriquecimento assistido anterior à aprovação e os metadados da edição. A
+mudança elimina subconsultas repetidas por ato e preserva os mesmos critérios
+de aprovação, deduplicação, evidência e ordenação; seu contrato de migração
+impede a reintrodução desse padrão sujeito a timeout.
+
 - admin com MFA e estados editoriais;
 - aprovação/rejeição auditada;
 - projeção pública somente de aprovados;
