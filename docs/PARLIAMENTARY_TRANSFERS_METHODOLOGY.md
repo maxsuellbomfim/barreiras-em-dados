@@ -372,8 +372,10 @@ objeto e ligam de forma única a duas emendas publicadas com o autor `Tito`:
 R$ 594.841,25 na emenda 40720003/2021 e R$ 162.063,50 em dois pagamentos da
 emenda 40720005/2021. Esses R$ 756.904,75 são descritos apenas como pagamentos
 estaduais com objeto que menciona Barreiras. Não são somados ao valor recebido
-pela Prefeitura nem a ranking parlamentar enquanto esfera, pessoa, território
-e evidência por linha não forem reconciliados deterministicamente.
+pela Prefeitura, à LOA, à CGU ou ao Transferegov. A autoria entra no ranking
+desta fonte somente porque o bloco oficial 4072 foi ligado, para 2019-2023, ao
+perfil institucional de Carlos Tito Marques Cordeiro. Não há aproximação por
+nome e o vínculo não vale fora desse período.
 
 A normalização usa a cadeia oficial pagamento → centralização → despesa. Ela
 aceita várias liquidações relacionadas à mesma despesa, mas bloqueia qualquer
@@ -381,8 +383,13 @@ pagamento associado a despesas distintas. CPF/CNPJ e nome do credor são
 descartados antes da criação do resultado normalizado. Datas com o sufixo de
 meia-noite publicado pela fonte são convertidas apenas para a data civil;
 valores ausentes, como GCV nas três linhas territoriais, permanecem nulos. O
-resultado ainda é candidato documental: autoria, esfera e período precisam de
-reconciliação oficial antes da publicação ou de qualquer ranking.
+As linhas validadas são publicadas pelas versões
+`bahia-special-transfer-payments/1.0.0` e
+`bahia-special-transfer-ranking/1.0.0`. A interface denomina o estágio
+“pago pelo Estado” e repete os dois limites materiais: a evidência não comprova
+receita recebida pela Prefeitura nem entrega física do objeto. O ranking é
+restrito a esta fonte estadual e somente aceita identidades aprovadas pelo
+crosswalk de código oficial e período.
 
 O documento de descoberta e os contratos do conector registram as contagens,
 o CSV malformado da fonte e o gate de publicação em

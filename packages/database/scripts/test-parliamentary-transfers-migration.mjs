@@ -303,6 +303,53 @@ try {
     worker_state_loa_execution_snapshot_refresh: true,
   }]);
 
+  const specialTransferContracts = await database.query(`
+    select
+      to_regclass(
+        'political.parliamentary_author_code_crosswalk'
+      )::text as author_code_crosswalk,
+      to_regclass(
+        'territory.bahia_special_transfer_payments'
+      )::text as payment_projection,
+      to_regclass(
+        'territory.bahia_special_transfer_federal_links'
+      )::text as federal_link_projection,
+      to_regprocedure(
+        'api.get_public_bahia_special_transfer_payments(smallint,text,integer)'
+      )::text as payment_rpc,
+      to_regprocedure(
+        'api.get_public_bahia_special_transfer_ranking(smallint,integer)'
+      )::text as ranking_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_bahia_special_transfer_payments(smallint,text,integer)',
+        'EXECUTE'
+      ) as anon_payment_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_bahia_special_transfer_ranking(smallint,integer)',
+        'EXECUTE'
+      ) as anon_ranking_rpc,
+      has_table_privilege(
+        'anon',
+        'political.parliamentary_author_code_crosswalk',
+        'SELECT'
+      ) as anon_crosswalk_select
+  `);
+  assert.deepEqual(specialTransferContracts.rows, [{
+    author_code_crosswalk: "political.parliamentary_author_code_crosswalk",
+    payment_projection: "territory.bahia_special_transfer_payments",
+    federal_link_projection:
+      "territory.bahia_special_transfer_federal_links",
+    payment_rpc:
+      "api.get_public_bahia_special_transfer_payments(smallint,text,integer)",
+    ranking_rpc:
+      "api.get_public_bahia_special_transfer_ranking(smallint,integer)",
+    anon_payment_rpc: true,
+    anon_ranking_rpc: true,
+    anon_crosswalk_select: false,
+  }]);
+
   const completedStateAuthorCrosswalk = await database.query(`
     select author_key, representative_source_kind,
       representative_external_id, review_status
@@ -2521,6 +2568,152 @@ try {
     "a serie CGU por legislatura nao pode misturar valores do Transferegov",
   );
 
+  await database.exec(`
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000009501',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'bahia-open-data'
+         and endpoint.slug = 'state-special-transfers'),
+      'bahia-special-transfer-fixture-run', 'test/1', 'succeeded'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key,
+      collector_version, content_type
+    ) values (
+      '00000000-0000-0000-0000-000000009502',
+      '00000000-0000-0000-0000-000000009501',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'bahia-open-data'
+         and endpoint.slug = 'state-special-transfers'),
+      'bahia-special-transfer-fixture-artifact', 'archive',
+      'https://dados.ba.gov.br/dataset/f2ecd7fa-24ce-4be2-80d5-08e2c11e3e1c/resource/809f9b7d-c252-482d-9c92-f2169d48c29c/download/transferenciasespeciais.zip',
+      '2026-08-21 05:00:00+00', 554925, '${"95".repeat(32)}',
+      'bahia/transferencias-especiais/fixture.zip', 'test/1',
+      'application/zip'
+    );
+    insert into raw.extraction_jobs (
+      id, raw_artifact_id, job_type, idempotency_key, status, attempt_count
+    ) values (
+      '00000000-0000-0000-0000-000000009503',
+      '00000000-0000-0000-0000-000000009502',
+      'bahia_special_transfer_payment_extraction',
+      'bahia-special-transfer-fixture-job', 'succeeded', 1
+    );
+    insert into raw.extraction_results (
+      id, extraction_job_id, candidate_type, extractor_version,
+      validator_version, result_payload, validation_status
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009510',
+        '00000000-0000-0000-0000-000000009503',
+        'bahia_special_transfer_payment_candidate',
+        'bahia-special-transfer-payment/1.0.0',
+        'bahia-special-transfer-payment-validator/1.0.0',
+        '{"schema_name":"bahia-special-transfer-payment-candidate","schema_version":"1.0.0","fiscal_year":2022,"amendment_number":"40720003","amendment_year":2021,"author_name":"Tito","agency_name":"Secretaria estadual","agency_code":"SEAGRI","budget_unit_name":"Unidade estadual","budget_unit_code":"UO1","action_name":"Apoio hidrico","expense_code":"2022.1.1.1.1.1.1.1.1","execution_code":"2022.1.1.1.1.1.1.1.1","liquidation_codes":["L1"],"payment_id":"123456789012345678","payment_number":"P1","payment_date":"2022-10-05","payment_amount":"594841.25","gcv_amount":null,"payment_status":"Sim","object_text":"Pecas para pocos em Barreiras","payment_url":"https://www.transparencia.ba.gov.br/pagamento/1","territorial_scope":"payment_object_literal_barreiras","evidence_text":"evidencia 1","evidence_sha256":"${"a1".repeat(32)}","parser_version":"bahia-special-transfer-payment/1.0.0","source_url":"https://dados.ba.gov.br/transferencias-especiais","source_artifact_sha256":"${"95".repeat(32)}","source_collected_at":"2026-08-21T05:00:00+00:00"}',
+        'valid'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009511',
+        '00000000-0000-0000-0000-000000009503',
+        'bahia_special_transfer_payment_candidate',
+        'bahia-special-transfer-payment/1.0.0',
+        'bahia-special-transfer-payment-validator/1.0.0',
+        '{"schema_name":"bahia-special-transfer-payment-candidate","schema_version":"1.0.0","fiscal_year":2022,"amendment_number":"40720005","amendment_year":2021,"author_name":"Tito","agency_name":"Secretaria estadual","agency_code":"SEAGRI","budget_unit_name":"Unidade estadual","budget_unit_code":"UO1","action_name":"Apoio hidrico","expense_code":"2022.1.1.1.1.1.1.1.2","execution_code":"2022.1.1.1.1.1.1.1.2","liquidation_codes":["L2"],"payment_id":"123456789012345679","payment_number":"P2","payment_date":"2022-11-17","payment_amount":"75300.00","gcv_amount":null,"payment_status":"Sim","object_text":"Equipamentos para pocos em Barreiras","payment_url":"https://www.transparencia.ba.gov.br/pagamento/2","territorial_scope":"payment_object_literal_barreiras","evidence_text":"evidencia 2","evidence_sha256":"${"a2".repeat(32)}","parser_version":"bahia-special-transfer-payment/1.0.0","source_url":"https://dados.ba.gov.br/transferencias-especiais","source_artifact_sha256":"${"95".repeat(32)}","source_collected_at":"2026-08-21T05:00:00+00:00"}',
+        'valid'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009512',
+        '00000000-0000-0000-0000-000000009503',
+        'bahia_special_transfer_payment_candidate',
+        'bahia-special-transfer-payment/1.0.0',
+        'bahia-special-transfer-payment-validator/1.0.0',
+        '{"schema_name":"bahia-special-transfer-payment-candidate","schema_version":"1.0.0","fiscal_year":2022,"amendment_number":"40720005","amendment_year":2021,"author_name":"Tito","agency_name":"Secretaria estadual","agency_code":"SEAGRI","budget_unit_name":"Unidade estadual","budget_unit_code":"UO1","action_name":"Apoio hidrico","expense_code":"2022.1.1.1.1.1.1.1.3","execution_code":"2022.1.1.1.1.1.1.1.3","liquidation_codes":["L3"],"payment_id":"123456789012345680","payment_number":"P3","payment_date":"2022-11-17","payment_amount":"86763.50","gcv_amount":null,"payment_status":"Sim","object_text":"Equipamentos para pocos em Barreiras","payment_url":"https://www.transparencia.ba.gov.br/pagamento/3","territorial_scope":"payment_object_literal_barreiras","evidence_text":"evidencia 3","evidence_sha256":"${"a3".repeat(32)}","parser_version":"bahia-special-transfer-payment/1.0.0","source_url":"https://dados.ba.gov.br/transferencias-especiais","source_artifact_sha256":"${"95".repeat(32)}","source_collected_at":"2026-08-21T05:00:00+00:00"}',
+        'valid'
+      );
+
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values (
+      '00000000-0000-0000-0000-000000009416',
+      '00000000-0000-0000-0000-000000009402',
+      'cgu:federal-amendment:2021:202140720003:fixture',
+      'cgu_federal_amendment_execution', 6,
+      '{"fiscal_year":2021,"amendment_code":"202140720003","amendment_number":"0003","amendment_type":"Emenda Individual - Transferencias com Finalidade Definida","author_code":"4072","author_name":"TITO","locality":"BARREIRAS - BA","municipality_ibge":"2903201","municipality_name":"BARREIRAS","state_ibge":"2900000","state_name":"BAHIA","region_name":"Nordeste","function_code":"20","function_name":"Agricultura","subfunction_code":"544","subfunction_name":"Recursos hidricos","program_code":"2208","program_name":"Desenvolvimento regional","action_code":"20ZV","action_name":"Apoio hidrico","budget_plan_code":"0000","budget_plan_name":"Despesas diversas","committed_amount":"594841.25","liquidated_amount":"594841.25","paid_amount":"594841.25","outstanding_registered_amount":"0.00","outstanding_cancelled_amount":"0.00","outstanding_paid_amount":"0.00","source_row_number":57001}',
+      '${"d7".repeat(32)}', 'cgu-federal-amendments/1.0.0',
+      'cgu-fixture-record-0006', '2026-08-21 05:00:00+00'
+    );
+  `);
+
+  const specialTransferPayments = await database.query(`
+    select amendment_number, official_author_name,
+      representative_external_id, payment_date, payment_amount,
+      financial_stage, federal_link_status, aggregation_policy
+    from api.get_public_bahia_special_transfer_payments(null, null, 100)
+  `);
+  assert.deepEqual(specialTransferPayments.rows, [
+    {
+      amendment_number: "40720005",
+      official_author_name: "Carlos Tito Marques Cordeiro",
+      representative_external_id: "197438",
+      payment_date: new Date("2022-11-17T00:00:00.000Z"),
+      payment_amount: "86763.50",
+      financial_stage: "paid_by_bahia_state",
+      federal_link_status: "not_found_in_cgu",
+      aggregation_policy: "single_source_no_cross_source_sum",
+    },
+    {
+      amendment_number: "40720005",
+      official_author_name: "Carlos Tito Marques Cordeiro",
+      representative_external_id: "197438",
+      payment_date: new Date("2022-11-17T00:00:00.000Z"),
+      payment_amount: "75300.00",
+      financial_stage: "paid_by_bahia_state",
+      federal_link_status: "not_found_in_cgu",
+      aggregation_policy: "single_source_no_cross_source_sum",
+    },
+    {
+      amendment_number: "40720003",
+      official_author_name: "Carlos Tito Marques Cordeiro",
+      representative_external_id: "197438",
+      payment_date: new Date("2022-10-05T00:00:00.000Z"),
+      payment_amount: "594841.25",
+      financial_stage: "paid_by_bahia_state",
+      federal_link_status: "matched_cgu_unique",
+      aggregation_policy: "single_source_no_cross_source_sum",
+    },
+  ]);
+
+  const specialTransferRanking = await database.query(`
+    select rank_position, official_author_name, representative_external_id,
+      payment_count, amendment_count, paid_amount, first_payment_date,
+      last_payment_date, ranking_amount_stage, aggregation_policy
+    from api.get_public_bahia_special_transfer_ranking(null, 10)
+  `);
+  assert.deepEqual(specialTransferRanking.rows, [{
+    rank_position: 1,
+    official_author_name: "Carlos Tito Marques Cordeiro",
+    representative_external_id: "197438",
+    payment_count: 3,
+    amendment_count: 2,
+    paid_amount: "756904.75",
+    first_payment_date: new Date("2022-10-05T00:00:00.000Z"),
+    last_payment_date: new Date("2022-11-17T00:00:00.000Z"),
+    ranking_amount_stage: "paid_by_bahia_state",
+    aggregation_policy: "single_source_no_cross_source_sum",
+  }]);
+
+  assert.equal(JSON.stringify(specialTransferPayments.rows).includes("cpf"), false);
+  assert.equal(JSON.stringify(specialTransferPayments.rows).includes("cnpj"), false);
+  assert.equal(JSON.stringify(specialTransferPayments.rows).includes("creditor"), false);
+
   await database.exec("set role anon");
   await assert.rejects(
     database.query("select * from territory.parliamentary_transfers"),
@@ -2532,6 +2725,16 @@ try {
   );
   await assert.rejects(
     database.query("select * from political.legislative_terms"),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from political.parliamentary_author_code_crosswalk",
+    ),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query("select * from territory.bahia_special_transfer_payments"),
     /permission denied/,
   );
   await assert.rejects(
