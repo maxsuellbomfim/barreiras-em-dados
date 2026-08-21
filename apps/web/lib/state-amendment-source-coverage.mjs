@@ -21,7 +21,16 @@ function count(value) {
 }
 
 function decimal(value) {
-  return typeof value === "string" && DECIMAL.test(value) ? value : null;
+  if (typeof value === "string" && DECIMAL.test(value)) return value;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const roundedCents = Math.round(value * 100);
+    if (!Number.isSafeInteger(roundedCents)) return null;
+    const normalizedValue = roundedCents / 100;
+    const tolerance = Number.EPSILON * Math.max(1, Math.abs(value)) * 4;
+    if (Math.abs(value - normalizedValue) > tolerance) return null;
+    return normalizedValue.toFixed(2);
+  }
+  return null;
 }
 
 function parseRow(row) {
