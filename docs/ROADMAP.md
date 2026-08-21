@@ -356,8 +356,11 @@ agregado suave de 64 MiB e retomada explícita quando o lote fica parcial, sem
 criar projeção pública. O leiaute `tipo=1` foi validado em 495 páginas de
 julho/2026: 133 subtotais fecham exatamente com o total geral, e o parser
 `payroll-report-aggregate/1.0.0` devolve somente quantidade, provento, desconto
-e líquido agregados. A próxima fatia deve persistir a competência com linhagem
-e publicar somente esses agregados; descontos pessoais e campos sensíveis
+e líquido agregados. A competência passa a ter persistência append-only em
+`hr.payroll_report_aggregates`, com linhagem obrigatória até o catálogo e o PDF,
+aritmética exata e projeção pública mínima pela RPC
+`api.get_public_payroll_months`. A próxima fatia liga o parser ao worker para
+popular a primeira competência real; descontos pessoais e campos sensíveis
 permanecem vedados.
 
 ## Etapa 5 — Fluxos territoriais
