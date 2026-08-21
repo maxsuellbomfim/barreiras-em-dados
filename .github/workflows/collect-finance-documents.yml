@@ -356,7 +356,7 @@ jobs:
       APP_ENV: production
       LOG_LEVEL: INFO
       PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONPATH: workers/collectors/src
+      PYTHONPATH: workers/collectors/src:workers/normalization/src
       PERSISTENCE_MODE: postgres-supabase
       DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
       SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
@@ -392,6 +392,12 @@ jobs:
         run: >-
           python -B -m
           barreiras_collectors.commands.collect_bahia_special_transfers
+
+      - name: Normalizar pagamentos que mencionam Barreiras
+        run: >-
+          python -B -m
+          barreiras_normalization.commands.process_bahia_special_transfers
+          --limit "1"
 
   bahia_state_loa_amendments:
     name: Preservar anexos territoriais da LOA da Bahia

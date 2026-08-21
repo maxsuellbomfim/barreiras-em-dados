@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreirasemdados.org/schemas/bahia-special-transfer-scope-summary/1-0-0",
+  "title": "Bahia special transfer territorial processing summary",
+  "description": "Resumo técnico versionado que distingue um retrato processado sem candidatos de um retrato ainda não processado.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_name",
+    "schema_version",
+    "candidate_count",
+    "territorial_scope",
+    "public_projection",
+    "source_url",
+    "source_artifact_sha256",
+    "source_collected_at",
+    "parser_version"
+  ],
+  "properties": {
+    "schema_name": { "const": "bahia-special-transfer-scope-summary" },
+    "schema_version": { "const": "1.0.0" },
+    "candidate_count": { "type": "integer", "minimum": 0 },
+    "territorial_scope": {
+      "const": "payment_object_literal_barreiras"
+    },
+    "public_projection": {
+      "const": "blocked_pending_author_reconciliation"
+    },
+    "source_url": { "type": "string", "pattern": "^https://" },
+    "source_artifact_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_collected_at": { "type": "string", "format": "date-time" },
+    "parser_version": { "const": "bahia-special-transfer-payment/1.0.0" }
+  }
+}

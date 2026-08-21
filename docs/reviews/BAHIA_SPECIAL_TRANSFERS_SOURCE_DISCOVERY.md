@@ -52,11 +52,33 @@ não declara, em campo próprio, se a autoria pertence à esfera federal ou
 estadual. O número da emenda, o exercício e outras fontes oficiais deverão
 resolver identidade e esfera antes de qualquer inclusão em ranking.
 
+## Normalização determinística
+
+O parser `bahia-special-transfer-payment/1.0.0` restaura a view de pagamentos
+pelos limites estruturados já validados na coleta e descarta CPF/CNPJ e nome do
+credor antes de criar qualquer resultado. CPF ou CNPJ eventualmente escrito no
+próprio objeto também é mascarado na evidência normalizada; o original continua
+somente no ZIP privado. O vínculo usa apenas
+`num_codigo_exec` da linha de pagamento, `num_codigo_exec`/`num_codigo` da view
+de centralização e `num_codigo` da despesa. Várias liquidações da mesma despesa
+são preservadas como uma lista; mais de uma despesa distinta para o mesmo
+pagamento bloqueia a extração.
+
+No ZIP preservado em 21/08/2026, o replay local produziu exatamente três
+candidatos, somando R$ 756.904,75 por decimal exato. O valor de GCV não foi
+publicado nessas três linhas e permanece nulo, nunca convertido em zero. O
+processamento registra job versionado, hash do ZIP e hash de uma evidência
+sanitizada por pagamento. Um resumo técnico versionado também registra zero
+candidatos quando isso ocorrer, sem confundir fonte processada com fonte ainda
+não processada. A projeção pública continua bloqueada até a autoria `Tito` ser
+reconciliada com pessoa, esfera e período por fonte oficial.
+
 ## Estado de publicação
 
 - bruto: elegível para preservação privada;
 - manifestos: elegíveis para auditoria administrativa;
-- três pagamentos candidatos: pendentes de normalização e evidência por linha;
+- três pagamentos candidatos: normalização implementada, pendente de execução
+  remota e reconciliação de autoria;
 - ranking e totais públicos: bloqueados até reconciliação determinística;
 - CPF/CNPJ: proibido em projeção pública, logs, erros e manifestos.
 

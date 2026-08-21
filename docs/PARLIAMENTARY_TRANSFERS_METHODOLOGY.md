@@ -375,6 +375,15 @@ estaduais com objeto que menciona Barreiras. Não são somados ao valor recebido
 pela Prefeitura nem a ranking parlamentar enquanto esfera, pessoa, território
 e evidência por linha não forem reconciliados deterministicamente.
 
+A normalização usa a cadeia oficial pagamento → centralização → despesa. Ela
+aceita várias liquidações relacionadas à mesma despesa, mas bloqueia qualquer
+pagamento associado a despesas distintas. CPF/CNPJ e nome do credor são
+descartados antes da criação do resultado normalizado. Datas com o sufixo de
+meia-noite publicado pela fonte são convertidas apenas para a data civil;
+valores ausentes, como GCV nas três linhas territoriais, permanecem nulos. O
+resultado ainda é candidato documental: autoria, esfera e período precisam de
+reconciliação oficial antes da publicação ou de qualquer ranking.
+
 O documento de descoberta e os contratos do conector registram as contagens,
 o CSV malformado da fonte e o gate de publicação em
 `docs/reviews/BAHIA_SPECIAL_TRANSFERS_SOURCE_DISCOVERY.md`.
