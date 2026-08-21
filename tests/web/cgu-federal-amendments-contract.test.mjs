@@ -22,6 +22,13 @@ const resourcesPage = readFileSync(
   new URL("../../apps/web/app/recursos/page.tsx", import.meta.url),
   "utf8",
 );
+const legislatureRankingPage = readFileSync(
+  new URL(
+    "../../apps/web/app/recursos/legislature-transfer-rankings.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 function executionRow(overrides = {}) {
   return {
@@ -304,13 +311,17 @@ function legislatureRow(overrides = {}) {
     author_key: "tito",
     author_name: "TITO",
     author_code: "4072",
+    representative_source_kind: "federal",
+    representative_external_id: "197438",
+    representative_profile_url: "https://www.camara.leg.br/deputados/197438",
+    association_status: "approved_official_author_code_crosswalk",
     amendment_count: 6,
     committed_amount: 1756799.72,
     effective_paid_amount: 1645872.6,
     first_year: 2020,
     last_year: 2022,
     ranking_amount_stage: "committed",
-    methodology_version: "cgu-federal-amendment-legislature-ranking/1.0.0",
+    methodology_version: "cgu-federal-amendment-legislature-ranking/2.0.0",
     ...overrides,
   };
 }
@@ -323,6 +334,10 @@ test("série CGU por legislatura mantém janelas, escopos e sequência", () => {
       author_key: "afonso florence",
       author_name: "AFONSO FLORENCE",
       author_code: "1111",
+      representative_source_kind: null,
+      representative_external_id: null,
+      representative_profile_url: null,
+      association_status: "not_linked",
       amendment_count: 1,
       committed_amount: 400000,
       effective_paid_amount: 400000,
@@ -335,6 +350,10 @@ test("série CGU por legislatura mantém janelas, escopos e sequência", () => {
       author_key: "bancada da bahia",
       author_name: "BANCADA DA BAHIA",
       author_code: "7106",
+      representative_source_kind: null,
+      representative_external_id: null,
+      representative_profile_url: null,
+      association_status: "not_linked",
       amendment_count: 3,
       committed_amount: 4416350,
       effective_paid_amount: 4416350,
@@ -349,6 +368,13 @@ test("série CGU por legislatura mantém janelas, escopos e sequência", () => {
   assert.equal(groups[0].people.length, 2);
   assert.equal(groups[0].collectives.length, 1);
   assert.equal(groups[0].people[0].committedAmount, "1756799.72");
+  assert.equal(
+    groups[0].people[0].representativeProfileUrl,
+    "https://www.camara.leg.br/deputados/197438",
+  );
+  assert.match(legislatureRankingPage, /Empenhado nos documentos da CGU/);
+  assert.match(legislatureRankingPage, /Pago nos documentos da CGU/);
+  assert.doesNotMatch(legislatureRankingPage, /pago \+ restos pagos/);
 });
 
 test("série CGU por legislatura rejeita respostas incoerentes", () => {
@@ -380,6 +406,25 @@ test("série CGU por legislatura rejeita respostas incoerentes", () => {
     ]),
     null,
     "estágio de destinação pertence ao Transferegov, nunca à série CGU",
+  );
+  assert.equal(
+    parseCguLegislatureRankingRows([
+      legislatureRow({ representative_profile_url: "http://example.com/perfil" }),
+    ]),
+    null,
+    "perfil institucional associado precisa usar HTTPS",
+  );
+  assert.equal(
+    parseCguLegislatureRankingRows([
+      legislatureRow({
+        association_status: "not_linked",
+        representative_source_kind: null,
+        representative_external_id: null,
+        representative_profile_url: "https://www.camara.leg.br/deputados/197438",
+      }),
+    ]),
+    null,
+    "linha não associada não pode vazar perfil residual",
   );
 });
 

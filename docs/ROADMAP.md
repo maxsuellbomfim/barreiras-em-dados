@@ -394,6 +394,12 @@ ranking próprio. Essa série não é somada ao agregado da CGU nem ao
 Transferegov: ela serve para atualizar a execução e abrir a evidência linha a
 linha sem dupla contagem.
 
+O ranking da CGU por legislatura também passa a usar exclusivamente essa série
+documental. O ano da emenda define o mandato; o ano e a data do documento
+explicam quando empenho ou pagamento ocorreram. A vinculação ao perfil do
+parlamentar exige código oficial e período compatível em crosswalk aprovado;
+autorias coletivas e nomes ainda não associados permanecem explícitos.
+
 O catálogo oficial dos arquivos históricos de transferências discricionárias
 e legais passa a ser preservado diariamente como uma fonte separada. O
 manifesto monitora oito conjuntos essenciais e interrompe a cobertura quando

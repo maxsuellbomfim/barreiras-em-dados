@@ -2650,41 +2650,11 @@ try {
       last_year
     from api.get_public_cgu_federal_amendment_legislature_ranking(10)
   `);
-  assert.deepEqual(cguLegislatureRanking.rows, [
-    {
-      legislature_number: 56,
-      author_scope: "collective",
-      rank_position: 1,
-      author_name: "BANCADA DA BAHIA",
-      amendment_count: 1,
-      committed_amount: "3013986.00",
-      effective_paid_amount: "3013986.00",
-      first_year: 2021,
-      last_year: 2021,
-    },
-    {
-      legislature_number: 56,
-      author_scope: "person",
-      rank_position: 1,
-      author_name: "TITO",
-      amendment_count: 1,
-      committed_amount: "500000.00",
-      effective_paid_amount: "500000.00",
-      first_year: 2022,
-      last_year: 2022,
-    },
-    {
-      legislature_number: 56,
-      author_scope: "person",
-      rank_position: 2,
-      author_name: "AFONSO FLORENCE",
-      amendment_count: 1,
-      committed_amount: "400000.00",
-      effective_paid_amount: "400000.00",
-      first_year: 2021,
-      last_year: 2021,
-    },
-  ]);
+  assert.deepEqual(
+    cguLegislatureRanking.rows,
+    [],
+    "o ranking por legislatura não reutiliza o retrato agregado da CGU",
+  );
   const cguLegislatureRankingDefinition = await database.query(`
     select pg_get_functiondef(procedure.oid) as definition
     from pg_proc as procedure
@@ -2697,6 +2667,16 @@ try {
     cguLegislatureRankingDefinition.rows[0].definition,
     /reconciled_parliamentary_transfers|destination_amount/,
     "a serie CGU por legislatura nao pode misturar valores do Transferegov",
+  );
+  assert.doesNotMatch(
+    cguLegislatureRankingDefinition.rows[0].definition,
+    /cgu_federal_amendment_executions/,
+    "o ranking por legislatura nao pode voltar ao retrato agregado antigo",
+  );
+  assert.match(
+    cguLegislatureRankingDefinition.rows[0].definition,
+    /cgu_federal_amendment_documents/,
+    "o ranking por legislatura deve usar somente a serie documental",
   );
 
   await database.exec(`
@@ -2901,6 +2881,19 @@ try {
       '2026-08-21 20:00:00+00', 15625915, '${"98".repeat(32)}',
       'cgu/emendas-federais/documentos/2024/fixture.zip', 'test/1',
       'application/zip'
+    ), (
+      '00000000-0000-0000-0000-000000009803',
+      '00000000-0000-0000-0000-000000009801',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'cgu-portal-transparencia'
+         and endpoint.slug = 'federal-amendment-documents-open-data'),
+      'cgu-document-fixture-artifact-2022', 'archive',
+      'https://dadosabertos-download.cgu.gov.br/PortalDaTransparencia/saida/emendas-parlamentares-documentos/2022_EmendasParlamentaresPorDocumento.zip',
+      '2026-08-21 20:00:00+00', 12500000, '${"97".repeat(32)}',
+      'cgu/emendas-federais/documentos/2022/fixture.zip', 'test/1',
+      'application/zip'
     );
     insert into raw.raw_records (
       id, raw_artifact_id, source_record_key, record_type, record_index,
@@ -2932,6 +2925,24 @@ try {
         '{"archive_year":2024,"amendment_year":2024,"amendment_code":"202450410002","amendment_number":"0002","amendment_type":"Emenda de Comissão","author_code":"5041","author_name":"COM. DA SAUDE","document_date":"2024-06-24","document_code":"257001000012024OB018682","expense_stage":"payment","expense_stage_source":"Pagamento","committed_amount":"0.00","paid_amount":"2500000.00","beneficiary_name":"FUNDO MUNICIPAL DE SAUDE DE BARREIRAS","beneficiary_type":"FUNDO PUBLICO","beneficiary_municipality":"BARREIRAS","locality":"BARREIRAS - BA","municipality_ibge":"2903201","agency_name":"MINISTERIO DA SAUDE","superior_agency_name":"MINISTERIO DA SAUDE","function_name":"SAUDE","subfunction_name":"ASSISTENCIA HOSPITALAR","program_name":"ATENCAO ESPECIALIZADA","action_name":"CUSTEIO DA SAUDE","citizen_language":"Apoio ao custeio da saude","document_line_fingerprint":"${"83".repeat(32)}","source_row_number":102}',
         '${"83".repeat(32)}', 'cgu-federal-amendment-documents/1.0.0',
         'cgu-document-fixture-record-3', '2026-08-21 20:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009813',
+        '00000000-0000-0000-0000-000000009803',
+        'cgu:federal-amendment-document:2022:202240720001:fixture-1',
+        'cgu_federal_amendment_document', 0,
+        '{"archive_year":2022,"amendment_year":2022,"amendment_code":"202240720001","amendment_number":"0001","amendment_type":"Emenda Individual","author_code":"4072","author_name":"TITO","document_date":"2022-08-10","document_code":"257001000012022NE400001","expense_stage":"commitment","expense_stage_source":"Empenho","committed_amount":"500000.00","paid_amount":"0.00","beneficiary_name":"FUNDO MUNICIPAL DE SAUDE DE BARREIRAS","beneficiary_type":"FUNDO PUBLICO","beneficiary_municipality":"BARREIRAS","locality":"BARREIRAS - BA","municipality_ibge":"2903201","agency_name":"MINISTERIO DA SAUDE","superior_agency_name":"MINISTERIO DA SAUDE","function_name":"SAUDE","subfunction_name":"ATENCAO BASICA","program_name":"ATENCAO PRIMARIA","action_name":"CUSTEIO DA SAUDE","citizen_language":"Apoio ao custeio da saude","document_line_fingerprint":"${"84".repeat(32)}","source_row_number":200}',
+        '${"84".repeat(32)}', 'cgu-federal-amendment-documents/1.0.0',
+        'cgu-document-fixture-record-4', '2026-08-21 20:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009814',
+        '00000000-0000-0000-0000-000000009803',
+        'cgu:federal-amendment-document:2022:202240720001:fixture-2',
+        'cgu_federal_amendment_document', 1,
+        '{"archive_year":2022,"amendment_year":2022,"amendment_code":"202240720001","amendment_number":"0001","amendment_type":"Emenda Individual","author_code":"4072","author_name":"TITO","document_date":"2022-10-05","document_code":"257001000012022OB018682","expense_stage":"payment","expense_stage_source":"Pagamento","committed_amount":"0.00","paid_amount":"480000.00","beneficiary_name":"FUNDO MUNICIPAL DE SAUDE DE BARREIRAS","beneficiary_type":"FUNDO PUBLICO","beneficiary_municipality":"BARREIRAS","locality":"BARREIRAS - BA","municipality_ibge":"2903201","agency_name":"MINISTERIO DA SAUDE","superior_agency_name":"MINISTERIO DA SAUDE","function_name":"SAUDE","subfunction_name":"ATENCAO BASICA","program_name":"ATENCAO PRIMARIA","action_name":"CUSTEIO DA SAUDE","citizen_language":"Apoio ao custeio da saude","document_line_fingerprint":"${"85".repeat(32)}","source_row_number":201}',
+        '${"85".repeat(32)}', 'cgu-federal-amendment-documents/1.0.0',
+        'cgu-document-fixture-record-5', '2026-08-21 20:00:00+00'
       );
   `);
 
@@ -2969,7 +2980,65 @@ try {
     aggregation_policy: "single_document_source_no_cross_source_sum",
   }]);
 
+  const cguDocumentLegislatureRanking = await database.query(`
+    select legislature_number, author_scope, rank_position, author_name,
+      author_code, representative_source_kind, representative_external_id,
+      representative_profile_url, association_status, amendment_count,
+      committed_amount, effective_paid_amount, first_year, last_year,
+      methodology_version
+    from api.get_public_cgu_federal_amendment_legislature_ranking(10)
+  `);
+  assert.deepEqual(cguDocumentLegislatureRanking.rows, [
+    {
+      legislature_number: 57,
+      author_scope: "collective",
+      rank_position: 1,
+      author_name: "COM. DA SAUDE",
+      author_code: "5041",
+      representative_source_kind: null,
+      representative_external_id: null,
+      representative_profile_url: null,
+      association_status: "not_linked",
+      amendment_count: 1,
+      committed_amount: "5000000.00",
+      effective_paid_amount: "10000000.00",
+      first_year: 2024,
+      last_year: 2024,
+      methodology_version:
+        "cgu-federal-amendment-legislature-ranking/2.0.0",
+    },
+    {
+      legislature_number: 56,
+      author_scope: "person",
+      rank_position: 1,
+      author_name: "TITO",
+      author_code: "4072",
+      representative_source_kind: "federal",
+      representative_external_id: "197438",
+      representative_profile_url:
+        "https://www.camara.leg.br/deputados/197438",
+      association_status: "approved_official_author_code_crosswalk",
+      amendment_count: 1,
+      committed_amount: "500000.00",
+      effective_paid_amount: "480000.00",
+      first_year: 2022,
+      last_year: 2022,
+      methodology_version:
+        "cgu-federal-amendment-legislature-ranking/2.0.0",
+    },
+  ]);
+
   await database.exec("set role anon");
+  const anonCguDocumentLegislatureRanking = await database.query(`
+    select legislature_number, author_name, representative_profile_url,
+      committed_amount, effective_paid_amount, methodology_version
+    from api.get_public_cgu_federal_amendment_legislature_ranking(10)
+  `);
+  assert.equal(anonCguDocumentLegislatureRanking.rows.length, 2);
+  assert.equal(
+    JSON.stringify(anonCguDocumentLegislatureRanking.rows).includes("cpf"),
+    false,
+  );
   await assert.rejects(
     database.query("select * from territory.parliamentary_transfers"),
     /permission denied/,
@@ -2995,6 +3064,12 @@ try {
   await assert.rejects(
     database.query(
       "select * from territory.latest_bahia_special_transfer_annual_coverage",
+    ),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from territory.cgu_federal_amendment_documents",
     ),
     /permission denied/,
   );

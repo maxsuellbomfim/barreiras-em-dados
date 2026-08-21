@@ -109,25 +109,36 @@ function CguLegislatureRow({
       <div className="legislature-ranking-person">
         <h4>{row.authorName}</h4>
         <p>
-          {row.amendmentCount.toLocaleString("pt-BR")} emenda(s) executada(s)
+          {row.amendmentCount.toLocaleString("pt-BR")} emenda(s) com documento(s)
           {row.firstYear === row.lastYear
             ? ` em ${row.firstYear}`
             : ` entre ${row.firstYear} e ${row.lastYear}`}
         </p>
+        {row.associationStatus ===
+            "approved_official_author_code_crosswalk" &&
+          row.representativeSourceKind && row.representativeExternalId ? (
+            <a
+              href={`/representantes#${row.representativeSourceKind}-${row.representativeExternalId}`}
+            >
+              Ver perfil, votos e mandato →
+            </a>
+          ) : (
+            <span>Perfil oficial ainda não associado a esta autoria</span>
+          )}
         <a
           className="legislature-ranking-detail-link"
-          href="/recursos?origem=federal-execucao"
+          href="/recursos?origem=federal-execucao#cgu-documents-title"
         >
-          Ver cada emenda no arquivo da CGU →
+          Conferir documentos oficiais da CGU →
         </a>
       </div>
       <dl className="legislature-ranking-values">
         <div>
-          <dt>Empenhado no orçamento federal</dt>
+          <dt>Empenhado nos documentos da CGU</dt>
           <dd>{formatBrlDecimal(row.committedAmount)}</dd>
         </div>
         <div>
-          <dt>Pago efetivo (pago + restos pagos)</dt>
+          <dt>Pago nos documentos da CGU</dt>
           <dd>{formatBrlDecimal(row.effectivePaidAmount)}</dd>
         </div>
       </dl>
@@ -144,15 +155,16 @@ function CguLegislatureBlock({
         <strong>Outra fonte, outro caminho do dinheiro: execução direta (CGU).</strong>{" "}
         O painel acima cobre convênios e transferências registrados no
         Transferegov. Emendas executadas diretamente no orçamento de órgãos
-        federais não passam por lá — aparecem no arquivo aberto da CGU. As duas
-        séries ficam separadas e nunca são somadas; um mesmo parlamentar pode
-        aparecer só em uma delas sem que isso seja erro.
+        federais não passam por lá — aparecem nos documentos anuais de empenho,
+        liquidação e pagamento da CGU. As duas séries ficam separadas e nunca
+        são somadas; um mesmo parlamentar pode aparecer só em uma delas sem que
+        isso seja erro.
       </p>
       {group === null ? (
         <p>
-          O arquivo da CGU não publicou linhas para Barreiras nos anos completos
-          desta legislatura. Isso descreve a fonte, não prova ausência de
-          emendas.
+          Os documentos anuais da CGU não publicaram linhas territorializadas
+          para Barreiras nos anos completos desta legislatura. Isso descreve a
+          fonte consultada, não prova ausência de emendas.
         </p>
       ) : (
         <>
@@ -182,8 +194,10 @@ function CguLegislatureBlock({
         </>
       )}
       <p>
-        Exercícios fora dos anos completos desta legislatura (inclusive o ano de
-        transição 2023) permanecem visíveis na aba Execução federal.
+        A legislatura é definida pelo ano da emenda; a data do documento informa
+        quando o dinheiro avançou. O ano de transição 2023 permanece fora do
+        ranking porque a fonte anual não informa a data de autoria necessária
+        para atribuí-lo com segurança a um dos dois mandatos.
       </p>
       <a href="/recursos?origem=federal-execucao">
         Conferir a série completa da CGU, emenda por emenda →
