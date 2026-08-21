@@ -7,6 +7,7 @@ const COMPONENT_PARSER_VERSIONS = new Set([
   LEGACY_PARSER_VERSION,
   "payroll-report-aggregate/1.1.0",
   "payroll-report-aggregate/1.2.0",
+  "payroll-report-aggregate/1.3.0",
 ]);
 const PAYROLL_CYCLES = new Set([
   "regular",

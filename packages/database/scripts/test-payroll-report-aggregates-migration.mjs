@@ -51,11 +51,16 @@ try {
   const contracts = await database.query(`
     select
       to_regclass('hr.payroll_report_aggregates')::text as aggregate_table,
+      to_regclass('hr.payroll_report_aggregate_invalidations')::text
+        as invalidation_table,
       to_regprocedure('api.get_public_payroll_months(integer)')::text as public_rpc,
       (select relrowsecurity from pg_class
        where oid = 'hr.payroll_report_aggregates'::regclass) as rls,
       (select relforcerowsecurity from pg_class
        where oid = 'hr.payroll_report_aggregates'::regclass) as force_rls,
+      (select relrowsecurity from pg_class
+       where oid = 'hr.payroll_report_aggregate_invalidations'::regclass)
+        as invalidation_rls,
       has_table_privilege('anon', 'hr.payroll_report_aggregates', 'SELECT')
         as anon_select,
       has_table_privilege('authenticated', 'hr.payroll_report_aggregates', 'SELECT')
@@ -64,6 +69,12 @@ try {
         as worker_insert,
       has_table_privilege('collector_worker', 'hr.payroll_report_aggregates', 'UPDATE')
         as worker_update,
+      has_table_privilege(
+        'anon', 'hr.payroll_report_aggregate_invalidations', 'SELECT'
+      ) as anon_invalidation_select,
+      has_table_privilege(
+        'collector_worker', 'hr.payroll_report_aggregate_invalidations', 'INSERT'
+      ) as worker_invalidation_insert,
       has_function_privilege(
         'anon', 'api.get_public_payroll_months(integer)', 'EXECUTE'
       ) as anon_rpc,
@@ -73,13 +84,17 @@ try {
   `);
   assert.deepEqual(contracts.rows, [{
     aggregate_table: "hr.payroll_report_aggregates",
+    invalidation_table: "hr.payroll_report_aggregate_invalidations",
     public_rpc: "api.get_public_payroll_months(integer)",
     rls: true,
     force_rls: true,
+    invalidation_rls: true,
     anon_select: false,
     authenticated_select: false,
     worker_insert: true,
     worker_update: false,
+    anon_invalidation_select: false,
+    worker_invalidation_insert: false,
     anon_rpc: true,
     series_version_index: "hr.payroll_report_aggregates_series_version_unique_idx",
   }]);
@@ -388,6 +403,40 @@ try {
   for (const forbidden of ["cpf", "nome", "matricula", "conta", "raw_record"]) {
     assert.equal(serialized.includes(forbidden), false, `campo proibido: ${forbidden}`);
   }
+
+  await database.exec(`
+    insert into hr.payroll_report_aggregate_invalidations (
+      aggregate_id, evidence_artifact_id, reason_code, invalidator_version,
+      details, invalidated_at
+    ) values (
+      '00000000-0000-0000-0000-000000009008',
+      '00000000-0000-0000-0000-000000009006',
+      'mixed_payroll_cycle_header', 'payroll-cycle-invalidation/test',
+      '{"observed_header":"1-Normal, 4-Adiant. 13º"}'::jsonb,
+      '2026-08-21 22:00:00+00'
+    );
+  `);
+  await assert.rejects(
+    database.exec(`
+      update hr.payroll_report_aggregate_invalidations
+      set reason_code = 'mixed_payroll_cycle_header'
+      where aggregate_id = '00000000-0000-0000-0000-000000009008'
+    `),
+    /immutable relation/,
+  );
+  await database.exec("set role anon");
+  await assert.rejects(
+    database.query("select * from hr.payroll_report_aggregate_invalidations"),
+    /permission denied/,
+  );
+  const rowsAfterInvalidation = await database.query(
+    "select * from api.get_public_payroll_months(24)",
+  );
+  await database.exec("reset role");
+  assert.deepEqual(
+    rowsAfterInvalidation.rows.map((row) => row.reference_month),
+    ["2025-02-01"],
+  );
 
   await assert.rejects(
     database.query("select * from api.get_public_payroll_months(61)"),
