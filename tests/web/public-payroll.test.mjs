@@ -57,3 +57,26 @@ test("pagina explica vínculos, descontos e limite da informação", async () =>
   assert.match(page, /não usa IA para calcular esses valores/);
   assert.match(page, /Abrir PDF oficial/);
 });
+
+test("pagina mantém o mês mais recente em destaque e recolhe o histórico", async () => {
+  const [page, history] = await Promise.all([
+    readFile(
+      new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../../apps/web/app/financas/finance-payroll-history.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(page, /const previousPayrollMonths = payrollMonths\.slice\(1\)/);
+  assert.match(page, /<FinancePayrollHistory months=\{previousPayrollMonths\}/);
+  assert.match(history, /Ver meses anteriores da folha/);
+  assert.match(history, /months\.map/);
+  assert.match(history, /Abrir PDF oficial deste mês/);
+  assert.match(history, /Mês validado por código/);
+});
