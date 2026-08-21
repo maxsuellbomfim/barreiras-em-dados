@@ -73,6 +73,17 @@ uma para coletas e outra para publicações. No máximo uma execução de cada c
 chega ao banco, impedindo que agendas independentes voltem a exceder as duas
 conexões sem represar todas as publicações atrás de uma coleta longa.
 
+Em 20/08/2026, a auditoria das projeções financeiras públicas identificou outro
+gargalo independente da coleta: a validação exata da origem documental era
+repetida uma vez para cada linha financeira. Em produção, a leitura das 18.009
+receitas elegíveis consumiu cerca de 30,8 segundos e 2,2 milhões de acessos a
+blocos compartilhados. A projeção equivalente, calculando primeiro o conjunto
+de pares exatos entre registro bruto e PDF, concluiu em cerca de 0,46 segundo e
+13 mil acessos, sem flexibilizar a proveniência. A migration correspondente
+mantém a função auxiliar privada e troca apenas as duas agregações públicas de
+cobertura e fechamento mensal; publicação e valores continuam sujeitos aos
+mesmos estados, versões e documentos oficiais.
+
 Após uma indisponibilidade temporária da página HTML da ALBA, a execução manual
 passa a aceitar uma fonte isolada (`federal`, `municipal`, `state`, `executive`
 ou `elections`). O retry de `state` repete somente a ALBA; não baixa novamente
