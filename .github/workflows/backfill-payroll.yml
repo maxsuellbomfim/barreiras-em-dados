@@ -119,6 +119,9 @@ jobs:
               --download-documents \
               --document-reference-month "$month" \
               --document-type "1" \
+              --document-title "Relação de Servidores" \
+              --document-title "Relação Servidores" \
+              --document-title "Relação de Servidores 13º Salário" \
               --allow-untyped-document-title "Relação de Servidores" \
               --require-document-match
           done

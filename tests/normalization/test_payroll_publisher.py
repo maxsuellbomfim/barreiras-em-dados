@@ -152,6 +152,9 @@ class PayrollPublisherTests(unittest.TestCase):
         self.assertIn("endpoint.slug = %s", query)
         self.assertIn("aggregate.parser_version = %s", query)
         self.assertIn("~ '^(20[2-9][0-9]|2100)$'", query)
+        self.assertIn("'relacao de servidores'", query)
+        self.assertIn("'relacao servidores'", query)
+        self.assertIn("'relacao de servidores 13o salario'", query)
         self.assertEqual(
             connection.parameters,
             (
@@ -246,6 +249,8 @@ class PayrollPublisherTests(unittest.TestCase):
         )
         self.assertIn("translate(", query)
         self.assertIn("= 'relacao de servidores'", query)
+        self.assertIn("'relacao servidores'", query)
+        self.assertIn("'relacao de servidores 13o salario'", query)
         self.assertIn(
             "record.record_type = 'municipal_transparency_servidores'",
             query,

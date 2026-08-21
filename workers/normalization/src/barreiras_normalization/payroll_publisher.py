@@ -191,19 +191,34 @@ class PostgresPayrollPublicationRepository:
                     and document.source_url = record.payload ->> 'url'
                     and record.record_type
                       = 'municipal_transparency_servidores'
+                    and regexp_replace(
+                      btrim(translate(
+                        normalize(
+                          lower(coalesce(record.payload ->> 'titulo', '')),
+                          NFKD
+                        ),
+                        U&'\0300\0301\0302\0303\0308\0327',
+                        ''
+                      )),
+                      '[[:space:]]+', ' ', 'g'
+                    ) in (
+                      'relacao de servidores',
+                      'relacao servidores',
+                      'relacao de servidores 13o salario'
+                    )
                     and (
                       record.payload ->> 'tipo' = '1'
                       or (
                         coalesce(trim(record.payload ->> 'tipo'), '') = ''
                         and regexp_replace(
-                          translate(
-                            lower(trim(coalesce(
-                              record.payload ->> 'titulo',
-                              ''
-                            ))),
-                            'áàâãäéèêëíìîïóòôõöúùûüç',
-                            'aaaaaeeeeiiiiooooouuuuc'
-                          ),
+                          btrim(translate(
+                            normalize(
+                              lower(coalesce(record.payload ->> 'titulo', '')),
+                              NFKD
+                            ),
+                            U&'\0300\0301\0302\0303\0308\0327',
+                            ''
+                          )),
                           '[[:space:]]+',
                           ' ',
                           'g'
@@ -306,16 +321,34 @@ class PostgresPayrollPublicationRepository:
                     = 'municipal_transparency_servidores'
                   and data_source.slug = %s
                   and endpoint.slug = %s
+                  and regexp_replace(
+                    btrim(translate(
+                      normalize(
+                        lower(coalesce(record.payload ->> 'titulo', '')),
+                        NFKD
+                      ),
+                      U&'\0300\0301\0302\0303\0308\0327',
+                      ''
+                    )),
+                    '[[:space:]]+', ' ', 'g'
+                  ) in (
+                    'relacao de servidores',
+                    'relacao servidores',
+                    'relacao de servidores 13o salario'
+                  )
                   and (
                     record.payload ->> 'tipo' = '1'
                     or (
                       coalesce(trim(record.payload ->> 'tipo'), '') = ''
                       and regexp_replace(
-                        translate(
-                          lower(trim(coalesce(record.payload ->> 'titulo', ''))),
-                          'áàâãäéèêëíìîïóòôõöúùûüç',
-                          'aaaaaeeeeiiiiooooouuuuc'
-                        ),
+                        btrim(translate(
+                          normalize(
+                            lower(coalesce(record.payload ->> 'titulo', '')),
+                            NFKD
+                          ),
+                          U&'\0300\0301\0302\0303\0308\0327',
+                          ''
+                        )),
                         '[[:space:]]+', ' ', 'g'
                       ) = 'relacao de servidores'
                     )

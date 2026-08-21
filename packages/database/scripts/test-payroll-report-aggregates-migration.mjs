@@ -10,9 +10,18 @@ const migrationsUrl = new URL("../../../supabase/migrations/", import.meta.url);
 const migrationNames = (await readdir(fileURLToPath(migrationsUrl)))
   .filter((name) => name.endsWith(".sql"))
   .sort();
-const migrations = await Promise.all(
-  migrationNames.map((name) => readFile(fileURLToPath(new URL(name, migrationsUrl)), "utf8")),
+const migrationEntries = await Promise.all(
+  migrationNames.map(async (name) => ({
+    name,
+    sql: await readFile(fileURLToPath(new URL(name, migrationsUrl)), "utf8"),
+  })),
 );
+const strictTitleMigrationName =
+  "20260822023000_strict_payroll_staff_title_lineage.sql";
+const strictTitleMigrationIndex = migrationEntries.findIndex(
+  ({ name }) => name === strictTitleMigrationName,
+);
+assert.notEqual(strictTitleMigrationIndex, -1);
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
 
 try {
@@ -46,7 +55,164 @@ try {
     grant usage on schema storage to authenticated;
     grant select, insert, update, delete on storage.objects to authenticated;
   `);
-  for (const migration of migrations) await database.exec(migration);
+  for (const { sql } of migrationEntries.slice(0, strictTitleMigrationIndex)) {
+    await database.exec(sql);
+  }
+
+  await database.exec(`
+    insert into source.data_sources (
+      id, slug, name, authority_level, is_official, homepage_url
+    ) values (
+      '00000000-0000-0000-0000-000000009001',
+      'prefeitura-barreiras-transparencia',
+      'Portal da Transparência da Prefeitura de Barreiras',
+      'official', true,
+      'https://portaldatransparencia.barreiras.ba.gov.br/'
+    );
+    insert into source.source_endpoints (
+      id, data_source_id, slug, endpoint_kind, base_url
+    ) values (
+      '00000000-0000-0000-0000-000000009002',
+      '00000000-0000-0000-0000-000000009001', 'dados-abertos-api',
+      'api', 'https://portaldatransparencia.barreiras.ba.gov.br/api'
+    );
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000008003',
+      '00000000-0000-0000-0000-000000009002',
+      'legacy-intern-payroll-fixture', 'test/1', 'succeeded'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key, collector_version
+    ) values (
+      '00000000-0000-0000-0000-000000008004',
+      '00000000-0000-0000-0000-000000008003',
+      '00000000-0000-0000-0000-000000009002',
+      'legacy-intern-catalog-artifact', 'http_response',
+      'https://portaldatransparencia.barreiras.ba.gov.br/api?resource=servidores',
+      '2024-06-01 12:00:00+00', 100, '${"7".repeat(64)}',
+      'fixtures/payroll/legacy-intern-catalog.json', 'test/1'
+    );
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values (
+      '00000000-0000-0000-0000-000000008005',
+      '00000000-0000-0000-0000-000000008004', 'legacy-interns-type-one',
+      'municipal_transparency_servidores', 0,
+      '{"tipo":"1","titulo":"Relação de Estagiários","ano_ref":"2024","mes_ref":"5","url":"https://barreiras.mtransparente.com.br/admin/data/ESTAGIARIOS010624.pdf"}'::jsonb,
+      '${"8".repeat(64)}', 'test/1', 'legacy-intern-record',
+      '2024-06-01 12:00:00+00'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, parent_artifact_id,
+      idempotency_key, artifact_kind, source_url, retrieved_at, byte_size,
+      sha256, object_key, collector_version, metadata
+    ) values (
+      '00000000-0000-0000-0000-000000008006',
+      '00000000-0000-0000-0000-000000008003',
+      '00000000-0000-0000-0000-000000009002',
+      '00000000-0000-0000-0000-000000008004',
+      'legacy-intern-document-artifact', 'document',
+      'https://barreiras.mtransparente.com.br/admin/data/ESTAGIARIOS010624.pdf',
+      '2024-06-01 12:01:00+00', 500000, '${"9".repeat(64)}',
+      'municipal-transparency/servidores/legacy-interns.pdf', 'test/1',
+      '{"schema_name":"municipal-transparency-document","source_record_key":"legacy-interns-type-one"}'::jsonb
+    );
+    insert into org.public_bodies (
+      id, origin_raw_record_id, ibge_code, name, body_type, state_code
+    ) values (
+      '00000000-0000-0000-0000-000000008007',
+      '00000000-0000-0000-0000-000000008005', '2903201',
+      'Município de Barreiras', 'executive', 'BA'
+    );
+    insert into hr.payroll_report_aggregates (
+      id, origin_raw_record_id, source_document_artifact_id, public_body_id,
+      reference_month, employee_count, gross_amount, deduction_amount,
+      net_amount, subtotal_count, parser_version, validated_at
+    ) values (
+      '00000000-0000-0000-0000-000000008008',
+      '00000000-0000-0000-0000-000000008005',
+      '00000000-0000-0000-0000-000000008006',
+      '00000000-0000-0000-0000-000000008007', '2024-05-01', 10,
+      1000.00, 100.00, 900.00, 1,
+      'payroll-report-aggregate/1.2.0', '2024-06-01 12:02:00+00'
+    );
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values (
+      '00000000-0000-0000-0000-000000008009',
+      '00000000-0000-0000-0000-000000008004', 'legacy-missing-title',
+      'municipal_transparency_servidores', 1,
+      '{"tipo":"1","ano_ref":"2024","mes_ref":"4","url":"https://barreiras.mtransparente.com.br/admin/data/SEM-TITULO010524.pdf"}'::jsonb,
+      '${"a".repeat(64)}', 'test/1', 'legacy-missing-title-record',
+      '2024-05-01 12:00:00+00'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, parent_artifact_id,
+      idempotency_key, artifact_kind, source_url, retrieved_at, byte_size,
+      sha256, object_key, collector_version, metadata
+    ) values (
+      '00000000-0000-0000-0000-000000008010',
+      '00000000-0000-0000-0000-000000008003',
+      '00000000-0000-0000-0000-000000009002',
+      '00000000-0000-0000-0000-000000008004',
+      'legacy-missing-title-document', 'document',
+      'https://barreiras.mtransparente.com.br/admin/data/SEM-TITULO010524.pdf',
+      '2024-05-01 12:01:00+00', 500000, '${"b".repeat(64)}',
+      'municipal-transparency/servidores/legacy-missing-title.pdf', 'test/1',
+      '{"schema_name":"municipal-transparency-document","source_record_key":"legacy-missing-title"}'::jsonb
+    );
+    insert into hr.payroll_report_aggregates (
+      id, origin_raw_record_id, source_document_artifact_id, public_body_id,
+      reference_month, employee_count, gross_amount, deduction_amount,
+      net_amount, subtotal_count, parser_version, validated_at
+    ) values (
+      '00000000-0000-0000-0000-000000008011',
+      '00000000-0000-0000-0000-000000008009',
+      '00000000-0000-0000-0000-000000008010',
+      '00000000-0000-0000-0000-000000008007', '2024-04-01', 9,
+      900.00, 90.00, 810.00, 1,
+      'payroll-report-aggregate/1.2.0', '2024-05-01 12:02:00+00'
+    );
+  `);
+
+  await database.exec(migrationEntries[strictTitleMigrationIndex].sql);
+  for (const { sql } of migrationEntries.slice(strictTitleMigrationIndex + 1)) {
+    await database.exec(sql);
+  }
+
+  const retroactiveInvalidation = await database.query(`
+    select reason_code, invalidator_version
+    from hr.payroll_report_aggregate_invalidations
+    where aggregate_id = '00000000-0000-0000-0000-000000008008'
+  `);
+  assert.deepEqual(retroactiveInvalidation.rows, [
+    {
+      reason_code: "non_staff_catalog_title",
+      invalidator_version: "payroll-title-invalidation/1.0.0",
+    },
+  ]);
+  const missingTitleInvalidation = await database.query(`
+    select reason_code, invalidator_version
+    from hr.payroll_report_aggregate_invalidations
+    where aggregate_id = '00000000-0000-0000-0000-000000008011'
+  `);
+  assert.deepEqual(missingTitleInvalidation.rows, [
+    {
+      reason_code: "missing_staff_catalog_title",
+      invalidator_version: "payroll-title-invalidation/1.0.0",
+    },
+  ]);
+  await database.exec("set role anon");
+  const publicRowsAfterRepair = await database.query(
+    "select * from api.get_public_payroll_months(24)",
+  );
+  await database.exec("reset role");
+  assert.equal(publicRowsAfterRepair.rows.length, 0);
 
   const contracts = await database.query(`
     select
@@ -123,20 +289,6 @@ try {
   });
 
   await database.exec(`
-    insert into source.data_sources (
-      id, slug, name, authority_level, is_official, homepage_url
-    ) values (
-      '00000000-0000-0000-0000-000000009001', 'payroll-test-source',
-      'Fonte oficial de teste da folha', 'official', true,
-      'https://portaldatransparencia.barreiras.ba.gov.br/'
-    );
-    insert into source.source_endpoints (
-      id, data_source_id, slug, endpoint_kind, base_url
-    ) values (
-      '00000000-0000-0000-0000-000000009002',
-      '00000000-0000-0000-0000-000000009001', 'payroll-test-endpoint',
-      'api', 'https://portaldatransparencia.barreiras.ba.gov.br/api'
-    );
     insert into source.collection_runs (
       id, source_endpoint_id, idempotency_key, collector_version, status
     ) values (
@@ -164,7 +316,7 @@ try {
         '00000000-0000-0000-0000-000000009005',
         '00000000-0000-0000-0000-000000009004', 'servidores-244',
         'municipal_transparency_servidores', 0,
-        '{"tipo":"1","ano_ref":"2026","mes_ref":"7","url":"https://barreiras.mtransparente.com.br/admin/data/SERVIDORES060826145033.pdf"}'::jsonb,
+        '{"tipo":"1","titulo":" RELAÇÃO DE SERVIDORES ","ano_ref":"2026","mes_ref":"7","url":"https://barreiras.mtransparente.com.br/admin/data/SERVIDORES060826145033.pdf"}'::jsonb,
         '${"b".repeat(64)}', 'test/1', 'payroll-report-catalog-record-fixture',
         '2026-08-06 18:00:00+00'
       ),
@@ -172,7 +324,7 @@ try {
         '00000000-0000-0000-0000-000000009009',
         '00000000-0000-0000-0000-000000009004', 'estagiarios-244',
         'municipal_transparency_servidores', 1,
-        '{"tipo":"3","ano_ref":"2026","mes_ref":"7","url":"https://barreiras.mtransparente.com.br/admin/data/SERVIDORES060826145033.pdf"}'::jsonb,
+        '{"tipo":"1","titulo":"Relação de Estagiários","ano_ref":"2026","mes_ref":"7","url":"https://barreiras.mtransparente.com.br/admin/data/SERVIDORES060826145033.pdf"}'::jsonb,
         '${"d".repeat(64)}', 'test/1', 'payroll-intern-catalog-record-fixture',
         '2026-08-06 18:00:00+00'
       ),
@@ -180,7 +332,7 @@ try {
         '00000000-0000-0000-0000-000000009010',
         '00000000-0000-0000-0000-000000009004', 'servidores-245',
         'municipal_transparency_servidores', 2,
-        '{"tipo":"1","ano_ref":"2026","mes_ref":"7","url":"https://barreiras.mtransparente.com.br/admin/data/SERVIDORES060826150000.pdf"}'::jsonb,
+        '{"tipo":"1","titulo":"Relação de Servidores 13º Salário","ano_ref":"2026","mes_ref":"7","url":"https://barreiras.mtransparente.com.br/admin/data/SERVIDORES060826150000.pdf"}'::jsonb,
         '${"e".repeat(64)}', 'test/1', 'payroll-thirteenth-catalog-record-fixture',
         '2026-08-06 18:00:00+00'
       ),
@@ -237,13 +389,92 @@ try {
         '2025-03-12 16:07:00+00', 1945162, '${"2".repeat(64)}',
         'municipal-transparency/servidores/historical.pdf', 'test/1',
         '{"schema_name":"municipal-transparency-document","source_record_key":"servidores-130"}'::jsonb
+      ),
+      (
+        '00000000-0000-0000-0000-000000009017',
+        '00000000-0000-0000-0000-000000009003',
+        '00000000-0000-0000-0000-000000009002',
+        '00000000-0000-0000-0000-000000009004',
+        'payroll-intern-document-artifact-fixture', 'document',
+        'https://barreiras.mtransparente.com.br/admin/data/SERVIDORES060826145033.pdf',
+        '2026-08-06 18:01:00+00', 2478977, '${"4".repeat(64)}',
+        'municipal-transparency/servidores/interns.pdf', 'test/1',
+        '{"schema_name":"municipal-transparency-document","source_record_key":"estagiarios-244"}'::jsonb
       );
-    insert into org.public_bodies (
-      id, origin_raw_record_id, ibge_code, name, body_type, state_code
+  `);
+
+  await database.exec(`
+    insert into source.data_sources (
+      id, slug, name, authority_level, is_official, homepage_url
     ) values (
-      '00000000-0000-0000-0000-000000009007',
-      '00000000-0000-0000-0000-000000009005', '2903201',
-      'Município de Barreiras', 'executive', 'BA'
+      '00000000-0000-0000-0000-000000009018', 'unrelated-payroll-source',
+      'Fonte alheia ao contrato municipal', 'official', true,
+      'https://example.gov.br/'
+    );
+    insert into source.source_endpoints (
+      id, data_source_id, slug, endpoint_kind, base_url
+    ) values (
+      '00000000-0000-0000-0000-000000009019',
+      '00000000-0000-0000-0000-000000009018', 'unrelated-api',
+      'api', 'https://example.gov.br/api'
+    );
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000009020',
+      '00000000-0000-0000-0000-000000009019',
+      'unrelated-payroll-run', 'test/1', 'succeeded'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key, collector_version
+    ) values (
+      '00000000-0000-0000-0000-000000009021',
+      '00000000-0000-0000-0000-000000009020',
+      '00000000-0000-0000-0000-000000009019',
+      'unrelated-payroll-catalog', 'http_response',
+      'https://example.gov.br/api/servidores', '2026-08-06 18:00:00+00',
+      100, '${"5".repeat(64)}', 'fixtures/payroll/unrelated.json', 'test/1'
+    );
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values (
+      '00000000-0000-0000-0000-000000009022',
+      '00000000-0000-0000-0000-000000009021', 'unrelated-staff',
+      'municipal_transparency_servidores', 0,
+      '{"tipo":"1","titulo":"Relação de Servidores","ano_ref":"2026","mes_ref":"7","url":"https://example.gov.br/servidores.pdf"}'::jsonb,
+      '${"6".repeat(64)}', 'test/1', 'unrelated-payroll-record',
+      '2026-08-06 18:00:00+00'
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, parent_artifact_id,
+      idempotency_key, artifact_kind, source_url, retrieved_at, byte_size,
+      sha256, object_key, collector_version, metadata
+    ) values (
+      '00000000-0000-0000-0000-000000009023',
+      '00000000-0000-0000-0000-000000009020',
+      '00000000-0000-0000-0000-000000009019',
+      '00000000-0000-0000-0000-000000009021',
+      'unrelated-payroll-document', 'document',
+      'https://example.gov.br/servidores.pdf', '2026-08-06 18:01:00+00',
+      1000, '${"0".repeat(64)}', 'fixtures/payroll/unrelated.pdf', 'test/1',
+      '{"schema_name":"municipal-transparency-document","source_record_key":"unrelated-staff"}'::jsonb
+    );
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, parent_artifact_id,
+      idempotency_key, artifact_kind, source_url, retrieved_at, byte_size,
+      sha256, object_key, collector_version, metadata
+    ) values (
+      '00000000-0000-0000-0000-000000009024',
+      '00000000-0000-0000-0000-000000009020',
+      '00000000-0000-0000-0000-000000009019',
+      '00000000-0000-0000-0000-000000009021',
+      'cross-endpoint-payroll-document', 'document',
+      'https://barreiras.mtransparente.com.br/admin/data/SERVIDORES060826145033.pdf',
+      '2026-08-06 18:01:00+00', 2478977, '${"7".repeat(64)}',
+      'fixtures/payroll/cross-endpoint.pdf', 'test/1',
+      '{"schema_name":"municipal-transparency-document","source_record_key":"servidores-244"}'::jsonb
     );
   `);
 
@@ -254,9 +485,43 @@ try {
         reference_month, employee_count, gross_amount, deduction_amount,
         net_amount, subtotal_count, parser_version, validated_at
       ) values (
+        '00000000-0000-0000-0000-000000009022',
+        '00000000-0000-0000-0000-000000009023',
+        '00000000-0000-0000-0000-000000008007', '2026-07-01', 1,
+        100.00, 10.00, 90.00, 1,
+        'payroll-report-aggregate/1.2.0', '2026-08-06 18:02:00+00'
+      )
+    `),
+    /requires an official municipal staff catalog record/,
+  );
+
+  await assert.rejects(
+    database.exec(`
+      insert into hr.payroll_report_aggregates (
+        origin_raw_record_id, source_document_artifact_id, public_body_id,
+        reference_month, employee_count, gross_amount, deduction_amount,
+        net_amount, subtotal_count, parser_version, validated_at
+      ) values (
+        '00000000-0000-0000-0000-000000009005',
+        '00000000-0000-0000-0000-000000009024',
+        '00000000-0000-0000-0000-000000008007', '2026-07-01', 8184,
+        34971971.48, 10422982.78, 24548988.70, 133,
+        'payroll-report-aggregate/1.2.0', '2026-08-06 18:02:00+00'
+      )
+    `),
+    /document does not match official catalog evidence/,
+  );
+
+  await assert.rejects(
+    database.exec(`
+      insert into hr.payroll_report_aggregates (
+        origin_raw_record_id, source_document_artifact_id, public_body_id,
+        reference_month, employee_count, gross_amount, deduction_amount,
+        net_amount, subtotal_count, parser_version, validated_at
+      ) values (
         '00000000-0000-0000-0000-000000009005',
         '00000000-0000-0000-0000-000000009006',
-        '00000000-0000-0000-0000-000000009007', '2026-07-01', 8184,
+        '00000000-0000-0000-0000-000000008007', '2026-07-01', 8184,
         34971971.48, 10422982.78, 1.00, 133,
         'payroll-report-aggregate/1.0.0', '2026-08-06 18:02:00+00'
       )
@@ -272,8 +537,8 @@ try {
         net_amount, subtotal_count, parser_version, validated_at
       ) values (
         '00000000-0000-0000-0000-000000009009',
-        '00000000-0000-0000-0000-000000009006',
-        '00000000-0000-0000-0000-000000009007', '2026-07-01', 1,
+        '00000000-0000-0000-0000-000000009017',
+        '00000000-0000-0000-0000-000000008007', '2026-07-01', 1,
         100.00, 10.00, 90.00, 1,
         'payroll-report-aggregate/1.0.0', '2026-08-06 18:02:00+00'
       )
@@ -290,7 +555,7 @@ try {
       ) values (
         '00000000-0000-0000-0000-000000009016',
         '00000000-0000-0000-0000-000000009014',
-        '00000000-0000-0000-0000-000000009007', '2025-02-01', 10,
+        '00000000-0000-0000-0000-000000008007', '2025-02-01', 10,
         100.00, 10.00, 90.00, 1,
         'payroll-report-aggregate/1.2.0', '2025-03-12 16:08:00+00'
       )
@@ -307,7 +572,7 @@ try {
       '00000000-0000-0000-0000-000000009008',
       '00000000-0000-0000-0000-000000009005',
       '00000000-0000-0000-0000-000000009006',
-      '00000000-0000-0000-0000-000000009007', '2026-07-01', 8184,
+      '00000000-0000-0000-0000-000000008007', '2026-07-01', 8184,
       34971971.48, 10422982.78, 24548988.70, 133,
       'payroll-report-aggregate/1.0.0', '2026-08-06 18:02:00+00'
     );
@@ -320,7 +585,7 @@ try {
       '00000000-0000-0000-0000-000000009012',
       '00000000-0000-0000-0000-000000009010',
       '00000000-0000-0000-0000-000000009011',
-      '00000000-0000-0000-0000-000000009007', '2026-07-01',
+      '00000000-0000-0000-0000-000000008007', '2026-07-01',
       'thirteenth_advance', 8000, 5000000.00, 500000.00, 4500000.00,
       120, 'payroll-report-aggregate/1.1.0', '2026-08-06 18:06:00+00'
     );
@@ -333,7 +598,7 @@ try {
       '00000000-0000-0000-0000-000000009015',
       '00000000-0000-0000-0000-000000009013',
       '00000000-0000-0000-0000-000000009014',
-      '00000000-0000-0000-0000-000000009007', '2025-02-01',
+      '00000000-0000-0000-0000-000000008007', '2025-02-01',
       'regular', 6000, 30000000.00, 10000000.00, 20000000.00,
       130, 'payroll-report-aggregate/1.2.0', '2025-03-12 16:08:00+00'
     );
