@@ -80,8 +80,10 @@ apresentação de zero. As três séries permanecem separadas e nunca são somad
 
 Na auditoria de 20/08/2026, a integridade determinística encontrou zero chaves
 duplicadas, zero URL insegura, zero hash inválido e zero divergência na fórmula
-de pagamento efetivo. O retrato continha 15 linhas na execução da CGU, nove no
-arquivo histórico do Transferegov e três na API atual. A ausência de
+de pagamento efetivo. O retrato continha 15 linhas na execução da CGU, três
+linhas confirmadas no arquivo histórico do Transferegov e três na API atual.
+Outras seis linhas regionais excluídas pertenciam a consórcios cujo objeto não
+confirmava Barreiras como destino. A ausência de
 correspondência entre séries é registrada como diferença de cobertura, não como
 erro nem prova de ausência de recurso.
 

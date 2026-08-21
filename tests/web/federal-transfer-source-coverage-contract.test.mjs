@@ -14,6 +14,17 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const territorialScopeFix = readFileSync(
+  new URL(
+    "../../supabase/migrations/20260821030535_fix_federal_coverage_territorial_scope.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const methodology = readFileSync(
+  new URL("../../docs/PARLIAMENTARY_TRANSFERS_METHODOLOGY.md", import.meta.url),
+  "utf8",
+);
 const resourcesPage = readFileSync(
   new URL("../../apps/web/app/recursos/page.tsx", import.meta.url),
   "utf8",
@@ -109,9 +120,18 @@ test("migration publica somente cobertura agregada e sanitizada", () => {
   assert.doesNotMatch(migration, /error_detail/);
 });
 
+test("correção territorial conta somente emendas históricas confirmadas", () => {
+  assert.match(territorialScopeFix, /federal_transfer_proposal_scope as scope/);
+  assert.match(territorialScopeFix, /scope\.is_confirmed_for_barreiras/);
+  assert.match(territorialScopeFix, /historical_parliamentary_amendments as amendment[\s\S]+join territory\.federal_transfer_proposal_scope/);
+  assert.match(methodology, /três\s+linhas confirmadas/);
+  assert.match(methodology, /seis linhas regionais excluídas/);
+});
+
 test("página explica cobertura sem converter ausência em zero financeiro", () => {
   assert.match(resourcesPage, /Quais anos cada fonte federal já conferiu/);
   assert.match(resourcesPage, /nenhuma linha atribuída a Barreiras/);
   assert.match(resourcesPage, /não significa valor financeiro zero/);
+  assert.match(resourcesPage, /Cadastrar o proponente em Barreiras, sozinho, não/);
   assert.match(resourcesPage, /getPublicFederalTransferSourceCoverage/);
 });
