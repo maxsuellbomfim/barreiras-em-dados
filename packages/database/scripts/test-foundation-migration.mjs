@@ -1009,6 +1009,25 @@ try {
     'atos aprovados devem resolver a decisão editorial vigente em conjunto',
   );
 
+  const stateRepresentativesDefinition = await database.query(`
+    select pg_get_functiondef(procedure.oid) as definition
+    from pg_proc as procedure
+    join pg_namespace as namespace on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'api'
+      and procedure.proname = 'get_state_representatives'
+  `);
+  assert.equal(stateRepresentativesDefinition.rows.length, 1);
+  assert.doesNotMatch(
+    stateRepresentativesDefinition.rows[0].definition,
+    /join\s+lateral/i,
+    'perfis estaduais não podem repetir a busca do perfil por parlamentar',
+  );
+  assert.match(
+    stateRepresentativesDefinition.rows[0].definition,
+    /latest_state_profiles\s+as\s+materialized/i,
+    'perfis estaduais devem resolver o último retrato oficial em conjunto',
+  );
+
   // Reversão: a decisão vigente muda, o candidato volta à fila e some do
   // público; o histórico acompanha a decisão vigente.
   await database.exec(`

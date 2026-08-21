@@ -463,6 +463,12 @@ Gate:
 - declarações eleitorais por pleito, com limitações;
 - fotos oficiais com metadados e histórico.
 
+Checkpoint de estabilidade em 20/08/2026: a composição atual da ALBA passou a
+resolver a lista de parlamentares e o último perfil oficial em conjuntos
+materializados, sem busca repetida por pessoa. O contrato preserva exatamente
+nome, perfil, foto e biografia transcritos da fonte e não transforma mandato
+estadual em vínculo automático com Barreiras.
+
 Gate:
 
 - identidade e vínculo territorial revisados;
