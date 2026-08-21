@@ -3,6 +3,7 @@ import type {
   CguLegislatureRankingGroup,
   CguLegislatureRankingRow,
 } from "../../lib/cgu-federal-amendments.mjs";
+import { cguExecutionAuthorHref } from "../../lib/cgu-execution-filter.mjs";
 import type {
   ParliamentaryLegislatureRankingGroup,
   ParliamentaryLegislatureRankingRow,
@@ -127,7 +128,7 @@ function CguLegislatureRow({
           )}
         <a
           className="legislature-ranking-detail-link"
-          href="/recursos?origem=federal-execucao#cgu-documents-title"
+          href={`${cguExecutionAuthorHref(row.authorKey)}#cgu-documents-title`}
         >
           Conferir documentos oficiais da CGU →
         </a>
