@@ -116,6 +116,20 @@ test("coleta financeira preserva o catalogo privado de pessoal sem publica-lo", 
   assert.doesNotMatch(workflow, /publish[_-]payroll/i);
 });
 
+test("coleta de pessoal aceita uma competencia exata sem baixar outros tipos", () => {
+  assert.match(workflow, /personnel_reference_month:/);
+  assert.match(workflow, /INPUT_PERSONNEL_REFERENCE_MONTH:/);
+  assert.match(
+    workflow,
+    /--document-reference-month "\$INPUT_PERSONNEL_REFERENCE_MONTH"/,
+  );
+  assert.match(workflow, /--document-type "1"/);
+  assert.match(
+    workflow,
+    /\^20\[2-9\]\[0-9\]-\(0\[1-9\]\|1\[0-2\]\)\$/,
+  );
+});
+
 test("cobertura de balancetes nao espera o download de todo o acervo", () => {
   const collectionStep = workflow.slice(
     workflow.indexOf("- name: Preservar catálogo municipal"),

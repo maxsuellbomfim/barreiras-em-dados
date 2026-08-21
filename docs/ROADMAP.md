@@ -612,12 +612,21 @@ ADR adicional.
 - [x] classificar folha regular, adiantamento do 13º e parcela final do 13º;
 - [x] somar valores por código e contar vínculos somente na folha regular;
 - [x] expor todos os documentos, hashes e datas usados no total mensal;
-- [ ] reprocessar 2026 com o parser versionado e validar a projeção mensal em
+- [x] reprocessar 2026 com o parser versionado e validar a projeção mensal em
   produção;
 - [ ] executar o backfill de 2025 em lotes idempotentes, incluindo os ciclos do
   13º sem dupla contagem;
 - [ ] criar classificação separada para relatórios de terceirizados e
   estagiários antes do backfill de 2024.
+
+Em 21/08/2026, janeiro a julho de 2026 foram reprocessados com
+`payroll-report-aggregate/1.2.0` e consultados novamente pela RPC pública. As
+sete competências retornaram uma folha regular, fonte HTTPS e hash do artefato.
+Dezembro de 2025 também foi validado como composição de dois documentos
+oficiais — folha regular e parcela final do 13º — sem duplicar a contagem de
+vínculos. O próximo lote passa a aceitar competência exata, usando `ano_ref`,
+`mes_ref` e `tipo` do catálogo para evitar a drenagem sequencial de PDFs sem
+relação com o mês solicitado.
 
 ## Backlog deliberadamente adiado
 

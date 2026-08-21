@@ -51,6 +51,11 @@ on:
           - "rreo"
           - "rgf"
           - "servidores"
+      personnel_reference_month:
+        description: "Competência exata da folha a preservar (AAAA-MM)"
+        required: false
+        default: ""
+        type: string
       include_transferegov:
         description: "Preservar também propostas e parcerias destinadas a Barreiras"
         required: false
@@ -184,15 +189,33 @@ jobs:
             ${{ (matrix.resource == 'balancetes' || matrix.resource == 'servidores') && '5' || inputs.limit || '50' }}
           DRAIN_MAX_PAGES: >-
             ${{ (matrix.resource == 'balancetes' || matrix.resource == 'servidores') && '1' || inputs.max_pages || '3' }}
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_municipal_transparency
-          --source prefeitura
-          --resource "${{ matrix.resource }}"
-          --limit "$DRAIN_LIMIT"
-          --max-pages "$DRAIN_MAX_PAGES"
-          --max-documents "$DRAIN_MAX_DOCUMENTS"
-          --download-documents
-          --allow-partial
+          INPUT_PERSONNEL_REFERENCE_MONTH: ${{ inputs.personnel_reference_month }}
+        shell: bash
+        run: |
+          extra_args=()
+          if [[ -n "${INPUT_PERSONNEL_REFERENCE_MONTH:-}" ]]; then
+            if [[ "${{ matrix.resource }}" != "servidores" ]]; then
+              echo "personnel_reference_month exige resource=servidores" >&2
+              exit 2
+            fi
+            if [[ ! "$INPUT_PERSONNEL_REFERENCE_MONTH" =~ ^20[2-9][0-9]-(0[1-9]|1[0-2])$ ]]; then
+              echo "personnel_reference_month exige AAAA-MM desde 2020" >&2
+              exit 2
+            fi
+            extra_args+=(
+              --document-reference-month "$INPUT_PERSONNEL_REFERENCE_MONTH"
+              --document-type "1"
+            )
+          fi
+          python -B -m barreiras_collectors.commands.collect_municipal_transparency \
+            --source prefeitura \
+            --resource "${{ matrix.resource }}" \
+            --limit "$DRAIN_LIMIT" \
+            --max-pages "$DRAIN_MAX_PAGES" \
+            --max-documents "$DRAIN_MAX_DOCUMENTS" \
+            --download-documents \
+            --allow-partial \
+            "${extra_args[@]}"
 
   transferegov:
     name: Preservar emendas federais e parcerias

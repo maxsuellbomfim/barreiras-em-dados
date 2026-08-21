@@ -6,6 +6,7 @@ import argparse
 import calendar
 import logging
 import os
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -219,6 +220,29 @@ def select_pending_document_indexes(
     )
 
 
+def matches_document_reference(
+    item: Mapping[str, object],
+    *,
+    reference_month: date | None,
+    allowed_types: frozenset[str] | None,
+) -> bool:
+    """Filtra somente pelos campos oficiais de competência e tipo."""
+
+    if reference_month is not None:
+        try:
+            year = int(str(item.get("ano_ref", "")).strip())
+            month = int(str(item.get("mes_ref", "")).strip())
+        except ValueError:
+            return False
+        if (year, month) != (reference_month.year, reference_month.month):
+            return False
+    if allowed_types is not None:
+        document_type = str(item.get("tipo", "")).strip()
+        if document_type not in allowed_types:
+            return False
+    return True
+
+
 def should_defer_document_for_byte_budget(
     *,
     persisted_documents: int,
@@ -367,6 +391,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help="máximo de PDFs novos baixados por execução",
     )
+    parser.add_argument(
+        "--document-reference-month",
+        default=None,
+        help="competência oficial exata dos documentos de pessoal (AAAA-MM)",
+    )
+    parser.add_argument(
+        "--document-type",
+        action="append",
+        choices=("1", "3", "4"),
+        default=None,
+        help="tipo oficial de documento de pessoal; pode ser repetido",
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 500:
         parser.error("--limit deve estar entre 1 e 500.")
@@ -380,6 +416,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if args.max_documents is not None and not 1 <= args.max_documents <= 500:
         parser.error("--max-documents deve estar entre 1 e 500.")
+    document_reference_month: date | None = None
+    if args.document_reference_month is not None:
+        if not re.fullmatch(
+            r"20[2-9][0-9]-(0[1-9]|1[0-2])", args.document_reference_month
+        ):
+            parser.error("--document-reference-month exige AAAA-MM desde 2020.")
+        document_reference_month = datetime.strptime(
+            args.document_reference_month,
+            "%Y-%m",
+        ).date()
+    if (document_reference_month is not None or args.document_type is not None) and (
+        not args.download_documents or args.resource != "servidores"
+    ):
+        parser.error("filtro de competência/tipo exige download do recurso servidores.")
+    document_types = (
+        frozenset(args.document_type) if args.document_type is not None else None
+    )
     if args.coverage_year_from is not None and (
         args.resource != "balancetes"
         or args.offset not in (None, 0)
@@ -416,6 +469,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     partition_key = (
         f"snapshot:{args.resource}:limit:{args.limit}:pages:{args.max_pages}"
     )
+    if document_reference_month is not None:
+        partition_key += f":document-reference:{document_reference_month:%Y-%m}"
+    if document_types is not None:
+        partition_key += f":document-types:{','.join(sorted(document_types))}"
     control = CollectionControl(
         repository=repository,
         source_code=source_code,
@@ -464,6 +521,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_documents=args.max_documents or args.limit,
             collector_settings=collector_settings,
             logger=logger,
+            document_reference_month=document_reference_month,
+            document_types=document_types,
             coverage_period=(
                 (
                     date(args.coverage_year_from, 1, 1),
@@ -500,9 +559,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         documents_failed=summary.documents_failed,
         documents_skipped=summary.documents_skipped,
         documents_bytes_persisted=summary.documents_bytes_persisted,
-        documents_byte_budget_exhausted=(
-            summary.documents_byte_budget_exhausted
-        ),
+        documents_byte_budget_exhausted=(summary.documents_byte_budget_exhausted),
         pagination_capped=summary.pagination_capped,
         availability_partial=summary.availability_partial,
         start_offset=summary.start_offset,
@@ -527,15 +584,15 @@ def _collect_resource(
     max_documents: int,
     collector_settings: CollectorSettings,
     logger: logging.Logger,
+    document_reference_month: date | None = None,
+    document_types: frozenset[str] | None = None,
     coverage_period: tuple[date, date] | None = None,
 ) -> MunicipalTransparencyCollectionSummary:
     document_client = None
     max_batch_document_bytes = 0
     if download_documents:
         if resource not in DOCUMENT_RESOURCES:
-            raise ValueError(
-                "download só é permitido em recurso documental validado."
-            )
+            raise ValueError("download só é permitido em recurso documental validado.")
         document_client = MunicipalTransparencyDocumentClient(
             max_document_bytes=_bounded_env_int(
                 "MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES",
@@ -606,6 +663,12 @@ def _collect_resource(
                 candidates: list[tuple[int, str, str]] = []
                 records: dict[int, RawRecordInput] = {}
                 for index, item in enumerate(page.items):
+                    if not matches_document_reference(
+                        item,
+                        reference_month=document_reference_month,
+                        allowed_types=document_types,
+                    ):
+                        continue
                     document_url = item.get("url")
                     if not isinstance(document_url, str) or not document_url.strip():
                         continue
@@ -649,6 +712,14 @@ def _collect_resource(
                     already_preserved=selection.already_preserved,
                     selected=len(selection.indexes),
                     deferred=selection.deferred,
+                    reference_month=(
+                        document_reference_month.strftime("%Y-%m")
+                        if document_reference_month is not None
+                        else None
+                    ),
+                    document_types=(
+                        sorted(document_types) if document_types is not None else None
+                    ),
                 )
                 for selection_position, index in enumerate(selection.indexes):
                     item = page.items[index]
@@ -679,13 +750,9 @@ def _collect_resource(
                                 source=source_code,
                                 resource=page.resource,
                                 documents_persisted=persisted_documents,
-                                documents_bytes_persisted=(
-                                    persisted_document_bytes
-                                ),
+                                documents_bytes_persisted=(persisted_document_bytes),
                                 next_document_bytes=document.body_size_bytes,
-                                max_batch_document_bytes=(
-                                    max_batch_document_bytes
-                                ),
+                                max_batch_document_bytes=(max_batch_document_bytes),
                                 deferred_documents=deferred_selected,
                             )
                             break
@@ -733,9 +800,7 @@ def _collect_resource(
                 documents_failed=failed_documents,
                 documents_skipped=skipped_documents,
                 documents_bytes_persisted=persisted_document_bytes,
-                documents_byte_budget_exhausted=(
-                    document_byte_budget_exhausted
-                ),
+                documents_byte_budget_exhausted=(document_byte_budget_exhausted),
             )
     except MunicipalTransparencyAvailabilityError as error:
         if not allow_partial or persisted_pages == 0:
@@ -764,9 +829,7 @@ def _collect_resource(
         if resource != "balancetes":
             raise ValueError("Cobertura mensal é exclusiva dos balancetes.")
         if availability_partial or pagination_capped or offset != 0:
-            raise RuntimeError(
-                "Catálogo incompleto não pode provar ausência mensal."
-            )
+            raise RuntimeError("Catálogo incompleto não pode provar ausência mensal.")
         searches = build_balancete_monthly_searches(
             all_items,
             period_start=coverage_period[0],
