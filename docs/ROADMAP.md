@@ -359,9 +359,13 @@ julho/2026: 133 subtotais fecham exatamente com o total geral, e o parser
 e líquido agregados. A competência passa a ter persistência append-only em
 `hr.payroll_report_aggregates`, com linhagem obrigatória até o catálogo e o PDF,
 aritmética exata e projeção pública mínima pela RPC
-`api.get_public_payroll_months`. A próxima fatia liga o parser ao worker para
-popular a primeira competência real; descontos pessoais e campos sensíveis
-permanecem vedados.
+`api.get_public_payroll_months`. O publicador automatizado seleciona somente
+PDFs `tipo=1`, confere hash e tamanho, exige reconciliação integral, registra
+falhas versionadas e grava agregado e evidência na mesma transação. A execução
+manual pode fixar uma competência `AAAA-MM`, evitando validar um mês diferente
+do pretendido. A próxima fatia publica julho/2026 em produção e apresenta esse
+fechamento no portal em linguagem simples; descontos pessoais e campos
+sensíveis permanecem vedados.
 
 ## Etapa 5 — Fluxos territoriais
 

@@ -41,6 +41,12 @@ A tabela interna tem RLS forçada, não concede leitura ao frontend e rejeita
 `api.get_public_payroll_months` retorna apenas os totais vigentes, fonte, hash,
 data de coleta e versão do parser.
 
+O publicador usa trava transacional por órgão e competência e uma restrição
+única de órgão, espécie, competência e versão. O workflow permite selecionar
+uma competência `AAAA-MM`; isso é controle operacional, não dado financeiro
+recebido do operador. Falhas de hash, extração ou reconciliação são registradas
+por versão do job e não geram linha pública parcial.
+
 ## Fora de escopo
 
 - nomes, CPF, matrícula, conta bancária ou qualquer linha individual;

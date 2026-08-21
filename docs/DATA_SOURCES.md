@@ -95,7 +95,9 @@ quatro recursos adicionais no portal da Prefeitura:
   `docs/reviews/STAGE_4_PAYROLL_LAYOUT_REVIEW.md`. A projeção pública mensal
   definida no ADR 0073 retorna somente esses quatro totais, a quantidade de
   subtotais, a fonte, o hash e a versão do parser. Registros `tipo=3` e `tipo=4`
-  permanecem fora dessa projeção.
+  permanecem fora dessa projeção. O workflow financeiro possui escopo isolado
+  `payroll` e seletor opcional `AAAA-MM`; uma falha de leiaute ou integridade é
+  registrada para revisão e não bloqueia nem altera as demais competências.
 
 Nenhum desses documentos, isoladamente, representa o total da dívida do
 Município. A consolidação futura exigirá natureza da obrigação, competência,

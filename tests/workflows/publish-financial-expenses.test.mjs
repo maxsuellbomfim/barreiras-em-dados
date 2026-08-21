@@ -13,6 +13,7 @@ const workflow = await readFile(
 test("workflow de despesas usa o publicador versionado e limite seguro", () => {
   assert.match(workflow, /publish_expense_reports/);
   assert.match(workflow, /publish_public_obligations/);
+  assert.match(workflow, /publish_payroll_reports/);
   assert.match(workflow, /default: "5"/);
   assert.match(workflow, /timeout-minutes: 120/);
   assert.match(workflow, /--fiscal-year-from/);
@@ -28,16 +29,18 @@ test("workflow de despesas usa o publicador versionado e limite seguro", () => {
   assert.match(workflow, /--dry-run/);
 });
 
-test("workflow permite publicar somente despesas ou restos a pagar", () => {
+test("workflow permite publicar despesas, restos a pagar ou folha", () => {
   assert.match(workflow, /publication_scope:/);
   assert.match(workflow, /- "all"/);
   assert.match(workflow, /- "expenses"/);
   assert.match(workflow, /- "public-obligations"/);
+  assert.match(workflow, /- "payroll"/);
   assert.match(
     workflow,
     /inputs\.publication_scope != 'public-obligations'/,
   );
   assert.match(workflow, /inputs\.publication_scope != 'expenses'/);
+  assert.match(workflow, /inputs\.publication_scope != 'payroll'/);
 });
 
 test("workflow permite direcionar restos a pagar para um mes exato", () => {
@@ -45,4 +48,23 @@ test("workflow permite direcionar restos a pagar para um mes exato", () => {
   assert.match(workflow, /INPUT_REFERENCE_MONTH: \$\{\{ inputs\.reference_month \}\}/);
   assert.match(workflow, /if \[\[ -n "\$\{INPUT_REFERENCE_MONTH:-\}" \]\]/);
   assert.match(workflow, /extra_args\+=\(--reference-month "\$INPUT_REFERENCE_MONTH"\)/);
+});
+
+test("workflow permite direcionar a folha para uma competencia exata", () => {
+  const payrollStep = workflow.slice(
+    workflow.indexOf("- name: Publicar totais mensais validados da folha"),
+  );
+  assert.match(workflow, /payroll_reference_month:/);
+  assert.match(
+    payrollStep,
+    /INPUT_PAYROLL_REFERENCE_MONTH: \$\{\{ inputs\.payroll_reference_month \}\}/,
+  );
+  assert.match(
+    payrollStep,
+    /if \[\[ -n "\$\{INPUT_PAYROLL_REFERENCE_MONTH:-\}" \]\]/,
+  );
+  assert.match(
+    payrollStep,
+    /extra_args\+=\(--reference-month "\$INPUT_PAYROLL_REFERENCE_MONTH"\)/,
+  );
 });
