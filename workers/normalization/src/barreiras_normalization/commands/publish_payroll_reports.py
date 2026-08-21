@@ -18,6 +18,31 @@ from ..payroll_report_pdf import PayrollReportContractError
 from ..revenue_publisher import ArtifactMismatchError
 from .publish_expense_reports import _cloud_client
 
+PYPDF_LAYOUT_LOGGER = (
+    "pypdf._text_extraction._layout_mode._fixed_width_page"
+)
+PYPDF_UNBALANCED_TARGET_PREFIX = "Unbalanced target operations, expected "
+
+
+class KnownPypdfLayoutWarningFilter(logging.Filter):
+    """Condensa um aviso recuperável sem esconder outros problemas do PDF."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.suppressed_count = 0
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        is_known_recoverable_warning = (
+            record.levelno == logging.WARNING
+            and record.getMessage().startswith(
+                PYPDF_UNBALANCED_TARGET_PREFIX
+            )
+        )
+        if is_known_recoverable_warning:
+            self.suppressed_count += 1
+            return False
+        return True
+
 
 def _parse_reference_month(value: str) -> date:
     if re.fullmatch(r"\d{4}-(?:0[1-9]|1[0-2])", value) is None:
@@ -75,38 +100,51 @@ def main(argv: Sequence[str] | None = None) -> int:
         reference_month=args.reference_month,
     )
     logger = logging.getLogger(__name__)
-    for index, artifact in enumerate(artifacts, start=1):
-        logger.info(
-            "payroll_report_start artifact=%s period=%s progress=%s/%s",
-            artifact.id,
-            artifact.reference_month.isoformat(),
-            index,
-            len(artifacts),
-        )
-        try:
-            result = publisher.publish(artifact)
-        except (
-            ArtifactMismatchError,
-            CanonicalTextError,
-            PayrollReportContractError,
-            ValueError,
-        ) as error:
-            needs_review += 1
-            repository.record_failure(
-                artifact,
-                error_code=type(error).__name__,
-                error_detail=str(error),
-            )
-            logger.error(
-                "payroll_report_needs_review artifact=%s error=%s",
+    pypdf_logger = logging.getLogger(PYPDF_LAYOUT_LOGGER)
+    warning_filter = KnownPypdfLayoutWarningFilter()
+    pypdf_logger.addFilter(warning_filter)
+    try:
+        for index, artifact in enumerate(artifacts, start=1):
+            logger.info(
+                "payroll_report_start artifact=%s period=%s progress=%s/%s",
                 artifact.id,
-                str(error)[:500],
+                artifact.reference_month.isoformat(),
+                index,
+                len(artifacts),
             )
-            continue
-        if result.status == "published":
-            published += 1
-        else:
-            already_published += 1
+            try:
+                result = publisher.publish(artifact)
+            except (
+                ArtifactMismatchError,
+                CanonicalTextError,
+                PayrollReportContractError,
+                ValueError,
+            ) as error:
+                needs_review += 1
+                repository.record_failure(
+                    artifact,
+                    error_code=type(error).__name__,
+                    error_detail=str(error),
+                )
+                logger.error(
+                    "payroll_report_needs_review artifact=%s error=%s",
+                    artifact.id,
+                    str(error)[:500],
+                )
+                continue
+            if result.status == "published":
+                published += 1
+            else:
+                already_published += 1
+    finally:
+        pypdf_logger.removeFilter(warning_filter)
+
+    if warning_filter.suppressed_count:
+        logger.info(
+            "payroll_pdf_recoverable_warnings kind=unbalanced_target "
+            "suppressed=%s",
+            warning_filter.suppressed_count,
+        )
 
     logger.info(
         "payroll_publication_completed artifacts=%s published=%s "
