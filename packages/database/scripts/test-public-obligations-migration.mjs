@@ -1072,6 +1072,33 @@ try {
     calculation_methodology: "finance-coverage/1.1.0",
   }]);
 
+  const aggregateFinanceDefinitions = await database.query(`
+    select
+      procedure.proname,
+      pg_get_functiondef(procedure.oid) as definition
+    from pg_proc as procedure
+    join pg_namespace as namespace on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'api'
+      and procedure.proname in (
+        'get_public_finance_coverage_calculated',
+        'get_public_monthly_finance_closures_calculated'
+      )
+    order by procedure.proname
+  `);
+  assert.equal(aggregateFinanceDefinitions.rows.length, 2);
+  for (const row of aggregateFinanceDefinitions.rows) {
+    assert.doesNotMatch(
+      row.definition,
+      /finance\.has_exact_document_lineage\s*\(/,
+      `${row.proname} não pode validar linhagem linha a linha`,
+    );
+    assert.match(
+      row.definition,
+      /finance\.get_exact_document_lineage_pairs\s*\(/,
+      `${row.proname} deve usar a projeção set-based de linhagem`,
+    );
+  }
+
   const publicFinanceSignals = await database.query(`
     select finding_id from api.get_public_finance_signals(20)
     order by finding_id
@@ -1102,13 +1129,25 @@ try {
         'authenticated',
         'finance.has_direct_document_lineage(uuid,uuid)',
         'execute'
-      ) as authenticated_can_check_direct
+      ) as authenticated_can_check_direct,
+      has_function_privilege(
+        'anon',
+        'finance.get_exact_document_lineage_pairs()',
+        'execute'
+      ) as anon_can_list_exact_lineage,
+      has_function_privilege(
+        'authenticated',
+        'finance.get_exact_document_lineage_pairs()',
+        'execute'
+      ) as authenticated_can_list_exact_lineage
   `);
   assert.deepEqual(internalLineageAcl.rows, [{
     anon_can_execute: false,
     authenticated_can_execute: false,
     anon_can_resolve: false,
     authenticated_can_check_direct: false,
+    anon_can_list_exact_lineage: false,
+    authenticated_can_list_exact_lineage: false,
   }]);
 
   await rejects(
