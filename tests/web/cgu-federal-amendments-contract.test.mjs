@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -7,8 +8,16 @@ import {
   parseCguFederalAmendmentRows,
   parseCguLegislatureRankingRows,
 } from "../../apps/web/lib/cgu-federal-amendments.mjs";
+import {
+  filterCguExecutionAmendments,
+  resolveCguExecutionFilters,
+} from "../../apps/web/lib/cgu-execution-filter.mjs";
 
 const SHA = "c".repeat(64);
+const resourcesPage = readFileSync(
+  new URL("../../apps/web/app/recursos/page.tsx", import.meta.url),
+  "utf8",
+);
 
 function executionRow(overrides = {}) {
   return {
@@ -385,4 +394,53 @@ test("estágio do ranking é sempre o empenhado declarado, sem mistura", () => {
     ),
     null,
   );
+});
+
+test("execução federal filtra autor e ano somente dentro do acervo publicado", () => {
+  const amendments = [
+    executionRow(),
+    executionRow({
+      fiscal_year: 2022,
+      amendment_code: "202240720004",
+      source_row_number: 70001,
+    }),
+    executionRow({
+      fiscal_year: 2023,
+      amendment_code: "202311110001",
+      author_key: "afonso florence",
+      author_name: "AFONSO FLORENCE",
+      author_code: "1111",
+      source_row_number: 70002,
+    }),
+  ];
+  const parsed = parseCguFederalAmendmentRows(amendments);
+  assert.notEqual(parsed, null);
+
+  const filters = resolveCguExecutionFilters("tito", "2023", parsed);
+  assert.deepEqual(filters, { authorKey: "tito", fiscalYear: 2023 });
+  assert.deepEqual(
+    filterCguExecutionAmendments(parsed, filters).map((row) => row.amendmentCode),
+    ["202340720005"],
+  );
+});
+
+test("filtro repetido ou fora do acervo não fabrica ausência", () => {
+  const parsed = parseCguFederalAmendmentRows([executionRow()]);
+  assert.notEqual(parsed, null);
+  assert.deepEqual(resolveCguExecutionFilters(["tito"], "2023", parsed), {
+    authorKey: null,
+    fiscalYear: 2023,
+  });
+  assert.deepEqual(resolveCguExecutionFilters("desconhecido", "1999", parsed), {
+    authorKey: null,
+    fiscalYear: null,
+  });
+});
+
+test("página oferece investigação por parlamentar e ano e explica 2023", () => {
+  assert.match(resourcesPage, /name="autor"/);
+  assert.match(resourcesPage, /name="ano"/);
+  assert.match(resourcesPage, /2023 é um ano de transição/);
+  assert.match(resourcesPage, /não\s+entra no ranking por legislatura/);
+  assert.match(resourcesPage, /linhas oficiais encontradas com estes filtros/);
 });

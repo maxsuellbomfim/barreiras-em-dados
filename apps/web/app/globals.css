@@ -5225,6 +5225,49 @@ footer {
   line-height: 1.5;
 }
 
+.transfer-execution-filters {
+  grid-template-columns: minmax(13rem, 1fr) minmax(9rem, 0.45fr) auto auto;
+}
+
+.transfer-execution-filters > a {
+  min-height: 44px;
+  padding: 0.65rem 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(28, 40, 61, 0.18);
+  border-radius: 0.75rem;
+  color: #40506a;
+  font-weight: 720;
+  text-decoration: none;
+}
+
+.transfer-execution-filters > a:hover {
+  border-color: rgba(49, 91, 199, 0.48);
+  color: #23469f;
+}
+
+.transfer-execution-filters > p {
+  grid-column: 1 / -1;
+}
+
+.transfer-transition-note {
+  margin: 0.85rem 0 1.35rem;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid #315bc7;
+  background: rgba(49, 91, 199, 0.055);
+  color: #526078;
+}
+
+.transfer-transition-note strong {
+  color: #23314a;
+}
+
+.transfer-transition-note p {
+  margin: 0.3rem 0 0;
+  line-height: 1.6;
+}
+
 .transfer-coverage {
   margin-top: 2.2rem;
 }
@@ -5717,6 +5760,10 @@ footer {
     grid-template-columns: 1fr auto;
   }
 
+  .transfer-execution-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .transfer-year-filter p {
     grid-column: 1 / -1;
   }
@@ -5740,6 +5787,10 @@ footer {
 
 @media (max-width: 620px) {
   .transfer-year-filter {
+    grid-template-columns: 1fr;
+  }
+
+  .transfer-execution-filters {
     grid-template-columns: 1fr;
   }
 
