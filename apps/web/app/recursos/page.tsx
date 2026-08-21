@@ -220,6 +220,12 @@ function FederalTransferSourceCoveragePanel({
         fonte foi consultada e não devolveu registro municipal naquele ano. Isso
         não prova ausência em outras bases e <strong>não significa valor financeiro zero</strong>.
       </p>
+      <p>
+        No arquivo histórico, registros de consórcios regionais só entram na
+        contagem quando o objeto cita Barreiras ou outra evidência territorial
+        confirma o município. Cadastrar o proponente em Barreiras, sozinho, não
+        basta para atribuir o recurso à cidade.
+      </p>
       {groups.length === 0 ? (
         <p className="transfer-coverage-unavailable">
           O diagnóstico comparativo está temporariamente indisponível. Os registros
