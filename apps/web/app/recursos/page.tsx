@@ -42,6 +42,10 @@ import {
   filterCguExecutionAmendments,
   resolveCguExecutionFilters,
 } from "../../lib/cgu-execution-filter.mjs";
+import {
+  buildCguAuthorCoverageSummary,
+  type CguAuthorCoverageSummary,
+} from "../../lib/cgu-author-coverage.mjs";
 import { getPublicFederalTransferSourceCoverage } from
   "../../lib/federal-transfer-source-coverage";
 import {
@@ -1172,10 +1176,12 @@ function CguAmendmentCard({
 
 function CguFederalExecutionPanel({
   result,
+  coverage,
   requestedAuthor,
   requestedYear,
 }: Readonly<{
   result: CguFederalAmendmentsResult;
+  coverage: readonly FederalTransferSourceCoverage[];
   requestedAuthor: string | readonly string[] | undefined;
   requestedYear: string | readonly string[] | undefined;
 }>) {
@@ -1204,6 +1210,11 @@ function CguFederalExecutionPanel({
   const filteredAmendments = filterCguExecutionAmendments(
     result.amendments,
     filters,
+  );
+  const authorCoverage = buildCguAuthorCoverageSummary(
+    result.amendments,
+    coverage,
+    filters.authorKey,
   );
   const availableYears = [...new Set(
     result.amendments.map((amendment) => amendment.fiscalYear),
@@ -1285,6 +1296,9 @@ function CguFederalExecutionPanel({
           O ranking abaixo permanece calculado sobre todo o acervo desta fonte.
         </p>
       </form>
+      {authorCoverage ? (
+        <CguAuthorCoverageCard summary={authorCoverage} />
+      ) : null}
       <aside className="transfer-transition-note">
         <strong>Como tratamos 2023</strong>
         <p>
@@ -1323,6 +1337,80 @@ function CguFederalExecutionPanel({
         </p>
       )}
     </section>
+  );
+}
+
+function yearList(years: readonly number[]): string {
+  return new Intl.ListFormat("pt-BR", {
+    style: "long",
+    type: "conjunction",
+  }).format(years.map(String));
+}
+
+function CguAuthorCoverageCard({
+  summary,
+}: Readonly<{ summary: CguAuthorCoverageSummary }>) {
+  return (
+    <aside
+      className="transfer-author-audit"
+      aria-label={`Cobertura federal encontrada para ${summary.authorName}`}
+    >
+      <div className="transfer-author-audit-heading">
+        <div>
+          <span className="eyebrow">O que encontramos para este parlamentar</span>
+          <h3>{summary.authorName}</h3>
+        </div>
+        <span>Fonte territorial da CGU</span>
+      </div>
+      <dl>
+        <div>
+          <dt>Registros atribuídos</dt>
+          <dd>{summary.recordCount.toLocaleString("pt-BR")}</dd>
+        </div>
+        <div>
+          <dt>Anos encontrados</dt>
+          <dd>{yearList(summary.foundYears)}</dd>
+        </div>
+        <div>
+          <dt>Empenhado nessas linhas</dt>
+          <dd>{formatBrlDecimal(summary.committedAmount)}</dd>
+        </div>
+        <div>
+          <dt>Pago efetivo nessas linhas</dt>
+          <dd>{formatBrlDecimal(summary.effectivePaidAmount)}</dd>
+        </div>
+      </dl>
+      <div className="transfer-author-audit-notes">
+        {summary.observedWithoutAuthorYears.length > 0 ? (
+          <p>
+            <strong>Há dados da cidade, mas não deste autor:</strong>{" "}
+            em {yearList(summary.observedWithoutAuthorYears)}, a fonte contém
+            registro(s) territorializado(s) em Barreiras, porém nenhum
+            atribuído a {summary.authorName}.
+          </p>
+        ) : null}
+        {summary.emptyMunicipalYears.length > 0 ? (
+          <p>
+            <strong>A fonte não trouxe linhas para Barreiras:</strong>{" "}
+            {yearList(summary.emptyMunicipalYears)}. Isso descreve o arquivo
+            oficial consultado e não significa valor financeiro zero.
+          </p>
+        ) : null}
+        {summary.unresolvedYears.length > 0 ? (
+          <p>
+            <strong>Cobertura ainda inconclusiva:</strong>{" "}
+            {yearList(summary.unresolvedYears)}. Esses anos não entram em
+            conclusões até a coleta ser estabilizada.
+          </p>
+        ) : null}
+      </div>
+      <p className="transfer-author-audit-caveat">
+        “Não encontrado nesta série” não significa que o parlamentar não tenha
+        apresentado emendas ou trabalhado por Barreiras. Significa apenas que
+        não localizamos, nesta base específica, outra linha de execução federal
+        territorializada no município e atribuída a ele.
+      </p>
+    </aside>
   );
 }
 
@@ -2112,6 +2200,7 @@ export default async function ParliamentaryResourcesPage({
           />
         ) : sourceSelection.showCguExecution ? (
           <CguFederalExecutionPanel
+            coverage={federalSourceCoverage ?? []}
             requestedAuthor={params.autor}
             requestedYear={params.ano}
             result={cguFederalAmendmentsResult}

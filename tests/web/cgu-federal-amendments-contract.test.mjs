@@ -14,6 +14,8 @@ import {
   filterCguExecutionAmendments,
   resolveCguExecutionFilters,
 } from "../../apps/web/lib/cgu-execution-filter.mjs";
+import { buildCguAuthorCoverageSummary } from
+  "../../apps/web/lib/cgu-author-coverage.mjs";
 
 const SHA = "c".repeat(64);
 const resourcesPage = readFileSync(
@@ -450,6 +452,56 @@ test("contador da consulta usa singular e plural em português", () => {
   );
 });
 
+test("resumo do parlamentar separa achados, ausência autoral e vazio municipal", () => {
+  const amendments = parseCguFederalAmendmentRows([
+    executionRow(),
+    executionRow({
+      fiscal_year: 2022,
+      amendment_code: "202240720004",
+      committed_amount: "500000.00",
+      liquidated_amount: "500000.00",
+      paid_amount: "500000.00",
+      effective_paid_amount: "500000.00",
+      source_row_number: 70001,
+    }),
+    executionRow({
+      fiscal_year: 2021,
+      amendment_code: "202111110001",
+      author_key: "outro autor",
+      author_name: "OUTRO AUTOR",
+      author_code: "1111",
+      committed_amount: "100.00",
+      liquidated_amount: "100.00",
+      paid_amount: "100.00",
+      effective_paid_amount: "100.00",
+      source_row_number: 70002,
+    }),
+  ]);
+  assert.notEqual(amendments, null);
+  const coverage = [
+    { sourceKey: "cgu_execution", fiscalYear: 2023, coverageStatus: "observed", recordCount: 1 },
+    { sourceKey: "cgu_execution", fiscalYear: 2022, coverageStatus: "observed", recordCount: 4 },
+    { sourceKey: "cgu_execution", fiscalYear: 2021, coverageStatus: "observed", recordCount: 1 },
+    { sourceKey: "cgu_execution", fiscalYear: 2024, coverageStatus: "empty", recordCount: 0 },
+    { sourceKey: "transferegov_current", fiscalYear: 2023, coverageStatus: "observed", recordCount: 2 },
+  ];
+
+  assert.deepEqual(
+    buildCguAuthorCoverageSummary(amendments, coverage, "tito", 2021),
+    {
+      authorKey: "tito",
+      authorName: "TITO",
+      recordCount: 2,
+      foundYears: [2023, 2022],
+      committedAmount: "699925.68",
+      effectivePaidAmount: "699925.68",
+      observedWithoutAuthorYears: [2021],
+      emptyMunicipalYears: [2024],
+      unresolvedYears: [],
+    },
+  );
+});
+
 test("ranking cria atalho seguro para as linhas oficiais do parlamentar", () => {
   assert.equal(
     cguExecutionAuthorHref("tito & comissão"),
@@ -464,4 +516,7 @@ test("página oferece investigação por parlamentar e ano e explica 2023", () =
   assert.match(resourcesPage, /2023 é um ano de transição/);
   assert.match(resourcesPage, /não\s+entra no ranking por legislatura/);
   assert.match(resourcesPage, /cguExecutionResultCountCopy\(filteredAmendments\.length\)/);
+  assert.match(resourcesPage, /O que encontramos para este parlamentar/);
+  assert.match(resourcesPage, /não significa valor financeiro zero/);
+  assert.match(resourcesPage, /Não encontrado nesta série/);
 });
