@@ -33,6 +33,7 @@ import {
   getPublicPayrollMonths,
   type PublicPayrollMonth,
 } from "../../lib/public-payroll.mjs";
+import FinancePayrollHistory from "./finance-payroll-history";
 
 export const revalidate = 300;
 
@@ -241,6 +242,7 @@ export default async function FinancesPage() {
   const payrollMonths =
     payrollResult.state === "available" ? payrollResult.months : [];
   const latestPayroll: PublicPayrollMonth | null = payrollMonths[0] ?? null;
+  const previousPayrollMonths = payrollMonths.slice(1);
   const obligationCoverageGaps = publicObligationCoverage.filter(
     (row) => row.coverageStatus !== "published",
   );
@@ -406,75 +408,79 @@ export default async function FinancesPage() {
             </p>
           </div>
           {latestPayroll ? (
-            <article className="finance-payroll-card">
-              <div className="finance-payroll-header">
-                <div>
-                  <span className="finance-payroll-kicker">
-                    {latestPayroll.publicBodyName}
+            <>
+              <article className="finance-payroll-card">
+                <div className="finance-payroll-header">
+                  <div>
+                    <span className="finance-payroll-kicker">
+                      {latestPayroll.publicBodyName}
+                    </span>
+                    <h3>{formatMonthTitle(latestPayroll.referenceMonth)}</h3>
+                    <p>
+                      O documento informa{" "}
+                      <strong>
+                        {latestPayroll.employeeCount.toLocaleString("pt-BR")} vínculos
+                      </strong>
+                      . Um vínculo não representa necessariamente uma pessoa única.
+                    </p>
+                  </div>
+                  <span className="finance-payroll-status">
+                    PDF integral reconciliado
                   </span>
-                  <h3>{formatMonthTitle(latestPayroll.referenceMonth)}</h3>
+                </div>
+                <dl className="finance-payroll-values">
+                  <div className="finance-payroll-gross">
+                    <dt>
+                      Proventos brutos
+                      <small>Total antes dos descontos do relatório</small>
+                    </dt>
+                    <dd>{formatBrlDecimal(latestPayroll.grossAmount)}</dd>
+                  </div>
+                  <div>
+                    <dt>
+                      Descontos
+                      <small>Retenções consolidadas, sem detalhe pessoal</small>
+                    </dt>
+                    <dd>{formatBrlDecimal(latestPayroll.deductionAmount)}</dd>
+                  </div>
+                  <div className="finance-payroll-net">
+                    <dt>
+                      Líquido no relatório
+                      <small>Bruto menos descontos; não é confirmação bancária</small>
+                    </dt>
+                    <dd>{formatBrlDecimal(latestPayroll.netAmount)}</dd>
+                  </div>
+                </dl>
+                <div className="finance-payroll-reading">
+                  <strong>Como ler este mês</strong>
                   <p>
-                    O documento informa{" "}
-                    <strong>
-                      {latestPayroll.employeeCount.toLocaleString("pt-BR")} vínculos
-                    </strong>
-                    . Um vínculo não representa necessariamente uma pessoa única.
+                    A folha bruta reportada foi de{" "}
+                    {formatBrlDecimal(latestPayroll.grossAmount)}. O próprio PDF
+                    registra {formatBrlDecimal(latestPayroll.deductionAmount)} em
+                    descontos e chega a {formatBrlDecimal(latestPayroll.netAmount)}
+                    líquidos. Essa conta foi refeita por código e conferida contra{" "}
+                    {latestPayroll.subtotalCount.toLocaleString("pt-BR")} subtotais.
                   </p>
                 </div>
-                <span className="finance-payroll-status">
-                  PDF integral reconciliado
-                </span>
-              </div>
-              <dl className="finance-payroll-values">
-                <div className="finance-payroll-gross">
-                  <dt>
-                    Proventos brutos
-                    <small>Total antes dos descontos do relatório</small>
-                  </dt>
-                  <dd>{formatBrlDecimal(latestPayroll.grossAmount)}</dd>
-                </div>
-                <div>
-                  <dt>
-                    Descontos
-                    <small>Retenções consolidadas, sem detalhe pessoal</small>
-                  </dt>
-                  <dd>{formatBrlDecimal(latestPayroll.deductionAmount)}</dd>
-                </div>
-                <div className="finance-payroll-net">
-                  <dt>
-                    Líquido no relatório
-                    <small>Bruto menos descontos; não é confirmação bancária</small>
-                  </dt>
-                  <dd>{formatBrlDecimal(latestPayroll.netAmount)}</dd>
-                </div>
-              </dl>
-              <div className="finance-payroll-reading">
-                <strong>Como ler este mês</strong>
-                <p>
-                  A folha bruta reportada foi de{" "}
-                  {formatBrlDecimal(latestPayroll.grossAmount)}. O próprio PDF
-                  registra {formatBrlDecimal(latestPayroll.deductionAmount)} em
-                  descontos e chega a {formatBrlDecimal(latestPayroll.netAmount)}
-                  líquidos. Essa conta foi refeita por código e conferida contra{" "}
-                  {latestPayroll.subtotalCount.toLocaleString("pt-BR")} subtotais.
-                </p>
-              </div>
-              <details className="finance-details">
-                <summary>Conferir cálculo, fonte e documento</summary>
-                <p className="finance-details-note">
-                  Regra determinística: proventos brutos − descontos = líquido.
-                  O Barreiras 360 não usa IA para calcular esses valores.
-                </p>
-                <p className="act-evidence">
-                  <a href={latestPayroll.sourceUrl} target="_blank" rel="noreferrer">
-                    Abrir PDF oficial →
-                  </a>{" "}
-                  · coletado em {formatCollectedAt(latestPayroll.sourceRetrievedAt)}
-                  · hash {latestPayroll.artifactSha256.slice(0, 12)}… · parser{" "}
-                  {latestPayroll.parserVersion}
-                </p>
-              </details>
-            </article>
+                <details className="finance-details">
+                  <summary>Conferir cálculo, fonte e documento</summary>
+                  <p className="finance-details-note">
+                    Regra determinística: proventos brutos − descontos = líquido.
+                    O Barreiras 360 não usa IA para calcular esses valores.
+                  </p>
+                  <p className="act-evidence">
+                    <a href={latestPayroll.sourceUrl} target="_blank" rel="noreferrer">
+                      Abrir PDF oficial →
+                    </a>{" "}
+                    · coletado em {formatCollectedAt(latestPayroll.sourceRetrievedAt)}
+                    · hash {latestPayroll.artifactSha256.slice(0, 12)}… · parser{" "}
+                    {latestPayroll.parserVersion}
+                  </p>
+                </details>
+              </article>
+
+              <FinancePayrollHistory months={previousPayrollMonths} />
+            </>
           ) : (
             <div className="collection-unavailable" role="status">
               <div>

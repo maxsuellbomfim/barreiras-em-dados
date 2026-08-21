@@ -5158,6 +5158,107 @@ footer {
   line-height: 1.6;
 }
 
+.finance-payroll-history {
+  margin-top: 0.85rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.64);
+  box-shadow: 0 10px 28px rgba(33, 46, 79, 0.04);
+  overflow: hidden;
+}
+
+.finance-payroll-history > summary {
+  display: flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 740;
+  list-style-position: inside;
+}
+
+.finance-payroll-history > summary:active {
+  background: rgba(55, 91, 232, 0.05);
+}
+
+.finance-payroll-history > summary small {
+  color: #7b879a;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.finance-payroll-history-list {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.finance-payroll-history-card {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(248, 250, 253, 0.88);
+}
+
+.finance-payroll-history-card > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.finance-payroll-history-card h3 {
+  margin: 0.25rem 0 0;
+  color: var(--ink);
+  font-size: 1.15rem;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.finance-payroll-history-status {
+  flex: 0 0 auto;
+  color: #296343;
+  font-size: 0.7rem;
+  font-weight: 720;
+}
+
+.finance-payroll-history-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.9rem 0 0;
+}
+
+.finance-payroll-history-values > div {
+  min-width: 0;
+}
+
+.finance-payroll-history-values dt {
+  color: #7b879a;
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.finance-payroll-history-values dd {
+  margin: 0.25rem 0 0;
+  color: #a33434;
+  font-size: clamp(0.88rem, 1.8vw, 1.05rem);
+  font-weight: 740;
+  letter-spacing: -0.02em;
+}
+
+.finance-payroll-history-note {
+  margin: 0.85rem 0 0;
+  color: #65728a;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
 .finance-glance-card {
   display: grid;
   gap: 0.35rem;
@@ -5204,12 +5305,42 @@ footer {
   .finance-payroll-values {
     grid-template-columns: 1fr;
   }
+
+  .finance-payroll-history > summary,
+  .finance-payroll-history-card > header {
+    align-items: flex-start;
+  }
+
+  .finance-payroll-history > summary {
+    display: grid;
+  }
+
+  .finance-payroll-history > summary small {
+    text-align: left;
+  }
+
+  .finance-payroll-history-card > header {
+    display: grid;
+  }
+
+  .finance-payroll-history-status {
+    justify-self: start;
+  }
+
+  .finance-payroll-history-values {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (prefers-reduced-transparency: reduce) {
   .finance-payroll-card {
     background: #ffffff;
     backdrop-filter: none;
+  }
+
+  .finance-payroll-history,
+  .finance-payroll-history-card {
+    background: #ffffff;
   }
 }
 
