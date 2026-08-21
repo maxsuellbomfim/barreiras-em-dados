@@ -423,6 +423,12 @@ hashes e versão do parser. Como o arquivo não publica chave municipal explíci
 todo resultado permanece marcado como agregado estadual e nenhum valor entra em
 totais ou rankings municipais por simples menção textual.
 
+Cobertura pública do retrato concluída: cada snapshot validado atualiza uma
+projeção anual com contagem de linhas e autores do FIPLAN desde 2021, linhagem e
+hash. O painel explica que o arquivo é estadual, não informa município e não
+representa valores destinados a Barreiras. A tabela privada permanece protegida
+por RLS; o site consome somente uma RPC agregada e sanitizada.
+
 Segunda fatia concluída: extração determinística das linhas territoriais de
 Barreiras nos anexos oficiais da LOA 2022-2026, com evidência literal e estágio
 `authorized`. O replay inicial de produção publicou 63 linhas distintas. Em

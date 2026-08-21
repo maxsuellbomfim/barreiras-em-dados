@@ -55,6 +55,10 @@ import type { StateAmendmentSourceCoverage } from
   "../../lib/state-amendment-source-coverage.mjs";
 import { getPublicBahiaSpecialTransfers } from
   "../../lib/bahia-special-transfers";
+import { getPublicBahiaStateExecutionCoverage } from
+  "../../lib/bahia-state-execution-coverage";
+import type { BahiaStateExecutionCoverage } from
+  "../../lib/bahia-state-execution-coverage.mjs";
 import { getPublicParliamentaryLegislatureRankings } from
   "../../lib/legislature-transfer-rankings";
 import { getPublicParliamentaryLegislatureCoverage } from
@@ -63,6 +67,8 @@ import { getPublicParliamentaryLegislatureYearCoverage } from
   "../../lib/legislature-transfer-year-coverage";
 import LegislatureTransferRankings from "./legislature-transfer-rankings";
 import BahiaSpecialTransfersPanel from "./bahia-special-transfers-panel";
+import BahiaStateExecutionCoveragePanel from
+  "./bahia-state-execution-coverage-panel";
 import ShareLink from "../share-link";
 
 export const revalidate = 300;
@@ -888,6 +894,7 @@ function StateLoaPanel({
   selectedFiscalYear,
   availableFiscalYears,
   coverage,
+  executionArchiveCoverage,
 }: Readonly<{
   ranking: readonly BahiaStateLoaAmendmentRanking[] | null;
   amendments: readonly BahiaStateLoaAmendment[] | null;
@@ -896,6 +903,7 @@ function StateLoaPanel({
   selectedFiscalYear: number;
   availableFiscalYears: readonly number[];
   coverage: readonly StateAmendmentSourceCoverage[] | null;
+  executionArchiveCoverage: readonly BahiaStateExecutionCoverage[] | null;
 }>) {
   const executionByEvidence = new Map(
     (execution ?? []).map((row) => [row.loaEvidenceSha256, row]),
@@ -983,6 +991,7 @@ function StateLoaPanel({
           </a>
         </p>
       </details>
+      <BahiaStateExecutionCoveragePanel rows={executionArchiveCoverage} />
       <StateAmendmentSourceCoveragePanel rows={coverage} />
       <StateLoaExecutionSummaryPanel summary={executionSummary} />
       {ranking === null ? (
@@ -1897,6 +1906,7 @@ export default async function ParliamentaryResourcesPage({
     federalSourceCoverageResult,
     stateSourceCoverageResult,
     bahiaSpecialTransfersResult,
+    bahiaStateExecutionCoverageResult,
   ] = await Promise.all([
     getPublicParliamentaryTransfers({
       stateFiscalYear: selectedStateFiscalYear,
@@ -1925,6 +1935,9 @@ export default async function ParliamentaryResourcesPage({
     sourceSelection.showState
       ? getPublicBahiaSpecialTransfers()
       : Promise.resolve({ state: "unavailable" as const }),
+    sourceSelection.showState
+      ? getPublicBahiaStateExecutionCoverage()
+      : Promise.resolve({ state: "unavailable" as const }),
   ]);
   const federalSourceCoverage = federalSourceCoverageResult.state === "available"
     ? federalSourceCoverageResult.rows
@@ -1932,6 +1945,10 @@ export default async function ParliamentaryResourcesPage({
   const stateSourceCoverage = stateSourceCoverageResult.state === "available"
     ? stateSourceCoverageResult.rows
     : null;
+  const bahiaStateExecutionCoverage =
+    bahiaStateExecutionCoverageResult.state === "available"
+      ? bahiaStateExecutionCoverageResult.rows
+      : null;
   const legislatureRankingGroups =
     legislatureRankingsResult.state === "available"
       ? legislatureRankingsResult.groups
@@ -2114,6 +2131,7 @@ export default async function ParliamentaryResourcesPage({
                 selectedFiscalYear={selectedStateFiscalYear}
                 availableFiscalYears={availableStateFiscalYears}
                 coverage={stateSourceCoverage}
+                executionArchiveCoverage={bahiaStateExecutionCoverage}
               />
             ) : (
               <div className="collection-unavailable" role="status">

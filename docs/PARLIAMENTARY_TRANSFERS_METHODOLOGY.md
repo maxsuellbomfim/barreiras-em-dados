@@ -200,6 +200,15 @@ ZIP sem linhas financeiras, com estrutura alterada ou com bytes divergentes do
 hash falha e segue para nova tentativa ou fila de falhas; nunca produz total
 zero.
 
+A cobertura técnica do retrato passa a ser publicada separadamente pela versão
+`bahia-state-execution-source-coverage/1.0.0`. Ela conta, por exercício, apenas
+as linhas financeiras e os códigos de autores distintos presentes no snapshot
+estadual validado. Não soma valores e não territorializa registros. No arquivo
+observado em 21/08/2026, o recorte público de 2021 a 2026 continha,
+respectivamente do ano mais recente ao mais antigo, 933, 922, 846, 547, 449 e
+530 linhas. Essas contagens comprovam processamento do arquivo, não recursos
+destinados ou pagos a Barreiras.
+
 O diagrama de relacionamento publicado no mesmo catálogo é preservado
 separadamente do ZIP. O PNG, sua URL oficial, data de modificação, tamanho,
 MIME e SHA-256 passam pelo mesmo contrato imutável. Ele comprova quais códigos
