@@ -303,6 +303,48 @@ try {
     worker_state_loa_execution_snapshot_refresh: true,
   }]);
 
+  const stateExecutionCoverageContracts = await database.query(`
+    select
+      to_regclass(
+        'territory.bahia_state_execution_annual_coverage_snapshot'
+      )::text as coverage_snapshot,
+      to_regclass(
+        'raw.extraction_jobs_bahia_state_execution_latest_idx'
+      )::text as latest_job_index,
+      to_regprocedure(
+        'territory.refresh_bahia_state_execution_annual_coverage_snapshot()'
+      )::text as refresh_function,
+      to_regprocedure(
+        'api.get_public_bahia_state_execution_annual_coverage()'
+      )::text as public_rpc
+  `);
+  assert.deepEqual(stateExecutionCoverageContracts.rows, [{
+    coverage_snapshot:
+      "territory.bahia_state_execution_annual_coverage_snapshot",
+    latest_job_index: "raw.extraction_jobs_bahia_state_execution_latest_idx",
+    refresh_function:
+      "territory.refresh_bahia_state_execution_annual_coverage_snapshot()",
+    public_rpc: "api.get_public_bahia_state_execution_annual_coverage()",
+  }]);
+
+  const stateExecutionCoveragePrivileges = await database.query(`
+    select
+      has_function_privilege(
+        'anon',
+        'api.get_public_bahia_state_execution_annual_coverage()',
+        'EXECUTE'
+      ) as anon_public_rpc,
+      has_function_privilege(
+        'anon',
+        'territory.refresh_bahia_state_execution_annual_coverage_snapshot()',
+        'EXECUTE'
+      ) as anon_refresh
+  `);
+  assert.deepEqual(stateExecutionCoveragePrivileges.rows, [{
+    anon_public_rpc: true,
+    anon_refresh: false,
+  }]);
+
   const specialTransferContracts = await database.query(`
     select
       to_regclass(
@@ -1059,7 +1101,7 @@ try {
         'bahia_state_execution_aggregate',
         'bahia-state-execution-aggregate/1.0.0',
         'bahia-state-execution-deterministic/1.0.0',
-        '{"fiscal_year":2026,"author_external_code":"500069","author_name":"Antonio Henrique Junior","agency_code":"11","budget_unit_code":"1002","action_code":"2002","execution_code":"2026.1.1.1.1.2002.500069.1","initial_budget_amount":"200000.00","current_budget_amount":"190000.00","committed_amount":"150000.00","liquidated_amount":"100000.00","paid_amount":"90000.00","evidence_text":"EXECUCAO 102","evidence_sha256":"${"5".repeat(64)}","source_url":"https://dados.ba.gov.br/emendas-fixture.zip","source_artifact_sha256":"${"8".repeat(64)}","source_collected_at":"2026-08-14T09:10:00+00:00","territorial_scope":"not_available_in_execution_archive"}',
+        '{"schema_name":"bahia-state-execution-aggregate","schema_version":"1.0.0","parser_version":"bahia-state-execution-aggregate/1.0.0","fiscal_year":2026,"author_external_code":"500069","author_name":"Antonio Henrique Junior","agency_code":"11","budget_unit_code":"1002","action_code":"2002","execution_code":"2026.1.1.1.1.2002.500069.1","initial_budget_amount":"200000.00","current_budget_amount":"190000.00","committed_amount":"150000.00","liquidated_amount":"100000.00","paid_amount":"90000.00","evidence_text":"EXECUCAO 102","evidence_sha256":"${"5".repeat(64)}","source_url":"https://dados.ba.gov.br/emendas-fixture.zip","source_artifact_sha256":"${"8".repeat(64)}","source_collected_at":"2026-08-14T09:10:00+00:00","territorial_scope":"not_available_in_execution_archive"}',
         'valid', '[]', '2026-08-14 09:11:00+00'
       ),
       (
@@ -1068,7 +1110,7 @@ try {
         'bahia_state_execution_aggregate',
         'bahia-state-execution-aggregate/1.0.0',
         'bahia-state-execution-deterministic/1.0.0',
-        '{"fiscal_year":2026,"author_external_code":"500123","author_name":"Diego Castro","agency_code":"14","budget_unit_code":"1005","action_code":"2005","execution_code":"2026.1.1.1.1.2005.500123.1","initial_budget_amount":"600000.00","current_budget_amount":"600000.00","committed_amount":"300000.00","liquidated_amount":"200000.00","paid_amount":"100000.00","evidence_text":"EXECUCAO 105 A","evidence_sha256":"${"6".repeat(64)}","source_url":"https://dados.ba.gov.br/emendas-fixture.zip","source_artifact_sha256":"${"8".repeat(64)}","source_collected_at":"2026-08-14T09:10:00+00:00","territorial_scope":"not_available_in_execution_archive"}',
+        '{"schema_name":"bahia-state-execution-aggregate","schema_version":"1.0.0","parser_version":"bahia-state-execution-aggregate/1.0.0","fiscal_year":2026,"author_external_code":"500123","author_name":"Diego Castro","agency_code":"14","budget_unit_code":"1005","action_code":"2005","execution_code":"2026.1.1.1.1.2005.500123.1","initial_budget_amount":"600000.00","current_budget_amount":"600000.00","committed_amount":"300000.00","liquidated_amount":"200000.00","paid_amount":"100000.00","evidence_text":"EXECUCAO 105 A","evidence_sha256":"${"6".repeat(64)}","source_url":"https://dados.ba.gov.br/emendas-fixture.zip","source_artifact_sha256":"${"8".repeat(64)}","source_collected_at":"2026-08-14T09:10:00+00:00","territorial_scope":"not_available_in_execution_archive"}',
         'valid', '[]', '2026-08-14 09:11:00+00'
       ),
       (
@@ -1077,10 +1119,43 @@ try {
         'bahia_state_execution_aggregate',
         'bahia-state-execution-aggregate/1.0.0',
         'bahia-state-execution-deterministic/1.0.0',
-        '{"fiscal_year":2026,"author_external_code":"500123","author_name":"Diego Castro","agency_code":"14","budget_unit_code":"1005","action_code":"2005","execution_code":"2026.1.1.1.1.2005.500123.2","initial_budget_amount":"100000.00","current_budget_amount":"100000.00","committed_amount":"50000.00","liquidated_amount":"40000.00","paid_amount":"30000.00","evidence_text":"EXECUCAO 105 B","evidence_sha256":"${"9".repeat(64)}","source_url":"https://dados.ba.gov.br/emendas-fixture.zip","source_artifact_sha256":"${"8".repeat(64)}","source_collected_at":"2026-08-14T09:10:00+00:00","territorial_scope":"not_available_in_execution_archive"}',
+        '{"schema_name":"bahia-state-execution-aggregate","schema_version":"1.0.0","parser_version":"bahia-state-execution-aggregate/1.0.0","fiscal_year":2026,"author_external_code":"500123","author_name":"Diego Castro","agency_code":"14","budget_unit_code":"1005","action_code":"2005","execution_code":"2026.1.1.1.1.2005.500123.2","initial_budget_amount":"100000.00","current_budget_amount":"100000.00","committed_amount":"50000.00","liquidated_amount":"40000.00","paid_amount":"30000.00","evidence_text":"EXECUCAO 105 B","evidence_sha256":"${"9".repeat(64)}","source_url":"https://dados.ba.gov.br/emendas-fixture.zip","source_artifact_sha256":"${"8".repeat(64)}","source_collected_at":"2026-08-14T09:10:00+00:00","territorial_scope":"not_available_in_execution_archive"}',
+        'valid', '[]', '2026-08-14 09:11:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009346',
+        '00000000-0000-0000-0000-000000009342',
+        'bahia_state_execution_aggregate',
+        'bahia-state-execution-aggregate/1.0.0',
+        'bahia-state-execution-deterministic/1.0.0',
+        '{"schema_name":"bahia-state-execution-aggregate","schema_version":"1.0.0","parser_version":"bahia-state-execution-aggregate/1.0.0","fiscal_year":2025,"author_external_code":"500777","author_name":"Deputada Exemplo","agency_code":"20","budget_unit_code":"2001","action_code":"3001","execution_code":"2025.1.1.1.1.3001.500777.1","initial_budget_amount":"100000.00","current_budget_amount":"100000.00","committed_amount":"80000.00","liquidated_amount":"70000.00","paid_amount":"60000.00","evidence_text":"EXECUCAO 2025","evidence_sha256":"${"7".repeat(64)}","source_url":"https://dados.ba.gov.br/emendas-fixture.zip","source_artifact_sha256":"${"8".repeat(64)}","source_collected_at":"2026-08-14T09:10:00+00:00","territorial_scope":"not_available_in_execution_archive"}',
         'valid', '[]', '2026-08-14 09:11:00+00'
       );
   `);
+
+  const stateExecutionCoverage = await database.query(`
+    select fiscal_year, source_aggregate_count, source_author_count,
+      territorial_key_status, source_snapshot_status, methodology_version
+    from api.get_public_bahia_state_execution_annual_coverage()
+  `);
+  assert.deepEqual(stateExecutionCoverage.rows, [
+    {
+      fiscal_year: 2026,
+      source_aggregate_count: 3,
+      source_author_count: 2,
+      territorial_key_status: "territorial_key_unavailable_in_source",
+      source_snapshot_status: "source_snapshot_observed",
+      methodology_version: "bahia-state-execution-source-coverage/1.0.0",
+    },
+    {
+      fiscal_year: 2025,
+      source_aggregate_count: 1,
+      source_author_count: 1,
+      territorial_key_status: "territorial_key_unavailable_in_source",
+      source_snapshot_status: "source_snapshot_observed",
+      methodology_version: "bahia-state-execution-source-coverage/1.0.0",
+    },
+  ]);
 
   const stateExecutionReconciliation = await database.query(`
     select amendment_number, reconciliation_status,
@@ -2854,6 +2929,18 @@ try {
   await assert.rejects(
     database.query(
       "select * from territory.bahia_state_loa_execution_reconciliation_snapshot",
+    ),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from territory.bahia_state_execution_annual_coverage_snapshot",
+    ),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select territory.refresh_bahia_state_execution_annual_coverage_snapshot()",
     ),
     /permission denied/,
   );

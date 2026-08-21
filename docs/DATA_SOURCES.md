@@ -401,6 +401,13 @@ orçamentária e financeira. A preservação bruta já possui fonte, endpoint,
 parser e partições próprios; dados estaduais não são agregados silenciosamente
 aos federais.
 
+A projeção pública de cobertura do arquivo estadual expõe somente exercício,
+quantidade de linhas, quantidade de autores distintos, URL, data e hash do
+snapshot. Como o arquivo não contém município nem número individual da emenda,
+ela registra `territorial_key_unavailable_in_source` e não publica total
+financeiro municipal. A ausência de um ano nessa projeção significa que o
+snapshot não comprovou aquele período — não significa execução zero.
+
 O catálogo também publica o
 [diagrama oficial das relações entre as views](https://dados.ba.gov.br/dataset/1436b3e7-6594-4683-bfa5-b2e3a6c69e07/resource/f463ff7d-569c-4b48-b1d3-c80f017779df/download/emendas-parlamentares-relacionamento_views.png).
 O coletor preserva o PNG como artefato imutável, com URL, data observada, MIME,
