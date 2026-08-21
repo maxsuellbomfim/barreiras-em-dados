@@ -11,8 +11,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from typing import Literal
 
-PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.0.0"
+PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.1.0"
+PayrollCycle = Literal[
+    "regular",
+    "thirteenth_advance",
+    "thirteenth_final",
+]
 
 
 class PayrollReportContractError(ValueError):
@@ -26,6 +32,7 @@ class PayrollReportAggregate:
     deduction_amount: Decimal
     net_amount: Decimal
     subtotal_count: int
+    payroll_cycle: PayrollCycle
     parser_version: str = PAYROLL_REPORT_PARSER_VERSION
 
 
@@ -56,6 +63,10 @@ _TOTAL_ROW = re.compile(
     rf"(?P<gross>{_AMOUNT})\s+"
     rf"(?P<deduction>{_AMOUNT})\s+"
     rf"(?P<net>{_AMOUNT})\s*$",
+    re.IGNORECASE,
+)
+_PAYROLL_HEADER = re.compile(
+    r"Listagem\s+Sint\S*tica\s+E-TCM(?P<label>.*)",
     re.IGNORECASE,
 )
 
@@ -96,6 +107,29 @@ def _has_validated_header(text: str) -> bool:
     )
 
 
+def _payroll_cycle(text: str) -> PayrollCycle:
+    observed: set[PayrollCycle] = set()
+    unknown_header = False
+    for line in text.splitlines():
+        header = _PAYROLL_HEADER.search(line)
+        if header is None:
+            continue
+        label = header.group("label")
+        if re.search(r"\b4\s*-\s*Adiant", label, re.IGNORECASE):
+            observed.add("thirteenth_advance")
+        elif re.search(r"\b6\s*-\s*13\S*\s+Final", label, re.IGNORECASE):
+            observed.add("thirteenth_final")
+        elif re.search(r"\b1\s*-\s*Normal", label, re.IGNORECASE):
+            observed.add("regular")
+        else:
+            unknown_header = True
+    if unknown_header or len(observed) != 1:
+        raise PayrollReportContractError(
+            "processamento da folha ausente, desconhecido ou misto"
+        )
+    return observed.pop()
+
+
 def parse_payroll_report_aggregate(text: str) -> PayrollReportAggregate:
     """Valida subtotais e retorna apenas o total geral reconciliado."""
 
@@ -105,6 +139,7 @@ def parse_payroll_report_aggregate(text: str) -> PayrollReportAggregate:
         raise PayrollReportContractError(
             "cabeçalho da relação de servidores não reconhecido"
         )
+    payroll_cycle = _payroll_cycle(text)
 
     subtotals: list[_DeclaredTotal] = []
     grand_totals: list[_DeclaredTotal] = []
@@ -154,4 +189,5 @@ def parse_payroll_report_aggregate(text: str) -> PayrollReportAggregate:
         deduction_amount=grand.deduction_amount,
         net_amount=grand.net_amount,
         subtotal_count=len(subtotals),
+        payroll_cycle=payroll_cycle,
     )

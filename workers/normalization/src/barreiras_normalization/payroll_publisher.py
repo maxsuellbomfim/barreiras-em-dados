@@ -16,7 +16,7 @@ from .payroll_report_pdf import (
 )
 from .revenue_publisher import ArtifactMismatchError
 
-PAYROLL_PUBLICATION_JOB_TYPE = "payroll_report_publication/1.0.0"
+PAYROLL_PUBLICATION_JOB_TYPE = "payroll_report_publication/1.1.0"
 
 
 @dataclass(frozen=True)
@@ -270,7 +270,9 @@ class PostgresPayrollPublicationRepository:
                     raise RuntimeError("órgão executivo municipal não encontrado")
                 public_body_id = str(body_result["id"])
                 lock_key = (
-                    f"payroll:{public_body_id}:{artifact.reference_month.isoformat()}"
+                    f"payroll:{public_body_id}:"
+                    f"{artifact.reference_month.isoformat()}:"
+                    f"{report.payroll_cycle}"
                 )
                 connection.execute(
                     "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
@@ -283,10 +285,15 @@ class PostgresPayrollPublicationRepository:
                     where public_body_id = %s::uuid
                       and report_kind = 'municipal_staff'
                       and reference_month = %s::date
+                      and payroll_cycle = %s
                     order by version desc, created_at desc, id desc
                     limit 1
                     """,
-                    (public_body_id, artifact.reference_month),
+                    (
+                        public_body_id,
+                        artifact.reference_month,
+                        report.payroll_cycle,
+                    ),
                 ).fetchone()
                 supersedes_id = None if previous is None else str(previous["id"])
                 version = 1 if previous is None else int(previous["version"]) + 1
@@ -295,11 +302,12 @@ class PostgresPayrollPublicationRepository:
                     insert into hr.payroll_report_aggregates (
                       origin_raw_record_id, source_document_artifact_id,
                       public_body_id, supersedes_id, version, reference_month,
-                      employee_count, gross_amount, deduction_amount, net_amount,
-                      subtotal_count, parser_version, validated_at
+                      payroll_cycle, employee_count, gross_amount,
+                      deduction_amount, net_amount, subtotal_count,
+                      parser_version, validated_at
                     ) values (
                       %s::uuid, %s::uuid, %s::uuid, %s::uuid, %s, %s::date,
-                      %s, %s, %s, %s, %s, %s, statement_timestamp()
+                      %s, %s, %s, %s, %s, %s, %s, statement_timestamp()
                     )
                     on conflict (source_document_artifact_id, parser_version)
                     do nothing
@@ -312,6 +320,7 @@ class PostgresPayrollPublicationRepository:
                         supersedes_id,
                         version,
                         artifact.reference_month,
+                        report.payroll_cycle,
                         report.employee_count,
                         report.gross_amount,
                         report.deduction_amount,
@@ -331,8 +340,11 @@ class PostgresPayrollPublicationRepository:
                     ) values (
                       'hr.payroll_report_aggregates', %s::uuid, %s::uuid,
                       %s::uuid, 'document', %s,
-                      'Totais mensais reconciliados com os subtotais do PDF oficial.',
-                      jsonb_build_object('reference_month', %s::text),
+                      'Componente mensal reconciliado com os subtotais do PDF oficial.',
+                      jsonb_build_object(
+                        'reference_month', %s::text,
+                        'payroll_cycle', %s::text
+                      ),
                       %s, %s, true
                     )
                     """,
@@ -342,6 +354,7 @@ class PostgresPayrollPublicationRepository:
                         artifact.parent_record_id,
                         artifact.source_url,
                         artifact.reference_month.isoformat(),
+                        report.payroll_cycle,
                         artifact.sha256,
                         report.parser_version,
                     ),

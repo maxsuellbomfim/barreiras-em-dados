@@ -17,7 +17,28 @@ const validRow = {
   artifact_sha256:
     "411cd4f055f0e57cd1b0bc111683798ae0b28d84b7d6013d069cc9ca2a3ed0e8",
   source_retrieved_at: "2026-08-21T13:47:57.202502-03:00",
-  parser_version: "payroll-report-aggregate/1.0.0",
+  parser_version: "payroll-monthly-total/1.0.0",
+  document_count: 2,
+  source_documents: [
+    {
+      payroll_cycle: "regular",
+      source_url:
+        "https://barreiras.mtransparente.com.br/admin/data/folha-julho.pdf",
+      artifact_sha256:
+        "411cd4f055f0e57cd1b0bc111683798ae0b28d84b7d6013d069cc9ca2a3ed0e8",
+      source_retrieved_at: "2026-08-21T13:47:57.202502-03:00",
+      parser_version: "payroll-report-aggregate/1.1.0",
+    },
+    {
+      payroll_cycle: "thirteenth_advance",
+      source_url:
+        "https://barreiras.mtransparente.com.br/admin/data/decimo-julho.pdf",
+      artifact_sha256:
+        "511cd4f055f0e57cd1b0bc111683798ae0b28d84b7d6013d069cc9ca2a3ed0e8",
+      source_retrieved_at: "2026-08-21T13:48:57.202502-03:00",
+      parser_version: "payroll-report-aggregate/1.1.0",
+    },
+  ],
 };
 
 test("folha publica normaliza centavos e conserva somente totais", () => {
@@ -30,6 +51,11 @@ test("folha publica normaliza centavos e conserva somente totais", () => {
   assert.equal(row.deductionAmount, "10422982.78");
   assert.equal(row.netAmount, "24548988.70");
   assert.equal(row.subtotalCount, 133);
+  assert.equal(row.documentCount, 2);
+  assert.deepEqual(
+    row.sourceDocuments.map((document) => document.payrollCycle),
+    ["regular", "thirteenth_advance"],
+  );
   assert.equal("people" in row, false);
   assert.equal("cpf" in row, false);
   assert.equal("individualDeductions" in row, false);
@@ -45,21 +71,63 @@ test("folha publica recusa origem, hash ou parser inesperado", () => {
   assert.equal(parsePublicPayrollRow({ ...validRow, parser_version: "outro" }), null);
 });
 
+test("folha publica aceita temporariamente a projeção anterior no deploy", () => {
+  const legacy = { ...validRow };
+  delete legacy.document_count;
+  delete legacy.source_documents;
+  legacy.parser_version = "payroll-report-aggregate/1.0.0";
+
+  const row = parsePublicPayrollRow(legacy);
+
+  assert.ok(row);
+  assert.equal(row.documentCount, 1);
+  assert.equal(row.sourceDocuments[0].payrollCycle, "regular");
+});
+
+test("folha publica rejeita componentes duplicados ou sem folha regular", () => {
+  const duplicated = {
+    ...validRow,
+    source_documents: [
+      validRow.source_documents[0],
+      { ...validRow.source_documents[0] },
+    ],
+  };
+  const withoutRegular = {
+    ...validRow,
+    document_count: 1,
+    source_documents: [validRow.source_documents[1]],
+  };
+
+  assert.equal(parsePublicPayrollRow(duplicated), null);
+  assert.equal(parsePublicPayrollRow(withoutRegular), null);
+});
+
 test("pagina explica vínculos, descontos e limite da informação", async () => {
-  const page = await readFile(
-    new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
-    "utf8",
-  );
+  const [page, sources] = await Promise.all([
+    readFile(
+      new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../../apps/web/app/financas/finance-payroll-sources.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
 
   assert.match(page, /Quanto custa a folha da Prefeitura/);
   assert.match(page, /Um vínculo não representa necessariamente uma pessoa única/);
   assert.match(page, /não é confirmação bancária/);
   assert.match(page, /não usa IA para calcular esses valores/);
-  assert.match(page, /Abrir PDF oficial/);
+  assert.match(page, /processamentos oficiais/);
+  assert.match(sources, /Abrir PDF oficial/);
+  assert.match(sources, /13º salário final/);
 });
 
 test("pagina mantém o mês mais recente em destaque e recolhe o histórico", async () => {
-  const [page, history] = await Promise.all([
+  const [page, history, sources] = await Promise.all([
     readFile(
       new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
       "utf8",
@@ -71,12 +139,20 @@ test("pagina mantém o mês mais recente em destaque e recolhe o histórico", as
       ),
       "utf8",
     ),
+    readFile(
+      new URL(
+        "../../apps/web/app/financas/finance-payroll-sources.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
   ]);
 
   assert.match(page, /const previousPayrollMonths = payrollMonths\.slice\(1\)/);
   assert.match(page, /<FinancePayrollHistory months=\{previousPayrollMonths\}/);
   assert.match(history, /Ver meses anteriores da folha/);
   assert.match(history, /months\.map/);
-  assert.match(history, /Abrir PDF oficial deste mês/);
+  assert.match(history, /Conferir \{month\.documentCount/);
+  assert.match(sources, /Abrir PDF oficial/);
   assert.match(history, /Mês validado por código/);
 });

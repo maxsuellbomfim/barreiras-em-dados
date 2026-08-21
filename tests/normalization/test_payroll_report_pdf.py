@@ -28,6 +28,7 @@ class PayrollReportPdfTests(unittest.TestCase):
         self.assertEqual(report.deduction_amount, Decimal("3000.25"))
         self.assertEqual(report.net_amount, Decimal("14500.25"))
         self.assertEqual(report.subtotal_count, 2)
+        self.assertEqual(report.payroll_cycle, "regular")
         self.assertEqual(
             set(vars(report)),
             {
@@ -36,12 +37,49 @@ class PayrollReportPdfTests(unittest.TestCase):
                 "deduction_amount",
                 "net_amount",
                 "subtotal_count",
+                "payroll_cycle",
                 "parser_version",
             },
         )
 
+    def test_classifies_thirteenth_salary_components_from_official_header(
+        self,
+    ) -> None:
+        regular = FIXTURE.read_text(encoding="utf-8")
+        advance = regular.replace(
+            "1-Normal, 3-Complementar, 9-Rescisão",
+            "4-Adiant. 13º",
+        )
+        final = regular.replace(
+            "1-Normal, 3-Complementar, 9-Rescisão",
+            "6-13º Final",
+        )
+
+        self.assertEqual(
+            parse_payroll_report_aggregate(advance).payroll_cycle,
+            "thirteenth_advance",
+        )
+        self.assertEqual(
+            parse_payroll_report_aggregate(final).payroll_cycle,
+            "thirteenth_final",
+        )
+
+    def test_rejects_unknown_or_mixed_payroll_cycles(self) -> None:
+        regular = FIXTURE.read_text(encoding="utf-8")
+        unknown = regular.replace(
+            "1-Normal, 3-Complementar, 9-Rescisão",
+            "8-Folha desconhecida",
+        )
+        mixed = f"{regular}\nListagem Sintética E-TCM 6-13º Final"
+
+        with self.assertRaisesRegex(PayrollReportContractError, "processamento"):
+            parse_payroll_report_aggregate(unknown)
+        with self.assertRaisesRegex(PayrollReportContractError, "processamento"):
+            parse_payroll_report_aggregate(mixed)
+
     def test_accepts_mojibake_observed_in_official_pdf_text(self) -> None:
         text = (
+            "Listagem Sintética E-TCM 1-Normal\n"
             "Mat. Nome Cargo Regime/V�nculo Local de Trabalho "
             "Admiss�o C. Hor�ria Provento Desconto L�quido\n"
             "Total de Funcion�rios: 2 5.000,00 1.000,00 4.000,00\n"
