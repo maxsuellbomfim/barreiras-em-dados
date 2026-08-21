@@ -26,13 +26,20 @@ execução:
 2. revisita o catálogo desde o início e ignora documentos cujo par
    `source_record_key + source_url` já tenha artefato filho idêntico;
 3. baixa no máximo cinco PDFs ainda ausentes;
-4. mantém catálogo, PDF, URL, data de coleta, hash e versão do coletor no
+4. respeita um orçamento agregado suave de 64 MiB por execução; depois de ao
+   menos um PDF preservado, o próximo arquivo que ultrapassaria o teto e os
+   seguintes ficam adiados. Um primeiro PDF maior que 64 MiB ainda avança para
+   não bloquear permanentemente a fila;
+5. mantém catálogo, PDF, URL, data de coleta, hash e versão do coletor no
    armazenamento bruto privado;
-5. não cria linha pública de folha, pessoa ou componente salarial.
+6. não cria linha pública de folha, pessoa ou componente salarial.
 
 O limite de cinco documentos não avança para sempre sobre os demais: como o
 catálogo inteiro cabe em uma página de 500 registros, a partição documental
 retorna ao início e drena os próximos ausentes de forma idempotente.
+O teto agregado controla a velocidade de crescimento do Storage, mas não é uma
+política de descarte: a execução fica `partial`, registra bytes processados e
+retoma os documentos adiados em outro lote.
 
 ## Gate para a próxima etapa
 
@@ -52,6 +59,8 @@ testes específicos de minimização.
 ## Consequências
 
 - o acervo deixa de depender da permanência dos links do fornecedor;
+- uma sequência de PDFs grandes não consome espaço sem limite numa única
+  execução;
 - a automação progride sem publicar dados pessoais por acidente;
 - os números populares de pessoal permanecem indisponíveis até a classificação
   determinística dos leiautes;

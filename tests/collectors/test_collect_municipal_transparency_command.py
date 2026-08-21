@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import unittest
 from datetime import date
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from barreiras_collectors.commands.collect_municipal_transparency import (
@@ -12,6 +14,7 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
     SOURCE_CONFIG,
     MunicipalTransparencyCollectionSummary,
     _bounded_env_int,
+    _collect_resource,
     build_balancete_monthly_searches,
     execute_controlled_municipal_transparency,
     resolve_endpoint_code,
@@ -19,6 +22,7 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
     resolve_municipal_document_role,
     resolve_resume_offset,
     select_pending_document_indexes,
+    should_defer_document_for_byte_budget,
 )
 
 
@@ -179,6 +183,106 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                     maximum=60,
                 )
 
+    def test_batch_byte_budget_allows_first_document_to_avoid_starvation(self) -> None:
+        self.assertFalse(
+            should_defer_document_for_byte_budget(
+                persisted_documents=0,
+                persisted_bytes=0,
+                next_document_bytes=80 * 1024 * 1024,
+                max_batch_bytes=64 * 1024 * 1024,
+            )
+        )
+
+    def test_batch_byte_budget_defers_following_document(self) -> None:
+        self.assertTrue(
+            should_defer_document_for_byte_budget(
+                persisted_documents=1,
+                persisted_bytes=50 * 1024 * 1024,
+                next_document_bytes=20 * 1024 * 1024,
+                max_batch_bytes=64 * 1024 * 1024,
+            )
+        )
+
+    def test_document_drain_stops_before_persisting_over_budget(self) -> None:
+        page = SimpleNamespace(
+            items=(
+                {"url": "https://barreiras.mtransparente.com.br/a.pdf"},
+                {"url": "https://barreiras.mtransparente.com.br/b.pdf"},
+                {"url": "https://barreiras.mtransparente.com.br/c.pdf"},
+            ),
+            resource="servidores",
+            cursor={"offset": 0},
+            body_sha256="a" * 64,
+        )
+
+        class ServiceProbe:
+            def __init__(self) -> None:
+                self.persisted_documents: list[str] = []
+
+            def persist(self, _page):
+                return SimpleNamespace(
+                    inserted_records=3,
+                    existing_records=0,
+                )
+
+            def record_input(self, _page, *, index, item):
+                del item
+                return SimpleNamespace(source_record_key=f"record-{index}")
+
+            def preserved_document_identities(self, _source_keys):
+                return frozenset()
+
+            def persist_document(self, *, document, **_values):
+                self.persisted_documents.append(document.source_url)
+
+        sizes = iter((40, 30, 10))
+
+        class DocumentClientProbe:
+            def fetch(self, url, *, role):
+                del role
+                return SimpleNamespace(
+                    source_url=url,
+                    body_size_bytes=next(sizes) * 1024 * 1024,
+                )
+
+        service = ServiceProbe()
+        environment = {
+            "MUNICIPAL_TRANSPARENCY_MAX_BATCH_DOCUMENT_BYTES": str(
+                64 * 1024 * 1024
+            )
+        }
+        module = "barreiras_collectors.commands.collect_municipal_transparency"
+        with (
+            patch(f"{module}.iter_resource_pages", return_value=iter((page,))),
+            patch(
+                f"{module}.MunicipalTransparencyDocumentClient",
+                return_value=DocumentClientProbe(),
+            ),
+            patch.dict("os.environ", environment, clear=False),
+        ):
+            summary = _collect_resource(
+                service=service,  # type: ignore[arg-type]
+                source_code="prefeitura-barreiras-transparencia",
+                endpoint_code="dados-abertos-api",
+                base_url="https://portaldatransparencia.barreiras.ba.gov.br/api",
+                resource="servidores",
+                limit=500,
+                offset=0,
+                max_pages=1,
+                allow_partial=True,
+                download_documents=True,
+                max_documents=5,
+                collector_settings=SimpleNamespace(read_timeout_seconds=30),
+                logger=logging.getLogger(__name__),
+            )
+
+        self.assertEqual(service.persisted_documents, [page.items[0]["url"]])
+        self.assertEqual(summary.documents_persisted, 1)
+        self.assertEqual(summary.documents_bytes_persisted, 40 * 1024 * 1024)
+        self.assertEqual(summary.documents_skipped, 2)
+        self.assertTrue(summary.documents_byte_budget_exhausted)
+        self.assertEqual(summary.outcome.value, "partial")
+
     def test_control_records_empty_snapshot_explicitly(self) -> None:
         events: list[str] = []
 
@@ -267,6 +371,46 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
         )
 
         self.assertEqual(summary.outcome.value, "partial")
+
+    def test_exhausted_byte_budget_is_visible_in_control_metrics(self) -> None:
+        completed: dict[str, object] = {}
+
+        class ControlProbe:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                return False
+
+            def complete(self, **values):
+                completed.update(values)
+
+        execute_controlled_municipal_transparency(
+            control=ControlProbe(),  # type: ignore[arg-type]
+            operation=lambda: MunicipalTransparencyCollectionSummary(
+                pages=1,
+                inserted_records=200,
+                existing_records=0,
+                documents_persisted=2,
+                documents_failed=0,
+                documents_skipped=3,
+                pagination_capped=False,
+                availability_partial=False,
+                next_offset=0,
+                documents_bytes_persisted=63 * 1024 * 1024,
+                documents_byte_budget_exhausted=True,
+            ),
+        )
+
+        self.assertEqual(completed["outcome"].value, "partial")
+        self.assertEqual(
+            completed["metrics"]["documents_bytes_persisted"],
+            63 * 1024 * 1024,
+        )
+        self.assertTrue(
+            completed["metrics"]["documents_byte_budget_exhausted"]
+        )
 
 
 if __name__ == "__main__":

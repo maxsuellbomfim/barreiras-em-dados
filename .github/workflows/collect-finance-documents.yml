@@ -137,6 +137,9 @@ jobs:
       # RelatÃ³rios fiscais podem exceder 64 MiB; o limite continua explÃ­cito
       # e abaixo do mÃ¡ximo defensivo do coletor (256 MiB).
       MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES: "268435456"
+      # Limite agregado por execução: controla crescimento do Storage sem
+      # impedir progresso quando um único PDF oficial ultrapassa 64 MiB.
+      MUNICIPAL_TRANSPARENCY_MAX_BATCH_DOCUMENT_BYTES: "67108864"
     steps:
       - name: Baixar código
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -84,9 +84,11 @@ quatro recursos adicionais no portal da Prefeitura:
 - `servidores` não é uma API de linhas salariais, mas um catálogo de 200 PDFs
   observado em 21/08/2026, com competências de 2018 a 2026 e relações separadas
   de servidores, estagiários e terceirizados. O catálogo e os PDFs entram na
-  preservação privada e idempotente em lotes de cinco; nenhum nome, desconto ou
-  valor individual é projetado publicamente antes do gate de minimização do
-  ADR 0072.
+  preservação privada e idempotente em lotes de até cinco e orçamento agregado
+  suave de 64 MiB por execução; nenhum nome, desconto ou valor individual é
+  projetado publicamente antes do gate de minimização do ADR 0072. O primeiro
+  PDF pode ultrapassar sozinho o teto para impedir inanição da fila; o restante
+  é adiado com cobertura `partial`, nunca descartado silenciosamente.
 
 Nenhum desses documentos, isoladamente, representa o total da dívida do
 Município. A consolidação futura exigirá natureza da obrigação, competência,
