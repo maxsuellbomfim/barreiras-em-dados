@@ -66,7 +66,10 @@ try {
         as worker_update,
       has_function_privilege(
         'anon', 'api.get_public_payroll_months(integer)', 'EXECUTE'
-      ) as anon_rpc
+      ) as anon_rpc,
+      to_regclass(
+        'hr.payroll_report_aggregates_series_version_unique_idx'
+      )::text as series_version_index
   `);
   assert.deepEqual(contracts.rows, [{
     aggregate_table: "hr.payroll_report_aggregates",
@@ -78,6 +81,7 @@ try {
     worker_insert: true,
     worker_update: false,
     anon_rpc: true,
+    series_version_index: "hr.payroll_report_aggregates_series_version_unique_idx",
   }]);
 
   await database.exec(`
