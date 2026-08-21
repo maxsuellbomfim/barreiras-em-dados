@@ -9,6 +9,7 @@ import {
   parseCguLegislatureRankingRows,
 } from "../../apps/web/lib/cgu-federal-amendments.mjs";
 import {
+  cguExecutionResultCountCopy,
   filterCguExecutionAmendments,
   resolveCguExecutionFilters,
 } from "../../apps/web/lib/cgu-execution-filter.mjs";
@@ -437,10 +438,21 @@ test("filtro repetido ou fora do acervo não fabrica ausência", () => {
   });
 });
 
+test("contador da consulta usa singular e plural em português", () => {
+  assert.equal(
+    cguExecutionResultCountCopy(1),
+    "1 linha oficial encontrada com estes filtros.",
+  );
+  assert.equal(
+    cguExecutionResultCountCopy(2),
+    "2 linhas oficiais encontradas com estes filtros.",
+  );
+});
+
 test("página oferece investigação por parlamentar e ano e explica 2023", () => {
   assert.match(resourcesPage, /name="autor"/);
   assert.match(resourcesPage, /name="ano"/);
   assert.match(resourcesPage, /2023 é um ano de transição/);
   assert.match(resourcesPage, /não\s+entra no ranking por legislatura/);
-  assert.match(resourcesPage, /linhas oficiais encontradas com estes filtros/);
+  assert.match(resourcesPage, /cguExecutionResultCountCopy\(filteredAmendments\.length\)/);
 });
