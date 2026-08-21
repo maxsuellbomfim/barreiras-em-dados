@@ -74,14 +74,18 @@ candidatos quando isso ocorrer, sem confundir fonte processada com fonte ainda
 não processada. A projeção pública aceita somente linhas validadas e a autoria
 entra no ranking apenas após a reconciliação oficial descrita acima.
 
-O processamento `bahia_special_transfer_payments_v2` também produz uma
+O processamento `bahia_special_transfer_payments_v3` também produz uma
 cobertura anual sanitizada do retrato integral. Para cada exercício publicado
-no ZIP, ela registra somente a quantidade total de pagamentos da fonte e a
-quantidade cujo objeto contém a palavra territorial literal `Barreiras`. Nome,
-CPF/CNPJ e demais campos do credor não entram nesse resultado. Essa contagem é
-diagnóstico de cobertura: não representa quantidade de emendas, valor pago,
-receita recebida pela Prefeitura nem completude histórica. A mudança de `v1`
-para `v2` provoca um único replay idempotente dos artefatos já processados.
+no ZIP a partir de 2021, ela registra somente a quantidade total de pagamentos
+da fonte e a quantidade cujo objeto contém a palavra territorial literal
+`Barreiras`. O analisador confere o arquivo inteiro, inclusive linhas anteriores
+ao marco de cobertura do Barreiras 360; a projeção anual, porém, respeita
+explicitamente o intervalo declarado de 2021 em diante. Nome, CPF/CNPJ e demais
+campos do credor não entram nesse resultado. Essa contagem é diagnóstico de
+cobertura: não representa quantidade de emendas, valor pago, receita recebida
+pela Prefeitura nem completude histórica. A mudança para `v3` provoca um único
+replay idempotente dos artefatos já processados e corrige a inclusão indevida
+de 2020 em um contrato cujo início declarado é 2021.
 A RPC `api.get_public_bahia_special_transfer_annual_coverage` expõe somente
 essas contagens e a linhagem do retrato mais recente. A tabela intermediária
 permanece inacessível aos papéis públicos.
