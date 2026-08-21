@@ -202,8 +202,11 @@ jobs:
       inputs.resource != 'bahia-state-only' &&
       (
         github.event_name == 'schedule' ||
-        inputs.include_transferegov == true ||
-        inputs.resource == 'transferegov-only'
+        inputs.resource == 'transferegov-only' ||
+        (
+          inputs.resource == 'all' &&
+          inputs.include_transferegov == true
+        )
       )
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -289,7 +292,10 @@ jobs:
           inputs.resource != 'transferegov-only' &&
           (
             github.event_name == 'schedule' ||
-            inputs.include_bahia_state_amendments == true
+            (
+              inputs.resource == 'all' &&
+              inputs.include_bahia_state_amendments == true
+            )
           )
         )
       )
@@ -356,7 +362,10 @@ jobs:
           inputs.resource != 'transferegov-only' &&
           (
             github.event_name == 'schedule' ||
-            inputs.include_bahia_special_transfers == true
+            (
+              inputs.resource == 'all' &&
+              inputs.include_bahia_special_transfers == true
+            )
           )
         )
       )
@@ -424,7 +433,10 @@ jobs:
           inputs.resource != 'transferegov-only' &&
           (
             github.event_name == 'schedule' ||
-            inputs.include_bahia_state_loa_amendments == true
+            (
+              inputs.resource == 'all' &&
+              inputs.include_bahia_state_loa_amendments == true
+            )
           )
         )
       )
