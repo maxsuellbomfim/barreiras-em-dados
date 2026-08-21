@@ -10,6 +10,7 @@ from barreiras_normalization.bahia_special_transfer_processing import (
 )
 from barreiras_normalization.bahia_special_transfers import (
     SPECIAL_TRANSFER_PARSER_VERSION,
+    analyze_special_transfer_payments,
     parse_special_transfer_payment_candidates,
 )
 
@@ -80,9 +81,11 @@ def _batch() -> SpecialTransferExtractionBatch:
         source_url="https://dados.ba.gov.br/dataset/transferencias-especiais",
         collected_at="2026-08-21T04:32:47+00:00",
     )
+    analysis = analyze_special_transfer_payments(archive)
     return SpecialTransferExtractionBatch(
         artifact=artifact,
         candidates=parse_special_transfer_payment_candidates(archive),
+        annual_coverage=analysis.annual_coverage,
         job_type=SPECIAL_TRANSFER_JOB_TYPE,
         idempotency_key="c" * 64,
         extractor_version=SPECIAL_TRANSFER_PARSER_VERSION,
@@ -147,6 +150,20 @@ class BahiaSpecialTransferRepositoryTests(unittest.TestCase):
         self.assertNotIn("CREDOR QUE NÃO DEVE SER PUBLICADO", payloads)
         self.assertNotIn("CNPJ_CPF_CREDOR_PAGAMENTO", payloads)
 
+        _, coverage_params = next(
+            (query, params)
+            for query, params in connection.queries
+            if "insert into raw.extraction_results" in query
+            and params is not None
+            and params[1] == "bahia_special_transfer_annual_coverage"
+        )
+        assert coverage_params is not None
+        coverage_payload = str(coverage_params[4])
+        self.assertIn('"fiscal_year":2022', coverage_payload)
+        self.assertIn('"source_payment_count":1', coverage_payload)
+        self.assertIn('"territorial_payment_count":1', coverage_payload)
+        self.assertNotIn("98765432100", coverage_payload)
+
     def test_existing_successful_job_is_idempotent(self) -> None:
         connection = _Connection()
         connection.job_row = None
@@ -170,6 +187,7 @@ class BahiaSpecialTransferRepositoryTests(unittest.TestCase):
         empty = SpecialTransferExtractionBatch(
             artifact=batch.artifact,
             candidates=(),
+            annual_coverage=batch.annual_coverage,
             job_type=batch.job_type,
             idempotency_key=batch.idempotency_key,
             extractor_version=batch.extractor_version,
@@ -185,8 +203,13 @@ class BahiaSpecialTransferRepositoryTests(unittest.TestCase):
             for query, params in connection.queries
             if "insert into raw.extraction_results" in query
         ]
-        self.assertEqual(len(result_queries), 1)
-        _, params = result_queries[0]
+        self.assertEqual(len(result_queries), 2)
+        _, params = next(
+            (query, params)
+            for query, params in result_queries
+            if params is not None
+            and params[1] == "bahia_special_transfer_scope_summary"
+        )
         assert params is not None
         self.assertEqual(params[1], "bahia_special_transfer_scope_summary")
         self.assertIn('"candidate_count":0', str(params[4]))

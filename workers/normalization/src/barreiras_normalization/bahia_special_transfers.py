@@ -84,10 +84,23 @@ class SpecialTransferPaymentCandidate:
     parser_version: str = SPECIAL_TRANSFER_PARSER_VERSION
 
 
-def parse_special_transfer_payment_candidates(
+@dataclass(frozen=True)
+class SpecialTransferYearCoverage:
+    fiscal_year: int
+    source_payment_count: int
+    territorial_payment_count: int
+
+
+@dataclass(frozen=True)
+class SpecialTransferAnalysis:
+    candidates: tuple[SpecialTransferPaymentCandidate, ...]
+    annual_coverage: tuple[SpecialTransferYearCoverage, ...]
+
+
+def analyze_special_transfer_payments(
     body: bytes,
-) -> tuple[SpecialTransferPaymentCandidate, ...]:
-    """Extrai pagamentos cujo objeto menciona Barreiras por chave oficial."""
+) -> SpecialTransferAnalysis:
+    """Extrai candidatos e contagens anuais sem conservar dados do credor."""
     parse_special_transfer_archive(body)
     try:
         with zipfile.ZipFile(io.BytesIO(body)) as package:
@@ -111,6 +124,7 @@ def parse_special_transfer_payment_candidates(
 
     candidates: list[SpecialTransferPaymentCandidate] = []
     seen_payments: set[str] = set()
+    source_year_counts: dict[int, int] = {}
     for payment in payments:
         payment_id = payment["payment_id"]
         if payment_id in seen_payments:
@@ -118,6 +132,8 @@ def parse_special_transfer_payment_candidates(
                 "A fonte repetiu um identificador de pagamento."
             )
         seen_payments.add(payment_id)
+        fiscal_year = _parse_year(payment["fiscal_year"])
+        source_year_counts[fiscal_year] = source_year_counts.get(fiscal_year, 0) + 1
         if _BARREIRAS_TOKEN.search(payment["object_text"]) is None:
             continue
 
@@ -153,7 +169,30 @@ def parse_special_transfer_payment_candidates(
             expense=expense,
         )
         candidates.append(candidate)
-    return tuple(candidates)
+    territorial_year_counts: dict[int, int] = {}
+    for candidate in candidates:
+        territorial_year_counts[candidate.fiscal_year] = (
+            territorial_year_counts.get(candidate.fiscal_year, 0) + 1
+        )
+    annual_coverage = tuple(
+        SpecialTransferYearCoverage(
+            fiscal_year=fiscal_year,
+            source_payment_count=source_year_counts[fiscal_year],
+            territorial_payment_count=territorial_year_counts.get(fiscal_year, 0),
+        )
+        for fiscal_year in sorted(source_year_counts, reverse=True)
+    )
+    return SpecialTransferAnalysis(
+        candidates=tuple(candidates),
+        annual_coverage=annual_coverage,
+    )
+
+
+def parse_special_transfer_payment_candidates(
+    body: bytes,
+) -> tuple[SpecialTransferPaymentCandidate, ...]:
+    """Mantém o contrato existente de candidatos territoriais."""
+    return analyze_special_transfer_payments(body).candidates
 
 
 def special_transfer_payload(

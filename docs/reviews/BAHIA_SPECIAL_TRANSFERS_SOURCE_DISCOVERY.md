@@ -74,6 +74,15 @@ candidatos quando isso ocorrer, sem confundir fonte processada com fonte ainda
 não processada. A projeção pública aceita somente linhas validadas e a autoria
 entra no ranking apenas após a reconciliação oficial descrita acima.
 
+O processamento `bahia_special_transfer_payments_v2` também produz uma
+cobertura anual sanitizada do retrato integral. Para cada exercício publicado
+no ZIP, ela registra somente a quantidade total de pagamentos da fonte e a
+quantidade cujo objeto contém a palavra territorial literal `Barreiras`. Nome,
+CPF/CNPJ e demais campos do credor não entram nesse resultado. Essa contagem é
+diagnóstico de cobertura: não representa quantidade de emendas, valor pago,
+receita recebida pela Prefeitura nem completude histórica. A mudança de `v1`
+para `v2` provoca um único replay idempotente dos artefatos já processados.
+
 ## Estado de publicação
 
 - bruto: elegível para preservação privada;

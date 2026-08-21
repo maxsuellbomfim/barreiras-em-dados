@@ -10,10 +10,11 @@ from typing import Protocol
 from .bahia_special_transfers import (
     SPECIAL_TRANSFER_PARSER_VERSION,
     SpecialTransferPaymentCandidate,
-    parse_special_transfer_payment_candidates,
+    SpecialTransferYearCoverage,
+    analyze_special_transfer_payments,
 )
 
-SPECIAL_TRANSFER_JOB_TYPE = "bahia_special_transfer_payments_v1"
+SPECIAL_TRANSFER_JOB_TYPE = "bahia_special_transfer_payments_v2"
 SPECIAL_TRANSFER_VALIDATOR_VERSION = (
     "bahia-special-transfer-territorial-deterministic/1.0.0"
 )
@@ -40,6 +41,7 @@ class SpecialTransferArtifact:
 class SpecialTransferExtractionBatch:
     artifact: SpecialTransferArtifact
     candidates: tuple[SpecialTransferPaymentCandidate, ...]
+    annual_coverage: tuple[SpecialTransferYearCoverage, ...]
     job_type: str
     idempotency_key: str
     extractor_version: str
@@ -98,10 +100,11 @@ class SpecialTransferExtractionService:
             raise SpecialTransferArtifactMismatchError(
                 "O ZIP de transferências especiais diverge do hash coletado."
             )
-        candidates = parse_special_transfer_payment_candidates(raw_body)
+        analysis = analyze_special_transfer_payments(raw_body)
         batch = SpecialTransferExtractionBatch(
             artifact=artifact,
-            candidates=candidates,
+            candidates=analysis.candidates,
+            annual_coverage=analysis.annual_coverage,
             job_type=SPECIAL_TRANSFER_JOB_TYPE,
             idempotency_key=special_transfer_job_idempotency_key(artifact.sha256),
             extractor_version=SPECIAL_TRANSFER_PARSER_VERSION,

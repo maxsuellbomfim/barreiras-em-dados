@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreirasemdados.org/schemas/bahia-special-transfer-annual-coverage/1-0-0",
+  "title": "Bahia special transfer annual coverage",
+  "description": "Contagens anuais sanitizadas do retrato integral processado, sem campos de credor.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_name",
+    "schema_version",
+    "coverage_start_year",
+    "coverage_end_year",
+    "years",
+    "territorial_scope",
+    "source_url",
+    "source_artifact_sha256",
+    "source_collected_at",
+    "parser_version"
+  ],
+  "properties": {
+    "schema_name": {
+      "const": "bahia-special-transfer-annual-coverage"
+    },
+    "schema_version": { "const": "1.0.0" },
+    "coverage_start_year": {
+      "type": "integer",
+      "const": 2021
+    },
+    "coverage_end_year": {
+      "type": "integer",
+      "minimum": 2021,
+      "maximum": 2200
+    },
+    "years": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fiscal_year",
+          "source_payment_count",
+          "territorial_payment_count"
+        ],
+        "properties": {
+          "fiscal_year": {
+            "type": "integer",
+            "minimum": 2000,
+            "maximum": 2200
+          },
+          "source_payment_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "territorial_payment_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "territorial_scope": {
+      "const": "payment_object_literal_barreiras"
+    },
+    "source_url": { "type": "string", "pattern": "^https://" },
+    "source_artifact_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_collected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "parser_version": {
+      "const": "bahia-special-transfer-payment/1.0.0"
+    }
+  }
+}
