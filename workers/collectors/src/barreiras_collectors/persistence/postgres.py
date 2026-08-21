@@ -1408,10 +1408,10 @@ class PostgresCollectionRepository:
         batch: PersistenceBatch,
         endpoint_id: str,
     ) -> str:
-        cursor_after = {
-            "offset": batch.page.cursor["offset"] + len(batch.records),
-            "size": batch.page.cursor["size"],
-        }
+        cursor_after = dict(batch.page.cursor)
+        cursor_offset = cursor_after.get("offset")
+        if isinstance(cursor_offset, int) and not isinstance(cursor_offset, bool):
+            cursor_after["offset"] = cursor_offset + len(batch.records)
         metrics = {
             "pages": 1,
             "records": len(batch.records),
