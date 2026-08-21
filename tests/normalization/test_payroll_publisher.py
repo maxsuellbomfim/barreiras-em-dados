@@ -93,9 +93,7 @@ class PayrollPublisherTests(unittest.TestCase):
     ) -> None:
         warning_filter = KnownPypdfLayoutWarningFilter()
         known_warning = logging.LogRecord(
-            name=(
-                "pypdf._text_extraction._layout_mode._fixed_width_page"
-            ),
+            name=("pypdf._text_extraction._layout_mode._fixed_width_page"),
             level=logging.WARNING,
             pathname=__file__,
             lineno=1,
@@ -130,9 +128,7 @@ class PayrollPublisherTests(unittest.TestCase):
     def test_reference_month_requires_year_and_two_digit_month(self) -> None:
         self.assertEqual(_parse_reference_month("2026-07"), date(2026, 7, 1))
         for invalid in ("2026-7", "07-2026", "2026-13", "texto"):
-            with self.subTest(invalid=invalid), self.assertRaises(
-                ArgumentTypeError
-            ):
+            with self.subTest(invalid=invalid), self.assertRaises(ArgumentTypeError):
                 _parse_reference_month(invalid)
 
     def test_failure_job_is_versioned(self) -> None:
@@ -141,7 +137,7 @@ class PayrollPublisherTests(unittest.TestCase):
             "payroll_report_publication/1.2.0",
         )
 
-    def test_pending_documents_selects_only_staff_type_one(self) -> None:
+    def test_pending_documents_accepts_only_regular_staff_documents(self) -> None:
         connection = CapturingConnection(
             [
                 {
@@ -149,9 +145,7 @@ class PayrollPublisherTests(unittest.TestCase):
                     "sha256": "a" * 64,
                     "object_key": "municipal-transparency/documents/payroll.pdf",
                     "byte_size": 2478977,
-                    "parent_record_id": (
-                        "00000000-0000-4000-8000-000000000952"
-                    ),
+                    "parent_record_id": ("00000000-0000-4000-8000-000000000952"),
                     "source_url": (
                         "https://barreiras.mtransparente.com.br/payroll.pdf"
                     ),
@@ -171,6 +165,12 @@ class PayrollPublisherTests(unittest.TestCase):
         self.assertEqual(documents[0].reference_month, date(2026, 7, 1))
         query = " ".join(connection.query.lower().split())
         self.assertIn("record.payload ->> 'tipo' = '1'", query)
+        self.assertIn(
+            "coalesce(trim(record.payload ->> 'tipo'), '') = ''",
+            query,
+        )
+        self.assertIn("translate(", query)
+        self.assertIn("= 'relacao de servidores'", query)
         self.assertIn(
             "record.record_type = 'municipal_transparency_servidores'",
             query,
