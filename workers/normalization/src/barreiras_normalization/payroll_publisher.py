@@ -178,7 +178,25 @@ class PostgresPayrollPublicationRepository:
                     and document.source_url = record.payload ->> 'url'
                     and record.record_type
                       = 'municipal_transparency_servidores'
-                    and record.payload ->> 'tipo' = '1'
+                    and (
+                      record.payload ->> 'tipo' = '1'
+                      or (
+                        coalesce(trim(record.payload ->> 'tipo'), '') = ''
+                        and regexp_replace(
+                          translate(
+                            lower(trim(coalesce(
+                              record.payload ->> 'titulo',
+                              ''
+                            ))),
+                            'áàâãäéèêëíìîïóòôõöúùûüç',
+                            'aaaaaeeeeiiiiooooouuuuc'
+                          ),
+                          '[[:space:]]+',
+                          ' ',
+                          'g'
+                        ) = 'relacao de servidores'
+                      )
+                    )
                     and case
                       when record.payload ->> 'ano_ref' ~ '^[0-9]{4}$'
                         and record.payload ->> 'mes_ref'
