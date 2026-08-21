@@ -41,6 +41,13 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | IBAMA | autos de infração ambiental | bloqueada | fonte confirmada; gate reputacional |
 | ANAC/RAB | aeronaves e dados cadastrais | bloqueada | dataset confirmado; finalidade/LGPD pendentes |
 | SPU | imóveis da União em Barreiras | P4 | fonte territorial; não é patrimônio privado |
+
+O diagnóstico público estadual separa o anexo orçamentário da execução. O
+catálogo oficial lista o Anexo III de 2021, mas o endereço correspondente entrega
+o PDF da LOA 2020; a partição segue bloqueada e nenhum valor é reaproveitado.
+Os anexos 2022-2026 estão preservados. A execução territorial é parcial em 2026
+e ainda não indexada para 2022-2025, estados que não podem ser exibidos como
+valor zero.
 | CNJ/DataJud | metadados processuais sem partes no schema público | bloqueada | gate jurídico |
 
 ## Fontes para dívidas e obrigações municipais
