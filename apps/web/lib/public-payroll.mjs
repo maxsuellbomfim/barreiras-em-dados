@@ -1,7 +1,17 @@
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const DECIMAL = /^\d+(?:\.\d{1,2})?$/;
-const PARSER_VERSION = "payroll-report-aggregate/1.0.0";
+const LEGACY_PARSER_VERSION = "payroll-report-aggregate/1.0.0";
+const MONTHLY_PROJECTION_VERSION = "payroll-monthly-total/1.0.0";
+const COMPONENT_PARSER_VERSIONS = new Set([
+  LEGACY_PARSER_VERSION,
+  "payroll-report-aggregate/1.1.0",
+]);
+const PAYROLL_CYCLES = new Set([
+  "regular",
+  "thirteenth_advance",
+  "thirteenth_final",
+]);
 
 function text(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -33,6 +43,36 @@ function cents(value) {
   return BigInt(whole) * 100n + BigInt(fraction);
 }
 
+function sourceDocument(value) {
+  if (typeof value !== "object" || value === null) return null;
+  const payrollCycle = text(value.payroll_cycle);
+  const sourceUrl = text(value.source_url);
+  const artifactSha256 = text(value.artifact_sha256);
+  const sourceRetrievedAt = text(value.source_retrieved_at);
+  const parserVersion = text(value.parser_version);
+  if (
+    payrollCycle === null ||
+    !PAYROLL_CYCLES.has(payrollCycle) ||
+    sourceUrl === null ||
+    !sourceUrl.startsWith("https://") ||
+    artifactSha256 === null ||
+    !SHA256.test(artifactSha256) ||
+    sourceRetrievedAt === null ||
+    Number.isNaN(Date.parse(sourceRetrievedAt)) ||
+    parserVersion === null ||
+    !COMPONENT_PARSER_VERSIONS.has(parserVersion)
+  ) {
+    return null;
+  }
+  return {
+    payrollCycle,
+    sourceUrl,
+    artifactSha256,
+    sourceRetrievedAt,
+    parserVersion,
+  };
+}
+
 export function parsePublicPayrollRow(row) {
   if (typeof row !== "object" || row === null) return null;
   const referenceMonth = text(row.reference_month);
@@ -61,9 +101,50 @@ export function parsePublicPayrollRow(row) {
     !SHA256.test(artifactSha256) ||
     sourceRetrievedAt === null ||
     Number.isNaN(Date.parse(sourceRetrievedAt)) ||
-    parserVersion !== PARSER_VERSION ||
     cents(grossAmount) - cents(deductionAmount) !== cents(netAmount)
   ) {
+    return null;
+  }
+  let documentCount;
+  let sourceDocuments;
+  if (parserVersion === LEGACY_PARSER_VERSION) {
+    documentCount = 1;
+    sourceDocuments = [
+      {
+        payrollCycle: "regular",
+        sourceUrl,
+        artifactSha256,
+        sourceRetrievedAt,
+        parserVersion,
+      },
+    ];
+  } else if (parserVersion === MONTHLY_PROJECTION_VERSION) {
+    documentCount = integer(row.document_count, 1);
+    if (!Array.isArray(row.source_documents) || documentCount === null) {
+      return null;
+    }
+    sourceDocuments = row.source_documents.map(sourceDocument);
+    if (
+      sourceDocuments.some((document) => document === null) ||
+      sourceDocuments.length !== documentCount ||
+      new Set(sourceDocuments.map((document) => document.payrollCycle)).size !==
+        documentCount ||
+      sourceDocuments.filter(
+        (document) => document.payrollCycle === "regular",
+      ).length !== 1
+    ) {
+      return null;
+    }
+    const regularDocument = sourceDocuments.find(
+      (document) => document.payrollCycle === "regular",
+    );
+    if (
+      regularDocument.sourceUrl !== sourceUrl ||
+      regularDocument.artifactSha256 !== artifactSha256
+    ) {
+      return null;
+    }
+  } else {
     return null;
   }
   return {
@@ -78,6 +159,8 @@ export function parsePublicPayrollRow(row) {
     artifactSha256,
     sourceRetrievedAt,
     parserVersion,
+    documentCount,
+    sourceDocuments,
   };
 }
 

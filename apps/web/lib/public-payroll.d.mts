@@ -9,7 +9,19 @@ export type PublicPayrollMonth = Readonly<{
   sourceUrl: string;
   artifactSha256: string;
   sourceRetrievedAt: string;
-  parserVersion: "payroll-report-aggregate/1.0.0";
+  parserVersion:
+    | "payroll-report-aggregate/1.0.0"
+    | "payroll-monthly-total/1.0.0";
+  documentCount: number;
+  sourceDocuments: readonly Readonly<{
+    payrollCycle: "regular" | "thirteenth_advance" | "thirteenth_final";
+    sourceUrl: string;
+    artifactSha256: string;
+    sourceRetrievedAt: string;
+    parserVersion:
+      | "payroll-report-aggregate/1.0.0"
+      | "payroll-report-aggregate/1.1.0";
+  }>[];
 }>;
 
 export type PublicPayrollResult =

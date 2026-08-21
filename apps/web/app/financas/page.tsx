@@ -34,6 +34,7 @@ import {
   type PublicPayrollMonth,
 } from "../../lib/public-payroll.mjs";
 import FinancePayrollHistory from "./finance-payroll-history";
+import FinancePayrollSources from "./finance-payroll-sources";
 
 export const revalidate = 300;
 
@@ -403,8 +404,9 @@ export default async function FinancesPage() {
             <span className="eyebrow">Folha mensal</span>
             <h2 id="finance-payroll-title">Quanto custa a folha da Prefeitura</h2>
             <p>
-              Valores consolidados do relatório oficial, sem publicar nomes,
-              matrículas, contas bancárias ou descontos individuais.
+              Total consolidado de todos os processamentos oficiais do mês,
+              sem publicar nomes, matrículas, contas bancárias ou descontos
+              individuais.
             </p>
           </div>
           {latestPayroll ? (
@@ -417,7 +419,7 @@ export default async function FinancesPage() {
                     </span>
                     <h3>{formatMonthTitle(latestPayroll.referenceMonth)}</h3>
                     <p>
-                      O documento informa{" "}
+                      A folha regular informa{" "}
                       <strong>
                         {latestPayroll.employeeCount.toLocaleString("pt-BR")} vínculos
                       </strong>
@@ -425,14 +427,16 @@ export default async function FinancesPage() {
                     </p>
                   </div>
                   <span className="finance-payroll-status">
-                    PDF integral reconciliado
+                    {latestPayroll.documentCount.toLocaleString("pt-BR")} PDF
+                    {latestPayroll.documentCount === 1 ? "" : "s"} reconciliado
+                    {latestPayroll.documentCount === 1 ? "" : "s"}
                   </span>
                 </div>
                 <dl className="finance-payroll-values">
                   <div className="finance-payroll-gross">
                     <dt>
-                      Proventos brutos
-                      <small>Total antes dos descontos do relatório</small>
+                      Proventos brutos do mês
+                      <small>Soma dos processamentos oficiais publicados</small>
                     </dt>
                     <dd>{formatBrlDecimal(latestPayroll.grossAmount)}</dd>
                   </div>
@@ -445,7 +449,7 @@ export default async function FinancesPage() {
                   </div>
                   <div className="finance-payroll-net">
                     <dt>
-                      Líquido no relatório
+                      Líquido nos relatórios
                       <small>Bruto menos descontos; não é confirmação bancária</small>
                     </dt>
                     <dd>{formatBrlDecimal(latestPayroll.netAmount)}</dd>
@@ -454,12 +458,16 @@ export default async function FinancesPage() {
                 <div className="finance-payroll-reading">
                   <strong>Como ler este mês</strong>
                   <p>
-                    A folha bruta reportada foi de{" "}
-                    {formatBrlDecimal(latestPayroll.grossAmount)}. O próprio PDF
-                    registra {formatBrlDecimal(latestPayroll.deductionAmount)} em
-                    descontos e chega a {formatBrlDecimal(latestPayroll.netAmount)}
-                    líquidos. Essa conta foi refeita por código e conferida contra{" "}
-                    {latestPayroll.subtotalCount.toLocaleString("pt-BR")} subtotais.
+                    O total reúne {latestPayroll.documentCount.toLocaleString("pt-BR")}{" "}
+                    {latestPayroll.documentCount === 1
+                      ? "processamento oficial"
+                      : "processamentos oficiais"}
+                    :{" "}
+                    {formatBrlDecimal(latestPayroll.grossAmount)} brutos,{" "}
+                    {formatBrlDecimal(latestPayroll.deductionAmount)} em descontos
+                    e {formatBrlDecimal(latestPayroll.netAmount)} líquidos. O código
+                    conferiu {latestPayroll.subtotalCount.toLocaleString("pt-BR")}{" "}
+                    subtotais sem somar os vínculos repetidos no 13º.
                   </p>
                 </div>
                 <details className="finance-details">
@@ -468,13 +476,10 @@ export default async function FinancesPage() {
                     Regra determinística: proventos brutos − descontos = líquido.
                     O Barreiras 360 não usa IA para calcular esses valores.
                   </p>
-                  <p className="act-evidence">
-                    <a href={latestPayroll.sourceUrl} target="_blank" rel="noreferrer">
-                      Abrir PDF oficial →
-                    </a>{" "}
-                    · coletado em {formatCollectedAt(latestPayroll.sourceRetrievedAt)}
-                    · hash {latestPayroll.artifactSha256.slice(0, 12)}… · parser{" "}
-                    {latestPayroll.parserVersion}
+                  <FinancePayrollSources documents={latestPayroll.sourceDocuments} />
+                  <p className="finance-details-note">
+                    Projeção mensal {latestPayroll.parserVersion}. Cada documento
+                    mantém hash e data de coleta próprios.
                   </p>
                 </details>
               </article>

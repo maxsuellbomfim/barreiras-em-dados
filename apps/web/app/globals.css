@@ -5259,6 +5259,46 @@ footer {
   line-height: 1.55;
 }
 
+.finance-payroll-sources-details {
+  margin-top: 0.75rem;
+}
+
+.finance-payroll-sources-details > summary {
+  color: #40506a;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.finance-payroll-sources {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finance-payroll-sources li {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.finance-payroll-sources strong {
+  color: var(--ink);
+  font-size: 0.76rem;
+}
+
+.finance-payroll-sources span {
+  color: #758197;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .finance-glance-card {
   display: grid;
   gap: 0.35rem;

@@ -138,7 +138,7 @@ class PayrollPublisherTests(unittest.TestCase):
     def test_failure_job_is_versioned(self) -> None:
         self.assertEqual(
             PAYROLL_PUBLICATION_JOB_TYPE,
-            "payroll_report_publication/1.0.0",
+            "payroll_report_publication/1.1.0",
         )
 
     def test_pending_documents_selects_only_staff_type_one(self) -> None:
@@ -188,7 +188,7 @@ class PayrollPublisherTests(unittest.TestCase):
                 2021,
                 2026,
                 date(2026, 7, 1),
-                "payroll-report-aggregate/1.0.0",
+                "payroll-report-aggregate/1.1.0",
                 PAYROLL_PUBLICATION_JOB_TYPE,
                 5,
             ),

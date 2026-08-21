@@ -1,12 +1,6 @@
 import { formatBrlDecimal } from "../../lib/revenues";
 import type { PublicPayrollMonth } from "../../lib/public-payroll.mjs";
-
-const collectedAtFormatter = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-  timeZone: "America/Bahia",
-});
+import FinancePayrollSources from "./finance-payroll-sources";
 
 function formatMonthTitle(value: string): string {
   const parsed = new Date(`${value}T12:00:00-03:00`);
@@ -16,13 +10,6 @@ function formatMonthTitle(value: string): string {
     year: "numeric",
     timeZone: "America/Bahia",
   }).format(parsed);
-}
-
-function formatCollectedAt(value: string): string {
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime())
-    ? value
-    : collectedAtFormatter.format(parsed);
 }
 
 export default function FinancePayrollHistory({
@@ -73,17 +60,19 @@ export default function FinancePayrollHistory({
             </dl>
             <p className="finance-payroll-history-note">
               {month.employeeCount.toLocaleString("pt-BR")} vínculos ·{" "}
-              {month.subtotalCount.toLocaleString("pt-BR")} subtotais
-              reconciliados. O líquido é bruto menos descontos no PDF; não é
-              confirmação bancária.
+              {month.subtotalCount.toLocaleString("pt-BR")} subtotais em{" "}
+              {month.documentCount.toLocaleString("pt-BR")} {month.documentCount === 1
+                ? "documento oficial"
+                : "documentos oficiais"}. O líquido é bruto menos descontos;
+              não é confirmação bancária.
             </p>
-            <p className="act-evidence">
-              <a href={month.sourceUrl} target="_blank" rel="noreferrer">
-                Abrir PDF oficial deste mês →
-              </a>{" "}
-              · coletado em {formatCollectedAt(month.sourceRetrievedAt)} · hash{" "}
-              {month.artifactSha256.slice(0, 12)}…
-            </p>
+            <details className="finance-payroll-sources-details">
+              <summary>
+                Conferir {month.documentCount.toLocaleString("pt-BR")} documento
+                {month.documentCount === 1 ? "" : "s"} do mês
+              </summary>
+              <FinancePayrollSources documents={month.sourceDocuments} />
+            </details>
           </article>
         ))}
       </div>

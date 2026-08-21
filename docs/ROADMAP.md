@@ -601,6 +601,24 @@ ADR adicional.
   autorizado do subconjunto com execução conciliada e liga cada exercício às
   evidências no catálogo estadual.
 
+## Checkpoint — folha mensal verificável
+
+- [x] preservar o catálogo e os PDFs oficiais da folha sem expor dados
+  individuais;
+- [x] publicar competências de janeiro a julho de 2026 com totais agregados e
+  vínculos ao documento oficial;
+- [x] comprovar que PDFs repetidos na mesma competência podem ser componentes
+  diferentes, e não retificações;
+- [x] classificar folha regular, adiantamento do 13º e parcela final do 13º;
+- [x] somar valores por código e contar vínculos somente na folha regular;
+- [x] expor todos os documentos, hashes e datas usados no total mensal;
+- [ ] reprocessar 2026 com o parser versionado e validar a projeção mensal em
+  produção;
+- [ ] executar o backfill de 2025 em lotes idempotentes, incluindo os ciclos do
+  13º sem dupla contagem;
+- [ ] criar classificação separada para relatórios de terceirizados e
+  estagiários antes do backfill de 2024.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;
