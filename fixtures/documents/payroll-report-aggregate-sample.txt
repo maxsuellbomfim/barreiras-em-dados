@@ -1,6 +1,7 @@
 PREFEITURA MUNICIPAL DE BARREIRAS
 RELAÇÃO DE SERVIDORES
-Listagem Sintética E-TCM 1-Normal, 3-Complementar, 9-Rescisão
+Listagem Sintética E-TCM
+1-Normal, 3-Complementar, 9-RescisãoFOLHA.........:
 Mat. Nome Cargo Provento Desconto Líquido Regime/Vínculo Local de Trabalho C. Horária Admissão Demissão
 
 Total de Funcionários: 3 10.000,00 2.000,00 8.000,00

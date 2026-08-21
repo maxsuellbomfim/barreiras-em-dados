@@ -27,7 +27,7 @@ const validRow = {
       artifact_sha256:
         "411cd4f055f0e57cd1b0bc111683798ae0b28d84b7d6013d069cc9ca2a3ed0e8",
       source_retrieved_at: "2026-08-21T13:47:57.202502-03:00",
-      parser_version: "payroll-report-aggregate/1.1.0",
+      parser_version: "payroll-report-aggregate/1.2.0",
     },
     {
       payroll_cycle: "thirteenth_advance",

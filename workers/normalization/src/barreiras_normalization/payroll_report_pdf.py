@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.1.0"
+PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.2.0"
 PayrollCycle = Literal[
     "regular",
     "thirteenth_advance",
@@ -69,6 +69,10 @@ _PAYROLL_HEADER = re.compile(
     r"Listagem\s+Sint\S*tica\s+E-TCM(?P<label>.*)",
     re.IGNORECASE,
 )
+_PAYROLL_FIELD = re.compile(
+    r"(?P<before>.*?)FOLHA\s*\.{3,}\s*:\s*(?P<after>.*)",
+    re.IGNORECASE,
+)
 
 
 def _amount(value: str) -> Decimal:
@@ -110,20 +114,39 @@ def _has_validated_header(text: str) -> bool:
 def _payroll_cycle(text: str) -> PayrollCycle:
     observed: set[PayrollCycle] = set()
     unknown_header = False
+    header_found = False
+    labels: list[str] = []
     for line in text.splitlines():
         header = _PAYROLL_HEADER.search(line)
-        if header is None:
-            continue
-        label = header.group("label")
+        if header is not None:
+            header_found = True
+            header_label = header.group("label").strip()
+            if header_label:
+                labels.append(header_label)
+        payroll_field = _PAYROLL_FIELD.search(line)
+        if payroll_field is not None:
+            labels.append(
+                " ".join(
+                    part.strip()
+                    for part in (
+                        payroll_field.group("before"),
+                        payroll_field.group("after"),
+                    )
+                    if part.strip()
+                )
+            )
+    for label in labels:
         if re.search(r"\b4\s*-\s*Adiant", label, re.IGNORECASE):
             observed.add("thirteenth_advance")
         elif re.search(r"\b6\s*-\s*13\S*\s+Final", label, re.IGNORECASE):
             observed.add("thirteenth_final")
-        elif re.search(r"\b1\s*-\s*Normal", label, re.IGNORECASE):
+        elif re.search(r"\b1\s*-\s*Normal", label, re.IGNORECASE) or re.search(
+            r"<\s*Todos\s*>", label, re.IGNORECASE
+        ):
             observed.add("regular")
         else:
             unknown_header = True
-    if unknown_header or len(observed) != 1:
+    if not header_found or unknown_header or len(observed) != 1:
         raise PayrollReportContractError(
             "processamento da folha ausente, desconhecido ou misto"
         )

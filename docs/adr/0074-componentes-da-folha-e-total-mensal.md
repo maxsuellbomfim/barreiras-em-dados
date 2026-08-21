@@ -17,6 +17,10 @@ eles contaria algumas pessoas mais de uma vez.
 
 - classificar deterministicamente cada PDF como `regular`,
   `thirteenth_advance` ou `thirteenth_final` a partir do cabeçalho E-TCM;
+- aceitar `<Todos>FOLHA` como ciclo regular somente quando ele aparecer no
+  campo técnico `FOLHA.........:`, conforme o leiaute oficial observado em
+  janeiro de 2026; o campo pode aparecer antes ou depois do cabeçalho E-TCM em
+  razão da ordenação visual feita pelo extrator;
 - rejeitar publicação automática quando o cabeçalho for desconhecido ou
   misturar ciclos incompatíveis;
 - versionar e preservar cada componente separadamente;
