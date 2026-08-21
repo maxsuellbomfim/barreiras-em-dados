@@ -1,4 +1,5 @@
 import type {
+  BahiaSpecialTransferAnnualCoverage,
   BahiaSpecialTransferPayment,
   BahiaSpecialTransferRanking,
 } from "../../lib/bahia-special-transfers.mjs";
@@ -105,9 +106,11 @@ function PaymentCard({ payment }: Readonly<{
 }
 
 export default function BahiaSpecialTransfersPanel({
+  coverage,
   payments,
   ranking,
 }: Readonly<{
+  coverage: readonly BahiaSpecialTransferAnnualCoverage[] | null;
   payments: readonly BahiaSpecialTransferPayment[] | null;
   ranking: readonly BahiaSpecialTransferRanking[] | null;
 }>) {
@@ -143,6 +146,50 @@ export default function BahiaSpecialTransfersPanel({
           por código apenas para conferência, sem duplicar dinheiro.
         </p>
       </aside>
+      <details className="historical-proposal-year">
+        <summary>
+          Cobertura anual desta fonte
+          <small>
+            {coverage === null
+              ? "diagnóstico indisponível"
+              : `${coverage.length.toLocaleString("pt-BR")} exercício(s) observado(s)`}
+          </small>
+        </summary>
+        <p className="transfer-caution">
+          Esta é uma <strong>contagem de registros, não de reais</strong>. Ela
+          informa quantos pagamentos existem no retrato oficial processado e
+          quantos mencionam literalmente Barreiras no objeto. Não prova
+          recebimento pela Prefeitura nem completude histórica.
+        </p>
+        {coverage === null ? (
+          <p className="transfer-empty">
+            O diagnóstico anual ainda não foi publicado. Isso não significa
+            ausência de pagamentos.
+          </p>
+        ) : coverage.length === 0 ? (
+          <p className="transfer-empty">
+            O retrato processado não publicou exercícios válidos para esta
+            contagem. Nenhum valor financeiro foi inferido.
+          </p>
+        ) : (
+          <dl className="transfer-stage-grid">
+            {coverage.map((row) => (
+              <div key={row.fiscalYear}>
+                <dt>Exercício {row.fiscalYear}</dt>
+                <dd>
+                  {row.territorialPaymentCount.toLocaleString("pt-BR")} com
+                  menção a Barreiras
+                </dd>
+                <span>
+                  O retrato integral desta fonte contém{" "}
+                  {row.sourcePaymentCount.toLocaleString("pt-BR")} pagamentos
+                  publicados nesse exercício.
+                </span>
+              </div>
+            ))}
+          </dl>
+        )}
+      </details>
       {payments === null || ranking === null ? (
         <p className="transfer-empty">
           A projeção pública destes pagamentos ainda não está disponível. Isso é

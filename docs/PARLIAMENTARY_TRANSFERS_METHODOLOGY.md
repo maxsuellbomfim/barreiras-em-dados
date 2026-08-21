@@ -576,6 +576,9 @@ recebimento municipal, execução física ou ausência de outras modalidades de
 repasse. Exercício sem linha no retrato não pode ser apresentado como zero:
 deve permanecer não observado ou não coletado, conforme o controle da fonte.
 Nenhum identificador ou nome de credor integra essa projeção.
+A interface mantém o diagnóstico anual recolhido e apresenta somente os anos
+que a fonte efetivamente publicou no retrato processado. Ano ausente não recebe
+linha artificial, contagem zero nem interpretação financeira.
 
 Nos cards dos deputados atuais, o resumo da legislatura aparece somente quando
 o ranking possui crosswalk aprovado e coincidem exatamente esfera, ID externo

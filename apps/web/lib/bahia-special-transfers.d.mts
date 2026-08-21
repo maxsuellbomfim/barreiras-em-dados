@@ -53,6 +53,21 @@ export type BahiaSpecialTransferRanking = Readonly<{
   methodologyVersion: "bahia-special-transfer-ranking/1.0.0";
 }>;
 
+export type BahiaSpecialTransferAnnualCoverage = Readonly<{
+  fiscalYear: number;
+  sourcePaymentCount: number;
+  territorialPaymentCount: number;
+  territorialStatus:
+    | "territorial_records_observed"
+    | "collected_no_territorial_record";
+  sourceSnapshotStatus: "source_snapshot_processed";
+  territorialScope: "payment_object_literal_barreiras";
+  sourceUrl: string;
+  sourceArtifactSha256: string;
+  sourceCollectedAt: string;
+  methodologyVersion: "bahia-special-transfer-annual-coverage/1.0.0";
+}>;
+
 export function parseBahiaSpecialTransferPayments(
   rows: unknown,
 ): BahiaSpecialTransferPayment[] | null;
@@ -60,3 +75,7 @@ export function parseBahiaSpecialTransferPayments(
 export function parseBahiaSpecialTransferRanking(
   rows: unknown,
 ): BahiaSpecialTransferRanking[] | null;
+
+export function parseBahiaSpecialTransferAnnualCoverage(
+  rows: unknown,
+): BahiaSpecialTransferAnnualCoverage[] | null;
