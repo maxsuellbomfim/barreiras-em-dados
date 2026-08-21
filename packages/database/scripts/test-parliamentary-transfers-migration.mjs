@@ -317,6 +317,9 @@ try {
       to_regclass(
         'territory.latest_bahia_special_transfer_annual_coverage'
       )::text as annual_coverage_projection,
+      to_regclass(
+        'raw.extraction_results_bahia_special_transfer_annual_latest_idx'
+      )::text as annual_coverage_latest_index,
       to_regprocedure(
         'api.get_public_bahia_special_transfer_payments(smallint,text,integer)'
       )::text as payment_rpc,
@@ -354,6 +357,8 @@ try {
       "territory.bahia_special_transfer_federal_links",
     annual_coverage_projection:
       "territory.latest_bahia_special_transfer_annual_coverage",
+    annual_coverage_latest_index:
+      "raw.extraction_results_bahia_special_transfer_annual_latest_idx",
     payment_rpc:
       "api.get_public_bahia_special_transfer_payments(smallint,text,integer)",
     ranking_rpc:
