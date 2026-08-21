@@ -83,6 +83,26 @@ test("parser conserva ausência financeira e aceita bloqueio oficial", () => {
   assert.equal(parsed[2].authorizedAmount, null);
 });
 
+test("parser aceita decimais numéricos enviados pelo PostgREST", () => {
+  const parsed = parseStateAmendmentSourceCoverageRows([
+    row({
+      authorized_amount: 11198888,
+      committed_amount: 349933,
+      liquidated_amount: 329933,
+      paid_amount: 329933,
+    }),
+  ]);
+  assert.notEqual(parsed, null);
+  assert.equal(parsed[0].authorizedAmount, "11198888.00");
+  assert.equal(parsed[0].paidAmount, "329933.00");
+  assert.equal(
+    parseStateAmendmentSourceCoverageRows([
+      row({ authorized_amount: 1.001 }),
+    ]),
+    null,
+  );
+});
+
 test("parser rejeita zero fabricado, HTTP e anos duplicados", () => {
   assert.equal(
     parseStateAmendmentSourceCoverageRows([
