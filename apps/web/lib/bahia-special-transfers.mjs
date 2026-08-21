@@ -1,5 +1,7 @@
 const PAYMENT_METHOD = "bahia-special-transfer-payments/1.0.0";
 const RANKING_METHOD = "bahia-special-transfer-ranking/1.0.0";
+const ANNUAL_COVERAGE_METHOD =
+  "bahia-special-transfer-annual-coverage/1.0.0";
 const DECIMAL = /^\d+(?:\.\d{1,2})?$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HASH = /^[0-9a-f]{64}$/;
@@ -31,6 +33,12 @@ const RANKING_KEYS = new Set([
   "representative_profile_url", "payment_count", "amendment_count",
   "paid_amount", "first_payment_date", "last_payment_date",
   "ranking_amount_stage", "territorial_scope", "aggregation_policy",
+  "methodology_version",
+]);
+const ANNUAL_COVERAGE_KEYS = new Set([
+  "fiscal_year", "source_payment_count", "territorial_payment_count",
+  "territorial_status", "source_snapshot_status", "territorial_scope",
+  "source_url", "source_artifact_sha256", "source_collected_at",
   "methodology_version",
 ]);
 
@@ -213,6 +221,47 @@ function parseRanking(row) {
   };
 }
 
+function parseAnnualCoverage(row) {
+  if (
+    typeof row !== "object" || row === null ||
+    !exactKeys(row, ANNUAL_COVERAGE_KEYS)
+  ) return null;
+  const fiscalYear = integer(row.fiscal_year, 2021, 2100);
+  const sourcePaymentCount = integer(row.source_payment_count, 1, 999_999_999);
+  const territorialPaymentCount = integer(
+    row.territorial_payment_count,
+    0,
+    999_999_999,
+  );
+  const sourceUrl = httpsUrl(row.source_url);
+  const sourceCollectedAt = timestamp(row.source_collected_at);
+  const expectedTerritorialStatus = territorialPaymentCount === 0
+    ? "collected_no_territorial_record"
+    : "territorial_records_observed";
+  if (
+    fiscalYear === null || sourcePaymentCount === null ||
+    territorialPaymentCount === null ||
+    territorialPaymentCount > sourcePaymentCount || !sourceUrl ||
+    !sourceCollectedAt || !HASH.test(row.source_artifact_sha256) ||
+    row.territorial_status !== expectedTerritorialStatus ||
+    row.source_snapshot_status !== "source_snapshot_processed" ||
+    row.territorial_scope !== "payment_object_literal_barreiras" ||
+    row.methodology_version !== ANNUAL_COVERAGE_METHOD
+  ) return null;
+  return {
+    fiscalYear,
+    sourcePaymentCount,
+    territorialPaymentCount,
+    territorialStatus: expectedTerritorialStatus,
+    sourceSnapshotStatus: "source_snapshot_processed",
+    territorialScope: "payment_object_literal_barreiras",
+    sourceUrl,
+    sourceArtifactSha256: row.source_artifact_sha256,
+    sourceCollectedAt,
+    methodologyVersion: ANNUAL_COVERAGE_METHOD,
+  };
+}
+
 export function parseBahiaSpecialTransferPayments(rows) {
   if (!Array.isArray(rows)) return null;
   const parsed = rows.map(parsePayment);
@@ -237,4 +286,16 @@ export function parseBahiaSpecialTransferRanking(rows) {
     positions.add(row.rankPosition);
   }
   return parsed.sort((left, right) => left.rankPosition - right.rankPosition);
+}
+
+export function parseBahiaSpecialTransferAnnualCoverage(rows) {
+  if (!Array.isArray(rows)) return null;
+  const parsed = rows.map(parseAnnualCoverage);
+  if (parsed.some((row) => row === null)) return null;
+  const years = new Set();
+  for (const row of parsed) {
+    if (years.has(row.fiscalYear)) return null;
+    years.add(row.fiscalYear);
+  }
+  return parsed.sort((left, right) => right.fiscalYear - left.fiscalYear);
 }

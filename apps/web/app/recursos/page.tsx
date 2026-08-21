@@ -2095,6 +2095,9 @@ export default async function ParliamentaryResourcesPage({
         ) : sourceSelection.showState ? (
           <>
             <BahiaSpecialTransfersPanel
+              coverage={bahiaSpecialTransfersResult.state === "available"
+                ? bahiaSpecialTransfersResult.coverage
+                : null}
               payments={bahiaSpecialTransfersResult.state === "available"
                 ? bahiaSpecialTransfersResult.payments
                 : null}

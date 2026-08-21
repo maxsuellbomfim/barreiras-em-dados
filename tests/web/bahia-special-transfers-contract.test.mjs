@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  parseBahiaSpecialTransferAnnualCoverage,
   parseBahiaSpecialTransferPayments,
   parseBahiaSpecialTransferRanking,
 } from "../../apps/web/lib/bahia-special-transfers.mjs";
@@ -77,6 +78,22 @@ function ranking(overrides = {}) {
   };
 }
 
+function annualCoverage(overrides = {}) {
+  return {
+    fiscal_year: 2022,
+    source_payment_count: 4176,
+    territorial_payment_count: 3,
+    territorial_status: "territorial_records_observed",
+    source_snapshot_status: "source_snapshot_processed",
+    territorial_scope: "payment_object_literal_barreiras",
+    source_url: "https://dados.ba.gov.br/dataset/transferencias-especiais",
+    source_artifact_sha256: "c".repeat(64),
+    source_collected_at: "2026-08-21T05:00:00+00:00",
+    methodology_version: "bahia-special-transfer-annual-coverage/1.0.0",
+    ...overrides,
+  };
+}
+
 test("parsers aceitam somente fatos estaduais com escopo e metodologia exatos", () => {
   const payments = parseBahiaSpecialTransferPayments([payment()]);
   const rankings = parseBahiaSpecialTransferRanking([ranking()]);
@@ -124,6 +141,24 @@ test("parsers rejeitam duplicidade, URL insegura e campos pessoais inesperados",
   );
 });
 
+test("cobertura anual descreve o retrato sem fabricar valor financeiro", () => {
+  const coverage = parseBahiaSpecialTransferAnnualCoverage([annualCoverage()]);
+  assert.equal(coverage?.[0].sourcePaymentCount, 4176);
+  assert.equal(coverage?.[0].territorialPaymentCount, 3);
+  assert.equal(
+    parseBahiaSpecialTransferAnnualCoverage([
+      annualCoverage({ territorial_payment_count: 4177 }),
+    ]),
+    null,
+  );
+  assert.equal(
+    parseBahiaSpecialTransferAnnualCoverage([
+      annualCoverage({ paid_amount: "756904.75" }),
+    ]),
+    null,
+  );
+});
+
 test("aba estadual separa pagamento, receita municipal e entrega fisica", () => {
   assert.match(page, /getPublicBahiaSpecialTransfers/);
   assert.match(page, /BahiaSpecialTransfersPanel/);
@@ -134,6 +169,8 @@ test("aba estadual separa pagamento, receita municipal e entrega fisica", () => 
   assert.match(panel, /não é somado aos valores da LOA, da CGU ou do Transferegov/);
   assert.match(panel, /Ranking desta fonte estadual/);
   assert.match(panel, /Trecho oficial e rastreabilidade/);
+  assert.match(panel, /Cobertura anual desta fonte/);
+  assert.match(panel, /contagem de registros, não de reais/);
 });
 
 test("cabecalho distingue achado, vazio comprovado e fonte indisponivel", () => {

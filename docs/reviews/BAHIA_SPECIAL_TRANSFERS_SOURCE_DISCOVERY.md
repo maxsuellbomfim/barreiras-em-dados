@@ -82,6 +82,9 @@ CPF/CNPJ e demais campos do credor não entram nesse resultado. Essa contagem é
 diagnóstico de cobertura: não representa quantidade de emendas, valor pago,
 receita recebida pela Prefeitura nem completude histórica. A mudança de `v1`
 para `v2` provoca um único replay idempotente dos artefatos já processados.
+A RPC `api.get_public_bahia_special_transfer_annual_coverage` expõe somente
+essas contagens e a linhagem do retrato mais recente. A tabela intermediária
+permanece inacessível aos papéis públicos.
 
 ## Estado de publicação
 
@@ -90,6 +93,8 @@ para `v2` provoca um único replay idempotente dos artefatos já processados.
 - três pagamentos: normalizados com schema e validação versionados;
 - ranking e totais públicos: habilitados somente nesta fonte, após
   reconciliação determinística do código 4072 no período 2019-2023;
+- cobertura anual do retrato: pública como contagem de linhas, nunca como soma
+  financeira ou declaração de completude histórica;
 - nenhuma soma com LOA, CGU ou Transferegov; coincidências servem apenas para
   auditoria por código;
 - CPF/CNPJ: proibido em projeção pública, logs, erros e manifestos.

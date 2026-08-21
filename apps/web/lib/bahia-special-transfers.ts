@@ -1,6 +1,8 @@
 import {
+  parseBahiaSpecialTransferAnnualCoverage,
   parseBahiaSpecialTransferPayments,
   parseBahiaSpecialTransferRanking,
+  type BahiaSpecialTransferAnnualCoverage,
   type BahiaSpecialTransferPayment,
   type BahiaSpecialTransferRanking,
 } from "./bahia-special-transfers.mjs";
@@ -10,6 +12,7 @@ export type BahiaSpecialTransfersResult =
       state: "available";
       payments: readonly BahiaSpecialTransferPayment[];
       ranking: readonly BahiaSpecialTransferRanking[];
+      coverage: readonly BahiaSpecialTransferAnnualCoverage[] | null;
     }>
   | Readonly<{ state: "unavailable" }>;
 
@@ -72,18 +75,24 @@ export async function getPublicBahiaSpecialTransfers(
     page_size: 10,
   });
   try {
-    const [paymentsResponse, rankingResponse] = await Promise.all([
-      fetchWithRetry(
-        `${supabaseUrl}/rest/v1/rpc/get_public_bahia_special_transfer_payments`,
-        headers,
-        paymentsBody,
-      ),
-      fetchWithRetry(
-        `${supabaseUrl}/rest/v1/rpc/get_public_bahia_special_transfer_ranking`,
-        headers,
-        rankingBody,
-      ),
-    ]);
+    const [paymentsResponse, rankingResponse, coverageResponse] =
+      await Promise.all([
+        fetchWithRetry(
+          `${supabaseUrl}/rest/v1/rpc/get_public_bahia_special_transfer_payments`,
+          headers,
+          paymentsBody,
+        ),
+        fetchWithRetry(
+          `${supabaseUrl}/rest/v1/rpc/get_public_bahia_special_transfer_ranking`,
+          headers,
+          rankingBody,
+        ),
+        fetchWithRetry(
+          `${supabaseUrl}/rest/v1/rpc/get_public_bahia_special_transfer_annual_coverage`,
+          headers,
+          "{}",
+        ),
+      ]);
     if (!paymentsResponse.ok || !rankingResponse.ok) {
       return { state: "unavailable" };
     }
@@ -91,8 +100,11 @@ export async function getPublicBahiaSpecialTransfers(
       await paymentsResponse.json(),
     );
     const ranking = parseBahiaSpecialTransferRanking(await rankingResponse.json());
+    const coverage = coverageResponse.ok
+      ? parseBahiaSpecialTransferAnnualCoverage(await coverageResponse.json())
+      : null;
     if (payments === null || ranking === null) return { state: "unavailable" };
-    return { state: "available", payments, ranking };
+    return { state: "available", payments, ranking, coverage };
   } catch {
     return { state: "unavailable" };
   }

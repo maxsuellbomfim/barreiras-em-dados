@@ -488,9 +488,10 @@ Checkpoint adicional em 21/08/2026: a fonte oficial de Transferências
 Especiais passou a gerar, em job versionado, cobertura anual sanitizada do
 retrato integral. O resultado separa linhas da fonte e ocorrências territoriais
 literais, não conserva dados de credor e não converte ausência de linha em
-ausência de recurso. A próxima menor entrega é projetar esse diagnóstico no
-portal como estado de cobertura, sem somá-lo aos valores de LOA ou
-Transferegov.
+ausência de recurso. O diagnóstico passou a ter RPC sanitizada e apresentação
+pública recolhida, sem somá-lo aos valores de LOA ou Transferegov. A próxima
+menor entrega é classificar a disponibilidade histórica das fontes estaduais
+por ano e avançar a busca oficial do retrato de execução de 2025.
 
 Gate:
 

@@ -314,12 +314,18 @@ try {
       to_regclass(
         'territory.bahia_special_transfer_federal_links'
       )::text as federal_link_projection,
+      to_regclass(
+        'territory.latest_bahia_special_transfer_annual_coverage'
+      )::text as annual_coverage_projection,
       to_regprocedure(
         'api.get_public_bahia_special_transfer_payments(smallint,text,integer)'
       )::text as payment_rpc,
       to_regprocedure(
         'api.get_public_bahia_special_transfer_ranking(smallint,integer)'
       )::text as ranking_rpc,
+      to_regprocedure(
+        'api.get_public_bahia_special_transfer_annual_coverage()'
+      )::text as annual_coverage_rpc,
       has_function_privilege(
         'anon',
         'api.get_public_bahia_special_transfer_payments(smallint,text,integer)',
@@ -330,6 +336,11 @@ try {
         'api.get_public_bahia_special_transfer_ranking(smallint,integer)',
         'EXECUTE'
       ) as anon_ranking_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_bahia_special_transfer_annual_coverage()',
+        'EXECUTE'
+      ) as anon_annual_coverage_rpc,
       has_table_privilege(
         'anon',
         'political.parliamentary_author_code_crosswalk',
@@ -341,12 +352,17 @@ try {
     payment_projection: "territory.bahia_special_transfer_payments",
     federal_link_projection:
       "territory.bahia_special_transfer_federal_links",
+    annual_coverage_projection:
+      "territory.latest_bahia_special_transfer_annual_coverage",
     payment_rpc:
       "api.get_public_bahia_special_transfer_payments(smallint,text,integer)",
     ranking_rpc:
       "api.get_public_bahia_special_transfer_ranking(smallint,integer)",
+    annual_coverage_rpc:
+      "api.get_public_bahia_special_transfer_annual_coverage()",
     anon_payment_rpc: true,
     anon_ranking_rpc: true,
+    anon_annual_coverage_rpc: true,
     anon_crosswalk_select: false,
   }]);
 
@@ -2636,6 +2652,15 @@ try {
         'bahia-special-transfer-territorial-deterministic/1.0.0',
         '{"schema_name":"bahia-special-transfer-payment-candidate","schema_version":"1.0.0","fiscal_year":2022,"amendment_number":"40720005","amendment_year":2021,"author_name":"Tito","agency_name":"Secretaria estadual","agency_code":"SEAGRI","budget_unit_name":"Unidade estadual","budget_unit_code":"UO1","action_name":"Apoio hidrico","expense_code":"2022.1.1.1.1.1.1.1.3","execution_code":"2022.1.1.1.1.1.1.1.3","liquidation_codes":["L3"],"payment_id":"123456789012345680","payment_number":"P3","payment_date":"2022-11-17","payment_amount":"86763.50","gcv_amount":null,"payment_status":"Sim","object_text":"Equipamentos para pocos em Barreiras","payment_url":"https://www.transparencia.ba.gov.br/pagamento/3","territorial_scope":"payment_object_literal_barreiras","evidence_text":"evidencia 3","evidence_sha256":"${"a3".repeat(32)}","parser_version":"bahia-special-transfer-payment/1.0.0","source_url":"https://dados.ba.gov.br/transferencias-especiais","source_artifact_sha256":"${"95".repeat(32)}","source_collected_at":"2026-08-21T05:00:00+00:00"}',
         'valid'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009513',
+        '00000000-0000-0000-0000-000000009503',
+        'bahia_special_transfer_annual_coverage',
+        'bahia-special-transfer-payment/1.0.0',
+        'bahia-special-transfer-territorial-deterministic/1.0.0',
+        '{"schema_name":"bahia-special-transfer-annual-coverage","schema_version":"1.0.0","coverage_start_year":2021,"coverage_end_year":2026,"years":[{"fiscal_year":2022,"source_payment_count":4176,"territorial_payment_count":3}],"territorial_scope":"payment_object_literal_barreiras","source_url":"https://dados.ba.gov.br/dataset/transferencias-especiais","source_artifact_sha256":"${"95".repeat(32)}","source_collected_at":"2026-08-21T05:00:00+00:00","parser_version":"bahia-special-transfer-payment/1.0.0"}',
+        'valid'
       );
 
     insert into raw.raw_records (
@@ -2710,6 +2735,24 @@ try {
     aggregation_policy: "single_source_no_cross_source_sum",
   }]);
 
+  const specialTransferAnnualCoverage = await database.query(`
+    select fiscal_year, source_payment_count, territorial_payment_count,
+      territorial_status, source_snapshot_status, territorial_scope,
+      source_url, source_artifact_sha256, methodology_version
+    from api.get_public_bahia_special_transfer_annual_coverage()
+  `);
+  assert.deepEqual(specialTransferAnnualCoverage.rows, [{
+    fiscal_year: 2022,
+    source_payment_count: 4176,
+    territorial_payment_count: 3,
+    territorial_status: "territorial_records_observed",
+    source_snapshot_status: "source_snapshot_processed",
+    territorial_scope: "payment_object_literal_barreiras",
+    source_url: "https://dados.ba.gov.br/dataset/transferencias-especiais",
+    source_artifact_sha256: "95".repeat(32),
+    methodology_version: "bahia-special-transfer-annual-coverage/1.0.0",
+  }]);
+
   assert.equal(JSON.stringify(specialTransferPayments.rows).includes("cpf"), false);
   assert.equal(JSON.stringify(specialTransferPayments.rows).includes("cnpj"), false);
   assert.equal(JSON.stringify(specialTransferPayments.rows).includes("creditor"), false);
@@ -2735,6 +2778,12 @@ try {
   );
   await assert.rejects(
     database.query("select * from territory.bahia_special_transfer_payments"),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from territory.latest_bahia_special_transfer_annual_coverage",
+    ),
     /permission denied/,
   );
   await assert.rejects(
