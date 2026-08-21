@@ -37,6 +37,11 @@ import {
   type CguFederalAmendmentsResult,
 } from "../../lib/cgu-federal-amendments";
 import {
+  getPublicCguFederalAmendmentDocuments,
+  type CguFederalAmendmentDocument,
+  type CguFederalAmendmentDocumentsResult,
+} from "../../lib/cgu-federal-amendment-documents";
+import {
   cguExecutionAuthorHref,
   cguExecutionResultCountCopy,
   filterCguExecutionAmendments,
@@ -1174,13 +1179,151 @@ function CguAmendmentCard({
   );
 }
 
+const CGU_DOCUMENT_STAGE_COPY: Readonly<Record<
+  CguFederalAmendmentDocument["expenseStage"],
+  string
+>> = {
+  commitment: "Empenho",
+  liquidation: "Liquidação",
+  payment: "Pagamento",
+};
+
+function CguDocumentMovementPanel({
+  result,
+}: Readonly<{ result: CguFederalAmendmentDocumentsResult }>) {
+  if (result.state === "unavailable") {
+    return (
+      <aside className="transfer-reading-guide">
+        <strong>Documentos anuais ainda não disponíveis</strong>
+        <p>
+          O detalhamento por empenho, liquidação e pagamento ainda não
+          respondeu. Isso não significa ausência de movimentação nem valor zero.
+        </p>
+      </aside>
+    );
+  }
+  const years = [...new Set(
+    result.documents.map((document) => document.archiveYear),
+  )].sort((left, right) => right - left);
+  return (
+    <section className="transfer-document-movements" aria-labelledby="cgu-documents-title">
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Comprovantes da execução</span>
+          <h2 id="cgu-documents-title">Movimentações por documento oficial</h2>
+        </div>
+        <p>{result.documents.length.toLocaleString("pt-BR")} linha(s) em {yearList(years)}</p>
+      </div>
+      <aside className="transfer-reading-guide">
+        <strong>Como ler sem confundir os anos</strong>
+        <p>
+          O ano do documento pode ser diferente do ano da emenda. Uma emenda de
+          2022, por exemplo, pode ter pagamento registrado em 2024. Cada cartão
+          informa as duas datas e a fase financeira publicada pela CGU.
+        </p>
+        <p>
+          Os valores desta série não são somados ao retrato agregado da CGU,
+          ao Transferegov ou a qualquer fonte estadual. Ela serve para mostrar
+          quando e por qual documento o dinheiro avançou.
+        </p>
+      </aside>
+      {result.ranking.length > 0 ? (
+        <details className="transfer-methodology">
+          <summary>Ver autoria por pagamentos documentados</summary>
+          <div className="transfer-ranking-list">
+            {result.ranking.map((row) => (
+              <article className="transfer-ranking-card" key={`cgu-document:${row.authorKey}`}>
+                <span className="transfer-rank" aria-label={`posição ${row.rankPosition}`}>
+                  {row.rankPosition}
+                </span>
+                <div className="transfer-ranking-name">
+                  <h3>{row.authorName}</h3>
+                  <span>{authorKindLabel(row.authorKind)}</span>
+                </div>
+                <dl>
+                  <div><dt>Pago nos documentos</dt><dd>{formatBrlDecimal(row.paidAmount)}</dd></div>
+                  <div><dt>Empenhado nos documentos</dt><dd>{formatBrlDecimal(row.committedAmount)}</dd></div>
+                  <div><dt>Emendas</dt><dd>{row.amendmentCount}</dd></div>
+                  <div><dt>Documentos</dt><dd>{row.documentCount}</dd></div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        </details>
+      ) : null}
+      <details className="transfer-methodology">
+        <summary>Conferir documentos, favorecidos e evidências</summary>
+        {result.documents.length === 0 ? (
+          <p className="transfer-empty">
+            A fonte foi consultada, mas ainda não há documento territorializado
+            para Barreiras neste recorte. Isso não significa valor zero.
+          </p>
+        ) : (
+          <div className="transfer-card-list">
+            {result.documents.map((document) => (
+              <article
+                className="transfer-card"
+                key={`${document.archiveYear}:${document.documentCode}:${document.sourceRowNumber}`}
+              >
+                <div className="transfer-card-heading">
+                  <div>
+                    <span className="transfer-card-kind">
+                      {CGU_DOCUMENT_STAGE_COPY[document.expenseStage]} em {formatDate(document.documentDate)}
+                    </span>
+                    <h3>{document.authorName}</h3>
+                    <p>Emenda {document.amendmentCode} · ano da emenda {document.amendmentYear}</p>
+                  </div>
+                  <span className="transfer-status">Documento de {document.archiveYear}</span>
+                </div>
+                <p className="transfer-object">
+                  {document.citizenLanguage ?? document.actionName}
+                </p>
+                <dl className="transfer-stage-grid">
+                  <div>
+                    <dt>Empenhado nesta linha</dt>
+                    <dd>{formatBrlDecimal(document.committedAmount)}</dd>
+                  </div>
+                  <div>
+                    <dt>Pago nesta linha</dt>
+                    <dd>{formatBrlDecimal(document.paidAmount)}</dd>
+                  </div>
+                  <div>
+                    <dt>Favorecido</dt>
+                    <dd>{document.beneficiaryName}</dd>
+                  </div>
+                  <div>
+                    <dt>Órgão federal</dt>
+                    <dd>{document.agencyName}</dd>
+                  </div>
+                </dl>
+                <details className="transfer-details">
+                  <summary>Evidência e identificação do documento</summary>
+                  <p>
+                    Documento <code>{document.documentCode}</code> · linha {document.sourceRowNumber.toLocaleString("pt-BR")} do arquivo anual.<br />
+                    Hash do ZIP oficial: <code>{document.artifactSha256}</code>
+                  </p>
+                </details>
+                <a className="transfer-source-link" href={document.sourceUrl} rel="noreferrer" target="_blank">
+                  Abrir arquivo oficial da CGU →
+                </a>
+              </article>
+            ))}
+          </div>
+        )}
+      </details>
+    </section>
+  );
+}
+
 function CguFederalExecutionPanel({
   result,
+  documentResult,
   coverage,
   requestedAuthor,
   requestedYear,
 }: Readonly<{
   result: CguFederalAmendmentsResult;
+  documentResult: CguFederalAmendmentDocumentsResult;
   coverage: readonly FederalTransferSourceCoverage[];
   requestedAuthor: string | readonly string[] | undefined;
   requestedYear: string | readonly string[] | undefined;
@@ -1316,6 +1459,7 @@ function CguFederalExecutionPanel({
       />
       <h3>Comissões e bancadas</h3>
       <CguRankingList rows={result.collectives} scopeLabel="coletiva" />
+      <CguDocumentMovementPanel result={documentResult} />
       {filteredAmendments.length > 0 ? (
         <details className="transfer-methodology">
           <summary>
@@ -1997,6 +2141,7 @@ export default async function ParliamentaryResourcesPage({
     legislatureCoverageResult,
     legislatureYearCoverageResult,
     cguFederalAmendmentsResult,
+    cguFederalAmendmentDocumentsResult,
     cguLegislatureRankingsResult,
     federalSourceCoverageResult,
     stateSourceCoverageResult,
@@ -2017,6 +2162,9 @@ export default async function ParliamentaryResourcesPage({
       : Promise.resolve({ state: "unavailable" as const }),
     sourceSelection.showCguExecution
       ? getPublicCguFederalAmendments()
+      : Promise.resolve({ state: "unavailable" as const }),
+    sourceSelection.showCguExecution
+      ? getPublicCguFederalAmendmentDocuments()
       : Promise.resolve({ state: "unavailable" as const }),
     sourceSelection.showLegislatures
       ? getPublicCguFederalAmendmentLegislatureRankings()
@@ -2201,6 +2349,7 @@ export default async function ParliamentaryResourcesPage({
         ) : sourceSelection.showCguExecution ? (
           <CguFederalExecutionPanel
             coverage={federalSourceCoverage ?? []}
+            documentResult={cguFederalAmendmentDocumentsResult}
             requestedAuthor={params.autor}
             requestedYear={params.ano}
             result={cguFederalAmendmentsResult}

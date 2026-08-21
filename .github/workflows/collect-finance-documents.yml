@@ -257,6 +257,12 @@ jobs:
           python -B -m
           barreiras_collectors.commands.collect_cgu_federal_amendments
 
+      - name: Preservar documentos anuais das emendas federais
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.collect_cgu_federal_amendment_documents
+          --year-from "2021"
+
       - name: Preservar retrato do Transferegov
         run: >-
           python -B -m barreiras_collectors.commands.collect_transferegov_parcerias

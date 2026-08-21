@@ -387,9 +387,26 @@ prova, isoladamente, repasse direto à Prefeitura, conclusão do objeto ou
 regularidade. Anos posteriores a 2023 ausentes no retrato observado ficam
 marcados como não encontrados nessa fonte, nunca como valor zero.
 
+Para superar essa lacuna sem fabricar continuidade na série agregada, o
+Barreiras 360 também preserva os arquivos anuais **Emendas Parlamentares por
+Documento**, desde 2021 até o exercício corrente. Essa segunda série registra
+cada empenho, liquidação ou pagamento publicado pela CGU, com data, documento,
+autor, favorecido, órgão, ação e código IBGE do local da aplicação. A seleção
+territorial continua exigindo `Código Município IBGE = 2903201`.
+
+As duas séries permanecem independentes. Valores da série agregada não são
+somados aos documentos, porque representam visões sobre a mesma execução e
+poderiam gerar dupla contagem. Na série documental, linhas exatamente
+duplicadas são descartadas, mas parcelas distintas do mesmo documento são
+preservadas e somadas por código determinístico no estágio correspondente. O
+ano do documento fica separado do ano da emenda: um pagamento de 2025 pode se
+referir a uma emenda de exercício anterior.
+
 Referências:
 
 - [Download de emendas parlamentares](https://portaldatransparencia.gov.br/download-de-dados/emendas-parlamentares)
+- [Download de emendas por documento](https://portaldatransparencia.gov.br/download-de-dados/emendas-parlamentares-documentos)
+- [Consulta de emendas por documento](https://portaldatransparencia.gov.br/emendas/consulta-por-documento)
 - [Dicionário de dados de emendas](https://portaldatransparencia.gov.br/dicionario-de-dados/emendas-parlamentares)
 
 ### Emendas parlamentares estaduais da Bahia

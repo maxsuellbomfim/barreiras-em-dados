@@ -386,6 +386,14 @@ atalho para as linhas oficiais que o compõem. A próxima menor fatia é usar es
 matriz para orientar o backfill dos anos/fontes ainda não classificados, sem
 fabricar zeros e sem somar séries sobrepostas.
 
+Os arquivos anuais da CGU por documento passam a cobrir 2021 até o exercício
+corrente e complementam o agregado que, no recorte territorial observado,
+terminava em 2023. A página de recursos mostra empenhos, liquidações e
+pagamentos por documento, separa ano da emenda de ano da movimentação e oferece
+ranking próprio. Essa série não é somada ao agregado da CGU nem ao
+Transferegov: ela serve para atualizar a execução e abrir a evidência linha a
+linha sem dupla contagem.
+
 O catálogo oficial dos arquivos históricos de transferências discricionárias
 e legais passa a ser preservado diariamente como uma fonte separada. O
 manifesto monitora oito conjuntos essenciais e interrompe a cobertura quando

@@ -142,9 +142,17 @@ test("CGU federal completa emendas de Barreiras sem chave privada", () => {
     transferegovJob,
     /barreiras_collectors\.commands\.collect_cgu_federal_amendments/,
   );
+  assert.match(
+    transferegovJob,
+    /barreiras_collectors\.commands\.collect_cgu_federal_amendment_documents[\s\S]*--year-from "2021"/,
+  );
   assert.doesNotMatch(transferegovJob, /TRANSPARENCIA_API_KEY/);
   assert.ok(
     transferegovJob.indexOf("collect_cgu_federal_amendments") <
+      transferegovJob.indexOf("collect_cgu_federal_amendment_documents"),
+  );
+  assert.ok(
+    transferegovJob.indexOf("collect_cgu_federal_amendment_documents") <
       transferegovJob.indexOf("collect_transferegov_parcerias"),
   );
 });

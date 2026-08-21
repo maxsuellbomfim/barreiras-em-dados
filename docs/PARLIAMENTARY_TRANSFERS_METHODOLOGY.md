@@ -183,6 +183,30 @@ O vínculo apenas rotula sobreposição (`matched_transferegov_unique`,
 `conflict_non_unique_transferegov`); valores de fontes diferentes nunca são
 somados em um mesmo total.
 
+### Movimentações federais por documento (2021 em diante)
+
+O agregado acima não deve ser artificialmente estendido quando a própria fonte
+deixa de publicar linhas territoriais em exercícios mais recentes. Para
+acompanhar a execução corrente, o Barreiras 360 preserva também os ZIPs anuais
+**Emendas Parlamentares por Documento**, publicados pela CGU, de 2021 até o
+ano corrente.
+
+Cada linha é selecionada somente quando o código IBGE informado pela fonte é
+`2903201` e mantém, separadamente, o ano da emenda, o ano e a data do documento,
+o estágio (`commitment`, `liquidation` ou `payment`), o valor, o autor, o
+favorecido, o órgão e a evidência bruta. Ajustes negativos permanecem negativos.
+Uma repetição byte a byte dos campos normalizados é descartada; duas parcelas
+distintas associadas ao mesmo documento são preservadas.
+
+O ranking documental soma apenas empenhos na coluna empenhada e apenas
+pagamentos na coluna paga. Liquidações não são adicionadas a nenhum desses
+totais. A política pública é
+`single_document_source_no_cross_source_sum`: nenhuma quantia desta série é
+somada aos valores do agregado da CGU ou do Transferegov. A projeção vive em
+`territory.cgu_federal_amendment_documents` e é servida por
+`api.get_public_cgu_federal_amendment_documents` e
+`api.get_public_cgu_federal_amendment_document_ranking`.
+
 ## Emendas estaduais da Bahia — autorização e execução separadas
 
 Emendas estaduais são coletadas e serão publicadas separadamente das federais. A
