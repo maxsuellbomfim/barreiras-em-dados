@@ -179,13 +179,30 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
             "ano_ref": "2025",
             "mes_ref": "12",
             "tipo": "1",
+            "titulo": "Relação de Servidores",
         }
+        historical_untyped = {
+            "ano_ref": "2025",
+            "mes_ref": "2",
+            "tipo": "",
+            "titulo": "RELAÇÃO   DE SERVIDORES",
+        }
+        allowed_untyped_titles = frozenset({"Relação de Servidores"})
 
         self.assertTrue(
             matches_document_reference(
                 regular,
                 reference_month=date(2025, 12, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_untyped_titles=allowed_untyped_titles,
+            )
+        )
+        self.assertTrue(
+            matches_document_reference(
+                historical_untyped,
+                reference_month=date(2025, 2, 1),
+                allowed_types=frozenset({"1"}),
+                allowed_untyped_titles=allowed_untyped_titles,
             )
         )
         self.assertFalse(
@@ -193,6 +210,29 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 {**regular, "tipo": "4"},
                 reference_month=date(2025, 12, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_untyped_titles=allowed_untyped_titles,
+            )
+        )
+        self.assertFalse(
+            matches_document_reference(
+                {
+                    **historical_untyped,
+                    "titulo": "Relação de Funcionários Terceirizados - atualizado",
+                },
+                reference_month=date(2025, 2, 1),
+                allowed_types=frozenset({"1"}),
+                allowed_untyped_titles=allowed_untyped_titles,
+            )
+        )
+        self.assertFalse(
+            matches_document_reference(
+                {
+                    **historical_untyped,
+                    "titulo": "Relação de Estagiários - atualizado",
+                },
+                reference_month=date(2025, 2, 1),
+                allowed_types=frozenset({"1"}),
+                allowed_untyped_titles=allowed_untyped_titles,
             )
         )
         self.assertFalse(
@@ -200,6 +240,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 {**regular, "mes_ref": "11"},
                 reference_month=date(2025, 12, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_untyped_titles=allowed_untyped_titles,
             )
         )
         self.assertFalse(
@@ -207,6 +248,7 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 {"ano_ref": "inválido", "mes_ref": "12", "tipo": "1"},
                 reference_month=date(2025, 12, 1),
                 allowed_types=frozenset({"1"}),
+                allowed_untyped_titles=allowed_untyped_titles,
             )
         )
 

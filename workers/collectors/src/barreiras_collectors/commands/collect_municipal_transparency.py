@@ -7,6 +7,7 @@ import calendar
 import logging
 import os
 import re
+import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -225,8 +226,9 @@ def matches_document_reference(
     *,
     reference_month: date | None,
     allowed_types: frozenset[str] | None,
+    allowed_untyped_titles: frozenset[str] | None = None,
 ) -> bool:
-    """Filtra somente pelos campos oficiais de competência e tipo."""
+    """Filtra por competência, tipo e exceções históricas de título exato."""
 
     if reference_month is not None:
         try:
@@ -238,9 +240,27 @@ def matches_document_reference(
             return False
     if allowed_types is not None:
         document_type = str(item.get("tipo", "")).strip()
-        if document_type not in allowed_types:
+        if document_type:
+            return document_type in allowed_types
+        normalized_title = _normalize_document_title(str(item.get("titulo", "")))
+        normalized_allowlist = {
+            _normalize_document_title(title)
+            for title in (allowed_untyped_titles or frozenset())
+        }
+        if not normalized_title or normalized_title not in normalized_allowlist:
             return False
     return True
+
+
+def _normalize_document_title(value: str) -> str:
+    """Normaliza somente grafia, sem ampliar semanticamente o título oficial."""
+
+    folded = "".join(
+        character
+        for character in unicodedata.normalize("NFKD", value.strip().casefold())
+        if not unicodedata.combining(character)
+    )
+    return " ".join(folded.split())
 
 
 def should_defer_document_for_byte_budget(
@@ -403,6 +423,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help="tipo oficial de documento de pessoal; pode ser repetido",
     )
+    parser.add_argument(
+        "--allow-untyped-document-title",
+        action="append",
+        default=None,
+        help=(
+            "título oficial exato aceito quando o catálogo histórico omite o tipo; "
+            "pode ser repetido"
+        ),
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 500:
         parser.error("--limit deve estar entre 1 e 500.")
@@ -426,13 +455,28 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.document_reference_month,
             "%Y-%m",
         ).date()
-    if (document_reference_month is not None or args.document_type is not None) and (
-        not args.download_documents or args.resource != "servidores"
-    ):
+    if (
+        document_reference_month is not None
+        or args.document_type is not None
+        or args.allow_untyped_document_title is not None
+    ) and (not args.download_documents or args.resource != "servidores"):
         parser.error("filtro de competência/tipo exige download do recurso servidores.")
+    if args.allow_untyped_document_title is not None and args.document_type is None:
+        parser.error("título sem tipo exige ao menos um --document-type permitido.")
     document_types = (
         frozenset(args.document_type) if args.document_type is not None else None
     )
+    untyped_document_titles = (
+        frozenset(
+            title.strip()
+            for title in args.allow_untyped_document_title
+            if title.strip()
+        )
+        if args.allow_untyped_document_title is not None
+        else None
+    )
+    if args.allow_untyped_document_title is not None and not untyped_document_titles:
+        parser.error("título sem tipo não pode ser vazio.")
     if args.coverage_year_from is not None and (
         args.resource != "balancetes"
         or args.offset not in (None, 0)
@@ -473,6 +517,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         partition_key += f":document-reference:{document_reference_month:%Y-%m}"
     if document_types is not None:
         partition_key += f":document-types:{','.join(sorted(document_types))}"
+    if untyped_document_titles is not None:
+        normalized_titles = "|".join(
+            sorted(
+                _normalize_document_title(title) for title in untyped_document_titles
+            )
+        )
+        partition_key += (
+            ":untyped-title-sha256:"
+            f"{sha256(normalized_titles.encode('utf-8')).hexdigest()[:16]}"
+        )
     control = CollectionControl(
         repository=repository,
         source_code=source_code,
@@ -523,6 +577,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             logger=logger,
             document_reference_month=document_reference_month,
             document_types=document_types,
+            untyped_document_titles=untyped_document_titles,
             coverage_period=(
                 (
                     date(args.coverage_year_from, 1, 1),
@@ -586,6 +641,7 @@ def _collect_resource(
     logger: logging.Logger,
     document_reference_month: date | None = None,
     document_types: frozenset[str] | None = None,
+    untyped_document_titles: frozenset[str] | None = None,
     coverage_period: tuple[date, date] | None = None,
 ) -> MunicipalTransparencyCollectionSummary:
     document_client = None
@@ -667,6 +723,7 @@ def _collect_resource(
                         item,
                         reference_month=document_reference_month,
                         allowed_types=document_types,
+                        allowed_untyped_titles=untyped_document_titles,
                     ):
                         continue
                     document_url = item.get("url")
@@ -719,6 +776,11 @@ def _collect_resource(
                     ),
                     document_types=(
                         sorted(document_types) if document_types is not None else None
+                    ),
+                    untyped_document_titles=(
+                        sorted(untyped_document_titles)
+                        if untyped_document_titles is not None
+                        else None
                     ),
                 )
                 for selection_position, index in enumerate(selection.indexes):

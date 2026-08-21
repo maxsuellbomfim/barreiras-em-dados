@@ -126,6 +126,10 @@ test("coleta de pessoal aceita uma competencia exata sem baixar outros tipos", (
   assert.match(workflow, /--document-type "1"/);
   assert.match(
     workflow,
+    /--allow-untyped-document-title "Relação de Servidores"/,
+  );
+  assert.match(
+    workflow,
     /\^20\[2-9\]\[0-9\]-\(0\[1-9\]\|1\[0-2\]\)\$/,
   );
 });
