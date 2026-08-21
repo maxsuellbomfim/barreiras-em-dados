@@ -10,6 +10,7 @@ from barreiras_normalization.bahia_special_transfer_processing import (
 )
 from barreiras_normalization.bahia_special_transfers import (
     SPECIAL_TRANSFER_PARSER_VERSION,
+    SpecialTransferYearCoverage,
     analyze_special_transfer_payments,
     parse_special_transfer_payment_candidates,
 )
@@ -163,6 +164,46 @@ class BahiaSpecialTransferRepositoryTests(unittest.TestCase):
         self.assertIn('"source_payment_count":1', coverage_payload)
         self.assertIn('"territorial_payment_count":1', coverage_payload)
         self.assertNotIn("98765432100", coverage_payload)
+
+    def test_annual_publication_respects_declared_coverage_start_year(self) -> None:
+        connection = _Connection()
+        repository = self._repository(connection)
+        batch = _batch()
+        batch = SpecialTransferExtractionBatch(
+            artifact=batch.artifact,
+            candidates=batch.candidates,
+            annual_coverage=(
+                SpecialTransferYearCoverage(
+                    fiscal_year=2022,
+                    source_payment_count=1,
+                    territorial_payment_count=1,
+                ),
+                SpecialTransferYearCoverage(
+                    fiscal_year=2020,
+                    source_payment_count=597,
+                    territorial_payment_count=0,
+                ),
+            ),
+            job_type=batch.job_type,
+            idempotency_key=batch.idempotency_key,
+            extractor_version=batch.extractor_version,
+            validator_version=batch.validator_version,
+        )
+
+        repository.persist_extraction(batch)
+
+        _, coverage_params = next(
+            (query, params)
+            for query, params in connection.queries
+            if "insert into raw.extraction_results" in query
+            and params is not None
+            and params[1] == "bahia_special_transfer_annual_coverage"
+        )
+        assert coverage_params is not None
+        coverage_payload = str(coverage_params[4])
+        self.assertIn('"coverage_start_year":2021', coverage_payload)
+        self.assertIn('"fiscal_year":2022', coverage_payload)
+        self.assertNotIn('"fiscal_year":2020', coverage_payload)
 
     def test_existing_successful_job_is_idempotent(self) -> None:
         connection = _Connection()

@@ -50,7 +50,7 @@ class BahiaSpecialTransferProcessingTests(unittest.TestCase):
             self.fail("o job de cobertura anual ainda não existe")
         self.assertEqual(
             SPECIAL_TRANSFER_JOB_TYPE,
-            "bahia_special_transfer_payments_v2",
+            "bahia_special_transfer_payments_v3",
         )
 
     def _imports(self):

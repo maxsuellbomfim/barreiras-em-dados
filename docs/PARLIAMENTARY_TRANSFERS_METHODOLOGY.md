@@ -579,6 +579,9 @@ Nenhum identificador ou nome de credor integra essa projeção.
 A interface mantém o diagnóstico anual recolhido e apresenta somente os anos
 que a fonte efetivamente publicou no retrato processado. Ano ausente não recebe
 linha artificial, contagem zero nem interpretação financeira.
+O arquivo oficial atualmente também contém pagamentos de 2020. Eles são
+conferidos pelo analisador integral, mas não entram nesta projeção porque o
+intervalo retroativo declarado pelo Barreiras 360 começa em 2021.
 
 Nos cards dos deputados atuais, o resumo da legislatura aparece somente quando
 o ranking possui crosswalk aprovado e coincidem exatamente esfera, ID externo

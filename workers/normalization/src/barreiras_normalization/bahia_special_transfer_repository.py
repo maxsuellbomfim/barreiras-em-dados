@@ -172,16 +172,24 @@ class BahiaSpecialTransferRepository:
                     ),
                 )
 
+                coverage_start_year = 2021
                 coverage_end_year = datetime.fromisoformat(
                     batch.artifact.collected_at.replace("Z", "+00:00")
                 ).year
+                public_annual_coverage = tuple(
+                    row
+                    for row in batch.annual_coverage
+                    if coverage_start_year
+                    <= row.fiscal_year
+                    <= coverage_end_year
+                )
                 coverage_payload = canonical_json(
                     {
                         "schema_name": (
                             "bahia-special-transfer-annual-coverage"
                         ),
                         "schema_version": "1.0.0",
-                        "coverage_start_year": 2021,
+                        "coverage_start_year": coverage_start_year,
                         "coverage_end_year": coverage_end_year,
                         "years": [
                             {
@@ -191,7 +199,7 @@ class BahiaSpecialTransferRepository:
                                     row.territorial_payment_count
                                 ),
                             }
-                            for row in batch.annual_coverage
+                            for row in public_annual_coverage
                         ],
                         "territorial_scope": (
                             "payment_object_literal_barreiras"

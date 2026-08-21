@@ -14,7 +14,7 @@ from .bahia_special_transfers import (
     analyze_special_transfer_payments,
 )
 
-SPECIAL_TRANSFER_JOB_TYPE = "bahia_special_transfer_payments_v2"
+SPECIAL_TRANSFER_JOB_TYPE = "bahia_special_transfer_payments_v3"
 SPECIAL_TRANSFER_VALIDATOR_VERSION = (
     "bahia-special-transfer-territorial-deterministic/1.0.0"
 )
