@@ -1727,7 +1727,7 @@ try {
       slug: "state-special-transfers",
       enabled: true,
       raw_visibility: "private",
-      normalization: "blocked_pending_deterministic_reconciliation",
+      normalization: "published_with_deterministic_author_reconciliation",
     },
   ]);
 

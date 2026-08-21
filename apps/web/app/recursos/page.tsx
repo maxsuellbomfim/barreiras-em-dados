@@ -53,6 +53,8 @@ import { getPublicStateAmendmentSourceCoverage } from
   "../../lib/state-amendment-source-coverage";
 import type { StateAmendmentSourceCoverage } from
   "../../lib/state-amendment-source-coverage.mjs";
+import { getPublicBahiaSpecialTransfers } from
+  "../../lib/bahia-special-transfers";
 import { getPublicParliamentaryLegislatureRankings } from
   "../../lib/legislature-transfer-rankings";
 import { getPublicParliamentaryLegislatureCoverage } from
@@ -60,6 +62,7 @@ import { getPublicParliamentaryLegislatureCoverage } from
 import { getPublicParliamentaryLegislatureYearCoverage } from
   "../../lib/legislature-transfer-year-coverage";
 import LegislatureTransferRankings from "./legislature-transfer-rankings";
+import BahiaSpecialTransfersPanel from "./bahia-special-transfers-panel";
 import ShareLink from "../share-link";
 
 export const revalidate = 300;
@@ -1893,6 +1896,7 @@ export default async function ParliamentaryResourcesPage({
     cguLegislatureRankingsResult,
     federalSourceCoverageResult,
     stateSourceCoverageResult,
+    bahiaSpecialTransfersResult,
   ] = await Promise.all([
     getPublicParliamentaryTransfers({
       stateFiscalYear: selectedStateFiscalYear,
@@ -1917,6 +1921,9 @@ export default async function ParliamentaryResourcesPage({
       : getPublicFederalTransferSourceCoverage(),
     sourceSelection.showState
       ? getPublicStateAmendmentSourceCoverage()
+      : Promise.resolve({ state: "unavailable" as const }),
+    sourceSelection.showState
+      ? getPublicBahiaSpecialTransfers()
       : Promise.resolve({ state: "unavailable" as const }),
   ]);
   const federalSourceCoverage = federalSourceCoverageResult.state === "available"
@@ -2061,8 +2068,8 @@ export default async function ParliamentaryResourcesPage({
             href="/recursos?origem=estadual"
             aria-current={sourceSelection.source === "estadual" ? "page" : undefined}
           >
-            <strong>Estadual · LOA da Bahia</strong>
-            <span>O que deputados estaduais autorizaram no orçamento do estado, com execução conferida.</span>
+            <strong>Estadual · Bahia</strong>
+            <span>LOA autorizada e pagamentos estaduais cujo objeto oficial menciona Barreiras.</span>
           </a>
         </nav>
 
@@ -2085,6 +2092,35 @@ export default async function ParliamentaryResourcesPage({
             requestedYear={params.ano}
             result={cguFederalAmendmentsResult}
           />
+        ) : sourceSelection.showState ? (
+          <>
+            <BahiaSpecialTransfersPanel
+              payments={bahiaSpecialTransfersResult.state === "available"
+                ? bahiaSpecialTransfersResult.payments
+                : null}
+              ranking={bahiaSpecialTransfersResult.state === "available"
+                ? bahiaSpecialTransfersResult.ranking
+                : null}
+            />
+            {result.state === "available" ? (
+              <StateLoaPanel
+                amendments={result.stateLoaAmendments}
+                ranking={result.stateLoaRanking}
+                execution={result.stateLoaExecution}
+                executionSummary={result.stateLoaExecutionSummary}
+                selectedFiscalYear={selectedStateFiscalYear}
+                availableFiscalYears={availableStateFiscalYears}
+                coverage={stateSourceCoverage}
+              />
+            ) : (
+              <div className="collection-unavailable" role="status">
+                <div>
+                  <strong>Consulta da LOA temporariamente indisponível</strong>
+                  <p>Isso é uma falha de consulta, não ausência de emendas.</p>
+                </div>
+              </div>
+            )}
+          </>
         ) : result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
             <div>
@@ -2153,18 +2189,6 @@ export default async function ParliamentaryResourcesPage({
 
                 <HistoricalProposalsPanel proposals={result.historicalProposals} />
               </>
-            ) : null}
-
-            {sourceSelection.showState ? (
-              <StateLoaPanel
-                amendments={result.stateLoaAmendments}
-                ranking={result.stateLoaRanking}
-                execution={result.stateLoaExecution}
-                executionSummary={result.stateLoaExecutionSummary}
-                selectedFiscalYear={selectedStateFiscalYear}
-                availableFiscalYears={availableStateFiscalYears}
-                coverage={stateSourceCoverage}
-              />
             ) : null}
 
           </>

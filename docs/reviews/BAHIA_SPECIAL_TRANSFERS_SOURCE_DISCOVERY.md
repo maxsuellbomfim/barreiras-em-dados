@@ -47,10 +47,11 @@ O total dos três pagamentos é R$ 756.904,75. Isso comprova pagamentos estaduai
 cujo objeto menciona Barreiras; isoladamente, não comprova transferência direta
 à Prefeitura, recebimento municipal ou conclusão física do objeto.
 
-O nome `Tito` ainda não é ligado automaticamente a uma pessoa. A view também
-não declara, em campo próprio, se a autoria pertence à esfera federal ou
-estadual. O número da emenda, o exercício e outras fontes oficiais deverão
-resolver identidade e esfera antes de qualquer inclusão em ranking.
+O bloco oficial de autoria `4072` foi ligado, apenas para 2019-2023, ao perfil
+institucional 197438 da Câmara dos Deputados, que identifica o nome parlamentar
+Tito e o nome civil Carlos Tito Marques Cordeiro. O vínculo usa código, período
+e fontes institucionais; não usa semelhança nominal e não se estende a outros
+exercícios.
 
 ## Normalização determinística
 
@@ -70,16 +71,18 @@ publicado nessas três linhas e permanece nulo, nunca convertido em zero. O
 processamento registra job versionado, hash do ZIP e hash de uma evidência
 sanitizada por pagamento. Um resumo técnico versionado também registra zero
 candidatos quando isso ocorrer, sem confundir fonte processada com fonte ainda
-não processada. A projeção pública continua bloqueada até a autoria `Tito` ser
-reconciliada com pessoa, esfera e período por fonte oficial.
+não processada. A projeção pública aceita somente linhas validadas e a autoria
+entra no ranking apenas após a reconciliação oficial descrita acima.
 
 ## Estado de publicação
 
 - bruto: elegível para preservação privada;
 - manifestos: elegíveis para auditoria administrativa;
-- três pagamentos candidatos: normalização implementada, pendente de execução
-  remota e reconciliação de autoria;
-- ranking e totais públicos: bloqueados até reconciliação determinística;
+- três pagamentos: normalizados com schema e validação versionados;
+- ranking e totais públicos: habilitados somente nesta fonte, após
+  reconciliação determinística do código 4072 no período 2019-2023;
+- nenhuma soma com LOA, CGU ou Transferegov; coincidências servem apenas para
+  auditoria por código;
 - CPF/CNPJ: proibido em projeção pública, logs, erros e manifestos.
 
 ## Fontes oficiais
