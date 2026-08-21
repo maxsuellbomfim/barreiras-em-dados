@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barreirasemdados.org/schemas/bahia-special-transfer-payment-candidate/1-0-0",
+  "title": "Bahia special transfer payment candidate mentioning Barreiras",
+  "description": "Pagamento estadual cujo objeto menciona literalmente Barreiras e cuja emenda foi ligada por chaves oficiais. Não comprova transferência à Prefeitura ou execução física.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_name",
+    "schema_version",
+    "fiscal_year",
+    "amendment_number",
+    "amendment_year",
+    "author_name",
+    "agency_name",
+    "agency_code",
+    "budget_unit_name",
+    "budget_unit_code",
+    "action_name",
+    "expense_code",
+    "execution_code",
+    "liquidation_codes",
+    "payment_id",
+    "payment_number",
+    "payment_date",
+    "payment_amount",
+    "gcv_amount",
+    "payment_status",
+    "object_text",
+    "payment_url",
+    "territorial_scope",
+    "evidence_text",
+    "evidence_sha256",
+    "parser_version",
+    "source_url",
+    "source_artifact_sha256",
+    "source_collected_at"
+  ],
+  "properties": {
+    "schema_name": {
+      "const": "bahia-special-transfer-payment-candidate"
+    },
+    "schema_version": { "const": "1.0.0" },
+    "fiscal_year": { "type": "integer", "minimum": 2000, "maximum": 2200 },
+    "amendment_number": { "type": "string", "pattern": "^\\d+$" },
+    "amendment_year": { "type": "integer", "minimum": 2000, "maximum": 2200 },
+    "author_name": { "type": "string", "minLength": 1 },
+    "agency_name": { "type": "string", "minLength": 1 },
+    "agency_code": { "type": "string", "minLength": 1 },
+    "budget_unit_name": { "type": "string", "minLength": 1 },
+    "budget_unit_code": { "type": "string", "minLength": 1 },
+    "action_name": { "type": "string", "minLength": 1 },
+    "expense_code": {
+      "type": "string",
+      "pattern": "^\\d{4}(?:\\.\\d+){7}$"
+    },
+    "execution_code": {
+      "type": "string",
+      "pattern": "^\\d{4}(?:\\.\\d+){7}$"
+    },
+    "liquidation_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "payment_id": { "type": "string", "pattern": "^\\d{18,19}$" },
+    "payment_number": { "type": "string", "minLength": 1 },
+    "payment_date": { "type": "string", "format": "date" },
+    "payment_amount": { "type": "string", "pattern": "^-?\\d+\\.\\d{2}$" },
+    "gcv_amount": {
+      "oneOf": [
+        { "type": "string", "pattern": "^-?\\d+\\.\\d{2}$" },
+        { "type": "null" }
+      ]
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": ["Sim", "Não", "Em Processamento"]
+    },
+    "object_text": { "type": "string", "minLength": 1 },
+    "payment_url": {
+      "type": "string",
+      "pattern": "^https://www\\.transparencia\\.ba\\.gov\\.br/"
+    },
+    "territorial_scope": {
+      "const": "payment_object_literal_barreiras"
+    },
+    "evidence_text": { "type": "string", "minLength": 1 },
+    "evidence_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "parser_version": { "const": "bahia-special-transfer-payment/1.0.0" },
+    "source_url": { "type": "string", "pattern": "^https://" },
+    "source_artifact_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_collected_at": { "type": "string", "format": "date-time" }
+  }
+}

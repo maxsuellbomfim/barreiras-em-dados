@@ -40,3 +40,19 @@ test("transferências especiais usam job próprio e corredor privado", () => {
   assert.match(job, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD/);
   assert.doesNotMatch(job, /CNPJ_CPF_CREDOR_PAGAMENTO/);
 });
+
+test("transferências especiais são normalizadas no mesmo job após preservação", () => {
+  const start = workflow.indexOf("  bahia_special_transfers:");
+  const end = workflow.indexOf("\n  bahia_state_loa_amendments:", start);
+  const job = workflow.slice(start, end);
+
+  assert.match(
+    job,
+    /PYTHONPATH: workers\/collectors\/src:workers\/normalization\/src/,
+  );
+  assert.match(
+    job,
+    /barreiras_collectors\.commands\.collect_bahia_special_transfers[\s\S]+barreiras_normalization\.commands\.process_bahia_special_transfers/,
+  );
+  assert.match(job, /--limit "1"/);
+});
