@@ -103,11 +103,14 @@ jobs:
             --until "$PNCP_REPLAY_UNTIL"
 
       - name: Preservar itens e resultados das contratações
+        id: collect_items
         if: github.event_name != 'workflow_dispatch' || inputs.mode != 'contracts_only'
+        continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_itens
 
       - name: Preservar contratos e empenhos das contratações
+        id: collect_contracts
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratos
 
@@ -115,3 +118,13 @@ jobs:
         run: >-
           python -B -m barreiras_collectors.commands.normalize_pncp_contracts
           --limit 500
+
+      - name: Sinalizar falha parcial da coleta
+        if: always()
+        env:
+          PNCP_ITEMS_OUTCOME: ${{ steps.collect_items.outcome }}
+        run: |
+          if [ "$PNCP_ITEMS_OUTCOME" = "failure" ]; then
+            echo "::error::A coleta de itens/resultados do PNCP falhou; contratos e normalização foram executados de forma independente."
+            exit 1
+          fi
