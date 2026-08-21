@@ -25,3 +25,18 @@ test("arquivo histórico de emendas exige opt-in e depende das propostas preserv
     /collect_transferegov_historical_amendments[\s\S]*--year-from "\$\{\{/,
   );
 });
+
+test("transferências especiais usam job próprio e corredor privado", () => {
+  const job = workflow.slice(workflow.indexOf("  bahia_special_transfers:"));
+
+  assert.match(workflow, /include_bahia_special_transfers:/);
+  assert.match(job, /name: Preservar transferências especiais da Bahia/);
+  assert.match(
+    job,
+    /barreiras_collectors\.commands\.collect_bahia_special_transfers/,
+  );
+  assert.match(job, /PERSISTENCE_MODE: postgres-supabase/);
+  assert.match(job, /SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts/);
+  assert.match(job, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD/);
+  assert.doesNotMatch(job, /CNPJ_CPF_CREDOR_PAGAMENTO/);
+});

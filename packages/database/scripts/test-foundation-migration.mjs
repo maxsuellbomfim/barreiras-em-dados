@@ -1470,7 +1470,7 @@ try {
   `);
   assert.deepEqual(seeded.rows[0], {
     sources: 15,
-    endpoints: 29,
+    endpoints: 30,
     private_buckets: 1,
   });
 
@@ -1687,6 +1687,66 @@ try {
   assert.deepEqual(bahiaStateStorageAuthorization.rows[0], {
     municipal_workload_can_insert: true,
     unrelated_prefix_stays_denied: false,
+  });
+
+  const bahiaSpecialTransferWorkload = await database.query(`
+    select
+      slug,
+      auth_user_id::text as auth_user_id,
+      object_prefix,
+      can_select,
+      can_insert,
+      status
+    from audit.storage_workload_identities
+    where slug = 'bahia-special-transfers-collector'
+  `);
+  assert.deepEqual(bahiaSpecialTransferWorkload.rows, [
+    {
+      slug: "bahia-special-transfers-collector",
+      auth_user_id: "c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a",
+      object_prefix: "bahia/transferencias-especiais/",
+      can_select: true,
+      can_insert: true,
+      status: "active",
+    },
+  ]);
+
+  const bahiaSpecialTransferEndpoint = await database.query(`
+    select
+      endpoint.slug,
+      endpoint.enabled,
+      endpoint.config ->> 'raw_visibility' as raw_visibility,
+      endpoint.config ->> 'normalization' as normalization
+    from source.source_endpoints as endpoint
+    join source.data_sources as source on source.id = endpoint.data_source_id
+    where source.slug = 'bahia-open-data'
+      and endpoint.slug = 'state-special-transfers'
+  `);
+  assert.deepEqual(bahiaSpecialTransferEndpoint.rows, [
+    {
+      slug: "state-special-transfers",
+      enabled: true,
+      raw_visibility: "private",
+      normalization: "blocked_pending_deterministic_reconciliation",
+    },
+  ]);
+
+  const bahiaSpecialTransferStorageAuthorization = await database.query(`
+    select
+      api.can_access_raw_artifact(
+        'insert',
+        'raw-artifacts',
+        'bahia/transferencias-especiais/archive/sha256/aa/file.zip'
+      ) as municipal_workload_can_insert,
+      api.can_access_raw_artifact(
+        'insert',
+        'raw-artifacts',
+        'bahia/transferencias-especiais-typo/file.zip'
+      ) as adjacent_prefix_stays_denied
+  `);
+  assert.deepEqual(bahiaSpecialTransferStorageAuthorization.rows[0], {
+    municipal_workload_can_insert: true,
+    adjacent_prefix_stays_denied: false,
   });
 
   const transferegovPrivatePrivileges = await database.query(`
