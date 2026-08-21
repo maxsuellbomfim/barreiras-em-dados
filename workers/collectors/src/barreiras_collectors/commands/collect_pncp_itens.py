@@ -16,6 +16,7 @@ from ..collection_control import (
 )
 from ..connectors.pncp import (
     SOURCE_CODE,
+    PncpError,
     fetch_itens_page,
     fetch_resultados_page,
 )
@@ -53,6 +54,7 @@ class PncpItensCollectionSummary:
     item_pages_truncated_controls: tuple[str, ...]
     start_offset: int
     next_offset: int
+    failed_controls: tuple[str, ...] = ()
 
     @property
     def observed_records(self) -> int:
@@ -60,7 +62,11 @@ class PncpItensCollectionSummary:
 
     @property
     def outcome(self) -> CollectionOutcome:
-        if self.pending_truncated or self.item_pages_truncated_controls:
+        if (
+            self.pending_truncated
+            or self.item_pages_truncated_controls
+            or self.failed_controls
+        ):
             return CollectionOutcome.PARTIAL
         if self.observed_records == 0:
             return CollectionOutcome.EMPTY
@@ -80,6 +86,7 @@ def execute_controlled_pncp_itens(
             "item_pages_truncated_controls": list(
                 summary.item_pages_truncated_controls
             ),
+            "failed_controls": list(summary.failed_controls),
             "next_offset": summary.next_offset,
         }
         control.complete(
@@ -221,6 +228,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         item_pages_truncated_controls=list(
             summary.item_pages_truncated_controls
         ),
+        failed_controls=list(summary.failed_controls),
         itens_inserted=summary.itens_inserted,
         resultados_inserted=summary.resultados_inserted,
         start_offset=summary.start_offset,
@@ -257,13 +265,26 @@ def _collect_pending(
     itens_inserted = 0
     resultados_inserted = 0
     item_pages_truncated_controls: list[str] = []
+    failed_controls: list[str] = []
     for control, ano, sequencial in pending:
         itens: list[dict] = []
-        batch = collect_itens_batch(
-            ano=ano,
-            sequencial=sequencial,
-            logger=logger,
-        )
+        try:
+            batch = collect_itens_batch(
+                ano=ano,
+                sequencial=sequencial,
+                logger=logger,
+            )
+        except PncpError as error:
+            failed_controls.append(control)
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_pncp_itens_control_deferred",
+                source=SOURCE_CODE,
+                control=control,
+                error_type=type(error).__name__,
+            )
+            continue
         if batch.truncated:
             item_pages_truncated_controls.append(control)
             log_event(
@@ -280,6 +301,7 @@ def _collect_pending(
             itens.extend(page.items)
 
         ja_com_resultado = repository.pncp_itens_com_resultado(control)
+        control_failed = False
         for item in itens:
             numero_item = item.get("numeroItem")
             if not isinstance(numero_item, int):
@@ -288,12 +310,26 @@ def _collect_pending(
                 continue
             if numero_item in ja_com_resultado:
                 continue
-            resultado_page = fetch_resultados_page(
-                ano=ano,
-                sequencial=sequencial,
-                numero_item=numero_item,
-                logger=logger,
-            )
+            try:
+                resultado_page = fetch_resultados_page(
+                    ano=ano,
+                    sequencial=sequencial,
+                    numero_item=numero_item,
+                    logger=logger,
+                )
+            except PncpError as error:
+                failed_controls.append(control)
+                control_failed = True
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "collector_pncp_resultados_control_deferred",
+                    source=SOURCE_CODE,
+                    control=control,
+                    item=numero_item,
+                    error_type=type(error).__name__,
+                )
+                break
             if resultado_page is None:
                 continue
             result = service.persist_resultados(
@@ -303,6 +339,8 @@ def _collect_pending(
             )
             resultados_inserted += result.inserted_records
 
+        if control_failed:
+            continue
         contratacoes_processed += 1
         log_event(
             logger,
@@ -321,8 +359,13 @@ def _collect_pending(
         item_pages_truncated_controls=tuple(item_pages_truncated_controls),
         start_offset=start_offset,
         next_offset=(
-            start_offset + contratacoes_processed if truncated else 0
+            0
+            if failed_controls
+            else start_offset + contratacoes_processed
+            if truncated
+            else 0
         ),
+        failed_controls=tuple(failed_controls),
     )
 
 
