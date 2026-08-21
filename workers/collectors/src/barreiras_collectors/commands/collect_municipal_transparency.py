@@ -72,6 +72,8 @@ FINANCIAL_DOCUMENT_RESOURCES = frozenset(
         "rgf",
     }
 )
+PERSONNEL_DOCUMENT_RESOURCES = frozenset({"servidores"})
+DOCUMENT_RESOURCES = FINANCIAL_DOCUMENT_RESOURCES | PERSONNEL_DOCUMENT_RESOURCES
 LEGISLATIVE_ENDPOINTS = {
     "leis": "leis-api",
     "indicacoes": "indicacoes-api",
@@ -343,8 +345,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--offset não pode ser negativo.")
     if not 1 <= args.max_pages <= 1000:
         parser.error("--max-pages deve estar entre 1 e 1000.")
-    if args.download_documents and args.resource not in FINANCIAL_DOCUMENT_RESOURCES:
-        parser.error("--download-documents só pode ser usado em recurso financeiro.")
+    if args.download_documents and args.resource not in DOCUMENT_RESOURCES:
+        parser.error(
+            "--download-documents só pode ser usado em recurso documental validado."
+        )
     if args.max_documents is not None and not 1 <= args.max_documents <= 500:
         parser.error("--max-documents deve estar entre 1 e 500.")
     if args.coverage_year_from is not None and (
@@ -494,9 +498,9 @@ def _collect_resource(
 ) -> MunicipalTransparencyCollectionSummary:
     document_client = None
     if download_documents:
-        if resource not in FINANCIAL_DOCUMENT_RESOURCES:
+        if resource not in DOCUMENT_RESOURCES:
             raise ValueError(
-                "download de documentos só é permitido em recurso financeiro."
+                "download só é permitido em recurso documental validado."
             )
         document_client = MunicipalTransparencyDocumentClient(
             max_document_bytes=_bounded_env_int(

@@ -348,6 +348,14 @@ Gate:
 Entradas independentes, cada uma com política de minimização e gate próprio.
 Folha não será simplesmente importada e publicada integralmente.
 
+O catálogo oficial `servidores` da Prefeitura foi medido em 21/08/2026: são
+200 PDFs entre 2018 e 2026, incluindo relações de servidores, estagiários e
+terceirizados. A primeira fatia da etapa preserva o catálogo completo e drena
+até cinco PDFs novos por execução para armazenamento bruto privado, sem criar
+projeção pública. A próxima fatia deve classificar os leiautes e publicar
+somente agregados por competência, órgão e tipo de vínculo; descontos pessoais
+e campos sensíveis permanecem vedados.
+
 ## Etapa 5 — Fluxos territoriais
 
 - receita diária somente após modelar data contábil, estornos e atualização;

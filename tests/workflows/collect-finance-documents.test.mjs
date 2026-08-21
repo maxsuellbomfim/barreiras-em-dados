@@ -82,8 +82,8 @@ test("coleta financeira permite backfill por recurso e documentos grandes", () =
 
 test("coleta financeira preserva fontes oficiais de dividas e obrigacoes", () => {
   const collectionStep = workflow.slice(
-    workflow.indexOf("- name: Preservar documento financeiro"),
-    workflow.indexOf("- name: Drenar documentos financeiros"),
+    workflow.indexOf("- name: Preservar catálogo municipal"),
+    workflow.indexOf("- name: Drenar documentos municipais"),
   );
   const collectionRun = collectionStep.slice(collectionStep.indexOf("run: >-"));
 
@@ -95,13 +95,30 @@ test("coleta financeira preserva fontes oficiais de dividas e obrigacoes", () =>
   assert.doesNotMatch(collectionRun, /\$\{\{ matrix\.resource == 'balancetes'/);
 });
 
+test("coleta financeira preserva o catalogo privado de pessoal sem publica-lo", () => {
+  assert.match(workflow, /- "servidores"/);
+  assert.match(
+    workflow,
+    /\["balancetes"[\s\S]*"servidores"\]/,
+  );
+  assert.match(
+    workflow,
+    /COLLECT_LIMIT: >-[\s\S]*matrix\.resource == 'servidores'[\s\S]*'500'/,
+  );
+  assert.match(
+    workflow,
+    /DRAIN_MAX_DOCUMENTS: >-[\s\S]*matrix\.resource == 'servidores'[\s\S]*'5'/,
+  );
+  assert.doesNotMatch(workflow, /publish[_-]payroll/i);
+});
+
 test("cobertura de balancetes nao espera o download de todo o acervo", () => {
   const collectionStep = workflow.slice(
-    workflow.indexOf("- name: Preservar documento financeiro"),
-    workflow.indexOf("- name: Drenar documentos financeiros"),
+    workflow.indexOf("- name: Preservar catálogo municipal"),
+    workflow.indexOf("- name: Drenar documentos municipais"),
   );
   const drainStep = workflow.slice(
-    workflow.indexOf("- name: Drenar documentos financeiros"),
+    workflow.indexOf("- name: Drenar documentos municipais"),
   );
 
   assert.doesNotMatch(collectionStep, /--download-documents/);

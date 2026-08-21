@@ -6,7 +6,9 @@ from unittest.mock import patch
 
 from barreiras_collectors.commands.collect_municipal_transparency import (
     DEFAULT_RESOURCE,
+    DOCUMENT_RESOURCES,
     FINANCIAL_DOCUMENT_RESOURCES,
+    PERSONNEL_DOCUMENT_RESOURCES,
     SOURCE_CONFIG,
     MunicipalTransparencyCollectionSummary,
     _bounded_env_int,
@@ -115,6 +117,11 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
         )
         self.assertIn("pdc-obras-pdc", FINANCIAL_DOCUMENT_RESOURCES)
         self.assertIn("contratos", FINANCIAL_DOCUMENT_RESOURCES)
+
+    def test_personnel_documents_are_private_collection_inputs(self) -> None:
+        self.assertEqual(PERSONNEL_DOCUMENT_RESOURCES, frozenset({"servidores"}))
+        self.assertIn("servidores", DOCUMENT_RESOURCES)
+        self.assertTrue(FINANCIAL_DOCUMENT_RESOURCES < DOCUMENT_RESOURCES)
 
     def test_catalog_and_document_drain_use_distinct_execution_namespaces(
         self,

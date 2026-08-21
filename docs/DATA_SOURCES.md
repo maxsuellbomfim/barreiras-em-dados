@@ -81,9 +81,12 @@ quatro recursos adicionais no portal da Prefeitura:
   (17 modalidades, 9 categorias), versionada na camada web e sempre exibida
   com o código ao lado. Valores monetários seguem como texto e não são
   convertidos sem regra determinística versionada.
-- `servidores` (folha de pagamento) existe na API, mas contém dados pessoais
-  de pessoas naturais; permanece **fora da coleta** até passar pelo gate de
-  minimização e finalidade (LGPD) previsto no ADR 0009.
+- `servidores` não é uma API de linhas salariais, mas um catálogo de 200 PDFs
+  observado em 21/08/2026, com competências de 2018 a 2026 e relações separadas
+  de servidores, estagiários e terceirizados. O catálogo e os PDFs entram na
+  preservação privada e idempotente em lotes de cinco; nenhum nome, desconto ou
+  valor individual é projetado publicamente antes do gate de minimização do
+  ADR 0072.
 
 Nenhum desses documentos, isoladamente, representa o total da dívida do
 Município. A consolidação futura exigirá natureza da obrigação, competência,
