@@ -125,6 +125,14 @@ quatro recursos adicionais no portal da Prefeitura:
   por chamada e cursor mensal exclusivo. O cursor impede que a ampliação do
   acervo oculte meses antigos e preserva todos os órgãos eventualmente
   publicados na mesma competência; não há paginação profunda por `OFFSET`.
+  A cobertura pública usa `api.get_public_payroll_coverage`: ela só declara
+  ausência depois de localizar uma partição completa do catálogo oficial e
+  distingue `published`, `document_not_found`, `source_conflict` e
+  `processing_pending`. O diagnóstico retorna apenas competência, contagens,
+  URL HTTPS, hash quando existe PDF preservado, data da conferência e versão da
+  metodologia. “Documento não localizado” nunca é convertido em valor zero.
+  Múltiplas versões preservadas do mesmo item do catálogo contam como um único
+  documento esperado, embora todas permaneçam no acervo bruto append-only.
 
 Nenhum desses documentos, isoladamente, representa o total da dívida do
 Município. A consolidação futura exigirá natureza da obrigação, competência,

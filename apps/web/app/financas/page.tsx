@@ -30,9 +30,11 @@ import {
   type PublicObligationCoverageRow,
 } from "../../lib/public-obligations.mjs";
 import {
+  getPublicPayrollCoverage,
   getPublicPayrollMonths,
   type PublicPayrollMonth,
 } from "../../lib/public-payroll.mjs";
+import FinancePayrollCoverage from "./finance-payroll-coverage";
 import FinancePayrollHistory from "./finance-payroll-history";
 import FinancePayrollSources from "./finance-payroll-sources";
 
@@ -206,6 +208,7 @@ export default async function FinancesPage() {
     obligationsResult,
     obligationCoverageResult,
     payrollResult,
+    payrollCoverageResult,
   ] = await Promise.all([
     getPublicExpenseReports(),
     getPublicExpenseLines(),
@@ -217,6 +220,7 @@ export default async function FinancesPage() {
     getPublicObligations(),
     getPublicObligationCoverage(),
     getPublicPayrollMonths(120),
+    getPublicPayrollCoverage(120),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -244,6 +248,10 @@ export default async function FinancesPage() {
     payrollResult.state === "available" ? payrollResult.months : [];
   const latestPayroll: PublicPayrollMonth | null = payrollMonths[0] ?? null;
   const previousPayrollMonths = payrollMonths.slice(1);
+  const payrollCoverageRows =
+    payrollCoverageResult.state === "available"
+      ? payrollCoverageResult.rows
+      : [];
   const obligationCoverageGaps = publicObligationCoverage.filter(
     (row) => row.coverageStatus !== "published",
   );
@@ -485,6 +493,7 @@ export default async function FinancesPage() {
               </article>
 
               <FinancePayrollHistory months={previousPayrollMonths} />
+              <FinancePayrollCoverage rows={payrollCoverageRows} />
             </>
           ) : (
             <div className="collection-unavailable" role="status">

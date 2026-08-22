@@ -31,6 +31,29 @@ export type PublicPayrollResult =
   | Readonly<{ state: "available"; months: readonly PublicPayrollMonth[] }>
   | Readonly<{ state: "unavailable" }>;
 
+export type PublicPayrollCoverageRow = Readonly<{
+  referenceMonth: string;
+  coverageStatus:
+    | "published"
+    | "document_not_found"
+    | "source_conflict"
+    | "processing_pending";
+  coverageNote: string;
+  catalogDocumentCount: number;
+  preservedDocumentCount: number;
+  sourceUrl: string;
+  artifactSha256: string | null;
+  catalogCheckedAt: string;
+  methodologyVersion: "payroll-coverage/1.0.0";
+}>;
+
+export type PublicPayrollCoverageResult =
+  | Readonly<{
+      state: "available";
+      rows: readonly PublicPayrollCoverageRow[];
+    }>
+  | Readonly<{ state: "unavailable" }>;
+
 export function parsePublicPayrollRow(
   row: Record<string, unknown>,
 ): PublicPayrollMonth | null;
@@ -38,3 +61,11 @@ export function parsePublicPayrollRow(
 export function getPublicPayrollMonths(
   maxMonths?: number,
 ): Promise<PublicPayrollResult>;
+
+export function parsePublicPayrollCoverageRow(
+  row: Record<string, unknown>,
+): PublicPayrollCoverageRow | null;
+
+export function getPublicPayrollCoverage(
+  maxMonths?: number,
+): Promise<PublicPayrollCoverageResult>;

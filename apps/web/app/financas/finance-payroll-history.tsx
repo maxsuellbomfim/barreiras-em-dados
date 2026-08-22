@@ -24,7 +24,7 @@ export default function FinancePayrollHistory({
         <small>
           {months.length.toLocaleString("pt-BR")} mês
           {months.length === 1 ? "" : "es"} publicado
-          {months.length === 1 ? "" : "s"}
+          {months.length === 1 ? "" : "s"} antes do destaque
         </small>
       </summary>
       <div className="finance-payroll-history-list">

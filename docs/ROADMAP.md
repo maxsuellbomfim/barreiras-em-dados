@@ -376,6 +376,16 @@ amplia o backfill `tipo=1` competência por competência, trata versões repetid
 como possíveis retificações e classifica ausências sem confundi-las com gasto
 zero.
 
+Checkpoint em 22/08/2026: o backfill determinístico publicou 65 competências
+mensais entre janeiro/2021 e julho/2026. As duas competências sem total não são
+ocultadas: abril/2024 não possui `Relação de Servidores` no catálogo oficial
+completo observado, e janeiro/2025 tem PDF preservado com folha regular e
+adiantamento de 13º misturados no mesmo cabeçalho. A projeção
+`api.get_public_payroll_coverage` e a sanfona pública explicam esses estados,
+mostram quando o catálogo foi conferido e mantêm os valores fora do total até
+que exista separação determinística segura. A próxima menor fatia de RH é
+modelar cargos, vínculos e faixas agregadas sem expor descontos individuais.
+
 ## Etapa 5 — Fluxos territoriais
 
 - receita diária somente após modelar data contábil, estornos e atualização;
