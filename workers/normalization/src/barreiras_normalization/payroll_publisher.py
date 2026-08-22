@@ -10,15 +10,12 @@ from datetime import date
 from typing import Protocol
 
 from .payroll_report_pdf import (
-    PAYROLL_REPORT_PARSER_VERSION,
     PayrollReportAggregate,
     parse_payroll_report_aggregate,
 )
 from .revenue_publisher import ArtifactMismatchError
 
 PAYROLL_PUBLICATION_JOB_TYPE = "payroll_report_publication/1.2.0"
-PAYROLL_SOURCE_CODE = "prefeitura-barreiras-transparencia"
-PAYROLL_ENDPOINT_CODE = "dados-abertos-api"
 
 
 @dataclass(frozen=True)
@@ -152,131 +149,15 @@ class PostgresPayrollPublicationRepository:
         try:
             result = connection.execute(
                 """
-                with candidates as (
-                  select distinct on (document.id)
-                    document.id::text,
-                    document.sha256,
-                    document.object_key,
-                    document.byte_size,
-                    record.id::text as parent_record_id,
-                    document.source_url,
-                    case
-                      when record.payload ->> 'ano_ref'
-                        ~ '^(20[2-9][0-9]|2100)$'
-                        and record.payload ->> 'mes_ref'
-                          ~ '^(?:[1-9]|1[0-2])$'
-                      then make_date(
-                        (record.payload ->> 'ano_ref')::integer,
-                        (record.payload ->> 'mes_ref')::integer,
-                        1
-                      )
-                    end as reference_month,
-                    document.created_at
-                  from raw.raw_artifacts as document
-                  join raw.raw_artifacts as parent_artifact
-                    on parent_artifact.id = document.parent_artifact_id
-                  join raw.raw_records as record
-                    on record.raw_artifact_id = parent_artifact.id
-                  join source.source_endpoints as endpoint
-                    on endpoint.id = parent_artifact.source_endpoint_id
-                  join source.data_sources as data_source
-                    on data_source.id = endpoint.data_source_id
-                  where document.artifact_kind = 'document'
-                    and data_source.slug = %s
-                    and endpoint.slug = %s
-                    and document.metadata ->> 'schema_name'
-                      = 'municipal-transparency-document'
-                    and document.metadata ->> 'source_record_key'
-                      = record.source_record_key
-                    and document.source_url = record.payload ->> 'url'
-                    and record.record_type
-                      = 'municipal_transparency_servidores'
-                    and regexp_replace(
-                      btrim(translate(
-                        normalize(
-                          lower(coalesce(record.payload ->> 'titulo', '')),
-                          NFKD
-                        ),
-                        U&'\0300\0301\0302\0303\0308\0327',
-                        ''
-                      )),
-                      '[[:space:]]+', ' ', 'g'
-                    ) in (
-                      'relacao de servidores',
-                      'relacao servidores',
-                      'relacao de servidores 13o salario'
-                    )
-                    and (
-                      record.payload ->> 'tipo' = '1'
-                      or (
-                        coalesce(trim(record.payload ->> 'tipo'), '') = ''
-                        and regexp_replace(
-                          btrim(translate(
-                            normalize(
-                              lower(coalesce(record.payload ->> 'titulo', '')),
-                              NFKD
-                            ),
-                            U&'\0300\0301\0302\0303\0308\0327',
-                            ''
-                          )),
-                          '[[:space:]]+',
-                          ' ',
-                          'g'
-                        ) = 'relacao de servidores'
-                      )
-                    )
-                    and case
-                      when record.payload ->> 'ano_ref'
-                        ~ '^(20[2-9][0-9]|2100)$'
-                        and record.payload ->> 'mes_ref'
-                          ~ '^(?:[1-9]|1[0-2])$'
-                      then
-                        (record.payload ->> 'ano_ref')::integer
-                          between %s and %s
-                        and make_date(
-                          (record.payload ->> 'ano_ref')::integer,
-                          (record.payload ->> 'mes_ref')::integer,
-                          1
-                        ) = coalesce(
-                          %s::date,
-                          make_date(
-                            (record.payload ->> 'ano_ref')::integer,
-                            (record.payload ->> 'mes_ref')::integer,
-                            1
-                          )
-                        )
-                      else false
-                    end
-                    and not exists (
-                      select 1
-                      from hr.payroll_report_aggregates as aggregate
-                      where aggregate.source_document_artifact_id = document.id
-                        and aggregate.parser_version = %s
-                    )
-                    and not exists (
-                      select 1
-                      from raw.extraction_jobs as job
-                      where job.raw_artifact_id = document.id
-                        and job.job_type = %s
-                        and job.status in ('failed', 'dead_lettered')
-                    )
-                  order by document.id, record.created_at desc, record.id desc
-                )
                 select id, sha256, object_key, byte_size, parent_record_id,
                   source_url, reference_month
-                from candidates
-                order by reference_month asc, created_at asc, id
-                limit %s
+                from hr.get_pending_payroll_documents(%s, %s, %s, %s)
                 """,
                 (
-                    PAYROLL_SOURCE_CODE,
-                    PAYROLL_ENDPOINT_CODE,
+                    limit,
                     fiscal_year_from,
                     fiscal_year_to,
                     reference_month,
-                    PAYROLL_REPORT_PARSER_VERSION,
-                    PAYROLL_PUBLICATION_JOB_TYPE,
-                    limit,
                 ),
             )
             return tuple(
@@ -301,79 +182,10 @@ class PostgresPayrollPublicationRepository:
         try:
             row = connection.execute(
                 """
-                select count(distinct document.id)::integer as unresolved_count
-                from raw.raw_artifacts as document
-                join raw.raw_artifacts as parent_artifact
-                  on parent_artifact.id = document.parent_artifact_id
-                join raw.raw_records as record
-                  on record.raw_artifact_id = parent_artifact.id
-                join source.source_endpoints as endpoint
-                  on endpoint.id = parent_artifact.source_endpoint_id
-                join source.data_sources as data_source
-                  on data_source.id = endpoint.data_source_id
-                where document.artifact_kind = 'document'
-                  and document.metadata ->> 'schema_name'
-                    = 'municipal-transparency-document'
-                  and document.metadata ->> 'source_record_key'
-                    = record.source_record_key
-                  and document.source_url = record.payload ->> 'url'
-                  and record.record_type
-                    = 'municipal_transparency_servidores'
-                  and data_source.slug = %s
-                  and endpoint.slug = %s
-                  and regexp_replace(
-                    btrim(translate(
-                      normalize(
-                        lower(coalesce(record.payload ->> 'titulo', '')),
-                        NFKD
-                      ),
-                      U&'\0300\0301\0302\0303\0308\0327',
-                      ''
-                    )),
-                    '[[:space:]]+', ' ', 'g'
-                  ) in (
-                    'relacao de servidores',
-                    'relacao servidores',
-                    'relacao de servidores 13o salario'
-                  )
-                  and (
-                    record.payload ->> 'tipo' = '1'
-                    or (
-                      coalesce(trim(record.payload ->> 'tipo'), '') = ''
-                      and regexp_replace(
-                        btrim(translate(
-                          normalize(
-                            lower(coalesce(record.payload ->> 'titulo', '')),
-                            NFKD
-                          ),
-                          U&'\0300\0301\0302\0303\0308\0327',
-                          ''
-                        )),
-                        '[[:space:]]+', ' ', 'g'
-                      ) = 'relacao de servidores'
-                    )
-                  )
-                  and record.payload ->> 'ano_ref'
-                    ~ '^(20[2-9][0-9]|2100)$'
-                  and record.payload ->> 'mes_ref' ~ '^(?:[1-9]|1[0-2])$'
-                  and make_date(
-                    (record.payload ->> 'ano_ref')::integer,
-                    (record.payload ->> 'mes_ref')::integer,
-                    1
-                  ) = %s::date
-                  and not exists (
-                    select 1
-                    from hr.payroll_report_aggregates as aggregate
-                    where aggregate.source_document_artifact_id = document.id
-                      and aggregate.parser_version = %s
-                  )
+                select hr.payroll_unresolved_document_count(%s::date)
+                  as unresolved_count
                 """,
-                (
-                    PAYROLL_SOURCE_CODE,
-                    PAYROLL_ENDPOINT_CODE,
-                    reference_month,
-                    PAYROLL_REPORT_PARSER_VERSION,
-                ),
+                (reference_month,),
             ).fetchone()
             return 0 if row is None else int(row["unresolved_count"])
         finally:

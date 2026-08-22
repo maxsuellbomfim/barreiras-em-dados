@@ -22,6 +22,12 @@ const strictTitleMigrationIndex = migrationEntries.findIndex(
   ({ name }) => name === strictTitleMigrationName,
 );
 assert.notEqual(strictTitleMigrationIndex, -1);
+const privateSelectionMigrationName =
+  "20260822030000_private_payroll_document_selection.sql";
+const privateSelectionMigrationIndex = migrationEntries.findIndex(
+  ({ name }) => name === privateSelectionMigrationName,
+);
+assert.ok(privateSelectionMigrationIndex > strictTitleMigrationIndex);
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
 
 try {
@@ -55,6 +61,7 @@ try {
     grant usage on schema storage to authenticated;
     grant select, insert, update, delete on storage.objects to authenticated;
   `);
+
   for (const { sql } of migrationEntries.slice(0, strictTitleMigrationIndex)) {
     await database.exec(sql);
   }
@@ -222,6 +229,11 @@ try {
       to_regprocedure('api.get_public_payroll_months(integer)')::text as public_rpc,
       to_regprocedure('hr.payroll_month_is_public(date)')::text
         as completion_function,
+      to_regprocedure(
+        'hr.get_pending_payroll_documents(integer,integer,integer,date)'
+      )::text as pending_function,
+      to_regprocedure('hr.payroll_unresolved_document_count(date)')::text
+        as unresolved_function,
       (select relrowsecurity from pg_class
        where oid = 'hr.payroll_report_aggregates'::regclass) as rls,
       (select relforcerowsecurity from pg_class
@@ -255,23 +267,65 @@ try {
       has_function_privilege(
         'authenticated', 'hr.payroll_month_is_public(date)', 'EXECUTE'
       ) as authenticated_completion_execute,
+      has_function_privilege(
+        'collector_worker',
+        'hr.get_pending_payroll_documents(integer,integer,integer,date)',
+        'EXECUTE'
+      ) as worker_pending_execute,
+      has_function_privilege(
+        'anon',
+        'hr.get_pending_payroll_documents(integer,integer,integer,date)',
+        'EXECUTE'
+      ) as anon_pending_execute,
+      has_function_privilege(
+        'authenticated',
+        'hr.get_pending_payroll_documents(integer,integer,integer,date)',
+        'EXECUTE'
+      ) as authenticated_pending_execute,
+      has_function_privilege(
+        'collector_worker', 'hr.payroll_unresolved_document_count(date)',
+        'EXECUTE'
+      ) as worker_unresolved_execute,
+      has_function_privilege(
+        'anon', 'hr.payroll_unresolved_document_count(date)', 'EXECUTE'
+      ) as anon_unresolved_execute,
+      has_function_privilege(
+        'authenticated', 'hr.payroll_unresolved_document_count(date)',
+        'EXECUTE'
+      ) as authenticated_unresolved_execute,
       pg_get_functiondef(
         'hr.payroll_month_is_public(date)'::regprocedure
       ) as completion_definition,
+      pg_get_functiondef(
+        'hr.get_pending_payroll_documents(integer,integer,integer,date)'::regprocedure
+      ) as pending_definition,
       to_regclass(
         'hr.payroll_report_aggregates_series_version_unique_idx'
       )::text as series_version_index
   `);
   assert.equal(contracts.rows.length, 1);
-  const [{ completion_definition: completionDefinition, ...contract }] =
-    contracts.rows;
+  const [{
+    completion_definition: completionDefinition,
+    pending_definition: pendingDefinition,
+    ...contract
+  }] = contracts.rows;
   assert.match(completionDefinition, /public_body\.ibge_code = '2903201'/);
   assert.match(completionDefinition, /public_body\.body_type = 'executive'/);
+  assert.match(
+    pendingDefinition,
+    /data_source\.slug = 'prefeitura-barreiras-transparencia'/,
+  );
+  assert.match(pendingDefinition, /endpoint\.slug = 'dados-abertos-api'/);
+  assert.match(pendingDefinition, /payroll-report-aggregate\/1\.3\.0/);
+  assert.match(pendingDefinition, /payroll_report_publication\/1\.2\.0/);
   assert.deepEqual(contract, {
     aggregate_table: "hr.payroll_report_aggregates",
     invalidation_table: "hr.payroll_report_aggregate_invalidations",
     public_rpc: "api.get_public_payroll_months(integer)",
     completion_function: "hr.payroll_month_is_public(date)",
+    pending_function:
+      "hr.get_pending_payroll_documents(integer,integer,integer,date)",
+    unresolved_function: "hr.payroll_unresolved_document_count(date)",
     rls: true,
     force_rls: true,
     invalidation_rls: true,
@@ -285,6 +339,12 @@ try {
     worker_completion_execute: true,
     anon_completion_execute: false,
     authenticated_completion_execute: false,
+    worker_pending_execute: true,
+    anon_pending_execute: false,
+    authenticated_pending_execute: false,
+    worker_unresolved_execute: true,
+    anon_unresolved_execute: false,
+    authenticated_unresolved_execute: false,
     series_version_index: "hr.payroll_report_aggregates_series_version_unique_idx",
   });
 
@@ -477,6 +537,42 @@ try {
       '{"schema_name":"municipal-transparency-document","source_record_key":"servidores-244"}'::jsonb
     );
   `);
+
+  await database.exec("set role collector_worker");
+  const pendingJulyDocuments = await database.query(`
+    select id, parent_record_id, reference_month
+    from hr.get_pending_payroll_documents(5, 2021, 2026, '2026-07-01')
+  `);
+  const unresolvedJulyDocuments = await database.query(`
+    select hr.payroll_unresolved_document_count('2026-07-01') as count
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(pendingJulyDocuments.rows, [
+    {
+      id: "00000000-0000-0000-0000-000000009006",
+      parent_record_id: "00000000-0000-0000-0000-000000009005",
+      reference_month: new Date("2026-07-01T00:00:00.000Z"),
+    },
+    {
+      id: "00000000-0000-0000-0000-000000009011",
+      parent_record_id: "00000000-0000-0000-0000-000000009010",
+      reference_month: new Date("2026-07-01T00:00:00.000Z"),
+    },
+  ]);
+  assert.equal(unresolvedJulyDocuments.rows[0].count, 2);
+
+  await assert.rejects(
+    database.query(
+      "select * from hr.get_pending_payroll_documents(21, 2021, 2026, null)",
+    ),
+    /limite de documentos da folha invalido/,
+  );
+  await assert.rejects(
+    database.query(
+      "select hr.payroll_unresolved_document_count('2026-07-02')",
+    ),
+    /competencia da folha invalida/,
+  );
 
   await assert.rejects(
     database.exec(`
