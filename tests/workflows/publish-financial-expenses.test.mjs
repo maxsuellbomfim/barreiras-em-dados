@@ -14,6 +14,7 @@ test("workflow de despesas usa o publicador versionado e limite seguro", () => {
   assert.match(workflow, /publish_expense_reports/);
   assert.match(workflow, /publish_public_obligations/);
   assert.match(workflow, /publish_payroll_reports/);
+  assert.match(workflow, /publish_payroll_regime_breakdowns/);
   assert.match(workflow, /default: "5"/);
   assert.match(workflow, /timeout-minutes: 120/);
   assert.match(workflow, /--fiscal-year-from/);
@@ -67,4 +68,6 @@ test("workflow permite direcionar a folha para uma competencia exata", () => {
     payrollStep,
     /extra_args\+=\(--reference-month "\$INPUT_PAYROLL_REFERENCE_MONTH"\)/,
   );
+  assert.match(payrollStep, /--require-complete-month/);
+  assert.match(payrollStep, /publish_payroll_regime_breakdowns/);
 });

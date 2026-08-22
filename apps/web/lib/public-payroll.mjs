@@ -22,6 +22,28 @@ const PAYROLL_COVERAGE_STATUSES = new Set([
   "processing_pending",
 ]);
 const PAYROLL_COVERAGE_VERSION = "payroll-coverage/1.0.0";
+const PAYROLL_REGIME_VERSION = "payroll-regime-monthly/1.0.0";
+const PAYROLL_REGIME_LABELS = new Map([
+  ["statutory", "Estatutários"],
+  ["commissioned", "Cargos em comissão"],
+  ["selection_process", "Processo seletivo"],
+  ["ceded", "Cedidos"],
+  ["political_agent", "Agentes políticos"],
+  ["guardianship_council", "Conselho tutelar"],
+  ["pensioner", "Pensionistas"],
+  ["temporary_worker", "Trabalhadores temporários"],
+]);
+const PAYROLL_REGIME_FIELDS = [
+  "deduction_amount",
+  "employee_count",
+  "gross_amount",
+  "methodology_version",
+  "net_amount",
+  "reference_month",
+  "regime_code",
+  "regime_label",
+  "source_document_count",
+];
 
 function text(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -224,6 +246,73 @@ export function parsePublicPayrollCoverageRow(row) {
   };
 }
 
+export function parsePublicPayrollRegimeRow(row) {
+  if (typeof row !== "object" || row === null) return null;
+  const keys = Object.keys(row).sort();
+  if (
+    keys.length !== PAYROLL_REGIME_FIELDS.length ||
+    keys.some((key, index) => key !== PAYROLL_REGIME_FIELDS[index])
+  ) {
+    return null;
+  }
+  const referenceMonth = text(row.reference_month);
+  const regimeCode = text(row.regime_code);
+  const regimeLabel = text(row.regime_label);
+  const employeeCount = integer(row.employee_count);
+  const grossAmount = decimal(row.gross_amount);
+  const deductionAmount = decimal(row.deduction_amount);
+  const netAmount = decimal(row.net_amount);
+  const sourceDocumentCount = integer(row.source_document_count, 1);
+  const methodologyVersion = text(row.methodology_version);
+  if (
+    referenceMonth === null ||
+    !ISO_DATE.test(referenceMonth) ||
+    regimeCode === null ||
+    PAYROLL_REGIME_LABELS.get(regimeCode) !== regimeLabel ||
+    employeeCount === null ||
+    grossAmount === null ||
+    deductionAmount === null ||
+    netAmount === null ||
+    cents(grossAmount) - cents(deductionAmount) !== cents(netAmount) ||
+    sourceDocumentCount === null ||
+    methodologyVersion !== PAYROLL_REGIME_VERSION
+  ) {
+    return null;
+  }
+  return {
+    referenceMonth,
+    regimeCode,
+    regimeLabel,
+    employeeCount,
+    grossAmount,
+    deductionAmount,
+    netAmount,
+    sourceDocumentCount,
+    methodologyVersion,
+  };
+}
+
+export function payrollRegimeBreakdownMatchesMonth(rows, month) {
+  if (!Array.isArray(rows) || rows.length < 1 || month === null) return false;
+  if (
+    rows.some((row) => row.referenceMonth !== month.referenceMonth) ||
+    new Set(rows.map((row) => row.regimeCode)).size !== rows.length ||
+    new Set(rows.map((row) => row.sourceDocumentCount)).size !== 1 ||
+    rows[0].sourceDocumentCount !== month.documentCount
+  ) {
+    return false;
+  }
+  const total = (field) =>
+    rows.reduce((sum, row) => sum + cents(row[field]), 0n);
+  return (
+    rows.reduce((sum, row) => sum + row.employeeCount, 0) ===
+      month.employeeCount &&
+    total("grossAmount") === cents(month.grossAmount) &&
+    total("deductionAmount") === cents(month.deductionAmount) &&
+    total("netAmount") === cents(month.netAmount)
+  );
+}
+
 export async function getPublicPayrollMonths(maxMonths = 24) {
   const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
   const publishableKey =
@@ -326,6 +415,52 @@ export async function getPublicPayrollCoverage(maxMonths = 120) {
     if (
       rows.some((row) => row === null) ||
       new Set(rows.map((row) => row.referenceMonth)).size !== rows.length
+    ) {
+      return { state: "unavailable" };
+    }
+    return { state: "available", rows };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function getPublicPayrollRegimeBreakdown(referenceMonth) {
+  const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const publishableKey =
+    process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (
+    typeof referenceMonth !== "string" ||
+    !ISO_DATE.test(referenceMonth) ||
+    !supabaseUrl?.startsWith("https://") ||
+    !publishableKey?.startsWith("sb_publishable_")
+  ) {
+    return { state: "unavailable" };
+  }
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/get_public_payroll_regime_breakdown`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Profile": "api",
+          apikey: publishableKey,
+          "Content-Profile": "api",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ target_reference_month: referenceMonth }),
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) return { state: "unavailable" };
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return { state: "unavailable" };
+    const rows = payload.map(parsePublicPayrollRegimeRow);
+    if (
+      rows.some((row) => row === null) ||
+      rows.some((row) => row.referenceMonth !== referenceMonth) ||
+      new Set(rows.map((row) => row.regimeCode)).size !== rows.length
     ) {
       return { state: "unavailable" };
     }

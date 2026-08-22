@@ -133,6 +133,14 @@ quatro recursos adicionais no portal da Prefeitura:
   metodologia. “Documento não localizado” nunca é convertido em valor zero.
   Múltiplas versões preservadas do mesmo item do catálogo contam como um único
   documento esperado, embora todas permaneçam no acervo bruto append-only.
+  Para documentos que trazem a coluna `Regime/Vínculo`, o parser
+  `payroll-regime-breakdown/1.0.0` percorre todas as linhas, valida a aritmética
+  e exige que os oito grupos permitidos fechem exatamente com o agregado do
+  componente. A projeção pública `api.get_public_payroll_regime_breakdown`
+  retorna somente competência, código e rótulo do grupo, quantidade, proventos,
+  descontos, líquido, quantidade de PDFs e versão metodológica. Nome, CPF,
+  matrícula, cargo, lotação e valor individual não atravessam esse contrato.
+  Leiaute sem essa coluna significa detalhamento indisponível, não valor zero.
 
 Nenhum desses documentos, isoladamente, representa o total da dívida do
 Município. A consolidação futura exigirá natureza da obrigação, competência,

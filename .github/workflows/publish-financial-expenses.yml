@@ -172,3 +172,22 @@ jobs:
             --fiscal-year-from "$year_from" \
             --fiscal-year-to "$year_to" \
             "${extra_args[@]}"
+
+      - name: Publicar folha agregada por regime ou vínculo
+        if: >-
+          inputs.dry_run_public_obligations != true
+          && inputs.publication_scope != 'expenses'
+          && inputs.publication_scope != 'public-obligations'
+        shell: bash
+        env:
+          INPUT_PAYROLL_REFERENCE_MONTH: ${{ inputs.payroll_reference_month }}
+        run: |
+          extra_args=()
+          if [[ -n "${INPUT_PAYROLL_REFERENCE_MONTH:-}" ]]; then
+            extra_args+=(--reference-month "$INPUT_PAYROLL_REFERENCE_MONTH")
+            extra_args+=(--require-complete-month)
+          fi
+          python -B -m \
+            barreiras_normalization.commands.publish_payroll_regime_breakdowns \
+            --limit 20 \
+            "${extra_args[@]}"

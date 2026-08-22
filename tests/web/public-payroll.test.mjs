@@ -3,9 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  getPublicPayrollRegimeBreakdown,
   getPublicPayrollCoverage,
   getPublicPayrollMonths,
+  payrollRegimeBreakdownMatchesMonth,
   parsePublicPayrollCoverageRow,
+  parsePublicPayrollRegimeRow,
   parsePublicPayrollRow,
 } from "../../apps/web/lib/public-payroll.mjs";
 
@@ -59,6 +62,104 @@ const validCoverageRow = {
   catalog_checked_at: "2026-08-22T04:00:00.000Z",
   methodology_version: "payroll-coverage/1.0.0",
 };
+
+const validRegimeRows = [
+  {
+    reference_month: "2026-07-01",
+    regime_code: "selection_process",
+    regime_label: "Processo seletivo",
+    employee_count: 3827,
+    gross_amount: "8456004.61",
+    deduction_amount: "866886.95",
+    net_amount: "7589117.66",
+    source_document_count: 2,
+    methodology_version: "payroll-regime-monthly/1.0.0",
+  },
+  {
+    reference_month: "2026-07-01",
+    regime_code: "statutory",
+    regime_label: "Estatutários",
+    employee_count: 4357,
+    gross_amount: "26515966.87",
+    deduction_amount: "9556095.83",
+    net_amount: "16959871.04",
+    source_document_count: 2,
+    methodology_version: "payroll-regime-monthly/1.0.0",
+  },
+];
+
+test("detalhamento por vínculo conserva somente categorias oficiais agregadas", () => {
+  const rows = validRegimeRows.map(parsePublicPayrollRegimeRow);
+
+  assert.ok(rows.every(Boolean));
+  assert.equal(rows[0].regimeCode, "selection_process");
+  assert.equal(rows[0].employeeCount, 3827);
+  assert.equal(rows[1].grossAmount, "26515966.87");
+  assert.equal("name" in rows[0], false);
+  assert.equal("cpf" in rows[0], false);
+  assert.equal(
+    payrollRegimeBreakdownMatchesMonth(rows, parsePublicPayrollRow(validRow)),
+    true,
+  );
+});
+
+test("detalhamento por vínculo rejeita rótulo, aritmética e campo pessoal", () => {
+  assert.equal(
+    parsePublicPayrollRegimeRow({
+      ...validRegimeRows[0],
+      regime_label: "Rótulo inventado",
+    }),
+    null,
+  );
+  assert.equal(
+    parsePublicPayrollRegimeRow({
+      ...validRegimeRows[0],
+      net_amount: "1.00",
+    }),
+    null,
+  );
+  assert.equal(
+    parsePublicPayrollRegimeRow({
+      ...validRegimeRows[0],
+      name: "não pode atravessar a API",
+    }),
+    null,
+  );
+});
+
+test("detalhamento por vínculo consulta somente a RPC pública", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.PUBLIC_DATA_SUPABASE_URL;
+  const originalKey = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+  let requestedUrl = null;
+  let requestedBody = null;
+  process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
+  process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  globalThis.fetch = async (url, options) => {
+    requestedUrl = url;
+    requestedBody = JSON.parse(options.body);
+    return new Response(JSON.stringify(validRegimeRows), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+  try {
+    const result = await getPublicPayrollRegimeBreakdown("2026-07-01");
+    assert.equal(result.state, "available");
+    assert.equal(result.rows.length, 2);
+    assert.match(requestedUrl, /rpc\/get_public_payroll_regime_breakdown$/);
+    assert.deepEqual(requestedBody, { target_reference_month: "2026-07-01" });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.PUBLIC_DATA_SUPABASE_URL;
+    else process.env.PUBLIC_DATA_SUPABASE_URL = originalUrl;
+    if (originalKey === undefined) {
+      delete process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+    } else {
+      process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = originalKey;
+    }
+  }
+});
 
 test("cobertura da folha conserva ausência e conflito como estados, nunca como zero", () => {
   const absent = parsePublicPayrollCoverageRow(validCoverageRow);
@@ -292,7 +393,7 @@ test("cobertura da folha consulta a projeção pública sem acessar tabelas priv
 });
 
 test("pagina explica vínculos, descontos e limite da informação", async () => {
-  const [page, sources] = await Promise.all([
+  const [page, sources, breakdown] = await Promise.all([
     readFile(
       new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
       "utf8",
@@ -300,6 +401,13 @@ test("pagina explica vínculos, descontos e limite da informação", async () =>
     readFile(
       new URL(
         "../../apps/web/app/financas/finance-payroll-sources.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../../apps/web/app/financas/finance-payroll-regime-breakdown.tsx",
         import.meta.url,
       ),
       "utf8",
@@ -313,6 +421,10 @@ test("pagina explica vínculos, descontos e limite da informação", async () =>
   assert.match(page, /processamentos oficiais/);
   assert.match(sources, /Abrir PDF oficial/);
   assert.match(sources, /13º salário final/);
+  assert.match(page, /getPublicPayrollRegimeBreakdown/);
+  assert.match(breakdown, /Como a folha se divide por vínculo/);
+  assert.match(breakdown, /não representa necessariamente uma pessoa\s+única/);
+  assert.match(breakdown, /<details/);
 });
 
 test("pagina mantém o mês mais recente em destaque e recolhe o histórico", async () => {

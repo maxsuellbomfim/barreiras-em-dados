@@ -30,12 +30,15 @@ import {
   type PublicObligationCoverageRow,
 } from "../../lib/public-obligations.mjs";
 import {
+  getPublicPayrollRegimeBreakdown,
   getPublicPayrollCoverage,
   getPublicPayrollMonths,
+  payrollRegimeBreakdownMatchesMonth,
   type PublicPayrollMonth,
 } from "../../lib/public-payroll.mjs";
 import FinancePayrollCoverage from "./finance-payroll-coverage";
 import FinancePayrollHistory from "./finance-payroll-history";
+import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
 import FinancePayrollSources from "./finance-payroll-sources";
 
 export const revalidate = 300;
@@ -247,6 +250,14 @@ export default async function FinancesPage() {
   const payrollMonths =
     payrollResult.state === "available" ? payrollResult.months : [];
   const latestPayroll: PublicPayrollMonth | null = payrollMonths[0] ?? null;
+  const payrollRegimeResult = latestPayroll
+    ? await getPublicPayrollRegimeBreakdown(latestPayroll.referenceMonth)
+    : { state: "unavailable" as const };
+  const payrollRegimeRows =
+    payrollRegimeResult.state === "available" &&
+    payrollRegimeBreakdownMatchesMonth(payrollRegimeResult.rows, latestPayroll)
+      ? payrollRegimeResult.rows
+      : [];
   const previousPayrollMonths = payrollMonths.slice(1);
   const payrollCoverageRows =
     payrollCoverageResult.state === "available"
@@ -478,6 +489,10 @@ export default async function FinancesPage() {
                     subtotais sem somar os vínculos repetidos no 13º.
                   </p>
                 </div>
+                <FinancePayrollRegimeBreakdown
+                  rows={payrollRegimeRows}
+                  grossTotal={latestPayroll.grossAmount}
+                />
                 <details className="finance-details">
                   <summary>Conferir cálculo, fonte e documento</summary>
                   <p className="finance-details-note">
