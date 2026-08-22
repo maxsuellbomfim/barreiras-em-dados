@@ -7,6 +7,7 @@ import calendar
 import logging
 import os
 import re
+import sys
 import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -76,10 +77,15 @@ FINANCIAL_DOCUMENT_RESOURCES = frozenset(
 )
 PERSONNEL_DOCUMENT_RESOURCES = frozenset({"servidores"})
 DOCUMENT_RESOURCES = FINANCIAL_DOCUMENT_RESOURCES | PERSONNEL_DOCUMENT_RESOURCES
+NO_MATCHING_OFFICIAL_DOCUMENT_EXIT_CODE = 3
 LEGISLATIVE_ENDPOINTS = {
     "leis": "leis-api",
     "indicacoes": "indicacoes-api",
 }
+
+
+class NoMatchingOfficialDocumentError(RuntimeError):
+    """A fonte respondeu, mas não publicou o documento oficial solicitado."""
 
 
 def _next_month(value: date) -> date:
@@ -297,33 +303,52 @@ def execute_controlled_municipal_transparency(
     *,
     control: CollectionControl,
     operation: Callable[[], MunicipalTransparencyCollectionSummary],
+    require_document_match: bool = False,
 ) -> MunicipalTransparencyCollectionSummary:
     """Registra a tentativa antes da autenticação e da primeira requisição."""
     with control:
         summary = operation()
+        if require_document_match:
+            try:
+                require_complete_document_match(summary)
+            except NoMatchingOfficialDocumentError:
+                control.complete(
+                    outcome=CollectionOutcome.BLOCKED,
+                    observed_records=summary.observed_records,
+                    checkpoint={"next_offset": summary.next_offset},
+                    metrics=_collection_metrics(summary),
+                    block_reason=(
+                        "Documento oficial exato não localizado no catálogo da fonte."
+                    ),
+                )
+                raise
         control.complete(
             outcome=summary.outcome,
             observed_records=summary.observed_records,
             checkpoint={"next_offset": summary.next_offset},
-            metrics={
-                "pages": summary.pages,
-                "inserted_records": summary.inserted_records,
-                "existing_records": summary.existing_records,
-                "documents_persisted": summary.documents_persisted,
-                "documents_failed": summary.documents_failed,
-                "documents_skipped": summary.documents_skipped,
-                "documents_matched": summary.documents_matched,
-                "documents_already_preserved": (summary.documents_already_preserved),
-                "documents_bytes_persisted": summary.documents_bytes_persisted,
-                "documents_byte_budget_exhausted": (
-                    summary.documents_byte_budget_exhausted
-                ),
-                "pagination_capped": summary.pagination_capped,
-                "availability_partial": summary.availability_partial,
-                "start_offset": summary.start_offset,
-            },
+            metrics=_collection_metrics(summary),
         )
     return summary
+
+
+def _collection_metrics(
+    summary: MunicipalTransparencyCollectionSummary,
+) -> dict[str, object]:
+    return {
+        "pages": summary.pages,
+        "inserted_records": summary.inserted_records,
+        "existing_records": summary.existing_records,
+        "documents_persisted": summary.documents_persisted,
+        "documents_failed": summary.documents_failed,
+        "documents_skipped": summary.documents_skipped,
+        "documents_matched": summary.documents_matched,
+        "documents_already_preserved": summary.documents_already_preserved,
+        "documents_bytes_persisted": summary.documents_bytes_persisted,
+        "documents_byte_budget_exhausted": summary.documents_byte_budget_exhausted,
+        "pagination_capped": summary.pagination_capped,
+        "availability_partial": summary.availability_partial,
+        "start_offset": summary.start_offset,
+    }
 
 
 def require_complete_document_match(
@@ -334,7 +359,7 @@ def require_complete_document_match(
     if summary.outcome is not CollectionOutcome.COMPLETE:
         raise RuntimeError("Seleção documental exata terminou com cobertura parcial.")
     if summary.documents_matched < 1:
-        raise RuntimeError(
+        raise NoMatchingOfficialDocumentError(
             "Nenhum documento oficial corresponde à competência e ao tipo exigidos."
         )
     completed = summary.documents_persisted + summary.documents_already_preserved
@@ -668,13 +693,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else None
             ),
         )
-        if args.require_document_match:
-            require_complete_document_match(summary)
         return summary
 
     summary = execute_controlled_municipal_transparency(
         control=control,
         operation=operation,
+        require_document_match=args.require_document_match,
     )
 
     log_event(
@@ -1024,5 +1048,15 @@ def _collect_resource(
     )
 
 
+def cli_entrypoint(argv: Sequence[str] | None = None) -> int:
+    """Converte ausência comprovada em código distinto de falha operacional."""
+
+    try:
+        return main(argv)
+    except NoMatchingOfficialDocumentError as error:
+        print(str(error), file=sys.stderr)
+        return NO_MATCHING_OFFICIAL_DOCUMENT_EXIT_CODE
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(cli_entrypoint())

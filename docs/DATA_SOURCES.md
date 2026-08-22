@@ -98,6 +98,12 @@ quatro recursos adicionais no portal da Prefeitura:
   ausente permanece bloqueado por falta de evidência, nunca é presumido. O primeiro
   PDF pode ultrapassar sozinho o teto para impedir inanição da fila; o restante
   é adiado com cobertura `partial`, nunca descartado silenciosamente.
+  No recorte observado em 21/08/2026, o catálogo não apresentou uma
+  `Relação de Servidores` para abril de 2024. Havia somente relações de
+  estagiários e terceirizados, incluindo um documento de terceirizados
+  classificado pela fonte como `tipo=1`. O backfill registra essa competência
+  como documento regular não localizado e continua os demais meses; não
+  publica zero nem usa outro grupo de pessoal como substituto.
   Em amostra `tipo=1` de julho/2026, 133 subtotais do PDF fecharam exatamente
   com o total geral de quantidade, proventos, descontos e líquido. O parser
   agregado não conserva nenhum campo individual; detalhes e hash estão em
