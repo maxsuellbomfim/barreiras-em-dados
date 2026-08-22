@@ -93,7 +93,9 @@ erro interno ou conteúdo bruto: mostra apenas o estado sanitizado e a quantidad
 de linhas municipais já normalizadas. `observed` significa linha oficial
 encontrada; `empty` significa fonte integralmente consultada sem linha atribuída
 a Barreiras; `partial`, `failed`, `blocked` e `unclassified` impedem qualquer
-apresentação de zero. As três séries permanecem separadas e nunca são somadas.
+apresentação de zero. As quatro séries permanecem separadas e nunca são somadas:
+o retrato agregado da CGU, os documentos anuais da CGU, o arquivo histórico do
+Transferegov e a API atual do Transferegov.
 
 Na auditoria de 20/08/2026, a integridade determinística encontrou zero chaves
 duplicadas, zero URL insegura, zero hash inválido e zero divergência na fórmula

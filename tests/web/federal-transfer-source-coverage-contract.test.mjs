@@ -21,6 +21,13 @@ const territorialScopeFix = readFileSync(
   ),
   "utf8",
 );
+const documentCoverage = readFileSync(
+  new URL(
+    "../../supabase/migrations/20260822070000_include_cgu_documents_in_federal_coverage.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const methodology = readFileSync(
   new URL("../../docs/PARLIAMENTARY_TRANSFERS_METHODOLOGY.md", import.meta.url),
   "utf8",
@@ -92,10 +99,14 @@ test("cobertura rejeita duplicidade, HTTP e zero fabricado", () => {
   );
 });
 
-test("agrupamento mantém as três fontes e anos recentes primeiro", () => {
+test("agrupamento mantém as quatro fontes e anos recentes primeiro", () => {
   const parsed = parseFederalTransferSourceCoverageRows([
     coverageRow({ fiscal_year: 2022 }),
     coverageRow({ fiscal_year: 2023 }),
+    coverageRow({
+      source_key: "cgu_documents",
+      fiscal_year: 2023,
+    }),
     coverageRow({
       source_key: "transferegov_current",
       fiscal_year: 2023,
@@ -106,8 +117,28 @@ test("agrupamento mantém as três fontes e anos recentes primeiro", () => {
   assert.deepEqual(groups.map((group) => group.fiscalYear), [2023, 2022]);
   assert.deepEqual(
     groups[0].sources.map((source) => source.sourceKey),
-    ["cgu_execution", "transferegov_current"],
+    ["cgu_execution", "cgu_documents", "transferegov_current"],
   );
+});
+
+test("nova cobertura distingue documentos anuais do retrato agregado da CGU", () => {
+  const parsed = parseFederalTransferSourceCoverageRows([
+    coverageRow({
+      source_key: "cgu_documents",
+      fiscal_year: 2026,
+      record_count: 2,
+      source_url:
+        "https://portaldatransparencia.gov.br/download-de-dados/emendas-parlamentares-documentos/2026",
+      methodology_version: "federal-transfer-source-coverage/2.0.0",
+    }),
+  ]);
+  assert.notEqual(parsed, null);
+  assert.equal(parsed[0].sourceKey, "cgu_documents");
+  assert.equal(parsed[0].recordCount, 2);
+  assert.match(documentCoverage, /federal-amendment-documents-open-data/);
+  assert.match(documentCoverage, /territory\.cgu_federal_amendment_documents/);
+  assert.match(documentCoverage, /'cgu_documents'/);
+  assert.match(documentCoverage, /federal-transfer-source-coverage\/2\.0\.0/);
 });
 
 test("migration publica somente cobertura agregada e sanitizada", () => {
@@ -133,5 +164,7 @@ test("página explica cobertura sem converter ausência em zero financeiro", () 
   assert.match(resourcesPage, /nenhuma linha atribuída a Barreiras/);
   assert.match(resourcesPage, /não significa valor financeiro zero/);
   assert.match(resourcesPage, /Cadastrar o proponente em Barreiras, sozinho, não/);
+  assert.match(resourcesPage, /Documentos anuais · CGU/);
+  assert.match(resourcesPage, /Cobertura anual das quatro séries federais consultadas/);
   assert.match(resourcesPage, /getPublicFederalTransferSourceCoverage/);
 });

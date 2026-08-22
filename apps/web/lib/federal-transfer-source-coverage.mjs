@@ -1,12 +1,14 @@
 const SOURCE_KEYS = new Set([
   "cgu_execution",
+  "cgu_documents",
   "transferegov_historical",
   "transferegov_current",
 ]);
 const SOURCE_ORDER = new Map([
   ["cgu_execution", 0],
-  ["transferegov_historical", 1],
-  ["transferegov_current", 2],
+  ["cgu_documents", 1],
+  ["transferegov_historical", 2],
+  ["transferegov_current", 3],
 ]);
 const STATUSES = new Set([
   "observed",
@@ -17,7 +19,10 @@ const STATUSES = new Set([
   "unclassified",
 ]);
 const COUNTED_STATUSES = new Set(["observed", "empty"]);
-const METHODOLOGY = "federal-transfer-source-coverage/1.0.0";
+const METHODOLOGIES = new Set([
+  "federal-transfer-source-coverage/1.0.0",
+  "federal-transfer-source-coverage/2.0.0",
+]);
 
 function parseRow(row) {
   if (typeof row !== "object" || row === null) return null;
@@ -48,7 +53,8 @@ function parseRow(row) {
     : null;
   if (
     !sourceKey || fiscalYear === null || !coverageStatus || !sourceUrl ||
-    row.methodology_version !== METHODOLOGY ||
+    typeof row.methodology_version !== "string" ||
+    !METHODOLOGIES.has(row.methodology_version) ||
     (coverageStatus === "observed" && (recordCount === null || recordCount < 1)) ||
     (coverageStatus === "empty" && recordCount !== 0) ||
     (!COUNTED_STATUSES.has(coverageStatus) && recordCount !== null)
@@ -60,7 +66,7 @@ function parseRow(row) {
     recordCount,
     lastAttemptedAt,
     sourceUrl,
-    methodologyVersion: METHODOLOGY,
+    methodologyVersion: row.methodology_version,
   };
 }
 
