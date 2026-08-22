@@ -107,6 +107,38 @@ class PayrollReportPdfTests(unittest.TestCase):
         self.assertEqual(report.employee_count, 2)
         self.assertEqual(report.payroll_cycle, "regular")
 
+    def test_accepts_compact_header_observed_in_february_2024(self) -> None:
+        text = (
+            "Listagem Sint�tica E-TCM\n"
+            "FOLHA.........: 1 - Normal\n"
+            "Mat. Nome Cargo Provento Desconto L�quido\n"
+            "Total de Funcion�rios: 2 5.000,00 1.000,00 4.000,00\n"
+            "Total de Funcion�rios Geral: 2 5.000,00 1.000,00 4.000,00"
+        )
+
+        report = parse_payroll_report_aggregate(text)
+
+        self.assertEqual(report.employee_count, 2)
+        self.assertEqual(report.gross_amount, Decimal("5000.00"))
+        self.assertEqual(report.deduction_amount, Decimal("1000.00"))
+        self.assertEqual(report.net_amount, Decimal("4000.00"))
+        self.assertEqual(report.payroll_cycle, "regular")
+        self.assertEqual(report.parser_version, "payroll-report-aggregate/1.4.0")
+
+    def test_rejects_compact_header_without_required_monetary_column(
+        self,
+    ) -> None:
+        text = (
+            "Listagem Sint�tica E-TCM\n"
+            "FOLHA.........: 1 - Normal\n"
+            "Mat. Nome Cargo Provento L�quido\n"
+            "Total de Funcion�rios: 2 5.000,00 1.000,00 4.000,00\n"
+            "Total de Funcion�rios Geral: 2 5.000,00 1.000,00 4.000,00"
+        )
+
+        with self.assertRaisesRegex(PayrollReportContractError, "cabeçalho"):
+            parse_payroll_report_aggregate(text)
+
     def test_rejects_grand_total_that_does_not_match_subtotals(self) -> None:
         text = FIXTURE.read_text(encoding="utf-8").replace(
             "Total de Funcionários Geral: 5 17.500,50 3.000,25 14.500,25",

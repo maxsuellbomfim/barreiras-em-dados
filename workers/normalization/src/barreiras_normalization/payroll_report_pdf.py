@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.3.0"
+PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.4.0"
 PayrollCycle = Literal[
     "regular",
     "thirteenth_advance",
@@ -45,13 +45,12 @@ class _DeclaredTotal:
 
 
 _AMOUNT = r"(?:\d{1,3}(?:\.\d{3})*|\d+),\d{2}"
-_HEADER_FIELDS = tuple(
+_REQUIRED_HEADER_FIELDS = tuple(
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
         r"\bMat\.",
         r"\bNome\b",
         r"\bCargo\b",
-        r"\bRegime/V\S*nculo\b",
         r"\bProvento\b",
         r"\bDesconto\b",
         r"\bL\S*quido\b",
@@ -106,7 +105,10 @@ def _declared_total(match: re.Match[str]) -> _DeclaredTotal:
 
 def _has_validated_header(text: str) -> bool:
     return any(
-        all(field.search(line) is not None for field in _HEADER_FIELDS)
+        all(
+            field.search(line) is not None
+            for field in _REQUIRED_HEADER_FIELDS
+        )
         for line in text.splitlines()
     )
 

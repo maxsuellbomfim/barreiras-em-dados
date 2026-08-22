@@ -642,6 +642,15 @@ competência aparece na projeção pública determinística; seguem valendo o pa
 versionado, a aritmética exata, a linhagem e os bloqueios de ciclo desconhecido
 ou misto.
 
+Ainda em 22/08/2026, a primeira tentativa do lote setembro/2023–fevereiro/2024
+preservou os seis PDFs regulares, mas bloqueou a publicação em fevereiro/2024:
+o documento histórico usa um cabeçalho compacto sem `Regime/Vínculo`. A
+variação foi conferida nas 238 páginas do PDF oficial e incorporada ao parser
+1.4.0 sem relaxar a exigência dos seis campos estruturais restantes, do ciclo
+inequívoco e da reconciliação integral entre 127 subtotais e o total geral. O
+lote precisa ser repetido após a implantação dessa versão; preservação bem
+sucedida, isoladamente, não conta como mês publicado.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;

@@ -52,3 +52,13 @@ rejeita esse documento como ciclo misto. O agregado produzido pela versão
 anterior permanece preservado, mas recebe invalidação append-only e deixa de
 compor a projeção pública. Sem um PDF que separe os ciclos, janeiro não é
 apresentado como folha regular nem como total mensal fechado.
+
+## Compatibilidade com o leiaute compacto de fevereiro de 2024
+
+O PDF oficial da competência fevereiro de 2024 não apresenta a coluna
+`Regime/Vínculo`, embora preserve `Matrícula`, `Nome`, `Cargo`, `Provento`,
+`Desconto` e `Líquido`, o cabeçalho `Listagem Sintética E-TCM`, o campo técnico
+de ciclo e todos os subtotais e total geral. A versão 1.4.0 aceita essa variação
+histórica comprovada, mas continua exigindo os seis campos estruturais, ciclo
+inequívoco, aritmética interna e reconciliação integral. A regra não transforma
+um relatório genérico com valores em folha pública.

@@ -28,6 +28,12 @@ const privateSelectionMigrationIndex = migrationEntries.findIndex(
   ({ name }) => name === privateSelectionMigrationName,
 );
 assert.ok(privateSelectionMigrationIndex > strictTitleMigrationIndex);
+const currentParserSelectionMigrationName =
+  "20260822033000_current_payroll_parser_selection.sql";
+const currentParserSelectionMigrationIndex = migrationEntries.findIndex(
+  ({ name }) => name === currentParserSelectionMigrationName,
+);
+assert.ok(currentParserSelectionMigrationIndex > privateSelectionMigrationIndex);
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
 
 try {
@@ -299,6 +305,9 @@ try {
       pg_get_functiondef(
         'hr.get_pending_payroll_documents(integer,integer,integer,date)'::regprocedure
       ) as pending_definition,
+      pg_get_functiondef(
+        'hr.payroll_unresolved_document_count(date)'::regprocedure
+      ) as unresolved_definition,
       to_regclass(
         'hr.payroll_report_aggregates_series_version_unique_idx'
       )::text as series_version_index
@@ -307,6 +316,7 @@ try {
   const [{
     completion_definition: completionDefinition,
     pending_definition: pendingDefinition,
+    unresolved_definition: unresolvedDefinition,
     ...contract
   }] = contracts.rows;
   assert.match(completionDefinition, /public_body\.ibge_code = '2903201'/);
@@ -316,8 +326,18 @@ try {
     /data_source\.slug = 'prefeitura-barreiras-transparencia'/,
   );
   assert.match(pendingDefinition, /endpoint\.slug = 'dados-abertos-api'/);
-  assert.match(pendingDefinition, /payroll-report-aggregate\/1\.3\.0/);
-  assert.match(pendingDefinition, /payroll_report_publication\/1\.2\.0/);
+  assert.match(pendingDefinition, /payroll-report-aggregate\/1\.4\.0/);
+  assert.doesNotMatch(pendingDefinition, /payroll-report-aggregate\/1\.3\.0/);
+  assert.match(unresolvedDefinition, /payroll-report-aggregate\/1\.4\.0/);
+  assert.doesNotMatch(
+    unresolvedDefinition,
+    /payroll-report-aggregate\/1\.3\.0/,
+  );
+  assert.match(pendingDefinition, /payroll_report_publication\/1\.3\.0/);
+  assert.doesNotMatch(
+    pendingDefinition,
+    /payroll_report_publication\/1\.2\.0/,
+  );
   assert.deepEqual(contract, {
     aggregate_table: "hr.payroll_report_aggregates",
     invalidation_table: "hr.payroll_report_aggregate_invalidations",
@@ -834,6 +854,44 @@ try {
     rowsAfterInvalidation.rows.map((row) => row.reference_month),
     ["2025-02-01"],
   );
+
+  await database.exec(`
+    insert into hr.payroll_report_aggregates (
+      id, origin_raw_record_id, source_document_artifact_id, public_body_id,
+      supersedes_id, version, reference_month, payroll_cycle, employee_count,
+      gross_amount, deduction_amount, net_amount, subtotal_count,
+      parser_version, validated_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009025',
+        '00000000-0000-0000-0000-000000009005',
+        '00000000-0000-0000-0000-000000009006',
+        '00000000-0000-0000-0000-000000008007',
+        '00000000-0000-0000-0000-000000009008', 2, '2026-07-01',
+        'regular', 8184, 34971971.48, 10422982.78, 24548988.70, 133,
+        'payroll-report-aggregate/1.4.0', '2026-08-22 03:30:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009026',
+        '00000000-0000-0000-0000-000000009010',
+        '00000000-0000-0000-0000-000000009011',
+        '00000000-0000-0000-0000-000000008007',
+        '00000000-0000-0000-0000-000000009012', 2, '2026-07-01',
+        'thirteenth_advance', 8000, 5000000.00, 500000.00, 4500000.00,
+        120, 'payroll-report-aggregate/1.4.0', '2026-08-22 03:30:00+00'
+      );
+  `);
+  await database.exec("set role collector_worker");
+  const pendingAfterCurrentParser = await database.query(`
+    select id
+    from hr.get_pending_payroll_documents(5, 2021, 2026, '2026-07-01')
+  `);
+  const unresolvedAfterCurrentParser = await database.query(`
+    select hr.payroll_unresolved_document_count('2026-07-01') as count
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(pendingAfterCurrentParser.rows, []);
+  assert.equal(unresolvedAfterCurrentParser.rows[0].count, 0);
 
   await assert.rejects(
     database.query("select * from api.get_public_payroll_months(61)"),
