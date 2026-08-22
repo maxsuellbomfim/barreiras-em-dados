@@ -19,6 +19,7 @@ import {
   type PublicMonthlyFinanceClosure,
 } from "../../lib/monthly-finance";
 import { monthlyFinanceHref } from "../../lib/monthly-finance-detail.mjs";
+import { summarizeAnnualFinances } from "../../lib/annual-finance-summary.mjs";
 import ShareLink from "../share-link";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
 import { getPublicFinanceCoverage, type PublicFinanceCoverageRow } from "../../lib/finance-coverage";
@@ -46,6 +47,7 @@ import FinancePayrollCompensation from "./finance-payroll-compensation";
 import FinancePayrollSources from "./finance-payroll-sources";
 import FinancePayrollYears from "./finance-payroll-years";
 import { FinanceExpenseLineCard } from "./finance-expense-line-card";
+import { FinanceAnnualSummary } from "./finance-annual-summary";
 
 export const revalidate = 300;
 
@@ -316,6 +318,7 @@ export default async function FinancesPage() {
   const sortedMonthlyClosures = [...monthlyClosures].sort((left, right) =>
     right.periodEnd.localeCompare(left.periodEnd),
   );
+  const annualFinanceSummaries = summarizeAnnualFinances(sortedMonthlyClosures);
   const sortedCoverageRows = [...coverageRows].sort((left, right) =>
     right.periodEnd.localeCompare(left.periodEnd),
   );
@@ -582,6 +585,8 @@ export default async function FinancesPage() {
             </details>
           </section>
         ) : null}
+
+        <FinanceAnnualSummary summaries={annualFinanceSummaries} />
 
         {monthlyClosures.length > 0 ? (
           <section aria-labelledby="monthly-closure-title" className="monthly-closure-section">
