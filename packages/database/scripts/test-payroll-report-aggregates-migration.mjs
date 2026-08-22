@@ -233,6 +233,8 @@ try {
       to_regclass('hr.payroll_report_aggregate_invalidations')::text
         as invalidation_table,
       to_regprocedure('api.get_public_payroll_months(integer)')::text as public_rpc,
+      to_regprocedure('api.get_public_payroll_months_page(integer,date)')::text
+        as public_page_rpc,
       to_regprocedure('hr.payroll_month_is_public(date)')::text
         as completion_function,
       to_regprocedure(
@@ -264,6 +266,9 @@ try {
       has_function_privilege(
         'anon', 'api.get_public_payroll_months(integer)', 'EXECUTE'
       ) as anon_rpc,
+      has_function_privilege(
+        'anon', 'api.get_public_payroll_months_page(integer,date)', 'EXECUTE'
+      ) as anon_page_rpc,
       has_function_privilege(
         'collector_worker', 'hr.payroll_month_is_public(date)', 'EXECUTE'
       ) as worker_completion_execute,
@@ -342,6 +347,7 @@ try {
     aggregate_table: "hr.payroll_report_aggregates",
     invalidation_table: "hr.payroll_report_aggregate_invalidations",
     public_rpc: "api.get_public_payroll_months(integer)",
+    public_page_rpc: "api.get_public_payroll_months_page(integer,date)",
     completion_function: "hr.payroll_month_is_public(date)",
     pending_function:
       "hr.get_pending_payroll_documents(integer,integer,integer,date)",
@@ -356,6 +362,7 @@ try {
     anon_invalidation_select: false,
     worker_invalidation_insert: false,
     anon_rpc: true,
+    anon_page_rpc: true,
     worker_completion_execute: true,
     anon_completion_execute: false,
     authenticated_completion_execute: false,
@@ -895,6 +902,27 @@ try {
 
   await assert.rejects(
     database.query("select * from api.get_public_payroll_months(61)"),
+    /limite de meses da folha invalido/,
+  );
+  const newestPayrollPage = await database.query(
+    "select reference_month from api.get_public_payroll_months_page(1, null)",
+  );
+  const olderPayrollPage = await database.query(
+    `select reference_month
+       from api.get_public_payroll_months_page(
+         1, '${newestPayrollPage.rows[0].reference_month}'::date
+       )`,
+  );
+  assert.equal(newestPayrollPage.rows.length, 1);
+  assert.equal(olderPayrollPage.rows.length, 1);
+  assert.ok(
+    olderPayrollPage.rows[0].reference_month <
+      newestPayrollPage.rows[0].reference_month,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_payroll_months_page(61, null)",
+    ),
     /limite de meses da folha invalido/,
   );
   console.log("Agregados mensais da folha: imutabilidade, linhagem e RPC segura verificados.");

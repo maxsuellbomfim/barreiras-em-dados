@@ -657,6 +657,14 @@ RPC — para não ocultar meses históricos já publicados quando o acervo super
 24 competências. O mês mais recente continua em destaque e todo o histórico
 permanece recolhido por padrão.
 
+O backfill subsequente publicou março a agosto de 2022, cada competência com
+um PDF oficial, reconciliação aritmética integral e zero documento pendente.
+Como a série retroativa ultrapassará 60 competências ao alcançar 2021, a
+consulta pública deixou de depender de um limite único: a nova RPC pagina por
+competência, em ordem decrescente, com cursor mensal exclusivo. O portal busca
+blocos de 24 meses e aceita até 120 competências na apresentação, mantendo o
+mês mais recente em destaque e o histórico recolhido por padrão.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;

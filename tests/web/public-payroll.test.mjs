@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { parsePublicPayrollRow } from "../../apps/web/lib/public-payroll.mjs";
+import {
+  getPublicPayrollMonths,
+  parsePublicPayrollRow,
+} from "../../apps/web/lib/public-payroll.mjs";
 
 const validRow = {
   reference_month: "2026-07-01",
@@ -141,6 +144,51 @@ test("folha publica rejeita componentes duplicados ou sem folha regular", () => 
   assert.equal(parsePublicPayrollRow(withoutRegular), null);
 });
 
+test("folha publica percorre o historico por cursor sem truncar o mes antigo", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.PUBLIC_DATA_SUPABASE_URL;
+  const originalKey = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+  const requestedBodies = [];
+  const monthAt = (offset) => {
+    const date = new Date(Date.UTC(2026, 6 - offset, 1));
+    return date.toISOString().slice(0, 10);
+  };
+  const rowAt = (offset) => ({ ...validRow, reference_month: monthAt(offset) });
+  const firstPage = Array.from({ length: 24 }, (_, index) => rowAt(index));
+  const secondPage = [rowAt(24)];
+  let call = 0;
+
+  process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
+  process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  globalThis.fetch = async (_url, options) => {
+    requestedBodies.push(JSON.parse(options.body));
+    const payload = call++ === 0 ? firstPage : secondPage;
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const result = await getPublicPayrollMonths(25);
+    assert.equal(result.state, "available");
+    assert.equal(result.months.length, 25);
+    assert.deepEqual(requestedBodies, [
+      { page_size: 24, before_month: null },
+      { page_size: 1, before_month: firstPage.at(-1).reference_month },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.PUBLIC_DATA_SUPABASE_URL;
+    else process.env.PUBLIC_DATA_SUPABASE_URL = originalUrl;
+    if (originalKey === undefined) {
+      delete process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+    } else {
+      process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = originalKey;
+    }
+  }
+});
+
 test("pagina explica vínculos, descontos e limite da informação", async () => {
   const [page, sources] = await Promise.all([
     readFile(
@@ -187,7 +235,7 @@ test("pagina mantém o mês mais recente em destaque e recolhe o histórico", as
     ),
   ]);
 
-  assert.match(page, /getPublicPayrollMonths\(60\)/);
+  assert.match(page, /getPublicPayrollMonths\(120\)/);
   assert.match(page, /const previousPayrollMonths = payrollMonths\.slice\(1\)/);
   assert.match(page, /<FinancePayrollHistory months=\{previousPayrollMonths\}/);
   assert.match(history, /Ver meses anteriores da folha/);
