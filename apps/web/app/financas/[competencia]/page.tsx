@@ -12,8 +12,10 @@ import {
   getPublicExpenseLines,
   getPublicExpenseReports,
 } from "../../../lib/expenses";
+import { getPublicExpenseCategorySummary } from "../../../lib/expense-category-summary.mjs";
 import { getPublicMonthlyFinanceDetail } from "../../../lib/monthly-finance";
 import { formatBrlDecimal } from "../../../lib/revenues";
+import { FinanceExpenseCategorySummary } from "../finance-expense-category-summary";
 import { FinanceExpenseLineCard } from "../finance-expense-line-card";
 
 export const revalidate = 300;
@@ -157,9 +159,15 @@ export default async function MonthlyFinancePage({ params }: PageProps) {
     reportsResult.state === "available" ? reportsResult.reports : [],
     detail,
   );
-  const expenseLinesResult = expenseReportId
-    ? await getPublicExpenseLines(expenseReportId, 25)
-    : { state: "unavailable" as const };
+  const [expenseLinesResult, expenseCategorySummary] = expenseReportId
+    ? await Promise.all([
+        getPublicExpenseLines(expenseReportId, 25),
+        getPublicExpenseCategorySummary(expenseReportId),
+      ])
+    : [
+        { state: "unavailable" as const },
+        { state: "unavailable" as const },
+      ];
   const expenseLines =
     expenseLinesResult.state === "available" ? expenseLinesResult.lines : [];
   const status = monthlyFinanceStatusCopy(detail);
@@ -239,6 +247,8 @@ export default async function MonthlyFinancePage({ params }: PageProps) {
             <li><span>3</span><div><strong>Pago</strong><p>O dinheiro efetivamente saiu do caixa.</p></div></li>
           </ol>
         </section>
+
+        <FinanceExpenseCategorySummary result={expenseCategorySummary} />
 
         {expenseLines.length > 0 ? (
           <section aria-labelledby="finance-month-lines-title">
