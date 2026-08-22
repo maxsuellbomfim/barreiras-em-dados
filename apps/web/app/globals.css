@@ -5316,6 +5316,7 @@ footer {
   font-weight: 750;
 }
 
+.finance-payroll-years,
 .finance-payroll-history {
   margin-top: 0.85rem;
   border: 1px solid rgba(28, 40, 61, 0.1);
@@ -5323,6 +5324,110 @@ footer {
   background: rgba(255, 255, 255, 0.64);
   box-shadow: 0 10px 28px rgba(33, 46, 79, 0.04);
   overflow: hidden;
+}
+
+.finance-payroll-years > summary {
+  display: flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 740;
+  list-style-position: inside;
+}
+
+.finance-payroll-years > summary small {
+  color: #315b49;
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-align: right;
+}
+
+.finance-payroll-years-body {
+  padding: 0 0.75rem 0.85rem;
+}
+
+.finance-payroll-years-body > p,
+.finance-payroll-years-body > small {
+  display: block;
+  margin: 0.1rem 0 0.8rem;
+  color: #65728a;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.finance-payroll-years-body > small {
+  margin: 0.8rem 0.25rem 0;
+}
+
+.finance-payroll-years-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.finance-payroll-years-grid article {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(248, 250, 253, 0.88);
+}
+
+.finance-payroll-years-grid header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.finance-payroll-years-grid h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.2rem;
+}
+
+.finance-payroll-years-grid header span {
+  padding: 0.3rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 720;
+  text-align: right;
+}
+
+.finance-payroll-years-grid .is-complete {
+  background: #edf8f1;
+  color: #296343;
+}
+
+.finance-payroll-years-grid .is-partial {
+  background: #fff2dc;
+  color: #805915;
+}
+
+.finance-payroll-years-grid dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.9rem 0 0;
+}
+
+.finance-payroll-years-grid dt {
+  color: #7b879a;
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.finance-payroll-years-grid dd {
+  margin: 0.25rem 0 0;
+  color: #a33434;
+  font-size: clamp(0.82rem, 1.7vw, 1rem);
+  font-weight: 740;
+  overflow-wrap: anywhere;
 }
 
 .finance-payroll-coverage {
@@ -5612,12 +5717,14 @@ footer {
   }
 
   .finance-payroll-history > summary,
+  .finance-payroll-years > summary,
   .finance-payroll-coverage > summary,
   .finance-payroll-history-card > header {
     align-items: flex-start;
   }
 
-  .finance-payroll-history > summary {
+  .finance-payroll-history > summary,
+  .finance-payroll-years > summary {
     display: grid;
   }
 
@@ -5626,8 +5733,14 @@ footer {
     display: grid;
   }
 
-  .finance-payroll-history > summary small {
+  .finance-payroll-history > summary small,
+  .finance-payroll-years > summary small {
     text-align: left;
+  }
+
+  .finance-payroll-years-grid,
+  .finance-payroll-years-grid dl {
+    grid-template-columns: 1fr;
   }
 
   .finance-payroll-coverage > summary small {

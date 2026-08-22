@@ -628,10 +628,11 @@ ADR adicional.
   sem misturar 13º ou expor linhas individuais;
 - [x] reprocessar 2026 com o parser versionado e validar a projeção mensal em
   produção;
-- [ ] executar o backfill de 2025 em lotes idempotentes, incluindo os ciclos do
+- [x] executar o backfill de 2025 em lotes idempotentes, incluindo os ciclos do
   13º sem dupla contagem;
-- [ ] criar classificação separada para relatórios de terceirizados e
-  estagiários antes do backfill de 2024.
+- [x] manter relatórios de terceirizados e estagiários fora da folha regular no
+  backfill histórico;
+- [ ] modelar uma projeção pública separada para terceirizados e estagiários.
 
 Em 21/08/2026, janeiro a julho de 2026 foram reprocessados com
 `payroll-report-aggregate/1.2.0` e consultados novamente pela RPC pública. As
@@ -684,9 +685,16 @@ março a julho de 2021, o catálogo oficial continha uma `Relação de Servidore
 por competência, mas o campo `tipo` vinha como `null`. O filtro tratava esse
 valor como texto e rejeitava incorretamente os documentos. A correção mantém o
 gate pelo título oficial exato, equipara `null` a tipo não informado e conserva
-estagiários e terceirizados fora da folha regular. Janeiro a julho de 2021 devem
-ser repetidos após a implantação; mês não reprocessado não será descrito como
-ausência da fonte.
+estagiários e terceirizados fora da folha regular.
+
+O replay posterior concluiu janeiro a julho de 2021. A série pública passou a
+ter 65 das 67 competências entre janeiro de 2021 e julho de 2026. As duas
+exceções permanecem visíveis e não viram zero: abril de 2024 não tem Relação de
+Servidores localizada no catálogo oficial, enquanto janeiro de 2025 tem PDF
+preservado cujo cabeçalho mistura folha regular e adiantamento do 13º sem
+separação segura dos valores. O portal também soma os meses publicados por ano
+com aritmética inteira de centavos e rotula qualquer ano incompleto como soma
+parcial, nunca como total anual fechado.
 
 Ainda em 22/08/2026, o PDF regular de julho de 2026 foi auditado linha a linha
 para a classificação `Regime/Vínculo`. As 8.184 linhas reconciliaram exatamente
