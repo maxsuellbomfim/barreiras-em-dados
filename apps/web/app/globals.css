@@ -3015,6 +3015,35 @@ footer {
   margin: 0.85rem 0 0;
 }
 
+.finance-category-more {
+  margin-top: 0.85rem;
+  border: 1px solid rgba(39, 61, 156, 0.14);
+  border-radius: 1rem;
+  background: rgba(247, 248, 252, 0.82);
+}
+
+.finance-category-more > summary {
+  min-height: 48px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  color: #273d9c;
+  font-size: 0.82rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.finance-category-more > p {
+  margin: 0 1rem;
+  color: #66738a;
+  font-size: 0.76rem;
+  line-height: 1.58;
+}
+
+.finance-category-list-secondary {
+  margin: 0.75rem;
+}
+
 .finance-category-warning {
   margin: 0 0 4rem;
   padding: clamp(1.1rem, 2.5vw, 1.6rem);
