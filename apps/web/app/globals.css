@@ -5189,6 +5189,82 @@ footer {
   line-height: 1.6;
 }
 
+.finance-payroll-compensation {
+  margin-top: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  padding: 1rem 1.15rem;
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent) 8%);
+}
+
+.finance-payroll-compensation > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.finance-payroll-compensation > summary small {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.finance-payroll-compensation-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.finance-payroll-compensation-summary div {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 0.9rem;
+  background: var(--surface);
+}
+
+.finance-payroll-compensation-summary dt,
+.finance-payroll-compensation-list span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.finance-payroll-compensation-summary dd {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+  font-weight: 800;
+}
+
+.finance-payroll-compensation-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.finance-payroll-compensation-list article,
+.finance-payroll-compensation-list article div {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.finance-payroll-compensation-list progress {
+  width: 100%;
+  height: 0.55rem;
+  accent-color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .finance-payroll-compensation-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-payroll-compensation > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .finance-payroll-regimes-list {
   display: grid;
   gap: 0.75rem;

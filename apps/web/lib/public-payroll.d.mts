@@ -81,6 +81,30 @@ export type PublicPayrollRegimeResult =
     }>
   | Readonly<{ state: "unavailable" }>;
 
+export type PublicPayrollCompensationRow = Readonly<{
+  referenceMonth: string;
+  bandCode:
+    | "up_to_1500"
+    | "from_1500_01_to_3000"
+    | "from_3000_01_to_5000"
+    | "from_5000_01_to_10000"
+    | "from_10000_01_to_20000"
+    | "above_20000";
+  bandLabel: string;
+  employeeCount: number;
+  grossAmount: string;
+  averageGrossAmount: string;
+  maximumGrossAmount: string;
+  methodologyVersion: "payroll-compensation-monthly/1.0.0";
+}>;
+
+export type PublicPayrollCompensationResult =
+  | Readonly<{
+      state: "available";
+      rows: readonly PublicPayrollCompensationRow[];
+    }>
+  | Readonly<{ state: "unavailable" }>;
+
 export function parsePublicPayrollRow(
   row: Record<string, unknown>,
 ): PublicPayrollMonth | null;
@@ -109,3 +133,16 @@ export function payrollRegimeBreakdownMatchesMonth(
 export function getPublicPayrollRegimeBreakdown(
   referenceMonth: string,
 ): Promise<PublicPayrollRegimeResult>;
+
+export function parsePublicPayrollCompensationRow(
+  row: Record<string, unknown>,
+): PublicPayrollCompensationRow | null;
+
+export function payrollCompensationMatchesMonth(
+  rows: readonly PublicPayrollCompensationRow[],
+  month: PublicPayrollMonth | null,
+): boolean;
+
+export function getPublicPayrollCompensationDistribution(
+  referenceMonth: string,
+): Promise<PublicPayrollCompensationResult>;

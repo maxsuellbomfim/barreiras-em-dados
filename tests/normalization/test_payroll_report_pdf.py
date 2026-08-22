@@ -7,6 +7,7 @@ from pathlib import Path
 from barreiras_normalization.payroll_report_pdf import (
     PayrollReportContractError,
     parse_payroll_report_aggregate,
+    parse_payroll_report_compensation_distribution,
     parse_payroll_report_regime_breakdown,
 )
 
@@ -37,6 +38,65 @@ def regime_report(*rows: str, total: str) -> str:
 
 
 class PayrollReportPdfTests(unittest.TestCase):
+    def test_groups_regular_payroll_into_reconciled_compensation_bands(
+        self,
+    ) -> None:
+        report = regime_report(
+            (
+                "100    PESSOA UM             PROFESSOR             "
+                "Estatutário          ESCOLA MUNICIPAL        "
+                "1.500,00 100,00 1.400,00"
+            ),
+            (
+                "101    PESSOA DOIS           ASSESSOR              "
+                "Cargo em Comissão    GABINETE                "
+                "3.000,01 250,00 2.750,01"
+            ),
+            (
+                "102    PESSOA TRÊS            SECRETÁRIO            "
+                "Agente Político      GABINETE                "
+                "21.000,00 2.100,00 18.900,00"
+            ),
+            total="3 25.500,01 2.450,00 23.050,01",
+        )
+
+        distribution = parse_payroll_report_compensation_distribution(report)
+
+        self.assertEqual(distribution.employee_count, 3)
+        self.assertEqual(distribution.gross_amount, Decimal("25500.01"))
+        self.assertEqual(distribution.maximum_gross_amount, Decimal("21000.00"))
+        self.assertEqual(
+            [(band.band_code, band.employee_count) for band in distribution.bands],
+            [
+                ("up_to_1500", 1),
+                ("from_3000_01_to_5000", 1),
+                ("above_20000", 1),
+            ],
+        )
+        self.assertEqual(
+            distribution.parser_version,
+            "payroll-compensation-bands/1.0.0",
+        )
+        serialized = repr(distribution).casefold()
+        for forbidden in ("pessoa um", "matrícula", "cpf", "cargo"):
+            self.assertNotIn(forbidden, serialized)
+
+    def test_rejects_compensation_bands_for_thirteenth_salary(self) -> None:
+        report = regime_report(
+            (
+                "100    PESSOA UM             PROFESSOR             "
+                "Estatutário          ESCOLA MUNICIPAL        "
+                "1.500,00 100,00 1.400,00"
+            ),
+            total="1 1.500,00 100,00 1.400,00",
+        ).replace(
+            "1-Normal, 3-Complementar, 9-Rescisão",
+            "6-13º Final",
+        )
+
+        with self.assertRaisesRegex(PayrollReportContractError, "folha regular"):
+            parse_payroll_report_compensation_distribution(report)
+
     def test_groups_only_reconciled_rows_by_official_employment_regime(
         self,
     ) -> None:
@@ -116,9 +176,7 @@ class PayrollReportPdfTests(unittest.TestCase):
             parse_payroll_report_regime_breakdown(report)
 
     def test_parses_only_reconciled_aggregate_totals(self) -> None:
-        report = parse_payroll_report_aggregate(
-            FIXTURE.read_text(encoding="utf-8")
-        )
+        report = parse_payroll_report_aggregate(FIXTURE.read_text(encoding="utf-8"))
 
         self.assertEqual(report.employee_count, 5)
         self.assertEqual(report.gross_amount, Decimal("17500.50"))
@@ -167,10 +225,7 @@ class PayrollReportPdfTests(unittest.TestCase):
             "1-Normal, 3-Complementar, 9-Rescisão",
             "8-Folha desconhecida",
         )
-        mixed = (
-            f"{regular}\nListagem Sintética E-TCM\n"
-            "6-13º FinalFOLHA.........:"
-        )
+        mixed = f"{regular}\nListagem Sintética E-TCM\n6-13º FinalFOLHA.........:"
 
         with self.assertRaisesRegex(PayrollReportContractError, "processamento"):
             parse_payroll_report_aggregate(unknown)

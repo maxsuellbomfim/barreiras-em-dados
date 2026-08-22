@@ -3,10 +3,13 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  getPublicPayrollCompensationDistribution,
   getPublicPayrollRegimeBreakdown,
   getPublicPayrollCoverage,
   getPublicPayrollMonths,
+  payrollCompensationMatchesMonth,
   payrollRegimeBreakdownMatchesMonth,
+  parsePublicPayrollCompensationRow,
   parsePublicPayrollCoverageRow,
   parsePublicPayrollRegimeRow,
   parsePublicPayrollRow,
@@ -87,6 +90,96 @@ const validRegimeRows = [
     methodology_version: "payroll-regime-monthly/1.0.0",
   },
 ];
+
+const validCompensationRows = [
+  {
+    reference_month: "2026-07-01",
+    band_code: "up_to_1500",
+    band_label: "Até R$ 1.500",
+    employee_count: 3000,
+    gross_amount: "3900000.00",
+    average_gross_amount: "4273.21",
+    maximum_gross_amount: "47318.66",
+    methodology_version: "payroll-compensation-monthly/1.0.0",
+  },
+  {
+    reference_month: "2026-07-01",
+    band_code: "above_20000",
+    band_label: "Acima de R$ 20 mil",
+    employee_count: 5184,
+    gross_amount: "31071971.48",
+    average_gross_amount: "4273.21",
+    maximum_gross_amount: "47318.66",
+    methodology_version: "payroll-compensation-monthly/1.0.0",
+  },
+];
+
+test("faixas da folha conservam somente agregados e reconciliam vínculos", () => {
+  const rows = validCompensationRows.map(parsePublicPayrollCompensationRow);
+
+  assert.ok(rows.every(Boolean));
+  assert.equal(rows[0].bandCode, "up_to_1500");
+  assert.equal(rows[1].maximumGrossAmount, "47318.66");
+  assert.equal(
+    payrollCompensationMatchesMonth(rows, parsePublicPayrollRow(validRow)),
+    true,
+  );
+  const serialized = JSON.stringify(rows).toLowerCase();
+  for (const forbidden of ["cpf", "name", "matricula", "cargo", "deduction"]) {
+    assert.equal(serialized.includes(forbidden), false);
+  }
+});
+
+test("faixas da folha rejeitam rótulo e campo extra", () => {
+  assert.equal(
+    parsePublicPayrollCompensationRow({
+      ...validCompensationRows[0],
+      band_label: "Faixa inventada",
+    }),
+    null,
+  );
+  assert.equal(
+    parsePublicPayrollCompensationRow({
+      ...validCompensationRows[0],
+      nome: "não pode atravessar a API",
+    }),
+    null,
+  );
+});
+
+test("faixas da folha consultam somente a RPC pública", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.PUBLIC_DATA_SUPABASE_URL;
+  const originalKey = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+  let requestedUrl = null;
+  process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
+  process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  globalThis.fetch = async (url) => {
+    requestedUrl = url;
+    return new Response(JSON.stringify(validCompensationRows), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+  try {
+    const result = await getPublicPayrollCompensationDistribution("2026-07-01");
+    assert.equal(result.state, "available");
+    assert.equal(result.rows.length, 2);
+    assert.match(
+      requestedUrl,
+      /rpc\/get_public_payroll_compensation_distribution$/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.PUBLIC_DATA_SUPABASE_URL;
+    else process.env.PUBLIC_DATA_SUPABASE_URL = originalUrl;
+    if (originalKey === undefined) {
+      delete process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+    } else {
+      process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = originalKey;
+    }
+  }
+});
 
 test("detalhamento por vínculo conserva somente categorias oficiais agregadas", () => {
   const rows = validRegimeRows.map(parsePublicPayrollRegimeRow);
@@ -393,7 +486,7 @@ test("cobertura da folha consulta a projeção pública sem acessar tabelas priv
 });
 
 test("pagina explica vínculos, descontos e limite da informação", async () => {
-  const [page, sources, breakdown] = await Promise.all([
+  const [page, sources, breakdown, compensation] = await Promise.all([
     readFile(
       new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
       "utf8",
@@ -412,6 +505,13 @@ test("pagina explica vínculos, descontos e limite da informação", async () =>
       ),
       "utf8",
     ),
+    readFile(
+      new URL(
+        "../../apps/web/app/financas/finance-payroll-compensation.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
   ]);
 
   assert.match(page, /Quanto custa a folha da Prefeitura/);
@@ -425,6 +525,10 @@ test("pagina explica vínculos, descontos e limite da informação", async () =>
   assert.match(breakdown, /Como a folha se divide por vínculo/);
   assert.match(breakdown, /não representa necessariamente uma pessoa\s+única/);
   assert.match(breakdown, /<details/);
+  assert.match(compensation, /Em quais faixas estão os proventos brutos/);
+  assert.match(compensation, /não representa salário-base/);
+  assert.match(compensation, /Maior bruto em uma linha/);
+  assert.match(compensation, /<details/);
 });
 
 test("pagina mantém o mês mais recente em destaque e recolhe o histórico", async () => {

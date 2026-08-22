@@ -624,6 +624,8 @@ ADR adicional.
 - [x] expor todos os documentos, hashes e datas usados no total mensal;
 - [x] modelar o detalhamento agregado por regime/vínculo com reconciliação
   integral e sem campos pessoais;
+- [x] publicar faixas agregadas, média e maior provento bruto da folha regular,
+  sem misturar 13º ou expor linhas individuais;
 - [x] reprocessar 2026 com o parser versionado e validar a projeção mensal em
   produção;
 - [ ] executar o backfill de 2025 em lotes idempotentes, incluindo os ciclos do
