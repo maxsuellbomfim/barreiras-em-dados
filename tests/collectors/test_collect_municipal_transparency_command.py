@@ -254,6 +254,10 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
             "tipo": "",
             "titulo": "RELAÇÃO   DE SERVIDORES",
         }
+        historical_null_type = {
+            **historical_untyped,
+            "tipo": None,
+        }
         allowed_untyped_titles = frozenset({"Relação de Servidores"})
         allowed_titles = frozenset(
             {
@@ -275,6 +279,15 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
         self.assertTrue(
             matches_document_reference(
                 historical_untyped,
+                reference_month=date(2025, 2, 1),
+                allowed_types=frozenset({"1"}),
+                allowed_titles=allowed_titles,
+                allowed_untyped_titles=allowed_untyped_titles,
+            )
+        )
+        self.assertTrue(
+            matches_document_reference(
+                historical_null_type,
                 reference_month=date(2025, 2, 1),
                 allowed_types=frozenset({"1"}),
                 allowed_titles=allowed_titles,

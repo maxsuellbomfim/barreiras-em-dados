@@ -665,6 +665,15 @@ competência, em ordem decrescente, com cursor mensal exclusivo. O portal busca
 blocos de 24 meses e aceita até 120 competências na apresentação, mantendo o
 mês mais recente em destaque e o histórico recolhido por padrão.
 
+O lote seguinte publicou setembro de 2021 a fevereiro de 2022. Na auditoria de
+março a julho de 2021, o catálogo oficial continha uma `Relação de Servidores`
+por competência, mas o campo `tipo` vinha como `null`. O filtro tratava esse
+valor como texto e rejeitava incorretamente os documentos. A correção mantém o
+gate pelo título oficial exato, equipara `null` a tipo não informado e conserva
+estagiários e terceirizados fora da folha regular. Janeiro a julho de 2021 devem
+ser repetidos após a implantação; mês não reprocessado não será descrito como
+ausência da fonte.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;
