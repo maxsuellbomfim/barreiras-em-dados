@@ -31,14 +31,17 @@ import {
 } from "../../lib/public-obligations.mjs";
 import {
   getPublicPayrollRegimeBreakdown,
+  getPublicPayrollCompensationDistribution,
   getPublicPayrollCoverage,
   getPublicPayrollMonths,
+  payrollCompensationMatchesMonth,
   payrollRegimeBreakdownMatchesMonth,
   type PublicPayrollMonth,
 } from "../../lib/public-payroll.mjs";
 import FinancePayrollCoverage from "./finance-payroll-coverage";
 import FinancePayrollHistory from "./finance-payroll-history";
 import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
+import FinancePayrollCompensation from "./finance-payroll-compensation";
 import FinancePayrollSources from "./finance-payroll-sources";
 
 export const revalidate = 300;
@@ -257,6 +260,17 @@ export default async function FinancesPage() {
     payrollRegimeResult.state === "available" &&
     payrollRegimeBreakdownMatchesMonth(payrollRegimeResult.rows, latestPayroll)
       ? payrollRegimeResult.rows
+      : [];
+  const payrollCompensationResult = latestPayroll
+    ? await getPublicPayrollCompensationDistribution(latestPayroll.referenceMonth)
+    : { state: "unavailable" as const };
+  const payrollCompensationRows =
+    payrollCompensationResult.state === "available" &&
+    payrollCompensationMatchesMonth(
+      payrollCompensationResult.rows,
+      latestPayroll,
+    )
+      ? payrollCompensationResult.rows
       : [];
   const previousPayrollMonths = payrollMonths.slice(1);
   const payrollCoverageRows =
@@ -493,6 +507,7 @@ export default async function FinancesPage() {
                   rows={payrollRegimeRows}
                   grossTotal={latestPayroll.grossAmount}
                 />
+                <FinancePayrollCompensation rows={payrollCompensationRows} />
                 <details className="finance-details">
                   <summary>Conferir cálculo, fonte e documento</summary>
                   <p className="finance-details-note">

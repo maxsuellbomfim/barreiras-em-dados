@@ -141,6 +141,12 @@ quatro recursos adicionais no portal da Prefeitura:
   descontos, líquido, quantidade de PDFs e versão metodológica. Nome, CPF,
   matrícula, cargo, lotação e valor individual não atravessam esse contrato.
   Leiaute sem essa coluna significa detalhamento indisponível, não valor zero.
+  A distribuição `payroll-compensation-bands/1.0.0` usa somente a folha regular
+  e publica seis faixas fixas de provento bruto, contagens, média e maior bruto
+  em `api.get_public_payroll_compensation_distribution`. Todas as linhas precisam
+  fechar com o total do PDF; 13º e outros componentes não entram nas faixas.
+  Nome, matrícula, CPF, cargo, lotação, desconto e líquido individual são
+  descartados antes da persistência.
 
 Nenhum desses documentos, isoladamente, representa o total da dívida do
 Município. A consolidação futura exigirá natureza da obrigação, competência,

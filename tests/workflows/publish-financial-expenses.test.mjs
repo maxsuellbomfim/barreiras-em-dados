@@ -15,6 +15,7 @@ test("workflow de despesas usa o publicador versionado e limite seguro", () => {
   assert.match(workflow, /publish_public_obligations/);
   assert.match(workflow, /publish_payroll_reports/);
   assert.match(workflow, /publish_payroll_regime_breakdowns/);
+  assert.match(workflow, /publish_payroll_compensation_distributions/);
   assert.match(workflow, /default: "5"/);
   assert.match(workflow, /timeout-minutes: 120/);
   assert.match(workflow, /--fiscal-year-from/);

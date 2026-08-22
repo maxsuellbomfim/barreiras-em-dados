@@ -17,6 +17,7 @@ from typing import Literal
 
 PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.4.0"
 PAYROLL_REGIME_PARSER_VERSION = "payroll-regime-breakdown/1.0.0"
+PAYROLL_COMPENSATION_PARSER_VERSION = "payroll-compensation-bands/1.0.0"
 PayrollCycle = Literal[
     "regular",
     "thirteenth_advance",
@@ -71,6 +72,24 @@ class PayrollRegimeBreakdown:
 
 
 @dataclass(frozen=True)
+class PayrollCompensationBand:
+    band_code: str
+    band_label: str
+    employee_count: int
+    gross_amount: Decimal
+
+
+@dataclass(frozen=True)
+class PayrollCompensationDistribution:
+    employee_count: int
+    gross_amount: Decimal
+    maximum_gross_amount: Decimal
+    payroll_cycle: PayrollCycle
+    bands: tuple[PayrollCompensationBand, ...]
+    parser_version: str = PAYROLL_COMPENSATION_PARSER_VERSION
+
+
+@dataclass(frozen=True)
 class _DeclaredTotal:
     employee_count: int
     gross_amount: Decimal
@@ -122,6 +141,14 @@ _REGIME_LABELS: dict[PayrollRegimeCode, str] = {
     "pensioner": "Pensionistas",
     "temporary_worker": "Trabalhadores temporários",
 }
+_COMPENSATION_BANDS: tuple[tuple[str, str, Decimal | None], ...] = (
+    ("up_to_1500", "Até R$ 1.500", Decimal("1500.00")),
+    ("from_1500_01_to_3000", "De R$ 1.500,01 a R$ 3 mil", Decimal("3000.00")),
+    ("from_3000_01_to_5000", "De R$ 3.000,01 a R$ 5 mil", Decimal("5000.00")),
+    ("from_5000_01_to_10000", "De R$ 5.000,01 a R$ 10 mil", Decimal("10000.00")),
+    ("from_10000_01_to_20000", "De R$ 10.000,01 a R$ 20 mil", Decimal("20000.00")),
+    ("above_20000", "Acima de R$ 20 mil", None),
+)
 
 
 def _amount(value: str) -> Decimal:
@@ -143,9 +170,7 @@ def _declared_total(match: re.Match[str]) -> _DeclaredTotal:
         net_amount=_amount(match.group("net")),
     )
     if total.employee_count < 1:
-        raise PayrollReportContractError(
-            "total de vínculos deve ser positivo"
-        )
+        raise PayrollReportContractError("total de vínculos deve ser positivo")
     if total.gross_amount - total.deduction_amount != total.net_amount:
         raise PayrollReportContractError(
             "aritmética declarada de provento, desconto e líquido não fecha"
@@ -155,10 +180,7 @@ def _declared_total(match: re.Match[str]) -> _DeclaredTotal:
 
 def _has_validated_header(text: str) -> bool:
     return any(
-        all(
-            field.search(line) is not None
-            for field in _REQUIRED_HEADER_FIELDS
-        )
+        all(field.search(line) is not None for field in _REQUIRED_HEADER_FIELDS)
         for line in text.splitlines()
     )
 
@@ -233,9 +255,7 @@ def parse_payroll_report_aggregate(text: str) -> PayrollReportAggregate:
             subtotals.append(total)
 
     if not subtotals:
-        raise PayrollReportContractError(
-            "nenhum subtotal de lotação reconhecido"
-        )
+        raise PayrollReportContractError("nenhum subtotal de lotação reconhecido")
     if len(grand_totals) != 1:
         raise PayrollReportContractError(
             "documento deve conter exatamente um total geral"
@@ -403,4 +423,81 @@ def parse_payroll_report_regime_breakdown(
         net_amount=reconciled.net_amount,
         payroll_cycle=overall.payroll_cycle,
         categories=categories,
+    )
+
+
+def _compensation_band(gross_amount: Decimal) -> tuple[str, str]:
+    for code, label, upper_bound in _COMPENSATION_BANDS:
+        if upper_bound is None or gross_amount <= upper_bound:
+            return code, label
+    raise AssertionError("faixa de remuneração sem cobertura")
+
+
+def parse_payroll_report_compensation_distribution(
+    text: str,
+) -> PayrollCompensationDistribution:
+    """Agrupa proventos brutos da folha regular sem conservar pessoas."""
+
+    overall = parse_payroll_report_aggregate(text)
+    if overall.payroll_cycle != "regular":
+        raise PayrollReportContractError("faixas de remuneração exigem folha regular")
+
+    grouped: dict[str, list[object]] = {}
+    row_count = 0
+    row_gross = Decimal("0.00")
+    row_deduction = Decimal("0.00")
+    row_net = Decimal("0.00")
+    maximum_gross = Decimal("0.00")
+    for line in text.splitlines():
+        amounts = _EMPLOYEE_AMOUNTS.search(line)
+        if amounts is None or "Total de Funcion" in line:
+            continue
+        if _EMPLOYEE_IDENTIFIER.match(line[: amounts.start()]) is None:
+            continue
+        gross = _amount(amounts.group("gross"))
+        deduction = _amount(amounts.group("deduction"))
+        net = _amount(amounts.group("net"))
+        if gross - deduction != net:
+            raise PayrollReportContractError(
+                "aritmética individual não fecha para agregar faixas"
+            )
+        code, label = _compensation_band(gross)
+        aggregate = grouped.setdefault(
+            code,
+            [label, 0, Decimal("0.00")],
+        )
+        aggregate[1] = int(aggregate[1]) + 1
+        aggregate[2] = Decimal(aggregate[2]) + gross
+        row_count += 1
+        row_gross += gross
+        row_deduction += deduction
+        row_net += net
+        maximum_gross = max(maximum_gross, gross)
+
+    if (
+        row_count != overall.employee_count
+        or row_gross != overall.gross_amount
+        or row_deduction != overall.deduction_amount
+        or row_net != overall.net_amount
+    ):
+        raise PayrollReportContractError(
+            "soma das faixas diverge do total geral declarado"
+        )
+
+    bands = tuple(
+        PayrollCompensationBand(
+            band_code=code,
+            band_label=label,
+            employee_count=int(grouped[code][1]),
+            gross_amount=Decimal(grouped[code][2]),
+        )
+        for code, label, _upper_bound in _COMPENSATION_BANDS
+        if code in grouped
+    )
+    return PayrollCompensationDistribution(
+        employee_count=row_count,
+        gross_amount=row_gross,
+        maximum_gross_amount=maximum_gross,
+        payroll_cycle=overall.payroll_cycle,
+        bands=bands,
     )

@@ -44,6 +44,25 @@ const PAYROLL_REGIME_FIELDS = [
   "regime_label",
   "source_document_count",
 ];
+const PAYROLL_COMPENSATION_VERSION = "payroll-compensation-monthly/1.0.0";
+const PAYROLL_COMPENSATION_LABELS = new Map([
+  ["up_to_1500", "Até R$ 1.500"],
+  ["from_1500_01_to_3000", "De R$ 1.500,01 a R$ 3 mil"],
+  ["from_3000_01_to_5000", "De R$ 3.000,01 a R$ 5 mil"],
+  ["from_5000_01_to_10000", "De R$ 5.000,01 a R$ 10 mil"],
+  ["from_10000_01_to_20000", "De R$ 10.000,01 a R$ 20 mil"],
+  ["above_20000", "Acima de R$ 20 mil"],
+]);
+const PAYROLL_COMPENSATION_FIELDS = [
+  "average_gross_amount",
+  "band_code",
+  "band_label",
+  "employee_count",
+  "gross_amount",
+  "maximum_gross_amount",
+  "methodology_version",
+  "reference_month",
+];
 
 function text(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -313,6 +332,61 @@ export function payrollRegimeBreakdownMatchesMonth(rows, month) {
   );
 }
 
+export function parsePublicPayrollCompensationRow(row) {
+  if (typeof row !== "object" || row === null) return null;
+  if (
+    Object.keys(row).sort().join("|") !==
+    PAYROLL_COMPENSATION_FIELDS.join("|")
+  ) {
+    return null;
+  }
+  const referenceMonth = text(row.reference_month);
+  const bandCode = text(row.band_code);
+  const bandLabel = text(row.band_label);
+  const employeeCount = integer(row.employee_count, 1);
+  const grossAmount = decimal(row.gross_amount);
+  const averageGrossAmount = decimal(row.average_gross_amount);
+  const maximumGrossAmount = decimal(row.maximum_gross_amount);
+  const methodologyVersion = text(row.methodology_version);
+  if (
+    referenceMonth === null ||
+    !ISO_DATE.test(referenceMonth) ||
+    bandCode === null ||
+    bandLabel === null ||
+    PAYROLL_COMPENSATION_LABELS.get(bandCode) !== bandLabel ||
+    employeeCount === null ||
+    grossAmount === null ||
+    averageGrossAmount === null ||
+    maximumGrossAmount === null ||
+    cents(maximumGrossAmount) < cents(averageGrossAmount) ||
+    methodologyVersion !== PAYROLL_COMPENSATION_VERSION
+  ) {
+    return null;
+  }
+  return {
+    referenceMonth,
+    bandCode,
+    bandLabel,
+    employeeCount,
+    grossAmount,
+    averageGrossAmount,
+    maximumGrossAmount,
+    methodologyVersion,
+  };
+}
+
+export function payrollCompensationMatchesMonth(rows, month) {
+  if (!Array.isArray(rows) || rows.length < 1 || month === null) return false;
+  return (
+    rows.every((row) => row.referenceMonth === month.referenceMonth) &&
+    new Set(rows.map((row) => row.bandCode)).size === rows.length &&
+    new Set(rows.map((row) => row.averageGrossAmount)).size === 1 &&
+    new Set(rows.map((row) => row.maximumGrossAmount)).size === 1 &&
+    rows.reduce((sum, row) => sum + row.employeeCount, 0) ===
+      month.employeeCount
+  );
+}
+
 export async function getPublicPayrollMonths(maxMonths = 24) {
   const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
   const publishableKey =
@@ -461,6 +535,52 @@ export async function getPublicPayrollRegimeBreakdown(referenceMonth) {
       rows.some((row) => row === null) ||
       rows.some((row) => row.referenceMonth !== referenceMonth) ||
       new Set(rows.map((row) => row.regimeCode)).size !== rows.length
+    ) {
+      return { state: "unavailable" };
+    }
+    return { state: "available", rows };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function getPublicPayrollCompensationDistribution(referenceMonth) {
+  const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const publishableKey =
+    process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (
+    typeof referenceMonth !== "string" ||
+    !ISO_DATE.test(referenceMonth) ||
+    !supabaseUrl?.startsWith("https://") ||
+    !publishableKey?.startsWith("sb_publishable_")
+  ) {
+    return { state: "unavailable" };
+  }
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/get_public_payroll_compensation_distribution`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Profile": "api",
+          apikey: publishableKey,
+          "Content-Profile": "api",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ target_reference_month: referenceMonth }),
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) return { state: "unavailable" };
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return { state: "unavailable" };
+    const rows = payload.map(parsePublicPayrollCompensationRow);
+    if (
+      rows.some((row) => row === null) ||
+      rows.some((row) => row.referenceMonth !== referenceMonth) ||
+      new Set(rows.map((row) => row.bandCode)).size !== rows.length
     ) {
       return { state: "unavailable" };
     }

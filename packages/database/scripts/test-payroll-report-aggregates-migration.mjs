@@ -1172,6 +1172,113 @@ try {
       `campo proibido no agregado por vínculo: ${forbidden}`,
     );
   }
+  const compensationContract = await database.query(`
+    select
+      to_regclass(
+        'hr.payroll_report_compensation_distributions'
+      )::text as table_name,
+      to_regprocedure(
+        'api.get_public_payroll_compensation_distribution(date)'
+      )::text as rpc,
+      to_regprocedure(
+        'hr.get_pending_payroll_compensation_documents(integer,date)'
+      )::text as pending_rpc,
+      has_table_privilege(
+        'anon', 'hr.payroll_report_compensation_distributions', 'SELECT'
+      ) as anon_select,
+      has_function_privilege(
+        'anon',
+        'api.get_public_payroll_compensation_distribution(date)', 'EXECUTE'
+      ) as anon_execute,
+      has_function_privilege(
+        'collector_worker',
+        'api.get_public_payroll_compensation_distribution(date)', 'EXECUTE'
+      ) as collector_execute,
+      (select relrowsecurity and relforcerowsecurity
+         from pg_class
+        where oid =
+          'hr.payroll_report_compensation_distributions'::regclass) as rls
+  `);
+  assert.deepEqual(compensationContract.rows, [{
+    table_name: "hr.payroll_report_compensation_distributions",
+    rpc: "api.get_public_payroll_compensation_distribution(date)",
+    pending_rpc: "hr.get_pending_payroll_compensation_documents(integer,date)",
+    anon_select: false,
+    anon_execute: true,
+    collector_execute: true,
+    rls: true,
+  }]);
+  await database.exec("set role collector_worker");
+  const pendingCompensationDocuments = await database.query(`
+    select aggregate_id, artifact_id, reference_month
+    from hr.get_pending_payroll_compensation_documents(5, '2026-07-01')
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(pendingCompensationDocuments.rows, [{
+    aggregate_id: "00000000-0000-0000-0000-000000009025",
+    artifact_id: "00000000-0000-0000-0000-000000009006",
+    reference_month: new Date("2026-07-01T00:00:00.000Z"),
+  }]);
+  await database.exec(`
+    insert into hr.payroll_report_compensation_distributions (
+      payroll_report_aggregate_id, bands, maximum_gross_amount,
+      parser_version, validated_at
+    ) values (
+      '00000000-0000-0000-0000-000000009025',
+      '[
+        {"band_code":"up_to_1500","band_label":"Até R$ 1.500","employee_count":1000,"gross_amount":"1000000.00"},
+        {"band_code":"above_20000","band_label":"Acima de R$ 20 mil","employee_count":7184,"gross_amount":"33971971.48"}
+      ]'::jsonb,
+      70000.00, 'payroll-compensation-bands/1.0.0',
+      '2026-08-22 04:35:00+00'
+    );
+  `);
+  await database.exec("set role anon");
+  await assert.rejects(
+    database.query("select * from hr.payroll_report_compensation_distributions"),
+    /permission denied/,
+  );
+  const publicCompensation = await database.query(`
+    select *
+    from api.get_public_payroll_compensation_distribution('2026-07-01')
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(publicCompensation.rows, [
+    {
+      reference_month: "2026-07-01",
+      band_code: "up_to_1500",
+      band_label: "Até R$ 1.500",
+      employee_count: 1000,
+      gross_amount: "1000000.00",
+      average_gross_amount: "4273.21",
+      maximum_gross_amount: "70000.00",
+      methodology_version: "payroll-compensation-monthly/1.0.0",
+    },
+    {
+      reference_month: "2026-07-01",
+      band_code: "above_20000",
+      band_label: "Acima de R$ 20 mil",
+      employee_count: 7184,
+      gross_amount: "33971971.48",
+      average_gross_amount: "4273.21",
+      maximum_gross_amount: "70000.00",
+      methodology_version: "payroll-compensation-monthly/1.0.0",
+    },
+  ]);
+  const publicCompensationKeys = new Set(
+    publicCompensation.rows.flatMap((row) =>
+      Object.keys(row).map((key) => key.toLowerCase())
+    ),
+  );
+  for (const forbidden of [
+    "cpf", "nome", "matricula", "cargo", "desconto", "raw_record",
+  ]) {
+    assert.equal(
+      publicCompensationKeys.has(forbidden),
+      false,
+      `campo proibido na distribuição da folha: ${forbidden}`,
+    );
+  }
   console.log("Agregados mensais da folha: imutabilidade, linhagem e RPC segura verificados.");
 } finally {
   await database.close();
