@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 
 from barreiras_collectors.connectors.cgu_federal_amendments import (
     MAIN_COLUMNS,
+    MAIN_COLUMNS_WITH_SUPPORTER,
     CGUFederalAmendmentArchiveError,
     fetch_cgu_federal_amendments,
     parse_cgu_federal_amendments_archive,
@@ -148,6 +149,20 @@ def download_response(body: bytes) -> HttpResponse:
 
 
 class CGUFederalAmendmentParserTests(unittest.TestCase):
+    def test_accepts_current_official_header_with_supporter_column(self) -> None:
+        selected = parse_cgu_federal_amendments_archive(
+            archive_bytes(
+                [amendment_row(**{"Possui Apoiador/Solicitante? ": "Não"})],
+                main_columns=MAIN_COLUMNS_WITH_SUPPORTER,
+            )
+        )
+
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]["amendment_code"], "202340720005")
+        self.assertEqual(selected[0]["municipality_ibge"], "2903201")
+        self.assertEqual(selected[0]["committed_amount"], "199925.68")
+        self.assertNotIn("supporter", selected[0])
+
     def test_filters_by_exact_ibge_and_preserves_financial_stages_as_decimals(
         self,
     ) -> None:
