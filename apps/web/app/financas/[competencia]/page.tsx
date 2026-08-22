@@ -11,10 +11,10 @@ import {
 import {
   getPublicExpenseLines,
   getPublicExpenseReports,
-  type PublicExpenseLine,
 } from "../../../lib/expenses";
 import { getPublicMonthlyFinanceDetail } from "../../../lib/monthly-finance";
 import { formatBrlDecimal } from "../../../lib/revenues";
+import { FinanceExpenseLineCard } from "../finance-expense-line-card";
 
 export const revalidate = 300;
 
@@ -112,42 +112,6 @@ function ExpenseEvidence({
         <p><strong>PDF:</strong> <code>{document.artifactSha256}</code></p>
         <p><strong>Resposta da fonte:</strong> <code>{document.sourceArtifactSha256}</code></p>
       </details>
-    </article>
-  );
-}
-
-function ExpenseLineCard({ line }: Readonly<{ line: PublicExpenseLine }>) {
-  return (
-    <article className="digest-card finance-negative-card">
-      <div className="track-top">
-        <span>Linha {line.lineNumber.toLocaleString("pt-BR")}</span>
-        <span className="track-status">{line.expenseCode}</span>
-      </div>
-      <h3 className="procurement-object">{line.description}</h3>
-      <dl className="procurement-values">
-        <div className="revenue-primary-value">
-          <dt>Pago neste mês</dt>
-          <dd>{formatBrlDecimal(line.paidPeriodAmount)}</dd>
-        </div>
-        <div>
-          <dt>Empenhado neste mês</dt>
-          <dd>{formatBrlDecimal(line.committedPeriodAmount)}</dd>
-        </div>
-        <div>
-          <dt>Liquidado neste mês</dt>
-          <dd>{formatBrlDecimal(line.liquidatedPeriodAmount)}</dd>
-        </div>
-        <div>
-          <dt>Valor atualizado</dt>
-          <dd>{formatBrlDecimal(line.updatedAmount)}</dd>
-        </div>
-      </dl>
-      <p className="act-evidence">
-        Código da fonte {line.sourceCode} ·{" "}
-        <a href={line.documentSourceUrl} target="_blank" rel="noreferrer">
-          conferir no documento oficial
-        </a>
-      </p>
     </article>
   );
 }
@@ -291,7 +255,11 @@ export default async function MonthlyFinancePage({ params }: PageProps) {
               <summary>Ver as linhas e os valores oficiais</summary>
               <div className="digest-grid">
                 {expenseLines.map((line) => (
-                  <ExpenseLineCard line={line} key={line.expenseLineId} />
+                  <FinanceExpenseLineCard
+                    context="month"
+                    line={line}
+                    key={line.expenseLineId}
+                  />
                 ))}
               </div>
             </details>
