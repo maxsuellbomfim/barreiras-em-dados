@@ -622,6 +622,8 @@ ADR adicional.
 - [x] classificar folha regular, adiantamento do 13º e parcela final do 13º;
 - [x] somar valores por código e contar vínculos somente na folha regular;
 - [x] expor todos os documentos, hashes e datas usados no total mensal;
+- [x] modelar o detalhamento agregado por regime/vínculo com reconciliação
+  integral e sem campos pessoais;
 - [x] reprocessar 2026 com o parser versionado e validar a projeção mensal em
   produção;
 - [ ] executar o backfill de 2025 em lotes idempotentes, incluindo os ciclos do
@@ -683,6 +685,14 @@ gate pelo título oficial exato, equipara `null` a tipo não informado e conserv
 estagiários e terceirizados fora da folha regular. Janeiro a julho de 2021 devem
 ser repetidos após a implantação; mês não reprocessado não será descrito como
 ausência da fonte.
+
+Ainda em 22/08/2026, o PDF regular de julho de 2026 foi auditado linha a linha
+para a classificação `Regime/Vínculo`. As 8.184 linhas reconciliaram exatamente
+com o agregado mensal em oito grupos oficiais. O ADR 0076 define uma tabela
+privada imutável, uma RPC pública mínima e uma sanfona na página de Finanças.
+O workflow só encerra uma competência explícita como sucesso quando todos os
+componentes vigentes do mês tiverem esse detalhamento. Meses históricos cujo
+leiaute não contenha a coluna não recebem estimativa nem categoria inferida.
 
 ## Backlog deliberadamente adiado
 

@@ -54,6 +54,33 @@ export type PublicPayrollCoverageResult =
     }>
   | Readonly<{ state: "unavailable" }>;
 
+export type PublicPayrollRegimeRow = Readonly<{
+  referenceMonth: string;
+  regimeCode:
+    | "statutory"
+    | "commissioned"
+    | "selection_process"
+    | "ceded"
+    | "political_agent"
+    | "guardianship_council"
+    | "pensioner"
+    | "temporary_worker";
+  regimeLabel: string;
+  employeeCount: number;
+  grossAmount: string;
+  deductionAmount: string;
+  netAmount: string;
+  sourceDocumentCount: number;
+  methodologyVersion: "payroll-regime-monthly/1.0.0";
+}>;
+
+export type PublicPayrollRegimeResult =
+  | Readonly<{
+      state: "available";
+      rows: readonly PublicPayrollRegimeRow[];
+    }>
+  | Readonly<{ state: "unavailable" }>;
+
 export function parsePublicPayrollRow(
   row: Record<string, unknown>,
 ): PublicPayrollMonth | null;
@@ -69,3 +96,16 @@ export function parsePublicPayrollCoverageRow(
 export function getPublicPayrollCoverage(
   maxMonths?: number,
 ): Promise<PublicPayrollCoverageResult>;
+
+export function parsePublicPayrollRegimeRow(
+  row: Record<string, unknown>,
+): PublicPayrollRegimeRow | null;
+
+export function payrollRegimeBreakdownMatchesMonth(
+  rows: readonly PublicPayrollRegimeRow[],
+  month: PublicPayrollMonth | null,
+): boolean;
+
+export function getPublicPayrollRegimeBreakdown(
+  referenceMonth: string,
+): Promise<PublicPayrollRegimeResult>;

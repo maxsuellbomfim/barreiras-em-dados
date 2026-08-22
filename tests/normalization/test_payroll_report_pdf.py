@@ -7,6 +7,7 @@ from pathlib import Path
 from barreiras_normalization.payroll_report_pdf import (
     PayrollReportContractError,
     parse_payroll_report_aggregate,
+    parse_payroll_report_regime_breakdown,
 )
 
 FIXTURE = (
@@ -17,7 +18,103 @@ FIXTURE = (
 )
 
 
+def regime_report(*rows: str, total: str) -> str:
+    return "\n".join(
+        (
+            "PREFEITURA MUNICIPAL DE BARREIRAS",
+            "Listagem Sintética E-TCM",
+            "FOLHA.........: 1-Normal, 3-Complementar, 9-Rescisão",
+            (
+                "Mat.   Nome                  Cargo                 "
+                "Regime/Vínculo       Local de Trabalho       "
+                "Provento Desconto Líquido"
+            ),
+            *rows,
+            f"Total de Funcionários: {total}",
+            f"Total de Funcionários Geral: {total}",
+        )
+    )
+
+
 class PayrollReportPdfTests(unittest.TestCase):
+    def test_groups_only_reconciled_rows_by_official_employment_regime(
+        self,
+    ) -> None:
+        report = regime_report(
+            (
+                "100    PESSOA UM             PROFESSOR             "
+                "Estatutário          ESCOLA MUNICIPAL        "
+                "3.000,00 500,00 2.500,00"
+            ),
+            (
+                "101    PESSOA DOIS           ASSESSOR              "
+                "Cargo em Comissão    GABINETE                "
+                "2.000,00 250,00 1.750,00"
+            ),
+            total="2 5.000,00 750,00 4.250,00",
+        )
+
+        breakdown = parse_payroll_report_regime_breakdown(report)
+
+        by_code = {item.regime_code: item for item in breakdown.categories}
+        self.assertEqual(breakdown.employee_count, 2)
+        self.assertEqual(breakdown.gross_amount, Decimal("5000.00"))
+        self.assertEqual(set(by_code), {"statutory", "commissioned"})
+        self.assertEqual(by_code["statutory"].employee_count, 1)
+        self.assertEqual(by_code["statutory"].gross_amount, Decimal("3000.00"))
+        self.assertEqual(by_code["commissioned"].net_amount, Decimal("1750.00"))
+        self.assertEqual(
+            breakdown.parser_version,
+            "payroll-regime-breakdown/1.0.0",
+        )
+        self.assertFalse(hasattr(breakdown, "people"))
+        self.assertFalse(hasattr(breakdown, "names"))
+
+    def test_accepts_transfer_marker_observed_in_official_employee_row(
+        self,
+    ) -> None:
+        report = regime_report(
+            (
+                "(T)    PESSOA TRANSFERIDA    ANALISTA              "
+                "Estatutário          SECRETARIA              "
+                "28.140,83 9.279,01 18.861,82"
+            ),
+            total="1 28.140,83 9.279,01 18.861,82",
+        )
+
+        breakdown = parse_payroll_report_regime_breakdown(report)
+
+        self.assertEqual(breakdown.employee_count, 1)
+        self.assertEqual(breakdown.categories[0].regime_code, "statutory")
+
+    def test_rejects_regime_breakdown_when_employee_rows_do_not_reconcile(
+        self,
+    ) -> None:
+        report = regime_report(
+            (
+                "100    PESSOA UM             PROFESSOR             "
+                "Estatutário          ESCOLA MUNICIPAL        "
+                "3.000,00 500,00 2.500,00"
+            ),
+            total="2 5.000,00 750,00 4.250,00",
+        )
+
+        with self.assertRaisesRegex(PayrollReportContractError, "regimes"):
+            parse_payroll_report_regime_breakdown(report)
+
+    def test_rejects_unknown_regime_instead_of_guessing_category(self) -> None:
+        report = regime_report(
+            (
+                "100    PESSOA UM             PROFESSOR             "
+                "Vínculo desconhecido SECRETARIA              "
+                "3.000,00 500,00 2.500,00"
+            ),
+            total="1 3.000,00 500,00 2.500,00",
+        )
+
+        with self.assertRaisesRegex(PayrollReportContractError, "vínculo"):
+            parse_payroll_report_regime_breakdown(report)
+
     def test_parses_only_reconciled_aggregate_totals(self) -> None:
         report = parse_payroll_report_aggregate(
             FIXTURE.read_text(encoding="utf-8")

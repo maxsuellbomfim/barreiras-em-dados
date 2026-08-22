@@ -5158,6 +5158,88 @@ footer {
   line-height: 1.6;
 }
 
+.finance-payroll-regimes {
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: color-mix(in srgb, var(--surface) 94%, var(--accent) 6%);
+}
+
+.finance-payroll-regimes > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.finance-payroll-regimes > summary small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.finance-payroll-regimes-intro,
+.finance-payroll-regimes > .finance-details-note {
+  margin: 0;
+  padding: 0 1.1rem 1rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.finance-payroll-regimes-list {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0 1.1rem 1rem;
+}
+
+.finance-payroll-regimes-list article {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+}
+
+.finance-payroll-regimes-list header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.finance-payroll-regimes-list h4,
+.finance-payroll-regimes-list strong {
+  margin: 0;
+}
+
+.finance-payroll-regimes-list strong {
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+}
+
+.finance-payroll-regimes-list dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.finance-payroll-regimes-list dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.finance-payroll-regimes-list dd {
+  margin: 0.25rem 0 0;
+  font-weight: 750;
+}
+
 .finance-payroll-history {
   margin-top: 0.85rem;
   border: 1px solid rgba(28, 40, 61, 0.1);
@@ -6474,6 +6556,17 @@ footer {
 }
 
 @media (max-width: 760px) {
+  .finance-payroll-regimes-list dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .finance-payroll-regimes-list header,
+  .finance-payroll-regimes > summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
   .transfer-author-audit-heading {
     display: grid;
   }

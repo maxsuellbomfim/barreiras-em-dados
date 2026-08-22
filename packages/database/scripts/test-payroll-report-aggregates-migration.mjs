@@ -1044,6 +1044,129 @@ try {
       `campo proibido na cobertura: ${forbidden}`,
     );
   }
+  const regimeContract = await database.query(`
+    select
+      to_regclass('hr.payroll_report_regime_breakdowns')::text as table_name,
+      to_regprocedure(
+        'api.get_public_payroll_regime_breakdown(date)'
+      )::text as rpc,
+      to_regprocedure(
+        'hr.get_pending_payroll_regime_documents(integer,date)'
+      )::text as pending_rpc,
+      has_table_privilege(
+        'anon', 'hr.payroll_report_regime_breakdowns', 'SELECT'
+      ) as anon_select,
+      has_function_privilege(
+        'anon', 'api.get_public_payroll_regime_breakdown(date)', 'EXECUTE'
+      ) as anon_execute,
+      (select relrowsecurity and relforcerowsecurity
+         from pg_class
+        where oid = 'hr.payroll_report_regime_breakdowns'::regclass) as rls
+  `);
+  assert.deepEqual(regimeContract.rows, [{
+    table_name: "hr.payroll_report_regime_breakdowns",
+    rpc: "api.get_public_payroll_regime_breakdown(date)",
+    pending_rpc: "hr.get_pending_payroll_regime_documents(integer,date)",
+    anon_select: false,
+    anon_execute: true,
+    rls: true,
+  }]);
+  await database.exec("set role collector_worker");
+  const pendingRegimeDocuments = await database.query(`
+    select aggregate_id, artifact_id, reference_month
+    from hr.get_pending_payroll_regime_documents(5, '2026-07-01')
+    order by aggregate_id
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(pendingRegimeDocuments.rows, [
+    {
+      aggregate_id: "00000000-0000-0000-0000-000000009025",
+      artifact_id: "00000000-0000-0000-0000-000000009006",
+      reference_month: new Date("2026-07-01T00:00:00.000Z"),
+    },
+    {
+      aggregate_id: "00000000-0000-0000-0000-000000009026",
+      artifact_id: "00000000-0000-0000-0000-000000009011",
+      reference_month: new Date("2026-07-01T00:00:00.000Z"),
+    },
+  ]);
+  await database.exec(`
+    insert into hr.payroll_report_regime_breakdowns (
+      payroll_report_aggregate_id, categories, parser_version, validated_at
+    ) values
+      (
+        '00000000-0000-0000-0000-000000009025',
+        '[
+          {"regime_code":"commissioned","regime_label":"Cargos em comissão","employee_count":690,"gross_amount":"2965449.81","deduction_amount":"477684.00","net_amount":"2487765.81"},
+          {"regime_code":"statutory","regime_label":"Estatutários","employee_count":7494,"gross_amount":"32006521.67","deduction_amount":"9945298.78","net_amount":"22061222.89"}
+        ]'::jsonb,
+        'payroll-regime-breakdown/1.0.0', '2026-08-22 04:30:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009026',
+        '[
+          {"regime_code":"statutory","regime_label":"Estatutários","employee_count":8000,"gross_amount":"5000000.00","deduction_amount":"500000.00","net_amount":"4500000.00"}
+        ]'::jsonb,
+        'payroll-regime-breakdown/1.0.0', '2026-08-22 04:30:00+00'
+      );
+  `);
+  await assert.rejects(
+    database.exec(`
+      insert into hr.payroll_report_regime_breakdowns (
+        payroll_report_aggregate_id, categories, parser_version, validated_at
+      ) values (
+        '00000000-0000-0000-0000-000000009008',
+        '[{"regime_code":"statutory","regime_label":"Estatutários","employee_count":8184,"gross_amount":"1.00","deduction_amount":"0.00","net_amount":"1.00","name":"proibido"}]'::jsonb,
+        'payroll-regime-breakdown/1.0.0', '2026-08-22 04:31:00+00'
+      )
+    `),
+    /categorias do vínculo|regime breakdown/,
+  );
+  await database.exec("set role anon");
+  await assert.rejects(
+    database.query("select * from hr.payroll_report_regime_breakdowns"),
+    /permission denied/,
+  );
+  const publicRegimes = await database.query(`
+    select *
+    from api.get_public_payroll_regime_breakdown('2026-07-01')
+    order by regime_code
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(publicRegimes.rows, [
+    {
+      reference_month: "2026-07-01",
+      regime_code: "commissioned",
+      regime_label: "Cargos em comissão",
+      employee_count: 690,
+      gross_amount: "2965449.81",
+      deduction_amount: "477684.00",
+      net_amount: "2487765.81",
+      source_document_count: 2,
+      methodology_version: "payroll-regime-monthly/1.0.0",
+    },
+    {
+      reference_month: "2026-07-01",
+      regime_code: "statutory",
+      regime_label: "Estatutários",
+      employee_count: 7494,
+      gross_amount: "37006521.67",
+      deduction_amount: "10445298.78",
+      net_amount: "26561222.89",
+      source_document_count: 2,
+      methodology_version: "payroll-regime-monthly/1.0.0",
+    },
+  ]);
+  const publicRegimeKeys = new Set(
+    publicRegimes.rows.flatMap((row) => Object.keys(row).map((key) => key.toLowerCase())),
+  );
+  for (const forbidden of ["cpf", "nome", "matricula", "cargo", "raw_record"]) {
+    assert.equal(
+      publicRegimeKeys.has(forbidden),
+      false,
+      `campo proibido no agregado por vínculo: ${forbidden}`,
+    );
+  }
   console.log("Agregados mensais da folha: imutabilidade, linhagem e RPC segura verificados.");
 } finally {
   await database.close();

@@ -9,15 +9,28 @@ coincide com a soma de todos os subtotais declarados no documento.
 from __future__ import annotations
 
 import re
+import unicodedata
+from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
 PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.4.0"
+PAYROLL_REGIME_PARSER_VERSION = "payroll-regime-breakdown/1.0.0"
 PayrollCycle = Literal[
     "regular",
     "thirteenth_advance",
     "thirteenth_final",
+]
+PayrollRegimeCode = Literal[
+    "statutory",
+    "commissioned",
+    "selection_process",
+    "ceded",
+    "political_agent",
+    "guardianship_council",
+    "pensioner",
+    "temporary_worker",
 ]
 
 
@@ -34,6 +47,27 @@ class PayrollReportAggregate:
     subtotal_count: int
     payroll_cycle: PayrollCycle
     parser_version: str = PAYROLL_REPORT_PARSER_VERSION
+
+
+@dataclass(frozen=True)
+class PayrollRegimeAggregate:
+    regime_code: PayrollRegimeCode
+    regime_label: str
+    employee_count: int
+    gross_amount: Decimal
+    deduction_amount: Decimal
+    net_amount: Decimal
+
+
+@dataclass(frozen=True)
+class PayrollRegimeBreakdown:
+    employee_count: int
+    gross_amount: Decimal
+    deduction_amount: Decimal
+    net_amount: Decimal
+    payroll_cycle: PayrollCycle
+    categories: tuple[PayrollRegimeAggregate, ...]
+    parser_version: str = PAYROLL_REGIME_PARSER_VERSION
 
 
 @dataclass(frozen=True)
@@ -72,6 +106,22 @@ _PAYROLL_FIELD = re.compile(
     r"(?P<before>.*?)FOLHA\s*\.{3,}\s*:\s*(?P<after>.*)",
     re.IGNORECASE,
 )
+_EMPLOYEE_AMOUNTS = re.compile(
+    rf"(?P<gross>{_AMOUNT})\s+"
+    rf"(?P<deduction>{_AMOUNT})\s+"
+    rf"(?P<net>{_AMOUNT})\s*$"
+)
+_EMPLOYEE_IDENTIFIER = re.compile(r"^\s*(?:\d+|\([A-Z]\))\s+")
+_REGIME_LABELS: dict[PayrollRegimeCode, str] = {
+    "statutory": "Estatutários",
+    "commissioned": "Cargos em comissão",
+    "selection_process": "Processo seletivo",
+    "ceded": "Cedidos",
+    "political_agent": "Agentes políticos",
+    "guardianship_council": "Conselho tutelar",
+    "pensioner": "Pensionistas",
+    "temporary_worker": "Trabalhadores temporários",
+}
 
 
 def _amount(value: str) -> Decimal:
@@ -219,4 +269,138 @@ def parse_payroll_report_aggregate(text: str) -> PayrollReportAggregate:
         net_amount=grand.net_amount,
         subtotal_count=len(subtotals),
         payroll_cycle=payroll_cycle,
+    )
+
+
+def _normalized_regime_label(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value.casefold())
+    without_marks = "".join(
+        character
+        for character in decomposed
+        if not unicodedata.combining(character) and character != "�"
+    )
+    return re.sub(r"[^a-z0-9]+", " ", without_marks).strip()
+
+
+def _regime_code(value: str) -> PayrollRegimeCode:
+    normalized = _normalized_regime_label(value)
+    candidates: list[PayrollRegimeCode] = []
+    known_regimes: tuple[tuple[str, PayrollRegimeCode], ...] = (
+        ("estatut", "statutory"),
+        ("cargo em comiss", "commissioned"),
+        ("processo seletivo", "selection_process"),
+        ("cedid", "ceded"),
+        ("agente politico", "political_agent"),
+        ("conselho tutelar", "guardianship_council"),
+        ("pensionista", "pensioner"),
+        ("trabalhador tempor", "temporary_worker"),
+    )
+    for prefix, code in known_regimes:
+        if normalized.startswith(prefix):
+            candidates.append(code)
+    if len(candidates) != 1:
+        raise PayrollReportContractError(
+            "regime/vínculo ausente, desconhecido ou ambíguo"
+        )
+    return candidates[0]
+
+
+def parse_payroll_report_regime_breakdown(
+    text: str,
+) -> PayrollRegimeBreakdown:
+    """Agrupa linhas por vínculo somente quando fecha com o total oficial."""
+
+    overall = parse_payroll_report_aggregate(text)
+    header_positions: tuple[int, int] | None = None
+    grouped: dict[PayrollRegimeCode, list[Decimal | int]] = defaultdict(
+        lambda: [
+            0,
+            Decimal("0.00"),
+            Decimal("0.00"),
+            Decimal("0.00"),
+        ]
+    )
+
+    for line in text.splitlines():
+        if "Regime/V" in line and "Local de Trabalho" in line:
+            regime_start = line.index("Regime/V")
+            local_start = line.index("Local de Trabalho")
+            if regime_start >= local_start:
+                raise PayrollReportContractError(
+                    "colunas de regime/vínculo não reconhecidas"
+                )
+            header_positions = (regime_start, local_start)
+            continue
+
+        amounts = _EMPLOYEE_AMOUNTS.search(line)
+        if amounts is None or "Total de Funcion" in line:
+            continue
+        if _EMPLOYEE_IDENTIFIER.match(line[: amounts.start()]) is None:
+            continue
+        if header_positions is None:
+            raise PayrollReportContractError(
+                "linha funcional encontrada antes do cabeçalho de regime/vínculo"
+            )
+        regime_start, local_start = header_positions
+        if len(line) < local_start:
+            raise PayrollReportContractError(
+                "linha funcional truncada antes do regime/vínculo"
+            )
+        code = _regime_code(line[regime_start:local_start])
+        gross = _amount(amounts.group("gross"))
+        deduction = _amount(amounts.group("deduction"))
+        net = _amount(amounts.group("net"))
+        if gross - deduction != net:
+            raise PayrollReportContractError(
+                "aritmética individual não fecha para agregar regime/vínculo"
+            )
+        aggregate = grouped[code]
+        aggregate[0] += 1
+        aggregate[1] += gross
+        aggregate[2] += deduction
+        aggregate[3] += net
+
+    categories = tuple(
+        PayrollRegimeAggregate(
+            regime_code=code,
+            regime_label=_REGIME_LABELS[code],
+            employee_count=int(values[0]),
+            gross_amount=Decimal(values[1]),
+            deduction_amount=Decimal(values[2]),
+            net_amount=Decimal(values[3]),
+        )
+        for code, values in sorted(grouped.items())
+    )
+    reconciled = _DeclaredTotal(
+        employee_count=sum(item.employee_count for item in categories),
+        gross_amount=sum(
+            (item.gross_amount for item in categories),
+            start=Decimal("0.00"),
+        ),
+        deduction_amount=sum(
+            (item.deduction_amount for item in categories),
+            start=Decimal("0.00"),
+        ),
+        net_amount=sum(
+            (item.net_amount for item in categories),
+            start=Decimal("0.00"),
+        ),
+    )
+    expected = _DeclaredTotal(
+        employee_count=overall.employee_count,
+        gross_amount=overall.gross_amount,
+        deduction_amount=overall.deduction_amount,
+        net_amount=overall.net_amount,
+    )
+    if not categories or reconciled != expected:
+        raise PayrollReportContractError(
+            "soma dos regimes/vínculos diverge do total geral declarado"
+        )
+    return PayrollRegimeBreakdown(
+        employee_count=reconciled.employee_count,
+        gross_amount=reconciled.gross_amount,
+        deduction_amount=reconciled.deduction_amount,
+        net_amount=reconciled.net_amount,
+        payroll_cycle=overall.payroll_cycle,
+        categories=categories,
     )
