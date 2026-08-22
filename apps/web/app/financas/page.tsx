@@ -207,7 +207,6 @@ function formatAmount(value: string | null, unavailable = "não disponível"): s
 export default async function FinancesPage() {
   const [
     expensesResult,
-    expenseLinesResult,
     revenuesResult,
     documentsResult,
     monthlyResult,
@@ -219,7 +218,6 @@ export default async function FinancesPage() {
     payrollCoverageResult,
   ] = await Promise.all([
     getPublicExpenseReports(),
-    getPublicExpenseLines(),
     getPublicRevenues(),
     getPublicFinanceDocuments(),
     getPublicMonthlyFinanceClosures(),
@@ -232,6 +230,13 @@ export default async function FinancesPage() {
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
+  const sortedExpenseReports = [...expenseReports].sort((left, right) =>
+    right.periodEnd.localeCompare(left.periodEnd),
+  );
+  const latestExpenseReport = sortedExpenseReports[0] ?? null;
+  const expenseLinesResult = latestExpenseReport
+    ? await getPublicExpenseLines(latestExpenseReport.expenseReportId, 25)
+    : { state: "unavailable" as const };
   const expenseLines =
     expenseLinesResult.state === "available" ? expenseLinesResult.lines : [];
   const revenues =
@@ -306,9 +311,6 @@ export default async function FinancesPage() {
   const obligationDocuments = sortedDocuments.filter(isObligationDocument);
   const operationalDocuments = sortedDocuments.filter(
     (document) => !isFiscalDocument(document) && !isObligationDocument(document),
-  );
-  const sortedExpenseReports = [...expenseReports].sort((left, right) =>
-    right.periodEnd.localeCompare(left.periodEnd),
   );
   const sortedMonthlyClosures = [...monthlyClosures].sort((left, right) =>
     right.periodEnd.localeCompare(left.periodEnd),
@@ -800,13 +802,16 @@ export default async function FinancesPage() {
                 </article>
               ))}
             </div>
-            {expenseLines.length > 0 ? (
+            {expenseLines.length > 0 && latestExpenseReport ? (
               <>
                 <details className="finance-details">
-                  <summary>Ver os 25 maiores pagamentos do mês</summary>
+                  <summary>
+                    Ver os 25 maiores pagamentos de {formatMonthTitle(latestExpenseReport.periodEnd)}
+                  </summary>
                   <p className="finance-details-note">
-                    Estas são linhas do mesmo mês, ordenadas pelo valor pago. Não
-                    são meses diferentes, nem um ranking de empresas ou uma acusação.
+                    Linhas do relatório oficial de {formatPeriod(latestExpenseReport)},
+                    ordenadas pelo valor pago no período. Não são meses diferentes,
+                    nem um ranking de empresas ou uma acusação.
                   </p>
                   <div className="digest-grid">
                   {expenseLines.map((line) => (
