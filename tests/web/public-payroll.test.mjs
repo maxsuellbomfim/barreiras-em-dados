@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  getPublicPayrollCoverage,
   getPublicPayrollMonths,
+  parsePublicPayrollCoverageRow,
   parsePublicPayrollRow,
 } from "../../apps/web/lib/public-payroll.mjs";
 
@@ -43,6 +45,70 @@ const validRow = {
     },
   ],
 };
+
+const validCoverageRow = {
+  reference_month: "2024-04-01",
+  coverage_status: "document_not_found",
+  coverage_note:
+    "A consulta completa ao catálogo oficial não localizou uma Relação de Servidores para esta competência. Isso não significa gasto zero.",
+  catalog_document_count: 0,
+  preserved_document_count: 0,
+  source_url:
+    "https://portaldatransparencia.barreiras.ba.gov.br/api?resource=servidores",
+  artifact_sha256: null,
+  catalog_checked_at: "2026-08-22T04:00:00.000Z",
+  methodology_version: "payroll-coverage/1.0.0",
+};
+
+test("cobertura da folha conserva ausência e conflito como estados, nunca como zero", () => {
+  const absent = parsePublicPayrollCoverageRow(validCoverageRow);
+  const conflict = parsePublicPayrollCoverageRow({
+    ...validCoverageRow,
+    reference_month: "2025-01-01",
+    coverage_status: "source_conflict",
+    coverage_note:
+      "O documento oficial mistura ciclos da folha que não podem ser separados com segurança. Os valores ficam fora do total.",
+    catalog_document_count: 1,
+    preserved_document_count: 1,
+    source_url:
+      "https://barreiras.mtransparente.com.br/admin/data/SERVIDORES050225.pdf",
+    artifact_sha256:
+      "d2345bdb7ccceb1553ba627758a70d74cd7124ef3af77dcc48237047e5190ac9",
+  });
+
+  assert.ok(absent);
+  assert.equal(absent.coverageStatus, "document_not_found");
+  assert.equal(absent.artifactSha256, null);
+  assert.ok(conflict);
+  assert.equal(conflict.coverageStatus, "source_conflict");
+  assert.equal(conflict.preservedDocumentCount, 1);
+  assert.equal("amount" in absent, false);
+  assert.equal("cpf" in conflict, false);
+});
+
+test("cobertura da folha recusa estado, fonte e versão não contratados", () => {
+  assert.equal(
+    parsePublicPayrollCoverageRow({
+      ...validCoverageRow,
+      coverage_status: "missing",
+    }),
+    null,
+  );
+  assert.equal(
+    parsePublicPayrollCoverageRow({
+      ...validCoverageRow,
+      source_url: "http://inseguro",
+    }),
+    null,
+  );
+  assert.equal(
+    parsePublicPayrollCoverageRow({
+      ...validCoverageRow,
+      methodology_version: "payroll-coverage/2.0.0",
+    }),
+    null,
+  );
+});
 
 test("folha publica normaliza centavos e conserva somente totais", () => {
   const row = parsePublicPayrollRow(validRow);
@@ -189,6 +255,42 @@ test("folha publica percorre o historico por cursor sem truncar o mes antigo", a
   }
 });
 
+test("cobertura da folha consulta a projeção pública sem acessar tabelas privadas", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.PUBLIC_DATA_SUPABASE_URL;
+  const originalKey = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+  let requestedUrl = null;
+  let requestedBody = null;
+
+  process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
+  process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  globalThis.fetch = async (url, options) => {
+    requestedUrl = url;
+    requestedBody = JSON.parse(options.body);
+    return new Response(JSON.stringify([validCoverageRow]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const result = await getPublicPayrollCoverage(120);
+    assert.equal(result.state, "available");
+    assert.equal(result.rows.length, 1);
+    assert.match(requestedUrl, /rpc\/get_public_payroll_coverage$/);
+    assert.deepEqual(requestedBody, { month_limit: 120 });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.PUBLIC_DATA_SUPABASE_URL;
+    else process.env.PUBLIC_DATA_SUPABASE_URL = originalUrl;
+    if (originalKey === undefined) {
+      delete process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+    } else {
+      process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = originalKey;
+    }
+  }
+});
+
 test("pagina explica vínculos, descontos e limite da informação", async () => {
   const [page, sources] = await Promise.all([
     readFile(
@@ -243,4 +345,27 @@ test("pagina mantém o mês mais recente em destaque e recolhe o histórico", as
   assert.match(history, /Conferir \{month\.documentCount/);
   assert.match(sources, /Abrir PDF oficial/);
   assert.match(history, /Mês validado por código/);
+});
+
+test("pagina explica competências da folha sem total em uma sanfona", async () => {
+  const [page, coverage] = await Promise.all([
+    readFile(
+      new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../../apps/web/app/financas/finance-payroll-coverage.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(page, /getPublicPayrollCoverage\(120\)/);
+  assert.match(page, /FinancePayrollCoverage/);
+  assert.match(coverage, /competências sem total publicado/);
+  assert.match(coverage, /Isso não significa gasto zero/);
+  assert.match(coverage, /ciclos da folha/);
+  assert.match(coverage, /<details/);
 });

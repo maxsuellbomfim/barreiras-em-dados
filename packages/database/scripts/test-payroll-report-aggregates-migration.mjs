@@ -925,6 +925,125 @@ try {
     ),
     /limite de meses da folha invalido/,
   );
+
+  await database.exec(`
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, parent_artifact_id,
+      idempotency_key, artifact_kind, source_url, retrieved_at, byte_size,
+      sha256, object_key, collector_version, metadata
+    ) values (
+      '00000000-0000-0000-0000-000000009027',
+      '00000000-0000-0000-0000-000000009003',
+      '00000000-0000-0000-0000-000000009002',
+      '00000000-0000-0000-0000-000000009004',
+      'payroll-report-document-new-version-fixture', 'document',
+      'https://barreiras.mtransparente.com.br/admin/data/SERVIDORES060826145033.pdf',
+      '2026-08-22 03:59:00+00', 2479000, '${"9".repeat(64)}',
+      'municipal-transparency/servidores/report-new-version.pdf', 'test/2',
+      '{"schema_name":"municipal-transparency-document","source_record_key":"servidores-244"}'::jsonb
+    );
+    insert into source.collection_partitions (
+      source_endpoint_id, partition_key, period_start, period_end, status,
+      observed_records, collection_run_id, completed_at, last_attempted_at
+    ) values (
+      '00000000-0000-0000-0000-000000009002',
+      'snapshot:servidores:limit:200:pages:2',
+      '2026-08-22', '2026-08-22', 'complete', 200,
+      '00000000-0000-0000-0000-000000009003',
+      '2026-08-22 04:00:00+00', '2026-08-22 04:00:00+00'
+    );
+    insert into raw.raw_records (
+      id, raw_artifact_id, source_record_key, record_type, record_index,
+      payload, payload_sha256, parser_version, idempotency_key, collected_at
+    ) values (
+      '00000000-0000-0000-0000-000000009030',
+      '00000000-0000-0000-0000-000000009004', 'servidores-pendente-2026-01',
+      'municipal_transparency_servidores', 5,
+      '{"tipo":"1","titulo":"Relação de Servidores","ano_ref":"2026","mes_ref":"1","url":"https://barreiras.mtransparente.com.br/admin/data/SERVIDORES010226.pdf"}'::jsonb,
+      '${"8".repeat(64)}', 'test/1', 'payroll-pending-record-fixture',
+      '2026-02-01 12:00:00+00'
+    );
+    insert into hr.payroll_report_aggregate_invalidations (
+      aggregate_id, evidence_artifact_id, reason_code, invalidator_version,
+      details, invalidated_at
+    ) values (
+      '00000000-0000-0000-0000-000000009015',
+      '00000000-0000-0000-0000-000000009014',
+      'mixed_payroll_cycle_header', 'payroll-coverage/test',
+      '{"observed_header":"1-Normal, 4-Adiant. 13º"}'::jsonb,
+      '2026-08-22 04:01:00+00'
+    );
+  `);
+  const coverageContract = await database.query(`
+    select
+      to_regprocedure('api.get_public_payroll_coverage(integer)')::text as rpc,
+      has_function_privilege(
+        'anon', 'api.get_public_payroll_coverage(integer)', 'EXECUTE'
+      ) as anon_execute,
+      has_function_privilege(
+        'authenticated', 'api.get_public_payroll_coverage(integer)', 'EXECUTE'
+      ) as authenticated_execute
+  `);
+  assert.deepEqual(coverageContract.rows, [{
+    rpc: "api.get_public_payroll_coverage(integer)",
+    anon_execute: true,
+    authenticated_execute: true,
+  }]);
+  await database.exec("set role anon");
+  const coverageRows = await database.query(`
+    select *
+    from api.get_public_payroll_coverage(120)
+    where reference_month in ('2026-07-01', '2026-01-01', '2025-02-01', '2024-04-01')
+    order by reference_month desc
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(
+    coverageRows.rows.map((row) => ({
+      reference_month: row.reference_month,
+      coverage_status: row.coverage_status,
+      catalog_document_count: row.catalog_document_count,
+      preserved_document_count: row.preserved_document_count,
+      methodology_version: row.methodology_version,
+    })),
+    [
+      {
+        reference_month: "2026-07-01",
+        coverage_status: "published",
+        catalog_document_count: 2,
+        preserved_document_count: 2,
+        methodology_version: "payroll-coverage/1.0.0",
+      },
+      {
+        reference_month: "2026-01-01",
+        coverage_status: "processing_pending",
+        catalog_document_count: 1,
+        preserved_document_count: 0,
+        methodology_version: "payroll-coverage/1.0.0",
+      },
+      {
+        reference_month: "2025-02-01",
+        coverage_status: "source_conflict",
+        catalog_document_count: 1,
+        preserved_document_count: 1,
+        methodology_version: "payroll-coverage/1.0.0",
+      },
+      {
+        reference_month: "2024-04-01",
+        coverage_status: "document_not_found",
+        catalog_document_count: 0,
+        preserved_document_count: 0,
+        methodology_version: "payroll-coverage/1.0.0",
+      },
+    ],
+  );
+  const serializedCoverage = JSON.stringify(coverageRows.rows).toLowerCase();
+  for (const forbidden of ["cpf", "nome", "matricula", "raw_record", "details"]) {
+    assert.equal(
+      serializedCoverage.includes(forbidden),
+      false,
+      `campo proibido na cobertura: ${forbidden}`,
+    );
+  }
   console.log("Agregados mensais da folha: imutabilidade, linhagem e RPC segura verificados.");
 } finally {
   await database.close();

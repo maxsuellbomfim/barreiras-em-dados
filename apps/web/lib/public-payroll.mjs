@@ -15,6 +15,13 @@ const PAYROLL_CYCLES = new Set([
   "thirteenth_advance",
   "thirteenth_final",
 ]);
+const PAYROLL_COVERAGE_STATUSES = new Set([
+  "published",
+  "document_not_found",
+  "source_conflict",
+  "processing_pending",
+]);
+const PAYROLL_COVERAGE_VERSION = "payroll-coverage/1.0.0";
 
 function text(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -167,6 +174,56 @@ export function parsePublicPayrollRow(row) {
   };
 }
 
+export function parsePublicPayrollCoverageRow(row) {
+  if (typeof row !== "object" || row === null) return null;
+  const referenceMonth = text(row.reference_month);
+  const coverageStatus = text(row.coverage_status);
+  const coverageNote = text(row.coverage_note);
+  const catalogDocumentCount = integer(row.catalog_document_count);
+  const preservedDocumentCount = integer(row.preserved_document_count);
+  const sourceUrl = text(row.source_url);
+  const artifactSha256 = text(row.artifact_sha256);
+  const catalogCheckedAt = text(row.catalog_checked_at);
+  const methodologyVersion = text(row.methodology_version);
+  if (
+    referenceMonth === null ||
+    !ISO_DATE.test(referenceMonth) ||
+    coverageStatus === null ||
+    !PAYROLL_COVERAGE_STATUSES.has(coverageStatus) ||
+    coverageNote === null ||
+    catalogDocumentCount === null ||
+    preservedDocumentCount === null ||
+    preservedDocumentCount > catalogDocumentCount ||
+    sourceUrl === null ||
+    !sourceUrl.startsWith("https://") ||
+    (artifactSha256 !== null && !SHA256.test(artifactSha256)) ||
+    catalogCheckedAt === null ||
+    Number.isNaN(Date.parse(catalogCheckedAt)) ||
+    methodologyVersion !== PAYROLL_COVERAGE_VERSION
+  ) {
+    return null;
+  }
+  if (
+    (coverageStatus === "document_not_found" &&
+      (catalogDocumentCount !== 0 || preservedDocumentCount !== 0)) ||
+    (coverageStatus !== "document_not_found" && catalogDocumentCount < 1) ||
+    (artifactSha256 !== null && preservedDocumentCount < 1)
+  ) {
+    return null;
+  }
+  return {
+    referenceMonth,
+    coverageStatus,
+    coverageNote,
+    catalogDocumentCount,
+    preservedDocumentCount,
+    sourceUrl,
+    artifactSha256,
+    catalogCheckedAt,
+    methodologyVersion,
+  };
+}
+
 export async function getPublicPayrollMonths(maxMonths = 24) {
   const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
   const publishableKey =
@@ -227,6 +284,52 @@ export async function getPublicPayrollMonths(maxMonths = 24) {
       if (pageMonths.size < requestedPageSize) break;
     }
     return { state: "available", months };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function getPublicPayrollCoverage(maxMonths = 120) {
+  const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const publishableKey =
+    process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (
+    !Number.isSafeInteger(maxMonths) ||
+    maxMonths < 1 ||
+    maxMonths > 120 ||
+    !supabaseUrl?.startsWith("https://") ||
+    !publishableKey?.startsWith("sb_publishable_")
+  ) {
+    return { state: "unavailable" };
+  }
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/get_public_payroll_coverage`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Profile": "api",
+          apikey: publishableKey,
+          "Content-Profile": "api",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ month_limit: maxMonths }),
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) return { state: "unavailable" };
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return { state: "unavailable" };
+    const rows = payload.map(parsePublicPayrollCoverageRow);
+    if (
+      rows.some((row) => row === null) ||
+      new Set(rows.map((row) => row.referenceMonth)).size !== rows.length
+    ) {
+      return { state: "unavailable" };
+    }
+    return { state: "available", rows };
   } catch {
     return { state: "unavailable" };
   }
