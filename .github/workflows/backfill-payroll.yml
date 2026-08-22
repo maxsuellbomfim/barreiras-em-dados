@@ -71,6 +71,8 @@ jobs:
     needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    outputs:
+      missing_months: ${{ steps.collect_months.outputs.missing_months }}
     concurrency:
       group: municipal-finance-collection-production
       cancel-in-progress: false
@@ -93,6 +95,7 @@ jobs:
           | sha256sum --check --strict
 
       - name: Preservar todos os PDFs regulares correspondentes
+        id: collect_months
         env:
           MONTHS: ${{ needs.plan.outputs.months }}
           DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
@@ -108,8 +111,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          missing_months=""
           for month in $MONTHS; do
             echo "Preservando competência $month"
+            log_file="${RUNNER_TEMP}/payroll-collect-${month}.log"
+            set +e
             python -B -m barreiras_collectors.commands.collect_municipal_transparency \
               --source prefeitura \
               --resource servidores \
@@ -123,8 +129,27 @@ jobs:
               --document-title "Relação Servidores" \
               --document-title "Relação de Servidores 13º Salário" \
               --allow-untyped-document-title "Relação de Servidores" \
-              --require-document-match
+              --require-document-match 2>&1 | tee "$log_file"
+            pipeline_status=("${PIPESTATUS[@]}")
+            collector_status="${pipeline_status[0]}"
+            tee_status="${pipeline_status[1]}"
+            set -e
+            if [[ "$tee_status" -ne 0 ]]; then
+              echo "Falha ao preservar o log operacional da competência $month." >&2
+              exit 1
+            fi
+            if [[ "$collector_status" -eq 0 ]]; then
+              continue
+            fi
+            if [[ "$collector_status" -eq 3 ]]; then
+              echo "Sem folha regular localizada na fonte para $month"
+              missing_months="${missing_months}${missing_months:+ }$month"
+              continue
+            fi
+            echo "Falha operacional ao preservar a competência $month." >&2
+            exit 1
           done
+          echo "missing_months=$missing_months" >> "$GITHUB_OUTPUT"
 
   publish:
     name: Validar e publicar competências
@@ -160,6 +185,7 @@ jobs:
       - name: Publicar somente competências comprovadamente válidas
         env:
           MONTHS: ${{ needs.plan.outputs.months }}
+          MISSING_MONTHS: ${{ needs.collect.outputs.missing_months }}
           DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
           SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
@@ -169,6 +195,10 @@ jobs:
         run: |
           set -euo pipefail
           for month in $MONTHS; do
+            if [[ " $MISSING_MONTHS " == *" $month "* ]]; then
+              echo "Sem folha regular localizada na fonte para $month; publicação não fabricada."
+              continue
+            fi
             year="${month%%-*}"
             echo "Validando e publicando competência $month"
             python -B -m barreiras_normalization.commands.publish_payroll_reports \
@@ -194,6 +224,7 @@ jobs:
           PLAN_RESULT: ${{ needs.plan.result }}
           COLLECT_RESULT: ${{ needs.collect.result }}
           PUBLISH_RESULT: ${{ needs.publish.result }}
+          MISSING_MONTHS: ${{ needs.collect.outputs.missing_months }}
         shell: bash
         run: |
           {
@@ -204,7 +235,8 @@ jobs:
             echo "- Planejamento: ${PLAN_RESULT}"
             echo "- Preservação: ${COLLECT_RESULT}"
             echo "- Publicação: ${PUBLISH_RESULT}"
-            echo "- Sucesso exige PDF oficial correspondente e competência presente na projeção pública determinística."
+            echo "- Competências sem folha regular localizada: ${MISSING_MONTHS:-nenhuma}"
+            echo "- Meses com PDF regular exigem validação e projeção pública; meses sem PDF ficam explicitamente documentados, nunca convertidos em zero."
           } >> "$GITHUB_STEP_SUMMARY"
           if [[ "$PLAN_RESULT" != "success" \
             || "$COLLECT_RESULT" != "success" \

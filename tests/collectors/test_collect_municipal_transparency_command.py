@@ -10,12 +10,15 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
     DEFAULT_RESOURCE,
     DOCUMENT_RESOURCES,
     FINANCIAL_DOCUMENT_RESOURCES,
+    NO_MATCHING_OFFICIAL_DOCUMENT_EXIT_CODE,
     PERSONNEL_DOCUMENT_RESOURCES,
     SOURCE_CONFIG,
     MunicipalTransparencyCollectionSummary,
+    NoMatchingOfficialDocumentError,
     _bounded_env_int,
     _collect_resource,
     build_balancete_monthly_searches,
+    cli_entrypoint,
     execute_controlled_municipal_transparency,
     matches_document_reference,
     require_complete_document_match,
@@ -29,6 +32,20 @@ from barreiras_collectors.commands.collect_municipal_transparency import (
 
 
 class MunicipalTransparencyCommandTests(unittest.TestCase):
+    def test_cli_distinguishes_missing_official_document_from_operational_failure(
+        self,
+    ) -> None:
+        target = "barreiras_collectors.commands.collect_municipal_transparency.main"
+        with (
+            patch(target, side_effect=NoMatchingOfficialDocumentError("ausente")),
+            patch("builtins.print") as print_mock,
+        ):
+            self.assertEqual(
+                cli_entrypoint([]),
+                NO_MATCHING_OFFICIAL_DOCUMENT_EXIT_CODE,
+            )
+        print_mock.assert_called_once()
+
     def test_exact_document_contract_accepts_preserved_or_new_matches(self) -> None:
         require_complete_document_match(
             MunicipalTransparencyCollectionSummary(
@@ -490,6 +507,92 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
         )
 
         self.assertEqual(events, ["started", "completed:empty", "closed"])
+        self.assertEqual(control.values["observed_records"], 0)
+
+    def test_missing_required_document_is_terminal_blocked_not_failed(self) -> None:
+        events: list[str] = []
+
+        class ControlProbe:
+            def __enter__(self):
+                events.append("started")
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                events.append("closed")
+                return False
+
+            def complete(self, **values):
+                events.append(f"completed:{values['outcome'].value}")
+                self.values = values
+
+        control = ControlProbe()
+        summary = MunicipalTransparencyCollectionSummary(
+            pages=1,
+            inserted_records=3,
+            existing_records=0,
+            documents_persisted=0,
+            documents_failed=0,
+            documents_skipped=0,
+            pagination_capped=False,
+            availability_partial=False,
+            next_offset=0,
+            documents_matched=0,
+        )
+
+        with self.assertRaises(NoMatchingOfficialDocumentError):
+            execute_controlled_municipal_transparency(
+                control=control,  # type: ignore[arg-type]
+                operation=lambda: summary,
+                require_document_match=True,
+            )
+
+        self.assertEqual(events, ["started", "completed:blocked", "closed"])
+        self.assertEqual(control.values["observed_records"], 3)
+        self.assertEqual(
+            control.values["block_reason"],
+            "Documento oficial exato não localizado no catálogo da fonte.",
+        )
+
+    def test_empty_catalog_with_required_document_is_terminal_blocked(self) -> None:
+        events: list[str] = []
+
+        class ControlProbe:
+            def __enter__(self):
+                events.append("started")
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                events.append("closed")
+                return False
+
+            def complete(self, **values):
+                events.append(f"completed:{values['outcome'].value}")
+                self.values = values
+
+        control = ControlProbe()
+        summary = MunicipalTransparencyCollectionSummary(
+            pages=1,
+            inserted_records=0,
+            existing_records=0,
+            documents_persisted=0,
+            documents_failed=0,
+            documents_skipped=0,
+            pagination_capped=False,
+            availability_partial=False,
+            next_offset=0,
+            documents_matched=0,
+        )
+
+        with self.assertRaises(NoMatchingOfficialDocumentError):
+            execute_controlled_municipal_transparency(
+                control=control,  # type: ignore[arg-type]
+                operation=lambda: summary,
+                require_document_match=True,
+            )
+
+        self.assertEqual(events, ["started", "completed:blocked", "closed"])
         self.assertEqual(control.values["observed_records"], 0)
 
     def test_page_cap_and_document_failure_mark_snapshot_partial(self) -> None:

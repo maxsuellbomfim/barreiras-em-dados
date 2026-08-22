@@ -77,11 +77,30 @@ test("cada competencia preserva somente folha regular e publica depois", () => {
   assert.doesNotMatch(workflow, /--allow-partial/);
 });
 
+test("ausencia comprovada de folha regular nao interrompe os demais meses", () => {
+  assert.match(workflow, /id: collect_months/);
+  assert.match(workflow, /missing_months: \$\{\{ steps\.collect_months\.outputs\.missing_months \}\}/);
+  assert.match(workflow, /pipeline_status=\("\$\{PIPESTATUS\[@\]\}"\)/);
+  assert.match(workflow, /collector_status="\$\{pipeline_status\[0\]\}"/);
+  assert.match(workflow, /tee_status="\$\{pipeline_status\[1\]\}"/);
+  assert.match(workflow, /if \[\[ "\$tee_status" -ne 0 \]\]; then/);
+  assert.match(workflow, /Falha ao preservar o log operacional/);
+  assert.match(workflow, /if \[\[ "\$collector_status" -eq 3 \]\]; then/);
+  assert.match(workflow, /missing_months="\$\{missing_months\}\$\{missing_months:\+ \}\$month"/);
+  assert.match(workflow, /echo "missing_months=\$missing_months" >> "\$GITHUB_OUTPUT"/);
+  assert.match(workflow, /MISSING_MONTHS: \$\{\{ needs\.collect\.outputs\.missing_months \}\}/);
+  assert.match(workflow, /if \[\[ " \$MISSING_MONTHS " == \*" \$month "\* \]\]; then/);
+  assert.match(workflow, /Sem folha regular localizada na fonte para \$month/);
+  assert.doesNotMatch(workflow, /continue-on-error:/);
+});
+
 test("resumo permanece visível mas falha junto com qualquer etapa obrigatória", () => {
   assert.match(workflow, /if: \$\{\{ always\(\) \}\}/);
   assert.match(workflow, /\$PLAN_RESULT" != "success"/);
   assert.match(workflow, /\$COLLECT_RESULT" != "success"/);
   assert.match(workflow, /\$PUBLISH_RESULT" != "success"/);
+  assert.match(workflow, /MISSING_MONTHS:/);
+  assert.match(workflow, /Compet\u00eancias sem folha regular localizada:/);
   assert.match(workflow, /exit 1/);
 });
 
