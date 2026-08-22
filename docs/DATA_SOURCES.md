@@ -113,6 +113,12 @@ quatro recursos adicionais no portal da Prefeitura:
   permanecem fora dessa projeção. O workflow financeiro possui escopo isolado
   `payroll` e seletor opcional `AAAA-MM`; uma falha de leiaute ou integridade é
   registrada para revisão e não bloqueia nem altera as demais competências.
+  A seleção operacional de PDFs pendentes e a contagem de uma competência são
+  feitas pelas funções privadas do ADR 0075. Elas evitam que as políticas RLS
+  da role técnica transformem uma junção válida em fila vazia e falham
+  explicitamente quando limite, período ou competência são inválidos. A role
+  compartilhada mantém a leitura bruta já necessária aos coletores; o frontend
+  não recebe acesso às tabelas nem a essas funções.
 
 Nenhum desses documentos, isoladamente, representa o total da dívida do
 Município. A consolidação futura exigirá natureza da obrigação, competência,

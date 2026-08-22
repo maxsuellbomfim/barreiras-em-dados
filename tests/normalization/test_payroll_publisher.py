@@ -148,21 +148,10 @@ class PayrollPublisherTests(unittest.TestCase):
         )
 
         query = " ".join(connection.query.lower().split())
-        self.assertIn("data_source.slug = %s", query)
-        self.assertIn("endpoint.slug = %s", query)
-        self.assertIn("aggregate.parser_version = %s", query)
-        self.assertIn("~ '^(20[2-9][0-9]|2100)$'", query)
-        self.assertIn("'relacao de servidores'", query)
-        self.assertIn("'relacao servidores'", query)
-        self.assertIn("'relacao de servidores 13o salario'", query)
+        self.assertIn("hr.payroll_unresolved_document_count(%s::date)", query)
         self.assertEqual(
             connection.parameters,
-            (
-                "prefeitura-barreiras-transparencia",
-                "dados-abertos-api",
-                date(2024, 8, 1),
-                "payroll-report-aggregate/1.3.0",
-            ),
+            (date(2024, 8, 1),),
         )
         self.assertTrue(connection.closed)
 
@@ -242,43 +231,14 @@ class PayrollPublisherTests(unittest.TestCase):
 
         self.assertEqual(documents[0].reference_month, date(2026, 7, 1))
         query = " ".join(connection.query.lower().split())
-        self.assertIn("record.payload ->> 'tipo' = '1'", query)
-        self.assertIn(
-            "coalesce(trim(record.payload ->> 'tipo'), '') = ''",
-            query,
-        )
-        self.assertIn("translate(", query)
-        self.assertIn("= 'relacao de servidores'", query)
-        self.assertIn("'relacao servidores'", query)
-        self.assertIn("'relacao de servidores 13o salario'", query)
-        self.assertIn(
-            "record.record_type = 'municipal_transparency_servidores'",
-            query,
-        )
-        self.assertIn("data_source.slug = %s", query)
-        self.assertIn("endpoint.slug = %s", query)
-        self.assertIn(
-            "aggregate.parser_version = %s",
-            query,
-        )
-        self.assertIn("job.status in ('failed', 'dead_lettered')", query)
-        self.assertIn("make_date(", query)
-        self.assertGreaterEqual(
-            query.count("~ '^(20[2-9][0-9]|2100)$'"),
-            2,
-        )
-        self.assertIn("coalesce( %s::date", query)
+        self.assertIn("hr.get_pending_payroll_documents(%s, %s, %s, %s)", query)
         self.assertEqual(
             connection.parameters,
             (
-                "prefeitura-barreiras-transparencia",
-                "dados-abertos-api",
+                5,
                 2021,
                 2026,
                 date(2026, 7, 1),
-                "payroll-report-aggregate/1.3.0",
-                PAYROLL_PUBLICATION_JOB_TYPE,
-                5,
             ),
         )
         self.assertTrue(connection.closed)
