@@ -6,6 +6,7 @@ import {
   monthlyFinanceStatusCopy,
   parseMonthlyFinanceDetail,
   periodStartFromSlug,
+  selectMonthlyExpenseReportId,
 } from "../../apps/web/lib/monthly-finance-detail.mjs";
 
 const validRow = {
@@ -145,4 +146,61 @@ test("explica a diferença operacional sem chamá-la de superávit", () => {
       "A diferença operacional é receita declarada menos pagamentos do mesmo mês. Ela não representa saldo bancário, superávit fiscal nem dinheiro livre em caixa.",
     canShowDifference: true,
   });
+});
+
+test("liga as linhas somente ao único relatório da mesma competência", () => {
+  const detail = parseMonthlyFinanceDetail({
+    ...validRow,
+    revenue_report_count: 1,
+    expense_report_count: 1,
+    revenue_documents: [validRow.revenue_documents[0]],
+    expense_documents: [validRow.expense_documents[0]],
+    operational_difference_amount: "1500.00",
+    closure_status: "operational",
+  });
+  assert.ok(detail);
+  const matchingReport = {
+    expenseReportId: "relatorio-junho",
+    fiscalYear: 2026,
+    periodStart: "2026-06-01",
+    periodEnd: "2026-06-30",
+  };
+  const otherMonth = {
+    expenseReportId: "relatorio-maio",
+    fiscalYear: 2026,
+    periodStart: "2026-05-01",
+    periodEnd: "2026-05-31",
+  };
+
+  assert.equal(
+    selectMonthlyExpenseReportId([otherMonth, matchingReport], detail),
+    "relatorio-junho",
+  );
+});
+
+test("não liga linhas quando há versões concorrentes ou mais de um relatório", () => {
+  const detail = {
+    fiscalYear: 2026,
+    periodStart: "2026-06-01",
+    periodEnd: "2026-06-30",
+    expenseReportCount: 1,
+  };
+  const matchingReport = {
+    expenseReportId: "relatorio-junho-a",
+    fiscalYear: 2026,
+    periodStart: "2026-06-01",
+    periodEnd: "2026-06-30",
+  };
+
+  assert.equal(
+    selectMonthlyExpenseReportId(
+      [matchingReport, { ...matchingReport, expenseReportId: "relatorio-junho-b" }],
+      detail,
+    ),
+    null,
+  );
+  assert.equal(
+    selectMonthlyExpenseReportId([matchingReport], { ...detail, expenseReportCount: 2 }),
+    null,
+  );
 });

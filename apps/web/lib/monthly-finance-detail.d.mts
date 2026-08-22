@@ -53,6 +53,20 @@ export function monthlyFinanceHref(periodStart: string): string;
 export function monthlyFinanceStatusCopy(
   detail: PublicMonthlyFinanceDetail | null,
 ): MonthlyFinanceStatusCopy;
+export function selectMonthlyExpenseReportId(
+  reports: readonly Readonly<{
+    expenseReportId: string;
+    fiscalYear: number;
+    periodStart: string;
+    periodEnd: string;
+  }>[],
+  detail: Readonly<{
+    fiscalYear: number;
+    periodStart: string;
+    periodEnd: string;
+    expenseReportCount: number;
+  }>,
+): string | null;
 export function parseMonthlyFinanceDetail(
   row: Record<string, unknown>,
 ): PublicMonthlyFinanceDetail | null;

@@ -4,9 +4,15 @@ import { notFound } from "next/navigation";
 import {
   monthlyFinanceStatusCopy,
   periodStartFromSlug,
+  selectMonthlyExpenseReportId,
   type MonthlyFinanceExpenseDocument,
   type MonthlyFinanceRevenueDocument,
 } from "../../../lib/monthly-finance-detail.mjs";
+import {
+  getPublicExpenseLines,
+  getPublicExpenseReports,
+  type PublicExpenseLine,
+} from "../../../lib/expenses";
 import { getPublicMonthlyFinanceDetail } from "../../../lib/monthly-finance";
 import { formatBrlDecimal } from "../../../lib/revenues";
 
@@ -110,6 +116,42 @@ function ExpenseEvidence({
   );
 }
 
+function ExpenseLineCard({ line }: Readonly<{ line: PublicExpenseLine }>) {
+  return (
+    <article className="digest-card finance-negative-card">
+      <div className="track-top">
+        <span>Linha {line.lineNumber.toLocaleString("pt-BR")}</span>
+        <span className="track-status">{line.expenseCode}</span>
+      </div>
+      <h3 className="procurement-object">{line.description}</h3>
+      <dl className="procurement-values">
+        <div className="revenue-primary-value">
+          <dt>Pago neste mês</dt>
+          <dd>{formatBrlDecimal(line.paidPeriodAmount)}</dd>
+        </div>
+        <div>
+          <dt>Empenhado neste mês</dt>
+          <dd>{formatBrlDecimal(line.committedPeriodAmount)}</dd>
+        </div>
+        <div>
+          <dt>Liquidado neste mês</dt>
+          <dd>{formatBrlDecimal(line.liquidatedPeriodAmount)}</dd>
+        </div>
+        <div>
+          <dt>Valor atualizado</dt>
+          <dd>{formatBrlDecimal(line.updatedAmount)}</dd>
+        </div>
+      </dl>
+      <p className="act-evidence">
+        Código da fonte {line.sourceCode} ·{" "}
+        <a href={line.documentSourceUrl} target="_blank" rel="noreferrer">
+          conferir no documento oficial
+        </a>
+      </p>
+    </article>
+  );
+}
+
 function EmptyMonth({ periodStart }: Readonly<{ periodStart: string }>) {
   return (
     <section className="section finance-month-empty" aria-labelledby="month-empty-title">
@@ -146,6 +188,16 @@ export default async function MonthlyFinancePage({ params }: PageProps) {
   }
 
   const { detail } = result;
+  const reportsResult = await getPublicExpenseReports(detail.fiscalYear);
+  const expenseReportId = selectMonthlyExpenseReportId(
+    reportsResult.state === "available" ? reportsResult.reports : [],
+    detail,
+  );
+  const expenseLinesResult = expenseReportId
+    ? await getPublicExpenseLines(expenseReportId, 25)
+    : { state: "unavailable" as const };
+  const expenseLines =
+    expenseLinesResult.state === "available" ? expenseLinesResult.lines : [];
   const status = monthlyFinanceStatusCopy(detail);
   const differenceClass = detail.operationalDifferenceAmount?.startsWith("-")
     ? "finance-negative-value"
@@ -223,6 +275,28 @@ export default async function MonthlyFinancePage({ params }: PageProps) {
             <li><span>3</span><div><strong>Pago</strong><p>O dinheiro efetivamente saiu do caixa.</p></div></li>
           </ol>
         </section>
+
+        {expenseLines.length > 0 ? (
+          <section aria-labelledby="finance-month-lines-title">
+            <div className="section-heading compact">
+              <span className="eyebrow">Para onde foi o dinheiro</span>
+              <h2 id="finance-month-lines-title">As 25 maiores linhas pagas no mês</h2>
+              <p>
+                Linhas contábeis do único relatório validado para esta competência,
+                ordenadas pelo valor pago. Elas agrupam códigos de despesa: não são
+                necessariamente pagamentos individuais nem um ranking de fornecedores.
+              </p>
+            </div>
+            <details className="finance-details">
+              <summary>Ver as linhas e os valores oficiais</summary>
+              <div className="digest-grid">
+                {expenseLines.map((line) => (
+                  <ExpenseLineCard line={line} key={line.expenseLineId} />
+                ))}
+              </div>
+            </details>
+          </section>
+        ) : null}
 
         <section className="finance-evidence-section" aria-labelledby="finance-evidence-title">
           <div className="section-heading compact">
