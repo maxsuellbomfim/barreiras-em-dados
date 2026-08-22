@@ -79,6 +79,13 @@ class MonthlyFinanceCommentaryRepositoryTests(unittest.TestCase):
                 normalized_query,
             )
             self.assertNotIn("(120, null)", normalized_query)
+            self.assertIn("commentary.facts = jsonb_build_object", normalized_query)
+            self.assertIn("'closure_status', closure.closure_status", normalized_query)
+            self.assertIn(
+                "'operational_difference_amount', "
+                "closure.operational_difference_amount::text",
+                normalized_query,
+            )
         self.assertTrue(connection.closed)
 
 
