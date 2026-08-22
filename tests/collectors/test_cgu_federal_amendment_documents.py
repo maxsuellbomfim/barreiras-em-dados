@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 from barreiras_collectors.connectors.cgu_federal_amendment_documents import (
     DOCUMENT_COLUMNS,
+    DOCUMENT_COLUMNS_WITH_SUPPORTER,
     CGUFederalAmendmentDocumentArchiveError,
     fetch_cgu_federal_amendment_documents,
     parse_cgu_federal_amendment_documents_archive,
@@ -71,11 +72,16 @@ def document_row(**overrides: str) -> dict[str, str]:
     return row
 
 
-def archive_bytes(year: int, rows: list[dict[str, str]]) -> bytes:
+def archive_bytes(
+    year: int,
+    rows: list[dict[str, str]],
+    *,
+    columns: tuple[str, ...] = DOCUMENT_COLUMNS,
+) -> bytes:
     output = io.StringIO(newline="")
     writer = csv.DictWriter(
         output,
-        fieldnames=DOCUMENT_COLUMNS,
+        fieldnames=columns,
         delimiter=";",
         lineterminator="\n",
     )
@@ -100,6 +106,22 @@ class DownloadTransport:
 
 
 class CGUFederalAmendmentDocumentTests(unittest.TestCase):
+    def test_accepts_current_official_header_with_supporter_column(self) -> None:
+        selected = parse_cgu_federal_amendment_documents_archive(
+            archive_bytes(
+                2025,
+                [document_row(**{"Possui Apoiador/Solicitante?": "Não"})],
+                columns=DOCUMENT_COLUMNS_WITH_SUPPORTER,
+            ),
+            archive_year=2025,
+        )
+
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]["municipality_ibge"], "2903201")
+        self.assertEqual(selected[0]["document_code"], "257001000012025NE463689")
+        self.assertEqual(selected[0]["committed_amount"], "250000.00")
+        self.assertNotIn("supporter", selected[0])
+
     def test_filters_exact_ibge_and_preserves_document_stage(self) -> None:
         selected = parse_cgu_federal_amendment_documents_archive(
             archive_bytes(
