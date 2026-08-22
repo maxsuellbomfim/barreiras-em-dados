@@ -651,6 +651,12 @@ inequívoco e da reconciliação integral entre 127 subtotais e o total geral. O
 lote precisa ser repetido após a implantação dessa versão; preservação bem
 sucedida, isoladamente, não conta como mês publicado.
 
+Após o replay validado, os seis meses passaram a compor a projeção pública. A
+página financeira passou a solicitar até 60 competências — limite defensivo da
+RPC — para não ocultar meses históricos já publicados quando o acervo superar
+24 competências. O mês mais recente continua em destaque e todo o histórico
+permanece recolhido por padrão.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;

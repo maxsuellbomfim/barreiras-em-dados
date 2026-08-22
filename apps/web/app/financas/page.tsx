@@ -216,7 +216,7 @@ export default async function FinancesPage() {
     getPublicFinanceCoverage(),
     getPublicObligations(),
     getPublicObligationCoverage(),
-    getPublicPayrollMonths(),
+    getPublicPayrollMonths(60),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
