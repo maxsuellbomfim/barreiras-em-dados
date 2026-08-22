@@ -1,5 +1,6 @@
 export type FederalTransferSourceKey =
   | "cgu_execution"
+  | "cgu_documents"
   | "transferegov_historical"
   | "transferegov_current";
 
@@ -18,7 +19,9 @@ export type FederalTransferSourceCoverage = Readonly<{
   recordCount: number | null;
   lastAttemptedAt: string | null;
   sourceUrl: string;
-  methodologyVersion: "federal-transfer-source-coverage/1.0.0";
+  methodologyVersion:
+    | "federal-transfer-source-coverage/1.0.0"
+    | "federal-transfer-source-coverage/2.0.0";
 }>;
 
 export type FederalTransferSourceCoverageGroup = Readonly<{

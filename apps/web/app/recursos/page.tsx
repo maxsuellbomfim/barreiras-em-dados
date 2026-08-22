@@ -194,7 +194,8 @@ const FEDERAL_COVERAGE_SOURCES: readonly Readonly<{
   key: FederalTransferSourceKey;
   label: string;
 }>[] = [
-  { key: "cgu_execution", label: "Execução direta · CGU" },
+  { key: "cgu_execution", label: "Retrato agregado · CGU" },
+  { key: "cgu_documents", label: "Documentos anuais · CGU" },
   { key: "transferegov_historical", label: "Arquivo de convênios" },
   { key: "transferegov_current", label: "API atual de convênios" },
 ];
@@ -256,7 +257,7 @@ function FederalTransferSourceCoveragePanel({
       ) : (
         <div className="transfer-source-coverage-scroll">
           <table>
-            <caption>Cobertura anual das três séries federais consultadas</caption>
+            <caption>Cobertura anual das quatro séries federais consultadas</caption>
             <thead>
               <tr>
                 <th scope="col">Ano</th>
