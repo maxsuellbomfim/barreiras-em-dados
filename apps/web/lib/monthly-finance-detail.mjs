@@ -178,6 +178,29 @@ export function monthlyFinanceStatusCopy(detail) {
   };
 }
 
+export function selectMonthlyExpenseReportId(reports, detail) {
+  if (
+    !Array.isArray(reports)
+    || typeof detail !== "object"
+    || detail === null
+    || detail.expenseReportCount !== 1
+  ) {
+    return null;
+  }
+
+  const matches = reports.filter((report) =>
+    typeof report === "object"
+    && report !== null
+    && typeof report.expenseReportId === "string"
+    && report.expenseReportId.trim().length > 0
+    && report.fiscalYear === detail.fiscalYear
+    && report.periodStart === detail.periodStart
+    && report.periodEnd === detail.periodEnd
+  );
+
+  return matches.length === 1 ? matches[0].expenseReportId : null;
+}
+
 export function parseMonthlyFinanceDetail(row) {
   if (typeof row !== "object" || row === null) return null;
   const closureId = text(row.closure_id);
