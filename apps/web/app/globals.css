@@ -3054,6 +3054,107 @@ footer {
   color: #4f390f;
 }
 
+.finance-month-comparison {
+  margin: 3rem 0;
+  padding: clamp(1.1rem, 3vw, 1.6rem);
+  border: 1px solid rgba(39, 61, 156, 0.13);
+  border-radius: 1.35rem;
+  background: rgba(248, 249, 253, 0.9);
+}
+
+.finance-comparison-total {
+  margin-top: 1.1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.finance-comparison-total > div {
+  min-width: 0;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.3rem;
+  border-radius: 0.9rem;
+  background: #fff;
+}
+
+.finance-comparison-total span,
+.finance-comparison-details li > div > span,
+.finance-comparison-details li > p > span {
+  color: #758096;
+  font-size: 0.68rem;
+}
+
+.finance-comparison-total strong {
+  font-size: clamp(0.9rem, 2vw, 1.08rem);
+  overflow-wrap: anywhere;
+}
+
+.finance-comparison-details {
+  margin-top: 0.8rem;
+  border-top: 1px solid rgba(39, 61, 156, 0.1);
+}
+
+.finance-comparison-details > summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  color: #273d9c;
+  font-size: 0.8rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.finance-comparison-details ol {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+  list-style: none;
+}
+
+.finance-comparison-details li {
+  padding: 0.85rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.8rem;
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.finance-comparison-details li > div,
+.finance-comparison-details li > p {
+  min-width: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.finance-comparison-details li > p {
+  justify-items: end;
+  font-size: 0.76rem;
+  font-weight: 720;
+  text-align: right;
+}
+
+.finance-comparison-missing {
+  max-width: 15rem;
+  color: #6c7688;
+  font-weight: 500 !important;
+  line-height: 1.45;
+}
+
+.finance-comparison-link {
+  min-height: 44px;
+  margin-top: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  color: #273d9c;
+  font-size: 0.78rem;
+  font-weight: 740;
+}
+
 .finance-evidence-grid {
   margin-top: 1.35rem;
   display: grid;
@@ -3381,8 +3482,18 @@ footer {
 
 @media (max-width: 620px) {
   .finance-month-numbers,
-  .finance-evidence-grid {
+  .finance-evidence-grid,
+  .finance-comparison-total {
     grid-template-columns: 1fr;
+  }
+
+  .finance-comparison-details li {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-comparison-details li > p {
+    justify-items: start;
+    text-align: left;
   }
 
   .finance-category-heading {
