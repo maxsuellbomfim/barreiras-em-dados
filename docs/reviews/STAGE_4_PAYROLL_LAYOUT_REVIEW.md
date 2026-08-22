@@ -32,15 +32,32 @@ IA ou ponto flutuante.
 
 ## Contrato implementado
 
-`payroll-report-aggregate/1.0.0`:
+O contrato vigente `payroll-report-aggregate/1.4.0`:
 
-1. exige, na mesma linha de cabeçalho, matrícula, nome, cargo, regime/vínculo,
-   provento, desconto e líquido;
+1. exige, na mesma linha de cabeçalho, matrícula, nome, cargo, provento,
+   desconto e líquido; `regime/vínculo` continua aceito quando presente, mas
+   não é obrigatório porque o PDF oficial de fevereiro de 2024 usa o leiaute
+   compacto sem essa coluna;
 2. tolera somente a variação de acentuação/mojibake já observada na extração;
 3. exige pelo menos um subtotal e exatamente um total geral;
 4. valida a aritmética de cada total;
 5. exige que a soma dos subtotais coincida integralmente com o total geral;
 6. devolve somente quantidade e totais monetários agregados.
+
+## Variação histórica comprovada em fevereiro de 2024
+
+O documento oficial `SERVIDORES040324112142.pdf`, SHA-256
+`a5e7e1b6e13daa57dd1b5c48ed21b6e2251fd285a76ff4091b2231b201ddbc9d`,
+possui 238 páginas e omite `Regime/Vínculo` do cabeçalho da tabela. O parser
+`payroll-report-aggregate/1.4.0` reconhece essa variação somente quando os seis
+campos estruturais restantes e o cabeçalho técnico `Listagem Sintética E-TCM`
+estão presentes. As 238 páginas têm texto; 127 subtotais reconciliam exatamente
+4.947 vínculos, R$ 23.541.875,29 em proventos, R$ 7.764.830,19 em descontos e
+R$ 15.777.045,10 líquidos com o total geral declarado.
+
+O job de publicação passou a `payroll_report_publication/1.3.0`: a tentativa
+falha anterior permanece no histórico auditável, mas não bloqueia o replay com
+o contrato corrigido.
 
 Nomes, matrículas, cargos, lotações, datas individuais e componentes de
 desconto não fazem parte do objeto retornado pelo parser.

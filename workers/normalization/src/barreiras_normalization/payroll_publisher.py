@@ -15,7 +15,7 @@ from .payroll_report_pdf import (
 )
 from .revenue_publisher import ArtifactMismatchError
 
-PAYROLL_PUBLICATION_JOB_TYPE = "payroll_report_publication/1.2.0"
+PAYROLL_PUBLICATION_JOB_TYPE = "payroll_report_publication/1.3.0"
 
 
 @dataclass(frozen=True)

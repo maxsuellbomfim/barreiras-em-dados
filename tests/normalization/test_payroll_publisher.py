@@ -201,7 +201,7 @@ class PayrollPublisherTests(unittest.TestCase):
     def test_failure_job_is_versioned(self) -> None:
         self.assertEqual(
             PAYROLL_PUBLICATION_JOB_TYPE,
-            "payroll_report_publication/1.2.0",
+            "payroll_report_publication/1.3.0",
         )
 
     def test_pending_documents_accepts_only_regular_staff_documents(self) -> None:

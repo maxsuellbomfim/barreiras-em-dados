@@ -84,6 +84,45 @@ test("folha publica aceita temporariamente a projeção anterior no deploy", () 
   assert.equal(row.sourceDocuments[0].payrollCycle, "regular");
 });
 
+test("folha publica aceita o leiaute compacto validado de fevereiro de 2024", () => {
+  const compactHeader = {
+    ...validRow,
+    reference_month: "2024-02-01",
+    employee_count: 4947,
+    gross_amount: "23541875.29",
+    deduction_amount: "7764830.19",
+    net_amount: "15777045.10",
+    subtotal_count: 127,
+    document_count: 1,
+    source_url:
+      "https://barreiras.mtransparente.com.br/admin/data/SERVIDORES040324112142.pdf",
+    artifact_sha256:
+      "a5e7e1b6e13daa57dd1b5c48ed21b6e2251fd285a76ff4091b2231b201ddbc9d",
+    source_documents: [
+      {
+        payroll_cycle: "regular",
+        source_url:
+          "https://barreiras.mtransparente.com.br/admin/data/SERVIDORES040324112142.pdf",
+        artifact_sha256:
+          "a5e7e1b6e13daa57dd1b5c48ed21b6e2251fd285a76ff4091b2231b201ddbc9d",
+        source_retrieved_at: "2026-08-22T03:00:00.000Z",
+        parser_version: "payroll-report-aggregate/1.4.0",
+      },
+    ],
+  };
+
+  const row = parsePublicPayrollRow(compactHeader);
+
+  assert.ok(row);
+  assert.equal(row.referenceMonth, "2024-02-01");
+  assert.equal(row.employeeCount, 4947);
+  assert.equal(row.netAmount, "15777045.10");
+  assert.equal(
+    row.sourceDocuments[0].parserVersion,
+    "payroll-report-aggregate/1.4.0",
+  );
+});
+
 test("folha publica rejeita componentes duplicados ou sem folha regular", () => {
   const duplicated = {
     ...validRow,
