@@ -27,3 +27,12 @@ test("resumo explica universo completo, estágios e conflito de reconciliação"
   assert.match(component, /paidSharePercent/);
   assert.match(component, /classifyExpenseDescription/);
 });
+
+test("resumo prioriza oito categorias e recolhe o restante sem omitir dados", async () => {
+  const component = await readFile(componentUrl, "utf8");
+  assert.match(component, /const PRIMARY_CATEGORY_COUNT = 8/);
+  assert.match(component, /slice\(0, PRIMARY_CATEGORY_COUNT\)/);
+  assert.match(component, /slice\(PRIMARY_CATEGORY_COUNT\)/);
+  assert.match(component, /<details className="finance-category-more">/);
+  assert.match(component, /Ver outras.*categorias/);
+});

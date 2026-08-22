@@ -8,6 +8,8 @@ import {
 } from "../../lib/expense-classification.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
 
+const PRIMARY_CATEGORY_COUNT = 8;
+
 function CategoryRow({ category }: Readonly<{ category: PublicExpenseCategory }>) {
   const classification = classifyExpenseDescription(
     category.expenseCode,
@@ -101,6 +103,8 @@ export function FinanceExpenseCategorySummary({
     (total, category) => total + category.lineCount,
     0,
   );
+  const primaryCategories = result.categories.slice(0, PRIMARY_CATEGORY_COUNT);
+  const remainingCategories = result.categories.slice(PRIMARY_CATEGORY_COUNT);
 
   return (
     <section className="finance-category-section" aria-labelledby="finance-category-title">
@@ -115,10 +119,26 @@ export function FinanceExpenseCategorySummary({
         </p>
       </div>
       <ol className="finance-category-list">
-        {result.categories.map((category) => (
+        {primaryCategories.map((category) => (
           <CategoryRow category={category} key={category.expenseCode} />
         ))}
       </ol>
+      {remainingCategories.length > 0 ? (
+        <details className="finance-category-more">
+          <summary>
+            Ver outras {remainingCategories.length.toLocaleString("pt-BR")} categorias
+          </summary>
+          <p>
+            A lista continua em ordem do maior para o menor valor pago. Todas as
+            categorias do relatório permanecem disponíveis.
+          </p>
+          <ol className="finance-category-list finance-category-list-secondary">
+            {remainingCategories.map((category) => (
+              <CategoryRow category={category} key={category.expenseCode} />
+            ))}
+          </ol>
+        </details>
+      ) : null}
       <p className="finance-category-method">
         Percentuais calculados no PostgreSQL com decimal exato após a soma das linhas
         coincidir com o total pago do relatório. Nenhuma IA calculou ou alterou valores.
