@@ -187,6 +187,7 @@ test("pagina mantém o mês mais recente em destaque e recolhe o histórico", as
     ),
   ]);
 
+  assert.match(page, /getPublicPayrollMonths\(60\)/);
   assert.match(page, /const previousPayrollMonths = payrollMonths\.slice\(1\)/);
   assert.match(page, /<FinancePayrollHistory months=\{previousPayrollMonths\}/);
   assert.match(history, /Ver meses anteriores da folha/);
