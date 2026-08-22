@@ -45,6 +45,7 @@ import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
 import FinancePayrollCompensation from "./finance-payroll-compensation";
 import FinancePayrollSources from "./finance-payroll-sources";
 import FinancePayrollYears from "./finance-payroll-years";
+import { FinanceExpenseLineCard } from "./finance-expense-line-card";
 
 export const revalidate = 300;
 
@@ -815,37 +816,11 @@ export default async function FinancesPage() {
                   </p>
                   <div className="digest-grid">
                   {expenseLines.map((line) => (
-                    <article className="digest-card finance-negative-card" key={line.expenseLineId}>
-                      <div className="track-top">
-                        <span>Linha {line.lineNumber.toLocaleString("pt-BR")}</span>
-                        <span className="track-status">{line.expenseCode}</span>
-                      </div>
-                      <h4 className="procurement-object">{line.description}</h4>
-                      <dl className="procurement-values">
-                        <div className="revenue-primary-value">
-                          <dt>Pago no período</dt>
-                          <dd>{formatBrlDecimal(line.paidPeriodAmount)}</dd>
-                        </div>
-                        <div>
-                          <dt>Valor atualizado</dt>
-                          <dd>{formatBrlDecimal(line.updatedAmount)}</dd>
-                        </div>
-                        <div>
-                          <dt>Empenhado no período</dt>
-                          <dd>{formatBrlDecimal(line.committedPeriodAmount)}</dd>
-                        </div>
-                        <div>
-                          <dt>Liquidado no período</dt>
-                          <dd>{formatBrlDecimal(line.liquidatedPeriodAmount)}</dd>
-                        </div>
-                      </dl>
-                      <p className="act-evidence">
-                        Código-fonte {line.sourceCode} · período {formatDate(line.periodStart)} a {formatDate(line.periodEnd)} ·{" "}
-                        <a href={line.documentSourceUrl} target="_blank" rel="noreferrer">
-                          abrir documento oficial
-                        </a>
-                      </p>
-                    </article>
+                    <FinanceExpenseLineCard
+                      line={line}
+                      key={line.expenseLineId}
+                      showPeriod
+                    />
                   ))}
                   </div>
                 </details>
