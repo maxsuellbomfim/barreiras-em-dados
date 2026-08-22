@@ -89,6 +89,11 @@ MAIN_COLUMNS = (
     "Valor Restos A Pagar Cancelados",
     "Valor Restos A Pagar Pagos",
 )
+MAIN_COLUMNS_WITH_SUPPORTER = (
+    *MAIN_COLUMNS[:6],
+    "Possui Apoiador/Solicitante? ",
+    *MAIN_COLUMNS[6:],
+)
 CONVENIO_COLUMNS = (
     "Código da Emenda",
     "Código Função",
@@ -119,9 +124,9 @@ FAVORECIDO_COLUMNS = (
     "Valor Recebido",
 )
 EXPECTED_COLUMNS = {
-    "EmendasParlamentares.csv": MAIN_COLUMNS,
-    "EmendasParlamentares_Convenios.csv": CONVENIO_COLUMNS,
-    "EmendasParlamentares_PorFavorecido.csv": FAVORECIDO_COLUMNS,
+    "EmendasParlamentares.csv": (MAIN_COLUMNS, MAIN_COLUMNS_WITH_SUPPORTER),
+    "EmendasParlamentares_Convenios.csv": (CONVENIO_COLUMNS,),
+    "EmendasParlamentares_PorFavorecido.csv": (FAVORECIDO_COLUMNS,),
 }
 _DECIMAL = re.compile(r"^-?\d+(?:,\d{1,2})?$")
 
@@ -277,22 +282,27 @@ def parse_cgu_federal_amendments_archive(
                         strict=True,
                     )
                     header = tuple(next(reader))
-                    if header != EXPECTED_COLUMNS[member.filename]:
+                    if header not in EXPECTED_COLUMNS[member.filename]:
                         raise CGUFederalAmendmentArchiveError(
                             f"O cabeçalho de {member.filename} diverge do contrato."
                         )
                     if member.filename != "EmendasParlamentares.csv":
                         continue
+                    municipality_index = header.index("Código Município IBGE")
                     for source_row_number, row in enumerate(reader, start=2):
                         if not row or all(not value.strip() for value in row):
                             continue
-                        if len(row) != len(MAIN_COLUMNS):
+                        if len(row) != len(header):
                             raise CGUFederalAmendmentArchiveError(
                                 "Uma linha do arquivo federal diverge do cabeçalho."
                             )
-                        if row[7].strip() != municipality_ibge:
+                        if row[municipality_index].strip() != municipality_ibge:
                             continue
-                        normalized = _normalize_row(row, source_row_number)
+                        normalized = _normalize_row(
+                            row,
+                            header=header,
+                            source_row_number=source_row_number,
+                        )
                         identity = _natural_identity(normalized)
                         if identity in identities:
                             raise CGUFederalAmendmentArchiveError(
@@ -421,9 +431,15 @@ def _validate_member(member: zipfile.ZipInfo) -> None:
         )
 
 
-def _normalize_row(row: list[str], source_row_number: int) -> dict[str, object]:
+def _normalize_row(
+    row: list[str],
+    *,
+    header: tuple[str, ...],
+    source_row_number: int,
+) -> dict[str, object]:
+    source = dict(zip(header, row, strict=True))
     try:
-        fiscal_year = int(row[1].strip())
+        fiscal_year = int(source["Ano da Emenda"].strip())
     except ValueError as error:
         raise CGUFederalAmendmentArchiveError(
             "O ano de uma emenda federal é inválido."
@@ -433,27 +449,27 @@ def _normalize_row(row: list[str], source_row_number: int) -> dict[str, object]:
             "O ano de uma emenda federal está fora do intervalo aceito."
         )
     required_text = {
-        "amendment_code": row[0],
-        "amendment_type": row[2],
-        "author_code": row[3],
-        "author_name": row[4],
-        "amendment_number": row[5],
-        "locality": row[6],
-        "municipality_ibge": row[7],
-        "municipality_name": row[8],
-        "state_ibge": row[9],
-        "state_name": row[10],
-        "region_name": row[11],
-        "function_code": row[12],
-        "function_name": row[13],
-        "subfunction_code": row[14],
-        "subfunction_name": row[15],
-        "program_code": row[16],
-        "program_name": row[17],
-        "action_code": row[18],
-        "action_name": row[19],
-        "budget_plan_code": row[20],
-        "budget_plan_name": row[21],
+        "amendment_code": source["Código da Emenda"],
+        "amendment_type": source["Tipo de Emenda"],
+        "author_code": source["Código do Autor da Emenda"],
+        "author_name": source["Nome do Autor da Emenda"],
+        "amendment_number": source["Número da emenda"],
+        "locality": source["Localidade de aplicação do recurso"],
+        "municipality_ibge": source["Código Município IBGE"],
+        "municipality_name": source["Município"],
+        "state_ibge": source["Código UF IBGE"],
+        "state_name": source["UF"],
+        "region_name": source["Região"],
+        "function_code": source["Código Função"],
+        "function_name": source["Nome Função"],
+        "subfunction_code": source["Código Subfunção"],
+        "subfunction_name": source["Nome Subfunção"],
+        "program_code": source["Código Programa"],
+        "program_name": source["Nome Programa"],
+        "action_code": source["Código Ação"],
+        "action_name": source["Nome Ação"],
+        "budget_plan_code": source["Código Plano Orçamentário"],
+        "budget_plan_name": source["Nome Plano Orçamentário"],
     }
     normalized_text: dict[str, object] = {}
     for name, value in required_text.items():
@@ -464,12 +480,16 @@ def _normalize_row(row: list[str], source_row_number: int) -> dict[str, object]:
             )
         normalized_text[name] = stripped
     amounts = {
-        "committed_amount": row[22],
-        "liquidated_amount": row[23],
-        "paid_amount": row[24],
-        "outstanding_registered_amount": row[25],
-        "outstanding_cancelled_amount": row[26],
-        "outstanding_paid_amount": row[27],
+        "committed_amount": source["Valor Empenhado"],
+        "liquidated_amount": source["Valor Liquidado"],
+        "paid_amount": source["Valor Pago"],
+        "outstanding_registered_amount": source[
+            "Valor Restos A Pagar Inscritos"
+        ],
+        "outstanding_cancelled_amount": source[
+            "Valor Restos A Pagar Cancelados"
+        ],
+        "outstanding_paid_amount": source["Valor Restos A Pagar Pagos"],
     }
     return {
         **normalized_text,
