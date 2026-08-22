@@ -36,5 +36,5 @@ export function parsePublicPayrollRow(
 ): PublicPayrollMonth | null;
 
 export function getPublicPayrollMonths(
-  pageSize?: number,
+  maxMonths?: number,
 ): Promise<PublicPayrollResult>;

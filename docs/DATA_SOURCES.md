@@ -118,7 +118,11 @@ quatro recursos adicionais no portal da Prefeitura:
   da role técnica transformem uma junção válida em fila vazia e falham
   explicitamente quando limite, período ou competência são inválidos. A role
   compartilhada mantém a leitura bruta já necessária aos coletores; o frontend
-  não recebe acesso às tabelas nem a essas funções.
+  não recebe acesso às tabelas nem a essas funções. A leitura pública do
+  histórico usa `api.get_public_payroll_months_page`, com até 24 competências
+  por chamada e cursor mensal exclusivo. O cursor impede que a ampliação do
+  acervo oculte meses antigos e preserva todos os órgãos eventualmente
+  publicados na mesma competência; não há paginação profunda por `OFFSET`.
 
 Nenhum desses documentos, isoladamente, representa o total da dívida do
 Município. A consolidação futura exigirá natureza da obrigação, competência,

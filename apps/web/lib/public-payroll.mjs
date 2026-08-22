@@ -167,44 +167,64 @@ export function parsePublicPayrollRow(row) {
   };
 }
 
-export async function getPublicPayrollMonths(pageSize = 24) {
+export async function getPublicPayrollMonths(maxMonths = 24) {
   const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
   const publishableKey =
     process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
   if (
-    !Number.isSafeInteger(pageSize) ||
-    pageSize < 1 ||
-    pageSize > 60 ||
+    !Number.isSafeInteger(maxMonths) ||
+    maxMonths < 1 ||
+    maxMonths > 120 ||
     !supabaseUrl?.startsWith("https://") ||
     !publishableKey?.startsWith("sb_publishable_")
   ) {
     return { state: "unavailable" };
   }
   try {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_public_payroll_months`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Accept-Profile": "api",
-          apikey: publishableKey,
-          "Content-Profile": "api",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ page_size: pageSize }),
-        next: { revalidate: 300 },
-        signal: AbortSignal.timeout(5_000),
-      },
-    );
-    if (!response.ok) return { state: "unavailable" };
-    const payload = await response.json();
-    if (!Array.isArray(payload)) return { state: "unavailable" };
     const months = [];
-    for (const row of payload) {
-      const parsed = parsePublicPayrollRow(row);
-      if (parsed === null) return { state: "unavailable" };
-      months.push(parsed);
+    const visitedMonths = new Set();
+    let beforeMonth = null;
+    while (visitedMonths.size < maxMonths) {
+      const requestedPageSize = Math.min(24, maxMonths - visitedMonths.size);
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/rpc/get_public_payroll_months_page`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Accept-Profile": "api",
+            apikey: publishableKey,
+            "Content-Profile": "api",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            page_size: requestedPageSize,
+            before_month: beforeMonth,
+          }),
+          next: { revalidate: 300 },
+          signal: AbortSignal.timeout(5_000),
+        },
+      );
+      if (!response.ok) return { state: "unavailable" };
+      const payload = await response.json();
+      if (!Array.isArray(payload)) return { state: "unavailable" };
+      if (payload.length === 0) break;
+      const pageMonths = new Set();
+      for (const row of payload) {
+        const parsed = parsePublicPayrollRow(row);
+        if (
+          parsed === null ||
+          (beforeMonth !== null && parsed.referenceMonth >= beforeMonth)
+        ) {
+          return { state: "unavailable" };
+        }
+        pageMonths.add(parsed.referenceMonth);
+        visitedMonths.add(parsed.referenceMonth);
+        months.push(parsed);
+      }
+      if (pageMonths.size === 0) return { state: "unavailable" };
+      beforeMonth = [...pageMonths].sort().at(0);
+      if (pageMonths.size < requestedPageSize) break;
     }
     return { state: "available", months };
   } catch {
