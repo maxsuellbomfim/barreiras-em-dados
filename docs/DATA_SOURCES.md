@@ -92,7 +92,9 @@ quatro recursos adicionais no portal da Prefeitura:
   Essa validação dupla é necessária porque a fonte já classificou uma
   `Relação de Estagiários` como `tipo=1`. Registros históricos em que a própria
   fonte omitiu `tipo` só entram quando o título normalizado é exatamente
-  `Relação de Servidores`. Relações de estagiários e terceirizados continuam
+  `Relação de Servidores`; tanto campo vazio quanto `null` significam tipo não
+  informado e passam pelo mesmo gate estrito de título. Relações de estagiários
+  e terceirizados continuam
   excluídas mesmo com tipo incorreto; ocorrências antigas já publicadas são
   invalidadas de forma append-only, sem apagar o artefato ou o agregado. Título
   ausente permanece bloqueado por falta de evidência, nunca é presumido. O primeiro

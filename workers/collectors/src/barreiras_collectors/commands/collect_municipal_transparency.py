@@ -254,7 +254,10 @@ def matches_document_reference(
     if normalized_allowed_titles and normalized_title not in normalized_allowed_titles:
         return False
     if allowed_types is not None:
-        document_type = str(item.get("tipo", "")).strip()
+        raw_document_type = item.get("tipo")
+        document_type = (
+            "" if raw_document_type is None else str(raw_document_type).strip()
+        )
         if document_type:
             return document_type in allowed_types
         normalized_allowlist = {
