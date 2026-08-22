@@ -31,6 +31,20 @@ export type PublicPayrollResult =
   | Readonly<{ state: "available"; months: readonly PublicPayrollMonth[] }>
   | Readonly<{ state: "unavailable" }>;
 
+export type PublicPayrollYearSummary = Readonly<{
+  year: number;
+  publishedMonthCount: number;
+  expectedMonthCount: number;
+  isComplete: boolean;
+  grossAmount: string;
+  deductionAmount: string;
+  netAmount: string;
+}>;
+
+export function summarizePublicPayrollYears(
+  months: readonly PublicPayrollMonth[],
+): readonly PublicPayrollYearSummary[];
+
 export type PublicPayrollCoverageRow = Readonly<{
   referenceMonth: string;
   coverageStatus:

@@ -94,6 +94,55 @@ function cents(value) {
   return BigInt(whole) * 100n + BigInt(fraction);
 }
 
+function decimalFromCents(value) {
+  const whole = value / 100n;
+  const fraction = (value % 100n).toString().padStart(2, "0");
+  return `${whole}.${fraction}`;
+}
+
+export function summarizePublicPayrollYears(months) {
+  if (!Array.isArray(months) || months.length === 0) return [];
+
+  const latestReferenceMonth = months.reduce(
+    (latest, month) =>
+      month.referenceMonth > latest ? month.referenceMonth : latest,
+    months[0].referenceMonth,
+  );
+  const latestYear = Number(latestReferenceMonth.slice(0, 4));
+  const latestMonthNumber = Number(latestReferenceMonth.slice(5, 7));
+  const years = new Map();
+
+  for (const month of months) {
+    const year = Number(month.referenceMonth.slice(0, 4));
+    const current = years.get(year) ?? {
+      publishedMonthCount: 0,
+      grossCents: 0n,
+      deductionCents: 0n,
+      netCents: 0n,
+    };
+    current.publishedMonthCount += 1;
+    current.grossCents += cents(month.grossAmount);
+    current.deductionCents += cents(month.deductionAmount);
+    current.netCents += cents(month.netAmount);
+    years.set(year, current);
+  }
+
+  return [...years.entries()]
+    .sort(([left], [right]) => right - left)
+    .map(([year, totals]) => {
+      const expectedMonthCount = year === latestYear ? latestMonthNumber : 12;
+      return {
+        year,
+        publishedMonthCount: totals.publishedMonthCount,
+        expectedMonthCount,
+        isComplete: totals.publishedMonthCount === expectedMonthCount,
+        grossAmount: decimalFromCents(totals.grossCents),
+        deductionAmount: decimalFromCents(totals.deductionCents),
+        netAmount: decimalFromCents(totals.netCents),
+      };
+    });
+}
+
 function sourceDocument(value) {
   if (typeof value !== "object" || value === null) return null;
   const payrollCycle = text(value.payroll_cycle);

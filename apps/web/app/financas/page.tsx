@@ -36,6 +36,7 @@ import {
   getPublicPayrollMonths,
   payrollCompensationMatchesMonth,
   payrollRegimeBreakdownMatchesMonth,
+  summarizePublicPayrollYears,
   type PublicPayrollMonth,
 } from "../../lib/public-payroll.mjs";
 import FinancePayrollCoverage from "./finance-payroll-coverage";
@@ -43,6 +44,7 @@ import FinancePayrollHistory from "./finance-payroll-history";
 import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
 import FinancePayrollCompensation from "./finance-payroll-compensation";
 import FinancePayrollSources from "./finance-payroll-sources";
+import FinancePayrollYears from "./finance-payroll-years";
 
 export const revalidate = 300;
 
@@ -273,6 +275,7 @@ export default async function FinancesPage() {
       ? payrollCompensationResult.rows
       : [];
   const previousPayrollMonths = payrollMonths.slice(1);
+  const payrollYearSummaries = summarizePublicPayrollYears(payrollMonths);
   const payrollCoverageRows =
     payrollCoverageResult.state === "available"
       ? payrollCoverageResult.rows
@@ -522,6 +525,7 @@ export default async function FinancesPage() {
                 </details>
               </article>
 
+              <FinancePayrollYears summaries={payrollYearSummaries} />
               <FinancePayrollHistory months={previousPayrollMonths} />
               <FinancePayrollCoverage rows={payrollCoverageRows} />
             </>

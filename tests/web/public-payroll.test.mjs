@@ -13,6 +13,7 @@ import {
   parsePublicPayrollCoverageRow,
   parsePublicPayrollRegimeRow,
   parsePublicPayrollRow,
+  summarizePublicPayrollYears,
 } from "../../apps/web/lib/public-payroll.mjs";
 
 const validRow = {
@@ -322,6 +323,43 @@ test("folha publica normaliza centavos e conserva somente totais", () => {
   assert.equal("people" in row, false);
   assert.equal("cpf" in row, false);
   assert.equal("individualDeductions" in row, false);
+});
+
+test("resumo anual soma centavos sem transformar meses ausentes em zero", () => {
+  const month = (referenceMonth, grossAmount, deductionAmount, netAmount) => ({
+    ...parsePublicPayrollRow(validRow),
+    referenceMonth,
+    grossAmount,
+    deductionAmount,
+    netAmount,
+  });
+
+  const summaries = summarizePublicPayrollYears([
+    month("2026-02-01", "0.20", "0.05", "0.15"),
+    month("2026-01-01", "0.10", "0.02", "0.08"),
+    month("2025-12-01", "10.00", "2.00", "8.00"),
+  ]);
+
+  assert.deepEqual(summaries, [
+    {
+      year: 2026,
+      publishedMonthCount: 2,
+      expectedMonthCount: 2,
+      isComplete: true,
+      grossAmount: "0.30",
+      deductionAmount: "0.07",
+      netAmount: "0.23",
+    },
+    {
+      year: 2025,
+      publishedMonthCount: 1,
+      expectedMonthCount: 12,
+      isComplete: false,
+      grossAmount: "10.00",
+      deductionAmount: "2.00",
+      netAmount: "8.00",
+    },
+  ]);
 });
 
 test("folha publica recusa total que nao fecha deterministicamente", () => {
