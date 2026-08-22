@@ -13,9 +13,14 @@ import {
   getPublicExpenseReports,
 } from "../../../lib/expenses";
 import { getPublicExpenseCategorySummary } from "../../../lib/expense-category-summary.mjs";
+import {
+  compareExpenseCategoryMonths,
+  previousMonthStart,
+} from "../../../lib/expense-category-comparison.mjs";
 import { getPublicMonthlyFinanceDetail } from "../../../lib/monthly-finance";
 import { formatBrlDecimal } from "../../../lib/revenues";
 import { FinanceExpenseCategorySummary } from "../finance-expense-category-summary";
+import { FinanceExpenseMonthComparison } from "../finance-expense-month-comparison";
 import { FinanceExpenseLineCard } from "../finance-expense-line-card";
 
 export const revalidate = 300;
@@ -154,7 +159,13 @@ export default async function MonthlyFinancePage({ params }: PageProps) {
   }
 
   const { detail } = result;
-  const reportsResult = await getPublicExpenseReports(detail.fiscalYear);
+  const previousPeriod = previousMonthStart(detail.periodStart);
+  const [reportsResult, previousDetailResult] = await Promise.all([
+    getPublicExpenseReports(detail.fiscalYear),
+    previousPeriod
+      ? getPublicMonthlyFinanceDetail(previousPeriod)
+      : Promise.resolve({ state: "not_found" as const }),
+  ]);
   const expenseReportId = selectMonthlyExpenseReportId(
     reportsResult.state === "available" ? reportsResult.reports : [],
     detail,
@@ -168,6 +179,27 @@ export default async function MonthlyFinancePage({ params }: PageProps) {
         { state: "unavailable" as const },
         { state: "unavailable" as const },
       ];
+  const previousDetail = previousDetailResult.state === "available"
+    ? previousDetailResult.detail
+    : null;
+  const previousReportsResult = previousDetail && previousDetail.fiscalYear !== detail.fiscalYear
+    ? await getPublicExpenseReports(previousDetail.fiscalYear)
+    : reportsResult;
+  const previousExpenseReportId = previousDetail
+    ? selectMonthlyExpenseReportId(
+        previousReportsResult.state === "available"
+          ? previousReportsResult.reports
+          : [],
+        previousDetail,
+      )
+    : null;
+  const previousExpenseCategorySummary = previousExpenseReportId
+    ? await getPublicExpenseCategorySummary(previousExpenseReportId)
+    : { state: "unavailable" as const };
+  const expenseMonthComparison = compareExpenseCategoryMonths(
+    expenseCategorySummary,
+    previousExpenseCategorySummary,
+  );
   const expenseLines =
     expenseLinesResult.state === "available" ? expenseLinesResult.lines : [];
   const status = monthlyFinanceStatusCopy(detail);
@@ -249,6 +281,14 @@ export default async function MonthlyFinancePage({ params }: PageProps) {
         </section>
 
         <FinanceExpenseCategorySummary result={expenseCategorySummary} />
+
+        {previousPeriod ? (
+          <FinanceExpenseMonthComparison
+            result={expenseMonthComparison}
+            currentPeriodStart={detail.periodStart}
+            previousPeriodStart={previousPeriod}
+          />
+        ) : null}
 
         {expenseLines.length > 0 ? (
           <section aria-labelledby="finance-month-lines-title">
