@@ -356,12 +356,15 @@ def require_complete_document_match(
 ) -> None:
     """Recusa falso sucesso quando um lote documental exato não foi fechado."""
 
-    if summary.outcome is not CollectionOutcome.COMPLETE:
-        raise RuntimeError("Seleção documental exata terminou com cobertura parcial.")
-    if summary.documents_matched < 1:
+    if summary.documents_matched < 1 and summary.outcome in {
+        CollectionOutcome.COMPLETE,
+        CollectionOutcome.EMPTY,
+    }:
         raise NoMatchingOfficialDocumentError(
             "Nenhum documento oficial corresponde à competência e ao tipo exigidos."
         )
+    if summary.outcome is not CollectionOutcome.COMPLETE:
+        raise RuntimeError("Seleção documental exata terminou com cobertura parcial.")
     completed = summary.documents_persisted + summary.documents_already_preserved
     if completed != summary.documents_matched:
         raise RuntimeError(
