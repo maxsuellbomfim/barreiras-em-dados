@@ -102,6 +102,15 @@ DOCUMENT_COLUMNS = (
     "Subtítulo (Localizador)",
     "Possui convênio?",
 )
+DOCUMENT_COLUMNS_WITH_SUPPORTER = (
+    *DOCUMENT_COLUMNS[:5],
+    "Possui Apoiador/Solicitante?",
+    *DOCUMENT_COLUMNS[5:],
+)
+DOCUMENT_COLUMN_VARIANTS = (
+    DOCUMENT_COLUMNS,
+    DOCUMENT_COLUMNS_WITH_SUPPORTER,
+)
 _DECIMAL = re.compile(r"^-?\d+(?:,\d{1,2})?$")
 _DOCUMENT_DATE = re.compile(r"^(\d{2})/(\d{2})/(\d{4})$")
 _STAGES = {
@@ -263,21 +272,26 @@ def parse_cgu_federal_amendment_documents_archive(
                     delimiter=";",
                     strict=True,
                 )
-                if tuple(next(reader)) != DOCUMENT_COLUMNS:
+                header = tuple(next(reader))
+                if header not in DOCUMENT_COLUMN_VARIANTS:
                     raise CGUFederalAmendmentDocumentArchiveError(
                         "O cabeçalho documental diverge do contrato."
                     )
+                municipality_index = header.index(
+                    "Código IBGE do município de aplicação do recurso"
+                )
                 for source_row_number, row in enumerate(reader, start=2):
                     if not row or all(not value.strip() for value in row):
                         continue
-                    if len(row) != len(DOCUMENT_COLUMNS):
+                    if len(row) != len(header):
                         raise CGUFederalAmendmentDocumentArchiveError(
                             "Uma linha documental diverge do cabeçalho."
                         )
-                    if row[13].strip() != municipality_ibge:
+                    if row[municipality_index].strip() != municipality_ibge:
                         continue
                     normalized = _normalize_row(
                         row,
+                        header=header,
                         archive_year=archive_year,
                         source_row_number=source_row_number,
                     )
@@ -392,10 +406,15 @@ def _snapshot_from_response(
 
 
 def _normalize_row(
-    row: list[str], *, archive_year: int, source_row_number: int
+    row: list[str],
+    *,
+    header: tuple[str, ...],
+    archive_year: int,
+    source_row_number: int,
 ) -> dict[str, object]:
+    source = dict(zip(header, row, strict=True))
     try:
-        amendment_year = int(row[1].strip())
+        amendment_year = int(source["Ano da Emenda"].strip())
     except ValueError as error:
         raise CGUFederalAmendmentDocumentArchiveError(
             "O ano da emenda em um documento é inválido."
@@ -404,7 +423,7 @@ def _normalize_row(
         raise CGUFederalAmendmentDocumentArchiveError(
             "O ano da emenda está fora do intervalo documental."
         )
-    date_match = _DOCUMENT_DATE.fullmatch(row[8].strip())
+    date_match = _DOCUMENT_DATE.fullmatch(source["Data Documento"].strip())
     if date_match is None:
         raise CGUFederalAmendmentDocumentArchiveError(
             "A data de um documento federal é inválida."
@@ -420,58 +439,59 @@ def _normalize_row(
         raise CGUFederalAmendmentDocumentArchiveError(
             "A data do documento diverge do ano do arquivo."
         )
-    stage = _STAGES.get(_ascii_key(row[14]))
+    stage_source = source["Fase da despesa"].strip()
+    stage = _STAGES.get(_ascii_key(stage_source))
     if stage is None:
         raise CGUFederalAmendmentDocumentArchiveError(
             "A fase da despesa federal não é reconhecida."
         )
 
-    field_indexes = {
-        "amendment_code": 0,
-        "author_code": 2,
-        "author_name": 3,
-        "amendment_number": 4,
-        "amendment_type": 7,
-        "document_code": 9,
-        "locality": 10,
-        "state_code": 11,
-        "municipality_name": 12,
-        "municipality_ibge": 13,
-        "beneficiary_code": 15,
-        "beneficiary_name": 16,
-        "beneficiary_type": 17,
-        "beneficiary_state": 18,
-        "beneficiary_municipality": 19,
-        "management_unit_code": 20,
-        "management_unit_name": 21,
-        "budget_unit_code": 22,
-        "budget_unit_name": 23,
-        "agency_code": 24,
-        "agency_name": 25,
-        "superior_agency_code": 26,
-        "superior_agency_name": 27,
-        "expense_group_code": 28,
-        "expense_group_name": 29,
-        "expense_element_code": 30,
-        "expense_element_name": 31,
-        "application_mode_code": 32,
-        "application_mode_name": 33,
-        "budget_plan_code": 34,
-        "budget_plan_name": 35,
-        "function_code": 36,
-        "function_name": 37,
-        "subfunction_code": 38,
-        "subfunction_name": 39,
-        "program_code": 40,
-        "program_name": 41,
-        "action_code": 42,
-        "action_name": 43,
-        "citizen_language": 44,
-        "localizer_code": 45,
-        "localizer_name": 46,
-        "has_agreement": 47,
+    field_columns = {
+        "amendment_code": "Código da Emenda",
+        "author_code": "Código do Autor da Emenda",
+        "author_name": "Nome do Autor da Emenda",
+        "amendment_number": "Número da emenda",
+        "amendment_type": "Tipo de Emenda",
+        "document_code": "Código Documento",
+        "locality": "Localidade de aplicação do recurso",
+        "state_code": "UF de aplicação do recurso",
+        "municipality_name": "Município de aplicação do recurso",
+        "municipality_ibge": "Código IBGE do município de aplicação do recurso",
+        "beneficiary_code": "Código favorecido",
+        "beneficiary_name": "Favorecido",
+        "beneficiary_type": "Tipo Favorecido",
+        "beneficiary_state": "UF Favorecido",
+        "beneficiary_municipality": "Município Favorecido",
+        "management_unit_code": "Código UG",
+        "management_unit_name": "UG",
+        "budget_unit_code": "Código Unidade Orçamentária",
+        "budget_unit_name": "Unidade Orçamentária",
+        "agency_code": "Código Órgão SIAFI",
+        "agency_name": "Órgão",
+        "superior_agency_code": "Código Órgão Superior SIAFI",
+        "superior_agency_name": "Órgão Superior",
+        "expense_group_code": "Código Grupo Despesa",
+        "expense_group_name": "Grupo Despesa",
+        "expense_element_code": "Código Elemento Despesa",
+        "expense_element_name": "Elemento Despesa",
+        "application_mode_code": "Código Modalidade Aplicação Despesa",
+        "application_mode_name": "Modalidade Aplicação Despesa",
+        "budget_plan_code": "Código Plano Orçamentário",
+        "budget_plan_name": "Plano Orçamentário",
+        "function_code": "Código Função",
+        "function_name": "Função",
+        "subfunction_code": "Código SubFunção",
+        "subfunction_name": "SubFunção",
+        "program_code": "Código Programa",
+        "program_name": "Programa",
+        "action_code": "Código Ação",
+        "action_name": "Ação",
+        "citizen_language": "Linguagem Cidadã",
+        "localizer_code": "Código Subtítulo (Localizador)",
+        "localizer_name": "Subtítulo (Localizador)",
+        "has_agreement": "Possui convênio?",
     }
-    text = {name: row[index].strip() for name, index in field_indexes.items()}
+    text = {name: source[column].strip() for name, column in field_columns.items()}
     for required in (
         "amendment_code",
         "author_name",
@@ -494,9 +514,11 @@ def _normalize_row(
         "amendment_year": amendment_year,
         "document_date": document_date.isoformat(),
         "expense_stage": stage,
-        "expense_stage_source": row[14].strip(),
-        "committed_amount": _decimal(row[5], name="committed_amount"),
-        "paid_amount": _decimal(row[6], name="paid_amount"),
+        "expense_stage_source": stage_source,
+        "committed_amount": _decimal(
+            source["Valor Empenhado"], name="committed_amount"
+        ),
+        "paid_amount": _decimal(source["Valor Pago"], name="paid_amount"),
         "source_row_number": source_row_number,
     }
     fingerprint_payload = {
