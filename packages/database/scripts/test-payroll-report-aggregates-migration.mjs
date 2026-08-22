@@ -1059,6 +1059,10 @@ try {
       has_function_privilege(
         'anon', 'api.get_public_payroll_regime_breakdown(date)', 'EXECUTE'
       ) as anon_execute,
+      has_function_privilege(
+        'collector_worker',
+        'api.get_public_payroll_regime_breakdown(date)', 'EXECUTE'
+      ) as collector_execute,
       (select relrowsecurity and relforcerowsecurity
          from pg_class
         where oid = 'hr.payroll_report_regime_breakdowns'::regclass) as rls
@@ -1069,6 +1073,7 @@ try {
     pending_rpc: "hr.get_pending_payroll_regime_documents(integer,date)",
     anon_select: false,
     anon_execute: true,
+    collector_execute: true,
     rls: true,
   }]);
   await database.exec("set role collector_worker");
