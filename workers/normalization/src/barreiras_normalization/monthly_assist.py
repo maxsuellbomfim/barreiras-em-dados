@@ -14,8 +14,8 @@ from typing import Any
 
 from barreiras_docproc.assist import _parse_content, run_cascade_content
 
-MONTHLY_ASSIST_PROMPT_VERSION = "monthly-finance-assist/1.0.0"
-MONTHLY_ASSIST_VALIDATOR_VERSION = "monthly-finance-assist-literal-safe/1.0.0"
+MONTHLY_ASSIST_PROMPT_VERSION = "monthly-finance-assist/1.1.0"
+MONTHLY_ASSIST_VALIDATOR_VERSION = "monthly-finance-assist-literal-safe/1.1.0"
 MAX_COMMENTARY_CHARS = 900
 
 _DIGIT = re.compile(r"\d")
@@ -24,6 +24,13 @@ _FORBIDDEN_CLAIMS = re.compile(
     re.IGNORECASE,
 )
 _ALLOWED_CLASSES = frozenset({"fact", "methodology"})
+_MISSING_COVERAGE_CLAIM = re.compile(
+    r"(?:relat[óo]rios? compar[aá]veis .*n[aã]o .*dispon[ií]veis|"
+    r"aguard(?:a|ando).{0,80}relat[óo]rios?|"
+    r"falta(?:m)?.{0,40}(?:dados|relat[óo]rios?|cobertura)|"
+    r"dados parciais|cobertura .*incompleta)",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -72,8 +79,10 @@ def build_monthly_assist_messages(
         "Explique em português simples o estado do fechamento recebido. "
         "Não faça contas, não repita valores, não invente datas, não atribua "
         "causas e não sugira corrupção, crime, fraude, desvio, superávit ou déficit. "
-        "Use statement_class fact ou methodology. Se faltar cobertura, diga apenas "
-        "que os relatórios comparáveis ainda não estão disponíveis."
+        "Use statement_class fact ou methodology. Se closure_status for needs_data, "
+        "diga apenas que os relatórios comparáveis ainda não estão disponíveis. "
+        "Se closure_status for operational, diga que os relatórios foram comparados "
+        "e nunca afirme que faltam dados ou relatórios."
     )
     user = (
         "Fatos determinísticos já publicados (somente leitura):\n"
@@ -110,6 +119,10 @@ def parse_monthly_assist_response(
         r"cobertura|relat[óo]ri|dispon[ií]v", commentary, re.IGNORECASE
     ):
         raise ValueError("comentário não explica a falta de cobertura")
+    if facts.closure_status == "operational" and _MISSING_COVERAGE_CLAIM.search(
+        commentary
+    ):
+        raise ValueError("comentário contradiz o fechamento operacional")
     return MonthlyAssistOutcome(
         commentary=commentary,
         statement_class=statement_class,

@@ -1,3 +1,5 @@
+import { isMonthlyFinanceCommentaryCompatible } from "./monthly-finance-commentary.mjs";
+
 export type PublicMonthlyFinanceClosure = Readonly<{
   closureId: string;
   fiscalYear: number;
@@ -203,23 +205,33 @@ export async function getPublicMonthlyFinanceClosures(
       if (!closure) return { state: "unavailable" };
       closures.push(closure);
     }
-    const commentaryByClosure = new Map<string, string>();
+    const commentaryByClosure = new Map<string, PublicMonthlyFinanceCommentary>();
     if (commentaryResponse.ok) {
       const commentaryPayload = await commentaryResponse.json();
       if (Array.isArray(commentaryPayload)) {
         for (const row of commentaryPayload) {
           if (typeof row !== "object" || row === null) continue;
           const commentary = parseCommentary(row as Record<string, unknown>);
-          if (commentary) commentaryByClosure.set(commentary.closureId, commentary.commentary);
+          if (commentary) commentaryByClosure.set(commentary.closureId, commentary);
         }
       }
     }
     return {
       state: "available",
-      closures: closures.map((closure) => ({
-        ...closure,
-        aiCommentary: commentaryByClosure.get(closure.closureId) ?? null,
-      })),
+      closures: closures.map((closure) => {
+        const commentary = commentaryByClosure.get(closure.closureId);
+        return {
+          ...closure,
+          aiCommentary:
+            commentary &&
+            isMonthlyFinanceCommentaryCompatible(
+              closure.closureStatus,
+              commentary.commentary,
+            )
+              ? commentary.commentary
+              : null,
+        };
+      }),
     };
   } catch {
     return { state: "unavailable" };

@@ -53,6 +53,17 @@ class MonthlyFinanceCommentaryRepository:
                       from editorial.monthly_finance_commentaries as commentary
                       where commentary.closure_id = closure.closure_id
                         and commentary.status = 'published'
+                        and commentary.facts = jsonb_build_object(
+                          'period_start', closure.period_start::text,
+                          'period_end', closure.period_end::text,
+                          'public_body_name', closure.public_body_name,
+                          'closure_status', closure.closure_status,
+                          'coverage_note', closure.coverage_note,
+                          'revenue_report_amount', closure.revenue_report_amount::text,
+                          'expense_paid_amount', closure.expense_paid_amount::text,
+                          'operational_difference_amount',
+                            closure.operational_difference_amount::text
+                        )
                     )
                     order by closure.period_start desc, closure.public_body_name
                     limit %s

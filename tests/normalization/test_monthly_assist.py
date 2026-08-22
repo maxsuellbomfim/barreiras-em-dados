@@ -65,3 +65,13 @@ class MonthlyAssistTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "cobertura"):
             parse_monthly_assist_response(response, facts=facts("needs_data"))
+
+    def test_parser_rejects_missing_data_claim_for_operational_closure(self) -> None:
+        response = json.dumps(
+            {
+                "commentary": "Os relatorios comparaveis ainda nao estao disponiveis.",
+                "statement_class": "fact",
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "contradiz"):
+            parse_monthly_assist_response(response, facts=facts("operational"))
