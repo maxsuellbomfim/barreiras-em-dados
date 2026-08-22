@@ -996,6 +996,39 @@ try {
     { description: "Linha com evidência trocada" },
   ]);
 
+  const publicExpenseCategorySummary = await database.query(`
+    select
+      expense_code,
+      source_description,
+      source_description_count,
+      line_count,
+      committed_period_amount,
+      liquidated_period_amount,
+      paid_period_amount,
+      report_total_paid_amount,
+      aggregated_total_paid_amount,
+      reconciliation_status,
+      paid_share_percent,
+      methodology_version
+    from api.get_public_expense_category_summary(
+      '00000000-0000-0000-0000-000000008013'
+    )
+  `);
+  assert.deepEqual(publicExpenseCategorySummary.rows, [{
+    expense_code: "3.3.90",
+    source_description: "Linha com evidência exata",
+    source_description_count: 1,
+    line_count: 1,
+    committed_period_amount: "800.00",
+    liquidated_period_amount: "700.00",
+    paid_period_amount: "600.00",
+    report_total_paid_amount: "600.00",
+    aggregated_total_paid_amount: "600.00",
+    reconciliation_status: "matched",
+    paid_share_percent: "100.00",
+    methodology_version: "public-expense-category-summary/1.0.0",
+  }]);
+
   const publicMonthlyClosure = await database.query(`
     select
       revenue_report_amount,
@@ -1032,7 +1065,16 @@ try {
       evidence_methodology
     from api.get_public_monthly_finance_detail('2026-06-01'::date)
   `);
+  const anonymousExpenseCategorySummary = await database.query(`
+    select expense_code
+    from api.get_public_expense_category_summary(
+      '00000000-0000-0000-0000-000000008013'
+    )
+  `);
   await database.exec("reset role");
+  assert.deepEqual(anonymousExpenseCategorySummary.rows, [{
+    expense_code: "3.3.90",
+  }]);
   assert.deepEqual(publicMonthlyDetail.rows, [{
     closure_status: "needs_review",
     operational_difference_amount: null,
@@ -1125,6 +1167,20 @@ try {
       `${row.proname} deve usar a projeção set-based de linhagem`,
     );
   }
+
+  const expenseCategorySummaryDefinition = await database.query(`
+    select pg_get_functiondef(procedure.oid) as definition
+    from pg_proc as procedure
+    join pg_namespace as namespace on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'api'
+      and procedure.proname = 'get_public_expense_category_summary'
+  `);
+  assert.equal(expenseCategorySummaryDefinition.rows.length, 1);
+  assert.match(
+    expenseCategorySummaryDefinition.rows[0].definition,
+    /where report\.current_row = 1\s+and report\.id = report_filter/,
+    "o filtro por id deve ocorrer depois de escolher a versão vigente",
+  );
 
   const publicFinanceSignals = await database.query(`
     select finding_id from api.get_public_finance_signals(20)
