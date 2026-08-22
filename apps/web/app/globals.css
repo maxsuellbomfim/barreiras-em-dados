@@ -3155,6 +3155,100 @@ footer {
   font-weight: 740;
 }
 
+.finance-annual-section {
+  margin: 3rem 0;
+}
+
+.finance-annual-list {
+  margin: 1.2rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  list-style: none;
+}
+
+.finance-annual-list > li {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(39, 61, 156, 0.13);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.finance-annual-list header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.finance-annual-list header span {
+  color: #6675ad;
+  font-size: 0.67rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.finance-annual-list h3 {
+  margin: 0.2rem 0 0;
+  font-size: 1.5rem;
+}
+
+.finance-annual-list header p {
+  margin: 0;
+  display: grid;
+  justify-items: end;
+  color: #556176;
+  font-size: 0.73rem;
+  text-align: right;
+}
+
+.finance-annual-list header p strong {
+  font-size: 1rem;
+}
+
+.finance-annual-list header p small {
+  margin-top: 0.15rem;
+  color: #7b8597;
+}
+
+.finance-annual-list dl {
+  margin: 0.9rem 0 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.finance-annual-list dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(39, 61, 156, 0.08);
+}
+
+.finance-annual-list dt {
+  color: #6e788b;
+  font-size: 0.7rem;
+}
+
+.finance-annual-list dd {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 760;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.finance-annual-method {
+  margin: 0.8rem 0 0;
+  color: #6e788b;
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
 .finance-evidence-grid {
   margin-top: 1.35rem;
   display: grid;
@@ -3477,6 +3571,10 @@ footer {
 
   .procurement-filter-query {
     grid-column: span 2;
+  }
+
+  .finance-annual-list {
+    grid-template-columns: 1fr;
   }
 }
 
