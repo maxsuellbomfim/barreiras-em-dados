@@ -384,6 +384,13 @@ class PostgresExpensePublicationRepository:
                         report_id=plan.report_id,
                         origin_raw_record_id=plan.origin_raw_record_id,
                     )
+                    self._persist_total_source_conflicts(
+                        connection,
+                        artifact=artifact,
+                        batch=batch,
+                        report_id=plan.report_id,
+                        origin_raw_record_id=plan.origin_raw_record_id,
+                    )
                     self._record_success(connection, artifact)
                     return 0
 
@@ -448,6 +455,13 @@ class PostgresExpensePublicationRepository:
                     origin_raw_record_id=plan.origin_raw_record_id,
                 )
                 self._persist_existing_report_allocations(
+                    connection,
+                    artifact=artifact,
+                    batch=batch,
+                    report_id=report_id,
+                    origin_raw_record_id=plan.origin_raw_record_id,
+                )
+                self._persist_total_source_conflicts(
                     connection,
                     artifact=artifact,
                     batch=batch,
@@ -606,6 +620,140 @@ class PostgresExpensePublicationRepository:
             (json.dumps(evidence_input),),
         )
         return len(inserted)
+
+    @staticmethod
+    def _persist_total_source_conflicts(
+        connection,
+        *,
+        artifact: ExpenseArtifact,
+        batch: ExpensePublicationBatch,
+        report_id: str,
+        origin_raw_record_id: str,
+    ) -> None:
+        """Registra a divergência literal entre total geral e subtotais."""
+
+        for conflict in batch.total_source_conflicts:
+            existing = connection.execute(
+                """
+                select 1
+                from evidence.source_conflicts
+                where target_type = 'finance.expense_reports'
+                  and target_id = %s::uuid
+                  and field_name = %s
+                  and status in ('open', 'accepted_difference')
+                limit 1
+                """,
+                (report_id, conflict.field_name),
+            ).fetchone()
+            if existing is not None:
+                continue
+            declared_evidence = connection.execute(
+                """
+                insert into evidence.evidence_items (
+                  target_type, target_id, raw_artifact_id, raw_record_id,
+                  evidence_kind, source_url, excerpt, locator,
+                  content_sha256, parser_version, is_primary
+                ) values (
+                  'finance.expense_reports', %s::uuid, %s::uuid, %s::uuid,
+                  'document', %s, %s, %s::jsonb, %s, %s, true
+                )
+                returning id::text
+                """,
+                (
+                    report_id,
+                    artifact.id,
+                    origin_raw_record_id,
+                    artifact.source_url,
+                    (
+                        f"Total geral declarado em {conflict.field_name}: "
+                        f"{conflict.declared_amount}"
+                    ),
+                    json.dumps(
+                        {
+                            "section": "Total",
+                            "field_name": conflict.field_name,
+                            "value": str(conflict.declared_amount),
+                        },
+                        separators=(",", ":"),
+                    ),
+                    artifact.sha256,
+                    batch.methodology_version,
+                ),
+            ).fetchone()
+            calculated_evidence = connection.execute(
+                """
+                insert into evidence.evidence_items (
+                  target_type, target_id, raw_artifact_id, raw_record_id,
+                  evidence_kind, source_url, excerpt, locator,
+                  content_sha256, parser_version, is_primary
+                ) values (
+                  'finance.expense_reports', %s::uuid, %s::uuid, %s::uuid,
+                  'document', %s, %s, %s::jsonb, %s, %s, true
+                )
+                returning id::text
+                """,
+                (
+                    report_id,
+                    artifact.id,
+                    origin_raw_record_id,
+                    artifact.source_url,
+                    (
+                        "Soma das linhas conferida contra os subtotais "
+                        f"oficiais em {conflict.field_name}: "
+                        f"{conflict.calculated_amount}"
+                    ),
+                    json.dumps(
+                        {
+                            "section": "Total da Unidade",
+                            "field_name": conflict.field_name,
+                            "value": str(conflict.calculated_amount),
+                        },
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ),
+                    artifact.sha256,
+                    batch.methodology_version,
+                ),
+            ).fetchone()
+            if declared_evidence is None or calculated_evidence is None:
+                raise ExpensePublicationIntegrityError(
+                    "evidência do conflito interno não foi persistida"
+                )
+            connection.execute(
+                """
+                insert into evidence.source_conflicts (
+                  target_type, target_id, field_name,
+                  first_evidence_item_id, second_evidence_item_id,
+                  first_value, second_value, status
+                ) values (
+                  'finance.expense_reports', %s::uuid, %s,
+                  %s::uuid, %s::uuid, %s::jsonb, %s::jsonb, 'open'
+                )
+                on conflict (
+                  target_type, target_id, field_name,
+                  first_evidence_item_id, second_evidence_item_id
+                ) do nothing
+                """,
+                (
+                    report_id,
+                    conflict.field_name,
+                    declared_evidence["id"],
+                    calculated_evidence["id"],
+                    json.dumps(
+                        {"declared_amount": str(conflict.declared_amount)},
+                        separators=(",", ":"),
+                    ),
+                    json.dumps(
+                        {
+                            "calculated_amount": str(
+                                conflict.calculated_amount
+                            ),
+                            "difference_amount": str(conflict.difference_amount),
+                        },
+                        separators=(",", ":"),
+                    ),
+                ),
+            )
 
     @staticmethod
     def _persist_existing_report_allocations(

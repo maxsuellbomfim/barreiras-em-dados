@@ -3,12 +3,15 @@ from __future__ import annotations
 import hashlib
 import json
 import unittest
+from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 
 from barreiras_normalization.commands.publish_expense_reports import (
     completion_exit_code,
 )
 from barreiras_normalization.expense_publication import (
+    ExpenseTotalSourceConflict,
     build_expense_publication_batch,
 )
 from barreiras_normalization.expense_publisher import (
@@ -265,6 +268,33 @@ class BulkExpenseLineConnection:
         raise AssertionError(f"consulta inesperada: {normalized[:160]}")
 
 
+class SourceConflictConnection:
+    def __init__(self) -> None:
+        self.calls = []
+        self._evidence_number = 0
+
+    def execute(self, query, parameters=()):
+        self.calls.append((query, parameters))
+        normalized = " ".join(query.lower().split())
+        if "select 1 from evidence.source_conflicts" in normalized:
+            return FakeRows([])
+        if "insert into evidence.evidence_items" in normalized:
+            self._evidence_number += 1
+            return FakeRows(
+                [
+                    {
+                        "id": (
+                            "00000000-0000-4000-8000-"
+                            f"{930 + self._evidence_number:012d}"
+                        )
+                    }
+                ]
+            )
+        if "insert into evidence.source_conflicts" in normalized:
+            return FakeRows([])
+        raise AssertionError(f"consulta inesperada: {normalized[:160]}")
+
+
 def artifact_for(body: bytes = PDF_BODY) -> ExpenseArtifact:
     return ExpenseArtifact(
         id="00000000-0000-4000-8000-000000000911",
@@ -277,6 +307,46 @@ def artifact_for(body: bytes = PDF_BODY) -> ExpenseArtifact:
 
 
 class ExpensePublisherTests(unittest.TestCase):
+    def test_persists_literal_total_source_conflict_with_two_evidences(
+        self,
+    ) -> None:
+        base = build_expense_publication_batch(parse_expense_pdf_text(FIXTURE_TEXT))
+        batch = replace(
+            base,
+            total_source_conflicts=(
+                ExpenseTotalSourceConflict(
+                    field_name="total_reductions_amount",
+                    declared_amount=Decimal("263599171.60"),
+                    calculated_amount=Decimal("263599171.68"),
+                    difference_amount=Decimal("0.08"),
+                ),
+            ),
+        )
+        connection = SourceConflictConnection()
+
+        PostgresExpensePublicationRepository._persist_total_source_conflicts(
+            connection,
+            artifact=artifact_for(),
+            batch=batch,
+            report_id="00000000-0000-4000-8000-000000000921",
+            origin_raw_record_id="00000000-0000-4000-8000-000000000913",
+        )
+
+        self.assertEqual(len(connection.calls), 4)
+        conflict_parameters = connection.calls[-1][1]
+        self.assertEqual(conflict_parameters[1], "total_reductions_amount")
+        self.assertEqual(
+            json.loads(conflict_parameters[4]),
+            {"declared_amount": "263599171.60"},
+        )
+        self.assertEqual(
+            json.loads(conflict_parameters[5]),
+            {
+                "calculated_amount": "263599171.68",
+                "difference_amount": "0.08",
+            },
+        )
+
     def test_new_report_persists_lines_and_evidence_in_two_bulk_queries(self) -> None:
         batch = build_expense_publication_batch(parse_expense_pdf_text(FIXTURE_TEXT))
         connection = BulkExpenseLineConnection()
@@ -393,7 +463,7 @@ class ExpensePublisherTests(unittest.TestCase):
             (
                 2021,
                 2026,
-                "public-expense-pdf/1.2.0",
+                "public-expense-pdf/1.3.0",
                 2021,
                 2026,
                 "financial_expense_publication",

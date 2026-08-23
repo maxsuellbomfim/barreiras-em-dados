@@ -15,6 +15,11 @@ FIXTURE = (
     / "documents"
     / "financial-expense-report-sample.txt"
 )
+UNIT_TOTAL = (
+    "1.401.257,00 43.300,00 219.492,00 1.225.065,00 40.500,00 "
+    "1.225.037,00 109.465,46 417.983,96 115.995,62 405.440,48 "
+    "819.596,52 28,00Total da Unidade :"
+)
 
 
 class FinancialExpensePdfTests(unittest.TestCase):
@@ -88,6 +93,22 @@ class FinancialExpensePdfTests(unittest.TestCase):
         self.assertEqual(len(report.rows), 3)
         self.assertEqual(report.rows[2].description, "Outros Servicos Terceiros Pessoa")
         self.assertEqual(report.rows[2].source_code, "15001001")
+
+    def test_preserves_official_budget_unit_subtotal(self):
+        text = FIXTURE.read_text(encoding="utf-8").replace(
+            "Total :",
+            f"{UNIT_TOTAL}\nTotal :",
+            1,
+        )
+
+        report = parse_expense_pdf_text(text)
+
+        self.assertEqual(len(report.unit_totals), 1)
+        self.assertEqual(report.unit_totals[0].budget_unit_code, "010101")
+        self.assertEqual(
+            report.unit_totals[0].reductions_amount,
+            Decimal("219492.00"),
+        )
 
 
 if __name__ == "__main__":

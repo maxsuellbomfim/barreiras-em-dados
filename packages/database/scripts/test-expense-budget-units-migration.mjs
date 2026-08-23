@@ -7,7 +7,7 @@ import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 
 const migrationsUrl = new URL("../../../supabase/migrations/", import.meta.url);
-const migrationName = "20260823120000_expense_budget_units.sql";
+const migrationName = "20260823220000_public_expense_report_source_conflicts.sql";
 const migrationNames = (await readdir(fileURLToPath(migrationsUrl)))
   .filter((name) => name.endsWith(".sql"))
   .sort();
@@ -68,7 +68,15 @@ try {
       ) as collector_insert,
       has_function_privilege(
         'anon', 'api.get_public_expense_budget_unit_summary(uuid)', 'EXECUTE'
-      ) as anon_rpc_execute
+      ) as anon_rpc_execute,
+      has_function_privilege(
+        'anon',
+        'api.get_public_expense_report_source_conflicts(integer,smallint)',
+        'EXECUTE'
+      ) as anon_conflict_rpc_execute,
+      has_table_privilege(
+        'anon', 'evidence.source_conflicts', 'SELECT'
+      ) as anon_conflict_table_select
   `);
   assert.deepEqual(contracts.rows, [{
     allocation_table: "finance.expense_line_budget_units",
@@ -76,6 +84,8 @@ try {
     anon_table_select: false,
     collector_insert: true,
     anon_rpc_execute: true,
+    anon_conflict_rpc_execute: true,
+    anon_conflict_table_select: false,
   }]);
 
   const rls = await database.query(`
@@ -224,6 +234,50 @@ try {
     );
   `);
 
+  await database.exec("set role collector_worker");
+  await database.exec(`
+    insert into evidence.evidence_items (
+      id, target_type, target_id, raw_artifact_id, raw_record_id,
+      evidence_kind, source_url, excerpt, locator, content_sha256,
+      parser_version, is_primary
+    ) values
+    (
+      '00000000-0000-0000-0000-000000007012',
+      'finance.expense_reports',
+      '00000000-0000-0000-0000-000000007009',
+      '00000000-0000-0000-0000-000000007006',
+      '00000000-0000-0000-0000-000000007005',
+      'document', 'https://example.org/expense-2025-01.pdf',
+      'Total geral declarado', '{"section":"Total"}'::jsonb,
+      '${"3".repeat(64)}', 'public-expense-pdf/1.3.0', true
+    ),
+    (
+      '00000000-0000-0000-0000-000000007013',
+      'finance.expense_reports',
+      '00000000-0000-0000-0000-000000007009',
+      '00000000-0000-0000-0000-000000007006',
+      '00000000-0000-0000-0000-000000007005',
+      'document', 'https://example.org/expense-2025-01.pdf',
+      'Soma conferida por unidade', '{"section":"Total da Unidade"}'::jsonb,
+      '${"3".repeat(64)}', 'public-expense-pdf/1.3.0', true
+    );
+    insert into evidence.source_conflicts (
+      target_type, target_id, field_name,
+      first_evidence_item_id, second_evidence_item_id,
+      first_value, second_value, status
+    ) values (
+      'finance.expense_reports',
+      '00000000-0000-0000-0000-000000007009',
+      'total_reductions_amount',
+      '00000000-0000-0000-0000-000000007012',
+      '00000000-0000-0000-0000-000000007013',
+      '{"declared_amount":"263599171.60"}'::jsonb,
+      '{"calculated_amount":"263599171.68","difference_amount":"0.08"}'::jsonb,
+      'open'
+    );
+  `);
+  await database.exec("reset role");
+
   await database.exec("set role anon");
   const summary = await database.query(`
     select budget_unit_code, budget_unit_name, paid_period_amount,
@@ -250,6 +304,23 @@ try {
       paid_share_percent: "40.00",
     },
   ]);
+
+  await database.exec("set role anon");
+  const sourceConflicts = await database.query(`
+    select fiscal_year, period_start::text, field_name, declared_amount,
+      calculated_amount, difference_amount, methodology_version
+    from api.get_public_expense_report_source_conflicts(100, 2025::smallint)
+  `);
+  await database.exec("reset role");
+  assert.deepEqual(sourceConflicts.rows, [{
+    fiscal_year: 2025,
+    period_start: "2025-01-01",
+    field_name: "total_reductions_amount",
+    declared_amount: "263599171.60",
+    calculated_amount: "263599171.68",
+    difference_amount: "0.08",
+    methodology_version: "public-expense-source-conflicts/1.0.0",
+  }]);
 
   await assert.rejects(
     database.exec(`

@@ -12,11 +12,13 @@ import { summarizeAnnualFinances } from "../../../../lib/annual-finance-summary.
 import { getPublicExpenseBudgetUnitSummary } from "../../../../lib/expense-budget-unit-summary.mjs";
 import { getPublicExpenseCategorySummary } from "../../../../lib/expense-category-summary.mjs";
 import { getPublicExpenseReports } from "../../../../lib/expenses";
+import { getPublicExpenseReportSourceConflicts } from "../../../../lib/expense-report-source-conflicts.mjs";
 import { getPublicMonthlyFinanceClosures } from "../../../../lib/monthly-finance";
 import { monthlyFinanceHref } from "../../../../lib/monthly-finance-detail.mjs";
 import { formatBrlDecimal } from "../../../../lib/revenues";
 import { FinanceAnnualBudgetUnits } from "./finance-annual-budget-units";
 import { FinanceAnnualExpenseCategories } from "./finance-annual-expense-categories";
+import { FinanceAnnualSourceConflicts } from "./finance-annual-source-conflicts";
 
 export const revalidate = 300;
 
@@ -76,9 +78,10 @@ export default async function AnnualFinancePage({ params }: PageProps) {
   const fiscalYear = parseFinanceYearSlug(ano, currentBahiaYear());
   if (!fiscalYear) notFound();
 
-  const [result, expenseReportsResult] = await Promise.all([
+  const [result, expenseReportsResult, sourceConflictsResult] = await Promise.all([
     getPublicMonthlyFinanceClosures(fiscalYear),
     getPublicExpenseReports(fiscalYear),
+    getPublicExpenseReportSourceConflicts(fiscalYear),
   ]);
   const closures = result.state === "available" ? result.closures : [];
   const trend = result.state === "available"
@@ -237,6 +240,8 @@ export default async function AnnualFinancePage({ params }: PageProps) {
                 })}
               </ol>
             </section>
+
+            <FinanceAnnualSourceConflicts result={sourceConflictsResult} />
 
             <FinanceAnnualBudgetUnits result={annualBudgetUnits} />
 

@@ -3482,6 +3482,33 @@ footer {
   line-height: 1.6;
 }
 
+.finance-year-source-conflicts {
+  margin-top: 2.5rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(180, 83, 9, 0.28);
+  border-radius: 1rem;
+  background: rgba(255, 247, 237, 0.82);
+}
+
+.finance-year-source-conflicts ol {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finance-year-source-conflicts li + li {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(180, 83, 9, 0.18);
+}
+
+.finance-year-source-conflicts p {
+  max-width: 58rem;
+  margin: 0.5rem 0;
+  color: #667085;
+  line-height: 1.6;
+}
+
 .finance-year-category-coverage {
   margin: 1rem 0;
   padding: 1rem 1.1rem;

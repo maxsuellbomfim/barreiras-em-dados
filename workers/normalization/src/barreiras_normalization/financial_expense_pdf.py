@@ -42,6 +42,24 @@ class ExpensePdfRow:
 
 
 @dataclass(frozen=True)
+class ExpensePdfUnitTotal:
+    budget_unit_code: str
+    budget_unit_name: str
+    fixed_amount: Decimal
+    additions_amount: Decimal
+    reductions_amount: Decimal
+    updated_amount: Decimal
+    committed_period_amount: Decimal
+    committed_to_date_amount: Decimal
+    liquidated_period_amount: Decimal
+    liquidated_to_date_amount: Decimal
+    paid_period_amount: Decimal
+    paid_to_date_amount: Decimal
+    unpaid_committed_amount: Decimal
+    balance_amount: Decimal
+
+
+@dataclass(frozen=True)
 class ExpensePdfReport:
     period_start: date
     period_end: date
@@ -59,6 +77,7 @@ class ExpensePdfReport:
     total_unpaid_committed_amount: Decimal
     total_balance_amount: Decimal
     rows: tuple[ExpensePdfRow, ...]
+    unit_totals: tuple[ExpensePdfUnitTotal, ...]
 
 
 _DATE_RANGE = re.compile(
@@ -82,6 +101,11 @@ _ROW = re.compile(
 )
 _TOTAL = re.compile(
     rf"^Total\s*:\s*(?P<amounts>{_AMOUNT}(?:\s+{_AMOUNT}){{11}})\s*$",
+    re.IGNORECASE,
+)
+_UNIT_TOTAL = re.compile(
+    rf"^(?P<amounts>{_AMOUNT}(?:\s+{_AMOUNT}){{11}})"
+    r"Total\s+da\s+Unidade\s*:\s*$",
     re.IGNORECASE,
 )
 
@@ -120,6 +144,7 @@ def parse_expense_pdf_text(text: str) -> ExpensePdfReport:
         raise ExpensePdfContractError("início do período posterior ao fim")
 
     rows: list[ExpensePdfRow] = []
+    unit_totals: list[ExpensePdfUnitTotal] = []
     total: tuple[Decimal, ...] | None = None
     budget_unit: tuple[str, str] | None = None
     for line_number, line in enumerate(text.splitlines(), start=1):
@@ -129,6 +154,35 @@ def parse_expense_pdf_text(text: str) -> ExpensePdfReport:
             budget_unit = (
                 budget_unit_match.group("code"),
                 budget_unit_match.group("name").strip(),
+            )
+            continue
+        unit_total_match = _UNIT_TOTAL.match(stripped)
+        if unit_total_match is not None:
+            if budget_unit is None:
+                raise ExpensePdfContractError(
+                    f"subtotal sem unidade orçamentária: {line_number}"
+                )
+            values = _amounts(
+                unit_total_match.group("amounts"),
+                field=f"subtotal da unidade na linha {line_number}",
+            )
+            unit_totals.append(
+                ExpensePdfUnitTotal(
+                    budget_unit_code=budget_unit[0],
+                    budget_unit_name=budget_unit[1],
+                    fixed_amount=values[0],
+                    additions_amount=values[1],
+                    reductions_amount=values[2],
+                    updated_amount=values[3],
+                    committed_period_amount=values[4],
+                    committed_to_date_amount=values[5],
+                    liquidated_period_amount=values[6],
+                    liquidated_to_date_amount=values[7],
+                    paid_period_amount=values[8],
+                    paid_to_date_amount=values[9],
+                    unpaid_committed_amount=values[10],
+                    balance_amount=values[11],
+                )
             )
             continue
         total_match = _TOTAL.match(stripped)
@@ -186,4 +240,5 @@ def parse_expense_pdf_text(text: str) -> ExpensePdfReport:
         total_unpaid_committed_amount=total[10],
         total_balance_amount=total[11],
         rows=tuple(rows),
+        unit_totals=tuple(unit_totals),
     )
