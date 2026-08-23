@@ -304,6 +304,14 @@ class PostgresExpensePublicationRepository:
                 else:
                     inserted_report = True
                 report_id = str(report_row["id"])
+                if not inserted_report:
+                    self._persist_existing_report_allocations(
+                        connection,
+                        artifact=artifact,
+                        batch=batch,
+                        report_id=report_id,
+                    )
+                    return 0
                 published_lines = 0
                 for row in batch.rows:
                     line_row = connection.execute(
@@ -472,8 +480,7 @@ class PostgresExpensePublicationRepository:
                                 artifact.id,
                                 artifact.parent_record_id,
                                 artifact.source_url,
-                                f"{row.budget_unit_code} - "
-                                f"{row.budget_unit_name}",
+                                f"{row.budget_unit_code} - {row.budget_unit_name}",
                                 json.dumps(
                                     {
                                         "line_number": row.line_number,
@@ -491,6 +498,226 @@ class PostgresExpensePublicationRepository:
                 return published_lines
         finally:
             connection.close()
+
+    @staticmethod
+    def _persist_existing_report_allocations(
+        connection,
+        *,
+        artifact: ExpenseArtifact,
+        batch: ExpensePublicationBatch,
+        report_id: str,
+    ) -> None:
+        """Valida linhas existentes e grava todas as unidades em poucas consultas."""
+
+        existing_lines = connection.execute(
+            """
+            select
+              line.id::text as id,
+              line.line_number,
+              line.expense_code,
+              line.description,
+              line.source_code,
+              line.fixed_amount,
+              line.additions_amount,
+              line.reductions_amount,
+              line.updated_amount,
+              line.committed_period_amount,
+              line.committed_to_date_amount,
+              line.liquidated_period_amount,
+              line.liquidated_to_date_amount,
+              line.paid_period_amount,
+              line.paid_to_date_amount,
+              line.unpaid_committed_amount,
+              line.balance_amount
+            from finance.expense_lines as line
+            where line.report_id = %s::uuid
+              and line.origin_raw_record_id = %s::uuid
+            order by line.line_number
+            """,
+            (report_id, artifact.parent_record_id),
+        ).fetchall()
+        expected_by_line_number = {row.line_number: row for row in batch.rows}
+        if len(existing_lines) != len(expected_by_line_number):
+            raise ExpensePublicationIntegrityError(
+                "relatório existente possui quantidade divergente de linhas"
+            )
+
+        line_ids_by_number: dict[int, str] = {}
+        for existing in existing_lines:
+            line_number = int(existing["line_number"])
+            expected = expected_by_line_number.get(line_number)
+            if expected is None or line_number in line_ids_by_number:
+                raise ExpensePublicationIntegrityError(
+                    "relatório existente possui numeração divergente de linhas"
+                )
+            _assert_existing_line_matches(existing, expected)
+            line_ids_by_number[line_number] = str(existing["id"])
+
+        allocation_input = [
+            {
+                "expense_line_id": line_ids_by_number[row.line_number],
+                "origin_raw_record_id": artifact.parent_record_id,
+                "source_document_artifact_id": artifact.id,
+                "version": 1,
+                "budget_unit_code": row.budget_unit_code,
+                "budget_unit_name": row.budget_unit_name,
+                "methodology_version": batch.methodology_version,
+            }
+            for row in batch.rows
+        ]
+        line_number_by_id = {
+            line_id: line_number for line_number, line_id in line_ids_by_number.items()
+        }
+        allocations = connection.execute(
+            """
+            with input_rows as (
+              select *
+              from jsonb_to_recordset(%s::jsonb) as input_row (
+                expense_line_id uuid,
+                origin_raw_record_id uuid,
+                source_document_artifact_id uuid,
+                version integer,
+                budget_unit_code text,
+                budget_unit_name text,
+                methodology_version text
+              )
+            ), inserted as (
+              insert into finance.expense_line_budget_units (
+                expense_line_id, origin_raw_record_id,
+                source_document_artifact_id, version,
+                budget_unit_code, budget_unit_name, methodology_version
+              )
+              select
+                expense_line_id, origin_raw_record_id,
+                source_document_artifact_id, version,
+                budget_unit_code, budget_unit_name, methodology_version
+              from input_rows
+              on conflict (expense_line_id, version) do nothing
+              returning
+                id, expense_line_id, origin_raw_record_id,
+                source_document_artifact_id, version,
+                budget_unit_code, budget_unit_name, methodology_version
+            )
+            select
+              inserted.id::text as id,
+              inserted.expense_line_id::text as expense_line_id,
+              inserted.origin_raw_record_id::text as origin_raw_record_id,
+              inserted.source_document_artifact_id::text
+                as source_document_artifact_id,
+              inserted.version,
+              inserted.budget_unit_code,
+              inserted.budget_unit_name,
+              inserted.methodology_version,
+              true as inserted
+            from inserted
+            union all
+            select
+              existing.id::text as id,
+              existing.expense_line_id::text as expense_line_id,
+              existing.origin_raw_record_id::text as origin_raw_record_id,
+              existing.source_document_artifact_id::text
+                as source_document_artifact_id,
+              existing.version,
+              existing.budget_unit_code,
+              existing.budget_unit_name,
+              existing.methodology_version,
+              false as inserted
+            from input_rows
+            join finance.expense_line_budget_units as existing
+              on existing.expense_line_id = input_rows.expense_line_id
+             and existing.version = input_rows.version
+            where not exists (
+              select 1 from inserted
+              where inserted.expense_line_id = input_rows.expense_line_id
+                and inserted.version = input_rows.version
+            )
+            order by expense_line_id
+            """,
+            (json.dumps(allocation_input),),
+        ).fetchall()
+        expected_by_line_id = {
+            item["expense_line_id"]: item for item in allocation_input
+        }
+        if len(allocations) != len(expected_by_line_id):
+            raise ExpensePublicationIntegrityError(
+                "replay não reconciliou todas as unidades orçamentárias"
+            )
+
+        inserted_evidence: list[dict[str, object]] = []
+        observed_line_ids: set[str] = set()
+        for allocation in allocations:
+            expense_line_id = str(allocation["expense_line_id"])
+            expected = expected_by_line_id.get(expense_line_id)
+            if expected is None or expense_line_id in observed_line_ids:
+                raise ExpensePublicationIntegrityError(
+                    "replay retornou unidade orçamentária inesperada"
+                )
+            observed_line_ids.add(expense_line_id)
+            fields = (
+                "origin_raw_record_id",
+                "source_document_artifact_id",
+                "version",
+                "budget_unit_code",
+                "budget_unit_name",
+                "methodology_version",
+            )
+            if any(str(allocation[field]) != str(expected[field]) for field in fields):
+                raise ExpensePublicationIntegrityError(
+                    "unidade orçamentária publicada diverge do replay"
+                )
+            if allocation["inserted"]:
+                inserted_evidence.append(
+                    {
+                        "target_id": str(allocation["id"]),
+                        "raw_artifact_id": artifact.id,
+                        "raw_record_id": artifact.parent_record_id,
+                        "source_url": artifact.source_url,
+                        "excerpt": (
+                            f"{expected['budget_unit_code']} - "
+                            f"{expected['budget_unit_name']}"
+                        ),
+                        "locator": {
+                            "line_number": line_number_by_id[expense_line_id],
+                            "budget_unit_code": expected["budget_unit_code"],
+                        },
+                        "content_sha256": artifact.sha256,
+                        "parser_version": batch.methodology_version,
+                    }
+                )
+
+        if inserted_evidence:
+            connection.execute(
+                """
+                insert into evidence.evidence_items (
+                  target_type, target_id, raw_artifact_id, raw_record_id,
+                  evidence_kind, source_url, excerpt, locator,
+                  content_sha256, parser_version, is_primary
+                )
+                select
+                  'finance.expense_line_budget_units',
+                  input_row.target_id,
+                  input_row.raw_artifact_id,
+                  input_row.raw_record_id,
+                  'document',
+                  input_row.source_url,
+                  input_row.excerpt,
+                  input_row.locator,
+                  input_row.content_sha256,
+                  input_row.parser_version,
+                  true
+                from jsonb_to_recordset(%s::jsonb) as input_row (
+                  target_id uuid,
+                  raw_artifact_id uuid,
+                  raw_record_id uuid,
+                  source_url text,
+                  excerpt text,
+                  locator jsonb,
+                  content_sha256 text,
+                  parser_version text
+                )
+                """,
+                (json.dumps(inserted_evidence),),
+            )
 
     def record_failure(
         self,
@@ -553,9 +780,7 @@ def _assert_existing_line_matches(existing, expected) -> None:
         "balance_amount",
     )
     divergent = [
-        field
-        for field in fields
-        if existing[field] != getattr(expected, field)
+        field for field in fields if existing[field] != getattr(expected, field)
     ]
     if divergent:
         raise ExpensePublicationIntegrityError(

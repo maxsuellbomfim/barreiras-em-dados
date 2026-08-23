@@ -728,6 +728,14 @@ que permanece como lacuna explícita. A próxima menor fatia é relacionar essas
 unidades aos empenhos, contratos e fornecedores por chaves oficiais, sem usar
 similaridade textual como confirmação.
 
+O primeiro replay amplo revelou um gargalo operacional: relatórios já validados
+faziam várias consultas remotas para cada linha antes de acrescentar a unidade.
+O caminho de backfill passou a carregar e reconciliar todas as linhas existentes
+em uma consulta e a inserir atribuições e evidências em operações JSONB por
+lote. A mudança não relaxa a comparação campo a campo, não altera linhas
+financeiras existentes e continua abortando a transação inteira diante de
+quantidade, numeração, origem, unidade ou metodologia divergentes.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;
