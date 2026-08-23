@@ -32,6 +32,10 @@ O parser 1.2.0 aceita o token literal de oito dígitos e exige reconciliação
 exata das 12 colunas das linhas contra o total declarado. Uma correção de
 parser nunca sobrescreve o resultado antigo: cria uma nova versão do relatório,
 aponta `supersedes_id` para a anterior e preserva a mesma linhagem documental.
+Linhas, evidências e atribuições da nova versão são gravadas em lotes
+transacionais. A quantidade e a identidade de todas as linhas retornadas pelo
+banco são conferidas antes do commit; qualquer inserção parcial desfaz a versão
+inteira.
 
 A visão anual agrupa pelo código apenas dentro do mesmo exercício. Mudança
 material de nome para o mesmo código bloqueia o ranking até reconciliação.

@@ -440,193 +440,172 @@ class PostgresExpensePublicationRepository:
                         "nova versão do relatório não foi persistida"
                     )
                 report_id = str(report_row["id"])
-                published_lines = 0
-                for row in batch.rows:
-                    line_row = connection.execute(
-                        """
-                        insert into finance.expense_lines (
-                          report_id, origin_raw_record_id, line_number,
-                          expense_code, description, source_code, fixed_amount,
-                          additions_amount, reductions_amount, updated_amount,
-                          committed_period_amount, committed_to_date_amount,
-                          liquidated_period_amount, liquidated_to_date_amount,
-                          paid_period_amount, paid_to_date_amount,
-                          unpaid_committed_amount, balance_amount,
-                          methodology_version
-                        ) values (
-                          %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s, %s,
-                          %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                        )
-                        on conflict (report_id, line_number) do nothing
-                        returning id::text
-                        """,
-                        (
-                            report_id,
-                            plan.origin_raw_record_id,
-                            row.line_number,
-                            row.expense_code,
-                            row.description,
-                            row.source_code,
-                            row.fixed_amount,
-                            row.additions_amount,
-                            row.reductions_amount,
-                            row.updated_amount,
-                            row.committed_period_amount,
-                            row.committed_to_date_amount,
-                            row.liquidated_period_amount,
-                            row.liquidated_to_date_amount,
-                            row.paid_period_amount,
-                            row.paid_to_date_amount,
-                            row.unpaid_committed_amount,
-                            row.balance_amount,
-                            batch.methodology_version,
-                        ),
-                    ).fetchone()
-                    if line_row is None:
-                        line_row = connection.execute(
-                            """
-                            select
-                              line.id::text as id,
-                              line.expense_code,
-                              line.description,
-                              line.source_code,
-                              line.fixed_amount,
-                              line.additions_amount,
-                              line.reductions_amount,
-                              line.updated_amount,
-                              line.committed_period_amount,
-                              line.committed_to_date_amount,
-                              line.liquidated_period_amount,
-                              line.liquidated_to_date_amount,
-                              line.paid_period_amount,
-                              line.paid_to_date_amount,
-                              line.unpaid_committed_amount,
-                              line.balance_amount
-                            from finance.expense_lines as line
-                            where line.report_id = %s::uuid
-                              and line.line_number = %s
-                            """,
-                            (report_id, row.line_number),
-                        ).fetchone()
-                        if line_row is None:
-                            raise ExpensePublicationIntegrityError(
-                                "linha existente não foi localizada no replay"
-                            )
-                        _assert_existing_line_matches(line_row, row)
-                    else:
-                        published_lines += 1
-                        connection.execute(
-                            """
-                            insert into evidence.evidence_items (
-                              target_type, target_id, raw_artifact_id,
-                              raw_record_id, evidence_kind, source_url, excerpt,
-                              locator, content_sha256, parser_version, is_primary
-                            ) values (
-                              'finance.expense_lines', %s::uuid, %s::uuid,
-                              %s::uuid, 'document', %s, %s, %s::jsonb, %s,
-                              %s, true
-                            )
-                            """,
-                            (
-                                line_row["id"],
-                                artifact.id,
-                                plan.origin_raw_record_id,
-                                artifact.source_url,
-                                f"{row.description} — "
-                                f"{batch.period_start} a {batch.period_end}",
-                                json.dumps(
-                                    {
-                                        "line_number": row.line_number,
-                                        "expense_code": row.expense_code,
-                                    }
-                                ),
-                                artifact.sha256,
-                                batch.methodology_version,
-                            ),
-                        )
-                    allocation_row = connection.execute(
-                        """
-                        insert into finance.expense_line_budget_units (
-                          expense_line_id, origin_raw_record_id,
-                          source_document_artifact_id, version,
-                          budget_unit_code, budget_unit_name,
-                          methodology_version
-                        ) values (
-                          %s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s
-                        )
-                        on conflict (expense_line_id, version) do nothing
-                        returning id::text
-                        """,
-                        (
-                            line_row["id"],
-                            plan.origin_raw_record_id,
-                            artifact.id,
-                            1,
-                            row.budget_unit_code,
-                            row.budget_unit_name,
-                            batch.methodology_version,
-                        ),
-                    ).fetchone()
-                    if allocation_row is None:
-                        existing_allocation = connection.execute(
-                            """
-                            select budget_unit_code, budget_unit_name,
-                              methodology_version
-                            from finance.expense_line_budget_units
-                            where expense_line_id = %s::uuid
-                              and version = 1
-                            """,
-                            (line_row["id"],),
-                        ).fetchone()
-                        if (
-                            existing_allocation is None
-                            or existing_allocation["budget_unit_code"]
-                            != row.budget_unit_code
-                            or existing_allocation["budget_unit_name"]
-                            != row.budget_unit_name
-                            or existing_allocation["methodology_version"]
-                            != batch.methodology_version
-                        ):
-                            raise ExpensePublicationIntegrityError(
-                                "unidade orçamentária publicada diverge do replay"
-                            )
-                    if allocation_row is not None:
-                        connection.execute(
-                            """
-                            insert into evidence.evidence_items (
-                              target_type, target_id, raw_artifact_id,
-                              raw_record_id, evidence_kind, source_url, excerpt,
-                              locator, content_sha256, parser_version, is_primary
-                            ) values (
-                              'finance.expense_line_budget_units', %s::uuid,
-                              %s::uuid, %s::uuid, 'document', %s, %s,
-                              %s::jsonb, %s, %s, true
-                            )
-                            """,
-                            (
-                                allocation_row["id"],
-                                artifact.id,
-                                plan.origin_raw_record_id,
-                                artifact.source_url,
-                                f"{row.budget_unit_code} - {row.budget_unit_name}",
-                                json.dumps(
-                                    {
-                                        "line_number": row.line_number,
-                                        "budget_unit_code": row.budget_unit_code,
-                                    }
-                                ),
-                                artifact.sha256,
-                                batch.methodology_version,
-                            ),
-                        )
-                if published_lines != len(batch.rows):
-                    raise ExpensePublicationIntegrityError(
-                        "relatório novo não persistiu todas as linhas"
-                    )
+                published_lines = self._persist_new_report_lines(
+                    connection,
+                    artifact=artifact,
+                    batch=batch,
+                    report_id=report_id,
+                    origin_raw_record_id=plan.origin_raw_record_id,
+                )
+                self._persist_existing_report_allocations(
+                    connection,
+                    artifact=artifact,
+                    batch=batch,
+                    report_id=report_id,
+                    origin_raw_record_id=plan.origin_raw_record_id,
+                )
                 self._record_success(connection, artifact)
                 return published_lines
         finally:
             connection.close()
+
+    @staticmethod
+    def _persist_new_report_lines(
+        connection,
+        *,
+        artifact: ExpenseArtifact,
+        batch: ExpensePublicationBatch,
+        report_id: str,
+        origin_raw_record_id: str,
+    ) -> int:
+        """Grava linhas e evidências de uma nova versão em dois lotes."""
+
+        line_input = [
+            {
+                "report_id": report_id,
+                "origin_raw_record_id": origin_raw_record_id,
+                "line_number": row.line_number,
+                "expense_code": row.expense_code,
+                "description": row.description,
+                "source_code": row.source_code,
+                "fixed_amount": str(row.fixed_amount),
+                "additions_amount": str(row.additions_amount),
+                "reductions_amount": str(row.reductions_amount),
+                "updated_amount": str(row.updated_amount),
+                "committed_period_amount": str(row.committed_period_amount),
+                "committed_to_date_amount": str(row.committed_to_date_amount),
+                "liquidated_period_amount": str(row.liquidated_period_amount),
+                "liquidated_to_date_amount": str(row.liquidated_to_date_amount),
+                "paid_period_amount": str(row.paid_period_amount),
+                "paid_to_date_amount": str(row.paid_to_date_amount),
+                "unpaid_committed_amount": str(row.unpaid_committed_amount),
+                "balance_amount": str(row.balance_amount),
+                "methodology_version": batch.methodology_version,
+            }
+            for row in batch.rows
+        ]
+        inserted = connection.execute(
+            """
+            with input_rows as (
+              select *
+              from jsonb_to_recordset(%s::jsonb) as input_row (
+                report_id uuid,
+                origin_raw_record_id uuid,
+                line_number integer,
+                expense_code text,
+                description text,
+                source_code text,
+                fixed_amount numeric,
+                additions_amount numeric,
+                reductions_amount numeric,
+                updated_amount numeric,
+                committed_period_amount numeric,
+                committed_to_date_amount numeric,
+                liquidated_period_amount numeric,
+                liquidated_to_date_amount numeric,
+                paid_period_amount numeric,
+                paid_to_date_amount numeric,
+                unpaid_committed_amount numeric,
+                balance_amount numeric,
+                methodology_version text
+              )
+            )
+            insert into finance.expense_lines (
+              report_id, origin_raw_record_id, line_number,
+              expense_code, description, source_code, fixed_amount,
+              additions_amount, reductions_amount, updated_amount,
+              committed_period_amount, committed_to_date_amount,
+              liquidated_period_amount, liquidated_to_date_amount,
+              paid_period_amount, paid_to_date_amount,
+              unpaid_committed_amount, balance_amount, methodology_version
+            )
+            select
+              report_id, origin_raw_record_id, line_number,
+              expense_code, description, source_code, fixed_amount,
+              additions_amount, reductions_amount, updated_amount,
+              committed_period_amount, committed_to_date_amount,
+              liquidated_period_amount, liquidated_to_date_amount,
+              paid_period_amount, paid_to_date_amount,
+              unpaid_committed_amount, balance_amount, methodology_version
+            from input_rows
+            on conflict (report_id, line_number) do nothing
+            returning id::text as id, line_number
+            """,
+            (json.dumps(line_input),),
+        ).fetchall()
+        line_id_by_number = {
+            int(row["line_number"]): str(row["id"]) for row in inserted
+        }
+        expected_numbers = {row.line_number for row in batch.rows}
+        if (
+            len(inserted) != len(batch.rows)
+            or set(line_id_by_number) != expected_numbers
+        ):
+            raise ExpensePublicationIntegrityError(
+                "relatório novo não persistiu todas as linhas"
+            )
+
+        evidence_input = [
+            {
+                "target_id": line_id_by_number[row.line_number],
+                "raw_artifact_id": artifact.id,
+                "raw_record_id": origin_raw_record_id,
+                "source_url": artifact.source_url,
+                "excerpt": (
+                    f"{row.description} — {batch.period_start} a {batch.period_end}"
+                ),
+                "locator": {
+                    "line_number": row.line_number,
+                    "expense_code": row.expense_code,
+                },
+                "content_sha256": artifact.sha256,
+                "parser_version": batch.methodology_version,
+            }
+            for row in batch.rows
+        ]
+        connection.execute(
+            """
+            insert into evidence.evidence_items (
+              target_type, target_id, raw_artifact_id, raw_record_id,
+              evidence_kind, source_url, excerpt, locator,
+              content_sha256, parser_version, is_primary
+            )
+            select
+              'finance.expense_lines',
+              input_row.target_id,
+              input_row.raw_artifact_id,
+              input_row.raw_record_id,
+              'document',
+              input_row.source_url,
+              input_row.excerpt,
+              input_row.locator,
+              input_row.content_sha256,
+              input_row.parser_version,
+              true
+            from jsonb_to_recordset(%s::jsonb) as input_row (
+              target_id uuid,
+              raw_artifact_id uuid,
+              raw_record_id uuid,
+              source_url text,
+              excerpt text,
+              locator jsonb,
+              content_sha256 text,
+              parser_version text
+            )
+            """,
+            (json.dumps(evidence_input),),
+        )
+        return len(inserted)
 
     @staticmethod
     def _persist_existing_report_allocations(
