@@ -105,6 +105,13 @@ para revisão/DLQ; não são descartados silenciosamente.
   deduções devem ser modelados no estágio financeiro correto, sem transformar
   automaticamente um sinal negativo em anomalia;
 - somente linhas validadas ou reconciliadas entram na RPC pública;
+- unidade orçamentária é copiada do cabeçalho que precede cada linha no mesmo
+  PDF; não é inferida por palavras da despesa, pelo fornecedor ou por IA;
+- o resumo por unidade exige cobertura de todas as linhas, nome literal único
+  por código e igualdade exata com o total pago do relatório; cobertura parcial
+  permanece indisponível e nunca vira zero;
+- a unidade indica responsabilidade contábil do órgão, secretaria, fundo ou
+  gabinete, não gasto pessoal do titular, entrega do objeto ou juízo de mérito;
 - receitas, despesas, fechamentos, cobertura e sinais só entram na projeção
   pública quando o `source_record_key` do registro bruto coincide com o do PDF
   filho e ambos pertencem à mesma resposta oficial preservada;

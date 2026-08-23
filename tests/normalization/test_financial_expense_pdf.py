@@ -32,6 +32,23 @@ class FinancialExpensePdfTests(unittest.TestCase):
         )
         self.assertEqual(report.rows[2].paid_to_date_amount, Decimal("405440.48"))
         self.assertEqual(report.rows[2].expense_code, "3.3.9.0.39.00.00")
+        self.assertEqual(report.rows[2].budget_unit_code, "010101")
+        self.assertEqual(
+            report.rows[2].budget_unit_name,
+            "CAMARA MUNICIPAL DE BARREIRAS",
+        )
+
+    def test_rejects_expense_row_without_preceding_budget_unit(self):
+        text = FIXTURE.read_text(encoding="utf-8").replace(
+            "010101 - CAMARA MUNICIPAL DE BARREIRAS\n",
+            "",
+        )
+
+        with self.assertRaisesRegex(
+            ExpensePdfContractError,
+            "linha de despesa sem unidade orçamentária",
+        ):
+            parse_expense_pdf_text(text)
 
     def test_rejects_report_without_declared_total(self):
         text = FIXTURE.read_text(encoding="utf-8").replace("Total :", "Resumo :")

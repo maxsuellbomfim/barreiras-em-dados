@@ -22,6 +22,8 @@ class ExpensePdfContractError(RevenueNormalizationError):
 
 @dataclass(frozen=True)
 class ExpensePdfRow:
+    budget_unit_code: str
+    budget_unit_name: str
     expense_code: str
     description: str
     source_code: str
@@ -66,6 +68,9 @@ _DATE_RANGE = re.compile(
 )
 _CODE = r"\d+(?:\.\d+){6,8}\.?"
 _AMOUNT = r"-?(?:\d{1,3}(?:\.\d{3})*|\d+),\d{1,2}"
+_BUDGET_UNIT = re.compile(
+    r"^(?P<code>\d{6,8})\s+-\s+(?P<name>\S.+?)\s*$"
+)
 _ROW = re.compile(
     rf"^(?P<code>{_CODE})\s+(?P<description>.+?)\s+"
     rf"(?P<source>\d{{4}})\s+(?P<amounts>{_AMOUNT}(?:\s+{_AMOUNT}){{11}})\s*$"
@@ -111,8 +116,16 @@ def parse_expense_pdf_text(text: str) -> ExpensePdfReport:
 
     rows: list[ExpensePdfRow] = []
     total: tuple[Decimal, ...] | None = None
+    budget_unit: tuple[str, str] | None = None
     for line_number, line in enumerate(text.splitlines(), start=1):
         stripped = " ".join(line.split())
+        budget_unit_match = _BUDGET_UNIT.match(stripped)
+        if budget_unit_match is not None:
+            budget_unit = (
+                budget_unit_match.group("code"),
+                budget_unit_match.group("name").strip(),
+            )
+            continue
         total_match = _TOTAL.match(stripped)
         if total_match:
             total = _amounts(total_match.group("amounts"), field="total")
@@ -120,9 +133,15 @@ def parse_expense_pdf_text(text: str) -> ExpensePdfReport:
         match = _ROW.match(stripped)
         if match is None:
             continue
+        if budget_unit is None:
+            raise ExpensePdfContractError(
+                f"linha de despesa sem unidade orçamentária: {line_number}"
+            )
         values = _amounts(match.group("amounts"), field=f"linha {line_number}")
         rows.append(
             ExpensePdfRow(
+                budget_unit_code=budget_unit[0],
+                budget_unit_name=budget_unit[1],
                 expense_code=match.group("code").rstrip("."),
                 description=match.group("description").strip(),
                 source_code=match.group("source"),

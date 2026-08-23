@@ -114,7 +114,9 @@ jobs:
         run: |
           year_from="${INPUT_FISCAL_YEAR_FROM:-2021}"
           year_to="${INPUT_FISCAL_YEAR_TO:-$(date +%Y)}"
-          limit="${INPUT_LIMIT:-1}"
+          # Cinco PDFs permitem avançar o replay das unidades sem transformar
+          # esta rotina diária em uma carga irrestrita.
+          limit="${INPUT_LIMIT:-5}"
           python -B -m barreiras_normalization.commands.publish_expense_reports \
             --limit "$limit" \
             --fiscal-year-from "$year_from" \

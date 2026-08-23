@@ -14,7 +14,7 @@
   },
   "scripts": {
     "check:contracts": "node packages/data-contracts/scripts/validate-schemas.mjs",
-    "check:migration": "node packages/database/scripts/test-foundation-migration.mjs && node packages/database/scripts/test-integral-gazette-documents.mjs && node packages/database/scripts/test-public-obligations-migration.mjs && node packages/database/scripts/test-payroll-report-aggregates-migration.mjs && node packages/database/scripts/test-parliamentary-transfers-migration.mjs",
+    "check:migration": "node packages/database/scripts/test-foundation-migration.mjs && node packages/database/scripts/test-integral-gazette-documents.mjs && node packages/database/scripts/test-public-obligations-migration.mjs && node packages/database/scripts/test-payroll-report-aggregates-migration.mjs && node packages/database/scripts/test-parliamentary-transfers-migration.mjs && node packages/database/scripts/test-expense-budget-units-migration.mjs",
     "check:sources": "node packages/data-contracts/scripts/validate-source-observations.mjs",
     "check:source-catalog": "node packages/data-contracts/scripts/validate-source-catalog.mjs",
     "test": "node --test",
