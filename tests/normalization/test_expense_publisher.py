@@ -238,6 +238,33 @@ class ExistingExpenseReportConnection:
         self.closed = True
 
 
+class BulkExpenseLineConnection:
+    def __init__(self) -> None:
+        self.calls = []
+        self.line_payload = []
+        self.evidence_payload = []
+
+    def execute(self, query, parameters=()):
+        self.calls.append((query, parameters))
+        normalized = " ".join(query.lower().split())
+        payload = json.loads(parameters[0])
+        if "insert into finance.expense_lines" in normalized:
+            self.line_payload = payload
+            return FakeRows(
+                [
+                    {
+                        "id": f"00000000-0000-4000-8000-{item['line_number']:012d}",
+                        "line_number": item["line_number"],
+                    }
+                    for item in payload
+                ]
+            )
+        if "'finance.expense_lines'" in normalized:
+            self.evidence_payload = payload
+            return FakeRows([])
+        raise AssertionError(f"consulta inesperada: {normalized[:160]}")
+
+
 def artifact_for(body: bytes = PDF_BODY) -> ExpenseArtifact:
     return ExpenseArtifact(
         id="00000000-0000-4000-8000-000000000911",
@@ -250,6 +277,33 @@ def artifact_for(body: bytes = PDF_BODY) -> ExpenseArtifact:
 
 
 class ExpensePublisherTests(unittest.TestCase):
+    def test_new_report_persists_lines_and_evidence_in_two_bulk_queries(self) -> None:
+        batch = build_expense_publication_batch(parse_expense_pdf_text(FIXTURE_TEXT))
+        connection = BulkExpenseLineConnection()
+
+        published = PostgresExpensePublicationRepository._persist_new_report_lines(
+            connection,
+            artifact=artifact_for(),
+            batch=batch,
+            report_id="00000000-0000-4000-8000-000000000921",
+            origin_raw_record_id="00000000-0000-4000-8000-000000000913",
+        )
+
+        self.assertEqual(published, len(batch.rows))
+        self.assertEqual(len(connection.calls), 2)
+        self.assertEqual(len(connection.line_payload), len(batch.rows))
+        self.assertEqual(len(connection.evidence_payload), len(batch.rows))
+        self.assertEqual(
+            {item["line_number"] for item in connection.line_payload},
+            {row.line_number for row in batch.rows},
+        )
+        self.assertTrue(
+            all(
+                item["raw_artifact_id"] == artifact_for().id
+                for item in connection.evidence_payload
+            )
+        )
+
     def test_replay_rejects_existing_budget_unit_divergence(self) -> None:
         batch = build_expense_publication_batch(parse_expense_pdf_text(FIXTURE_TEXT))
         connection = ExistingExpenseReportConnection(
