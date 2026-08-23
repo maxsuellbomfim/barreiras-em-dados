@@ -5,11 +5,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
 from .expense_publication import (
+    EXPENSE_PUBLICATION_METHODOLOGY_VERSION,
     ExpensePublicationBatch,
     ExpensePublicationError,
     build_expense_publication_batch,
@@ -39,6 +40,76 @@ class ExpensePublishResult:
     artifact_id: str
     status: str
     published_lines: int = 0
+
+
+@dataclass(frozen=True)
+class ExpenseReportVersionPlan:
+    action: str
+    version: int
+    origin_raw_record_id: str
+    supersedes_id: str | None
+    report_id: str | None = None
+
+
+def _methodology_revision(value: object) -> tuple[int, int, int] | None:
+    prefix = "public-expense-pdf/"
+    if not isinstance(value, str) or not value.startswith(prefix):
+        return None
+    parts = value.removeprefix(prefix).split(".")
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        return None
+    return tuple(int(part) for part in parts)  # type: ignore[return-value]
+
+
+def plan_expense_report_version(
+    current: Mapping[str, object] | None,
+    *,
+    artifact: ExpenseArtifact,
+    batch: ExpensePublicationBatch,
+) -> ExpenseReportVersionPlan:
+    """Decide entre replay idêntico e nova versão auditável do relatório."""
+
+    expected_external_id = f"{artifact.sha256}:{batch.batch_sha256}"
+    if current is None:
+        return ExpenseReportVersionPlan(
+            action="insert",
+            version=1,
+            origin_raw_record_id=artifact.parent_record_id,
+            supersedes_id=None,
+        )
+
+    report_id = str(current["id"])
+    origin_raw_record_id = str(current["origin_raw_record_id"])
+    version = int(current["version"])
+    current_methodology = current["methodology_version"]
+    current_revision = _methodology_revision(current_methodology)
+    next_revision = _methodology_revision(batch.methodology_version)
+    if current_revision is None or next_revision is None:
+        raise ExpensePublicationIntegrityError(
+            "versão metodológica do relatório é inválida"
+        )
+    if current_revision == next_revision:
+        if current.get("external_id") != expected_external_id:
+            raise ExpensePublicationIntegrityError(
+                "artefato imutável diverge na mesma versão metodológica"
+            )
+        return ExpenseReportVersionPlan(
+            action="reuse",
+            version=version,
+            origin_raw_record_id=origin_raw_record_id,
+            supersedes_id=None,
+            report_id=report_id,
+        )
+    if current_revision > next_revision:
+        raise ExpensePublicationIntegrityError(
+            "metodologia atual do relatório é mais nova que o publicador"
+        )
+    return ExpenseReportVersionPlan(
+        action="insert",
+        version=version + 1,
+        origin_raw_record_id=origin_raw_record_id,
+        supersedes_id=report_id,
+    )
 
 
 class ObjectReader(Protocol):
@@ -138,7 +209,21 @@ class PostgresExpensePublicationRepository:
         try:
             result = connection.execute(
                 """
-                with replay_candidates as (
+                with ranked_reports as materialized (
+                  select
+                    report.*,
+                    row_number() over (
+                      partition by report.source_document_artifact_id
+                      order by report.version desc, report.created_at desc,
+                        report.id desc
+                    ) as current_row
+                  from finance.expense_reports as report
+                  where report.validation_status = 'validated'
+                    and report.published_at is not null
+                    and report.fiscal_year between %s and %s
+                ), current_reports as materialized (
+                  select * from ranked_reports where current_row = 1
+                ), replay_candidates as (
                   select distinct on (document.id)
                     document.id::text,
                     document.sha256,
@@ -147,22 +232,20 @@ class PostgresExpensePublicationRepository:
                     report.origin_raw_record_id::text as parent_record_id,
                     document.source_url,
                     document.created_at
-                  from finance.expense_reports as report
+                  from current_reports as report
                   join raw.raw_artifacts as document
                     on document.id = report.source_document_artifact_id
-                  where report.validation_status = 'validated'
-                    and report.published_at is not null
-                    and report.fiscal_year between %s and %s
-                    and exists (
-                      select 1
-                      from finance.expense_lines as line
-                      left join finance.expense_line_budget_units as allocation
-                        on allocation.expense_line_id = line.id
-                      where line.report_id = report.id
-                        and line.origin_raw_record_id =
-                          report.origin_raw_record_id
-                        and allocation.expense_line_id is null
-                      limit 1
+                  where report.methodology_version <> %s
+                    or exists (
+                        select 1
+                        from finance.expense_lines as line
+                        left join finance.expense_line_budget_units as allocation
+                          on allocation.expense_line_id = line.id
+                        where line.report_id = report.id
+                          and line.origin_raw_record_id =
+                            report.origin_raw_record_id
+                          and allocation.expense_line_id is null
+                        limit 1
                     )
                   order by document.id, report.version desc,
                     report.created_at desc, report.id desc
@@ -217,6 +300,7 @@ class PostgresExpensePublicationRepository:
                 (
                     fiscal_year_from,
                     fiscal_year_to,
+                    EXPENSE_PUBLICATION_METHODOLOGY_VERSION,
                     fiscal_year_from,
                     fiscal_year_to,
                     EXPENSE_PUBLICATION_JOB_TYPE,
@@ -261,11 +345,54 @@ class PostgresExpensePublicationRepository:
                 if body_result is None:
                     raise RuntimeError("órgão executivo municipal não encontrado")
                 public_body_id = str(body_result["id"])
+                connection.execute(
+                    "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                    (artifact.id,),
+                )
+                current_report = connection.execute(
+                    """
+                    select
+                      report.id::text as id,
+                      report.origin_raw_record_id::text as origin_raw_record_id,
+                      report.version,
+                      report.external_id,
+                      report.methodology_version
+                    from finance.expense_reports as report
+                    where report.source_document_artifact_id = %s::uuid
+                      and report.validation_status = 'validated'
+                      and report.published_at is not null
+                    order by report.version desc, report.created_at desc,
+                      report.id desc
+                    limit 1
+                    """,
+                    (artifact.id,),
+                ).fetchone()
+                plan = plan_expense_report_version(
+                    current_report,
+                    artifact=artifact,
+                    batch=batch,
+                )
+                if plan.action == "reuse":
+                    if plan.report_id is None:
+                        raise ExpensePublicationIntegrityError(
+                            "plano de replay não identificou o relatório"
+                        )
+                    self._persist_existing_report_allocations(
+                        connection,
+                        artifact=artifact,
+                        batch=batch,
+                        report_id=plan.report_id,
+                        origin_raw_record_id=plan.origin_raw_record_id,
+                    )
+                    self._record_success(connection, artifact)
+                    return 0
+
                 report_row = connection.execute(
                     """
                     insert into finance.expense_reports (
                       origin_raw_record_id, source_document_artifact_id,
-                      public_body_id, version, external_id, fiscal_year,
+                      public_body_id, supersedes_id, version, external_id,
+                      fiscal_year,
                       period_start, period_end, total_fixed_amount,
                       total_additions_amount, total_reductions_amount,
                       total_updated_amount, total_committed_period_amount,
@@ -275,7 +402,7 @@ class PostgresExpensePublicationRepository:
                       total_balance_amount, methodology_version,
                       validation_status, published_at
                     ) values (
-                      %s::uuid, %s::uuid, %s::uuid, 1, %s, %s,
+                      %s::uuid, %s::uuid, %s::uuid, %s::uuid, %s, %s, %s,
                       %s::date, %s::date, %s, %s, %s, %s, %s, %s, %s,
                       %s, %s, %s, %s, %s, %s, 'validated', statement_timestamp()
                     )
@@ -284,9 +411,11 @@ class PostgresExpensePublicationRepository:
                     returning id::text
                     """,
                     (
-                        artifact.parent_record_id,
+                        plan.origin_raw_record_id,
                         artifact.id,
                         public_body_id,
+                        plan.supersedes_id,
+                        plan.version,
                         f"{artifact.sha256}:{batch.batch_sha256}",
                         batch.fiscal_year,
                         batch.period_start,
@@ -307,40 +436,10 @@ class PostgresExpensePublicationRepository:
                     ),
                 ).fetchone()
                 if report_row is None:
-                    report_row = connection.execute(
-                        """
-                        select
-                          report.id::text as id,
-                          report.origin_raw_record_id::text
-                            as origin_raw_record_id
-                        from finance.expense_reports as report
-                        where report.source_document_artifact_id = %s::uuid
-                          and report.validation_status = 'validated'
-                          and report.published_at is not null
-                        order by report.version desc, report.created_at desc,
-                          report.id desc
-                        limit 1
-                        """,
-                        (artifact.id,),
-                    ).fetchone()
-                    if report_row is None:
-                        raise ExpensePublicationIntegrityError(
-                            "relatório existente não foi localizado no replay"
-                        )
-                    inserted_report = False
-                else:
-                    inserted_report = True
-                report_id = str(report_row["id"])
-                if not inserted_report:
-                    self._persist_existing_report_allocations(
-                        connection,
-                        artifact=artifact,
-                        batch=batch,
-                        report_id=report_id,
-                        origin_raw_record_id=str(report_row["origin_raw_record_id"]),
+                    raise ExpensePublicationIntegrityError(
+                        "nova versão do relatório não foi persistida"
                     )
-                    self._record_success(connection, artifact)
-                    return 0
+                report_id = str(report_row["id"])
                 published_lines = 0
                 for row in batch.rows:
                     line_row = connection.execute(
@@ -363,7 +462,7 @@ class PostgresExpensePublicationRepository:
                         """,
                         (
                             report_id,
-                            artifact.parent_record_id,
+                            plan.origin_raw_record_id,
                             row.line_number,
                             row.expense_code,
                             row.description,
@@ -431,7 +530,7 @@ class PostgresExpensePublicationRepository:
                             (
                                 line_row["id"],
                                 artifact.id,
-                                artifact.parent_record_id,
+                                plan.origin_raw_record_id,
                                 artifact.source_url,
                                 f"{row.description} — "
                                 f"{batch.period_start} a {batch.period_end}",
@@ -460,7 +559,7 @@ class PostgresExpensePublicationRepository:
                         """,
                         (
                             line_row["id"],
-                            artifact.parent_record_id,
+                            plan.origin_raw_record_id,
                             artifact.id,
                             1,
                             row.budget_unit_code,
@@ -507,7 +606,7 @@ class PostgresExpensePublicationRepository:
                             (
                                 allocation_row["id"],
                                 artifact.id,
-                                artifact.parent_record_id,
+                                plan.origin_raw_record_id,
                                 artifact.source_url,
                                 f"{row.budget_unit_code} - {row.budget_unit_name}",
                                 json.dumps(
@@ -520,7 +619,7 @@ class PostgresExpensePublicationRepository:
                                 batch.methodology_version,
                             ),
                         )
-                if inserted_report and published_lines != len(batch.rows):
+                if published_lines != len(batch.rows):
                     raise ExpensePublicationIntegrityError(
                         "relatório novo não persistiu todas as linhas"
                     )

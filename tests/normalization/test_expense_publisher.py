@@ -16,6 +16,7 @@ from barreiras_normalization.expense_publisher import (
     ExpensePublicationIntegrityError,
     ExpenseReportPublisher,
     PostgresExpensePublicationRepository,
+    plan_expense_report_version,
 )
 from barreiras_normalization.financial_expense_pdf import parse_expense_pdf_text
 from barreiras_normalization.revenue_publisher import ArtifactMismatchError
@@ -117,6 +118,11 @@ class ExistingExpenseReportConnection:
                         "origin_raw_record_id": (
                             "00000000-0000-4000-8000-000000000913"
                         ),
+                        "version": 1,
+                        "external_id": (
+                            f"{artifact_for().sha256}:{self.batch.batch_sha256}"
+                        ),
+                        "methodology_version": self.batch.methodology_version,
                     }
                 ]
             )
@@ -320,7 +326,9 @@ class ExpensePublisherTests(unittest.TestCase):
         query = " ".join(connection.query.lower().split())
         self.assertIn("finance.expense_line_budget_units", query)
         self.assertIn("allocation.expense_line_id is null", query)
-        self.assertIn("with replay_candidates as", query)
+        self.assertIn("replay_candidates as", query)
+        self.assertIn("current_reports as materialized", query)
+        self.assertIn("report.methodology_version <> %s", query)
         self.assertIn("new_candidates as", query)
         self.assertIn("union all", query)
         self.assertIn("report.origin_raw_record_id::text as parent_record_id", query)
@@ -328,9 +336,42 @@ class ExpensePublisherTests(unittest.TestCase):
         self.assertNotIn("job.status = 'failed'", query)
         self.assertEqual(
             connection.parameters,
-            (2021, 2026, 2021, 2026, "financial_expense_publication", 5),
+            (
+                2021,
+                2026,
+                "public-expense-pdf/1.2.0",
+                2021,
+                2026,
+                "financial_expense_publication",
+                5,
+            ),
         )
         self.assertTrue(connection.closed)
+
+    def test_older_methodology_creates_a_new_auditable_version(self) -> None:
+        batch = build_expense_publication_batch(parse_expense_pdf_text(FIXTURE_TEXT))
+        plan = plan_expense_report_version(
+            {
+                "id": "00000000-0000-4000-8000-000000000921",
+                "origin_raw_record_id": "00000000-0000-4000-8000-000000000913",
+                "version": 1,
+                "external_id": "immutable-old-digest",
+                "methodology_version": "public-expense-pdf/1.1.0",
+            },
+            artifact=artifact_for(),
+            batch=batch,
+        )
+
+        self.assertEqual(plan.action, "insert")
+        self.assertEqual(plan.version, 2)
+        self.assertEqual(
+            plan.supersedes_id,
+            "00000000-0000-4000-8000-000000000921",
+        )
+        self.assertEqual(
+            plan.origin_raw_record_id,
+            "00000000-0000-4000-8000-000000000913",
+        )
 
     def test_failure_is_retryable_until_dead_letter(self) -> None:
         connection = CapturingConnection()

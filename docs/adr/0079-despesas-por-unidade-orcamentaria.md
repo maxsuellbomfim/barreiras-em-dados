@@ -27,6 +27,12 @@ Percentuais são liberados apenas quando todas as linhas têm uma unidade, cada
 código possui um único nome literal no relatório e a soma paga coincide
 exatamente com o total do documento.
 
+O layout de 2023 e 2024 pode concatenar `Fonte` e `Fonte TC` no texto extraído.
+O parser 1.2.0 aceita o token literal de oito dígitos e exige reconciliação
+exata das 12 colunas das linhas contra o total declarado. Uma correção de
+parser nunca sobrescreve o resultado antigo: cria uma nova versão do relatório,
+aponta `supersedes_id` para a anterior e preserva a mesma linhagem documental.
+
 A visão anual agrupa pelo código apenas dentro do mesmo exercício. Mudança
 material de nome para o mesmo código bloqueia o ranking até reconciliação.
 Mês sem atribuição integral fica sem valor; `R$ 0,00` só aparece quando um
@@ -46,6 +52,8 @@ estimativa.
 ## Verificação
 
 - parser testado com cabeçalho obrigatório antes de cada linha;
+- quatro PDFs oficiais representativos de 2023 a 2026 reconciliados coluna a
+  coluna com o total declarado;
 - replay idempotente rejeita divergência com atribuição já publicada;
 - teste PGlite cobre RLS, privilégios, linhagem e reconciliação da RPC;
 - agregação anual usa centavos inteiros e conserva PDF e SHA-256 por mês;
