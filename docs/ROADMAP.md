@@ -745,6 +745,12 @@ DLQ, um replay bem-sucedido limpa o diagnóstico anterior e qualquer item que
 precise de revisão faz o workflow terminar com erro visível. Assim, um lote com
 zero publicações por falha técnica não recebe mais um falso selo verde.
 
+Na rodada seguinte, a seleção da fila atingiu o timeout porque o plano antigo
+reavaliava linhas e atribuições para cada documento bruto. A fila foi dividida
+em dois caminhos: relatórios validados ainda sem unidade, ancorados diretamente
+na origem já publicada, e documentos novos sem relatório. Isso impede que o
+custo da seleção cresça quadraticamente conforme o próprio backfill avança.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;

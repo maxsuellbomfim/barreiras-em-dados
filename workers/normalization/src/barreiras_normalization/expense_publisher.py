@@ -138,7 +138,35 @@ class PostgresExpensePublicationRepository:
         try:
             result = connection.execute(
                 """
-                with candidates as (
+                with replay_candidates as (
+                  select distinct on (document.id)
+                    document.id::text,
+                    document.sha256,
+                    document.object_key,
+                    document.byte_size,
+                    report.origin_raw_record_id::text as parent_record_id,
+                    document.source_url,
+                    document.created_at
+                  from finance.expense_reports as report
+                  join raw.raw_artifacts as document
+                    on document.id = report.source_document_artifact_id
+                  where report.validation_status = 'validated'
+                    and report.published_at is not null
+                    and report.fiscal_year between %s and %s
+                    and exists (
+                      select 1
+                      from finance.expense_lines as line
+                      left join finance.expense_line_budget_units as allocation
+                        on allocation.expense_line_id = line.id
+                      where line.report_id = report.id
+                        and line.origin_raw_record_id =
+                          report.origin_raw_record_id
+                        and allocation.expense_line_id is null
+                      limit 1
+                    )
+                  order by document.id, report.version desc,
+                    report.created_at desc, report.id desc
+                ), new_candidates as (
                   select distinct on (document.id)
                     document.id::text,
                     document.sha256,
@@ -161,42 +189,39 @@ class PostgresExpensePublicationRepository:
                     = 'municipal_transparency_pdc-resumo-execucao-da-despesa'
                   and record.payload ->> 'ano' ~ '^[0-9]{4}$'
                   and (record.payload ->> 'ano')::integer between %s and %s
-                  and (
-                    not exists (
-                      select 1
-                      from finance.expense_reports as report
-                      where report.source_document_artifact_id = document.id
-                        and report.validation_status = 'validated'
-                    )
-                    or exists (
-                      select 1
-                      from finance.expense_reports as report
-                      join finance.expense_lines as line
-                        on line.report_id = report.id
-                       and line.origin_raw_record_id = report.origin_raw_record_id
-                      left join finance.expense_line_budget_units as allocation
-                        on allocation.expense_line_id = line.id
-                      where report.source_document_artifact_id = document.id
-                        and report.validation_status = 'validated'
-                        and allocation.expense_line_id is null
-                    )
-                  )
                   and not exists (
                     select 1
-                    from raw.extraction_jobs as job
-                    where job.raw_artifact_id = document.id
-                      and job.job_type = %s
-                      and job.status = 'dead_lettered'
+                    from finance.expense_reports as report
+                    where report.source_document_artifact_id = document.id
+                      and report.validation_status = 'validated'
                   )
                   order by document.id, record.created_at desc, record.id desc
+                ), candidates as (
+                  select * from replay_candidates
+                  union all
+                  select * from new_candidates
                 )
                 select id, sha256, object_key, byte_size, parent_record_id,
                   source_url
                 from candidates
+                where not exists (
+                  select 1
+                  from raw.extraction_jobs as job
+                  where job.raw_artifact_id = candidates.id::uuid
+                    and job.job_type = %s
+                    and job.status = 'dead_lettered'
+                )
                 order by created_at, id
                 limit %s
                 """,
-                (fiscal_year_from, fiscal_year_to, EXPENSE_PUBLICATION_JOB_TYPE, limit),
+                (
+                    fiscal_year_from,
+                    fiscal_year_to,
+                    fiscal_year_from,
+                    fiscal_year_to,
+                    EXPENSE_PUBLICATION_JOB_TYPE,
+                    limit,
+                ),
             )
             return tuple(
                 ExpenseArtifact(
