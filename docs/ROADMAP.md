@@ -736,6 +736,15 @@ lote. A mudança não relaxa a comparação campo a campo, não altera linhas
 financeiras existentes e continua abortando a transação inteira diante de
 quantidade, numeração, origem, unidade ou metodologia divergentes.
 
+O primeiro lote otimizado expôs outra falha de reconciliação: um PDF idêntico
+podia ser reencontrado por uma nova versão do registro bruto, enquanto o
+relatório validado preservava corretamente o registro bruto original. O replay
+passou a localizar o relatório pelo artefato documental imutável e a reutilizar
+a origem já auditada do relatório. Falhas permanecem tentáveis até o limite da
+DLQ, um replay bem-sucedido limpa o diagnóstico anterior e qualquer item que
+precise de revisão faz o workflow terminar com erro visível. Assim, um lote com
+zero publicações por falha técnica não recebe mais um falso selo verde.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;

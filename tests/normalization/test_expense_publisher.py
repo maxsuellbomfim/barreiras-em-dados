@@ -5,6 +5,9 @@ import json
 import unittest
 from pathlib import Path
 
+from barreiras_normalization.commands.publish_expense_reports import (
+    completion_exit_code,
+)
 from barreiras_normalization.expense_publication import (
     build_expense_publication_batch,
 )
@@ -107,7 +110,16 @@ class ExistingExpenseReportConnection:
         if "insert into finance.expense_reports" in normalized:
             return FakeRows([])
         if "select report.id::text" in normalized:
-            return FakeRows([{"id": "00000000-0000-4000-8000-000000000921"}])
+            return FakeRows(
+                [
+                    {
+                        "id": "00000000-0000-4000-8000-000000000921",
+                        "origin_raw_record_id": (
+                            "00000000-0000-4000-8000-000000000913"
+                        ),
+                    }
+                ]
+            )
         if "insert into finance.expense_lines" in normalized:
             return FakeRows([])
         if (
@@ -264,13 +276,30 @@ class ExpensePublisherTests(unittest.TestCase):
             },
             {("010101", "CAMARA MUNICIPAL DE BARREIRAS")},
         )
+        self.assertEqual(
+            {
+                parameters["origin_raw_record_id"]
+                for parameters in connection.allocation_parameters
+            },
+            {"00000000-0000-4000-8000-000000000913"},
+            "o replay deve preservar a origem do relatório publicado, mesmo que "
+            "o mesmo artefato seja reencontrado por outro registro bruto",
+        )
         self.assertTrue(connection.transaction_entered)
         self.assertTrue(connection.transaction_exited)
         self.assertTrue(connection.closed)
         self.assertLessEqual(
             len(connection.calls),
-            8,
+            9,
             "o replay deve usar consultas em lote, não uma sequência por linha",
+        )
+        self.assertTrue(
+            any(
+                "insert into raw.extraction_jobs" in " ".join(query.lower().split())
+                and "'succeeded'" in query.lower()
+                for query, _parameters in connection.calls
+            ),
+            "um replay concluído deve limpar o diagnóstico de falha anterior",
         )
 
     def test_pending_documents_includes_reports_without_budget_unit_allocation(
@@ -291,11 +320,32 @@ class ExpensePublisherTests(unittest.TestCase):
         query = " ".join(connection.query.lower().split())
         self.assertIn("finance.expense_line_budget_units", query)
         self.assertIn("allocation.expense_line_id is null", query)
+        self.assertIn("job.status = 'dead_lettered'", query)
+        self.assertNotIn("job.status = 'failed'", query)
         self.assertEqual(
             connection.parameters,
             (2021, 2026, "financial_expense_publication", 5),
         )
         self.assertTrue(connection.closed)
+
+    def test_failure_is_retryable_until_dead_letter(self) -> None:
+        connection = CapturingConnection()
+        repository = PostgresExpensePublicationRepository(lambda: connection)
+
+        repository.record_failure(
+            artifact_for(),
+            error_code="ExpensePublicationIntegrityError",
+            error_detail="falha transitória de reconciliação",
+        )
+
+        query = " ".join(connection.query.lower().split())
+        self.assertIn("attempt_count + 1 >= raw.extraction_jobs.max_attempts", query)
+        self.assertIn("then 'dead_lettered'", query)
+        self.assertIn("else 'failed'", query)
+
+    def test_command_fails_when_any_artifact_needs_review(self) -> None:
+        self.assertEqual(completion_exit_code(needs_review=0), 0)
+        self.assertEqual(completion_exit_code(needs_review=1), 1)
 
     def test_publisher_rejects_tampered_pdf_before_insert(self) -> None:
         repository = FakeRepository()
