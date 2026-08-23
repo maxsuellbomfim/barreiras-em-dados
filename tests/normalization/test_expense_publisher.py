@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import unittest
 from pathlib import Path
 
@@ -109,38 +110,110 @@ class ExistingExpenseReportConnection:
             return FakeRows([{"id": "00000000-0000-4000-8000-000000000921"}])
         if "insert into finance.expense_lines" in normalized:
             return FakeRows([])
+        if (
+            "from finance.expense_lines as line" in normalized
+            and "order by line.line_number" in normalized
+        ):
+            return FakeRows(
+                [
+                    {
+                        "id": f"00000000-0000-4000-8000-{row.line_number:012d}",
+                        "line_number": row.line_number,
+                        "expense_code": row.expense_code,
+                        "description": row.description,
+                        "source_code": row.source_code,
+                        "fixed_amount": row.fixed_amount,
+                        "additions_amount": row.additions_amount,
+                        "reductions_amount": row.reductions_amount,
+                        "updated_amount": row.updated_amount,
+                        "committed_period_amount": row.committed_period_amount,
+                        "committed_to_date_amount": row.committed_to_date_amount,
+                        "liquidated_period_amount": row.liquidated_period_amount,
+                        "liquidated_to_date_amount": row.liquidated_to_date_amount,
+                        "paid_period_amount": row.paid_period_amount,
+                        "paid_to_date_amount": row.paid_to_date_amount,
+                        "unpaid_committed_amount": row.unpaid_committed_amount,
+                        "balance_amount": row.balance_amount,
+                    }
+                    for row in self.batch.rows
+                ]
+            )
         if "select line.id::text" in normalized:
             line_number = int(parameters[1])
             row = self.batch.rows[line_number - 1]
-            return FakeRows([{
-                "id": f"00000000-0000-4000-8000-{line_number:012d}",
-                "expense_code": row.expense_code,
-                "description": row.description,
-                "source_code": row.source_code,
-                "fixed_amount": row.fixed_amount,
-                "additions_amount": row.additions_amount,
-                "reductions_amount": row.reductions_amount,
-                "updated_amount": row.updated_amount,
-                "committed_period_amount": row.committed_period_amount,
-                "committed_to_date_amount": row.committed_to_date_amount,
-                "liquidated_period_amount": row.liquidated_period_amount,
-                "liquidated_to_date_amount": row.liquidated_to_date_amount,
-                "paid_period_amount": row.paid_period_amount,
-                "paid_to_date_amount": row.paid_to_date_amount,
-                "unpaid_committed_amount": row.unpaid_committed_amount,
-                "balance_amount": row.balance_amount,
-            }])
+            return FakeRows(
+                [
+                    {
+                        "id": f"00000000-0000-4000-8000-{line_number:012d}",
+                        "expense_code": row.expense_code,
+                        "description": row.description,
+                        "source_code": row.source_code,
+                        "fixed_amount": row.fixed_amount,
+                        "additions_amount": row.additions_amount,
+                        "reductions_amount": row.reductions_amount,
+                        "updated_amount": row.updated_amount,
+                        "committed_period_amount": row.committed_period_amount,
+                        "committed_to_date_amount": row.committed_to_date_amount,
+                        "liquidated_period_amount": row.liquidated_period_amount,
+                        "liquidated_to_date_amount": row.liquidated_to_date_amount,
+                        "paid_period_amount": row.paid_period_amount,
+                        "paid_to_date_amount": row.paid_to_date_amount,
+                        "unpaid_committed_amount": row.unpaid_committed_amount,
+                        "balance_amount": row.balance_amount,
+                    }
+                ]
+            )
+        if (
+            "with input_rows as" in normalized
+            and "insert into finance.expense_line_budget_units" in normalized
+        ):
+            payload = json.loads(parameters[0])
+            self.allocation_parameters.extend(payload)
+            return FakeRows(
+                [
+                    {
+                        "id": "00000000-0000-4000-8000-000000000922",
+                        "expense_line_id": item["expense_line_id"],
+                        "origin_raw_record_id": item["origin_raw_record_id"],
+                        "source_document_artifact_id": item[
+                            "source_document_artifact_id"
+                        ],
+                        "version": item["version"],
+                        "budget_unit_code": (
+                            "999999"
+                            if self.existing_allocation
+                            else item["budget_unit_code"]
+                        ),
+                        "budget_unit_name": (
+                            "UNIDADE DIVERGENTE"
+                            if self.existing_allocation
+                            else item["budget_unit_name"]
+                        ),
+                        "methodology_version": (
+                            "public-expense-pdf/1.0.0"
+                            if self.existing_allocation
+                            else item["methodology_version"]
+                        ),
+                        "inserted": not self.existing_allocation,
+                    }
+                    for item in payload
+                ]
+            )
         if "insert into finance.expense_line_budget_units" in normalized:
             self.allocation_parameters.append(parameters)
             if self.existing_allocation:
                 return FakeRows([])
             return FakeRows([{"id": "00000000-0000-4000-8000-000000000922"}])
         if "from finance.expense_line_budget_units" in normalized:
-            return FakeRows([{
-                "budget_unit_code": "999999",
-                "budget_unit_name": "UNIDADE DIVERGENTE",
-                "methodology_version": "public-expense-pdf/1.0.0",
-            }])
+            return FakeRows(
+                [
+                    {
+                        "budget_unit_code": "999999",
+                        "budget_unit_name": "UNIDADE DIVERGENTE",
+                        "methodology_version": "public-expense-pdf/1.0.0",
+                    }
+                ]
+            )
         return FakeRows([])
 
     def close(self):
@@ -160,9 +233,7 @@ def artifact_for(body: bytes = PDF_BODY) -> ExpenseArtifact:
 
 class ExpensePublisherTests(unittest.TestCase):
     def test_replay_rejects_existing_budget_unit_divergence(self) -> None:
-        batch = build_expense_publication_batch(
-            parse_expense_pdf_text(FIXTURE_TEXT)
-        )
+        batch = build_expense_publication_batch(parse_expense_pdf_text(FIXTURE_TEXT))
         connection = ExistingExpenseReportConnection(
             batch,
             existing_allocation=True,
@@ -176,9 +247,7 @@ class ExpensePublisherTests(unittest.TestCase):
             repository.persist_validated_report(artifact_for(), batch)
 
     def test_replay_adds_budget_units_to_existing_validated_lines(self) -> None:
-        batch = build_expense_publication_batch(
-            parse_expense_pdf_text(FIXTURE_TEXT)
-        )
+        batch = build_expense_publication_batch(parse_expense_pdf_text(FIXTURE_TEXT))
         connection = ExistingExpenseReportConnection(batch)
         repository = PostgresExpensePublicationRepository(lambda: connection)
 
@@ -190,7 +259,7 @@ class ExpensePublisherTests(unittest.TestCase):
         self.assertEqual(len(connection.allocation_parameters), 3)
         self.assertEqual(
             {
-                (parameters[4], parameters[5])
+                (parameters["budget_unit_code"], parameters["budget_unit_name"])
                 for parameters in connection.allocation_parameters
             },
             {("010101", "CAMARA MUNICIPAL DE BARREIRAS")},
@@ -198,6 +267,11 @@ class ExpensePublisherTests(unittest.TestCase):
         self.assertTrue(connection.transaction_entered)
         self.assertTrue(connection.transaction_exited)
         self.assertTrue(connection.closed)
+        self.assertLessEqual(
+            len(connection.calls),
+            8,
+            "o replay deve usar consultas em lote, não uma sequência por linha",
+        )
 
     def test_pending_documents_includes_reports_without_budget_unit_allocation(
         self,
