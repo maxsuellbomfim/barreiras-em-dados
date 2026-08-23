@@ -704,6 +704,18 @@ O workflow só encerra uma competência explícita como sucesso quando todos os
 componentes vigentes do mês tiverem esse detalhamento. Meses históricos cujo
 leiaute não contenha a coluna não recebem estimativa nem categoria inferida.
 
+Em 23/08/2026, a visão anual de finanças ganhou dois níveis determinísticos de
+leitura. O primeiro compara receitas e pagamentos em cada um dos 12 meses e
+mantém competências ausentes sem valor. O segundo agrega a natureza contábil
+dos pagamentos somente nos meses em que fechamento, relatório de despesa e
+soma das categorias reconciliam exatamente. A lista anual ordena os códigos por
+valor líquido pago e deixa a evolução mensal, o PDF e o hash em sanfonas. Um
+código ausente em relatório integralmente reconciliado pode aparecer como
+`R$ 0,00`; mês sem detalhamento reconciliado permanece sem valor. A interface
+explica que natureza contábil não equivale a secretaria, política pública ou
+fornecedor. A próxima fatia financeira deve acrescentar a dimensão de órgão ou
+unidade somente quando a fonte oficial permitir reconciliação equivalente.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;
