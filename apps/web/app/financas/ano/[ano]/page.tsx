@@ -6,10 +6,14 @@ import {
   parseFinanceYearSlug,
   type AnnualFinanceTrendMonth,
 } from "../../../../lib/annual-finance-trend.mjs";
+import { buildAnnualExpenseCategories } from "../../../../lib/annual-expense-categories.mjs";
 import { summarizeAnnualFinances } from "../../../../lib/annual-finance-summary.mjs";
+import { getPublicExpenseCategorySummary } from "../../../../lib/expense-category-summary.mjs";
+import { getPublicExpenseReports } from "../../../../lib/expenses";
 import { getPublicMonthlyFinanceClosures } from "../../../../lib/monthly-finance";
 import { monthlyFinanceHref } from "../../../../lib/monthly-finance-detail.mjs";
 import { formatBrlDecimal } from "../../../../lib/revenues";
+import { FinanceAnnualExpenseCategories } from "./finance-annual-expense-categories";
 
 export const revalidate = 300;
 
@@ -69,7 +73,10 @@ export default async function AnnualFinancePage({ params }: PageProps) {
   const fiscalYear = parseFinanceYearSlug(ano, currentBahiaYear());
   if (!fiscalYear) notFound();
 
-  const result = await getPublicMonthlyFinanceClosures(fiscalYear);
+  const [result, expenseReportsResult] = await Promise.all([
+    getPublicMonthlyFinanceClosures(fiscalYear),
+    getPublicExpenseReports(fiscalYear),
+  ]);
   const closures = result.state === "available" ? result.closures : [];
   const trend = result.state === "available"
     ? buildAnnualFinanceTrend(closures, fiscalYear)
@@ -77,6 +84,33 @@ export default async function AnnualFinancePage({ params }: PageProps) {
   const summary = trend.state === "available"
     ? summarizeAnnualFinances(closures).find((item) => item.fiscalYear === fiscalYear) ?? null
     : null;
+  const comparablePeriods = new Set(
+    closures
+      .filter((closure) => closure.closureStatus === "operational")
+      .map((closure) => closure.periodStart),
+  );
+  const expenseReports = expenseReportsResult.state === "available"
+    ? expenseReportsResult.reports.filter((report) => comparablePeriods.has(report.periodStart))
+    : [];
+  const categorySummaries = expenseReportsResult.state === "available"
+    ? new Map(
+        await Promise.all(
+          expenseReports.map(async (report) => [
+            report.expenseReportId,
+            await getPublicExpenseCategorySummary(report.expenseReportId),
+          ] as const),
+        ),
+      )
+    : new Map();
+  const annualExpenseCategories =
+    result.state === "available" && expenseReportsResult.state === "available"
+      ? buildAnnualExpenseCategories({
+          fiscalYear,
+          closures,
+          reports: expenseReportsResult.reports,
+          summariesByReport: categorySummaries,
+        })
+      : { state: "unavailable" as const };
 
   return (
     <main>
@@ -184,6 +218,8 @@ export default async function AnnualFinancePage({ params }: PageProps) {
                 })}
               </ol>
             </section>
+
+            <FinanceAnnualExpenseCategories result={annualExpenseCategories} />
 
             <p className="finance-annual-method">
               Totais e escalas calculados em centavos por código determinístico. A
