@@ -6,13 +6,16 @@ import {
   parseFinanceYearSlug,
   type AnnualFinanceTrendMonth,
 } from "../../../../lib/annual-finance-trend.mjs";
+import { buildAnnualExpenseBudgetUnits } from "../../../../lib/annual-expense-budget-units.mjs";
 import { buildAnnualExpenseCategories } from "../../../../lib/annual-expense-categories.mjs";
 import { summarizeAnnualFinances } from "../../../../lib/annual-finance-summary.mjs";
+import { getPublicExpenseBudgetUnitSummary } from "../../../../lib/expense-budget-unit-summary.mjs";
 import { getPublicExpenseCategorySummary } from "../../../../lib/expense-category-summary.mjs";
 import { getPublicExpenseReports } from "../../../../lib/expenses";
 import { getPublicMonthlyFinanceClosures } from "../../../../lib/monthly-finance";
 import { monthlyFinanceHref } from "../../../../lib/monthly-finance-detail.mjs";
 import { formatBrlDecimal } from "../../../../lib/revenues";
+import { FinanceAnnualBudgetUnits } from "./finance-annual-budget-units";
 import { FinanceAnnualExpenseCategories } from "./finance-annual-expense-categories";
 
 export const revalidate = 300;
@@ -92,16 +95,23 @@ export default async function AnnualFinancePage({ params }: PageProps) {
   const expenseReports = expenseReportsResult.state === "available"
     ? expenseReportsResult.reports.filter((report) => comparablePeriods.has(report.periodStart))
     : [];
-  const categorySummaries = expenseReportsResult.state === "available"
-    ? new Map(
-        await Promise.all(
-          expenseReports.map(async (report) => [
-            report.expenseReportId,
-            await getPublicExpenseCategorySummary(report.expenseReportId),
-          ] as const),
-        ),
+  const reportBreakdowns = expenseReportsResult.state === "available"
+    ? await Promise.all(
+        expenseReports.map(async (report) => {
+          const [categories, budgetUnits] = await Promise.all([
+            getPublicExpenseCategorySummary(report.expenseReportId),
+            getPublicExpenseBudgetUnitSummary(report.expenseReportId),
+          ]);
+          return { reportId: report.expenseReportId, categories, budgetUnits } as const;
+        }),
       )
-    : new Map();
+    : [];
+  const categorySummaries = new Map(
+    reportBreakdowns.map((item) => [item.reportId, item.categories] as const),
+  );
+  const budgetUnitSummaries = new Map(
+    reportBreakdowns.map((item) => [item.reportId, item.budgetUnits] as const),
+  );
   const annualExpenseCategories =
     result.state === "available" && expenseReportsResult.state === "available"
       ? buildAnnualExpenseCategories({
@@ -109,6 +119,15 @@ export default async function AnnualFinancePage({ params }: PageProps) {
           closures,
           reports: expenseReportsResult.reports,
           summariesByReport: categorySummaries,
+        })
+      : { state: "unavailable" as const };
+  const annualBudgetUnits =
+    result.state === "available" && expenseReportsResult.state === "available"
+      ? buildAnnualExpenseBudgetUnits({
+          fiscalYear,
+          closures,
+          reports: expenseReportsResult.reports,
+          summariesByReport: budgetUnitSummaries,
         })
       : { state: "unavailable" as const };
 
@@ -218,6 +237,8 @@ export default async function AnnualFinancePage({ params }: PageProps) {
                 })}
               </ol>
             </section>
+
+            <FinanceAnnualBudgetUnits result={annualBudgetUnits} />
 
             <FinanceAnnualExpenseCategories result={annualExpenseCategories} />
 

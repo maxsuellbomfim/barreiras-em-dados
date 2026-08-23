@@ -716,6 +716,18 @@ explica que natureza contábil não equivale a secretaria, política pública ou
 fornecedor. A próxima fatia financeira deve acrescentar a dimensão de órgão ou
 unidade somente quando a fonte oficial permitir reconciliação equivalente.
 
+Ainda em 23/08/2026, essa condição foi comprovada no recurso oficial
+`pdc-resumo-execucao-da-despesa`. Três PDFs integrais de 2022, 2024 e 2026
+confirmaram cabeçalhos de unidade antes de todas as linhas, e o catálogo
+apresentou 55 demonstrativos entre 2022 e 2026. O ADR 0079 criou atribuição
+versionada, linhagem exata e uma RPC que só publica o ranking quando todas as
+linhas e o total pago reconciliam. A visão anual mostra órgão, secretaria,
+fundo ou gabinete, evolução mensal e PDF/hash; mês incompleto não vira zero.
+O replay diário avança em lotes de cinco. A fonte observada não contém 2021,
+que permanece como lacuna explícita. A próxima menor fatia é relacionar essas
+unidades aos empenhos, contratos e fornecedores por chaves oficiais, sem usar
+similaridade textual como confirmação.
+
 ## Backlog deliberadamente adiado
 
 - busca semântica/embeddings;

@@ -29,6 +29,11 @@ test("workflow de despesas usa o publicador versionado e limite seguro", () => {
   assert.match(workflow, /dry_run_public_obligations:/);
   assert.match(workflow, /inputs\.dry_run_public_obligations != true/);
   assert.match(workflow, /--dry-run/);
+  const expenseStep = workflow.slice(
+    workflow.indexOf("- name: Publicar janela de despesas"),
+    workflow.indexOf("- name: Publicar pagamentos de restos a pagar"),
+  );
+  assert.match(expenseStep, /limit="\$\{INPUT_LIMIT:-5\}"/);
 });
 
 test("workflow permite publicar despesas, restos a pagar ou folha", () => {

@@ -10,7 +10,7 @@ from decimal import Decimal
 from .financial_expense_pdf import ExpensePdfReport
 from .revenue import RevenueNormalizationError
 
-EXPENSE_PUBLICATION_METHODOLOGY_VERSION = "public-expense-pdf/1.0.0"
+EXPENSE_PUBLICATION_METHODOLOGY_VERSION = "public-expense-pdf/1.1.0"
 
 
 class ExpensePublicationError(RevenueNormalizationError):
@@ -20,6 +20,8 @@ class ExpensePublicationError(RevenueNormalizationError):
 @dataclass(frozen=True)
 class ExpensePublicationRow:
     line_number: int
+    budget_unit_code: str
+    budget_unit_name: str
     expense_code: str
     description: str
     source_code: str
@@ -149,6 +151,8 @@ def build_expense_publication_batch(
         rows.append(
             ExpensePublicationRow(
                 line_number=line_number,
+                budget_unit_code=row.budget_unit_code,
+                budget_unit_name=row.budget_unit_name,
                 expense_code=row.expense_code,
                 description=row.description,
                 source_code=row.source_code,
@@ -164,6 +168,8 @@ def build_expense_publication_batch(
         "rows": [
             {
                 "line_number": row.line_number,
+                "budget_unit_code": row.budget_unit_code,
+                "budget_unit_name": row.budget_unit_name,
                 "expense_code": row.expense_code,
                 "description": row.description,
                 "source_code": row.source_code,

@@ -114,7 +114,8 @@ produção. A decisão está no ADR 0008.
 - `org`: órgãos e departamentos;
 - `hr`: pessoas, cargos, atos, concursos e folha minimizada;
 - `procurement`: fornecedores, compras, itens, propostas, contratos e obras;
-- `finance`: receitas e estágios da despesa;
+- `finance`: receitas, estágios da despesa e atribuição literal/versionada das
+  linhas à unidade orçamentária do mesmo documento;
 - `territory`: transferências intergovernamentais, emendas e vínculos com
   Barreiras;
 - `legislative`: mandatos, atividades, votações e despesas parlamentares;

@@ -182,6 +182,22 @@ catálogo completo e registra a cobertura mensal. Depois drena até cinco PDFs d
 balancetes por execução, retomando do checkpoint seguinte. Assim, um documento
 grande ou lento não impede a atualização pública do estado da fonte.
 
+### Unidades orçamentárias nos demonstrativos de despesa
+
+O recurso oficial `pdc-resumo-execucao-da-despesa` apresentou 55 PDFs no
+catálogo observado em 23/08/2026, cobrindo 2022 a 2026. O catálogo não trouxe
+documento de 2021; essa lacuna continua declarada e não é estimada. Auditoria
+integral de três layouts confirmou que o cabeçalho de unidade precede as linhas
+contábeis: 25 unidades em dezembro/2022, 27 em dezembro/2024 e 29 em julho/2026,
+com 1.979, 1.549 e 1.982 linhas de despesa, respectivamente.
+
+O parser `public-expense-pdf/1.1.0` exige um cabeçalho literal de seis a oito
+dígitos antes de aceitar cada linha. A projeção pública só agrega uma competência
+quando todas as linhas possuem atribuição e a soma paga coincide exatamente com
+o total do PDF. Códigos podem mudar entre exercícios; por isso a visão anual não
+usa uma lista fixa de secretarias e nunca transporta a estrutura de um ano para
+outro.
+
 ## Catálogo oficial do Diário de Barreiras
 
 - catálogo: `https://pmbarreiras.diariomtransparente.com.br/publicacoes`;

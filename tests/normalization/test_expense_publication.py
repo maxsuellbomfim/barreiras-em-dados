@@ -32,6 +32,11 @@ class ExpensePublicationTests(unittest.TestCase):
         )
         self.assertEqual(first.total_paid_period_amount, Decimal("53082371.88"))
         self.assertEqual(first.rows[0].line_number, 1)
+        self.assertEqual(first.rows[0].budget_unit_code, "010101")
+        self.assertEqual(
+            first.rows[0].budget_unit_name,
+            "CAMARA MUNICIPAL DE BARREIRAS",
+        )
         self.assertEqual(len(first.batch_sha256), 64)
 
 
