@@ -7,7 +7,7 @@ import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 
 const migrationsUrl = new URL("../../../supabase/migrations/", import.meta.url);
-const migrationName = "20260823220000_public_expense_report_source_conflicts.sql";
+const migrationName = "20260823223000_public_expense_unit_source_conflicts.sql";
 const migrationNames = (await readdir(fileURLToPath(migrationsUrl)))
   .filter((name) => name.endsWith(".sql"))
   .sort();
@@ -249,7 +249,7 @@ try {
       '00000000-0000-0000-0000-000000007005',
       'document', 'https://example.org/expense-2025-01.pdf',
       'Total geral declarado', '{"section":"Total"}'::jsonb,
-      '${"3".repeat(64)}', 'public-expense-pdf/1.3.0', true
+      '${"3".repeat(64)}', 'public-expense-pdf/1.4.0', true
     ),
     (
       '00000000-0000-0000-0000-000000007013',
@@ -259,13 +259,36 @@ try {
       '00000000-0000-0000-0000-000000007005',
       'document', 'https://example.org/expense-2025-01.pdf',
       'Soma conferida por unidade', '{"section":"Total da Unidade"}'::jsonb,
-      '${"3".repeat(64)}', 'public-expense-pdf/1.3.0', true
+      '${"3".repeat(64)}', 'public-expense-pdf/1.4.0', true
+    ),
+    (
+      '00000000-0000-0000-0000-000000007014',
+      'finance.expense_reports',
+      '00000000-0000-0000-0000-000000007009',
+      '00000000-0000-0000-0000-000000007006',
+      '00000000-0000-0000-0000-000000007005',
+      'document', 'https://example.org/expense-2025-01.pdf',
+      'Subtotal oficial da unidade 030850',
+      '{"section":"Total da Unidade"}'::jsonb,
+      '${"3".repeat(64)}', 'public-expense-pdf/1.4.0', true
+    ),
+    (
+      '00000000-0000-0000-0000-000000007015',
+      'finance.expense_reports',
+      '00000000-0000-0000-0000-000000007009',
+      '00000000-0000-0000-0000-000000007006',
+      '00000000-0000-0000-0000-000000007005',
+      'document', 'https://example.org/expense-2025-01.pdf',
+      'Soma das linhas da unidade 030850',
+      '{"section":"Linhas da Unidade"}'::jsonb,
+      '${"3".repeat(64)}', 'public-expense-pdf/1.4.0', true
     );
     insert into evidence.source_conflicts (
       target_type, target_id, field_name,
       first_evidence_item_id, second_evidence_item_id,
       first_value, second_value, status
-    ) values (
+    ) values
+    (
       'finance.expense_reports',
       '00000000-0000-0000-0000-000000007009',
       'total_reductions_amount',
@@ -273,6 +296,16 @@ try {
       '00000000-0000-0000-0000-000000007013',
       '{"declared_amount":"263599171.60"}'::jsonb,
       '{"calculated_amount":"263599171.68","difference_amount":"0.08"}'::jsonb,
+      'open'
+    ),
+    (
+      'finance.expense_reports',
+      '00000000-0000-0000-0000-000000007009',
+      'budget_unit_subtotal:030850:reductions_amount',
+      '00000000-0000-0000-0000-000000007014',
+      '00000000-0000-0000-0000-000000007015',
+      '{"scope":"budget_unit_subtotal","field_name":"reductions_amount","budget_unit_code":"030850","budget_unit_name":"FME - FUNDO MUNICIPAL DE EDUCAÇÃO","declared_amount":"141419262.90"}'::jsonb,
+      '{"scope":"budget_unit_subtotal","field_name":"reductions_amount","budget_unit_code":"030850","budget_unit_name":"FME - FUNDO MUNICIPAL DE EDUCAÇÃO","calculated_amount":"141419262.97","difference_amount":"0.07"}'::jsonb,
       'open'
     );
   `);
@@ -307,20 +340,38 @@ try {
 
   await database.exec("set role anon");
   const sourceConflicts = await database.query(`
-    select fiscal_year, period_start::text, field_name, declared_amount,
+    select fiscal_year, period_start::text, conflict_scope, field_name,
+      budget_unit_code, budget_unit_name, declared_amount,
       calculated_amount, difference_amount, methodology_version
     from api.get_public_expense_report_source_conflicts(100, 2025::smallint)
   `);
   await database.exec("reset role");
-  assert.deepEqual(sourceConflicts.rows, [{
-    fiscal_year: 2025,
-    period_start: "2025-01-01",
-    field_name: "total_reductions_amount",
-    declared_amount: "263599171.60",
-    calculated_amount: "263599171.68",
-    difference_amount: "0.08",
-    methodology_version: "public-expense-source-conflicts/1.0.0",
-  }]);
+  assert.deepEqual(sourceConflicts.rows, [
+    {
+      fiscal_year: 2025,
+      period_start: "2025-01-01",
+      conflict_scope: "budget_unit_subtotal",
+      field_name: "reductions_amount",
+      budget_unit_code: "030850",
+      budget_unit_name: "FME - FUNDO MUNICIPAL DE EDUCAÇÃO",
+      declared_amount: "141419262.90",
+      calculated_amount: "141419262.97",
+      difference_amount: "0.07",
+      methodology_version: "public-expense-source-conflicts/1.1.0",
+    },
+    {
+      fiscal_year: 2025,
+      period_start: "2025-01-01",
+      conflict_scope: "report_total",
+      field_name: "total_reductions_amount",
+      budget_unit_code: null,
+      budget_unit_name: null,
+      declared_amount: "263599171.60",
+      calculated_amount: "263599171.68",
+      difference_amount: "0.08",
+      methodology_version: "public-expense-source-conflicts/1.1.0",
+    },
+  ]);
 
   await assert.rejects(
     database.exec(`

@@ -79,6 +79,49 @@ class ExpensePublicationTests(unittest.TestCase):
         self.assertEqual(conflict.calculated_amount, Decimal("219492.00"))
         self.assertEqual(conflict.difference_amount, Decimal("0.08"))
 
+    def test_preserves_small_unit_and_report_total_source_conflicts(self):
+        unit_total = UNIT_TOTAL.replace("219.492,00", "219.491,93", 1)
+        text = FIXTURE.read_text(encoding="utf-8").replace(
+            "Total :",
+            f"{unit_total}\nTotal :",
+            1,
+        )
+        text = text.replace(
+            "Total : 1.401.257,00 43.300,00 219.492,00",
+            "Total : 1.401.257,00 43.300,00 219.491,97",
+            1,
+        )
+
+        batch = build_expense_publication_batch(parse_expense_pdf_text(text))
+
+        self.assertEqual(len(batch.total_source_conflicts), 2)
+        unit_conflict, report_conflict = batch.total_source_conflicts
+        self.assertEqual(unit_conflict.scope, "budget_unit_subtotal")
+        self.assertEqual(unit_conflict.field_name, "reductions_amount")
+        self.assertEqual(unit_conflict.budget_unit_code, "010101")
+        self.assertEqual(unit_conflict.declared_amount, Decimal("219491.93"))
+        self.assertEqual(unit_conflict.calculated_amount, Decimal("219492.00"))
+        self.assertEqual(unit_conflict.difference_amount, Decimal("0.07"))
+        self.assertEqual(report_conflict.scope, "report_total")
+        self.assertEqual(report_conflict.field_name, "total_reductions_amount")
+        self.assertEqual(report_conflict.declared_amount, Decimal("219491.97"))
+        self.assertEqual(report_conflict.calculated_amount, Decimal("219492.00"))
+        self.assertEqual(report_conflict.difference_amount, Decimal("0.03"))
+
+    def test_rejects_material_unit_subtotal_difference(self):
+        unit_total = UNIT_TOTAL.replace("219.492,00", "219.491,00", 1)
+        text = FIXTURE.read_text(encoding="utf-8").replace(
+            "Total :",
+            f"{unit_total}\nTotal :",
+            1,
+        )
+
+        with self.assertRaisesRegex(
+            ExpensePublicationError,
+            "diverge materialmente do subtotal oficial",
+        ):
+            build_expense_publication_batch(parse_expense_pdf_text(text))
+
 
 if __name__ == "__main__":
     unittest.main()

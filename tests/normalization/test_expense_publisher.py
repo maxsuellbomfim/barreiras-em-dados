@@ -337,15 +337,61 @@ class ExpensePublisherTests(unittest.TestCase):
         self.assertEqual(conflict_parameters[1], "total_reductions_amount")
         self.assertEqual(
             json.loads(conflict_parameters[4]),
-            {"declared_amount": "263599171.60"},
+            {
+                "scope": "report_total",
+                "field_name": "total_reductions_amount",
+                "budget_unit_code": None,
+                "budget_unit_name": None,
+                "declared_amount": "263599171.60",
+            },
         )
         self.assertEqual(
             json.loads(conflict_parameters[5]),
             {
+                "scope": "report_total",
+                "field_name": "total_reductions_amount",
+                "budget_unit_code": None,
+                "budget_unit_name": None,
                 "calculated_amount": "263599171.68",
                 "difference_amount": "0.08",
             },
         )
+
+    def test_persists_budget_unit_source_conflict_with_stable_identity(self) -> None:
+        base = build_expense_publication_batch(parse_expense_pdf_text(FIXTURE_TEXT))
+        batch = replace(
+            base,
+            total_source_conflicts=(
+                ExpenseTotalSourceConflict(
+                    field_name="reductions_amount",
+                    declared_amount=Decimal("141419262.90"),
+                    calculated_amount=Decimal("141419262.97"),
+                    difference_amount=Decimal("0.07"),
+                    scope="budget_unit_subtotal",
+                    budget_unit_code="030850",
+                    budget_unit_name="FME - FUNDO MUNICIPAL DE EDUCAÇÃO",
+                ),
+            ),
+        )
+        connection = SourceConflictConnection()
+
+        PostgresExpensePublicationRepository._persist_total_source_conflicts(
+            connection,
+            artifact=artifact_for(),
+            batch=batch,
+            report_id="00000000-0000-4000-8000-000000000921",
+            origin_raw_record_id="00000000-0000-4000-8000-000000000913",
+        )
+
+        self.assertEqual(len(connection.calls), 4)
+        self.assertEqual(
+            connection.calls[0][1][1],
+            "budget_unit_subtotal:030850:reductions_amount",
+        )
+        first_value = json.loads(connection.calls[-1][1][4])
+        self.assertEqual(first_value["scope"], "budget_unit_subtotal")
+        self.assertEqual(first_value["budget_unit_code"], "030850")
+        self.assertEqual(first_value["declared_amount"], "141419262.90")
 
     def test_new_report_persists_lines_and_evidence_in_two_bulk_queries(self) -> None:
         batch = build_expense_publication_batch(parse_expense_pdf_text(FIXTURE_TEXT))
@@ -463,7 +509,7 @@ class ExpensePublisherTests(unittest.TestCase):
             (
                 2021,
                 2026,
-                "public-expense-pdf/1.3.0",
+                "public-expense-pdf/1.4.0",
                 2021,
                 2026,
                 "financial_expense_publication",
