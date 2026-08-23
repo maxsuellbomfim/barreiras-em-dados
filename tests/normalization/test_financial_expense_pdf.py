@@ -25,10 +25,10 @@ class FinancialExpensePdfTests(unittest.TestCase):
         self.assertEqual(report.period_end.isoformat(), "2022-04-30")
         self.assertEqual(report.fiscal_year, 2022)
         self.assertEqual(len(report.rows), 3)
-        self.assertEqual(report.total_updated_amount, Decimal("595221834.00"))
+        self.assertEqual(report.total_updated_amount, Decimal("1225065.00"))
         self.assertEqual(
             report.total_paid_period_amount,
-            Decimal("53082371.88"),
+            Decimal("115995.62"),
         )
         self.assertEqual(report.rows[2].paid_to_date_amount, Decimal("405440.48"))
         self.assertEqual(report.rows[2].expense_code, "3.3.9.0.39.00.00")
@@ -58,13 +58,36 @@ class FinancialExpensePdfTests(unittest.TestCase):
 
     def test_accepts_one_decimal_when_pdf_omits_trailing_zero(self):
         text = FIXTURE.read_text(encoding="utf-8").replace(
-            "Total : 595.221.834,00",
-            "Total : 595.221.834,0",
+            "Total : 1.401.257,00",
+            "Total : 1.401.257,0",
         )
 
         report = parse_expense_pdf_text(text)
 
-        self.assertEqual(report.total_fixed_amount, Decimal("595221834.00"))
+        self.assertEqual(report.total_fixed_amount, Decimal("1401257.00"))
+
+    def test_parses_adjacent_fonte_and_fonte_tc_codes_without_dropping_row(self):
+        text = FIXTURE.read_text(encoding="utf-8").replace(
+            "3.3.9.0.39.00.00. Outros Servicos Terceiros Pessoa 0100",
+            "3.3.9.0.39.00.00. Outros Servicos Terceiros Pessoa 15001001",
+        )
+
+        report = parse_expense_pdf_text(text)
+
+        self.assertEqual(len(report.rows), 3)
+        self.assertEqual(report.rows[2].source_code, "15001001")
+
+    def test_parses_source_code_joined_to_truncated_description(self):
+        text = FIXTURE.read_text(encoding="utf-8").replace(
+            "Outros Servicos Terceiros Pessoa 0100",
+            "Outros Servicos Terceiros Pessoa15001001",
+        )
+
+        report = parse_expense_pdf_text(text)
+
+        self.assertEqual(len(report.rows), 3)
+        self.assertEqual(report.rows[2].description, "Outros Servicos Terceiros Pessoa")
+        self.assertEqual(report.rows[2].source_code, "15001001")
 
 
 if __name__ == "__main__":

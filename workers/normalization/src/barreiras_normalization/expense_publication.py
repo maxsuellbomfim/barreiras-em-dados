@@ -10,7 +10,7 @@ from decimal import Decimal
 from .financial_expense_pdf import ExpensePdfReport
 from .revenue import RevenueNormalizationError
 
-EXPENSE_PUBLICATION_METHODOLOGY_VERSION = "public-expense-pdf/1.1.0"
+EXPENSE_PUBLICATION_METHODOLOGY_VERSION = "public-expense-pdf/1.2.0"
 
 
 class ExpensePublicationError(RevenueNormalizationError):
@@ -115,6 +115,31 @@ def build_expense_publication_batch(
     }
     if not report.rows:
         raise ExpensePublicationError("relatório sem linhas publicáveis")
+
+    total_to_row_field = {
+        "total_fixed_amount": "fixed_amount",
+        "total_additions_amount": "additions_amount",
+        "total_reductions_amount": "reductions_amount",
+        "total_updated_amount": "updated_amount",
+        "total_committed_period_amount": "committed_period_amount",
+        "total_committed_to_date_amount": "committed_to_date_amount",
+        "total_liquidated_period_amount": "liquidated_period_amount",
+        "total_liquidated_to_date_amount": "liquidated_to_date_amount",
+        "total_paid_period_amount": "paid_period_amount",
+        "total_paid_to_date_amount": "paid_to_date_amount",
+        "total_unpaid_committed_amount": "unpaid_committed_amount",
+        "total_balance_amount": "balance_amount",
+    }
+    for total_field, row_field in total_to_row_field.items():
+        row_sum = sum(
+            (getattr(row, row_field) for row in report.rows),
+            start=Decimal("0"),
+        )
+        if row_sum != totals[total_field]:
+            raise ExpensePublicationError(
+                "soma das linhas diverge do total declarado: "
+                f"{row_field}={row_sum} {total_field}={totals[total_field]}"
+            )
 
     rows: list[ExpensePublicationRow] = []
     for line_number, row in enumerate(report.rows, start=1):

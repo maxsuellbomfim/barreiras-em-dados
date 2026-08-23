@@ -68,12 +68,17 @@ _DATE_RANGE = re.compile(
 )
 _CODE = r"\d+(?:\.\d+){6,8}\.?"
 _AMOUNT = r"-?(?:\d{1,3}(?:\.\d{3})*|\d+),\d{1,2}"
+# Em relatórios antigos, as colunas "Fonte" e "Fonte TC" podem ser
+# extraídas sem espaço (por exemplo, 1500 + 1001 vira 15001001). Preservamos
+# o token literal para não colapsar combinações contábeis distintas.
+_SOURCE_CODE = r"\d{4}(?:\d{4})?"
 _BUDGET_UNIT = re.compile(
     r"^(?P<code>\d{6,8})\s+-\s+(?P<name>\S.+?)\s*$"
 )
 _ROW = re.compile(
-    rf"^(?P<code>{_CODE})\s+(?P<description>.+?)\s+"
-    rf"(?P<source>\d{{4}})\s+(?P<amounts>{_AMOUNT}(?:\s+{_AMOUNT}){{11}})\s*$"
+    rf"^(?P<code>{_CODE})\s+(?P<description>.+?)(?<!\d)\s*"
+    rf"(?P<source>{_SOURCE_CODE})\s+"
+    rf"(?P<amounts>{_AMOUNT}(?:\s+{_AMOUNT}){{11}})\s*$"
 )
 _TOTAL = re.compile(
     rf"^Total\s*:\s*(?P<amounts>{_AMOUNT}(?:\s+{_AMOUNT}){{11}})\s*$",

@@ -191,12 +191,19 @@ integral de três layouts confirmou que o cabeçalho de unidade precede as linha
 contábeis: 25 unidades em dezembro/2022, 27 em dezembro/2024 e 29 em julho/2026,
 com 1.979, 1.549 e 1.982 linhas de despesa, respectivamente.
 
-O parser `public-expense-pdf/1.1.0` exige um cabeçalho literal de seis a oito
-dígitos antes de aceitar cada linha. A projeção pública só agrega uma competência
-quando todas as linhas possuem atribuição e a soma paga coincide exatamente com
-o total do PDF. Códigos podem mudar entre exercícios; por isso a visão anual não
-usa uma lista fixa de secretarias e nunca transporta a estrutura de um ano para
-outro.
+O parser `public-expense-pdf/1.2.0` exige um cabeçalho literal de seis a oito
+dígitos antes de aceitar cada linha. Ele também reconhece o layout histórico em
+que `Fonte` e `Fonte TC` são extraídas sem espaço (`1500` + `1001` aparece como
+`15001001`), preservando o token combinado sem inventar uma separação. Nenhum
+relatório é validado se a soma das linhas divergir de qualquer uma das 12 colunas
+totais declaradas no PDF.
+
+A projeção pública só agrega uma competência quando todas as linhas possuem
+atribuição e a soma paga coincide exatamente com o total do PDF. Códigos podem
+mudar entre exercícios; por isso a visão anual não usa uma lista fixa de
+secretarias e nunca transporta a estrutura de um ano para outro. Correções do
+parser criam nova versão ligada por `supersedes_id`; a versão anterior permanece
+preservada para auditoria.
 
 ## Catálogo oficial do Diário de Barreiras
 
