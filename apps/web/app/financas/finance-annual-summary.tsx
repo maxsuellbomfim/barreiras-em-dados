@@ -57,6 +57,9 @@ export function FinanceAnnualSummary({
                 <dd>{formatBrlDecimal(summary.operationalDifferenceAmount)}</dd>
               </div>
             </dl>
+            <a className="finance-annual-link" href={`/financas/ano/${summary.fiscalYear}`}>
+              Ver {summary.fiscalYear} mês a mês →
+            </a>
           </li>
         ))}
       </ol>

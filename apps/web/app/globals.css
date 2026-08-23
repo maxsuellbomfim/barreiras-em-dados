@@ -3249,6 +3249,215 @@ footer {
   line-height: 1.55;
 }
 
+.finance-annual-link {
+  min-height: 44px;
+  margin-top: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  color: #273d9c;
+  font-size: 0.75rem;
+  font-weight: 760;
+}
+
+.finance-year-page {
+  padding-top: 2.2rem;
+}
+
+.finance-year-coverage {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  border: 1px solid rgba(39, 61, 156, 0.14);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.82);
+  color: #596579;
+}
+
+.finance-year-coverage strong {
+  color: #111827;
+  font-size: 1.1rem;
+}
+
+.finance-year-totals {
+  margin: 0.85rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.finance-year-totals > div {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(39, 61, 156, 0.12);
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.finance-year-totals dt,
+.finance-year-totals dd {
+  margin: 0;
+}
+
+.finance-year-totals dt {
+  color: #667085;
+  font-size: 0.72rem;
+}
+
+.finance-year-totals dd {
+  margin-top: 0.35rem;
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+
+.finance-year-chart {
+  margin-top: 2.2rem;
+}
+
+.finance-year-legend {
+  margin: 1rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem 1.1rem;
+  color: #5f6b7d;
+  font-size: 0.75rem;
+}
+
+.finance-year-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.finance-year-legend i {
+  width: 0.75rem;
+  height: 0.45rem;
+  border-radius: 999px;
+}
+
+.finance-year-revenue-swatch,
+.finance-year-revenue-bar {
+  background: #1c8b65;
+}
+
+.finance-year-paid-swatch,
+.finance-year-paid-bar {
+  background: #d4473b;
+}
+
+.finance-year-months {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  list-style: none;
+}
+
+.finance-year-months > li {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(39, 61, 156, 0.12);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.finance-year-month-heading,
+.finance-year-month-heading > div {
+  display: flex;
+  align-items: center;
+}
+
+.finance-year-month-heading {
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.finance-year-month-heading > div {
+  min-width: 0;
+  gap: 0.45rem;
+}
+
+.finance-year-month-heading strong {
+  text-transform: capitalize;
+}
+
+.finance-year-month-heading span {
+  color: #667085;
+  font-size: 0.66rem;
+}
+
+.finance-year-month-heading a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: #273d9c;
+  font-size: 0.7rem;
+  font-weight: 740;
+  white-space: nowrap;
+}
+
+.finance-year-bars {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.26rem;
+}
+
+.finance-year-bars span {
+  min-width: 2px;
+  height: 0.48rem;
+  display: block;
+  border-radius: 999px;
+}
+
+.finance-year-months dl {
+  margin: 0.75rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.finance-year-months dl div {
+  min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.finance-year-months dt {
+  color: #667085;
+  font-size: 0.65rem;
+}
+
+.finance-year-months dd {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 740;
+  overflow-wrap: anywhere;
+}
+
+.finance-year-month-missing {
+  border-style: dashed !important;
+  background: rgba(248, 249, 252, 0.72) !important;
+}
+
+.finance-year-missing-copy,
+.finance-year-unavailable p {
+  margin: 0.55rem 0 0;
+  color: #667085;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.finance-year-unavailable {
+  margin-top: 1.25rem;
+  padding: 1.1rem;
+  border: 1px dashed rgba(39, 61, 156, 0.22);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
 .finance-evidence-grid {
   margin-top: 1.35rem;
   display: grid;
@@ -3576,12 +3785,28 @@ footer {
   .finance-annual-list {
     grid-template-columns: 1fr;
   }
+
+  .finance-year-months {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 620px) {
   .finance-month-numbers,
   .finance-evidence-grid,
-  .finance-comparison-total {
+  .finance-comparison-total,
+  .finance-year-totals {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-year-coverage,
+  .finance-year-month-heading,
+  .finance-year-month-heading > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .finance-year-months dl {
     grid-template-columns: 1fr;
   }
 
