@@ -320,11 +320,15 @@ class ExpensePublisherTests(unittest.TestCase):
         query = " ".join(connection.query.lower().split())
         self.assertIn("finance.expense_line_budget_units", query)
         self.assertIn("allocation.expense_line_id is null", query)
+        self.assertIn("with replay_candidates as", query)
+        self.assertIn("new_candidates as", query)
+        self.assertIn("union all", query)
+        self.assertIn("report.origin_raw_record_id::text as parent_record_id", query)
         self.assertIn("job.status = 'dead_lettered'", query)
         self.assertNotIn("job.status = 'failed'", query)
         self.assertEqual(
             connection.parameters,
-            (2021, 2026, "financial_expense_publication", 5),
+            (2021, 2026, 2021, 2026, "financial_expense_publication", 5),
         )
         self.assertTrue(connection.closed)
 
