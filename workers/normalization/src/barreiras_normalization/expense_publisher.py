@@ -186,7 +186,7 @@ class PostgresExpensePublicationRepository:
                     from raw.extraction_jobs as job
                     where job.raw_artifact_id = document.id
                       and job.job_type = %s
-                      and job.status = 'failed'
+                      and job.status = 'dead_lettered'
                   )
                   order by document.id, record.created_at desc, record.id desc
                 )
@@ -284,17 +284,19 @@ class PostgresExpensePublicationRepository:
                 if report_row is None:
                     report_row = connection.execute(
                         """
-                        select report.id::text as id
+                        select
+                          report.id::text as id,
+                          report.origin_raw_record_id::text
+                            as origin_raw_record_id
                         from finance.expense_reports as report
                         where report.source_document_artifact_id = %s::uuid
-                          and report.origin_raw_record_id = %s::uuid
                           and report.validation_status = 'validated'
                           and report.published_at is not null
                         order by report.version desc, report.created_at desc,
                           report.id desc
                         limit 1
                         """,
-                        (artifact.id, artifact.parent_record_id),
+                        (artifact.id,),
                     ).fetchone()
                     if report_row is None:
                         raise ExpensePublicationIntegrityError(
@@ -310,7 +312,9 @@ class PostgresExpensePublicationRepository:
                         artifact=artifact,
                         batch=batch,
                         report_id=report_id,
+                        origin_raw_record_id=str(report_row["origin_raw_record_id"]),
                     )
+                    self._record_success(connection, artifact)
                     return 0
                 published_lines = 0
                 for row in batch.rows:
@@ -495,6 +499,7 @@ class PostgresExpensePublicationRepository:
                     raise ExpensePublicationIntegrityError(
                         "relatório novo não persistiu todas as linhas"
                     )
+                self._record_success(connection, artifact)
                 return published_lines
         finally:
             connection.close()
@@ -506,6 +511,7 @@ class PostgresExpensePublicationRepository:
         artifact: ExpenseArtifact,
         batch: ExpensePublicationBatch,
         report_id: str,
+        origin_raw_record_id: str,
     ) -> None:
         """Valida linhas existentes e grava todas as unidades em poucas consultas."""
 
@@ -534,7 +540,7 @@ class PostgresExpensePublicationRepository:
               and line.origin_raw_record_id = %s::uuid
             order by line.line_number
             """,
-            (report_id, artifact.parent_record_id),
+            (report_id, origin_raw_record_id),
         ).fetchall()
         expected_by_line_number = {row.line_number: row for row in batch.rows}
         if len(existing_lines) != len(expected_by_line_number):
@@ -556,7 +562,7 @@ class PostgresExpensePublicationRepository:
         allocation_input = [
             {
                 "expense_line_id": line_ids_by_number[row.line_number],
-                "origin_raw_record_id": artifact.parent_record_id,
+                "origin_raw_record_id": origin_raw_record_id,
                 "source_document_artifact_id": artifact.id,
                 "version": 1,
                 "budget_unit_code": row.budget_unit_code,
@@ -670,7 +676,7 @@ class PostgresExpensePublicationRepository:
                     {
                         "target_id": str(allocation["id"]),
                         "raw_artifact_id": artifact.id,
-                        "raw_record_id": artifact.parent_record_id,
+                        "raw_record_id": origin_raw_record_id,
                         "source_url": artifact.source_url,
                         "excerpt": (
                             f"{expected['budget_unit_code']} - "
@@ -737,7 +743,12 @@ class PostgresExpensePublicationRepository:
                   %s::uuid, %s, %s, 'failed', 1, %s, %s
                 )
                 on conflict (idempotency_key) do update set
-                  status = 'failed',
+                  status = case
+                    when raw.extraction_jobs.attempt_count + 1 >=
+                      raw.extraction_jobs.max_attempts
+                    then 'dead_lettered'
+                    else 'failed'
+                  end,
                   attempt_count = raw.extraction_jobs.attempt_count + 1,
                   last_error_code = excluded.last_error_code,
                   last_error_detail = excluded.last_error_detail,
@@ -753,6 +764,30 @@ class PostgresExpensePublicationRepository:
             )
         finally:
             connection.close()
+
+    @staticmethod
+    def _record_success(connection, artifact: ExpenseArtifact) -> None:
+        connection.execute(
+            """
+            insert into raw.extraction_jobs (
+              raw_artifact_id, job_type, idempotency_key, status,
+              attempt_count, last_error_code, last_error_detail
+            ) values (
+              %s::uuid, %s, %s, 'succeeded', 1, null, null
+            )
+            on conflict (idempotency_key) do update set
+              status = 'succeeded',
+              attempt_count = raw.extraction_jobs.attempt_count + 1,
+              last_error_code = null,
+              last_error_detail = null,
+              updated_at = statement_timestamp()
+            """,
+            (
+                artifact.id,
+                EXPENSE_PUBLICATION_JOB_TYPE,
+                _failure_key(artifact.sha256),
+            ),
+        )
 
 
 def _failure_key(artifact_sha256: str) -> str:
