@@ -89,6 +89,13 @@ faixa 2xx. Os 285 registros de artefato representam 282 objetos e hashes únicos
 as três repetições são observações imutáveis de respostas JSF idênticas, não
 documentos duplicados na projeção normalizada.
 
+Para `2023-07`, o catálogo registrou 2.331 documentos, 244 interações e 2.332
+registros brutos estruturados. A partição também fechou como `complete`, com
+2.331 chaves oficiais e de idempotência distintas, nenhuma falha registrada e
+nenhum status HTTP fora da faixa 2xx. As 244 observações correspondem a 241
+objetos e hashes únicos; novamente, as três repetições preservam respostas JSF
+idênticas e não alteram a contagem normalizada de documentos.
+
 Idempotência possui duas camadas. Cada nova observação HTTP permanece
 imutável, inclusive quando o JSF altera tokens de sessão sem mudar o documento.
 As projeções normalizadas devem reconciliar essas observações pela chave
