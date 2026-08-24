@@ -7934,6 +7934,76 @@ footer {
   background: #fff8eb;
 }
 
+.finance-siconfi-reconciliation-history-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.finance-siconfi-reconciliation-history-list article {
+  padding: 1rem;
+  border: 1px solid rgba(28, 40, 61, 0.09);
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.finance-siconfi-reconciliation-history-list article > header,
+.finance-siconfi-reconciliation-history-list li > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.finance-siconfi-reconciliation-history-list h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.finance-siconfi-reconciliation-history-list header > span,
+.finance-siconfi-reconciliation-history-list li span {
+  color: #6b788c;
+  font-size: 0.7rem;
+}
+
+.finance-siconfi-reconciliation-history-list ul {
+  display: grid;
+  gap: 0;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finance-siconfi-reconciliation-history-list li {
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(28, 40, 61, 0.08);
+}
+
+.finance-siconfi-reconciliation-history-list li strong {
+  color: var(--ink);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.finance-siconfi-reconciliation-history-list li details {
+  margin-top: 0.5rem;
+}
+
+.finance-siconfi-reconciliation-history-list li summary {
+  cursor: pointer;
+  color: var(--blue-dark);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.finance-siconfi-reconciliation-history-list li p {
+  margin: 0.45rem 0 0;
+  color: #68758a;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
 @media (max-width: 760px) {
   .finance-siconfi-latest > header {
     align-items: flex-start;
@@ -7944,7 +8014,8 @@ footer {
   .finance-siconfi-payables,
   .finance-siconfi-history-list dl,
   .finance-siconfi-reconciliation > header,
-  .finance-siconfi-reconciliation-grid {
+  .finance-siconfi-reconciliation-grid,
+  .finance-siconfi-reconciliation-history-list {
     grid-template-columns: 1fr;
   }
 }

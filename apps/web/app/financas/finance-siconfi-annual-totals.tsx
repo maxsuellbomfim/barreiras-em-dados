@@ -67,6 +67,25 @@ const RECONCILIATION_LABELS: Record<SiconfiReconciliationMetricKey, string> = {
   expense_paid: "Pago",
 };
 
+const MONTH_NAMES = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+] as const;
+
+function missingMonthNames(months: readonly number[]): string {
+  return months.map((month) => MONTH_NAMES[month - 1]).join(", ");
+}
+
 function reconciliationStatus(item: ParsedSiconfiReconciliationMetric): string {
   if (item.reconciliationStatus === "matched_exact") return "Confere exatamente";
   if (item.reconciliationStatus === "source_difference") {
@@ -179,7 +198,7 @@ export function FinanceSiconfiAnnualTotals({
                 ) : (
                   <p>
                     Foram localizados {item.observedMonths} de 12 meses. Meses
-                    ausentes: {item.missingMonths.join(", ")}.
+                    ausentes: {missingMonthNames(item.missingMonths)}.
                   </p>
                 )}
                 <details>
@@ -213,6 +232,46 @@ export function FinanceSiconfiAnnualTotals({
                 <a href={year.metrics[0].sourceUrl} target="_blank" rel="noreferrer">
                   Abrir fonte oficial →
                 </a>
+              </article>
+            ))}
+          </div>
+        </details>
+      ) : null}
+      {reconciliationYears.length > 1 ? (
+        <details className="finance-details finance-siconfi-reconciliation-history">
+          <summary>Ver a conferência dos anos anteriores</summary>
+          <div className="finance-siconfi-reconciliation-history-list">
+            {reconciliationYears.slice(1).map((year) => (
+              <article key={year.fiscalYear}>
+                <header>
+                  <h3>{year.fiscalYear}</h3>
+                  <span>{year.metrics[0]?.observedMonths ?? 0} de 12 meses</span>
+                </header>
+                <ul>
+                  {year.metrics.map((item) => (
+                    <li key={item.metricKey}>
+                      <div>
+                        <span>{RECONCILIATION_LABELS[item.metricKey]}</span>
+                        <strong>{reconciliationStatus(item)}</strong>
+                      </div>
+                      {item.monthlySumAmount && item.differenceAmount ? (
+                        <details>
+                          <summary>Ver valores comparados</summary>
+                          <p>
+                            Ano: {formatBrlDecimal(item.annualAmount)} · 12 meses:{" "}
+                            {formatBrlDecimal(item.monthlySumAmount)} · diferença:{" "}
+                            {formatBrlDecimal(item.differenceAmount)}.
+                          </p>
+                        </details>
+                      ) : (
+                        <p>
+                          Não comparado. Meses ausentes:{" "}
+                          {missingMonthNames(item.missingMonths)}.
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </article>
             ))}
           </div>

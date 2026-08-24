@@ -34,5 +34,7 @@ deduções diferentes. IA não participa da soma, comparação ou classificaçã
 - Uma diferença fica documentada e verificável, mas nunca é chamada de déficit,
   erro ou irregularidade automaticamente.
 - Anos incompletos informam os meses ausentes em vez de apresentar soma parcial.
+- A interface destaca o último exercício e recolhe a conferência histórica por
+  ano; meses ausentes aparecem por nome, e não somente por número.
 - A interface explica que ajustes de encerramento são hipótese possível, não
   conclusão sobre a causa da diferença.
