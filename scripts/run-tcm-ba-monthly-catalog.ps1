@@ -1,0 +1,218 @@
+param(
+    [string]$MonthFrom = "2023-04",
+    [string]$MonthTo = "2023-04",
+    [int]$ExpectedDocuments = 1824,
+    [string]$PythonPath = ""
+)
+
+$ErrorActionPreference = "Stop"
+$projectRef = "mpladsyzilmgiefejpkq"
+$collectorUser = "collector_querido_diario.$projectRef"
+$projectRoot = Split-Path -Parent $PSScriptRoot
+$localConfigPath = Join-Path $projectRoot ".env.collector.local"
+$sslRootCertificatePath = $null
+
+function Read-LocalCollectorConfig {
+    if (-not (Test-Path -LiteralPath $localConfigPath)) {
+        throw (
+            "Crie .env.collector.local com COLLECTOR_POOLER_HOST, " +
+            "SUPABASE_PUBLISHABLE_KEY e SUPABASE_WORKLOAD_EMAIL."
+        )
+    }
+    $lines = Get-Content -LiteralPath $localConfigPath -Encoding UTF8 |
+        Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_) -and
+            -not $_.TrimStart().StartsWith("#")
+        }
+    return ConvertFrom-StringData ($lines -join [Environment]::NewLine)
+}
+
+function Convert-SecureValueToPlainText {
+    param([Security.SecureString]$Value)
+
+    $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Value)
+    try {
+        return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
+    }
+    finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)
+    }
+}
+
+function Find-Python {
+    if (-not [string]::IsNullOrWhiteSpace($PythonPath)) {
+        return (Resolve-Path -LiteralPath $PythonPath).Path
+    }
+    $bundled = Join-Path $env:LOCALAPPDATA `
+        "Python\pythoncore-3.14-64\python.exe"
+    if (Test-Path -LiteralPath $bundled) {
+        return $bundled
+    }
+    $command = Get-Command python -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
+    }
+    throw "Python não foi localizado."
+}
+
+function Read-CompletedEvents {
+    param([object[]]$Output)
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -eq "collector_tcm_ba_month_completed") {
+            $events += $event
+        }
+    }
+    if ($events.Count -eq 0) {
+        throw "O coletor não produziu o evento final do TCM-BA."
+    }
+    return $events
+}
+
+if (
+    $MonthFrom -notmatch '^\d{4}-(0[1-9]|1[0-2])$' -or
+    $MonthTo -notmatch '^\d{4}-(0[1-9]|1[0-2])$'
+) {
+    throw "As competências devem usar o formato AAAA-MM."
+}
+if ($ExpectedDocuments -gt 0 -and $MonthFrom -ne $MonthTo) {
+    throw "ExpectedDocuments só pode ser usado com uma competência exata."
+}
+
+Write-Host "Replay local seguro do catálogo mensal do TCM-BA" -ForegroundColor Green
+Write-Host "As senhas ficam somente na memória deste processo."
+$localConfig = Read-LocalCollectorConfig
+$poolerHost = $localConfig.COLLECTOR_POOLER_HOST
+$publishableKey = $localConfig.SUPABASE_PUBLISHABLE_KEY
+$workloadEmail = $localConfig.SUPABASE_WORKLOAD_EMAIL
+if (-not $poolerHost.EndsWith(".pooler.supabase.com")) {
+    throw "COLLECTOR_POOLER_HOST não pertence ao pooler do Supabase."
+}
+if (
+    -not $publishableKey.StartsWith("sb_publishable_") -or
+    $publishableKey.Length -lt 24
+) {
+    throw "SUPABASE_PUBLISHABLE_KEY local é inválida."
+}
+if ($workloadEmail.Split("@").Count -ne 2) {
+    throw "SUPABASE_WORKLOAD_EMAIL local é inválido."
+}
+
+$databasePassword = $localConfig.COLLECTOR_DATABASE_PASSWORD
+$workloadPassword = $localConfig.SUPABASE_WORKLOAD_PASSWORD
+if ([string]::IsNullOrWhiteSpace($databasePassword)) {
+    $databasePassword = Convert-SecureValueToPlainText (
+        Read-Host "Senha PostgreSQL do coletor" -AsSecureString
+    )
+}
+if ([string]::IsNullOrWhiteSpace($workloadPassword)) {
+    $workloadPassword = Convert-SecureValueToPlainText (
+        Read-Host "Senha do usuário técnico do Storage" -AsSecureString
+    )
+}
+
+try {
+    if ($databasePassword.Length -lt 24 -or $workloadPassword.Length -lt 24) {
+        throw "As credenciais técnicas não atendem ao tamanho mínimo."
+    }
+    $bundledCa = Join-Path $projectRoot `
+        "config\certificates\supabase-prod-ca-2021.crt"
+    if (-not (Test-Path -LiteralPath $bundledCa)) {
+        throw "O certificado CA oficial do Supabase não foi localizado."
+    }
+    $sslRootCertificatePath = Join-Path ([IO.Path]::GetTempPath()) (
+        "barreiras-" + [IO.Path]::GetRandomFileName() + ".crt"
+    )
+    Copy-Item -LiteralPath $bundledCa -Destination $sslRootCertificatePath
+
+    $encodedDatabasePassword = [Uri]::EscapeDataString($databasePassword)
+    $encodedCertificate = [Uri]::EscapeDataString($sslRootCertificatePath)
+    $env:DATABASE_URL = (
+        "postgresql://${collectorUser}:${encodedDatabasePassword}" +
+        "@${poolerHost}:5432/postgres" +
+        "?sslmode=verify-full&sslrootcert=${encodedCertificate}"
+    )
+    $env:APP_ENV = "development"
+    $env:LOG_LEVEL = "INFO"
+    $env:PYTHONDONTWRITEBYTECODE = "1"
+    $env:PYTHONPATH = "workers/collectors/src"
+    $env:PERSISTENCE_MODE = "postgres-supabase"
+    $env:SUPABASE_URL = "https://$projectRef.supabase.co"
+    $env:SUPABASE_PUBLISHABLE_KEY = $publishableKey
+    $env:SUPABASE_WORKLOAD_EMAIL = $workloadEmail
+    $env:SUPABASE_WORKLOAD_PASSWORD = $workloadPassword
+    $env:SUPABASE_RAW_ARTIFACTS_BUCKET = "raw-artifacts"
+
+    $python = Find-Python
+    Push-Location $projectRoot
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $output = @(
+                & $python -B -m `
+                    barreiras_collectors.commands.collect_tcm_ba_monthly_catalog `
+                    --month-from $MonthFrom `
+                    --month-to $MonthTo `
+                    --requests-per-minute 30 2>&1
+            )
+            $nativeExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    $output | ForEach-Object { Write-Host $_ }
+    if ($nativeExitCode -ne 0) {
+        throw "O coletor terminou com código $nativeExitCode."
+    }
+    $events = @(Read-CompletedEvents -Output $output)
+    if (
+        $ExpectedDocuments -gt 0 -and
+        (
+            $events.Count -ne 1 -or
+            [int]$events[0].documents -ne $ExpectedDocuments -or
+            $events[0].coverage_status -ne "complete"
+        )
+    ) {
+        throw (
+            "A competência não fechou com a contagem esperada de " +
+            "$ExpectedDocuments documentos."
+        )
+    }
+    Write-Host "TCM_BA_REPLAY_APROVADO" -ForegroundColor Green
+}
+finally {
+    foreach ($name in @(
+        "DATABASE_URL",
+        "SUPABASE_PUBLISHABLE_KEY",
+        "SUPABASE_WORKLOAD_EMAIL",
+        "SUPABASE_WORKLOAD_PASSWORD"
+    )) {
+        Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+    }
+    if (
+        -not [string]::IsNullOrWhiteSpace($sslRootCertificatePath) -and
+        (Test-Path -LiteralPath $sslRootCertificatePath)
+    ) {
+        Remove-Item -LiteralPath $sslRootCertificatePath -Force
+    }
+    $databasePassword = $null
+    $workloadPassword = $null
+    $encodedDatabasePassword = $null
+    $env:DATABASE_URL = $null
+}
