@@ -813,6 +813,10 @@ requisição que esgotem as tentativas ainda precisam ganhar preservação bruta
 própria; até lá ficam registradas no controle central de coleta e não produzem
 cobertura completa.
 
+O runbook operacional, incluindo a restrição observada nos runners hospedados
+e o replay local sem persistência de senhas, está em
+`docs/TCM_BA_OPERATIONS.md`.
+
 ### Universo privado do Anexo I da LOA 2026
 
 O Anexo I de 2026 possui 374 páginas. A validação integral realizada em
