@@ -21,6 +21,15 @@ class CollectionOutcome(StrEnum):
     BLOCKED = "blocked"
 
 
+@dataclass(frozen=True)
+class PartialCollectionFailure:
+    """Falha recuperável que não invalida os registros já preservados."""
+
+    error_type: str
+    error_detail: str
+    retryable: bool = True
+
+
 class CollectionControlRepository(Protocol):
     def start_controlled_run(self, **values: object) -> str: ...
 
@@ -117,6 +126,7 @@ class CollectionControl:
         checkpoint: Mapping[str, object] | None = None,
         metrics: Mapping[str, object] | None = None,
         block_reason: str | None = None,
+        partial_failure: PartialCollectionFailure | None = None,
     ) -> None:
         if self._run_id is None:
             raise RuntimeError("A execução ainda não foi iniciada.")
@@ -128,6 +138,20 @@ class CollectionControl:
             raise ValueError("Uma partição vazia deve observar zero registros.")
         if outcome is CollectionOutcome.BLOCKED and not (block_reason or "").strip():
             raise ValueError("Uma partição bloqueada exige block_reason.")
+        if partial_failure is not None and outcome is not CollectionOutcome.PARTIAL:
+            raise ValueError("Uma falha parcial exige cobertura parcial.")
+        if partial_failure is not None and not partial_failure.error_type.strip():
+            raise ValueError("Uma falha parcial exige error_type.")
+
+        sanitized_partial_failure = None
+        if partial_failure is not None:
+            sanitized_partial_failure = {
+                "error_type": partial_failure.error_type.strip()[:120],
+                "error_detail": sanitize_error_detail(
+                    RuntimeError(partial_failure.error_detail)
+                ),
+                "retryable": partial_failure.retryable,
+            }
 
         self.repository.complete_controlled_run(
             run_id=self._run_id,
@@ -139,6 +163,7 @@ class CollectionControl:
             checkpoint=dict(checkpoint or {}),
             metrics=dict(metrics or {}),
             block_reason=block_reason.strip() if block_reason else None,
+            partial_failure=sanitized_partial_failure,
             completed_at=self.clock(),
         )
         self._terminal = True

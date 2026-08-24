@@ -246,6 +246,7 @@ class PostgresCollectionRepository:
         checkpoint: Mapping[str, object],
         metrics: Mapping[str, object],
         block_reason: str | None,
+        partial_failure: Mapping[str, object] | None,
         completed_at: datetime,
     ) -> None:
         run_status = "partial" if outcome in {"partial", "blocked"} else "succeeded"
@@ -265,7 +266,8 @@ class PostgresCollectionRepository:
                         error_code = null,
                         error_detail = null
                     where id = %s::uuid
-                    returning source_endpoint_id::text as endpoint_id
+                    returning source_endpoint_id::text as endpoint_id,
+                              attempt_count
                     """,
                     (
                         run_status,
@@ -313,23 +315,58 @@ class PostgresCollectionRepository:
                         block_reason,
                     ),
                 )
-                connection.execute(
-                    """
-                    update source.collection_failures
-                    set status = 'resolved',
-                        resolved_at = %s::timestamptz,
-                        resolution_run_id = %s::uuid
-                    where source_endpoint_id = %s::uuid
-                      and partition_key = %s
-                      and status <> 'resolved'
-                    """,
-                    (
-                        completed_at,
-                        run_id,
-                        str(run["endpoint_id"]),
-                        partition_key,
-                    ),
-                )
+                if partial_failure is not None:
+                    retryable = bool(partial_failure["retryable"])
+                    connection.execute(
+                        """
+                        insert into source.collection_failures (
+                          collection_run_id, source_endpoint_id, partition_key,
+                          status, error_type, error_detail, attempt_count,
+                          retryable, failed_at
+                        ) values (
+                          %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s,
+                          %s::timestamptz
+                        )
+                        on conflict (collection_run_id) do update
+                        set status = excluded.status,
+                            error_type = excluded.error_type,
+                            error_detail = excluded.error_detail,
+                            attempt_count = excluded.attempt_count,
+                            retryable = excluded.retryable,
+                            failed_at = excluded.failed_at,
+                            resolved_at = null,
+                            resolution_run_id = null
+                        """,
+                        (
+                            run_id,
+                            str(run["endpoint_id"]),
+                            partition_key,
+                            "retry_scheduled" if retryable else "open",
+                            str(partial_failure["error_type"]),
+                            str(partial_failure["error_detail"]),
+                            int(run["attempt_count"]),
+                            retryable,
+                            completed_at,
+                        ),
+                    )
+                elif outcome in {"complete", "empty"}:
+                    connection.execute(
+                        """
+                        update source.collection_failures
+                        set status = 'resolved',
+                            resolved_at = %s::timestamptz,
+                            resolution_run_id = %s::uuid
+                        where source_endpoint_id = %s::uuid
+                          and partition_key = %s
+                          and status <> 'resolved'
+                        """,
+                        (
+                            completed_at,
+                            run_id,
+                            str(run["endpoint_id"]),
+                            partition_key,
+                        ),
+                    )
         finally:
             connection.close()
 

@@ -706,12 +706,22 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
                 pagination_capped=True,
                 availability_partial=False,
                 next_offset=150,
+                document_failure_type="SourceContractError",
+                document_failure_detail="O documento oficial não é um PDF válido.",
+                document_failure_retryable=True,
             ),
         )
 
         self.assertEqual(completed["outcome"].value, "partial")
         self.assertEqual(completed["observed_records"], 150)
         self.assertEqual(completed["checkpoint"], {"next_offset": 150})
+        partial_failure = completed["partial_failure"]
+        self.assertEqual(partial_failure.error_type, "SourceContractError")
+        self.assertEqual(
+            partial_failure.error_detail,
+            "O documento oficial não é um PDF válido.",
+        )
+        self.assertEqual(partial_failure.retryable, True)
 
     def test_unsupported_document_keeps_collection_partial(self) -> None:
         summary = MunicipalTransparencyCollectionSummary(

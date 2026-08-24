@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import date
+from datetime import UTC, date, datetime
 
 from barreiras_collectors.persistence.postgres import PostgresCollectionRepository
 
@@ -32,7 +32,95 @@ class CheckpointConnection:
         self.closed = True
 
 
+class CompletionConnection(CheckpointConnection):
+    def transaction(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        del exc_type, exc_value, traceback
+        return False
+
+    def execute(self, query, params=None):
+        self.calls.append((query, params))
+        normalized = " ".join(query.lower().split())
+        if normalized.startswith("update source.collection_runs"):
+            return QueryResult(
+                {
+                    "endpoint_id": "00000000-0000-0000-0000-000000000001",
+                    "attempt_count": 2,
+                }
+            )
+        return QueryResult()
+
+
 class CollectionCheckpointPostgresTests(unittest.TestCase):
+    def test_partial_completion_persists_failure_without_resolving_it(self) -> None:
+        connection = CompletionConnection(None)
+        repository = PostgresCollectionRepository(lambda: connection)
+        completed_at = datetime(2026, 8, 24, 15, 0, tzinfo=UTC)
+
+        repository.complete_controlled_run(
+            run_id="00000000-0000-0000-0000-000000000010",
+            partition_key="snapshot:despesa",
+            period_start=date(2023, 4, 1),
+            period_end=date(2023, 4, 30),
+            outcome="partial",
+            observed_records=55,
+            checkpoint={"next_offset": 0},
+            metrics={"documents_failed": 1},
+            block_reason=None,
+            partial_failure={
+                "error_type": "SourceContractError",
+                "error_detail": "O documento oficial não é um PDF válido.",
+                "retryable": True,
+            },
+            completed_at=completed_at,
+        )
+
+        queries = [" ".join(query.lower().split()) for query, _ in connection.calls]
+        self.assertTrue(
+            any(
+                query.startswith("insert into source.collection_failures")
+                for query in queries
+            )
+        )
+        self.assertFalse(
+            any(
+                query.startswith("update source.collection_failures")
+                for query in queries
+            )
+        )
+        self.assertTrue(connection.closed)
+
+    def test_complete_partition_resolves_prior_failure(self) -> None:
+        connection = CompletionConnection(None)
+        repository = PostgresCollectionRepository(lambda: connection)
+
+        repository.complete_controlled_run(
+            run_id="00000000-0000-0000-0000-000000000011",
+            partition_key="snapshot:despesa",
+            period_start=date(2023, 4, 1),
+            period_end=date(2023, 4, 30),
+            outcome="complete",
+            observed_records=55,
+            checkpoint={"next_offset": 0},
+            metrics={"documents_failed": 0},
+            block_reason=None,
+            partial_failure=None,
+            completed_at=datetime(2026, 8, 24, 16, 0, tzinfo=UTC),
+        )
+
+        queries = [" ".join(query.lower().split()) for query, _ in connection.calls]
+        self.assertTrue(
+            any(
+                query.startswith("update source.collection_failures")
+                for query in queries
+            )
+        )
+
     def test_returns_checkpoint_for_exact_source_endpoint_and_partition(self) -> None:
         connection = CheckpointConnection({"checkpoint": {"next_offset": 150}})
         repository = PostgresCollectionRepository(lambda: connection)
