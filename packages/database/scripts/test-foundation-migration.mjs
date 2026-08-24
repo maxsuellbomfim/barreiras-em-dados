@@ -1469,8 +1469,8 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 16,
-    endpoints: 32,
+    sources: 17,
+    endpoints: 33,
     private_buckets: 1,
   });
 
@@ -1809,6 +1809,60 @@ try {
   `);
   assert.deepEqual(siconfiDcaStorageAuthorization.rows[0], {
     dca_insert: true,
+    adjacent_prefix_stays_denied: false,
+  });
+
+  const tcmBaMonthlyEndpoint = await database.query(`
+    select
+      source.slug as source_slug,
+      endpoint.slug as endpoint_slug,
+      endpoint.base_url,
+      endpoint.rate_limit_per_minute,
+      endpoint.config ->> 'parser_version' as parser_version,
+      endpoint.config ->> 'public_projection' as public_projection
+    from source.source_endpoints as endpoint
+    join source.data_sources as source on source.id = endpoint.data_source_id
+    where source.slug = 'tcm-ba'
+      and endpoint.slug = 'prestacoes-contas-mensais'
+  `);
+  assert.deepEqual(tcmBaMonthlyEndpoint.rows, [
+    {
+      source_slug: "tcm-ba",
+      endpoint_slug: "prestacoes-contas-mensais",
+      base_url: "https://e.tcm.ba.gov.br/epp/ConsultaPublica/listView.seam",
+      rate_limit_per_minute: 30,
+      parser_version: "tcm-ba-monthly-catalog/1.0.0",
+      public_projection: "pending_deterministic_reconciliation",
+    },
+  ]);
+
+  const tcmBaMonthlyWorkload = await database.query(`
+    select object_prefix, can_select, can_insert, status
+    from audit.storage_workload_identities
+    where slug = 'tcm-ba-monthly-catalog-collector'
+  `);
+  assert.deepEqual(tcmBaMonthlyWorkload.rows, [
+    {
+      object_prefix: "tcm-ba/monthly/",
+      can_select: true,
+      can_insert: true,
+      status: "active",
+    },
+  ]);
+
+  const tcmBaMonthlyStorageAuthorization = await database.query(`
+    select
+      api.can_access_raw_artifact(
+        'insert', 'raw-artifacts',
+        'tcm-ba/monthly/2023/04/sha256/aa/file.html'
+      ) as monthly_insert,
+      api.can_access_raw_artifact(
+        'insert', 'raw-artifacts',
+        'tcm-ba/private/file.html'
+      ) as adjacent_prefix_stays_denied
+  `);
+  assert.deepEqual(tcmBaMonthlyStorageAuthorization.rows[0], {
+    monthly_insert: true,
     adjacent_prefix_stays_denied: false,
   });
 

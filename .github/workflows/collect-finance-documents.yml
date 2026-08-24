@@ -37,6 +37,7 @@ on:
           - "transferegov-only"
           - "siconfi-only"
           - "bahia-state-only"
+          - "tcm-ba-only"
           - "balancetes"
           - "pdc-contas-anuais"
           - "pdc-receita-tributaria"
@@ -77,6 +78,21 @@ on:
         required: false
         default: true
         type: boolean
+      include_tcm_ba_monthly:
+        description: "Preservar catálogo mensal do TCM-BA no intervalo informado"
+        required: false
+        default: false
+        type: boolean
+      tcm_month_from:
+        description: "Primeira competência TCM-BA (AAAA-MM)"
+        required: false
+        default: "2023-04"
+        type: string
+      tcm_month_to:
+        description: "Última competência TCM-BA (AAAA-MM)"
+        required: false
+        default: "2023-04"
+        type: string
       include_bahia_state_amendments:
         description: "Preservar o catálogo e o ZIP oficial de emendas estaduais da Bahia"
         required: false
@@ -107,7 +123,8 @@ jobs:
       (
         inputs.resource != 'transferegov-only' &&
         inputs.resource != 'siconfi-only' &&
-        inputs.resource != 'bahia-state-only'
+        inputs.resource != 'bahia-state-only' &&
+        inputs.resource != 'tcm-ba-only'
       )
     name: Preservar catálogo municipal (${{ matrix.resource }})
     runs-on: ubuntu-latest
@@ -235,6 +252,7 @@ jobs:
       always() &&
       inputs.resource != 'bahia-state-only' &&
       inputs.resource != 'siconfi-only' &&
+      inputs.resource != 'tcm-ba-only' &&
       (
         github.event_name == 'schedule' ||
         inputs.resource == 'transferegov-only' ||
@@ -372,6 +390,62 @@ jobs:
           barreiras_normalization.commands.process_siconfi_annual_totals
           --limit "10"
 
+  tcm_ba_monthly:
+    name: Preservar catálogo mensal do TCM-BA
+    needs:
+      - collect
+      - transferegov
+      - siconfi_dca
+    if: >-
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      (
+        inputs.resource == 'tcm-ba-only' ||
+        (
+          inputs.resource == 'all' &&
+          inputs.include_tcm_ba_monthly == true
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: workers/collectors/src
+      PERSISTENCE_MODE: postgres-supabase
+      DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+      SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_WORKLOAD_EMAIL: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL }}
+      SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD }}
+      SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências fixadas
+        run: python -m pip install --disable-pip-version-check ".[postgres,storage]"
+
+      - name: Verificar CA oficial do Supabase
+        run: >-
+          echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
+          | sha256sum --check --strict
+
+      - name: Preservar competências mensais do e-TCM
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.collect_tcm_ba_monthly_catalog
+          --month-from "${{ inputs.tcm_month_from }}"
+          --month-to "${{ inputs.tcm_month_to }}"
+          --requests-per-minute "30"
+
   bahia_state_amendments:
     name: Preservar emendas estaduais da Bahia
     # Os jobs complementares usam a mesma role PostgreSQL no plano gratuito.
@@ -381,6 +455,7 @@ jobs:
       - collect
       - transferegov
       - siconfi_dca
+      - tcm_ba_monthly
     if: >-
       always() &&
       (

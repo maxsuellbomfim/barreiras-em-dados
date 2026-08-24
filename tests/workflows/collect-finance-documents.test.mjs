@@ -341,3 +341,25 @@ test("arquivo histórico de propostas exige opt-in e recorta Barreiras desde 202
     /collect_transferegov_historical_proposals[\s\S]*--year-from "\$\{\{/,
   );
 });
+
+test("catálogo mensal do TCM-BA exige disparo manual e intervalo explícito", () => {
+  const tcmJob = workflow.slice(
+    workflow.indexOf("  tcm_ba_monthly:"),
+    workflow.indexOf("  bahia_state_amendments:"),
+  );
+
+  assert.match(workflow, /- "tcm-ba-only"/);
+  assert.match(workflow, /include_tcm_ba_monthly:/);
+  assert.match(workflow, /tcm_month_from:/);
+  assert.match(workflow, /tcm_month_to:/);
+  assert.match(tcmJob, /github\.event_name == 'workflow_dispatch'/);
+  assert.match(
+    tcmJob,
+    /barreiras_collectors\.commands\.collect_tcm_ba_monthly_catalog/,
+  );
+  assert.match(tcmJob, /--month-from "\$\{\{ inputs\.tcm_month_from \}\}"/);
+  assert.match(tcmJob, /--month-to "\$\{\{ inputs\.tcm_month_to \}\}"/);
+  assert.match(tcmJob, /--requests-per-minute "30"/);
+  assert.doesNotMatch(tcmJob, /github\.event_name == 'schedule'/);
+  assert.doesNotMatch(tcmJob, /secrets\.(tcm_month_from|tcm_month_to)/i);
+});

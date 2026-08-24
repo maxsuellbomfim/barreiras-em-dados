@@ -1,0 +1,28 @@
+{
+  "schema_name": "tcm-ba-monthly-public-accounts-observation",
+  "schema_version": "1.0.0",
+  "observed_at": "2026-08-24T12:12:15-03:00",
+  "source_url": "https://e.tcm.ba.gov.br/epp/ConsultaPublica/listView.seam",
+  "municipality": "BARREIRAS",
+  "municipality_option": "38",
+  "unit": "Prefeitura Municipal de BARREIRAS",
+  "unit_option": "641",
+  "periodicity": "Mensal",
+  "periodicity_option": "2",
+  "competence": "04/2023",
+  "submission": {
+    "type": "Gestão",
+    "sent_at": "05/06/2023",
+    "status": "Entregue no prazo"
+  },
+  "total_documents": 1824,
+  "total_pages": 183,
+  "observed_document_names": [
+    "BALANCETE - FMS.pdf",
+    "FMAS BALANCETE.pdf",
+    "FME BALANCETE.pdf",
+    "PMB BALANCETE PARTE 1-2.pdf",
+    "PMB BALANCETE PARTE 2-2.pdf"
+  ],
+  "notes": "Fixture sanitizada do contrato visual, validada por leitura integral das 183 paginas do catalogo. O nome do usuario de inclusao foi omitido por minimizacao; os PDFs ainda precisam ser preservados e validados antes de reconciliar valores. Nenhum total financeiro foi inferido a partir dos nomes dos arquivos."
+}
