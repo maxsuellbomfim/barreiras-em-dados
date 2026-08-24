@@ -191,6 +191,15 @@ integral de três layouts confirmou que o cabeçalho de unidade precede as linha
 contábeis: 25 unidades em dezembro/2022, 27 em dezembro/2024 e 29 em julho/2026,
 com 1.979, 1.549 e 1.982 linhas de despesa, respectivamente.
 
+O catálogo também anuncia o `DEMONSTRATIVO ANALÍTICO DE DESPESA - ABRIL 2023`,
+mas o endereço oficial observado em 24/08/2026 não possui extensão e redireciona
+para uma página HTML de autenticação, inclusive quando testado com `.pdf`. Não
+foi localizado outro URL oficial nem cópia nos arquivos web consultados. O
+Barreiras 360 preserva os metadados do catálogo, tenta o caminho oficial como
+documento e registra a falha de contrato; não usa o total descritivo isolado para
+preencher empenhado, liquidado ou pago. No portal, abril permanece como mês sem
+relatório validado, o que não significa gasto zero.
+
 O parser `public-expense-pdf/1.4.0` exige um cabeçalho literal de seis a oito
 dígitos antes de aceitar cada linha. Ele também reconhece o layout histórico em
 que `Fonte` e `Fonte TC` são extraídas sem espaço (`1500` + `1001` aparece como

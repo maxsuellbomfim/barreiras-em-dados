@@ -156,10 +156,23 @@ def resolve_endpoint_code(source: str, resource: str) -> str:
 
 
 def resolve_municipal_document_role(url: str) -> str | None:
-    """Aceita somente formatos cuja integridade já é validada pelo coletor."""
+    """Reconhece PDFs explícitos e downloads oficiais sem extensão.
 
-    path = urlsplit(url).path.lower()
+    O catálogo histórico da Prefeitura contém alguns caminhos ``/admin/data/``
+    que representam demonstrativos, mas omitem ``.pdf``. Eles precisam ser
+    tentados como PDF para que uma resposta HTML ou um link quebrado seja
+    registrado como falha da fonte, em vez de ser descartado silenciosamente
+    como formato desconhecido.
+    """
+
+    parsed = urlsplit(url)
+    path = parsed.path.lower()
     if path.endswith(".pdf"):
+        return "pdf"
+    if (
+        (parsed.hostname or "").lower() == "barreiras.mtransparente.com.br"
+        and re.fullmatch(r"/admin/+data/prestacaodecontas\d+", path)
+    ):
         return "pdf"
     return None
 

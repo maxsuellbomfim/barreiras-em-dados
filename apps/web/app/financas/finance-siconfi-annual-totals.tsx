@@ -198,7 +198,9 @@ export function FinanceSiconfiAnnualTotals({
                 ) : (
                   <p>
                     Foram localizados {item.observedMonths} de 12 meses. Meses
-                    ausentes: {missingMonthNames(item.missingMonths)}.
+                    ausentes: {missingMonthNames(item.missingMonths)}. Isso não
+                    significa gasto zero: o documento oficial mensal não foi validado
+                    no portal da Prefeitura, então nenhum total parcial é exibido.
                   </p>
                 )}
                 <details>

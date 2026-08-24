@@ -212,9 +212,21 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
             ),
             "pdf",
         )
+        self.assertEqual(
+            resolve_municipal_document_role(
+                "https://barreiras.mtransparente.com.br/admin//data/"
+                "PRESTACAODECONTAS230523172826"
+            ),
+            "pdf",
+        )
         self.assertIsNone(
             resolve_municipal_document_role(
                 "https://barreiras.mtransparente.com.br/contas.docx"
+            )
+        )
+        self.assertIsNone(
+            resolve_municipal_document_role(
+                "https://example.org/admin/data/PRESTACAODECONTAS230523172826"
             )
         )
 
@@ -479,6 +491,66 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
         self.assertEqual(summary.documents_bytes_persisted, 40 * 1024 * 1024)
         self.assertEqual(summary.documents_skipped, 2)
         self.assertTrue(summary.documents_byte_budget_exhausted)
+        self.assertEqual(summary.outcome.value, "partial")
+
+    def test_extensionless_official_download_is_attempted_and_marked_failed(
+        self,
+    ) -> None:
+        document_url = (
+            "https://barreiras.mtransparente.com.br/admin//data/"
+            "PRESTACAODECONTAS230523172826"
+        )
+        page = SimpleNamespace(
+            items=({"url": document_url},),
+            resource="pdc-resumo-execucao-da-despesa",
+            cursor={"offset": 0},
+            body_sha256="a" * 64,
+        )
+
+        class ServiceProbe:
+            def persist(self, _page):
+                return SimpleNamespace(inserted_records=1, existing_records=0)
+
+            def record_input(self, _page, *, index, item):
+                del index, item
+                return SimpleNamespace(source_record_key="abril-2023")
+
+            def preserved_document_identities(self, _source_keys):
+                return frozenset()
+
+        class DocumentClientProbe:
+            def fetch(self, url, *, role):
+                self.request = (url, role)
+                raise ValueError("A fonte devolveu HTML em vez do PDF anunciado.")
+
+        document_client = DocumentClientProbe()
+        module = "barreiras_collectors.commands.collect_municipal_transparency"
+        with (
+            patch(f"{module}.iter_resource_pages", return_value=iter((page,))),
+            patch(
+                f"{module}.MunicipalTransparencyDocumentClient",
+                return_value=document_client,
+            ),
+        ):
+            summary = _collect_resource(
+                service=ServiceProbe(),  # type: ignore[arg-type]
+                source_code="prefeitura-barreiras-transparencia",
+                endpoint_code="dados-abertos-api",
+                base_url="https://portaldatransparencia.barreiras.ba.gov.br/api",
+                resource="pdc-resumo-execucao-da-despesa",
+                limit=500,
+                offset=0,
+                max_pages=1,
+                allow_partial=True,
+                download_documents=True,
+                max_documents=5,
+                collector_settings=SimpleNamespace(read_timeout_seconds=30),
+                logger=logging.getLogger(__name__),
+            )
+
+        self.assertEqual(document_client.request, (document_url, "pdf"))
+        self.assertEqual(summary.documents_failed, 1)
+        self.assertEqual(summary.documents_skipped, 0)
         self.assertEqual(summary.outcome.value, "partial")
 
     def test_control_records_empty_snapshot_explicitly(self) -> None:

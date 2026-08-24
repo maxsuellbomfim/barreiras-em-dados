@@ -100,5 +100,7 @@ test("finance page explains reconciliation without accusing or comparing revenue
   assert.match(component, /Ver a conferência dos anos anteriores/);
   assert.match(component, /"abril"/);
   assert.match(component, /Não comparado\. Meses ausentes/);
+  assert.match(component, /Isso não\s+significa gasto zero/);
+  assert.match(component, /documento oficial mensal não foi validado/);
   assert.doesNotMatch(component, /corrupção|fraude/i);
 });
