@@ -101,6 +101,21 @@ class ScheduledWorkflowTests(unittest.TestCase):
         transferegov_job = workflow[workflow.index("  transferegov:") :]
         self.assertNotIn("inputs.max_pages", transferegov_job)
 
+    def test_finance_group_runs_siconfi_dca_before_state_jobs(self) -> None:
+        repository_root = Path(__file__).parents[2]
+        workflow = (
+            repository_root
+            / ".github"
+            / "workflows"
+            / "collect-finance-documents.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("include_siconfi_dca:", workflow)
+        self.assertIn("  siconfi_dca:", workflow)
+        self.assertEqual(workflow.count("collect_siconfi_dca"), 1)
+        state_job = workflow[workflow.index("  bahia_state_amendments:") :]
+        self.assertIn("- siconfi_dca", state_job)
+
     def test_manual_dates_are_not_interpolated_into_the_shell_script(self) -> None:
         repository_root = Path(__file__).parents[2]
         workflow = (

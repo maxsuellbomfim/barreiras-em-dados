@@ -56,6 +56,11 @@ from ..connectors.official_diary_catalog import (
     OfficialCatalogSnapshot,
 )
 from ..connectors.querido_diario import CollectedPage, GazettePage
+from ..connectors.siconfi import (
+    SiconfiContractError,
+    SiconfiDcaPage,
+    parse_siconfi_dca_page,
+)
 from ..connectors.transferegov import TransferegovPage
 from ..connectors.transferegov_download_catalog import (
     TransferegovDownloadCatalogError,
@@ -145,6 +150,8 @@ CGU_FEDERAL_AMENDMENT_DOCUMENT_PARSER_VERSION = (
 )
 CGU_SANCTION_COLLECTOR_VERSION = "cgu-sanctions-collector/1.1.0"
 CGU_SANCTION_PARSER_VERSION = "cgu-sanctions/1.1.0"
+SICONFI_DCA_COLLECTOR_VERSION = "siconfi-dca-collector/1.0.0"
+SICONFI_DCA_PARSER_VERSION = "siconfi-dca-page/1.0.0"
 BAHIA_STATE_AMENDMENT_COLLECTOR_VERSION = (
     "bahia-state-amendments-collector/1.0.0"
 )
@@ -968,6 +975,121 @@ class TransferegovHistoricalAmendmentPersistenceService:
             raw_artifact_id=persisted.raw_artifact_id,
             object_key=object_key,
             sha256=snapshot.body_sha256,
+            object_created=stored.created,
+            inserted_records=persisted.inserted_records,
+            existing_records=persisted.existing_records,
+        )
+
+
+class SiconfiDcaPersistenceService:
+    """Preserva cada página DCA antes de expor suas linhas versionadas."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, page: SiconfiDcaPage) -> PersistenceResult:
+        actual_hash = hashlib.sha256(page.raw_body).hexdigest()
+        if (
+            actual_hash != page.body_sha256
+            or len(page.raw_body) != page.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "A página DCA diverge dos metadados coletados."
+            )
+        try:
+            parsed = parse_siconfi_dca_page(
+                page.raw_body,
+                expected_year=page.year,
+                expected_offset=page.offset,
+                expected_limit=page.limit,
+            )
+        except SiconfiContractError as error:
+            raise ArtifactIntegrityError(
+                "O bruto preservado perdeu seu contrato DCA."
+            ) from error
+        if parsed.items != page.items or parsed.has_more != page.has_more:
+            raise ArtifactIntegrityError(
+                "As linhas DCA divergem do bruto preservado."
+            )
+
+        records: list[RawRecordInput] = []
+        for index, item in enumerate(page.items):
+            identity = "\x1f".join(
+                str(item[field])
+                for field in (
+                    "exercicio",
+                    "cod_ibge",
+                    "anexo",
+                    "rotulo",
+                    "coluna",
+                    "cod_conta",
+                    "conta",
+                )
+            )
+            identity_hash = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+            canonical = json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            payload_sha256 = hashlib.sha256(canonical).hexdigest()
+            records.append(
+                RawRecordInput(
+                    source_record_key=(
+                        f"siconfi:dca:{page.year}:{identity_hash[:32]}"
+                    ),
+                    record_type="siconfi_dca_line",
+                    record_index=index,
+                    payload=item,
+                    payload_sha256=payload_sha256,
+                    parser_version=SICONFI_DCA_PARSER_VERSION,
+                    idempotency_key=hashlib.sha256(
+                        (
+                            "siconfi-dca-record:"
+                            f"{page.body_sha256}:{identity_hash}:{payload_sha256}"
+                        ).encode()
+                    ).hexdigest(),
+                )
+            )
+
+        object_key = (
+            f"siconfi/dca/{page.year}/sha256/"
+            f"{page.body_sha256[:2]}/{page.body_sha256}.json"
+        )
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=page.raw_body,
+            content_type=page.media_type,
+            expected_sha256=page.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != page.body_sha256
+            or len(restored) != page.body_size_bytes
+            or stored.sha256 != page.body_sha256
+        ):
+            raise ArtifactIntegrityError(
+                "A página DCA restaurada diverge da coletada."
+            )
+        persisted = self.repository.persist(
+            PersistenceBatch(
+                page=page,  # type: ignore[arg-type]
+                object_key=object_key,
+                artifact_idempotency_key=hashlib.sha256(
+                    f"raw-artifact:{page.idempotency_key}".encode()
+                ).hexdigest(),
+                collector_version=SICONFI_DCA_COLLECTOR_VERSION,
+                parser_version=SICONFI_DCA_PARSER_VERSION,
+                records=tuple(records),
+            )
+        )
+        return PersistenceResult(
+            collection_run_id=persisted.collection_run_id,
+            raw_artifact_id=persisted.raw_artifact_id,
+            object_key=object_key,
+            sha256=page.body_sha256,
             object_created=stored.created,
             inserted_records=persisted.inserted_records,
             existing_records=persisted.existing_records,

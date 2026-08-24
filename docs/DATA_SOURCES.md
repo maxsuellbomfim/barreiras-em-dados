@@ -346,6 +346,22 @@ página e limite de uma requisição por segundo. Valores precisam preservar:
 Não reduzir o SICONFI diretamente a um indicador sem antes guardar as linhas que
 o compõem.
 
+Contrato verificado em 24/08/2026: `GET /ords/siconfi/tt/dca`, com
+`an_exercicio=2021` e `id_ente=2903201`, retornou 1.109 linhas em sete anexos
+da DCA da Prefeitura Municipal de Barreiras. O coletor preserva cada resposta
+JSON por SHA-256, valida paginação, ente, exercício, esquema e identidade
+completa da linha, e mantém `valor` como texto decimal. Valor negativo publicado
+pela fonte é preservado; não é descartado nem interpretado como erro.
+
+A DCA é anual. Ela serve para fechar e reconciliar contas do exercício, mas não
+substitui a série mensal nem o detalhamento de empenhos, liquidações e pagamentos
+do portal municipal. Em 24/08/2026, a exportação JSON do módulo legado de
+despesas municipais para 2021 respondeu erro interno de coluna; essa partição
+mensal permanece `blocked`, nunca `empty` e nunca é preenchida por estimativa.
+O primeiro corte automatizado do SICONFI é de aquisição bruta; indicadores
+públicos anuais só serão derivados em uma etapa posterior, com reconciliação e
+granularidade explícita.
+
 Referência: [API SICONFI](https://apidatalake.tesouro.gov.br/docs/siconfi/)
 
 ## Transferências e emendas
