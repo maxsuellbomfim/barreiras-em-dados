@@ -69,9 +69,23 @@ lotes mensais; uma falha não autoriza marcar os meses seguintes como vazios.
 
 Em 24/08/2026, o replay local de `2023-04` terminou com o evento
 `collector_tcm_ba_month_completed`: 1.824 documentos, 193 interações brutas e
-1.825 registros normalizados. A consulta independente ao banco confirmou a
-partição `competence:2023-04` como `complete`, execução `succeeded` e 1.824
+1.825 registros brutos estruturados. A consulta independente ao banco confirmou
+a partição `competence:2023-04` como `complete`, execução `succeeded` e 1.824
 registros observados.
+
+No mesmo dia, a competência `2023-05` também foi fechada como `complete`. O
+coletor catalogou 2.345 documentos, preservou 245 interações e inseriu 2.346
+registros brutos estruturados: 2.345 documentos e uma submissão mensal. A
+auditoria independente confirmou 2.345 chaves oficiais distintas, nenhuma
+ligação órfã, 245 execuções de persistência bem-sucedidas e nenhum artefato
+com status HTTP fora da faixa 2xx.
+
+Idempotência possui duas camadas. Cada nova observação HTTP permanece
+imutável, inclusive quando o JSF altera tokens de sessão sem mudar o documento.
+As projeções normalizadas devem reconciliar essas observações pela chave
+oficial, tipo, competência, parser e conteúdo; nunca pela posição na página.
+Assim preservamos a prova bruta sem contar o mesmo documento duas vezes no
+produto público.
 
 As respostas AJAX do JSF chegam como `text/xml`. Para respeitar a lista de MIME
 types do bucket privado, o persistidor registra o equivalente
