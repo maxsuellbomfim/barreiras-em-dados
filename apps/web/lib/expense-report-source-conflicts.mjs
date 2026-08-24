@@ -2,7 +2,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const DECIMAL = /^-?\d+(?:\.\d{1,2})?$/;
-const METHODOLOGY = "public-expense-source-conflicts/1.0.0";
+const METHODOLOGY = "public-expense-source-conflicts/1.1.0";
+const CONFLICT_SCOPES = new Set(["report_total", "budget_unit_subtotal"]);
 
 const FIELD_LABELS = new Map([
   ["total_fixed_amount", "dotação fixada"],
@@ -17,6 +18,18 @@ const FIELD_LABELS = new Map([
   ["total_paid_to_date_amount", "pagamentos acumulados"],
   ["total_unpaid_committed_amount", "despesa empenhada a pagar"],
   ["total_balance_amount", "saldo da dotação"],
+  ["fixed_amount", "dotação fixada"],
+  ["additions_amount", "suplementações"],
+  ["reductions_amount", "anulações"],
+  ["updated_amount", "dotação atualizada"],
+  ["committed_period_amount", "despesa empenhada no mês"],
+  ["committed_to_date_amount", "despesa empenhada acumulada"],
+  ["liquidated_period_amount", "despesa liquidada no mês"],
+  ["liquidated_to_date_amount", "despesa liquidada acumulada"],
+  ["paid_period_amount", "pagamentos no mês"],
+  ["paid_to_date_amount", "pagamentos acumulados"],
+  ["unpaid_committed_amount", "despesa empenhada a pagar"],
+  ["balance_amount", "saldo da dotação"],
 ]);
 
 function text(value) {
@@ -40,6 +53,7 @@ export function parseExpenseReportSourceConflicts(payload) {
     const reportId = text(value.expense_report_id);
     const periodStart = text(value.period_start);
     const periodEnd = text(value.period_end);
+    const conflictScope = text(value.conflict_scope);
     const fieldName = text(value.field_name);
     const fieldLabel = fieldName ? FIELD_LABELS.get(fieldName) : null;
     const declaredAmount = decimal(value.declared_amount);
@@ -47,11 +61,14 @@ export function parseExpenseReportSourceConflicts(payload) {
     const differenceAmount = decimal(value.difference_amount);
     const documentSourceUrl = text(value.document_source_url);
     const documentArtifactSha256 = text(value.document_artifact_sha256);
+    const budgetUnitCode = text(value.budget_unit_code);
+    const budgetUnitName = text(value.budget_unit_name);
     if (
       !reportId || !UUID.test(reportId) ||
       !Number.isSafeInteger(value.fiscal_year) ||
       !periodStart || !ISO_DATE.test(periodStart) ||
       !periodEnd || !ISO_DATE.test(periodEnd) ||
+      !conflictScope || !CONFLICT_SCOPES.has(conflictScope) ||
       !fieldName || !fieldLabel ||
       declaredAmount === null || calculatedAmount === null ||
       differenceAmount === null ||
@@ -61,13 +78,22 @@ export function parseExpenseReportSourceConflicts(payload) {
     ) {
       return { state: "unavailable" };
     }
+    if (
+      conflictScope === "budget_unit_subtotal" &&
+      (!budgetUnitCode || !/^\d{6,8}$/.test(budgetUnitCode) || !budgetUnitName)
+    ) {
+      return { state: "unavailable" };
+    }
     conflicts.push({
       expenseReportId: reportId,
       fiscalYear: value.fiscal_year,
       periodStart,
       periodEnd,
+      conflictScope,
       fieldName,
       fieldLabel,
+      budgetUnitCode: conflictScope === "budget_unit_subtotal" ? budgetUnitCode : null,
+      budgetUnitName: conflictScope === "budget_unit_subtotal" ? budgetUnitName : null,
       declaredAmount,
       calculatedAmount,
       differenceAmount,

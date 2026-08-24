@@ -10,7 +10,8 @@ from decimal import Decimal
 from .financial_expense_pdf import ExpensePdfReport, ExpensePdfRow
 from .revenue import RevenueNormalizationError
 
-EXPENSE_PUBLICATION_METHODOLOGY_VERSION = "public-expense-pdf/1.3.0"
+EXPENSE_PUBLICATION_METHODOLOGY_VERSION = "public-expense-pdf/1.4.0"
+MAX_UNIT_SOURCE_CONFLICT_AMOUNT = Decimal("0.10")
 
 
 class ExpensePublicationError(RevenueNormalizationError):
@@ -45,6 +46,9 @@ class ExpenseTotalSourceConflict:
     declared_amount: Decimal
     calculated_amount: Decimal
     difference_amount: Decimal
+    scope: str = "report_total"
+    budget_unit_code: str | None = None
+    budget_unit_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -109,6 +113,7 @@ def _reconcile_report_totals(
         if row_sum != totals[total_field]
     }
 
+    unit_source_conflicts: list[ExpenseTotalSourceConflict] = []
     if report.unit_totals:
         totals_by_unit = {}
         for unit_total in report.unit_totals:
@@ -133,11 +138,29 @@ def _reconcile_report_totals(
                     (getattr(row, row_field) for row in unit_rows),
                     start=Decimal("0"),
                 )
-                if unit_sum != getattr(unit_total, row_field):
-                    raise ExpensePublicationError(
-                        "soma das linhas diverge do subtotal oficial da unidade: "
-                        f"{key[0]} {row_field}"
+                declared_unit_total = getattr(unit_total, row_field)
+                if unit_sum != declared_unit_total:
+                    unit_source_conflicts.append(
+                        ExpenseTotalSourceConflict(
+                            field_name=row_field,
+                            declared_amount=declared_unit_total,
+                            calculated_amount=unit_sum,
+                            difference_amount=unit_sum - declared_unit_total,
+                            scope="budget_unit_subtotal",
+                            budget_unit_code=key[0],
+                            budget_unit_name=key[1],
+                        )
                     )
+        total_absolute_unit_difference = sum(
+            (abs(conflict.difference_amount) for conflict in unit_source_conflicts),
+            start=Decimal("0"),
+        )
+        if total_absolute_unit_difference > MAX_UNIT_SOURCE_CONFLICT_AMOUNT:
+            first = unit_source_conflicts[0]
+            raise ExpensePublicationError(
+                "soma das linhas diverge materialmente do subtotal oficial da "
+                f"unidade: {first.budget_unit_code} {first.field_name}"
+            )
     elif global_mismatches:
         total_field = sorted(global_mismatches)[0]
         row_field = _TOTAL_TO_ROW_FIELD[total_field]
@@ -147,7 +170,7 @@ def _reconcile_report_totals(
             f"{total_field}={totals[total_field]}"
         )
 
-    return tuple(
+    report_total_conflicts = tuple(
         ExpenseTotalSourceConflict(
             field_name=total_field,
             declared_amount=totals[total_field],
@@ -157,6 +180,7 @@ def _reconcile_report_totals(
         for total_field in _TOTAL_TO_ROW_FIELD
         if total_field in global_mismatches
     )
+    return tuple(unit_source_conflicts) + report_total_conflicts
 
 
 def build_expense_publication_batch(
@@ -293,6 +317,9 @@ def build_expense_publication_batch(
                 "declared_amount": str(conflict.declared_amount),
                 "calculated_amount": str(conflict.calculated_amount),
                 "difference_amount": str(conflict.difference_amount),
+                "scope": conflict.scope,
+                "budget_unit_code": conflict.budget_unit_code,
+                "budget_unit_name": conflict.budget_unit_name,
             }
             for conflict in total_source_conflicts
         ],

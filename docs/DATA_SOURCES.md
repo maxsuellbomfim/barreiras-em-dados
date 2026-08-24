@@ -191,16 +191,16 @@ integral de três layouts confirmou que o cabeçalho de unidade precede as linha
 contábeis: 25 unidades em dezembro/2022, 27 em dezembro/2024 e 29 em julho/2026,
 com 1.979, 1.549 e 1.982 linhas de despesa, respectivamente.
 
-O parser `public-expense-pdf/1.3.0` exige um cabeçalho literal de seis a oito
+O parser `public-expense-pdf/1.4.0` exige um cabeçalho literal de seis a oito
 dígitos antes de aceitar cada linha. Ele também reconhece o layout histórico em
 que `Fonte` e `Fonte TC` são extraídas sem espaço (`1500` + `1001` aparece como
 `15001001`), preservando o token combinado sem inventar uma separação. Nenhum
-relatório é validado se uma linha divergir do subtotal oficial da respectiva
-unidade em qualquer uma das 12 colunas. Quando todos os subtotais fecham, mas o
-`Total` geral impresso no mesmo PDF contém diferença aritmética, os dois valores
-são preservados como conflito da fonte. O portal informa a diferença e mantém
-disponíveis somente os campos que foram reconciliados; não corrige nem estima o
-documento da Prefeitura.
+relatório é validado se os subtotais não cobrirem exatamente as unidades das
+linhas. Diferenças de até R$ 0,10, somadas em valor absoluto no documento, são
+aceitas apenas como conflito explícito da fonte; acima disso, a publicação é
+bloqueada. O mesmo tratamento preserva diferenças entre as linhas e o `Total`
+geral impresso. O portal informa escopo, unidade, dois valores, diferença e
+documento; não corrige nem estima o balancete da Prefeitura.
 
 A projeção pública só agrega uma competência quando todas as linhas possuem
 atribuição e a soma paga coincide exatamente com o total do PDF. Códigos podem

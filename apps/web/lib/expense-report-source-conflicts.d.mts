@@ -3,14 +3,17 @@ export type PublicExpenseReportSourceConflict = Readonly<{
   fiscalYear: number;
   periodStart: string;
   periodEnd: string;
+  conflictScope: "report_total" | "budget_unit_subtotal";
   fieldName: string;
   fieldLabel: string;
+  budgetUnitCode: string | null;
+  budgetUnitName: string | null;
   declaredAmount: string;
   calculatedAmount: string;
   differenceAmount: string;
   documentSourceUrl: string;
   documentArtifactSha256: string;
-  methodologyVersion: "public-expense-source-conflicts/1.0.0";
+  methodologyVersion: "public-expense-source-conflicts/1.1.0";
 }>;
 
 export type ExpenseReportSourceConflictsResult =

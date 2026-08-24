@@ -630,9 +630,33 @@ class PostgresExpensePublicationRepository:
         report_id: str,
         origin_raw_record_id: str,
     ) -> None:
-        """Registra a divergência literal entre total geral e subtotais."""
+        """Registra divergências literais entre linhas, subtotais e total geral."""
 
         for conflict in batch.total_source_conflicts:
+            stored_field_name = conflict.field_name
+            declared_section = "Total"
+            calculated_section = "Linhas do relatório"
+            declared_label = "Total geral"
+            calculated_label = "Soma literal de todas as linhas"
+            if conflict.scope == "budget_unit_subtotal":
+                if not conflict.budget_unit_code or not conflict.budget_unit_name:
+                    raise ExpensePublicationIntegrityError(
+                        "conflito de subtotal sem unidade orçamentária"
+                    )
+                stored_field_name = (
+                    "budget_unit_subtotal:"
+                    f"{conflict.budget_unit_code}:{conflict.field_name}"
+                )
+                declared_section = "Total da Unidade"
+                calculated_section = "Linhas da Unidade"
+                declared_label = (
+                    "Subtotal oficial da unidade "
+                    f"{conflict.budget_unit_code}"
+                )
+                calculated_label = (
+                    "Soma das linhas da unidade "
+                    f"{conflict.budget_unit_code}"
+                )
             existing = connection.execute(
                 """
                 select 1
@@ -643,7 +667,7 @@ class PostgresExpensePublicationRepository:
                   and status in ('open', 'accepted_difference')
                 limit 1
                 """,
-                (report_id, conflict.field_name),
+                (report_id, stored_field_name),
             ).fetchone()
             if existing is not None:
                 continue
@@ -665,13 +689,16 @@ class PostgresExpensePublicationRepository:
                     origin_raw_record_id,
                     artifact.source_url,
                     (
-                        f"Total geral declarado em {conflict.field_name}: "
+                        f"{declared_label} em {conflict.field_name}: "
                         f"{conflict.declared_amount}"
                     ),
                     json.dumps(
                         {
-                            "section": "Total",
+                            "section": declared_section,
+                            "scope": conflict.scope,
                             "field_name": conflict.field_name,
+                            "budget_unit_code": conflict.budget_unit_code,
+                            "budget_unit_name": conflict.budget_unit_name,
                             "value": str(conflict.declared_amount),
                         },
                         separators=(",", ":"),
@@ -698,14 +725,16 @@ class PostgresExpensePublicationRepository:
                     origin_raw_record_id,
                     artifact.source_url,
                     (
-                        "Soma das linhas conferida contra os subtotais "
-                        f"oficiais em {conflict.field_name}: "
+                        f"{calculated_label} em {conflict.field_name}: "
                         f"{conflict.calculated_amount}"
                     ),
                     json.dumps(
                         {
-                            "section": "Total da Unidade",
+                            "section": calculated_section,
+                            "scope": conflict.scope,
                             "field_name": conflict.field_name,
+                            "budget_unit_code": conflict.budget_unit_code,
+                            "budget_unit_name": conflict.budget_unit_name,
                             "value": str(conflict.calculated_amount),
                         },
                         ensure_ascii=False,
@@ -736,15 +765,25 @@ class PostgresExpensePublicationRepository:
                 """,
                 (
                     report_id,
-                    conflict.field_name,
+                    stored_field_name,
                     declared_evidence["id"],
                     calculated_evidence["id"],
                     json.dumps(
-                        {"declared_amount": str(conflict.declared_amount)},
+                        {
+                            "scope": conflict.scope,
+                            "field_name": conflict.field_name,
+                            "budget_unit_code": conflict.budget_unit_code,
+                            "budget_unit_name": conflict.budget_unit_name,
+                            "declared_amount": str(conflict.declared_amount),
+                        },
                         separators=(",", ":"),
                     ),
                     json.dumps(
                         {
+                            "scope": conflict.scope,
+                            "field_name": conflict.field_name,
+                            "budget_unit_code": conflict.budget_unit_code,
+                            "budget_unit_name": conflict.budget_unit_name,
                             "calculated_amount": str(
                                 conflict.calculated_amount
                             ),
