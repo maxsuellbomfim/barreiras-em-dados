@@ -116,6 +116,20 @@ HTTP, chaves e runs, com zero conflito e zero falha aberta. Por fim, 240 objetos
 únicos foram relidos do bucket privado (7.144.760 bytes); todos os SHA-256 e
 tamanhos coincidiram com o banco.
 
+Para `2023-09`, o replay controlado fechou como `complete`: 3.056 documentos,
+316 observações brutas e 3.057 registros estruturados, incluindo uma submissão
+mensal. O gate relacional confirmou contagens, manifesto, chaves, MIME, status
+dos runs e ausência de falhas abertas. A auditoria física releu 313 objetos
+únicos do bucket privado, totalizando 8.628.962 bytes, sem divergência de
+SHA-256 ou tamanho.
+
+A partição mensal aponta para o run de controle; cada interação JSF preservada
+possui seu próprio run idempotente. Por isso, a auditoria relaciona os artefatos
+pela fonte, schema, competência e janela temporal do run de controle, exige que
+todos os runs-filhos tenham concluído com sucesso e só então recompõe o
+manifesto pela ordem de `stage_index`. Uma junção direta entre o run da partição
+e `raw_artifacts.collection_run_id` não representa essa linhagem.
+
 Idempotência possui duas camadas. Cada nova observação HTTP permanece
 imutável, inclusive quando o JSF altera tokens de sessão sem mudar o documento.
 As projeções normalizadas devem reconciliar essas observações pela chave
