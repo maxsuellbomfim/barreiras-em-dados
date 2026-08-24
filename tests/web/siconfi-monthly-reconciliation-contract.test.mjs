@@ -97,5 +97,8 @@ test("finance page explains reconciliation without accusing or comparing revenue
   assert.match(component, /Os 12 meses conferem com o ano/);
   assert.match(component, /Diferença entre fontes não é prova de irregularidade/);
   assert.match(component, /Receita não entra nesta comparação/);
+  assert.match(component, /Ver a conferência dos anos anteriores/);
+  assert.match(component, /"abril"/);
+  assert.match(component, /Não comparado\. Meses ausentes/);
   assert.doesNotMatch(component, /corrupção|fraude/i);
 });
