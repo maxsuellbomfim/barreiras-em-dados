@@ -318,6 +318,13 @@ fechados. Empréstimos e dívidas já possuem entidade e evidência próprias; a
 próxima fatia é normalizar uma família documental real e reconciliar as linhas
 antes de publicar qualquer consolidação.
 
+O catálogo mensal do e-TCM também possui conector privado e contrato validado.
+A competência 04/2023 fechou em 1.824 documentos e 183 páginas sem divergência
+de contagem. A etapa atual preserva metadados e respostas HTML; ela ainda não
+autoriza publicar valores. A próxima menor fatia é baixar um conjunto
+prioritário de PDFs financeiros, preservar hash e origem, extrair números por
+código determinístico e reconciliá-los com as fontes municipais e o SICONFI.
+
 O painel administrativo passa a diagnosticar cada competência desde 2021 como
 pronta, incompleta, duplicada ou bloqueada. O diagnóstico distingue vínculo
 direto, correção versionada de proveniência e pendência documental sem usar IA

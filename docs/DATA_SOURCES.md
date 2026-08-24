@@ -28,7 +28,7 @@ URLs não auditadas não devem ser codificadas como contrato permanente.
 | Transparência da Câmara | contratos, documentos, RH, atos e atividade legislativa | P1 | API catalogada |
 | PNCP | contratações, itens, resultados, contratos, documentos | P1 | documentação inicial |
 | SICONFI | demonstrativos contábeis e fiscais | P2 | documentação inicial |
-| TCM-BA | dados municipais e prestações | P2 | descoberta |
+| TCM-BA | catálogo mensal de prestações e documentos entregues | P2 | conector privado ativo; PDFs e reconciliação pendentes |
 | Transferegov | parcerias, transferências especiais, pagamentos e execução | P3 | API atual, catálogo histórico, propostas municipais e recorte de emendas por ID implementados; os três autores individuais observados nos rankings federais de 2021-2026 estão ligados a perfis oficiais por crosswalk TSE aprovado; demais CSVs pendentes |
 | Tesouro Transparente | transferências constitucionais/legais e emendas | P3 | documentação inicial |
 | Transparência Bahia / SEPLAN-BA | transferências a municípios, despesas e emendas estaduais | P3 | ZIP de execução preservado e normalizado como agregado estadual; replay versionado confirmou 70 autorizações territoriais da LOA 2022-2026, sendo 34 em 2026; o conjunto oficial Transferências Especiais possui conector privado com cinco views e 12.169 registros estruturais validados; três pagamentos cujo objeto menciona Barreiras possuem projeção pública minimizada e autoria ligada somente pelo código oficial 4072, período 2019-2023 e perfil institucional; os 13 autores observados na LOA estão ligados a perfis oficiais por crosswalk TSE aprovado, sem confundir autoria histórica, legislatura e Casa atual |
@@ -797,17 +797,21 @@ Inventários:
 - `docs/sources/PREFEITURA_TRANSPARENCIA_API.md`;
 - `docs/sources/CAMARA_TRANSPARENCIA_API.md`.
 
-O TCM-BA e partes não cobertas dos portais permanecem em descoberta. A tarefa do
-`source-researcher` será produzir, sem alterar código:
+O primeiro conector do TCM-BA está ativo para o catálogo mensal público do
+e-TCM. A competência 04/2023 da Prefeitura de Barreiras foi validada
+integralmente: 1.824 documentos, 183 páginas, envio em 05/06/2023 e estado
+`Entregue no prazo`. O coletor reproduz a sessão JSF, preserva cada resposta
+bruta, valida a paginação e publica somente registros privados de submissão e
+documento. A execução é manual e limitada por intervalo enquanto o custo e a
+estabilidade do backfill são medidos.
 
-1. inventário de URLs e exportações;
-2. identificação do fornecedor do portal;
-3. captura de requisições de rede e paginação;
-4. períodos cobertos;
-5. termos, robots, autenticação e rate limit;
-6. amostras sanitizadas;
-7. divergências com PNCP/SICONFI/Diário;
-8. recomendação de coletor API/download antes de spider HTML.
+Esse catálogo não contém, por si só, valores financeiros confiáveis. Os nomes
+dos arquivos não são tratados como números nem como prova de conteúdo. O
+download dos PDFs, sua extração determinística e a reconciliação com Prefeitura
+e SICONFI são gates separados antes de qualquer projeção pública. Falhas de
+requisição que esgotem as tentativas ainda precisam ganhar preservação bruta
+própria; até lá ficam registradas no controle central de coleta e não produzem
+cobertura completa.
 
 ### Universo privado do Anexo I da LOA 2026
 
