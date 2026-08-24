@@ -741,6 +741,111 @@ summary:focus-visible {
   border-bottom: 1px solid var(--line);
 }
 
+.siconfi-reconciliation-panel {
+  margin-bottom: 2.25rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.siconfi-reconciliation-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.siconfi-reconciliation-summary > div {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--glass);
+}
+
+.siconfi-reconciliation-summary dd {
+  margin-top: 0.3rem;
+  font-size: 1.2rem;
+  font-weight: 760;
+}
+
+.siconfi-reconciliation-years {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.siconfi-reconciliation-years > details {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--glass);
+}
+
+.siconfi-reconciliation-years > details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  font-weight: 720;
+}
+
+.siconfi-reconciliation-years > details > summary span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.siconfi-reconciliation-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  padding: 0 0.8rem 0.8rem;
+}
+
+.siconfi-reconciliation-metrics article {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  background: var(--inset);
+}
+
+.siconfi-reconciliation-metrics h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.siconfi-reconciliation-metrics dl {
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.siconfi-reconciliation-metrics dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.siconfi-reconciliation-metrics dd {
+  text-align: right;
+  font-weight: 720;
+}
+
+.siconfi-missing-months {
+  color: var(--danger);
+  font-size: 0.82rem;
+  font-weight: 680;
+}
+
+.siconfi-matched_exact {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.siconfi-source_difference,
+.siconfi-incomplete_months {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .finance-closure-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1107,6 +1212,14 @@ article:nth-of-type(3) {
   }
 
   .finance-integrity-list {
+    grid-template-columns: 1fr;
+  }
+
+  .siconfi-reconciliation-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .siconfi-reconciliation-metrics {
     grid-template-columns: 1fr;
   }
 
