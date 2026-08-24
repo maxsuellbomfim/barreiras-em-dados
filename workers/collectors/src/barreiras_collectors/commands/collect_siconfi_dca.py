@@ -99,6 +99,57 @@ def execute_controlled_siconfi_collection(
     return summary
 
 
+def execute_yearly_siconfi_backfill(
+    *,
+    fiscal_years: Sequence[int],
+    control_factory: Callable[[int], CollectionControl],
+    operation_factory: Callable[
+        [int], Callable[[], SiconfiDcaCollectionSummary]
+    ],
+    logger: logging.Logger,
+) -> tuple[tuple[int, SiconfiDcaCollectionSummary], ...]:
+    """Classifica cada exercício isoladamente e tenta os demais após uma falha."""
+    completed: list[tuple[int, SiconfiDcaCollectionSummary]] = []
+    failures: list[tuple[int, Exception]] = []
+    for fiscal_year in fiscal_years:
+        try:
+            summary = execute_controlled_siconfi_collection(
+                control=control_factory(fiscal_year),
+                operation=operation_factory(fiscal_year),
+            )
+        except Exception as error:
+            failures.append((fiscal_year, error))
+            log_event(
+                logger,
+                logging.ERROR,
+                "collector_siconfi_dca_year_failed",
+                source=SOURCE_CODE,
+                fiscal_year=fiscal_year,
+                error_type=type(error).__name__,
+            )
+            continue
+        completed.append((fiscal_year, summary))
+        log_event(
+            logger,
+            logging.INFO,
+            "collector_siconfi_dca_year_completed",
+            source=SOURCE_CODE,
+            fiscal_year=fiscal_year,
+            coverage_status=("complete" if summary.rows > 0 else "empty"),
+            pages=summary.pages,
+            rows=summary.rows,
+            inserted_records=summary.inserted_records,
+            existing_records=summary.existing_records,
+        )
+
+    if failures:
+        failed_years = ", ".join(str(year) for year, _error in failures)
+        raise RuntimeError(
+            f"A coleta anual do SICONFI falhou em: {failed_years}."
+        ) from failures[0][1]
+    return tuple(completed)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     collected_on = datetime.now(MUNICIPAL_TIMEZONE).date()
     parser = argparse.ArgumentParser(
@@ -111,7 +162,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--year-to", type=int, default=collected_on.year)
     args = parser.parse_args(argv)
     try:
-        period_start, period_end = resolve_year_range(
+        resolve_year_range(
             args.year_from,
             args.year_to,
             collected_on=collected_on,
@@ -134,69 +185,84 @@ def main(argv: Sequence[str] | None = None) -> int:
     repository = PostgresCollectionRepository.from_dsn(
         persistence_settings.database_url
     )
-    control = CollectionControl(
+    logger = logging.getLogger(__name__)
+    service = SiconfiDcaPersistenceService(
+        object_store=build_authenticated_object_store(persistence_settings),
         repository=repository,
-        source_code=SOURCE_CODE,
-        endpoint_code=ENDPOINT_CODE,
-        idempotency_key=build_siconfi_execution_key(),
-        collector_version=SICONFI_DCA_COLLECTOR_VERSION,
-        parser_version=SICONFI_DCA_PARSER_VERSION,
-        partition_key=f"dca:{args.year_from}:{args.year_to}:barreiras-2903201",
-        period_start=period_start,
-        period_end=period_end,
     )
+    limiter = PacedRateLimiter(60)
 
-    def operation() -> SiconfiDcaCollectionSummary:
-        service = SiconfiDcaPersistenceService(
-            object_store=build_authenticated_object_store(persistence_settings),
+    def control_factory(fiscal_year: int) -> CollectionControl:
+        return CollectionControl(
             repository=repository,
+            source_code=SOURCE_CODE,
+            endpoint_code=ENDPOINT_CODE,
+            idempotency_key=build_execution_idempotency_key(
+                f"siconfi-dca-{fiscal_year}"
+            ),
+            collector_version=SICONFI_DCA_COLLECTOR_VERSION,
+            parser_version=SICONFI_DCA_PARSER_VERSION,
+            partition_key=f"fiscal-year:{fiscal_year}",
+            period_start=date(fiscal_year, 1, 1),
+            period_end=(
+                collected_on
+                if fiscal_year == collected_on.year
+                else date(fiscal_year, 12, 31)
+            ),
         )
-        limiter = PacedRateLimiter(60)
-        pages_count = 0
-        rows = 0
-        inserted_records = 0
-        existing_records = 0
-        hashes: list[str] = []
-        for year in range(args.year_from, args.year_to + 1):
+
+    def operation_factory(
+        fiscal_year: int,
+    ) -> Callable[[], SiconfiDcaCollectionSummary]:
+        def operation() -> SiconfiDcaCollectionSummary:
             pages = fetch_siconfi_dca(
-                year=year,
+                year=fiscal_year,
                 rate_limiter=limiter,
-                logger=logging.getLogger(__name__),
+                logger=logger,
             )
-            pages_count += len(pages)
+            rows = inserted_records = existing_records = 0
+            hashes: list[str] = []
             for page in pages:
                 result = service.persist(page)
                 rows += len(page.items)
                 inserted_records += result.inserted_records
                 existing_records += result.existing_records
                 hashes.append(result.sha256)
-        return SiconfiDcaCollectionSummary(
-            years=args.year_to - args.year_from + 1,
-            pages=pages_count,
-            rows=rows,
-            inserted_records=inserted_records,
-            existing_records=existing_records,
-            artifact_hashes=tuple(hashes),
-            year_from=args.year_from,
-            year_to=args.year_to,
-        )
+            return SiconfiDcaCollectionSummary(
+                years=1,
+                pages=len(pages),
+                rows=rows,
+                inserted_records=inserted_records,
+                existing_records=existing_records,
+                artifact_hashes=tuple(hashes),
+                year_from=fiscal_year,
+                year_to=fiscal_year,
+            )
 
-    summary = execute_controlled_siconfi_collection(
-        control=control,
-        operation=operation,
+        return operation
+
+    results = execute_yearly_siconfi_backfill(
+        fiscal_years=tuple(range(args.year_from, args.year_to + 1)),
+        control_factory=control_factory,
+        operation_factory=operation_factory,
+        logger=logger,
     )
     log_event(
-        logging.getLogger(__name__),
+        logger,
         logging.INFO,
         "collector_siconfi_dca_completed",
         source=SOURCE_CODE,
-        years=summary.years,
-        pages=summary.pages,
-        rows=summary.rows,
-        inserted_records=summary.inserted_records,
-        existing_records=summary.existing_records,
-        year_from=summary.year_from,
-        year_to=summary.year_to,
+        years=len(results),
+        pages=sum(summary.pages for _year, summary in results),
+        rows=sum(summary.rows for _year, summary in results),
+        inserted_records=sum(
+            summary.inserted_records for _year, summary in results
+        ),
+        existing_records=sum(
+            summary.existing_records for _year, summary in results
+        ),
+        year_from=args.year_from,
+        year_to=args.year_to,
     )
     return 0
 

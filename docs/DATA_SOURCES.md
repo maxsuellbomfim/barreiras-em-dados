@@ -353,6 +353,13 @@ JSON por SHA-256, valida paginação, ente, exercício, esquema e identidade
 completa da linha, e mantém `valor` como texto decimal. Valor negativo publicado
 pela fonte é preservado; não é descartado nem interpretado como erro.
 
+O backfill operacional de 24/08/2026 preservou 5.986 linhas dos exercícios de
+2021 a 2025. A consulta de 2026 respondeu HTTP 200 com zero linhas e também foi
+preservada; por isso sua partição é `empty`, não `failed` nem um valor financeiro
+zero. A cobertura é registrada separadamente por exercício, permitindo que uma
+falha anual não apague o resultado dos demais anos e que o painel diferencie
+ano completo de ano consultado sem DCA publicada.
+
 A DCA é anual. Ela serve para fechar e reconciliar contas do exercício, mas não
 substitui a série mensal nem o detalhamento de empenhos, liquidações e pagamentos
 do portal municipal. Em 24/08/2026, a exportação JSON do módulo legado de
