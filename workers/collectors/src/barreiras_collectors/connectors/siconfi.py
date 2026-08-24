@@ -356,7 +356,7 @@ def _snapshot_from_response(
     return SiconfiDcaPage(
         schema_name="siconfi-dca-page",
         schema_version="1.0.0",
-        artifact_kind="api_response",
+        artifact_kind="http_response",
         source_code=SOURCE_CODE,
         endpoint_code=ENDPOINT_CODE,
         idempotency_key=idempotency_key,

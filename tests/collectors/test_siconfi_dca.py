@@ -179,6 +179,9 @@ class SiconfiDcaDownloadTests(unittest.TestCase):
 
         self.assertEqual(len(pages), 2)
         self.assertEqual([page.offset for page in pages], [0, 1])
+        self.assertTrue(
+            all(page.artifact_kind == "http_response" for page in pages)
+        )
         self.assertEqual(limiter.calls, 2)
         self.assertIn("an_exercicio=2021", transport.requests[0])
         self.assertIn("id_ente=2903201", transport.requests[0])
