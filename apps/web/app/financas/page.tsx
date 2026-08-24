@@ -50,6 +50,7 @@ import { FinanceExpenseLineCard } from "./finance-expense-line-card";
 import { FinanceAnnualSummary } from "./finance-annual-summary";
 import { FinanceSiconfiAnnualTotals } from "./finance-siconfi-annual-totals";
 import { getPublicSiconfiAnnualTotals } from "../../lib/siconfi-annual-totals";
+import { getPublicSiconfiMonthlyReconciliation } from "../../lib/siconfi-monthly-reconciliation";
 
 export const revalidate = 300;
 
@@ -222,6 +223,7 @@ export default async function FinancesPage() {
     payrollResult,
     payrollCoverageResult,
     siconfiAnnualResult,
+    siconfiReconciliationResult,
   ] = await Promise.all([
     getPublicExpenseReports(),
     getPublicRevenues(),
@@ -234,6 +236,7 @@ export default async function FinancesPage() {
     getPublicPayrollMonths(120),
     getPublicPayrollCoverage(120),
     getPublicSiconfiAnnualTotals(),
+    getPublicSiconfiMonthlyReconciliation(),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -295,6 +298,10 @@ export default async function FinancesPage() {
   const siconfiAnnualYears =
     siconfiAnnualResult.state === "available"
       ? siconfiAnnualResult.years
+      : [];
+  const siconfiReconciliationYears =
+    siconfiReconciliationResult.state === "available"
+      ? siconfiReconciliationResult.years
       : [];
   const obligationCoverageGaps = publicObligationCoverage.filter(
     (row) => row.coverageStatus !== "published",
@@ -404,7 +411,10 @@ export default async function FinancesPage() {
           </p>
         </section>
 
-        <FinanceSiconfiAnnualTotals years={siconfiAnnualYears} />
+        <FinanceSiconfiAnnualTotals
+          years={siconfiAnnualYears}
+          reconciliationYears={siconfiReconciliationYears}
+        />
 
         <section className="finance-status-panel" aria-labelledby="finance-status-title">
           <div>

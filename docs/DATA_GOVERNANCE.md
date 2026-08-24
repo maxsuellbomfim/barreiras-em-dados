@@ -115,6 +115,10 @@ para revisão/DLQ; não são descartados silenciosamente.
 - receitas, despesas, fechamentos, cobertura e sinais só entram na projeção
   pública quando o `source_record_key` do registro bruto coincide com o do PDF
   filho e ambos pertencem à mesma resposta oficial preservada;
+- a reconciliação anual do SICONFI compara apenas empenhado, liquidado e pago;
+  exige os doze meses antes de somar, retorna decimais exatos e trata diferença
+  entre fontes como dado a explicar, nunca como prova automática de erro ou
+  irregularidade;
 - correções de proveniência financeira exigem também igualdade da URL oficial
   do PDF, criam uma nova versão do vínculo de origem, preservam a versão
   anterior e registram o conflito resolvido com evidências dos dois vínculos;

@@ -3,6 +3,13 @@ import type {
   SiconfiAnnualMetricKey,
 } from "../../lib/siconfi-annual-totals-parser.mjs";
 import type { PublicSiconfiAnnualYear } from "../../lib/siconfi-annual-totals";
+import type {
+  PublicSiconfiReconciliationYear,
+} from "../../lib/siconfi-monthly-reconciliation";
+import type {
+  ParsedSiconfiReconciliationMetric,
+  SiconfiReconciliationMetricKey,
+} from "../../lib/siconfi-monthly-reconciliation-parser.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
 
 const LABELS: Record<SiconfiAnnualMetricKey, string> = {
@@ -53,11 +60,37 @@ function MetricValue({ item }: Readonly<{ item: ParsedSiconfiAnnualMetric }>) {
     </div>
   );
 }
+
+const RECONCILIATION_LABELS: Record<SiconfiReconciliationMetricKey, string> = {
+  expense_committed: "Empenhado",
+  expense_liquidated: "Liquidado",
+  expense_paid: "Pago",
+};
+
+function reconciliationStatus(item: ParsedSiconfiReconciliationMetric): string {
+  if (item.reconciliationStatus === "matched_exact") return "Confere exatamente";
+  if (item.reconciliationStatus === "source_difference") {
+    return "Há diferença entre as fontes";
+  }
+  return `Faltam ${12 - item.observedMonths} meses`;
+}
+
+function reconciliationClass(item: ParsedSiconfiReconciliationMetric): string {
+  return `finance-siconfi-reconciliation-card is-${item.reconciliationStatus}`;
+}
+
 export function FinanceSiconfiAnnualTotals({
   years,
-}: Readonly<{ years: readonly PublicSiconfiAnnualYear[] }>) {
+  reconciliationYears,
+}: Readonly<{
+  years: readonly PublicSiconfiAnnualYear[];
+  reconciliationYears: readonly PublicSiconfiReconciliationYear[];
+}>) {
   if (years.length === 0) return null;
   const [latest, ...history] = years;
+  const reconciliation = reconciliationYears.find(
+    (year) => year.fiscalYear === latest.fiscalYear,
+  );
   const source = latest.metrics[0];
   const mainMetrics: SiconfiAnnualMetricKey[] = [
     "gross_revenue_realized",
@@ -105,6 +138,66 @@ export function FinanceSiconfiAnnualTotals({
           </p>
         </details>
       </article>
+      {reconciliation ? (
+        <section
+          className="finance-siconfi-reconciliation"
+          aria-labelledby="siconfi-reconciliation-title"
+        >
+          <header>
+            <div>
+              <span className="eyebrow">Conferência entre fontes oficiais</span>
+              <h3 id="siconfi-reconciliation-title">
+                Os 12 meses conferem com o ano de {reconciliation.fiscalYear}?
+              </h3>
+            </div>
+            <p>
+              Somamos por código os doze relatórios mensais e comparamos com a
+              declaração anual do Tesouro. Receita não entra nesta comparação
+              porque os relatórios usam conceitos diferentes.
+            </p>
+          </header>
+          <div className="finance-siconfi-reconciliation-grid">
+            {reconciliation.metrics.map((item) => (
+              <article className={reconciliationClass(item)} key={item.metricKey}>
+                <span>{RECONCILIATION_LABELS[item.metricKey]}</span>
+                <strong>{reconciliationStatus(item)}</strong>
+                {item.monthlySumAmount && item.differenceAmount ? (
+                  <dl>
+                    <div>
+                      <dt>Declaração anual</dt>
+                      <dd>{formatBrlDecimal(item.annualAmount)}</dd>
+                    </div>
+                    <div>
+                      <dt>Soma dos 12 meses</dt>
+                      <dd>{formatBrlDecimal(item.monthlySumAmount)}</dd>
+                    </div>
+                    <div>
+                      <dt>Diferença anual − mensais</dt>
+                      <dd>{formatBrlDecimal(item.differenceAmount)}</dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p>
+                    Foram localizados {item.observedMonths} de 12 meses. Meses
+                    ausentes: {item.missingMonths.join(", ")}.
+                  </p>
+                )}
+                <details>
+                  <summary>Entender este resultado</summary>
+                  <p>{item.reconciliationNote}</p>
+                  <small>Método determinístico {item.methodologyVersion}</small>
+                </details>
+              </article>
+            ))}
+          </div>
+          <p className="finance-siconfi-reconciliation-caution">
+            Diferença entre fontes não é prova de irregularidade. Pode decorrer
+            de ajustes de encerramento, restos a pagar ou atualização posterior
+            de um relatório. O Barreiras 360 mostra a divergência para que ela
+            possa ser conferida — não inventa uma explicação.
+          </p>
+        </section>
+      ) : null}
       {history.length > 0 ? (
         <details className="finance-details finance-siconfi-history">
           <summary>Comparar com {history.length} anos anteriores</summary>
