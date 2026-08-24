@@ -80,6 +80,15 @@ auditoria independente confirmou 2.345 chaves oficiais distintas, nenhuma
 ligação órfã, 245 execuções de persistência bem-sucedidas e nenhum artefato
 com status HTTP fora da faixa 2xx.
 
+A competência `2023-06` foi fechada na sequência como `complete`, com 2.741
+documentos catalogados, 285 interações preservadas e 2.742 registros brutos
+estruturados: 2.741 documentos e uma submissão mensal. A auditoria direta no
+banco confirmou 2.741 chaves oficiais e 2.741 chaves de idempotência distintas,
+nenhuma falha de coleta registrada e nenhum artefato com status HTTP fora da
+faixa 2xx. Os 285 registros de artefato representam 282 objetos e hashes únicos;
+as três repetições são observações imutáveis de respostas JSF idênticas, não
+documentos duplicados na projeção normalizada.
+
 Idempotência possui duas camadas. Cada nova observação HTTP permanece
 imutável, inclusive quando o JSF altera tokens de sessão sem mudar o documento.
 As projeções normalizadas devem reconciliar essas observações pela chave
