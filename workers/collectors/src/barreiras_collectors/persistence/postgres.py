@@ -1613,72 +1613,107 @@ class PostgresCollectionRepository:
         batch: PersistenceBatch,
         artifact_id: str,
     ) -> tuple[int, int]:
-        inserted = 0
-        existing = 0
-        for record in batch.records:
-            row = connection.execute(
-                """
-                insert into raw.raw_records (
-                  raw_artifact_id,
-                  source_record_key,
-                  record_type,
-                  record_index,
-                  payload,
-                  payload_sha256,
-                  parser_version,
-                  idempotency_key,
-                  collected_at
-                )
-                values (
-                  %s::uuid, %s, %s, %s, %s::jsonb, %s, %s, %s, %s::timestamptz
-                )
-                on conflict (idempotency_key) do nothing
-                returning id::text as id
-                """,
-                (
-                    artifact_id,
-                    record.source_record_key,
-                    record.record_type,
-                    record.record_index,
-                    cls._json(record.payload),
-                    record.payload_sha256,
-                    record.parser_version,
-                    record.idempotency_key,
-                    batch.page.received_at,
-                ),
-            ).fetchone()
-            if row is not None:
-                inserted += 1
-                continue
+        if not batch.records:
+            return 0, 0
 
-            prior = connection.execute(
-                """
-                select
-                  record.source_record_key,
-                  record.record_type,
-                  record.payload_sha256,
-                  record.parser_version,
-                  artifact.sha256 as artifact_sha256
-                from raw.raw_records as record
-                join raw.raw_artifacts as artifact
-                  on artifact.id = record.raw_artifact_id
-                where record.idempotency_key = %s
-                """,
-                (record.idempotency_key,),
-            ).fetchone()
-            if not _compatible_existing_record(
-                prior,
-                artifact_sha256=batch.page.body_sha256,
-                source_record_key=record.source_record_key,
-                record_type=record.record_type,
-                payload_sha256=record.payload_sha256,
-                parser_version=record.parser_version,
-            ):
-                raise PersistenceContractError(
-                    "Conflito de idempotência em registro bruto."
-                )
-            existing += 1
-        return inserted, existing
+        serialized_records = cls._json(
+            [
+                {
+                    "source_record_key": record.source_record_key,
+                    "record_type": record.record_type,
+                    "record_index": record.record_index,
+                    "payload": record.payload,
+                    "payload_sha256": record.payload_sha256,
+                    "parser_version": record.parser_version,
+                    "idempotency_key": record.idempotency_key,
+                    "collected_at": batch.page.received_at,
+                }
+                for record in batch.records
+            ]
+        )
+        row = connection.execute(
+            """
+            with incoming as materialized (
+              select *
+              from jsonb_to_recordset(%s::jsonb) as item (
+                source_record_key text,
+                record_type text,
+                record_index integer,
+                payload jsonb,
+                payload_sha256 text,
+                parser_version text,
+                idempotency_key text,
+                collected_at timestamptz
+              )
+            ),
+            prior as materialized (
+              select
+                item.idempotency_key,
+                record.source_record_key,
+                record.record_type,
+                record.payload_sha256,
+                record.parser_version,
+                artifact.sha256 as artifact_sha256
+              from incoming as item
+              join raw.raw_records as record
+                on record.idempotency_key = item.idempotency_key
+              join raw.raw_artifacts as artifact
+                on artifact.id = record.raw_artifact_id
+            ),
+            inserted as (
+              insert into raw.raw_records (
+                raw_artifact_id,
+                source_record_key,
+                record_type,
+                record_index,
+                payload,
+                payload_sha256,
+                parser_version,
+                idempotency_key,
+                collected_at
+              )
+              select
+                %s::uuid,
+                item.source_record_key,
+                item.record_type,
+                item.record_index,
+                item.payload,
+                item.payload_sha256,
+                item.parser_version,
+                item.idempotency_key,
+                item.collected_at
+              from incoming as item
+              on conflict (idempotency_key) do nothing
+              returning idempotency_key
+            )
+            select
+              (select count(*) from inserted)::integer as inserted_records,
+              (
+                (select count(*) from incoming)
+                - (select count(*) from inserted)
+              )::integer as existing_records,
+              (
+                select count(*)
+                from prior
+                join incoming as item using (idempotency_key)
+                where prior.artifact_sha256 is distinct from %s
+                   or prior.source_record_key is distinct from item.source_record_key
+                   or prior.record_type is distinct from item.record_type
+                   or prior.payload_sha256 is distinct from item.payload_sha256
+                   or prior.parser_version is distinct from item.parser_version
+              )::integer as conflicting_records
+            """,
+            (serialized_records, artifact_id, batch.page.body_sha256),
+        ).fetchone()
+        if row is None:
+            raise PersistenceContractError(
+                "A persistência em lote não retornou o balanço de registros."
+            )
+        if int(row["conflicting_records"]) > 0:
+            raise PersistenceContractError(
+                "Conflito de idempotência em registro bruto."
+            )
+        return int(row["inserted_records"]), int(row["existing_records"])
 
     @staticmethod
     def _json(value: object) -> str:
