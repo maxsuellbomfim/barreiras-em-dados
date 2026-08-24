@@ -328,6 +328,16 @@ despesa. A próxima menor fatia é executar o backfill idempotente dos balancete
 desde 2021 e, em seguida, normalizar empréstimos e saldos de obrigações sem
 confundir dívida, pagamento e despesa do mês.
 
+Checkpoint em 24/08/2026: a API DCA do SICONFI foi contratada e validada para o
+IBGE `2903201`. O exercício de 2021 possui 1.109 linhas distribuídas em sete
+anexos. O coletor raw-first, idempotente e paginado passa a preservar 2021 até o
+exercício corrente no grupo Finanças, sem calcular totais. A exportação legada
+municipal de 2021 falhou no próprio backend oficial e continua marcada como
+bloqueada; a DCA anual não será apresentada como se fosse série mensal. A
+próxima menor fatia é materializar os totais anuais de receita e despesa por
+estágio a partir de chaves literais da DCA e reconciliá-los com os fechamentos
+mensais já publicados.
+
 Checkpoint em 20/08/2026: o fechamento mensal e a cobertura financeira passaram
 a resolver a linhagem documental em conjunto, eliminando o timeout observado na
 página geral. A mesma estratégia foi aplicada às listas públicas de receitas e

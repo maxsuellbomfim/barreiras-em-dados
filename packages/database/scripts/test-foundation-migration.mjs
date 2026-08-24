@@ -1469,8 +1469,8 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 15,
-    endpoints: 31,
+    sources: 16,
+    endpoints: 32,
     private_buckets: 1,
   });
 
@@ -1746,6 +1746,69 @@ try {
   `);
   assert.deepEqual(bahiaSpecialTransferStorageAuthorization.rows[0], {
     municipal_workload_can_insert: true,
+    adjacent_prefix_stays_denied: false,
+  });
+
+  const siconfiDcaEndpoint = await database.query(`
+    select
+      source.slug as source_slug,
+      endpoint.slug as endpoint_slug,
+      endpoint.base_url,
+      endpoint.rate_limit_per_minute,
+      endpoint.config ->> 'parser_version' as parser_version,
+      endpoint.config ->> 'grain' as grain,
+      endpoint.config ->> 'public_projection' as public_projection
+    from source.source_endpoints as endpoint
+    join source.data_sources as source on source.id = endpoint.data_source_id
+    where source.slug = 'siconfi-barreiras'
+      and endpoint.slug = 'dca'
+  `);
+  assert.deepEqual(siconfiDcaEndpoint.rows, [
+    {
+      source_slug: "siconfi-barreiras",
+      endpoint_slug: "dca",
+      base_url: "https://apidatalake.tesouro.gov.br/ords/siconfi/tt/dca",
+      rate_limit_per_minute: 60,
+      parser_version: "siconfi-dca-page/1.0.0",
+      grain: "annual_source_line",
+      public_projection: "pending_deterministic_reconciliation",
+    },
+  ]);
+
+  const siconfiDcaWorkload = await database.query(`
+    select object_prefix, can_select, can_insert, status
+    from audit.storage_workload_identities
+    where slug = 'siconfi-dca-collector'
+  `);
+  assert.deepEqual(siconfiDcaWorkload.rows, [
+    {
+      object_prefix: "siconfi/dca/",
+      can_select: true,
+      can_insert: true,
+      status: "active",
+    },
+  ]);
+
+  await database.exec(`
+    select set_config(
+      'request.jwt.claim.sub',
+      'c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a',
+      false
+    );
+  `);
+  const siconfiDcaStorageAuthorization = await database.query(`
+    select
+      api.can_access_raw_artifact(
+        'insert', 'raw-artifacts',
+        'siconfi/dca/2021/sha256/aa/file.json'
+      ) as dca_insert,
+      api.can_access_raw_artifact(
+        'insert', 'raw-artifacts',
+        'siconfi/private/file.json'
+      ) as adjacent_prefix_stays_denied
+  `);
+  assert.deepEqual(siconfiDcaStorageAuthorization.rows[0], {
+    dca_insert: true,
     adjacent_prefix_stays_denied: false,
   });
 
