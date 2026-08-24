@@ -334,9 +334,14 @@ anexos. O coletor raw-first, idempotente e paginado passa a preservar 2021 até 
 exercício corrente no grupo Finanças, sem calcular totais. A exportação legada
 municipal de 2021 falhou no próprio backend oficial e continua marcada como
 bloqueada; a DCA anual não será apresentada como se fosse série mensal. A
-próxima menor fatia é materializar os totais anuais de receita e despesa por
-estágio a partir de chaves literais da DCA e reconciliá-los com os fechamentos
-mensais já publicados.
+materialização dos totais anuais foi contratada com sete chaves literais da DCA,
+versionamento imutável, evidência obrigatória e publicação por RPC sem cálculos
+derivados. A página financeira apresenta receita bruta, dedução do Fundeb,
+empenho, liquidação, pagamento e restos a pagar com explicações simples,
+preservando os estágios separados. A próxima menor fatia é executar o primeiro
+backfill normalizado em produção e reconciliar esses totais anuais com a soma
+dos meses já publicados, classificando diferenças sem substituir ou estimar os
+meses ausentes.
 
 Validação operacional no mesmo dia: depois de substituir a persistência linha a
 linha por um lote PostgreSQL idempotente, o replay completo caiu de mais de dez

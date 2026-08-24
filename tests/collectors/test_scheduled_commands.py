@@ -116,6 +116,29 @@ class ScheduledWorkflowTests(unittest.TestCase):
         state_job = workflow[workflow.index("  bahia_state_amendments:") :]
         self.assertIn("- siconfi_dca", state_job)
 
+    def test_siconfi_job_materializes_literal_annual_totals(self) -> None:
+        repository_root = Path(__file__).parents[2]
+        workflow = (
+            repository_root
+            / ".github"
+            / "workflows"
+            / "collect-finance-documents.yml"
+        ).read_text(encoding="utf-8")
+        siconfi_job = workflow[
+            workflow.index("  siconfi_dca:") : workflow.index(
+                "  bahia_state_amendments:"
+            )
+        ]
+
+        self.assertIn(
+            "workers/collectors/src:workers/normalization/src", siconfi_job
+        )
+        self.assertIn("process_siconfi_annual_totals", siconfi_job)
+        self.assertLess(
+            siconfi_job.index("collect_siconfi_dca"),
+            siconfi_job.index("process_siconfi_annual_totals"),
+        )
+
     def test_finance_group_can_run_only_siconfi_without_other_sources(self) -> None:
         repository_root = Path(__file__).parents[2]
         workflow = (

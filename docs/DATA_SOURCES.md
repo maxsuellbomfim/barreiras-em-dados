@@ -365,9 +365,15 @@ substitui a série mensal nem o detalhamento de empenhos, liquidações e pagame
 do portal municipal. Em 24/08/2026, a exportação JSON do módulo legado de
 despesas municipais para 2021 respondeu erro interno de coluna; essa partição
 mensal permanece `blocked`, nunca `empty` e nunca é preenchida por estimativa.
-O primeiro corte automatizado do SICONFI é de aquisição bruta; indicadores
-públicos anuais só serão derivados em uma etapa posterior, com reconciliação e
-granularidade explícita.
+O primeiro corte público anual materializa somente sete linhas literais do
+SICONFI: receita bruta realizada, dedução do Fundeb, despesa empenhada,
+liquidada e paga, e inscrições de restos a pagar processados e não processados.
+A seleção exige igualdade exata de anexo, rótulo, coluna, código e nome da conta;
+uma ausência ou duplicidade bloqueia o exercício inteiro. Cada total é
+versionado, imutável e vinculado ao registro bruto, ao artefato, ao hash e a um
+item de evidência. A projeção pública não calcula receita líquida, saldo,
+superávit ou déficit. Esses indicadores continuam dependentes de reconciliação
+contábil e da comparação com a série mensal.
 
 Referência: [API SICONFI](https://apidatalake.tesouro.gov.br/docs/siconfi/)
 
