@@ -20,7 +20,9 @@ from zoneinfo import ZoneInfo
 from ..collection_control import (
     CollectionControl,
     CollectionOutcome,
+    PartialCollectionFailure,
     build_execution_idempotency_key,
+    sanitize_error_detail,
 )
 from ..connectors.gazette_documents import MunicipalTransparencyDocumentClient
 from ..connectors.municipal_transparency import (
@@ -193,6 +195,9 @@ class MunicipalTransparencyCollectionSummary:
     documents_byte_budget_exhausted: bool = False
     documents_matched: int = 0
     documents_already_preserved: int = 0
+    document_failure_type: str | None = None
+    document_failure_detail: str | None = None
+    document_failure_retryable: bool | None = None
 
     @property
     def observed_records(self) -> int:
@@ -343,6 +348,16 @@ def execute_controlled_municipal_transparency(
             observed_records=summary.observed_records,
             checkpoint={"next_offset": summary.next_offset},
             metrics=_collection_metrics(summary),
+            partial_failure=(
+                PartialCollectionFailure(
+                    error_type=summary.document_failure_type,
+                    error_detail=summary.document_failure_detail,
+                    retryable=bool(summary.document_failure_retryable),
+                )
+                if summary.document_failure_type
+                and summary.document_failure_detail
+                else None
+            ),
         )
     return summary
 
@@ -824,6 +839,9 @@ def _collect_resource(
     persisted_document_bytes = 0
     document_byte_budget_exhausted = False
     failed_documents = 0
+    document_failure_type: str | None = None
+    document_failure_detail: str | None = None
+    document_failure_retryable: bool | None = None
     skipped_documents = 0
     matched_documents = 0
     already_preserved_documents = 0
@@ -975,6 +993,12 @@ def _collect_resource(
                         ValueError,
                     ) as error:
                         failed_documents += 1
+                        if document_failure_type is None:
+                            document_failure_type = type(error).__name__
+                            document_failure_detail = sanitize_error_detail(error)
+                            document_failure_retryable = not isinstance(
+                                error, ValueError
+                            )
                         log_event(
                             logger,
                             logging.ERROR,
@@ -1064,6 +1088,9 @@ def _collect_resource(
         documents_byte_budget_exhausted=document_byte_budget_exhausted,
         documents_matched=matched_documents,
         documents_already_preserved=already_preserved_documents,
+        document_failure_type=document_failure_type,
+        document_failure_detail=document_failure_detail,
+        document_failure_retryable=document_failure_retryable,
     )
 
 

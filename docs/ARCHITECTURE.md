@@ -281,6 +281,14 @@ Municipal, Executivo, ALBA e TSE registram snapshots independentes. Perfis da
 ALBA não são confundidos com a listagem da casa, e cada eleição do TSE mantém
 partição própria.
 
+Uma execução que preserva parte válida do lote e encontra um documento
+incompatível termina `partial` e grava também a primeira falha sanitizada em
+`source.collection_failures`. Ela não perde os registros já preservados e não
+resolve falhas anteriores enquanto a partição continuar parcial. Somente uma
+execução posterior `complete` ou `empty` resolve a falha da mesma partição. Isso
+permite ao painel explicar, por exemplo, que um relatório foi anunciado pelo
+catálogo mas a fonte devolveu HTML em vez do PDF esperado.
+
 Timeouts, falhas de resolução e conexões interrompidas nas fontes HTTP passam
 pela mesma política limitada de retry e backoff. Cada tentativa é registrada
 sem URL sensível ou corpo de resposta; depois do limite, o conector produz erro

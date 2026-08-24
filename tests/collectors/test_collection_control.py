@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime
 from barreiras_collectors.collection_control import (
     CollectionControl,
     CollectionOutcome,
+    PartialCollectionFailure,
     build_execution_idempotency_key,
 )
 
@@ -71,6 +72,7 @@ class CollectionControlTests(unittest.TestCase):
                     "checkpoint": {"edition": 4703},
                     "metrics": {"documents": 3},
                     "block_reason": None,
+                    "partial_failure": None,
                     "completed_at": self.now,
                 }
             ],
@@ -120,6 +122,42 @@ class CollectionControlTests(unittest.TestCase):
             self.repository.completed[0]["block_reason"],
             "fonte oficial bloqueou a consulta histórica",
         )
+
+    def test_partial_failure_is_sanitized_and_persisted(self) -> None:
+        control = self.make_control()
+
+        with control:
+            control.complete(
+                outcome=CollectionOutcome.PARTIAL,
+                observed_records=55,
+                metrics={"documents_failed": 1},
+                partial_failure=PartialCollectionFailure(
+                    error_type="SourceContractError",
+                    error_detail=(
+                        "PDF indisponível em https://fonte.test/?token=segredo"
+                    ),
+                    retryable=True,
+                ),
+            )
+
+        failure = self.repository.completed[0]["partial_failure"]
+        self.assertEqual(failure["error_type"], "SourceContractError")
+        self.assertNotIn("segredo", failure["error_detail"])
+        self.assertEqual(failure["retryable"], True)
+
+    def test_partial_failure_is_rejected_for_complete_partition(self) -> None:
+        control = self.make_control()
+
+        with self.assertRaisesRegex(ValueError, "cobertura parcial"):
+            with control:
+                control.complete(
+                    outcome=CollectionOutcome.COMPLETE,
+                    observed_records=1,
+                    partial_failure=PartialCollectionFailure(
+                        error_type="SourceContractError",
+                        error_detail="documento indisponível",
+                    ),
+                )
 
 
 class ExecutionIdempotencyKeyTests(unittest.TestCase):
