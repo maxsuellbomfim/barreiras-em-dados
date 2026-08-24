@@ -17,7 +17,11 @@ const scriptPath = path.join(
 const powershell =
   "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
 
-test("plano de rotação limita a mudança ao banco compartilhado e ao workload municipal", () => {
+test("plano de rotação limita a mudança ao banco compartilhado e ao workload municipal", (t) => {
+  if (process.platform !== "win32" || !fs.existsSync(powershell)) {
+    t.skip("Windows PowerShell indisponível neste executor");
+    return;
+  }
   const output = execFileSync(
     powershell,
     [
