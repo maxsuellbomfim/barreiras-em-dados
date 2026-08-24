@@ -83,6 +83,13 @@ try {
     anon_rpc_execute: true,
   }]);
 
+  const rpcResult = await database.query(`
+    select pg_get_function_result(
+      'api.get_public_siconfi_annual_totals(integer,smallint,smallint)'::regprocedure
+    ) as result
+  `);
+  assert.match(String(rpcResult.rows[0].result), /amount text/);
+
   const rls = await database.query(`
     select relrowsecurity, relforcerowsecurity
     from pg_catalog.pg_class
