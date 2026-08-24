@@ -338,6 +338,13 @@ próxima menor fatia é materializar os totais anuais de receita e despesa por
 estágio a partir de chaves literais da DCA e reconciliá-los com os fechamentos
 mensais já publicados.
 
+Validação operacional no mesmo dia: depois de substituir a persistência linha a
+linha por um lote PostgreSQL idempotente, o replay completo caiu de mais de dez
+minutos para 57 segundos. O Supabase confirmou 5.986 linhas entre 2021 e 2025;
+2026 foi consultado e retornou vazio na fonte. O controle passa a fechar uma
+partição por exercício (`complete` ou `empty`) e continua tentando os anos
+seguintes quando um exercício isolado falhar.
+
 Checkpoint em 20/08/2026: o fechamento mensal e a cobertura financeira passaram
 a resolver a linhagem documental em conjunto, eliminando o timeout observado na
 página geral. A mesma estratégia foi aplicada às listas públicas de receitas e
