@@ -7814,6 +7814,126 @@ footer {
   margin-top: 0.8rem;
 }
 
+.finance-siconfi-reconciliation {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1.5rem;
+  background: rgba(248, 250, 253, 0.9);
+}
+
+.finance-siconfi-reconciliation > header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.8fr);
+  gap: 1.5rem;
+  align-items: end;
+}
+
+.finance-siconfi-reconciliation h3 {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.25rem, 2.8vw, 1.8rem);
+}
+
+.finance-siconfi-reconciliation > header p,
+.finance-siconfi-reconciliation-caution {
+  margin: 0;
+  color: #5f6d82;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.finance-siconfi-reconciliation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.finance-siconfi-reconciliation-card {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-top: 4px solid #8a96a8;
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.finance-siconfi-reconciliation-card.is-matched_exact {
+  border-top-color: #19875e;
+}
+
+.finance-siconfi-reconciliation-card.is-source_difference {
+  border-top-color: #b67814;
+}
+
+.finance-siconfi-reconciliation-card > span {
+  color: #6b788c;
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.finance-siconfi-reconciliation-card > strong {
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.finance-siconfi-reconciliation-card dl {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.finance-siconfi-reconciliation-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid rgba(28, 40, 61, 0.08);
+}
+
+.finance-siconfi-reconciliation-card dt,
+.finance-siconfi-reconciliation-card p,
+.finance-siconfi-reconciliation-card small {
+  color: #69768a;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.finance-siconfi-reconciliation-card dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 760;
+  text-align: right;
+}
+
+.finance-siconfi-reconciliation-card details {
+  padding-top: 0.2rem;
+}
+
+.finance-siconfi-reconciliation-card summary {
+  cursor: pointer;
+  color: var(--blue-dark);
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.finance-siconfi-reconciliation-card details p {
+  margin: 0.6rem 0 0.3rem;
+}
+
+.finance-siconfi-reconciliation-caution {
+  padding: 0.8rem 0.9rem;
+  border-left: 3px solid #b67814;
+  border-radius: 0.55rem;
+  background: #fff8eb;
+}
+
 @media (max-width: 760px) {
   .finance-siconfi-latest > header {
     align-items: flex-start;
@@ -7822,7 +7942,9 @@ footer {
 
   .finance-siconfi-main-grid,
   .finance-siconfi-payables,
-  .finance-siconfi-history-list dl {
+  .finance-siconfi-history-list dl,
+  .finance-siconfi-reconciliation > header,
+  .finance-siconfi-reconciliation-grid {
     grid-template-columns: 1fr;
   }
 }
