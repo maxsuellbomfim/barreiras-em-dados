@@ -36,5 +36,8 @@ deduções diferentes. IA não participa da soma, comparação ou classificaçã
 - Anos incompletos informam os meses ausentes em vez de apresentar soma parcial.
 - A interface destaca o último exercício e recolhe a conferência histórica por
   ano; meses ausentes aparecem por nome, e não somente por número.
+- A página detalhada do exercício reúne DCA, meses e diferenças. Se a DCA ou a
+  conferência não estiver disponível, publica a ausência expressamente e nunca
+  a converte em zero ou concordância implícita.
 - A interface explica que ajustes de encerramento são hipótese possível, não
   conclusão sobre a causa da diferença.

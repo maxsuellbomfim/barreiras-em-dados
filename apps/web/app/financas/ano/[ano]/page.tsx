@@ -14,11 +14,14 @@ import { getPublicExpenseCategorySummary } from "../../../../lib/expense-categor
 import { getPublicExpenseReports } from "../../../../lib/expenses";
 import { getPublicExpenseReportSourceConflicts } from "../../../../lib/expense-report-source-conflicts.mjs";
 import { getPublicMonthlyFinanceClosures } from "../../../../lib/monthly-finance";
+import { getPublicSiconfiAnnualTotals } from "../../../../lib/siconfi-annual-totals";
+import { getPublicSiconfiMonthlyReconciliation } from "../../../../lib/siconfi-monthly-reconciliation";
 import { monthlyFinanceHref } from "../../../../lib/monthly-finance-detail.mjs";
 import { formatBrlDecimal } from "../../../../lib/revenues";
 import { FinanceAnnualBudgetUnits } from "./finance-annual-budget-units";
 import { FinanceAnnualExpenseCategories } from "./finance-annual-expense-categories";
 import { FinanceAnnualSourceConflicts } from "./finance-annual-source-conflicts";
+import { FinanceYearSiconfi } from "./finance-year-siconfi";
 
 export const revalidate = 300;
 
@@ -78,11 +81,25 @@ export default async function AnnualFinancePage({ params }: PageProps) {
   const fiscalYear = parseFinanceYearSlug(ano, currentBahiaYear());
   if (!fiscalYear) notFound();
 
-  const [result, expenseReportsResult, sourceConflictsResult] = await Promise.all([
+  const [
+    result,
+    expenseReportsResult,
+    sourceConflictsResult,
+    siconfiAnnualResult,
+    siconfiReconciliationResult,
+  ] = await Promise.all([
     getPublicMonthlyFinanceClosures(fiscalYear),
     getPublicExpenseReports(fiscalYear),
     getPublicExpenseReportSourceConflicts(fiscalYear),
+    getPublicSiconfiAnnualTotals(),
+    getPublicSiconfiMonthlyReconciliation(),
   ]);
+  const siconfiAnnualYear = siconfiAnnualResult.state === "available"
+    ? siconfiAnnualResult.years.find((year) => year.fiscalYear === fiscalYear) ?? null
+    : null;
+  const siconfiReconciliationYear = siconfiReconciliationResult.state === "available"
+    ? siconfiReconciliationResult.years.find((year) => year.fiscalYear === fiscalYear) ?? null
+    : null;
   const closures = result.state === "available" ? result.closures : [];
   const trend = result.state === "available"
     ? buildAnnualFinanceTrend(closures, fiscalYear)
@@ -156,6 +173,12 @@ export default async function AnnualFinancePage({ params }: PageProps) {
             barras quando os dois relatórios oficiais do mês foram reconciliados.
           </p>
         </div>
+
+        <FinanceYearSiconfi
+          fiscalYear={fiscalYear}
+          annualYear={siconfiAnnualYear}
+          reconciliationYear={siconfiReconciliationYear}
+        />
 
         {trend.state === "unavailable" ? (
           <div className="finance-year-unavailable" role="status">

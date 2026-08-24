@@ -3458,6 +3458,200 @@ footer {
   background: rgba(255, 255, 255, 0.72);
 }
 
+.finance-year-siconfi {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid rgba(39, 61, 156, 0.13);
+  border-radius: 1.35rem;
+  background: linear-gradient(145deg, #fff, #f6f9ff);
+}
+
+.finance-year-siconfi.is-unavailable {
+  border-style: dashed;
+}
+
+.finance-year-siconfi.is-unavailable h2,
+.finance-year-siconfi.is-unavailable p {
+  margin: 0;
+}
+
+.finance-year-siconfi.is-unavailable p {
+  max-width: 54rem;
+  color: #667085;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.finance-year-siconfi > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.finance-year-siconfi > header h2 {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.3rem, 3vw, 2rem);
+}
+
+.finance-year-siconfi > header a {
+  color: var(--blue-dark);
+  font-size: 0.75rem;
+  font-weight: 740;
+  white-space: nowrap;
+}
+
+.finance-year-siconfi-totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.finance-year-siconfi-totals > div,
+.finance-year-siconfi-check li {
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid rgba(28, 40, 61, 0.08);
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.finance-year-siconfi-totals dt,
+.finance-year-siconfi-details dt {
+  color: #67748a;
+  font-size: 0.68rem;
+}
+
+.finance-year-siconfi-totals dd,
+.finance-year-siconfi-details dd {
+  margin: 0.35rem 0 0;
+  color: var(--ink);
+  font-size: clamp(0.85rem, 1.8vw, 1.05rem);
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+
+.finance-year-siconfi-check {
+  padding-top: 0.25rem;
+}
+
+.finance-year-siconfi-check h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.finance-year-siconfi-check > p {
+  max-width: 58rem;
+  margin: 0.35rem 0 0;
+  color: #667085;
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+
+.finance-year-siconfi-check ul {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finance-year-siconfi-check li {
+  border-top: 4px solid #8793a4;
+}
+
+.finance-year-siconfi-check li.is-matched_exact {
+  border-top-color: #19875e;
+}
+
+.finance-year-siconfi-check li.is-source_difference {
+  border-top-color: #b67814;
+}
+
+.finance-year-siconfi-check li > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.finance-year-siconfi-check li > div span {
+  color: #68758a;
+  font-size: 0.66rem;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
+.finance-year-siconfi-check li > div strong {
+  font-size: 0.82rem;
+}
+
+.finance-year-siconfi-check li > p,
+.finance-year-siconfi-check li details > p {
+  margin: 0.55rem 0 0;
+  color: #667085;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.finance-year-siconfi-check li details {
+  margin-top: 0.65rem;
+}
+
+.finance-year-siconfi-check li summary {
+  cursor: pointer;
+  color: var(--blue-dark);
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+.finance-year-siconfi-check li dl,
+.finance-year-siconfi-details dl {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.6rem 0 0;
+}
+
+.finance-year-siconfi-check li dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.finance-year-siconfi-check li dt,
+.finance-year-siconfi-check li dd {
+  margin: 0;
+  font-size: 0.65rem;
+}
+
+.finance-year-siconfi-check li dd {
+  font-weight: 740;
+  text-align: right;
+}
+
+.finance-year-siconfi-caution {
+  padding: 0.7rem 0.8rem;
+  border-left: 3px solid #b67814;
+  border-radius: 0.5rem;
+  background: #fff8eb;
+}
+
+.finance-year-siconfi-details {
+  margin: 0;
+}
+
+.finance-year-siconfi-details dl {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finance-year-siconfi-details > p {
+  color: #667085;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
 .finance-year-category-section,
 .finance-year-category-warning {
   margin-top: 2.5rem;
@@ -4037,6 +4231,10 @@ footer {
     grid-template-columns: 1fr;
   }
 
+  .finance-year-siconfi-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .finance-annual-category-months {
     grid-template-columns: 1fr;
   }
@@ -4069,6 +4267,17 @@ footer {
   .finance-comparison-details li > p {
     justify-items: start;
     text-align: left;
+  }
+
+  .finance-year-siconfi > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .finance-year-siconfi-totals,
+  .finance-year-siconfi-check ul,
+  .finance-year-siconfi-details dl {
+    grid-template-columns: 1fr;
   }
 
   .finance-category-heading {
