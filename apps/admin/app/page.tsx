@@ -13,6 +13,11 @@ import {
   summarizeFinanceIntegrity,
   type FinanceIntegrityStatus,
 } from "./finance-integrity.mjs";
+import { parseAdminSiconfiReconciliation } from "./siconfi-reconciliation.mjs";
+import {
+  SiconfiReconciliationPanel,
+  type AdminSiconfiReconciliationState,
+} from "./siconfi-reconciliation-panel";
 
 type FieldEntry = Readonly<{
   value: string | null;
@@ -472,6 +477,7 @@ function FinanceInventory({
   state,
   closureState,
   integrityState,
+  reconciliationState,
   search,
   onSearchChange,
   onReload,
@@ -479,6 +485,7 @@ function FinanceInventory({
   state: FinanceInventoryState;
   closureState: FinanceClosureState;
   integrityState: FinanceIntegrityState;
+  reconciliationState: AdminSiconfiReconciliationState;
   search: string;
   onSearchChange: (value: string) => void;
   onReload: () => void;
@@ -505,6 +512,7 @@ function FinanceInventory({
 
   return (
     <>
+      <SiconfiReconciliationPanel state={reconciliationState} />
       <FinanceIntegrityPanel state={integrityState} />
       <FinanceClosureSummary state={closureState} />
       <section aria-labelledby="finance-inventory-title">
@@ -1139,6 +1147,8 @@ export default function ReviewQueuePage() {
     useState<FinanceClosureState>({ kind: "loading" });
   const [financeIntegrity, setFinanceIntegrity] =
     useState<FinanceIntegrityState>({ kind: "loading" });
+  const [siconfiReconciliation, setSiconfiReconciliation] =
+    useState<AdminSiconfiReconciliationState>({ kind: "loading" });
   const [aliasSuggestions, setAliasSuggestions] =
     useState<AliasState>({ kind: "loading" });
   const [collectionHealth, setCollectionHealth] =
@@ -1242,6 +1252,28 @@ export default function ReviewQueuePage() {
     });
   }, [supabase]);
 
+  const loadSiconfiReconciliation = useCallback(async () => {
+    setSiconfiReconciliation({ kind: "loading" });
+    const { data, error } = await supabase.rpc(
+      "get_public_siconfi_monthly_reconciliation",
+      { fiscal_year_from: 2021, fiscal_year_to: null },
+    );
+    if (error) {
+      setSiconfiReconciliation({ kind: "error", message: error.message });
+      return;
+    }
+    const years = parseAdminSiconfiReconciliation(data ?? []);
+    if (!years) {
+      setSiconfiReconciliation({
+        kind: "error",
+        message:
+          "A resposta da API não corresponde ao contrato financeiro esperado.",
+      });
+      return;
+    }
+    setSiconfiReconciliation({ kind: "ready", years });
+  }, [supabase]);
+
   const loadAliasSuggestions = useCallback(async () => {
     setAliasSuggestions({ kind: "loading" });
     const { data, error } = await supabase.rpc(
@@ -1285,6 +1317,7 @@ export default function ReviewQueuePage() {
       loadFinanceInventory(),
       loadFinanceClosures(),
       loadFinanceIntegrity(),
+      loadSiconfiReconciliation(),
       loadAliasSuggestions(),
       loadCollectionHealth(),
     ]);
@@ -1294,6 +1327,7 @@ export default function ReviewQueuePage() {
     loadFinanceInventory,
     loadFinanceClosures,
     loadFinanceIntegrity,
+    loadSiconfiReconciliation,
     loadAliasSuggestions,
     loadCollectionHealth,
   ]);
@@ -1627,6 +1661,7 @@ export default function ReviewQueuePage() {
               state={financeInventory}
               closureState={financeClosures}
               integrityState={financeIntegrity}
+              reconciliationState={siconfiReconciliation}
               search={financeSearch}
               onSearchChange={setFinanceSearch}
               onReload={() =>
@@ -1634,6 +1669,7 @@ export default function ReviewQueuePage() {
                   loadFinanceInventory(),
                   loadFinanceClosures(),
                   loadFinanceIntegrity(),
+                  loadSiconfiReconciliation(),
                 ])
               }
             />
