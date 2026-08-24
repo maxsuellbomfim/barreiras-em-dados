@@ -334,7 +334,7 @@ jobs:
       APP_ENV: production
       LOG_LEVEL: INFO
       PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONPATH: workers/collectors/src
+      PYTHONPATH: workers/collectors/src:workers/normalization/src
       PERSISTENCE_MODE: postgres-supabase
       DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
       SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
@@ -365,6 +365,12 @@ jobs:
           python -B -m
           barreiras_collectors.commands.collect_siconfi_dca
           --year-from "2021"
+
+      - name: Materializar totais anuais literais do SICONFI
+        run: >-
+          python -B -m
+          barreiras_normalization.commands.process_siconfi_annual_totals
+          --limit "10"
 
   bahia_state_amendments:
     name: Preservar emendas estaduais da Bahia

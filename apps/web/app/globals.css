@@ -7698,3 +7698,131 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+.finance-siconfi-section {
+  display: grid;
+  gap: 1.25rem;
+  margin: 2.25rem 0;
+}
+
+.finance-siconfi-latest {
+  overflow: hidden;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 1.25rem 3rem rgba(27, 43, 74, 0.07);
+}
+
+.finance-siconfi-latest > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.35rem 1.5rem;
+  border-bottom: 1px solid rgba(28, 40, 61, 0.08);
+}
+
+.finance-siconfi-latest > header span {
+  color: #66748a;
+  font-size: 0.72rem;
+  font-weight: 720;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.finance-siconfi-latest > header h3 {
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.9rem, 5vw, 3.4rem);
+}
+
+.finance-siconfi-latest > header a,
+.finance-siconfi-history-list a {
+  color: var(--blue-dark);
+  font-weight: 720;
+  text-decoration: none;
+}
+
+.finance-siconfi-main-grid,
+.finance-siconfi-payables,
+.finance-siconfi-history-list dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+}
+
+.finance-siconfi-main-grid > div,
+.finance-siconfi-payables > div,
+.finance-siconfi-history-list dl > div {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 1.25rem 1.5rem;
+  border-right: 1px solid rgba(28, 40, 61, 0.07);
+  border-bottom: 1px solid rgba(28, 40, 61, 0.07);
+}
+
+.finance-siconfi-main-grid dt,
+.finance-siconfi-payables dt,
+.finance-siconfi-history-list dt {
+  color: #647188;
+  font-size: 0.74rem;
+  font-weight: 720;
+}
+
+.finance-siconfi-main-grid dd,
+.finance-siconfi-payables dd,
+.finance-siconfi-history-list dd {
+  margin: 0;
+  font-size: clamp(1.05rem, 2.3vw, 1.5rem);
+  font-weight: 790;
+}
+
+.finance-siconfi-main-grid small,
+.finance-siconfi-payables small,
+.finance-siconfi-history-list small {
+  color: #66748a;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.finance-siconfi-latest > details {
+  margin: 1rem;
+}
+
+.finance-siconfi-history-list {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.finance-siconfi-history-list article {
+  padding: 1rem;
+  border: 1px solid rgba(28, 40, 61, 0.08);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.finance-siconfi-history-list h3 {
+  margin: 0 0 0.7rem;
+  font-size: 1.35rem;
+}
+
+.finance-siconfi-history-list article > a {
+  display: inline-block;
+  margin-top: 0.8rem;
+}
+
+@media (max-width: 760px) {
+  .finance-siconfi-latest > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .finance-siconfi-main-grid,
+  .finance-siconfi-payables,
+  .finance-siconfi-history-list dl {
+    grid-template-columns: 1fr;
+  }
+}

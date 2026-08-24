@@ -48,6 +48,8 @@ import FinancePayrollSources from "./finance-payroll-sources";
 import FinancePayrollYears from "./finance-payroll-years";
 import { FinanceExpenseLineCard } from "./finance-expense-line-card";
 import { FinanceAnnualSummary } from "./finance-annual-summary";
+import { FinanceSiconfiAnnualTotals } from "./finance-siconfi-annual-totals";
+import { getPublicSiconfiAnnualTotals } from "../../lib/siconfi-annual-totals";
 
 export const revalidate = 300;
 
@@ -219,6 +221,7 @@ export default async function FinancesPage() {
     obligationCoverageResult,
     payrollResult,
     payrollCoverageResult,
+    siconfiAnnualResult,
   ] = await Promise.all([
     getPublicExpenseReports(),
     getPublicRevenues(),
@@ -230,6 +233,7 @@ export default async function FinancesPage() {
     getPublicObligationCoverage(),
     getPublicPayrollMonths(120),
     getPublicPayrollCoverage(120),
+    getPublicSiconfiAnnualTotals(),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -287,6 +291,10 @@ export default async function FinancesPage() {
   const payrollCoverageRows =
     payrollCoverageResult.state === "available"
       ? payrollCoverageResult.rows
+      : [];
+  const siconfiAnnualYears =
+    siconfiAnnualResult.state === "available"
+      ? siconfiAnnualResult.years
       : [];
   const obligationCoverageGaps = publicObligationCoverage.filter(
     (row) => row.coverageStatus !== "published",
@@ -395,6 +403,8 @@ export default async function FinancesPage() {
             valor nunca significa arrecadação ou gasto zero.
           </p>
         </section>
+
+        <FinanceSiconfiAnnualTotals years={siconfiAnnualYears} />
 
         <section className="finance-status-panel" aria-labelledby="finance-status-title">
           <div>

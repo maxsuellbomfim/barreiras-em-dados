@@ -126,6 +126,19 @@ para revisão/DLQ; não são descartados silenciosamente.
 - um total municipal só será elegível depois de eliminar duplicidade entre
   períodos e versões e reconciliar fontes oficiais independentes.
 
+### Totais anuais do SICONFI
+
+- a DCA é uma declaração anual e nunca substitui a série mensal da Prefeitura;
+- somente sete contas totais com identidade literal contratada entram na
+  projeção anual; mudança, ausência ou repetição de rótulo falha fechada;
+- receita bruta, dedução do Fundeb, empenho, liquidação, pagamento e cada tipo
+  de restos a pagar permanecem métricas separadas;
+- sinais negativos publicados pela fonte são preservados e não viram anomalia
+  automaticamente;
+- a publicação exige registro bruto, artefato, SHA-256 e evidência primária;
+- nenhuma IA soma, subtrai, arredonda ou classifica os valores financeiros;
+- receita líquida, saldo, superávit e déficit não são inferidos dessa projeção.
+
 ## Conflitos
 
 `source_conflicts` deve preservar:
