@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from types import SimpleNamespace
 
 from barreiras_collectors.connectors.tcm_ba import TcmBaPublicAccountsClient
@@ -21,12 +22,13 @@ from tests.collectors.test_tcm_ba import (
 class FakeObjectStore:
     def __init__(self, *, tamper: bool = False) -> None:
         self.objects: dict[str, bytes] = {}
+        self.content_types: dict[str, str] = {}
         self.tamper = tamper
 
     def put_if_absent(self, *, object_key, body, content_type, expected_sha256):
-        del content_type
         created = object_key not in self.objects
         self.objects.setdefault(object_key, body)
+        self.content_types.setdefault(object_key, content_type)
         return SimpleNamespace(
             sha256=expected_sha256,
             byte_size=len(body),
@@ -114,6 +116,34 @@ class TcmBaCatalogPersistenceTests(unittest.TestCase):
                 object_store=FakeObjectStore(tamper=True),
                 repository=FakeRepository(),
             ).persist(catalog())
+
+    def test_normalizes_jsf_xml_mime_type_for_the_bucket(self) -> None:
+        store = FakeObjectStore()
+        snapshot = catalog()
+        xml_interaction = replace(
+            snapshot.interactions[1],
+            response_headers={"Content-Type": "text/xml; charset=UTF-8"},
+        )
+        snapshot = replace(
+            snapshot,
+            interactions=(
+                snapshot.interactions[0],
+                xml_interaction,
+                *snapshot.interactions[2:],
+            ),
+        )
+
+        result = TcmBaCatalogPersistenceService(
+            object_store=store,
+            repository=FakeRepository(),
+        ).persist(snapshot)
+
+        self.assertIn("application/xml", store.content_types.values())
+        self.assertNotIn("text/xml", store.content_types.values())
+        for object_key, content_type in store.content_types.items():
+            expected_suffix = ".xml" if content_type == "application/xml" else ".html"
+            self.assertTrue(object_key.endswith(expected_suffix))
+        self.assertEqual(len(result.object_keys), len(store.content_types))
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ from .models import (
     RawRecordInput,
 )
 
-TCM_BA_COLLECTOR_VERSION = "tcm-ba-monthly-catalog-collector/1.0.0"
+TCM_BA_COLLECTOR_VERSION = "tcm-ba-monthly-catalog-collector/1.0.1"
 TCM_BA_PARSER_VERSION = "tcm-ba-monthly-catalog/1.0.0"
 
 
@@ -54,6 +54,7 @@ class TcmBaCatalogPersistenceService:
         for stage_index, interaction in enumerate(catalog.interactions):
             records = self._records_for_interaction(catalog, interaction)
             page_number = self._page_number(interaction.stage)
+            media_type = self._media_type(interaction)
             page = CollectedPage(
                 schema_name="tcm-ba-monthly-public-accounts-interaction",
                 schema_version="1.0.0",
@@ -78,7 +79,7 @@ class TcmBaCatalogPersistenceService:
                 collection_status="succeeded",
                 body_sha256=interaction.body_sha256,
                 body_size_bytes=len(interaction.raw_body),
-                media_type=self._media_type(interaction),
+                media_type=media_type,
                 response_headers=interaction.response_headers,
                 cursor={"stage_index": stage_index, "page": page_number},
                 raw_body=interaction.raw_body,
@@ -95,7 +96,8 @@ class TcmBaCatalogPersistenceService:
             )
             object_key = (
                 f"tcm-ba/monthly/{year}/{month:02d}/sha256/"
-                f"{interaction.body_sha256[:2]}/{interaction.body_sha256}.html"
+                f"{interaction.body_sha256[:2]}/{interaction.body_sha256}"
+                f"{self._suffix(media_type)}"
             )
             stored = self.object_store.put_if_absent(
                 object_key=object_key,
@@ -234,8 +236,18 @@ class TcmBaCatalogPersistenceService:
     def _media_type(interaction: TcmBaInteraction) -> str:
         for key, value in interaction.response_headers.items():
             if key.casefold() == "content-type":
-                return value.split(";", 1)[0].strip() or "text/html"
+                media_type = value.split(";", 1)[0].strip().casefold()
+                # O JSF usa o tipo obsoleto text/xml em respostas AJAX. O bucket
+                # privado aceita o equivalente registrado application/xml; os
+                # headers originais continuam preservados em response_headers.
+                return "application/xml" if media_type == "text/xml" else (
+                    media_type or "text/html"
+                )
         return "text/html"
+
+    @staticmethod
+    def _suffix(media_type: str) -> str:
+        return ".xml" if media_type == "application/xml" else ".html"
 
     @staticmethod
     def _digest(value: str) -> str:
