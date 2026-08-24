@@ -116,6 +116,37 @@ class ScheduledWorkflowTests(unittest.TestCase):
         state_job = workflow[workflow.index("  bahia_state_amendments:") :]
         self.assertIn("- siconfi_dca", state_job)
 
+    def test_finance_group_can_run_only_siconfi_without_other_sources(self) -> None:
+        repository_root = Path(__file__).parents[2]
+        workflow = (
+            repository_root
+            / ".github"
+            / "workflows"
+            / "collect-finance-documents.yml"
+        ).read_text(encoding="utf-8")
+
+        collect_job = workflow[
+            workflow.index("  collect:") : workflow.index("  transferegov:")
+        ]
+        transferegov_job = workflow[
+            workflow.index("  transferegov:") : workflow.index("  siconfi_dca:")
+        ]
+        siconfi_job = workflow[
+            workflow.index("  siconfi_dca:") : workflow.index(
+                "  bahia_state_amendments:"
+            )
+        ]
+        state_jobs = workflow[workflow.index("  bahia_state_amendments:") :]
+
+        self.assertIn('- "siconfi-only"', workflow)
+        self.assertIn("inputs.resource != 'siconfi-only'", collect_job)
+        self.assertIn("inputs.resource != 'siconfi-only'", transferegov_job)
+        self.assertIn("inputs.resource == 'siconfi-only'", siconfi_job)
+        self.assertGreaterEqual(
+            state_jobs.count("inputs.resource != 'siconfi-only'"),
+            3,
+        )
+
     def test_manual_dates_are_not_interpolated_into_the_shell_script(self) -> None:
         repository_root = Path(__file__).parents[2]
         workflow = (
