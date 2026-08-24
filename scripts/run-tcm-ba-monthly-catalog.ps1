@@ -2,8 +2,7 @@ param(
     [string]$MonthFrom = "2023-04",
     [string]$MonthTo = "2023-04",
     [int]$ExpectedDocuments = 1824,
-    [ValidateRange(1, 120)]
-    [int]$RequestsPerMinute = 120,
+    [object]$RequestsPerMinute = 30,
     [string]$PythonPath = ""
 )
 
@@ -18,6 +17,11 @@ $sslRootCertificatePath = $null
 $credentialHelperPath = Join-Path $PSScriptRoot `
     "lib\collector-credential-store.ps1"
 . $credentialHelperPath
+$validationHelperPath = Join-Path $PSScriptRoot `
+    "lib\tcm-ba-replay-validation.ps1"
+. $validationHelperPath
+
+$RequestsPerMinute = Assert-TcmBaRequestsPerMinute -RequestsPerMinute $RequestsPerMinute
 
 function Read-LocalCollectorConfig {
     if (-not (Test-Path -LiteralPath $localConfigPath)) {
@@ -190,19 +194,9 @@ try {
         throw "O coletor terminou com código $nativeExitCode."
     }
     $events = @(Read-CompletedEvents -Output $output)
-    if (
-        $ExpectedDocuments -gt 0 -and
-        (
-            $events.Count -ne 1 -or
-            [int]$events[0].documents -ne $ExpectedDocuments -or
-            $events[0].coverage_status -ne "complete"
-        )
-    ) {
-        throw (
-            "A competência não fechou com a contagem esperada de " +
-            "$ExpectedDocuments documentos."
-        )
-    }
+    $null = Assert-TcmBaReplayApproval `
+        -Events $events `
+        -ExpectedDocuments $ExpectedDocuments
     Write-Host "TCM_BA_REPLAY_APROVADO" -ForegroundColor Green
 }
 finally {

@@ -20,6 +20,8 @@ from ..collection_control import (
 from ..connectors.tcm_ba import (
     ENDPOINT_CODE,
     SOURCE_CODE,
+    TcmBaContractError,
+    TcmBaMonthlyCatalog,
     TcmBaPublicAccountsClient,
 )
 from ..logging import log_event
@@ -29,6 +31,7 @@ from ..persistence.tcm_ba import (
     TCM_BA_PARSER_VERSION,
     TcmBaCatalogPersistenceService,
 )
+from ..resilience import PacedRateLimiter
 from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import build_authenticated_object_store
 
@@ -44,6 +47,38 @@ class TcmBaMonthlyCollectionSummary:
     inserted_records: int
     existing_records: int
     artifact_hashes: tuple[str, ...]
+
+
+def fetch_tcm_ba_monthly_catalog_with_contract_retry(
+    *,
+    year: int,
+    month: int,
+    requests_per_minute: int,
+    logger: logging.Logger,
+) -> TcmBaMonthlyCatalog:
+    """Refaz uma captura completa uma única vez após falha de contrato."""
+    rate_limiter = PacedRateLimiter(requests_per_minute)
+    competence = f"{month:02d}/{year}"
+    for attempt in range(1, 3):
+        client = TcmBaPublicAccountsClient(
+            requests_per_minute=requests_per_minute,
+            rate_limiter=rate_limiter,
+        )
+        try:
+            return client.fetch_monthly_catalog(year=year, month=month)
+        except TcmBaContractError as error:
+            if attempt == 2:
+                raise
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_tcm_ba_contract_retry",
+                source=SOURCE_CODE,
+                competence=competence,
+                next_attempt=attempt + 1,
+                error_type=type(error).__name__,
+            )
+    raise AssertionError("A captura do TCM-BA não produziu catálogo.")
 
 
 def month_range(
@@ -177,8 +212,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     except ValueError as error:
         parser.error(str(error))
-    if not 1 <= args.requests_per_minute <= 120:
-        parser.error("--requests-per-minute deve estar entre 1 e 120.")
+    if not 1 <= args.requests_per_minute <= 30:
+        parser.error("--requests-per-minute deve estar entre 1 e 30.")
 
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
@@ -226,9 +261,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         month: int,
     ) -> Callable[[], TcmBaMonthlyCollectionSummary]:
         def operation() -> TcmBaMonthlyCollectionSummary:
-            catalog = TcmBaPublicAccountsClient(
-                requests_per_minute=args.requests_per_minute
-            ).fetch_monthly_catalog(year=year, month=month)
+            catalog = fetch_tcm_ba_monthly_catalog_with_contract_retry(
+                year=year,
+                month=month,
+                requests_per_minute=args.requests_per_minute,
+                logger=logger,
+            )
             persisted = service.persist(catalog)
             return TcmBaMonthlyCollectionSummary(
                 year=year,

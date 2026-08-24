@@ -49,9 +49,9 @@ argumento de processo, exibida no terminal ou registrada no Git.
 O piloto exige exatamente abril de 2023 e 1.824 documentos. O segundo comando
 carrega o cofre DPAPI automaticamente. Se ainda não houver cofre, mantém a
 alternativa de solicitar as senhas com entrada oculta. Em ambos os casos, as
-variáveis de ambiente são removidas no bloco `finally`. O replay local usa até
-120 requisições por minuto para concluir a paginação antes de a sessão JSF do
-e-TCM expirar; o parâmetro é validado e nunca pode ultrapassar esse teto.
+variáveis de ambiente são removidas no bloco `finally`. O replay local respeita
+o limite cadastrado de 30 requisições por minuto; tanto o wrapper quanto o
+comando Python rejeitam valores acima desse teto.
 
 Para outra competência, desative a contagem específica:
 
@@ -64,6 +64,15 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 Antes de ampliar o intervalo, confirme no Supabase a partição, o número de
 documentos, os hashes e o replay idempotente. Backfill grande deve continuar em
 lotes mensais; uma falha não autoriza marcar os meses seguintes como vazios.
+`ExpectedDocuments 0` desativa somente a comparação com uma contagem conhecida:
+o wrapper ainda exige cobertura `complete` e mais de zero documentos. Resposta
+vazia, parcial ou sem evento final encerra a execução com erro.
+
+O e-TCM pode ocasionalmente responder HTTP 200 com conteúdo JSF que não atende
+ao contrato da tabela. Nessa situação específica, o comando abre uma nova
+sessão e refaz a captura integral uma única vez, mantendo o mesmo limitador de
+30 requisições por minuto. Erros HTTP, de transporte, banco, Storage ou
+persistência não entram nesse retry.
 
 ## Piloto comprovado
 
@@ -95,6 +104,17 @@ registros brutos estruturados. A partição também fechou como `complete`, com
 nenhum status HTTP fora da faixa 2xx. As 244 observações correspondem a 241
 objetos e hashes únicos; novamente, as três repetições preservam respostas JSF
 idênticas e não alteram a contagem normalizada de documentos.
+
+Para `2023-08`, uma primeira captura encontrou uma resposta HTTP 200 sem a
+tabela documental e falhou de forma segura, sem fechar a partição como vazia.
+Uma reprodução diagnóstica preservou 243 respostas e comprovou que o catálogo
+continha 2.327 documentos. Após a proteção de nova sessão para essa falha de
+contrato, o replay persistente fechou a competência como `complete`: 2.327
+documentos, 243 observações brutas e 2.328 registros estruturados, sendo uma
+submissão mensal. O gate relacional confirmou manifesto, sequência, MIME,
+HTTP, chaves e runs, com zero conflito e zero falha aberta. Por fim, 240 objetos
+únicos foram relidos do bucket privado (7.144.760 bytes); todos os SHA-256 e
+tamanhos coincidiram com o banco.
 
 Idempotência possui duas camadas. Cada nova observação HTTP permanece
 imutável, inclusive quando o JSF altera tokens de sessão sem mudar o documento.
