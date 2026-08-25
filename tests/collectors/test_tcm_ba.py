@@ -4,6 +4,7 @@ import unittest
 from dataclasses import replace
 
 from barreiras_collectors.connectors.tcm_ba import (
+    MAX_DOCUMENT_PAGES_PER_SESSION,
     TcmBaContractError,
     TcmBaPublicAccountsClient,
     validate_tcm_ba_catalog,
@@ -184,6 +185,11 @@ class RetryOnceSessionTransport(SequenceSessionTransport):
 
 
 class TcmBaPublicAccountsTests(unittest.TestCase):
+    def test_default_session_window_stays_below_observed_expiration(self) -> None:
+        self.assertEqual(MAX_DOCUMENT_PAGES_PER_SESSION, 60)
+        client = TcmBaPublicAccountsClient(requests_per_minute=600)
+        self.assertEqual(client.max_document_pages_per_session, 60)
+
     def test_fetches_every_catalog_page_and_preserves_each_raw_response(self) -> None:
         transport = SequenceSessionTransport(
             [
