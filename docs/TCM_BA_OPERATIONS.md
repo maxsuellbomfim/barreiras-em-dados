@@ -239,6 +239,13 @@ zero conflito e zero falha aberta. As observações correspondem a 517 objetos
 imutáveis únicos; a auditoria física releu 33.330.729 bytes e confirmou todos os
 SHA-256 e tamanhos sem divergência.
 
+Para `2025-01`, o replay controlado fechou como `complete`: 1.627 documentos
+distintos, 195 observações brutas e 1.628 registros estruturados, incluindo uma
+submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
+zero conflito e zero falha aberta. As observações correspondem a 186 objetos
+imutáveis únicos; a auditoria física releu 10.737.358 bytes e confirmou todos os
+SHA-256 e tamanhos sem divergência.
+
 A partição mensal aponta para o run de controle; cada interação JSF preservada
 possui seu próprio run idempotente. Por isso, a auditoria relaciona os artefatos
 pela fonte, schema, competência e janela temporal do run de controle, exige que
