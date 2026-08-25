@@ -44,7 +44,7 @@ SAFE_RESPONSE_HEADERS = frozenset(
     {"content-type", "content-length", "date", "etag", "last-modified"}
 )
 RETRYABLE_HTTP_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
-MAX_DOCUMENT_PAGES_PER_SESSION = 300
+MAX_DOCUMENT_PAGES_PER_SESSION = 60
 
 
 class TcmBaError(RuntimeError):
