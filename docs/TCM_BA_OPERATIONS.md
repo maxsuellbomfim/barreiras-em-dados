@@ -130,6 +130,13 @@ incluindo uma submissão mensal. O gate relacional confirmou o manifesto, os
 aberta ou conflito de identidade. A auditoria física releu 6.435.160 bytes do
 bucket privado, sem divergência de SHA-256 ou tamanho.
 
+Para `2023-11`, o replay controlado fechou como `complete`: 2.666 documentos
+distintos, 277 observações brutas e 2.667 registros estruturados, incluindo uma
+submissão mensal. O gate relacional confirmou o manifesto, os 274 objetos
+físicos únicos, as chaves, MIME, status dos runs e zero falha aberta ou conflito
+de identidade. A auditoria física releu 7.837.823 bytes do bucket privado, sem
+divergência de SHA-256 ou tamanho.
+
 A partição mensal aponta para o run de controle; cada interação JSF preservada
 possui seu próprio run idempotente. Por isso, a auditoria relaciona os artefatos
 pela fonte, schema, competência e janela temporal do run de controle, exige que
