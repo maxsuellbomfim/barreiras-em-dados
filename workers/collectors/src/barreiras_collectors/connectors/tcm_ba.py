@@ -44,6 +44,7 @@ SAFE_RESPONSE_HEADERS = frozenset(
     {"content-type", "content-length", "date", "etag", "last-modified"}
 )
 RETRYABLE_HTTP_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
+MAX_DOCUMENT_PAGES_PER_SESSION = 300
 
 
 class TcmBaError(RuntimeError):
@@ -73,6 +74,7 @@ class TcmBaSessionTransport(Protocol):
         timeout_seconds: float,
         max_body_bytes: int,
     ) -> HttpResponse: ...
+    def reset_session(self) -> None: ...
 
 
 class _RestrictedRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -192,6 +194,15 @@ class UrllibSessionTransport:
                 body=body,
                 final_url=final_url,
             )
+
+    def reset_session(self) -> None:
+        """Descarta cookies JSF para iniciar uma sessão oficial limpa."""
+        cookie_jar = http.cookiejar.CookieJar()
+        self._opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(cookie_jar),
+            _RestrictedRedirectHandler(self.allowed_hosts),
+            urllib.request.HTTPSHandler(context=ssl.create_default_context()),
+        )
 
 
 @dataclass(frozen=True)
@@ -381,6 +392,7 @@ class TcmBaPublicAccountsClient:
         )
         self.sleep = sleep
         self.random_value = random_value
+        self.max_document_pages_per_session = MAX_DOCUMENT_PAGES_PER_SESSION
 
     def fetch_monthly_catalog(self, *, year: int, month: int) -> TcmBaMonthlyCatalog:
         current_year = datetime.now(UTC).year
@@ -393,73 +405,49 @@ class TcmBaPublicAccountsClient:
 
         competence = f"{month:02d}/{year}"
         interactions: list[TcmBaInteraction] = []
-        initial = self._get("initial-form", BASE_URL, interactions)
-        state = _parse_form_state(initial.raw_body)
-
-        state = self._change_select(
-            state,
-            f"{FORM_ID}:PeriodicidadePC_input",
-            "Mensal",
-            "select-periodicity",
-            interactions,
+        (
+            submission,
+            detail,
+            total_documents,
+            pagination_form_id,
+        ) = self._open_monthly_catalog_session(
+            year=year,
+            competence=competence,
+            interactions=interactions,
+            stage_suffix="",
         )
-        state = self._change_select(
-            state,
-            f"{FORM_ID}:competenciaPCAno_input",
-            str(year),
-            "select-year",
-            interactions,
-        )
-        state = self._change_select(
-            state,
-            f"{FORM_ID}:municipio_input",
-            "BARREIRAS",
-            "select-municipality",
-            interactions,
-        )
-        state = self._change_select(
-            state,
-            f"{FORM_ID}:unidadeJurisdicionada_input",
-            "Prefeitura Municipal de BARREIRAS",
-            "select-accounting-unit",
-            interactions,
-        )
-
-        form = dict(state.values)
-        # A interface do e-TCM trata município e unidade como filtros alternativos:
-        # ao escolher a Prefeitura, o navegador volta o município ao placeholder.
-        form[f"{FORM_ID}:municipio_input"] = _option_value(
-            state.form,
-            f"{FORM_ID}:municipio_input",
-            "Clique para selecionar",
-            allow_placeholder=True,
-        )
-        form[f"{FORM_ID}:competenciaPCMes_input"] = _option_value(
-            state.form, f"{FORM_ID}:competenciaPCMes_input", competence
-        )
-        form[f"{FORM_ID}:tipoPC_input"] = _option_value(
-            state.form, f"{FORM_ID}:tipoPC_input", "Gestão"
-        )
-        search_button = f"{FORM_ID}:searchButton"
-        form.update(_ajax_click_fields(search_button))
-        form[f"{FORM_ID}:j_idt87"] = "1"
-        search = self._post("search-submission", state.action_url, form, interactions)
-        submission, submission_form = _parse_submission(search.raw_body, competence)
-
-        selection_button = f"{submission_form}:selecionarPrestacao"
-        selection_form = {
-            submission_form: submission_form,
-            "javax.faces.ViewState": _view_state(search.raw_body),
-            **_ajax_click_fields(selection_button),
-        }
-        detail = self._post("select-submission", BASE_URL, selection_form, interactions)
-        total_documents = _parse_total_documents(detail.raw_body)
         documents = list(_parse_documents(detail.raw_body, page_number=1))
-        pagination_form_id = _parse_pagination_form_id(detail.raw_body)
 
         current = detail
         total_pages = max(1, (total_documents + PAGE_SIZE - 1) // PAGE_SIZE)
         for page_number in range(2, total_pages + 1):
+            if (page_number - 1) % self.max_document_pages_per_session == 0:
+                self.transport.reset_session()
+                (
+                    resumed_submission,
+                    resumed_detail,
+                    resumed_total_documents,
+                    resumed_pagination_form_id,
+                ) = self._open_monthly_catalog_session(
+                    year=year,
+                    competence=competence,
+                    interactions=interactions,
+                    stage_suffix=f"-resume-{page_number}",
+                )
+                resumed_first_page = _parse_documents(
+                    resumed_detail.raw_body,
+                    page_number=1,
+                )
+                if (
+                    resumed_submission != submission
+                    or resumed_total_documents != total_documents
+                    or resumed_first_page != tuple(documents[: len(resumed_first_page)])
+                ):
+                    raise TcmBaContractError(
+                        "O catálogo do e-TCM mudou durante a renovação da sessão."
+                    )
+                current = resumed_detail
+                pagination_form_id = resumed_pagination_form_id
             pagination = {
                 "javax.faces.partial.ajax": "true",
                 "javax.faces.source": TABLE_ID,
@@ -495,6 +483,94 @@ class TcmBaPublicAccountsClient:
             total_documents=total_documents,
             documents=tuple(documents),
             interactions=tuple(interactions),
+        )
+
+    def _open_monthly_catalog_session(
+        self,
+        *,
+        year: int,
+        competence: str,
+        interactions: list[TcmBaInteraction],
+        stage_suffix: str,
+    ) -> tuple[TcmBaSubmission, TcmBaInteraction, int, str]:
+        initial = self._get(f"initial-form{stage_suffix}", BASE_URL, interactions)
+        state = _parse_form_state(initial.raw_body)
+        state = self._change_select(
+            state,
+            f"{FORM_ID}:PeriodicidadePC_input",
+            "Mensal",
+            f"select-periodicity{stage_suffix}",
+            interactions,
+        )
+        state = self._change_select(
+            state,
+            f"{FORM_ID}:competenciaPCAno_input",
+            str(year),
+            f"select-year{stage_suffix}",
+            interactions,
+        )
+        state = self._change_select(
+            state,
+            f"{FORM_ID}:municipio_input",
+            "BARREIRAS",
+            f"select-municipality{stage_suffix}",
+            interactions,
+        )
+        state = self._change_select(
+            state,
+            f"{FORM_ID}:unidadeJurisdicionada_input",
+            "Prefeitura Municipal de BARREIRAS",
+            f"select-accounting-unit{stage_suffix}",
+            interactions,
+        )
+
+        form = dict(state.values)
+        form[f"{FORM_ID}:municipio_input"] = _option_value(
+            state.form,
+            f"{FORM_ID}:municipio_input",
+            "Clique para selecionar",
+            allow_placeholder=True,
+        )
+        form[f"{FORM_ID}:competenciaPCMes_input"] = _option_value(
+            state.form,
+            f"{FORM_ID}:competenciaPCMes_input",
+            competence,
+        )
+        form[f"{FORM_ID}:tipoPC_input"] = _option_value(
+            state.form,
+            f"{FORM_ID}:tipoPC_input",
+            "Gestão",
+        )
+        search_button = f"{FORM_ID}:searchButton"
+        form.update(_ajax_click_fields(search_button))
+        form[f"{FORM_ID}:j_idt87"] = "1"
+        search = self._post(
+            f"search-submission{stage_suffix}",
+            state.action_url,
+            form,
+            interactions,
+        )
+        submission, submission_form = _parse_submission(
+            search.raw_body,
+            competence,
+        )
+        selection_button = f"{submission_form}:selecionarPrestacao"
+        selection_form = {
+            submission_form: submission_form,
+            "javax.faces.ViewState": _view_state(search.raw_body),
+            **_ajax_click_fields(selection_button),
+        }
+        detail = self._post(
+            f"select-submission{stage_suffix}",
+            BASE_URL,
+            selection_form,
+            interactions,
+        )
+        return (
+            submission,
+            detail,
+            _parse_total_documents(detail.raw_body),
+            _parse_pagination_form_id(detail.raw_body),
         )
 
     def _change_select(
