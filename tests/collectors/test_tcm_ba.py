@@ -136,6 +136,10 @@ class SequenceSessionTransport:
     def __init__(self, bodies: list[bytes]) -> None:
         self.bodies = list(bodies)
         self.calls: list[tuple[str, str, dict[str, str] | None]] = []
+        self.reset_calls = 0
+
+    def reset_session(self) -> None:
+        self.reset_calls += 1
 
     def get(self, url, *, headers, timeout_seconds, max_body_bytes):
         del headers, timeout_seconds, max_body_bytes
@@ -249,6 +253,81 @@ class TcmBaPublicAccountsTests(unittest.TestCase):
         self.assertEqual(
             posted_forms[-1]["consultaPublicaTabPanel:tabelaDocumentos_first"], "10"
         )
+
+    def test_renews_long_session_and_resumes_at_next_document_page(self) -> None:
+        page_two = b"".join(
+            f"""
+            <tr><td><form id="doc-{number}"><a>arquivo</a></form></td>
+            <td>Relatorios</td><td>{number:02d}-RELATORIO.pdf</td>
+            <td>nome omitido</td><td>31/12/2023</td></tr>
+            """.encode()
+            for number in range(11, 21)
+        )
+        page_three = b"""
+        <tr><td><form id="doc-21"><a>arquivo</a></form></td><td>Relatorios</td>
+        <td>21-RELATORIO.pdf</td><td>nome omitido</td><td>31/12/2023</td></tr>
+        """
+        first_detail = DETAIL_1.replace(b"rowCount:11", b"rowCount:21")
+        resumed_detail = first_detail.replace(b"detail-state-1", b"resumed-detail")
+        bootstrap = [
+            _form(monthly=False, year=False, city=False),
+            _state_only("period-preflight-state"),
+            _partial(_form(monthly=True, year=False, city=False), "period-state"),
+            _state_only("year-preflight-state"),
+            _partial(_form(monthly=True, year=True, city=False), "year-state"),
+            _state_only("city-preflight-state"),
+            _partial(_form(monthly=True, year=True, city=True), "city-state"),
+            _state_only("unit-preflight-state"),
+            _partial(
+                _form(monthly=True, year=True, city=False, unit=True),
+                "unit-state",
+            ),
+            _partial(SEARCH, "search-state"),
+        ]
+        resumed_bootstrap = [
+            body.replace(b"state", b"resumed-state") for body in bootstrap
+        ]
+        transport = SequenceSessionTransport(
+            [
+                *bootstrap,
+                _partial(first_detail, "detail-state-1"),
+                _partial(
+                    page_two,
+                    "detail-state-2",
+                    update_id="consultaPublicaTabPanel:tabelaDocumentos",
+                ),
+                *resumed_bootstrap,
+                _partial(resumed_detail, "resumed-detail"),
+                _partial(
+                    page_three,
+                    "resumed-page-3",
+                    update_id="consultaPublicaTabPanel:tabelaDocumentos",
+                ),
+            ]
+        )
+
+        client = TcmBaPublicAccountsClient(
+            transport=transport,
+            requests_per_minute=600,
+        )
+        client.max_document_pages_per_session = 2
+        try:
+            catalog = client.fetch_monthly_catalog(year=2023, month=4)
+        except TcmBaContractError as error:
+            self.fail(f"A sessão longa não foi retomada: {type(error).__name__}")
+
+        self.assertEqual(transport.reset_calls, 1)
+        self.assertEqual(len(catalog.documents), 21)
+        self.assertEqual(catalog.documents[-1].page_number, 3)
+        page_three_form = next(
+            form
+            for method, _url, form in reversed(transport.calls)
+            if method == "POST"
+            and form is not None
+            and form.get("consultaPublicaTabPanel:tabelaDocumentos_first") == "20"
+        )
+        self.assertEqual(page_three_form["javax.faces.ViewState"], "resumed-detail")
+        validate_tcm_ba_catalog(catalog)
 
     def test_rejects_search_result_for_another_competence(self) -> None:
         wrong = SEARCH.replace(b"04/2023", b"03/2023")

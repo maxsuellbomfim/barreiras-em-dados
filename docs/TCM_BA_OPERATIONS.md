@@ -71,8 +71,11 @@ vazia, parcial ou sem evento final encerra a execução com erro.
 O e-TCM pode ocasionalmente responder HTTP 200 com conteúdo JSF que não atende
 ao contrato da tabela. Nessa situação específica, o comando abre uma nova
 sessão e refaz a captura integral uma única vez, mantendo o mesmo limitador de
-30 requisições por minuto. Erros HTTP, de transporte, banco, Storage ou
-persistência não entram nesse retry.
+30 requisições por minuto. Para catálogos extensos, o conector também renova
+preventivamente a sessão a cada 300 páginas e retoma da página seguinte. Antes
+de continuar, ele exige que prestação, total e primeira página permaneçam
+idênticos. Erros HTTP, de transporte, banco, Storage ou persistência não entram
+nesse retry.
 
 ## Piloto comprovado
 
@@ -136,6 +139,17 @@ submissão mensal. O gate relacional confirmou o manifesto, os 274 objetos
 físicos únicos, as chaves, MIME, status dos runs e zero falha aberta ou conflito
 de identidade. A auditoria física releu 7.837.823 bytes do bucket privado, sem
 divergência de SHA-256 ou tamanho.
+
+Para `2023-12`, três sessões independentes falharam de forma segura na página
+396, sempre após o e-TCM responder HTTP 200 com um HTML sem tabela, formulário
+JSF ou sinal explícito de expiração. A renovação preventiva atravessou esse
+ponto e o replay fechou como `complete`: 4.746 documentos distintos, 496
+observações brutas e 4.747 registros estruturados, incluindo uma submissão
+mensal. O gate relacional confirmou manifesto, chaves, MIME, runs, zero conflito
+e zero falha aberta. As observações correspondem a 490 objetos imutáveis únicos;
+a auditoria física releu 14.541.603 bytes e confirmou todos os SHA-256 e
+tamanhos sem divergência.
+
 
 A partição mensal aponta para o run de controle; cada interação JSF preservada
 possui seu próprio run idempotente. Por isso, a auditoria relaciona os artefatos
