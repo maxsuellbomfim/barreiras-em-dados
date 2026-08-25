@@ -335,6 +335,120 @@ class TcmBaPublicAccountsTests(unittest.TestCase):
         self.assertEqual(page_three_form["javax.faces.ViewState"], "resumed-detail")
         validate_tcm_ba_catalog(catalog)
 
+    def test_retries_transient_catalog_mismatch_during_session_renewal(self) -> None:
+        page_two = b"".join(
+            f"""
+            <tr><td><form id="doc-{number}"><a>arquivo</a></form></td>
+            <td>Relatorios</td><td>{number:02d}-RELATORIO.pdf</td>
+            <td>nome omitido</td><td>31/12/2023</td></tr>
+            """.encode()
+            for number in range(11, 21)
+        )
+        page_three = b"""
+        <tr><td><form id="doc-21"><a>arquivo</a></form></td><td>Relatorios</td>
+        <td>21-RELATORIO.pdf</td><td>nome omitido</td><td>31/12/2023</td></tr>
+        """
+        first_detail = DETAIL_1.replace(b"rowCount:11", b"rowCount:21")
+        mismatched_detail = first_detail.replace(b"rowCount:21", b"rowCount:22")
+        resumed_detail = first_detail.replace(b"detail-state-1", b"resumed-detail")
+        bootstrap = [
+            _form(monthly=False, year=False, city=False),
+            _state_only("period-preflight-state"),
+            _partial(_form(monthly=True, year=False, city=False), "period-state"),
+            _state_only("year-preflight-state"),
+            _partial(_form(monthly=True, year=True, city=False), "year-state"),
+            _state_only("city-preflight-state"),
+            _partial(_form(monthly=True, year=True, city=True), "city-state"),
+            _state_only("unit-preflight-state"),
+            _partial(
+                _form(monthly=True, year=True, city=False, unit=True),
+                "unit-state",
+            ),
+            _partial(SEARCH, "search-state"),
+        ]
+        transient_bootstrap = [
+            body.replace(b"state", b"transient-state") for body in bootstrap
+        ]
+        resumed_bootstrap = [
+            body.replace(b"state", b"resumed-state") for body in bootstrap
+        ]
+        transport = SequenceSessionTransport(
+            [
+                *bootstrap,
+                _partial(first_detail, "detail-state-1"),
+                _partial(
+                    page_two,
+                    "detail-state-2",
+                    update_id="consultaPublicaTabPanel:tabelaDocumentos",
+                ),
+                *transient_bootstrap,
+                _partial(mismatched_detail, "transient-detail"),
+                *resumed_bootstrap,
+                _partial(resumed_detail, "resumed-detail"),
+                _partial(
+                    page_three,
+                    "resumed-page-3",
+                    update_id="consultaPublicaTabPanel:tabelaDocumentos",
+                ),
+            ]
+        )
+
+        client = TcmBaPublicAccountsClient(
+            transport=transport,
+            requests_per_minute=600,
+        )
+        client.max_document_pages_per_session = 2
+        catalog = client.fetch_monthly_catalog(year=2023, month=4)
+
+        self.assertEqual(transport.reset_calls, 2)
+        self.assertEqual(len(catalog.documents), 21)
+        self.assertEqual(catalog.documents[-1].page_number, 3)
+        validate_tcm_ba_catalog(catalog)
+
+    def test_rejects_persistent_catalog_mismatch_after_renewal_retries(self) -> None:
+        mismatched_detail = DETAIL_1.replace(b"rowCount:11", b"rowCount:12")
+        bootstrap = [
+            _form(monthly=False, year=False, city=False),
+            _state_only("period-preflight-state"),
+            _partial(_form(monthly=True, year=False, city=False), "period-state"),
+            _state_only("year-preflight-state"),
+            _partial(_form(monthly=True, year=True, city=False), "year-state"),
+            _state_only("city-preflight-state"),
+            _partial(_form(monthly=True, year=True, city=True), "city-state"),
+            _state_only("unit-preflight-state"),
+            _partial(
+                _form(monthly=True, year=True, city=False, unit=True),
+                "unit-state",
+            ),
+            _partial(SEARCH, "search-state"),
+        ]
+        renewal_responses: list[bytes] = []
+        for attempt in range(1, 4):
+            renewal_responses.extend(
+                body.replace(b"state", f"attempt-{attempt}-state".encode())
+                for body in bootstrap
+            )
+            renewal_responses.append(
+                _partial(mismatched_detail, f"attempt-{attempt}-detail")
+            )
+        transport = SequenceSessionTransport(
+            [
+                *bootstrap,
+                _partial(DETAIL_1, "detail-state-1"),
+                *renewal_responses,
+            ]
+        )
+        client = TcmBaPublicAccountsClient(
+            transport=transport,
+            requests_per_minute=600,
+        )
+        client.max_document_pages_per_session = 1
+
+        with self.assertRaisesRegex(TcmBaContractError, "todas as tentativas"):
+            client.fetch_monthly_catalog(year=2023, month=4)
+
+        self.assertEqual(transport.reset_calls, 3)
+
     def test_rejects_search_result_for_another_competence(self) -> None:
         wrong = SEARCH.replace(b"04/2023", b"03/2023")
         transport = SequenceSessionTransport(

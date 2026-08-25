@@ -45,6 +45,7 @@ SAFE_RESPONSE_HEADERS = frozenset(
 )
 RETRYABLE_HTTP_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
 MAX_DOCUMENT_PAGES_PER_SESSION = 60
+MAX_SESSION_RENEWAL_ATTEMPTS = 3
 
 
 class TcmBaError(RuntimeError):
@@ -422,30 +423,45 @@ class TcmBaPublicAccountsClient:
         total_pages = max(1, (total_documents + PAGE_SIZE - 1) // PAGE_SIZE)
         for page_number in range(2, total_pages + 1):
             if (page_number - 1) % self.max_document_pages_per_session == 0:
-                self.transport.reset_session()
-                (
-                    resumed_submission,
-                    resumed_detail,
-                    resumed_total_documents,
-                    resumed_pagination_form_id,
-                ) = self._open_monthly_catalog_session(
-                    year=year,
-                    competence=competence,
-                    interactions=interactions,
-                    stage_suffix=f"-resume-{page_number}",
-                )
-                resumed_first_page = _parse_documents(
-                    resumed_detail.raw_body,
-                    page_number=1,
-                )
-                if (
-                    resumed_submission != submission
-                    or resumed_total_documents != total_documents
-                    or resumed_first_page != tuple(documents[: len(resumed_first_page)])
-                ):
-                    raise TcmBaContractError(
-                        "O catálogo do e-TCM mudou durante a renovação da sessão."
+                last_renewal_error: TcmBaContractError | None = None
+                for renewal_attempt in range(1, MAX_SESSION_RENEWAL_ATTEMPTS + 1):
+                    self.transport.reset_session()
+                    try:
+                        (
+                            resumed_submission,
+                            resumed_detail,
+                            resumed_total_documents,
+                            resumed_pagination_form_id,
+                        ) = self._open_monthly_catalog_session(
+                            year=year,
+                            competence=competence,
+                            interactions=interactions,
+                            stage_suffix=(
+                                f"-resume-{page_number}-attempt-{renewal_attempt}"
+                            ),
+                        )
+                        resumed_first_page = _parse_documents(
+                            resumed_detail.raw_body,
+                            page_number=1,
+                        )
+                    except TcmBaContractError as error:
+                        last_renewal_error = error
+                        continue
+                    if (
+                        resumed_submission == submission
+                        and resumed_total_documents == total_documents
+                        and resumed_first_page
+                        == tuple(documents[: len(resumed_first_page)])
+                    ):
+                        break
+                    last_renewal_error = TcmBaContractError(
+                        "A sessão renovada divergiu do snapshot mensal fixado."
                     )
+                else:
+                    raise TcmBaContractError(
+                        "O catálogo do e-TCM divergiu do snapshot durante todas as "
+                        "tentativas de renovação da sessão."
+                    ) from last_renewal_error
                 current = resumed_detail
                 pagination_form_id = resumed_pagination_form_id
             pagination = {
