@@ -150,6 +150,14 @@ e zero falha aberta. As observações correspondem a 490 objetos imutáveis úni
 a auditoria física releu 14.541.603 bytes e confirmou todos os SHA-256 e
 tamanhos sem divergência.
 
+Para `2024-01`, o primeiro contrato retornou uma estrutura inválida e foi
+descartado sem fechar a competência. A repetição controlada concluiu como
+`complete`: 2.926 documentos distintos, 303 observações brutas e 2.927
+registros estruturados, incluindo uma submissão mensal. O gate relacional
+confirmou manifesto, chaves, MIME, runs, zero conflito e zero falha aberta. As
+observações correspondem a 300 objetos imutáveis únicos; a auditoria física
+releu 8.308.835 bytes e confirmou todos os SHA-256 e tamanhos sem divergência.
+
 
 A partição mensal aponta para o run de controle; cada interação JSF preservada
 possui seu próprio run idempotente. Por isso, a auditoria relaciona os artefatos
