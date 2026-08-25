@@ -18,6 +18,7 @@ __pycache__/
 .env
 .env.*
 !.env.example
+.collector-credentials.local.json
 *.pem
 !config/certificates/sectigo-public-server-authentication-ov-r36-chain.pem
 *.key

@@ -2,6 +2,7 @@ param(
     [string]$MonthFrom = "2023-04",
     [string]$MonthTo = "2023-04",
     [int]$ExpectedDocuments = 1824,
+    [object]$RequestsPerMinute = 30,
     [string]$PythonPath = ""
 )
 
@@ -10,7 +11,17 @@ $projectRef = "mpladsyzilmgiefejpkq"
 $collectorUser = "collector_querido_diario.$projectRef"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $localConfigPath = Join-Path $projectRoot ".env.collector.local"
+$credentialStorePath = Join-Path $projectRoot `
+    ".collector-credentials.local.json"
 $sslRootCertificatePath = $null
+$credentialHelperPath = Join-Path $PSScriptRoot `
+    "lib\collector-credential-store.ps1"
+. $credentialHelperPath
+$validationHelperPath = Join-Path $PSScriptRoot `
+    "lib\tcm-ba-replay-validation.ps1"
+. $validationHelperPath
+
+$RequestsPerMinute = Assert-TcmBaRequestsPerMinute -RequestsPerMinute $RequestsPerMinute
 
 function Read-LocalCollectorConfig {
     if (-not (Test-Path -LiteralPath $localConfigPath)) {
@@ -25,18 +36,6 @@ function Read-LocalCollectorConfig {
             -not $_.TrimStart().StartsWith("#")
         }
     return ConvertFrom-StringData ($lines -join [Environment]::NewLine)
-}
-
-function Convert-SecureValueToPlainText {
-    param([Security.SecureString]$Value)
-
-    $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Value)
-    try {
-        return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
-    }
-    finally {
-        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)
-    }
 }
 
 function Find-Python {
@@ -91,7 +90,7 @@ if ($ExpectedDocuments -gt 0 -and $MonthFrom -ne $MonthTo) {
 }
 
 Write-Host "Replay local seguro do catálogo mensal do TCM-BA" -ForegroundColor Green
-Write-Host "As senhas ficam somente na memória deste processo."
+Write-Host "As senhas ficam protegidas pelo usuário atual do Windows."
 $localConfig = Read-LocalCollectorConfig
 $poolerHost = $localConfig.COLLECTOR_POOLER_HOST
 $publishableKey = $localConfig.SUPABASE_PUBLISHABLE_KEY
@@ -109,22 +108,36 @@ if ($workloadEmail.Split("@").Count -ne 2) {
     throw "SUPABASE_WORKLOAD_EMAIL local é inválido."
 }
 
-$databasePassword = $localConfig.COLLECTOR_DATABASE_PASSWORD
-$workloadPassword = $localConfig.SUPABASE_WORKLOAD_PASSWORD
+$credentialStore = Read-CollectorCredentialStore `
+    -Path $credentialStorePath `
+    -ExpectedProjectRef $projectRef
+if ($credentialStore) {
+    Write-Host "Credenciais protegidas do Windows carregadas." `
+        -ForegroundColor Cyan
+    $databasePassword = $credentialStore.DatabasePassword
+    $workloadPassword = $credentialStore.WorkloadPassword
+}
+else {
+    $databasePassword = $localConfig.COLLECTOR_DATABASE_PASSWORD
+    $workloadPassword = $localConfig.SUPABASE_WORKLOAD_PASSWORD
+}
 if ([string]::IsNullOrWhiteSpace($databasePassword)) {
-    $databasePassword = Convert-SecureValueToPlainText (
+    $databasePassword = Convert-CollectorSecureStringToPlainText (
         Read-Host "Senha PostgreSQL do coletor" -AsSecureString
     )
 }
 if ([string]::IsNullOrWhiteSpace($workloadPassword)) {
-    $workloadPassword = Convert-SecureValueToPlainText (
+    $workloadPassword = Convert-CollectorSecureStringToPlainText (
         Read-Host "Senha do usuário técnico do Storage" -AsSecureString
     )
 }
 
 try {
-    if ($databasePassword.Length -lt 24 -or $workloadPassword.Length -lt 24) {
-        throw "As credenciais técnicas não atendem ao tamanho mínimo."
+    if ($databasePassword.Length -lt 24) {
+        throw "A senha PostgreSQL deve ter ao menos 24 caracteres."
+    }
+    if ($workloadPassword.Length -lt 24) {
+        throw "A senha do usuário técnico deve ter ao menos 24 caracteres."
     }
     $bundledCa = Join-Path $projectRoot `
         "config\certificates\supabase-prod-ca-2021.crt"
@@ -165,7 +178,7 @@ try {
                     barreiras_collectors.commands.collect_tcm_ba_monthly_catalog `
                     --month-from $MonthFrom `
                     --month-to $MonthTo `
-                    --requests-per-minute 30 2>&1
+                    --requests-per-minute $RequestsPerMinute 2>&1
             )
             $nativeExitCode = $LASTEXITCODE
         }
@@ -181,19 +194,9 @@ try {
         throw "O coletor terminou com código $nativeExitCode."
     }
     $events = @(Read-CompletedEvents -Output $output)
-    if (
-        $ExpectedDocuments -gt 0 -and
-        (
-            $events.Count -ne 1 -or
-            [int]$events[0].documents -ne $ExpectedDocuments -or
-            $events[0].coverage_status -ne "complete"
-        )
-    ) {
-        throw (
-            "A competência não fechou com a contagem esperada de " +
-            "$ExpectedDocuments documentos."
-        )
-    }
+    $null = Assert-TcmBaReplayApproval `
+        -Events $events `
+        -ExpectedDocuments $ExpectedDocuments
     Write-Host "TCM_BA_REPLAY_APROVADO" -ForegroundColor Green
 }
 finally {
@@ -213,6 +216,7 @@ finally {
     }
     $databasePassword = $null
     $workloadPassword = $null
+    $credentialStore = $null
     $encodedDatabasePassword = $null
     $env:DATABASE_URL = $null
 }
