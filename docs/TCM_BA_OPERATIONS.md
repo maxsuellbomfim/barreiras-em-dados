@@ -200,6 +200,16 @@ zero conflito e zero falha aberta. As observações correspondem a 336 objetos
 imutáveis únicos; a auditoria física releu 11.399.733 bytes e confirmou todos
 os SHA-256 e tamanhos sem divergência.
 
+Para `2024-08`, a primeira execução encontrou uma resposta HTTP 200 sem a
+tabela documental e falhou de forma segura, sem fechar a competência como
+vazia. Uma reprodução somente leitura confirmou 3.063 documentos em 328
+interações. O replay persistente, limitado a 30 requisições por minuto e com
+essa cardinalidade exigida, fechou como `complete`: 3.063 documentos distintos,
+328 observações brutas e 3.064 registros estruturados, incluindo uma submissão
+mensal. O gate relacional confirmou manifesto, chaves, MIME, runs, zero
+conflito e zero falha aberta. As observações correspondem a 322 objetos
+imutáveis únicos; a auditoria física releu 11.121.416 bytes e confirmou todos
+os SHA-256 e tamanhos sem divergência.
 
 A partição mensal aponta para o run de controle; cada interação JSF preservada
 possui seu próprio run idempotente. Por isso, a auditoria relaciona os artefatos
