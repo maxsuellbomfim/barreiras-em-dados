@@ -51,7 +51,48 @@ class EventuallyConsistentBucket(FakeBucket):
         return super().download(path)
 
 
+class TransientUploadFailureBucket(FakeBucket):
+    def __init__(self) -> None:
+        super().__init__()
+        self.upload_attempts = 0
+
+    def upload(
+        self,
+        *,
+        path: str,
+        file: bytes,
+        file_options: dict[str, str],
+    ) -> object:
+        self.upload_attempts += 1
+        if self.upload_attempts == 1:
+            raise RuntimeError("storage_non_json_response")
+        return super().upload(path=path, file=file, file_options=file_options)
+
+
 class SupabaseStorageObjectStoreTests(unittest.TestCase):
+    def test_transient_upload_failure_retries_when_object_does_not_exist(self) -> None:
+        bucket = TransientUploadFailureBucket()
+        body = b"resposta-oficial-do-tcm-ba"
+        digest = hashlib.sha256(body).hexdigest()
+        object_key = f"tcm-ba/monthly/2025/10/sha256/{digest[:2]}/{digest}.html"
+        store = SupabaseStorageObjectStore(
+            bucket,
+            consistency_attempts=2,
+            consistency_base_delay_seconds=0,
+            sleep=lambda _: None,
+        )
+
+        stored = store.put_if_absent(
+            object_key=object_key,
+            body=body,
+            content_type="text/html",
+            expected_sha256=digest,
+        )
+
+        self.assertTrue(stored.created)
+        self.assertEqual(bucket.upload_attempts, 2)
+        self.assertEqual(store.read(object_key), body)
+
     def test_chunk_manifest_uses_a_mime_type_allowed_by_the_bucket(self) -> None:
         bucket = FakeBucket(
             allowed_content_types={"application/json", "application/octet-stream"}
