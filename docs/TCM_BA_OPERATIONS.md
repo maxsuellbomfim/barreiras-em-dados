@@ -320,6 +320,16 @@ zero conflito e zero falha aberta. As 370 observações correspondem a 370 objet
 imutáveis únicos; a auditoria física releu 21.099.049 bytes e confirmou todos os
 SHA-256 e tamanhos sem divergência.
 
+Para `2025-12`, a primeira tentativa foi bloqueada após o e-TCM perder a tabela
+de documentos durante a paginação. Com a recuperação limitada de sessão, o
+replay retomou a página afetada somente depois de revalidar a prestação, o total
+e a primeira página do snapshot. A competência fechou como `complete`: 5.031
+documentos distintos, 614 observações brutas e 5.032 registros estruturados,
+incluindo uma submissão mensal. O gate relacional confirmou manifesto, chaves,
+MIME, runs, zero conflito e zero falha aberta. As 614 observações correspondem a
+614 objetos imutáveis únicos; a auditoria física releu 35.105.094 bytes e
+confirmou todos os SHA-256 e tamanhos sem divergência.
+
 A partição mensal aponta para o run de controle; cada interação JSF preservada
 possui seu próprio run idempotente. Por isso, a auditoria relaciona os artefatos
 pela fonte, schema, competência e janela temporal do run de controle, exige que
