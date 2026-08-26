@@ -19,7 +19,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from typing import Protocol
@@ -420,70 +420,75 @@ class TcmBaPublicAccountsClient:
         documents = list(_parse_documents(detail.raw_body, page_number=1))
 
         current = detail
+        first_page_documents = tuple(documents)
         total_pages = max(1, (total_documents + PAGE_SIZE - 1) // PAGE_SIZE)
         for page_number in range(2, total_pages + 1):
             if (page_number - 1) % self.max_document_pages_per_session == 0:
-                last_renewal_error: TcmBaContractError | None = None
-                for renewal_attempt in range(1, MAX_SESSION_RENEWAL_ATTEMPTS + 1):
-                    self.transport.reset_session()
-                    try:
-                        (
-                            resumed_submission,
-                            resumed_detail,
-                            resumed_total_documents,
-                            resumed_pagination_form_id,
-                        ) = self._open_monthly_catalog_session(
+                current, pagination_form_id = self._renew_monthly_catalog_session(
+                    year=year,
+                    competence=competence,
+                    interactions=interactions,
+                    submission=submission,
+                    total_documents=total_documents,
+                    first_page_documents=first_page_documents,
+                    page_number=page_number,
+                    reason="resume",
+                )
+            page_attempt = 1
+            while True:
+                pagination = {
+                    "javax.faces.partial.ajax": "true",
+                    "javax.faces.source": TABLE_ID,
+                    "javax.faces.partial.execute": TABLE_ID,
+                    "javax.faces.partial.render": TABLE_ID,
+                    TABLE_ID: TABLE_ID,
+                    f"{TABLE_ID}_pagination": "true",
+                    f"{TABLE_ID}_first": str((page_number - 1) * PAGE_SIZE),
+                    f"{TABLE_ID}_rows": str(PAGE_SIZE),
+                    f"{TABLE_ID}_encodeFeature": "true",
+                    pagination_form_id: pagination_form_id,
+                    "javax.faces.ViewState": _view_state(current.raw_body),
+                }
+                current = self._post(
+                    f"documents-page-{page_number}",
+                    BASE_URL,
+                    pagination,
+                    interactions,
+                )
+                try:
+                    page_documents = _parse_documents(
+                        current.raw_body,
+                        page_number=page_number,
+                    )
+                except TcmBaContractError as error:
+                    interactions[-1] = replace(
+                        interactions[-1],
+                        stage=(
+                            f"documents-page-{page_number}-contract-failure-"
+                            f"{page_attempt}"
+                        ),
+                    )
+                    if page_attempt > MAX_SESSION_RENEWAL_ATTEMPTS:
+                        raise TcmBaContractError(
+                            "O e-TCM não devolveu a tabela esperada para a página "
+                            f"{page_number} após recuperação de sessão."
+                        ) from error
+                    current, pagination_form_id = (
+                        self._renew_monthly_catalog_session(
                             year=year,
                             competence=competence,
                             interactions=interactions,
-                            stage_suffix=(
-                                f"-resume-{page_number}-attempt-{renewal_attempt}"
-                            ),
+                            submission=submission,
+                            total_documents=total_documents,
+                            first_page_documents=first_page_documents,
+                            page_number=page_number,
+                            reason="recover",
                         )
-                        resumed_first_page = _parse_documents(
-                            resumed_detail.raw_body,
-                            page_number=1,
-                        )
-                    except TcmBaContractError as error:
-                        last_renewal_error = error
-                        continue
-                    if (
-                        resumed_submission == submission
-                        and resumed_total_documents == total_documents
-                        and resumed_first_page
-                        == tuple(documents[: len(resumed_first_page)])
-                    ):
-                        break
-                    last_renewal_error = TcmBaContractError(
-                        "A sessão renovada divergiu do snapshot mensal fixado."
                     )
-                else:
-                    raise TcmBaContractError(
-                        "O catálogo do e-TCM divergiu do snapshot durante todas as "
-                        "tentativas de renovação da sessão."
-                    ) from last_renewal_error
-                current = resumed_detail
-                pagination_form_id = resumed_pagination_form_id
-            pagination = {
-                "javax.faces.partial.ajax": "true",
-                "javax.faces.source": TABLE_ID,
-                "javax.faces.partial.execute": TABLE_ID,
-                "javax.faces.partial.render": TABLE_ID,
-                TABLE_ID: TABLE_ID,
-                f"{TABLE_ID}_pagination": "true",
-                f"{TABLE_ID}_first": str((page_number - 1) * PAGE_SIZE),
-                f"{TABLE_ID}_rows": str(PAGE_SIZE),
-                f"{TABLE_ID}_encodeFeature": "true",
-                pagination_form_id: pagination_form_id,
-                "javax.faces.ViewState": _view_state(current.raw_body),
-            }
-            current = self._post(
-                f"documents-page-{page_number}", BASE_URL, pagination, interactions
-            )
-            documents.extend(
-                _parse_documents(current.raw_body, page_number=page_number)
-            )
-
+                    page_attempt += 1
+                    continue
+                documents.extend(page_documents)
+                break
         if len(documents) != total_documents:
             raise TcmBaContractError(
                 "O total de documentos extraídos diverge do informado pelo e-TCM."
@@ -500,6 +505,56 @@ class TcmBaPublicAccountsClient:
             documents=tuple(documents),
             interactions=tuple(interactions),
         )
+
+    def _renew_monthly_catalog_session(
+        self,
+        *,
+        year: int,
+        competence: str,
+        interactions: list[TcmBaInteraction],
+        submission: TcmBaSubmission,
+        total_documents: int,
+        first_page_documents: tuple[TcmBaDocument, ...],
+        page_number: int,
+        reason: str,
+    ) -> tuple[TcmBaInteraction, str]:
+        last_renewal_error: TcmBaContractError | None = None
+        for renewal_attempt in range(1, MAX_SESSION_RENEWAL_ATTEMPTS + 1):
+            self.transport.reset_session()
+            try:
+                (
+                    resumed_submission,
+                    resumed_detail,
+                    resumed_total_documents,
+                    resumed_pagination_form_id,
+                ) = self._open_monthly_catalog_session(
+                    year=year,
+                    competence=competence,
+                    interactions=interactions,
+                    stage_suffix=(
+                        f"-{reason}-{page_number}-attempt-{renewal_attempt}"
+                    ),
+                )
+                resumed_first_page = _parse_documents(
+                    resumed_detail.raw_body,
+                    page_number=1,
+                )
+            except TcmBaContractError as error:
+                last_renewal_error = error
+                continue
+            if (
+                resumed_submission == submission
+                and resumed_total_documents == total_documents
+                and resumed_first_page == first_page_documents
+            ):
+                return resumed_detail, resumed_pagination_form_id
+            last_renewal_error = TcmBaContractError(
+                "A sessão renovada divergiu do snapshot mensal fixado."
+            )
+        raise TcmBaContractError(
+            "O catálogo do e-TCM divergiu do snapshot durante todas as "
+            "tentativas de renovação da sessão."
+        ) from last_renewal_error
 
     def _open_monthly_catalog_session(
         self,
