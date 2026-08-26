@@ -384,6 +384,13 @@ sem duplicar documentos normalizados. A auditoria física releu os 381 objetos,
 totalizando 21.660.382 bytes, e confirmou todos os SHA-256 e tamanhos sem
 divergência.
 
+Para `2026-07`, nenhum replay foi aprovado. Duas sessões independentes do
+e-TCM não confirmaram exatamente uma prestação mensal para a competência. A
+partição foi registrada como `blocked`, com zero registros observados e a razão
+operacional preservada. Esse estado não significa ausência de documentos nem
+prestação vazia; exige nova tentativa contra a fonte oficial antes de qualquer
+publicação.
+
 A partição mensal aponta para o run de controle; cada interação JSF preservada
 possui seu próprio run idempotente. Por isso, a auditoria relaciona os artefatos
 pela fonte, schema, competência e `started_at` dentro da janela do run de
