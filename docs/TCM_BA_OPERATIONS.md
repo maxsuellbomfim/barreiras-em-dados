@@ -79,6 +79,15 @@ nesse retry.
 
 ## Piloto comprovado
 
+Para `2023-03`, o replay controlado fechou como `complete`: 2.001 documentos
+distintos, 244 observações brutas e 2.002 registros estruturados, incluindo uma
+submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
+zero conflito e zero falha aberta. Doze observações JSF repetiram respostas já
+preservadas; as 244 observações correspondem a 232 objetos imutáveis únicos,
+sem duplicar documentos normalizados. A auditoria física releu os 232 objetos,
+totalizando 13.990.039 bytes, e confirmou todos os SHA-256 e tamanhos sem
+divergência.
+
 Em 24/08/2026, o replay local de `2023-04` terminou com o evento
 `collector_tcm_ba_month_completed`: 1.824 documentos, 193 interações brutas e
 1.825 registros brutos estruturados. A consulta independente ao banco confirmou
