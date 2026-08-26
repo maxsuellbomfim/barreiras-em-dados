@@ -79,6 +79,15 @@ nesse retry.
 
 ## Piloto comprovado
 
+Para `2022-07`, o replay controlado fechou como `complete`: 2.424 documentos
+distintos, 297 observações brutas e 2.425 registros estruturados, incluindo uma
+submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
+zero conflito e zero falha aberta. Quinze observações JSF repetiram respostas
+já preservadas; as 297 observações correspondem a 282 objetos imutáveis
+únicos, sem duplicar documentos normalizados. A auditoria física releu os 282
+objetos, totalizando 17.455.439 bytes, e confirmou todos os SHA-256 e tamanhos
+sem divergência.
+
 Para `2022-08`, o replay controlado fechou como `complete`: 2.105 documentos
 distintos, 266 observações brutas e 2.106 registros estruturados, incluindo uma
 submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
