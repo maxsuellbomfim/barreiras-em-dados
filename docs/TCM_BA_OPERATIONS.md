@@ -357,6 +357,15 @@ sem duplicar documentos normalizados. A auditoria física releu os 271 objetos,
 totalizando 14.740.564 bytes, e confirmou todos os SHA-256 e tamanhos sem
 divergência.
 
+Para `2026-04`, o replay controlado fechou como `complete`: 3.354 documentos
+distintos, 401 observações brutas e 3.355 registros estruturados, incluindo uma
+submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
+zero conflito e zero falha aberta. Dezoito observações JSF repetiram respostas
+já preservadas; as 401 observações correspondem a 383 objetos imutáveis únicos,
+sem duplicar documentos normalizados. A auditoria física releu os 383 objetos,
+totalizando 21.690.452 bytes, e confirmou todos os SHA-256 e tamanhos sem
+divergência.
+
 A partição mensal aponta para o run de controle; cada interação JSF preservada
 possui seu próprio run idempotente. Por isso, a auditoria relaciona os artefatos
 pela fonte, schema, competência e `started_at` dentro da janela do run de
