@@ -79,6 +79,17 @@ nesse retry.
 
 ## Piloto comprovado
 
+Para `2022-10`, o replay controlado fechou como `complete`: 2.401 documentos
+distintos, 295 observações brutas e 2.402 registros estruturados, incluindo uma
+submissão mensal. A primeira sonda contou 2.396 documentos, mas o e-TCM
+acrescentou cinco documentos durante a janela; o contrato local recusou a
+divergência e uma nova sonda confirmou 2.401 antes do replay idempotente. O
+gate relacional confirmou manifesto, chaves, MIME, runs, zero conflito e zero
+falha aberta. Quinze observações JSF repetiram respostas já preservadas; as 295
+observações correspondem a 280 objetos imutáveis únicos, sem duplicar
+documentos normalizados. A auditoria física releu os 280 objetos, totalizando
+17.412.007 bytes, e confirmou todos os SHA-256 e tamanhos sem divergência.
+
 Para `2022-11`, o replay controlado fechou como `complete`: 2.235 documentos
 distintos, 267 observações brutas e 2.236 registros estruturados, incluindo uma
 submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
