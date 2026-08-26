@@ -335,6 +335,62 @@ class TcmBaPublicAccountsTests(unittest.TestCase):
         self.assertEqual(page_three_form["javax.faces.ViewState"], "resumed-detail")
         validate_tcm_ba_catalog(catalog)
 
+    def test_recovers_page_after_jsf_session_loses_document_table(self) -> None:
+        page_two = b"""
+        <tr><td><form id="doc-11"><a>arquivo</a></form></td><td>Relatorios</td>
+        <td>11-RELATORIO.pdf</td><td>nome omitido</td><td>31/12/2023</td></tr>
+        """
+        bootstrap = [
+            _form(monthly=False, year=False, city=False),
+            _state_only("period-preflight-state"),
+            _partial(_form(monthly=True, year=False, city=False), "period-state"),
+            _state_only("year-preflight-state"),
+            _partial(_form(monthly=True, year=True, city=False), "year-state"),
+            _state_only("city-preflight-state"),
+            _partial(_form(monthly=True, year=True, city=True), "city-state"),
+            _state_only("unit-preflight-state"),
+            _partial(
+                _form(monthly=True, year=True, city=False, unit=True),
+                "unit-state",
+            ),
+            _partial(SEARCH, "search-state"),
+        ]
+        resumed_bootstrap = [
+            body.replace(b"state", b"resumed-state") for body in bootstrap
+        ]
+        resumed_detail = DETAIL_1.replace(
+            b"detail-state-1", b"resumed-detail"
+        )
+        transport = SequenceSessionTransport(
+            [
+                *bootstrap,
+                _partial(DETAIL_1, "detail-state-1"),
+                _state_only("expired-page-state"),
+                *resumed_bootstrap,
+                _partial(resumed_detail, "resumed-detail"),
+                _partial(
+                    page_two,
+                    "resumed-page-2",
+                    update_id="consultaPublicaTabPanel:tabelaDocumentos",
+                ),
+            ]
+        )
+
+        catalog = TcmBaPublicAccountsClient(
+            transport=transport,
+            requests_per_minute=600,
+        ).fetch_monthly_catalog(year=2023, month=4)
+
+        self.assertEqual(transport.reset_calls, 1)
+        self.assertEqual(len(catalog.documents), 11)
+        self.assertEqual(catalog.documents[-1].page_number, 2)
+        self.assertIn(
+            "documents-page-2-contract-failure-1",
+            [interaction.stage for interaction in catalog.interactions],
+        )
+        self.assertEqual(catalog.interactions[-1].stage, "documents-page-2")
+        validate_tcm_ba_catalog(catalog)
+
     def test_retries_transient_catalog_mismatch_during_session_renewal(self) -> None:
         page_two = b"".join(
             f"""
