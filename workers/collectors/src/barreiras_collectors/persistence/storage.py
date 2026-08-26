@@ -77,28 +77,38 @@ class SupabaseStorageObjectStore:
             )
 
         created = True
-        try:
-            self.bucket_client.upload(
-                path=object_key,
-                file=body,
-                file_options={
-                    "content-type": content_type,
-                    "cache-control": "31536000",
-                    "upsert": "false",
-                },
-            )
-        except Exception as upload_error:
-            created = False
+        for attempt in range(1, self.consistency_attempts + 1):
             try:
-                existing = self._read_with_consistency_retries(object_key)
-            except Exception:
-                raise PersistenceError(
-                    "Falha no upload e o objeto não pôde ser restaurado."
-                ) from upload_error
-            if hashlib.sha256(existing).hexdigest() != expected_sha256:
-                raise ArtifactIntegrityError(
-                    "A chave de conteúdo já existe com bytes divergentes."
-                ) from upload_error
+                self.bucket_client.upload(
+                    path=object_key,
+                    file=body,
+                    file_options={
+                        "content-type": content_type,
+                        "cache-control": "31536000",
+                        "upsert": "false",
+                    },
+                )
+                break
+            except Exception as upload_error:
+                try:
+                    existing = self._read_with_consistency_retries(object_key)
+                except ArtifactIntegrityError:
+                    raise
+                except Exception:
+                    if attempt < self.consistency_attempts:
+                        self.sleep(
+                            self.consistency_base_delay_seconds * (2 ** (attempt - 1))
+                        )
+                        continue
+                    raise PersistenceError(
+                        "Falha no upload e o objeto não pôde ser restaurado."
+                    ) from upload_error
+                created = False
+                if hashlib.sha256(existing).hexdigest() != expected_sha256:
+                    raise ArtifactIntegrityError(
+                        "A chave de conteúdo já existe com bytes divergentes."
+                    ) from upload_error
+                break
 
         restored = self._read_with_consistency_retries(object_key)
         restored_hash = hashlib.sha256(restored).hexdigest()
