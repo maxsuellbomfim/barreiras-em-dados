@@ -339,12 +339,24 @@ preservadas; por isso, as 272 observações correspondem a 260 objetos imutávei
 objetos, totalizando 14.539.786 bytes, e confirmou todos os SHA-256 e tamanhos
 sem divergência.
 
+Para `2026-02`, o replay controlado fechou como `complete`: 3.365 documentos
+distintos, 402 observações brutas e 3.366 registros estruturados, incluindo uma
+submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
+zero conflito e zero falha aberta. Dezoito observações JSF repetiram respostas
+já preservadas; as 402 observações correspondem a 384 objetos imutáveis únicos,
+sem duplicar documentos normalizados. A auditoria física releu os 384 objetos,
+totalizando 21.708.511 bytes, e confirmou todos os SHA-256 e tamanhos sem
+divergência.
+
 A partição mensal aponta para o run de controle; cada interação JSF preservada
 possui seu próprio run idempotente. Por isso, a auditoria relaciona os artefatos
-pela fonte, schema, competência e janela temporal do run de controle, exige que
-todos os runs-filhos tenham concluído com sucesso e só então recompõe o
-manifesto pela ordem de `stage_index`. Uma junção direta entre o run da partição
-e `raw_artifacts.collection_run_id` não representa essa linhagem.
+pela fonte, schema, competência e `started_at` dentro da janela do run de
+controle, exige que todos os runs-filhos tenham concluído com sucesso e só então
+recompõe o manifesto pela ordem de `stage_index`. O campo `created_at` não serve
+como limite superior dessa relação: o commit de um run-filho pode ocorrer
+milissegundos depois do fechamento lógico do controle. Uma junção direta entre
+o run da partição e `raw_artifacts.collection_run_id` também não representa essa
+linhagem.
 
 Idempotência possui duas camadas. Cada nova observação HTTP permanece
 imutável, inclusive quando o JSF altera tokens de sessão sem mudar o documento.
