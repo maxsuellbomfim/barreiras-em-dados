@@ -79,6 +79,17 @@ nesse retry.
 
 ## Piloto comprovado
 
+Para `2021-08`, a primeira tentativa parou antes de fechar a cobertura por
+esgotamento transitório de conexões da role técnica no Supabase. A retomada
+idempotente fechou como `complete`: 1.901 documentos distintos, 234 observações
+brutas e 1.902 registros estruturados, incluindo uma submissão mensal. O gate
+selecionou a observação mais recente de cada `stage_index`, confirmou o
+manifesto da captura bem-sucedida e preservou a tentativa anterior como falha
+resolvida, sem falhas abertas. Doze observações JSF repetiram respostas já
+preservadas; as 234 observações correspondem a 222 objetos imutáveis únicos.
+A auditoria física releu os 222 objetos, totalizando 13.872.775 bytes, e
+confirmou todos os SHA-256 e tamanhos sem divergência.
+
 Para `2021-09`, o replay controlado fechou como `complete`: 1.758 documentos
 distintos, 208 observações brutas e 1.759 registros estruturados, incluindo uma
 submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
