@@ -79,6 +79,15 @@ nesse retry.
 
 ## Piloto comprovado
 
+Para `2021-07`, o replay controlado fechou como `complete`: 1.752 documentos
+distintos, 208 observações brutas e 1.753 registros estruturados, incluindo uma
+submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
+zero conflito e zero falha aberta. Nove observações JSF repetiram respostas já
+preservadas; as 208 observações correspondem a 199 objetos imutáveis únicos,
+sem duplicar documentos normalizados. A auditoria física releu os 199 objetos,
+totalizando 11.048.135 bytes, e confirmou todos os SHA-256 e tamanhos sem
+divergência.
+
 Para `2021-08`, a primeira tentativa parou antes de fechar a cobertura por
 esgotamento transitório de conexões da role técnica no Supabase. A retomada
 idempotente fechou como `complete`: 1.901 documentos distintos, 234 observações
