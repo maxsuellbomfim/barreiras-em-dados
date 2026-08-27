@@ -79,6 +79,21 @@ nesse retry.
 
 ## Piloto comprovado
 
+Para `2022-01`, o replay controlado fechou como `complete`: 1.275 documentos
+distintos, 160 observações brutas e 1.276 registros estruturados, incluindo uma
+submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
+zero conflito e zero falha aberta. Nove observações JSF repetiram respostas já
+preservadas; as 160 observações correspondem a 151 objetos imutáveis únicos,
+sem duplicar documentos normalizados. A auditoria física releu os 151 objetos,
+totalizando 10.024.691 bytes, e confirmou todos os SHA-256 e tamanhos sem
+divergência.
+
+Com esse replay, o gate anual confirmou as 12 competências de `2022-01` a
+`2022-12` como `complete`, com 25.865 documentos catalogados, todas as
+execuções de controle como `succeeded`, resultados `complete` e nenhuma falha
+aberta. A cobertura anual foi comprovada diretamente no banco; não foi inferida
+apenas dos registros desta documentação.
+
 Para `2022-02`, o replay controlado fechou como `complete`: 1.790 documentos
 distintos, 211 observações brutas e 1.791 registros estruturados, incluindo uma
 submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,
