@@ -212,6 +212,50 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             repository.tcm_ba_document_references(competence="04/2023", limit=6)
 
+class TcmBaDocumentPlanTests(unittest.TestCase):
+    def test_selects_oldest_complete_catalog_with_pending_documents(self) -> None:
+        connection = SequenceConnection(
+            [QueryResult(row={"competence": "01/2021"})]
+        )
+
+        result = PostgresCollectionRepository(
+            lambda: connection
+        ).next_tcm_ba_document_competence(year_from=2021)
+
+        self.assertEqual(result, "01/2021")
+        self.assertEqual(connection.calls[0][1], (2021,))
+        query = connection.calls[0][0].lower()
+        self.assertIn("catalog.status = 'complete'", query)
+        self.assertIn("documents.status <> 'complete'", query)
+        self.assertIn("documents.observed_records < catalog.observed_records", query)
+        self.assertIn("order by catalog.period_start", query)
+        self.assertTrue(connection.closed)
+
+    def test_returns_none_when_no_catalog_is_eligible(self) -> None:
+        connection = SequenceConnection([QueryResult(row=None)])
+
+        result = PostgresCollectionRepository(
+            lambda: connection
+        ).next_tcm_ba_document_competence(year_from=2021)
+
+        self.assertIsNone(result)
+        self.assertTrue(connection.closed)
+
+    def test_refuses_invalid_year_and_invalid_database_result(self) -> None:
+        repository = PostgresCollectionRepository(
+            lambda: self.fail("não deve abrir conexão")
+        )
+        with self.assertRaises(ValueError):
+            repository.next_tcm_ba_document_competence(year_from=1999)
+
+        connection = SequenceConnection(
+            [QueryResult(row={"competence": "2021-01"})]
+        )
+        with self.assertRaisesRegex(PersistenceContractError, "planejada é inválida"):
+            PostgresCollectionRepository(
+                lambda: connection
+            ).next_tcm_ba_document_competence(year_from=2021)
+        self.assertTrue(connection.closed)
 
 if __name__ == "__main__":
     unittest.main()
