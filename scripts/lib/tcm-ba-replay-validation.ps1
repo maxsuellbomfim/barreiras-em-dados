@@ -110,3 +110,95 @@ function Assert-TcmBaReplayApproval {
 
     return $true
 }
+function ConvertTo-TcmBaNonNegativeInteger {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object]$Value,
+        [string]$FieldName
+    )
+
+    if (
+        $null -eq $Value -or
+        $Value -is [bool] -or
+        $Value -is [string] -or
+        $Value.GetType().Name -notin @(
+            "Byte", "SByte", "Int16", "UInt16", "Int32", "UInt32",
+            "Int64", "UInt64", "Decimal", "Double", "Single"
+        )
+    ) {
+        throw "$FieldName deve ser um inteiro numérico não negativo."
+    }
+
+    try {
+        $decimalValue = [decimal]$Value
+        if ($decimalValue -ne [decimal]::Truncate($decimalValue)) {
+            throw "$FieldName não é inteiro."
+        }
+        $integerValue = [long]$decimalValue
+    }
+    catch {
+        throw "$FieldName deve ser um inteiro numérico não negativo."
+    }
+    if ($integerValue -lt 0) {
+        throw "$FieldName deve ser um inteiro numérico não negativo."
+    }
+    return $integerValue
+}
+
+function Assert-TcmBaDocumentBatchApproval {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object[]]$Events,
+        [string]$ExpectedCompetence,
+        [ValidateRange(1, 5)]
+        [int]$MaxDocuments
+    )
+
+    if ($ExpectedCompetence -notmatch '^(0[1-9]|1[0-2])/\d{4}$') {
+        throw "ExpectedCompetence deve usar o formato MM/AAAA."
+    }
+
+    $completedEvents = @(
+        $Events | Where-Object {
+            $_.event -eq "collector_tcm_ba_documents_completed"
+        }
+    )
+    if ($completedEvents.Count -ne 1) {
+        throw (
+            "A aprovação exige exatamente um evento " +
+            "collector_tcm_ba_documents_completed."
+        )
+    }
+
+    $event = $completedEvents[0]
+    if ($event.competence -ne $ExpectedCompetence) {
+        throw "A competência do evento final diverge da solicitada."
+    }
+
+    $expected = ConvertTo-TcmBaNonNegativeInteger -Value $event.expected_documents -FieldName "expected_documents"
+    $downloaded = ConvertTo-TcmBaNonNegativeInteger -Value $event.downloaded_documents -FieldName "downloaded_documents"
+    $preserved = ConvertTo-TcmBaNonNegativeInteger -Value $event.preserved_documents -FieldName "preserved_documents"
+    $remaining = ConvertTo-TcmBaNonNegativeInteger -Value $event.remaining_documents -FieldName "remaining_documents"
+
+    if ($expected -le 0) {
+        throw "expected_documents deve ser maior que zero."
+    }
+    if ($downloaded -le 0 -or $downloaded -gt $MaxDocuments) {
+        throw "O lote deve preservar entre 1 e MaxDocuments PDFs."
+    }
+    if ($preserved -lt $downloaded -or $preserved -gt $expected) {
+        throw "A contagem cumulativa de PDFs preservados é inválida."
+    }
+    if (($preserved + $remaining) -ne $expected) {
+        throw "Preservados e restantes não recompõem o total esperado."
+    }
+
+    $expectedCoverage = if ($remaining -eq 0) { "complete" } else { "partial" }
+    if ($event.coverage_status -ne $expectedCoverage) {
+        throw "coverage_status diverge dos contadores documentais."
+    }
+
+    return $true
+}
