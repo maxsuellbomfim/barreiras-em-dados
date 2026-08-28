@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from ..connectors.gazette_documents import CollectedDocument
@@ -155,6 +156,34 @@ class TcmBaDocumentSelection:
     preserved_documents: int
     pending_documents: int
     references: tuple[TcmBaDocumentReference, ...]
+
+
+@dataclass(frozen=True)
+class TcmBaDocumentAuditArtifact:
+    artifact_id: str
+    parent_artifact_id: str
+    object_key: str
+    sha256: str
+    byte_size: int
+    content_type: str
+    http_status: int
+    schema_name: str
+    source_record_key: str
+
+
+@dataclass(frozen=True)
+class TcmBaDocumentAuditSnapshot:
+    competence: str
+    partition_status: str
+    partition_completed_at: datetime
+    observed_records: int
+    checkpoint: Mapping[str, object]
+    run_status: str
+    metrics: Mapping[str, object]
+    artifacts: tuple[TcmBaDocumentAuditArtifact, ...]
+    catalog_links: int
+    current_open_failures: int
+    historical_open_failures: int
 
 
 @dataclass(frozen=True)

@@ -368,3 +368,98 @@ test("wrapper documental rejeita RPM 31 antes de acessar credenciais", () => {
   );
   assert.doesNotMatch(output, /Crie \.env\.collector\.local|Senha PostgreSQL/);
 });
+
+function documentAuditEvent(overrides = {}) {
+  return {
+    event: "auditor_tcm_ba_document_batch_completed",
+    gate: "PASS",
+    competence: "01/2021",
+    expected_documents: 1441,
+    downloaded_documents: 5,
+    preserved_documents: 6,
+    remaining_documents: 1435,
+    coverage_status: "partial",
+    run_artifacts: 10,
+    prepare_xml: 5,
+    pdfs: 5,
+    catalog_links: 5,
+    physical_objects_verified: 10,
+    physical_bytes_verified: 8028343,
+    distinct_physical_sha256: 10,
+    current_open_failures: 0,
+    historical_open_failures: 2,
+    ...overrides,
+  };
+}
+
+function assertDocumentAuditApproved(collector, audits) {
+  const collectorPayload = JSON.stringify(collector).replaceAll("'", "''");
+  const auditPayload = JSON.stringify(audits).replaceAll("'", "''");
+  const result = runPowerShell(
+    validationCommand(
+      `$collector = ConvertFrom-Json '${collectorPayload}'; ` +
+        `$audits = ConvertFrom-Json '${auditPayload}'; ` +
+        "Assert-TcmBaDocumentAuditApproval " +
+        "-CollectorEvent $collector -AuditEvents @($audits)",
+    ),
+  );
+  assert.equal(result.status, 0, result.stdout + "\n" + result.stderr);
+}
+
+function assertDocumentAuditRejected(collector, audits, expectedMessage) {
+  const collectorPayload = JSON.stringify(collector).replaceAll("'", "''");
+  const auditPayload = JSON.stringify(audits).replaceAll("'", "''");
+  const result = runPowerShell(
+    validationCommand(
+      `$collector = ConvertFrom-Json '${collectorPayload}'; ` +
+        `$audits = ConvertFrom-Json '${auditPayload}'; ` +
+        "Assert-TcmBaDocumentAuditApproval " +
+        "-CollectorEvent $collector -AuditEvents @($audits)",
+    ),
+  );
+  const output = result.stdout + "\n" + result.stderr;
+  assert.notEqual(result.status, 0, output);
+  assert.match(output, expectedMessage);
+}
+
+test("wrapper só aprova depois do auditor relacional e físico", () => {
+  const auditIndex = documentScript.indexOf(
+    "barreiras_collectors.commands.audit_tcm_ba_document_batch",
+  );
+  const gateIndex = documentScript.indexOf("Assert-TcmBaDocumentAuditApproval");
+  const approvalIndex = documentScript.indexOf("TCM_BA_DOCUMENT_PILOT_APPROVED");
+  assert.ok(auditIndex >= 0);
+  assert.ok(gateIndex > auditIndex);
+  assert.ok(approvalIndex > gateIndex);
+  assert.match(documentScript, /Read-AuditEvents/);
+});
+
+test("gate físico aceita lote coerente e falhas apenas históricas", () => {
+  assertDocumentAuditApproved(documentEvent(), [documentAuditEvent()]);
+});
+
+test("gate físico rejeita contadores divergentes e auditor duplicado", () => {
+  assertDocumentAuditRejected(
+    documentEvent(),
+    [documentAuditEvent({ preserved_documents: 7 })],
+    /preserved_documents diverge/,
+  );
+  assertDocumentAuditRejected(
+    documentEvent(),
+    [documentAuditEvent(), documentAuditEvent()],
+    /exatamente um evento/,
+  );
+});
+
+test("gate físico rejeita bytes ausentes e falha aberta na execução", () => {
+  assertDocumentAuditRejected(
+    documentEvent(),
+    [documentAuditEvent({ physical_bytes_verified: 0 })],
+    /verificação física.*incompleta/,
+  );
+  assertDocumentAuditRejected(
+    documentEvent(),
+    [documentAuditEvent({ current_open_failures: 1 })],
+    /falha aberta/,
+  );
+});

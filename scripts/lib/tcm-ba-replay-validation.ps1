@@ -202,3 +202,100 @@ function Assert-TcmBaDocumentBatchApproval {
 
     return $true
 }
+
+function Assert-TcmBaDocumentAuditApproval {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object]$CollectorEvent,
+        [AllowNull()]
+        [object[]]$AuditEvents
+    )
+
+    if ($null -eq $CollectorEvent) {
+        throw "O evento final do coletor é obrigatório para a auditoria."
+    }
+    $completedEvents = @(
+        $AuditEvents | Where-Object {
+            $_.event -eq "auditor_tcm_ba_document_batch_completed"
+        }
+    )
+    if ($completedEvents.Count -ne 1) {
+        throw (
+            "A aprovação exige exatamente um evento " +
+            "auditor_tcm_ba_document_batch_completed."
+        )
+    }
+    $audit = $completedEvents[0]
+    if ($audit.gate -ne "PASS") {
+        throw "O auditor documental não retornou gate PASS."
+    }
+    if ($audit.competence -ne $CollectorEvent.competence) {
+        throw "A competência auditada diverge do evento do coletor."
+    }
+
+    foreach ($field in @(
+        "expected_documents",
+        "downloaded_documents",
+        "preserved_documents",
+        "remaining_documents"
+    )) {
+        $collectorValue = ConvertTo-TcmBaNonNegativeInteger `
+            -Value $CollectorEvent.$field -FieldName "collector.$field"
+        $auditValue = ConvertTo-TcmBaNonNegativeInteger `
+            -Value $audit.$field -FieldName "audit.$field"
+        if ($auditValue -ne $collectorValue) {
+            throw "O contador $field diverge entre coletor e auditor."
+        }
+    }
+    if ($audit.coverage_status -ne $CollectorEvent.coverage_status) {
+        throw "A cobertura diverge entre coletor e auditor."
+    }
+
+    $downloaded = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $audit.downloaded_documents `
+        -FieldName "audit.downloaded_documents"
+    $artifacts = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $audit.run_artifacts -FieldName "audit.run_artifacts"
+    $prepare = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $audit.prepare_xml -FieldName "audit.prepare_xml"
+    $pdfs = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $audit.pdfs -FieldName "audit.pdfs"
+    $links = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $audit.catalog_links -FieldName "audit.catalog_links"
+    $physical = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $audit.physical_objects_verified `
+        -FieldName "audit.physical_objects_verified"
+    $physicalBytes = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $audit.physical_bytes_verified `
+        -FieldName "audit.physical_bytes_verified"
+    $distinctHashes = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $audit.distinct_physical_sha256 `
+        -FieldName "audit.distinct_physical_sha256"
+    $currentFailures = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $audit.current_open_failures `
+        -FieldName "audit.current_open_failures"
+    $null = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $audit.historical_open_failures `
+        -FieldName "audit.historical_open_failures"
+
+    if (
+        $artifacts -ne (2 * $downloaded) -or
+        $prepare -ne $downloaded -or
+        $pdfs -ne $downloaded -or
+        $links -ne $downloaded
+    ) {
+        throw "A composição e a linhagem do lote auditado são divergentes."
+    }
+    if (
+        $physical -ne $artifacts -or
+        $distinctHashes -ne $physical -or
+        $physicalBytes -le 0
+    ) {
+        throw "A verificação física do lote auditado é incompleta."
+    }
+    if ($currentFailures -ne 0) {
+        throw "A execução auditada ainda possui falha aberta."
+    }
+    return $true
+}
