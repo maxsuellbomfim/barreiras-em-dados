@@ -2,6 +2,7 @@ param(
     [string]$Competence = "01/2021",
     [ValidateRange(1, 5)]
     [int]$MaxDocuments = 1,
+    [switch]$AutoCompetence,
     [object]$RequestsPerMinute = 30,
     [string]$PythonPath = ""
 )
@@ -103,7 +104,13 @@ function Read-CompletedEvents {
     return $events
 }
 
-if ($Competence -notmatch '^(0[1-9]|1[0-2])/\d{4}$') {
+if ($AutoCompetence -and $PSBoundParameters.ContainsKey("Competence")) {
+    throw "Não combine -AutoCompetence com -Competence."
+}
+if (
+    -not $AutoCompetence -and
+    $Competence -notmatch '^(0[1-9]|1[0-2])/\d{4}$'
+) {
     throw "A competência deve usar o formato MM/AAAA."
 }
 Write-Host "Piloto local seguro dos documentos mensais do TCM-BA" -ForegroundColor Green
@@ -185,6 +192,43 @@ try {
     $env:SUPABASE_RAW_ARTIFACTS_BUCKET = "raw-artifacts"
 
     $python = Find-Python
+    if ($AutoCompetence) {
+        Push-Location $projectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $planOutput = @(
+                    & $python -B -m barreiras_collectors.commands.plan_tcm_ba_document_batch --year-from 2021 2>&1
+                )
+                $planExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $planOutput | ForEach-Object { Write-Host $_ }
+        if ($planExitCode -ne 0) {
+            throw "O planejador terminou com código $planExitCode."
+        }
+        $plannedCompetences = @(
+            $planOutput |
+                ForEach-Object { $_.ToString().Trim() } |
+                Where-Object { $_ -match '^(0[1-9]|1[0-2])/\d{4}$' }
+        )
+        if ($plannedCompetences.Count -eq 0) {
+            Write-Host "TCM_BA_DOCUMENT_NO_ELIGIBLE_COMPETENCE" -ForegroundColor Cyan
+            return
+        }
+        if ($plannedCompetences.Count -ne 1) {
+            throw "O planejador não retornou uma competência única."
+        }
+        $Competence = $plannedCompetences[0]
+        Write-Host "Competência planejada: $Competence" -ForegroundColor Cyan
+    }
     Push-Location $projectRoot
     try {
         $previousErrorActionPreference = $ErrorActionPreference

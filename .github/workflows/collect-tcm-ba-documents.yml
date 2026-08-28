@@ -1,8 +1,7 @@
 name: Coletar documentos mensais do TCM-BA
 
 on:
-  schedule:
-    - cron: "23 * * * *"
+
   workflow_dispatch:
     inputs:
       competence:

@@ -8,7 +8,8 @@ const workflow = await readFile(
 );
 
 test("lote documental TCM-BA é serial, limitado e auditado", () => {
-  assert.match(workflow, /cron: "23 \* \* \* \*"/);
+  assert.doesNotMatch(workflow, /\n\s*schedule:/);
+  assert.match(workflow, /workflow_dispatch:/);
   assert.match(
     workflow,
     /concurrency:\s*\n\s+group: municipal-finance-collection-production\s*\n\s+cancel-in-progress: false/,

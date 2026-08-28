@@ -758,12 +758,20 @@ nunca é apresentada como mês completo.
 
 ## Drenagem documental automatizada
 
-O workflow `collect-tcm-ba-documents.yml` executa no máximo um lote por hora,
-com até cinco documentos e limite fixo de 30 requisições por minuto. A fila de
-concorrência é a mesma dos demais coletores financeiros; duas sessões do e-TCM
-ou duas conexões financeiras de coleta não são executadas em paralelo.
+O runner hospedado do GitHub não alcançou o e-TCM em 28/08/2026: quatro
+tentativas de abertura HTTPS expiraram antes da primeira resposta. Por isso, o
+workflow `collect-tcm-ba-documents.yml` permanece manual para diagnóstico e não
+é tratado como mecanismo de cobertura. A drenagem automática usa uma tarefa do
+Windows, no mesmo ambiente em que os lotes reais foram validados.
 
-No agendamento, um planejador somente leitura escolhe a competência cronológica
+A tarefa `Barreiras360-TCMBA-Documents` executa no máximo um lote por hora, com
+até cinco documentos e limite fixo de 30 requisições por minuto. Ela roda apenas
+no usuário atual, em nível limitado, reutiliza o cofre DPAPI e ignora nova
+instância enquanto a anterior estiver ativa. Para instalar ou atualizar:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-tcm-ba-document-schedule.ps1 -IntervalHours 1 -StartNow
+
+No agendamento local, um planejador somente leitura escolhe a competência cronológica
 mais antiga, a partir de 2021, que possua catálogo mensal completo e cobertura
 documental ainda incompleta. Uma competência sem catálogo completo não é
 classificada como vazia e não recebe partição documental artificial. Ela
@@ -774,3 +782,11 @@ itens pendentes e chama o auditor relacional e físico antes do selo de
 aprovação. Ausência de objetos, divergência de hash, tamanho, MIME, linhagem ou
 contador faz o workflow falhar. Se não existir competência elegível, a rodada
 termina sem coleta e sem alterar estados no banco.
+### Evidência da seleção automática local
+
+Em 28/08/2026, o modo `-AutoCompetence` selecionou `01/2021` sem entrada
+manual e preservou o 17º documento do catálogo de 1.441 itens. O auditor releu
+o XML e o PDF, totalizou 53.253 bytes, confirmou dois hashes físicos distintos,
+um vínculo exato com o catálogo e zero falha aberta na execução. A tentativa do
+runner hospedado continua preservada como a terceira falha histórica; não foi
+apagada nem convertida em sucesso.
