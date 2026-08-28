@@ -665,3 +665,18 @@ As respostas AJAX do JSF chegam como `text/xml`. Para respeitar a lista de MIME
 types do bucket privado, o persistidor registra o equivalente
 `application/xml` no artefato e mantém o `Content-Type` literal da origem nos
 headers preservados. Os bytes e o SHA-256 não são alterados.
+
+## Contrato de download dos PDFs
+
+O download possui duas requisições inseparáveis dentro da mesma sessão JSF. O
+POST do botão do documento devolve um XML preparatório; esse XML deve apontar
+uma única vez para o endpoint oficial `PdfReadOnly/downloadDocumento.seam`. O
+GET seguinte deve devolver HTTP 200, `application/pdf`, bytes iniciados por
+`%PDF-` e marcador final `%%EOF`.
+
+Antes do POST, o coletor recompõe a competência e a página correspondentes à
+posição global do documento. Total mensal e metadados podem ser comparados ao
+catálogo imutável; qualquer drift bloqueia o download. O limite do PDF é
+separado do limite de HTML/XML. Esta etapa ainda não autoriza download em massa
+nem publicação financeira: primeiro será comprovada a persistência filha,
+incluindo leitura física do Storage e vínculo ao registro bruto do catálogo.

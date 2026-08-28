@@ -4,10 +4,13 @@ import unittest
 from dataclasses import replace
 
 from barreiras_collectors.connectors.tcm_ba import (
+    DOWNLOAD_URL,
     MAX_DOCUMENT_PAGES_PER_SESSION,
     TcmBaContractError,
+    TcmBaDocument,
     TcmBaPublicAccountsClient,
     validate_tcm_ba_catalog,
+    validate_tcm_ba_document_download,
 )
 from barreiras_collectors.http import HttpResponse
 from barreiras_collectors.resilience import CircuitBreaker, RetryPolicy
@@ -132,9 +135,47 @@ DETAIL_2 = b"""
 <td>11-RELATORIO.pdf</td><td>nome omitido</td><td>31/05/2023</td></tr>
 """
 
+DOWNLOAD_PREPARED = b"""<?xml version='1.0' encoding='UTF-8'?>
+<partial-response><changes><update id="doc-1:downloadDocBinario"><![CDATA[
+<a href="#">arquivo</a>]]></update><update id="javax.faces.ViewState"><![CDATA[
+prepared-state]]></update><extension id="org.richfaces.extension"><complete>
+infox.hideLoading(); window.open('/epp/PdfReadOnly/downloadDocumento.seam');;
+</complete><render>doc-1:downloadDocBinario</render></extension></changes>
+</partial-response>"""
+
+PDF_BODY = b"%PDF-1.7\nconteudo oficial do TCM-BA\n%%EOF"
+
+
+def _monthly_first_page_responses() -> list[bytes | HttpResponse]:
+    return [
+        _form(monthly=False, year=False, city=False),
+        _state_only("period-preflight-state"),
+        _partial(_form(monthly=True, year=False, city=False), "period-state"),
+        _state_only("year-preflight-state"),
+        _partial(_form(monthly=True, year=True, city=False), "year-state"),
+        _state_only("city-preflight-state"),
+        _partial(_form(monthly=True, year=True, city=True), "city-state"),
+        _state_only("unit-preflight-state"),
+        _partial(
+            _form(monthly=True, year=True, city=False, unit=True),
+            "unit-state",
+        ),
+        _partial(SEARCH, "search-state"),
+        _partial(DETAIL_1, "detail-state-1"),
+    ]
+
+
+def _pdf_response(body: bytes = PDF_BODY) -> HttpResponse:
+    return HttpResponse(
+        status=200,
+        headers={"Content-Type": "application/pdf"},
+        body=body,
+        final_url=DOWNLOAD_URL,
+    )
+
 
 class SequenceSessionTransport:
-    def __init__(self, bodies: list[bytes]) -> None:
+    def __init__(self, bodies: list[bytes | HttpResponse]) -> None:
         self.bodies = list(bodies)
         self.calls: list[tuple[str, str, dict[str, str] | None]] = []
         self.reset_calls = 0
@@ -153,10 +194,13 @@ class SequenceSessionTransport:
         return self._response(url)
 
     def _response(self, url: str) -> HttpResponse:
+        response = self.bodies.pop(0)
+        if isinstance(response, HttpResponse):
+            return response
         return HttpResponse(
             status=200,
             headers={"Content-Type": "text/html; charset=UTF-8"},
-            body=self.bodies.pop(0),
+            body=response,
             final_url=url,
         )
 
@@ -358,9 +402,7 @@ class TcmBaPublicAccountsTests(unittest.TestCase):
         resumed_bootstrap = [
             body.replace(b"state", b"resumed-state") for body in bootstrap
         ]
-        resumed_detail = DETAIL_1.replace(
-            b"detail-state-1", b"resumed-detail"
-        )
+        resumed_detail = DETAIL_1.replace(b"detail-state-1", b"resumed-detail")
         transport = SequenceSessionTransport(
             [
                 *bootstrap,
@@ -577,6 +619,118 @@ class TcmBaPublicAccountsTests(unittest.TestCase):
         self.assertEqual(catalog.interactions[0].response_headers, {})
         self.assertEqual(catalog.interactions[1].stage, "initial-form")
         validate_tcm_ba_catalog(catalog)
+
+    def test_downloads_exact_catalog_document_through_same_jsf_session(self) -> None:
+        transport = SequenceSessionTransport(
+            [*_monthly_first_page_responses(), DOWNLOAD_PREPARED, _pdf_response()]
+        )
+        expected = TcmBaDocument(
+            category="Documentos Adicionais",
+            name="PMB BALANCETE PARTE 1-2.pdf",
+            inserted_at="31/05/2023",
+            page_number=1,
+            download_form_id="doc-1",
+        )
+
+        download = TcmBaPublicAccountsClient(
+            transport=transport,
+            requests_per_minute=600,
+        ).fetch_monthly_document(
+            year=2023,
+            month=4,
+            document_position=1,
+            expected_total_documents=11,
+            expected_document=expected,
+        )
+
+        self.assertEqual(download.document, expected)
+        self.assertEqual(download.document_position, 1)
+        self.assertEqual(download.pdf_interaction.raw_body, PDF_BODY)
+        self.assertEqual(transport.calls[-1], ("GET", DOWNLOAD_URL, None))
+        prepare_form = transport.calls[-2][2]
+        self.assertIsNotNone(prepare_form)
+        assert prepare_form is not None
+        self.assertEqual(prepare_form["javax.faces.source"], "doc-1:downloadDocBinario")
+        validate_tcm_ba_document_download(download)
+
+    def test_downloads_document_from_later_page_by_exact_global_position(self) -> None:
+        page_two = _partial(
+            DETAIL_2,
+            "page-two-state",
+            update_id="consultaPublicaTabPanel:tabelaDocumentos",
+        )
+        prepared = DOWNLOAD_PREPARED.replace(
+            b"doc-1:downloadDocBinario",
+            b"doc-11:downloadDocBinario",
+        )
+        transport = SequenceSessionTransport(
+            [*_monthly_first_page_responses(), page_two, prepared, _pdf_response()]
+        )
+
+        download = TcmBaPublicAccountsClient(
+            transport=transport,
+            requests_per_minute=600,
+        ).fetch_monthly_document(
+            year=2023,
+            month=4,
+            document_position=11,
+            expected_total_documents=11,
+        )
+
+        self.assertEqual(download.document.name, "11-RELATORIO.pdf")
+        self.assertEqual(download.document.page_number, 2)
+        pagination_form = transport.calls[-3][2]
+        self.assertIsNotNone(pagination_form)
+        assert pagination_form is not None
+        self.assertEqual(
+            pagination_form["consultaPublicaTabPanel:tabelaDocumentos_first"],
+            "10",
+        )
+        validate_tcm_ba_document_download(download)
+
+    def test_refuses_catalog_drift_before_clicking_document(self) -> None:
+        transport = SequenceSessionTransport(_monthly_first_page_responses())
+        stale = TcmBaDocument(
+            category="Documentos Adicionais",
+            name="nome-anterior.pdf",
+            inserted_at="31/05/2023",
+            page_number=1,
+            download_form_id="doc-1",
+        )
+
+        with self.assertRaisesRegex(TcmBaContractError, "divergiu do catálogo"):
+            TcmBaPublicAccountsClient(
+                transport=transport,
+                requests_per_minute=600,
+            ).fetch_monthly_document(
+                year=2023,
+                month=4,
+                document_position=1,
+                expected_total_documents=11,
+                expected_document=stale,
+            )
+
+        self.assertEqual(len(transport.calls), 11)
+
+    def test_refuses_non_pdf_body_returned_by_download_endpoint(self) -> None:
+        transport = SequenceSessionTransport(
+            [
+                *_monthly_first_page_responses(),
+                DOWNLOAD_PREPARED,
+                _pdf_response(b"<html>sessao expirada</html>"),
+            ]
+        )
+
+        with self.assertRaisesRegex(TcmBaContractError, "não é PDF"):
+            TcmBaPublicAccountsClient(
+                transport=transport,
+                requests_per_minute=600,
+            ).fetch_monthly_document(
+                year=2023,
+                month=4,
+                document_position=1,
+                expected_total_documents=11,
+            )
 
 
 if __name__ == "__main__":
