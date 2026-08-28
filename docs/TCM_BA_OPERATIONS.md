@@ -755,3 +755,22 @@ relê cada XML e PDF do bucket privado. Qualquer contador divergente, falha atua
 objeto ausente, hash ou tamanho incompatível, chave fora do corredor de conteúdo
 ou assinatura documental inválida bloqueia a aprovação. Uma partição `partial`
 nunca é apresentada como mês completo.
+
+## Drenagem documental automatizada
+
+O workflow `collect-tcm-ba-documents.yml` executa no máximo um lote por hora,
+com até cinco documentos e limite fixo de 30 requisições por minuto. A fila de
+concorrência é a mesma dos demais coletores financeiros; duas sessões do e-TCM
+ou duas conexões financeiras de coleta não são executadas em paralelo.
+
+No agendamento, um planejador somente leitura escolhe a competência cronológica
+mais antiga, a partir de 2021, que possua catálogo mensal completo e cobertura
+documental ainda incompleta. Uma competência sem catálogo completo não é
+classificada como vazia e não recebe partição documental artificial. Ela
+permanece como lacuna de cobertura até a coleta íntegra do catálogo.
+
+Cada rodada preserva XML e PDF, fecha a execução como `partial` enquanto houver
+itens pendentes e chama o auditor relacional e físico antes do selo de
+aprovação. Ausência de objetos, divergência de hash, tamanho, MIME, linhagem ou
+contador faz o workflow falhar. Se não existir competência elegível, a rodada
+termina sem coleta e sem alterar estados no banco.
