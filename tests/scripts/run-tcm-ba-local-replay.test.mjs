@@ -220,3 +220,151 @@ test("script principal rejeita RPM fracionário e booleano antes de acessar conf
     assert.doesNotMatch(output, /Crie \.env\.collector\.local|Senha PostgreSQL|Python não foi localizado/);
   }
 });
+const documentScriptPath = fileURLToPath(
+  new URL("../../scripts/run-tcm-ba-document-pilot.ps1", import.meta.url),
+);
+const documentScript = fs.readFileSync(documentScriptPath, "utf8");
+const documentCommand = fs.readFileSync(
+  new URL(
+    "../../workers/collectors/src/barreiras_collectors/commands/collect_tcm_ba_documents.py",
+    import.meta.url,
+  ),
+  "utf8",
+);
+
+function documentEvent(overrides = {}) {
+  return {
+    event: "collector_tcm_ba_documents_completed",
+    competence: "01/2021",
+    expected_documents: 1441,
+    downloaded_documents: 5,
+    preserved_documents: 6,
+    remaining_documents: 1435,
+    coverage_status: "partial",
+    ...overrides,
+  };
+}
+
+function assertDocumentApproved(events, maxDocuments = 5) {
+  const payload = JSON.stringify(events).replaceAll("'", "''");
+  const command =
+    "$events = ConvertFrom-Json '" +
+    payload +
+    "'; Assert-TcmBaDocumentBatchApproval -Events @($events) " +
+    "-ExpectedCompetence '01/2021' -MaxDocuments " +
+    maxDocuments;
+  const result = runPowerShell(validationCommand(command));
+  assert.equal(result.status, 0, result.stdout + "\n" + result.stderr);
+}
+
+function assertDocumentRejected(events, expectedMessage, maxDocuments = 5) {
+  const payload = JSON.stringify(events).replaceAll("'", "''");
+  const command =
+    "$events = ConvertFrom-Json '" +
+    payload +
+    "'; Assert-TcmBaDocumentBatchApproval -Events @($events) " +
+    "-ExpectedCompetence '01/2021' -MaxDocuments " +
+    maxDocuments;
+  const result = runPowerShell(validationCommand(command));
+  const output = result.stdout + "\n" + result.stderr;
+  assert.notEqual(result.status, 0, output);
+  assert.match(output, expectedMessage);
+}
+
+test("wrapper documental limita lote, RPM e não expõe credenciais", () => {
+  assert.match(documentScript, /\[ValidateRange\(1, 5\)\]/);
+  assert.match(documentScript, /Assert-TcmBaRequestsPerMinute/);
+  assert.match(documentScript, /collect_tcm_ba_documents/);
+  assert.match(documentScript, /--max-documents \$MaxDocuments/);
+  assert.match(documentScript, /--requests-per-minute \$RequestsPerMinute/);
+  assert.match(documentScript, /Assert-TcmBaDocumentBatchApproval/);
+  assert.match(documentScript, /TCM_BA_DOCUMENT_PILOT_APPROVED/);
+  assert.match(documentScript, /collector-credential-store\.ps1/);
+  assert.match(documentScript, /finally\s*\{/);
+  assert.doesNotMatch(
+    documentScript,
+    /Write-Host[^\n]*(databasePassword|workloadPassword)/i,
+  );
+  assert.doesNotMatch(documentScript, /Set-Content|Add-Content|Out-File/);
+  assert.match(
+    documentCommand,
+    /expected_documents=summary\.expected_documents/,
+  );
+});
+
+test("gate documental aprova lote parcial coerente e avanço positivo", () => {
+  assertDocumentApproved([documentEvent()]);
+});
+
+test("gate documental aprova lote que fecha integralmente a competência", () => {
+  assertDocumentApproved([
+    documentEvent({
+      expected_documents: 6,
+      preserved_documents: 6,
+      remaining_documents: 0,
+      coverage_status: "complete",
+    }),
+  ]);
+});
+
+test("gate documental rejeita execução vazia, duplicada ou acima do limite", () => {
+  assertDocumentRejected(
+    [documentEvent({ downloaded_documents: 0 })],
+    /entre 1 e MaxDocuments/,
+  );
+  assertDocumentRejected(
+    [documentEvent(), documentEvent()],
+    /exatamente um evento/,
+  );
+  assertDocumentRejected(
+    [documentEvent({ downloaded_documents: 5 })],
+    /entre 1 e MaxDocuments/,
+    4,
+  );
+});
+
+test("gate documental rejeita competência, total e cobertura divergentes", () => {
+  assertDocumentRejected(
+    [documentEvent({ competence: "02/2021" })],
+    /competência do evento/,
+  );
+  assertDocumentRejected(
+    [documentEvent({ expected_documents: 1442 })],
+    /não recompõem o total esperado/,
+  );
+  assertDocumentRejected(
+    [documentEvent({ coverage_status: "complete" })],
+    /coverage_status diverge/,
+  );
+});
+
+test("gate documental rejeita contadores booleanos, fracionários e textuais", () => {
+  for (const value of [true, 1.5, "5", -1]) {
+    assertDocumentRejected(
+      [documentEvent({ expected_documents: value })],
+      /expected_documents deve ser/,
+    );
+  }
+});
+
+test("wrapper documental rejeita RPM 31 antes de acessar credenciais", () => {
+  const result = spawnSync(
+    process.env.PWSH_PATH ?? "pwsh",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-File",
+      documentScriptPath,
+      "-RequestsPerMinute",
+      "31",
+    ],
+    { encoding: "utf8" },
+  );
+  const output = result.stdout + "\n" + result.stderr;
+  assert.notEqual(result.status, 0, output);
+  assert.match(
+    output,
+    /RequestsPerMinute deve ser um inteiro numérico entre 1 e 30/,
+  );
+  assert.doesNotMatch(output, /Crie \.env\.collector\.local|Senha PostgreSQL/);
+});

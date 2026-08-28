@@ -196,6 +196,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "collector_tcm_ba_documents_completed",
         source=SOURCE_CODE,
         competence=summary.competence,
+        expected_documents=summary.expected_documents,
         downloaded_documents=summary.downloaded_documents,
         preserved_documents=summary.preserved_after,
         remaining_documents=summary.remaining_documents,

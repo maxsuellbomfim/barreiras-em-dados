@@ -711,3 +711,29 @@ dois filhos são gravados por hash no bucket privado, relidos e validados antes
 do commit relacional. Um piloto só é aprovado após consulta viva ao PostgreSQL
 e releitura independente dos objetos. Este comando ainda não extrai números,
 não interpreta contas e não publica projeções financeiras.
+### Evidência do primeiro piloto documental
+
+Em 28/08/2026, o primeiro piloto real da competência 01/2021 preservou um dos
+1.441 documentos catalogados. A partição documental encerrou a execução como
+partial, com um PDF preservado e 1.440 restantes. O campo completed_at indica
+que aquele lote terminou; não significa que a competência mensal esteja
+completa. Apenas status complete, total recomposto e zero restante fecham o mês
+documental.
+
+O piloto produziu dois artefatos filhos: o XML preparatório de 1.248 bytes e o
+PDF oficial de 1.718.309 bytes. Ambos retornaram HTTP 200, foram relidos do
+bucket privado e tiveram tamanho e SHA-256 recomputados sem divergência. O PDF
+também confirmou os marcadores de abertura e encerramento. A cadeia relacional
+ligou o registro bruto do catálogo ao XML e, deste, ao PDF. Duas tentativas
+anteriores permanecem no histórico como falhas: uma por autorização do corredor
+do Storage e outra pelo plano de consulta antigo. Elas não são apagadas
+silenciosamente.
+
+O wrapper recomendado para os próximos lotes é:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tcm-ba-document-pilot.ps1 -Competence 01/2021 -MaxDocuments 5 -RequestsPerMinute 30
+
+O selo TCM_BA_DOCUMENT_PILOT_APPROVED só aparece quando exatamente um evento
+final recompõe o total esperado, preserva de um a cinco PDFs, avança a cobertura
+e mantém partial enquanto houver documentos pendentes. O limite de 30 RPM é
+fechado e as credenciais continuam protegidas pelo usuário atual do Windows.
