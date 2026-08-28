@@ -737,3 +737,21 @@ O selo TCM_BA_DOCUMENT_PILOT_APPROVED só aparece quando exatamente um evento
 final recompõe o total esperado, preserva de um a cinco PDFs, avança a cobertura
 e mantém partial enquanto houver documentos pendentes. O limite de 30 RPM é
 fechado e as credenciais continuam protegidas pelo usuário atual do Windows.
+
+### Evidência do segundo piloto documental
+
+Ainda em 28/08/2026, um segundo lote controlado de 01/2021 preservou cinco PDFs
+e seus cinco XMLs preparatórios. A cobertura cumulativa avançou para 6 dos 1.441
+documentos, com 1.435 restantes e estado `partial`. A auditoria independente
+releu os dez objetos privados, totalizou 8.028.343 bytes, recalculou tamanhos e
+SHA-256 e confirmou dez conteúdos físicos distintos, cinco vínculos com o
+catálogo e zero falha aberta na execução atual. As duas falhas antigas continuam
+preservadas como histórico e não interferem na aprovação do lote íntegro.
+
+A partir deste contrato, o wrapper executa o auditor somente leitura antes de
+emitir `TCM_BA_DOCUMENT_PILOT_APPROVED`. O auditor abre a transação PostgreSQL
+como `read only`, reconcilia checkpoint, métricas, status, linhagem e MIME e
+relê cada XML e PDF do bucket privado. Qualquer contador divergente, falha atual,
+objeto ausente, hash ou tamanho incompatível, chave fora do corredor de conteúdo
+ou assinatura documental inválida bloqueia a aprovação. Uma partição `partial`
+nunca é apresentada como mês completo.

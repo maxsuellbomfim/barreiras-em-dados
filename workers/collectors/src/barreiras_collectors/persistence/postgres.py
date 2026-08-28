@@ -22,6 +22,8 @@ from .models import (
     RepositoryDocumentResult,
     RepositoryPersistResult,
     RepositorySearchResult,
+    TcmBaDocumentAuditArtifact,
+    TcmBaDocumentAuditSnapshot,
     TcmBaDocumentReference,
     TcmBaDocumentSelection,
 )
@@ -352,6 +354,152 @@ class PostgresCollectionRepository:
                 pending_documents=pending,
                 references=references,
             )
+        finally:
+            connection.close()
+
+    def tcm_ba_document_audit_snapshot(
+        self,
+        *,
+        competence: str,
+    ) -> TcmBaDocumentAuditSnapshot:
+        """Lê cobertura, linhagem e artefatos do último lote documental."""
+        if not re.fullmatch(r"(0[1-9]|1[0-2])/\d{4}", competence):
+            raise ValueError("competence deve usar MM/AAAA.")
+        month, year = (int(part) for part in competence.split("/"))
+        partition_key = f"documents:{year:04d}-{month:02d}"
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set transaction read only")
+                connection.execute("set local statement_timeout = '15s'")
+                row = connection.execute(
+                    """
+                    select
+                      partition.status,
+                      partition.completed_at,
+                      partition.observed_records,
+                      partition.checkpoint,
+                      partition.collection_run_id::text as run_id,
+                      run.status as run_status,
+                      run.metrics
+                    from source.collection_partitions as partition
+                    join source.source_endpoints as endpoint
+                      on endpoint.id = partition.source_endpoint_id
+                    join source.data_sources as source
+                      on source.id = endpoint.data_source_id
+                    join source.collection_runs as run
+                      on run.id = partition.collection_run_id
+                    where source.slug = 'tcm-ba'
+                      and endpoint.slug = 'prestacoes-contas-mensais'
+                      and partition.partition_key = %s
+                    """,
+                    (partition_key,),
+                ).fetchone()
+                if row is None:
+                    raise PersistenceContractError(
+                        "Partição documental TCM-BA não foi localizada."
+                    )
+                checkpoint = row.get("checkpoint")
+                metrics = row.get("metrics")
+                if not isinstance(checkpoint, Mapping) or not isinstance(
+                    metrics, Mapping
+                ):
+                    raise PersistenceContractError(
+                        "Controle documental TCM-BA possui métricas inválidas."
+                    )
+                run_id = str(row["run_id"])
+                artifact_rows = connection.execute(
+                    """
+                    select
+                      artifact.id::text as artifact_id,
+                      artifact.parent_artifact_id::text as parent_artifact_id,
+                      artifact.object_key,
+                      artifact.sha256,
+                      artifact.byte_size,
+                      artifact.content_type,
+                      artifact.http_status,
+                      artifact.metadata ->> 'schema_name' as schema_name,
+                      artifact.metadata ->> 'source_record_key'
+                        as source_record_key
+                    from raw.raw_artifacts as artifact
+                    where artifact.collection_run_id = %s::uuid
+                    order by artifact.retrieved_at, artifact.id
+                    """,
+                    (run_id,),
+                ).fetchall()
+                catalog_links = int(
+                    connection.execute(
+                        """
+                        select count(*) as total
+                        from raw.raw_artifacts as prepare
+                        join raw.raw_artifacts as catalog
+                          on catalog.id = prepare.parent_artifact_id
+                        join raw.raw_records as record
+                          on record.raw_artifact_id = catalog.id
+                         and record.source_record_key =
+                           prepare.metadata ->> 'source_record_key'
+                        where prepare.collection_run_id = %s::uuid
+                          and prepare.metadata ->> 'schema_name' =
+                            'tcm-ba-document-download-prepare'
+                          and record.record_type = 'tcm_ba_monthly_document'
+                        """,
+                        (run_id,),
+                    ).fetchone()["total"]
+                )
+                current_open_failures = int(
+                    connection.execute(
+                        """
+                        select count(*) as total
+                        from source.collection_failures
+                        where collection_run_id = %s::uuid
+                          and status <> 'resolved'
+                        """,
+                        (run_id,),
+                    ).fetchone()["total"]
+                )
+                historical_open_failures = int(
+                    connection.execute(
+                        """
+                        select count(*) as total
+                        from source.collection_failures
+                        where partition_key = %s
+                          and status <> 'resolved'
+                        """,
+                        (partition_key,),
+                    ).fetchone()["total"]
+                )
+            try:
+                artifacts = tuple(
+                    TcmBaDocumentAuditArtifact(
+                        artifact_id=str(item["artifact_id"]),
+                        parent_artifact_id=str(item["parent_artifact_id"]),
+                        object_key=str(item["object_key"]),
+                        sha256=str(item["sha256"]),
+                        byte_size=int(item["byte_size"]),
+                        content_type=str(item["content_type"]),
+                        http_status=int(item["http_status"]),
+                        schema_name=str(item["schema_name"]),
+                        source_record_key=str(item["source_record_key"]),
+                    )
+                    for item in artifact_rows
+                )
+                return TcmBaDocumentAuditSnapshot(
+                    competence=competence,
+                    partition_status=str(row["status"]),
+                    partition_completed_at=row["completed_at"],
+                    observed_records=int(row["observed_records"]),
+                    checkpoint=dict(checkpoint),
+                    run_status=str(row["run_status"]),
+                    metrics=dict(metrics),
+                    artifacts=artifacts,
+                    catalog_links=catalog_links,
+                    current_open_failures=current_open_failures,
+                    historical_open_failures=historical_open_failures,
+                )
+            except (KeyError, TypeError, ValueError) as error:
+                raise PersistenceContractError(
+                    "Snapshot documental TCM-BA está incompleto."
+                ) from error
         finally:
             connection.close()
 

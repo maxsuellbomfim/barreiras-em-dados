@@ -53,6 +53,31 @@ function Find-Python {
     throw "Python não foi localizado."
 }
 
+function Read-AuditEvents {
+    param([object[]]$Output)
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -eq "auditor_tcm_ba_document_batch_completed") {
+            $events += $event
+        }
+    }
+    if ($events.Count -eq 0) {
+        throw "O auditor não produziu o evento documental final do TCM-BA."
+    }
+    return $events
+}
+
 function Read-CompletedEvents {
     param([object[]]$Output)
 
@@ -183,6 +208,33 @@ try {
     }
     $events = @(Read-CompletedEvents -Output $output)
     $null = Assert-TcmBaDocumentBatchApproval -Events $events -ExpectedCompetence $Competence -MaxDocuments $MaxDocuments
+    $collectorEvent = $events[0]
+
+    Push-Location $projectRoot
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $auditOutput = @(
+                & $python -B -m barreiras_collectors.commands.audit_tcm_ba_document_batch --competence $Competence 2>&1
+            )
+            $auditExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    $auditOutput | ForEach-Object { Write-Host $_ }
+    if ($auditExitCode -ne 0) {
+        throw "O auditor terminou com código $auditExitCode."
+    }
+    $auditEvents = @(Read-AuditEvents -Output $auditOutput)
+    $null = Assert-TcmBaDocumentAuditApproval `
+        -CollectorEvent $collectorEvent `
+        -AuditEvents $auditEvents
     Write-Host "TCM_BA_DOCUMENT_PILOT_APPROVED" -ForegroundColor Green
 }
 finally {
