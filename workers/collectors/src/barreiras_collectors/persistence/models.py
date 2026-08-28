@@ -135,6 +135,29 @@ class DocumentPersistResult:
 
 
 @dataclass(frozen=True)
+class TcmBaDocumentReference:
+    competence: str
+    expected_total_documents: int
+    document_position: int
+    source_record_key: str
+    parent_artifact_id: str
+    category: str
+    name: str
+    inserted_at: str
+    page_number: int
+    download_form_id: str
+
+
+@dataclass(frozen=True)
+class TcmBaDocumentSelection:
+    competence: str
+    expected_total_documents: int
+    preserved_documents: int
+    pending_documents: int
+    references: tuple[TcmBaDocumentReference, ...]
+
+
+@dataclass(frozen=True)
 class DirectEditionBatch:
     source_code: str
     endpoint_code: str

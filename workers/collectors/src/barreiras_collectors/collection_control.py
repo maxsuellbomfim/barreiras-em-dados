@@ -118,6 +118,13 @@ class CollectionControl:
         )
         return self
 
+    @property
+    def run_id(self) -> str:
+        """Expõe a execução iniciada a persistências filhas auditáveis."""
+        if self._run_id is None:
+            raise RuntimeError("A execução ainda não foi iniciada.")
+        return self._run_id
+
     def complete(
         self,
         *,

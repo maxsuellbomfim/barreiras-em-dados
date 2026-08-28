@@ -680,3 +680,31 @@ catálogo imutável; qualquer drift bloqueia o download. O limite do PDF é
 separado do limite de HTML/XML. Esta etapa ainda não autoriza download em massa
 nem publicação financeira: primeiro será comprovada a persistência filha,
 incluindo leitura física do Storage e vínculo ao registro bruto do catálogo.
+## Piloto de persistência documental
+
+O comando documental exige um catálogo mensal já classificado como `complete`.
+Ele recusa competências com lacunas, posições repetidas, chaves conflitantes ou
+contagem diferente da cobertura registrada. PDFs já preservados são excluídos
+da fila por sua chave oficial.
+
+Execute inicialmente um único documento:
+
+```powershell
+$env:PYTHONPATH = "workers/collectors/src"
+python -B -m barreiras_collectors.commands.collect_tcm_ba_documents `
+  --competence 01/2021 `
+  --max-documents 1 `
+  --requests-per-minute 30
+```
+
+O limite aceito é de um a cinco documentos e nunca mais de 30 requisições por
+minuto. Cada lote cria uma execução de controle própria. O checkpoint registra
+o total esperado, quantos PDFs já estavam preservados, quantos foram baixados e
+quantos restam. A partição `documents:AAAA-MM` permanece `partial` até que o
+último PDF seja validado; somente então recebe `complete`.
+
+A cadeia de evidência é `artefato do catálogo -> XML preparatório -> PDF`. Os
+dois filhos são gravados por hash no bucket privado, relidos e validados antes
+do commit relacional. Um piloto só é aprovado após consulta viva ao PostgreSQL
+e releitura independente dos objetos. Este comando ainda não extrai números,
+não interpreta contas e não publica projeções financeiras.

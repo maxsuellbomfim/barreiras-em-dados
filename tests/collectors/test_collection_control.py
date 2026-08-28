@@ -51,6 +51,7 @@ class CollectionControlTests(unittest.TestCase):
 
         with control:
             self.assertEqual(len(self.repository.started), 1)
+            self.assertEqual(control.run_id, "run-1")
             self.assertEqual(self.repository.completed, [])
             control.complete(
                 outcome=CollectionOutcome.COMPLETE,
@@ -77,6 +78,10 @@ class CollectionControlTests(unittest.TestCase):
                 }
             ],
         )
+
+    def test_run_id_is_unavailable_before_start(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "ainda não foi iniciada"):
+            _ = self.make_control().run_id
 
     def test_exception_is_sanitized_and_recorded_as_failure(self) -> None:
         control = self.make_control()

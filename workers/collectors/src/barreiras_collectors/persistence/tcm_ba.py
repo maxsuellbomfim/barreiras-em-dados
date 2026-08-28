@@ -9,20 +9,41 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
+from ..connectors.gazette_documents import CollectedDocument
 from ..connectors.querido_diario import CollectedPage, GazettePage
 from ..connectors.tcm_ba import (
+    TcmBaDocument,
+    TcmBaDocumentDownload,
     TcmBaInteraction,
     TcmBaMonthlyCatalog,
     validate_tcm_ba_catalog,
+    validate_tcm_ba_document_download,
 )
 from .models import (
     ArtifactIntegrityError,
+    DocumentBatch,
     PersistenceBatch,
+    PersistenceContractError,
     RawRecordInput,
+    TcmBaDocumentReference,
 )
 
 TCM_BA_COLLECTOR_VERSION = "tcm-ba-monthly-catalog-collector/1.0.1"
 TCM_BA_PARSER_VERSION = "tcm-ba-monthly-catalog/1.0.0"
+TCM_BA_DOCUMENT_COLLECTOR_VERSION = "tcm-ba-monthly-document-collector/1.0.0"
+
+
+@dataclass(frozen=True)
+class TcmBaDocumentPersistenceSummary:
+    prepare_artifact_id: str
+    pdf_artifact_id: str
+    prepare_object_key: str
+    pdf_object_key: str
+    pdf_sha256: str
+    prepare_object_created: bool
+    pdf_object_created: bool
+    prepare_artifact_created: bool
+    pdf_artifact_created: bool
 
 
 @dataclass(frozen=True)
@@ -240,14 +261,206 @@ class TcmBaCatalogPersistenceService:
                 # O JSF usa o tipo obsoleto text/xml em respostas AJAX. O bucket
                 # privado aceita o equivalente registrado application/xml; os
                 # headers originais continuam preservados em response_headers.
-                return "application/xml" if media_type == "text/xml" else (
-                    media_type or "text/html"
+                return (
+                    "application/xml"
+                    if media_type == "text/xml"
+                    else (media_type or "text/html")
                 )
         return "text/html"
 
     @staticmethod
     def _suffix(media_type: str) -> str:
         return ".xml" if media_type == "application/xml" else ".html"
+
+    @staticmethod
+    def _digest(value: str) -> str:
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+class TcmBaDocumentPersistenceService:
+    """Preserva XML preparatório e PDF como filhos do registro do catálogo."""
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(
+        self,
+        download: TcmBaDocumentDownload,
+        *,
+        reference: TcmBaDocumentReference,
+        collection_run_id: str,
+    ) -> TcmBaDocumentPersistenceSummary:
+        validate_tcm_ba_document_download(download)
+        self._validate_reference(download, reference)
+        if not collection_run_id.strip():
+            raise ValueError("collection_run_id é obrigatório.")
+
+        year = int(download.competence[3:])
+        month = int(download.competence[:2])
+        prepare = self._as_document(
+            download.prepare_interaction,
+            role="download-prepare",
+            media_type="application/xml",
+        )
+        pdf = self._as_document(
+            download.pdf_interaction,
+            role="pdf",
+            media_type="application/pdf",
+        )
+        prepare_key = (
+            f"tcm-ba/monthly-documents/{year}/{month:02d}/prepare/sha256/"
+            f"{prepare.body_sha256[:2]}/{prepare.body_sha256}.xml"
+        )
+        pdf_key = (
+            f"tcm-ba/monthly-documents/{year}/{month:02d}/pdf/sha256/"
+            f"{pdf.body_sha256[:2]}/{pdf.body_sha256}.pdf"
+        )
+
+        prepare_object, prepare_artifact = self._persist_child(
+            document=prepare,
+            object_key=prepare_key,
+            collection_run_id=collection_run_id,
+            parent_artifact_id=reference.parent_artifact_id,
+            source_record_key=reference.source_record_key,
+            idempotency_key=self._digest(
+                "\x1f".join(
+                    (
+                        "tcm-ba-document-prepare",
+                        reference.source_record_key,
+                        prepare.body_sha256,
+                    )
+                )
+            ),
+            schema_name="tcm-ba-document-download-prepare",
+            object_prefix="tcm-ba/monthly-documents/prepare",
+        )
+        pdf_object, pdf_artifact = self._persist_child(
+            document=pdf,
+            object_key=pdf_key,
+            collection_run_id=collection_run_id,
+            parent_artifact_id=prepare_artifact.raw_artifact_id,
+            source_record_key=reference.source_record_key,
+            idempotency_key=self._digest(
+                "\x1f".join(
+                    (
+                        "tcm-ba-monthly-document",
+                        reference.source_record_key,
+                        pdf.body_sha256,
+                    )
+                )
+            ),
+            schema_name="tcm-ba-monthly-document",
+            object_prefix="tcm-ba/monthly-documents/pdf",
+        )
+        return TcmBaDocumentPersistenceSummary(
+            prepare_artifact_id=prepare_artifact.raw_artifact_id,
+            pdf_artifact_id=pdf_artifact.raw_artifact_id,
+            prepare_object_key=prepare_key,
+            pdf_object_key=pdf_key,
+            pdf_sha256=pdf.body_sha256,
+            prepare_object_created=prepare_object.created,
+            pdf_object_created=pdf_object.created,
+            prepare_artifact_created=prepare_artifact.created,
+            pdf_artifact_created=pdf_artifact.created,
+        )
+
+    def _persist_child(
+        self,
+        *,
+        document: CollectedDocument,
+        object_key: str,
+        collection_run_id: str,
+        parent_artifact_id: str,
+        source_record_key: str,
+        idempotency_key: str,
+        schema_name: str,
+        object_prefix: str,
+    ):
+        stored = self.object_store.put_if_absent(
+            object_key=object_key,
+            body=document.raw_body,
+            content_type=document.media_type,
+            expected_sha256=document.body_sha256,
+        )
+        restored = self.object_store.read(object_key)
+        if (
+            hashlib.sha256(restored).hexdigest() != document.body_sha256
+            or len(restored) != document.body_size_bytes
+            or stored.sha256 != document.body_sha256
+            or stored.byte_size != document.body_size_bytes
+        ):
+            raise ArtifactIntegrityError(
+                "Artefato documental TCM-BA restaurado diverge do coletado."
+            )
+        artifact = self.repository.persist_document(
+            DocumentBatch(
+                source_code="tcm-ba",
+                endpoint_code="prestacoes-contas-mensais",
+                collection_run_id=collection_run_id,
+                parent_artifact_id=parent_artifact_id,
+                source_record_key=source_record_key,
+                document=document,
+                object_key=object_key,
+                idempotency_key=idempotency_key,
+                collector_version=TCM_BA_DOCUMENT_COLLECTOR_VERSION,
+                document_schema_name=schema_name,
+                document_object_prefix=object_prefix,
+            )
+        )
+        return stored, artifact
+
+    @staticmethod
+    def _validate_reference(
+        download: TcmBaDocumentDownload,
+        reference: TcmBaDocumentReference,
+    ) -> None:
+        expected = TcmBaDocument(
+            category=reference.category,
+            name=reference.name,
+            inserted_at=reference.inserted_at,
+            page_number=reference.page_number,
+            download_form_id=reference.download_form_id,
+        )
+        if (
+            download.competence != reference.competence
+            or download.total_documents != reference.expected_total_documents
+            or download.document_position != reference.document_position
+            or download.document != expected
+        ):
+            raise PersistenceContractError(
+                "Download TCM-BA diverge da referência bruta do catálogo."
+            )
+        if not reference.source_record_key.startswith(
+            f"tcm-ba:document:{reference.competence}:"
+        ):
+            raise PersistenceContractError(
+                "Chave oficial da referência TCM-BA é incompatível."
+            )
+        if not reference.parent_artifact_id.strip():
+            raise PersistenceContractError("Artefato pai TCM-BA é obrigatório.")
+
+    @staticmethod
+    def _as_document(
+        interaction: TcmBaInteraction,
+        *,
+        role: str,
+        media_type: str,
+    ) -> CollectedDocument:
+        return CollectedDocument(
+            role=role,
+            source_url=interaction.request_url,
+            final_url=interaction.final_url,
+            requested_at=interaction.received_at,
+            received_at=interaction.received_at,
+            attempts=1,
+            http_status=interaction.http_status,
+            body_sha256=interaction.body_sha256,
+            body_size_bytes=len(interaction.raw_body),
+            media_type=media_type,
+            response_headers=interaction.response_headers,
+            raw_body=interaction.raw_body,
+        )
 
     @staticmethod
     def _digest(value: str) -> str:
