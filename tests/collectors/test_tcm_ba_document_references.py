@@ -43,7 +43,11 @@ def complete_catalog(*, documents=11):
     )
 
 
-def consistent_count(*, documents=11, preserved=0):
+def consistent_count(*, documents=11):
+    source_record_keys = ["tcm-ba:document:04/2023:abc"]
+    source_record_keys.extend(
+        f"tcm-ba:document:04/2023:key-{index}" for index in range(2, documents + 1)
+    )
     return QueryResult(
         row={
             "documents": documents,
@@ -51,7 +55,7 @@ def consistent_count(*, documents=11, preserved=0):
             "unique_positions": documents,
             "first_position": 1,
             "last_position": documents,
-            "preserved_documents": preserved,
+            "source_record_keys": source_record_keys,
         }
     )
 
@@ -62,6 +66,7 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
             [
                 complete_catalog(),
                 consistent_count(),
+                QueryResult(rows=[]),
                 QueryResult(
                     rows=[
                         {
@@ -93,24 +98,85 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
         self.assertEqual(selection.references[0].expected_total_documents, 11)
         self.assertEqual(connection.calls[0][1], ("competence:2023-04",))
         self.assertEqual(
-            connection.calls[2][1],
+            connection.calls[3][1],
             (
                 "endpoint-1",
                 "2026-08-28T10:00:00Z",
                 "2026-08-28T11:00:00Z",
                 "04/2023",
+                [],
                 1,
             ),
         )
-        self.assertIn("ranked_artifacts", connection.calls[2][0].lower())
-        self.assertIn("child_run.started_at", connection.calls[2][0].lower())
+        self.assertEqual(
+            connection.calls[2][1],
+            (
+                "endpoint-1",
+                "tcm-ba/monthly-documents/2023/04/pdf/%",
+            ),
+        )
+        self.assertIn("schema_name", connection.calls[2][0].lower())
+        self.assertIn("object_key like", connection.calls[2][0].lower())
+        self.assertIn("ranked_artifacts", connection.calls[3][0].lower())
+        self.assertIn("child_run.started_at", connection.calls[3][0].lower())
         self.assertNotIn(
             "artifact.collection_run_id = %s",
-            connection.calls[2][0].lower(),
+            connection.calls[3][0].lower(),
         )
-        self.assertIn("not exists", connection.calls[2][0].lower())
+        self.assertNotIn("not exists", connection.calls[3][0].lower())
+        self.assertIn("any(%s::text[])", connection.calls[3][0].lower())
         self.assertIn("tcm-ba-monthly-document", connection.calls[2][0])
         self.assertTrue(connection.closed)
+
+    def test_counts_only_preserved_keys_from_current_catalog(self) -> None:
+        connection = SequenceConnection(
+            [
+                complete_catalog(documents=2),
+                consistent_count(documents=2),
+                QueryResult(
+                    rows=[
+                        {"source_record_key": "tcm-ba:document:04/2023:abc"},
+                        {"source_record_key": "tcm-ba:document:04/2023:stale"},
+                    ]
+                ),
+                QueryResult(
+                    rows=[
+                        {
+                            "source_record_key": "tcm-ba:document:04/2023:key-2",
+                            "parent_artifact_id": "catalog-artifact-2",
+                            "record_index": 1,
+                            "payload": {
+                                "category": "Relatorio",
+                                "name": "segundo.pdf",
+                                "inserted_at": "03/05/2023 10:01",
+                                "page_number": 1,
+                                "download_form_id": "form:download",
+                            },
+                        }
+                    ]
+                ),
+            ]
+        )
+
+        selection = PostgresCollectionRepository(
+            lambda: connection
+        ).tcm_ba_document_references(competence="04/2023", limit=1)
+
+        self.assertEqual(selection.expected_total_documents, 2)
+        self.assertEqual(selection.preserved_documents, 1)
+        self.assertEqual(selection.pending_documents, 1)
+        self.assertEqual(selection.references[0].document_position, 2)
+        self.assertEqual(
+            connection.calls[3][1],
+            (
+                "endpoint-1",
+                "2026-08-28T10:00:00Z",
+                "2026-08-28T11:00:00Z",
+                "04/2023",
+                ["tcm-ba:document:04/2023:abc"],
+                1,
+            ),
+        )
 
     def test_refuses_month_without_complete_coverage(self) -> None:
         connection = SequenceConnection([QueryResult(row=None)])

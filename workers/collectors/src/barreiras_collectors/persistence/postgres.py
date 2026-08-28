@@ -206,16 +206,11 @@ class PostgresCollectionRepository:
                     ((record.payload ->> 'page_number')::integer - 1) * 10
                     + record.record_index + 1
                   ) as last_position,
-                  count(*) filter (
-                    where exists (
-                      select 1
-                      from raw.raw_artifacts as pdf
-                      where pdf.metadata ->> 'schema_name' =
-                        'tcm-ba-monthly-document'
-                        and pdf.metadata ->> 'source_record_key'
-                            = record.source_record_key
-                    )
-                  ) as preserved_documents
+                  array_agg(
+                    record.source_record_key
+                    order by (record.payload ->> 'page_number')::integer,
+                             record.record_index
+                  ) as source_record_keys
                 from raw.raw_records as record
                 join ranked_artifacts as artifact
                   on artifact.id = record.raw_artifact_id
@@ -233,7 +228,6 @@ class PostgresCollectionRepository:
                 "unique_positions",
                 "first_position",
                 "last_position",
-                "preserved_documents",
             )
             metrics = {
                 key: int(counted[key])
@@ -256,6 +250,35 @@ class PostgresCollectionRepository:
                 raise PersistenceContractError(
                     "Registros brutos TCM-BA divergem da cobertura mensal."
                 )
+            current_keys = tuple(
+                str(value) for value in (counted["source_record_keys"] or ())
+            )
+            if len(current_keys) != expected or len(set(current_keys)) != expected:
+                raise PersistenceContractError(
+                    "Chaves do catálogo mensal TCM-BA estão incompletas."
+                )
+            pdf_prefix = f"tcm-ba/monthly-documents/{year:04d}/{month:02d}/pdf/" + chr(
+                37
+            )
+            preserved_rows = connection.execute(
+                """
+                select distinct
+                  artifact.metadata ->> 'source_record_key' as source_record_key
+                from raw.raw_artifacts as artifact
+                where artifact.source_endpoint_id = %s
+                  and artifact.artifact_kind = 'document'
+                  and artifact.metadata ->> 'schema_name' =
+                    'tcm-ba-monthly-document'
+                  and artifact.object_key like %s
+                  and artifact.metadata ->> 'source_record_key' is not null
+                """,
+                (endpoint_id, pdf_prefix),
+            ).fetchall()
+            preserved_keys = sorted(
+                set(current_keys).intersection(
+                    str(row["source_record_key"]) for row in preserved_rows
+                )
+            )
             rows = connection.execute(
                 """
                 with ranked_artifacts as materialized (
@@ -291,19 +314,22 @@ class PostgresCollectionRepository:
                  and artifact.observation_rank = 1
                 where record.record_type = 'tcm_ba_monthly_document'
                   and record.payload ->> 'competence' = %s
-                  and not exists (
-                    select 1
-                    from raw.raw_artifacts as pdf
-                    where pdf.metadata ->> 'schema_name' = 'tcm-ba-monthly-document'
-                      and pdf.metadata ->> 'source_record_key'
-                          = record.source_record_key
+                  and not (
+                    record.source_record_key = any(%s::text[])
                   )
                 order by
                   (record.payload ->> 'page_number')::integer,
                   record.record_index
                 limit %s
                 """,
-                (endpoint_id, started_at, completed_at, competence, limit),
+                (
+                    endpoint_id,
+                    started_at,
+                    completed_at,
+                    competence,
+                    preserved_keys,
+                    limit,
+                ),
             ).fetchall()
             references = tuple(
                 self._tcm_ba_document_reference(
@@ -313,7 +339,8 @@ class PostgresCollectionRepository:
                 )
                 for row in rows
             )
-            pending = expected - metrics["preserved_documents"]
+            preserved_documents = len(preserved_keys)
+            pending = expected - preserved_documents
             if pending < 0 or len(references) != min(limit, pending):
                 raise PersistenceContractError(
                     "Fila documental TCM-BA diverge dos artefatos preservados."
@@ -321,7 +348,7 @@ class PostgresCollectionRepository:
             return TcmBaDocumentSelection(
                 competence=competence,
                 expected_total_documents=expected,
-                preserved_documents=metrics["preserved_documents"],
+                preserved_documents=preserved_documents,
                 pending_documents=pending,
                 references=references,
             )
