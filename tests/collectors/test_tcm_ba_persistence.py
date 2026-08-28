@@ -5,16 +5,26 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 from barreiras_collectors.connectors.tcm_ba import TcmBaPublicAccountsClient
-from barreiras_collectors.persistence.models import ArtifactIntegrityError
-from barreiras_collectors.persistence.tcm_ba import TcmBaCatalogPersistenceService
+from barreiras_collectors.persistence.models import (
+    ArtifactIntegrityError,
+    PersistenceContractError,
+    TcmBaDocumentReference,
+)
+from barreiras_collectors.persistence.tcm_ba import (
+    TcmBaCatalogPersistenceService,
+    TcmBaDocumentPersistenceService,
+)
 
 from tests.collectors.test_tcm_ba import (
     DETAIL_1,
     DETAIL_2,
+    DOWNLOAD_PREPARED,
     SEARCH,
     SequenceSessionTransport,
     _form,
+    _monthly_first_page_responses,
     _partial,
+    _pdf_response,
     _state_only,
 )
 
@@ -43,6 +53,7 @@ class FakeObjectStore:
 class FakeRepository:
     def __init__(self) -> None:
         self.batches = []
+        self.document_batches = []
 
     def persist(self, batch):
         self.batches.append(batch)
@@ -51,6 +62,13 @@ class FakeRepository:
             raw_artifact_id=f"artifact-{len(self.batches)}",
             inserted_records=len(batch.records),
             existing_records=0,
+        )
+
+    def persist_document(self, batch):
+        self.document_batches.append(batch)
+        return SimpleNamespace(
+            raw_artifact_id=f"document-{len(self.document_batches)}",
+            created=True,
         )
 
 
@@ -82,6 +100,37 @@ def catalog():
         transport=transport,
         requests_per_minute=600,
     ).fetch_monthly_catalog(year=2023, month=4)
+
+
+def document_download():
+    transport = SequenceSessionTransport(
+        [*_monthly_first_page_responses(), DOWNLOAD_PREPARED, _pdf_response()]
+    )
+    return TcmBaPublicAccountsClient(
+        transport=transport,
+        requests_per_minute=600,
+    ).fetch_monthly_document(
+        year=2023,
+        month=4,
+        document_position=1,
+        expected_total_documents=11,
+    )
+
+
+def document_reference(download):
+    document = download.document
+    return TcmBaDocumentReference(
+        competence=download.competence,
+        expected_total_documents=download.total_documents,
+        document_position=download.document_position,
+        source_record_key=("tcm-ba:document:04/2023:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+        parent_artifact_id="catalog-artifact-1",
+        category=document.category,
+        name=document.name,
+        inserted_at=document.inserted_at,
+        page_number=document.page_number,
+        download_form_id=document.download_form_id,
+    )
 
 
 class TcmBaCatalogPersistenceTests(unittest.TestCase):
@@ -144,6 +193,69 @@ class TcmBaCatalogPersistenceTests(unittest.TestCase):
             expected_suffix = ".xml" if content_type == "application/xml" else ".html"
             self.assertTrue(object_key.endswith(expected_suffix))
         self.assertEqual(len(result.object_keys), len(store.content_types))
+
+
+class TcmBaDocumentPersistenceTests(unittest.TestCase):
+    def test_preserves_prepare_and_pdf_as_a_verified_parent_chain(self) -> None:
+        repository = FakeRepository()
+        store = FakeObjectStore()
+        download = document_download()
+
+        result = TcmBaDocumentPersistenceService(
+            object_store=store,
+            repository=repository,
+        ).persist(
+            download,
+            reference=document_reference(download),
+            collection_run_id="download-run-1",
+        )
+
+        self.assertEqual(len(repository.document_batches), 2)
+        prepare, pdf = repository.document_batches
+        self.assertEqual(prepare.parent_artifact_id, "catalog-artifact-1")
+        self.assertEqual(pdf.parent_artifact_id, "document-1")
+        self.assertEqual(prepare.document.role, "download-prepare")
+        self.assertEqual(prepare.document.media_type, "application/xml")
+        self.assertEqual(pdf.document.role, "pdf")
+        self.assertEqual(pdf.document.media_type, "application/pdf")
+        self.assertTrue(result.prepare_object_key.endswith(".xml"))
+        self.assertTrue(result.pdf_object_key.endswith(".pdf"))
+        self.assertEqual(result.pdf_sha256, download.pdf_interaction.body_sha256)
+        self.assertEqual(result.prepare_artifact_id, "document-1")
+        self.assertEqual(result.pdf_artifact_id, "document-2")
+
+    def test_refuses_pdf_changed_after_storage_round_trip(self) -> None:
+        download = document_download()
+        repository = FakeRepository()
+
+        with self.assertRaisesRegex(ArtifactIntegrityError, "restaurado diverge"):
+            TcmBaDocumentPersistenceService(
+                object_store=FakeObjectStore(tamper=True),
+                repository=repository,
+            ).persist(
+                download,
+                reference=document_reference(download),
+                collection_run_id="download-run-1",
+            )
+
+        self.assertEqual(repository.document_batches, [])
+
+    def test_refuses_download_that_does_not_match_catalog_reference(self) -> None:
+        download = document_download()
+        reference = replace(document_reference(download), name="outro-documento.pdf")
+        repository = FakeRepository()
+
+        with self.assertRaisesRegex(PersistenceContractError, "referência bruta"):
+            TcmBaDocumentPersistenceService(
+                object_store=FakeObjectStore(),
+                repository=repository,
+            ).persist(
+                download,
+                reference=reference,
+                collection_run_id="download-run-1",
+            )
+
+        self.assertEqual(repository.document_batches, [])
 
 
 if __name__ == "__main__":

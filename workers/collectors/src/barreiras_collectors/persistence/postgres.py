@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable, Mapping
 from datetime import date, datetime
 from typing import Any, Protocol
@@ -21,6 +22,8 @@ from .models import (
     RepositoryDocumentResult,
     RepositoryPersistResult,
     RepositorySearchResult,
+    TcmBaDocumentReference,
+    TcmBaDocumentSelection,
 )
 
 
@@ -115,6 +118,265 @@ class PostgresCollectionRepository:
             return dict(row["checkpoint"])
         finally:
             connection.close()
+
+    def tcm_ba_document_references(
+        self,
+        *,
+        competence: str,
+        limit: int,
+    ) -> TcmBaDocumentSelection:
+        """Seleciona documentos exatos de um catálogo mensal completo do TCM-BA."""
+        if not re.fullmatch(r"(0[1-9]|1[0-2])/\d{4}", competence):
+            raise ValueError("competence deve usar MM/AAAA.")
+        if limit < 1 or limit > 5:
+            raise ValueError("limit deve estar entre 1 e 5.")
+        month, year = (int(part) for part in competence.split("/"))
+        partition_key = f"competence:{year:04d}-{month:02d}"
+        connection = self.connection_factory()
+        try:
+            coverage = connection.execute(
+                """
+                select
+                  partition.source_endpoint_id,
+                  partition.observed_records,
+                  run.started_at,
+                  run.completed_at
+                from source.collection_partitions as partition
+                join source.source_endpoints as endpoint
+                  on endpoint.id = partition.source_endpoint_id
+                join source.data_sources as source
+                  on source.id = endpoint.data_source_id
+                join source.collection_runs as run
+                  on run.id = partition.collection_run_id
+                where source.slug = 'tcm-ba'
+                  and endpoint.slug = 'prestacoes-contas-mensais'
+                  and partition.partition_key = %s
+                  and partition.status = 'complete'
+                  and partition.completed_at is not null
+                  and partition.observed_records > 0
+                  and run.status = 'succeeded'
+                  and run.metrics ->> 'collection_outcome' = 'complete'
+                """,
+                (partition_key,),
+            ).fetchone()
+            if coverage is None:
+                raise PersistenceContractError(
+                    "Catálogo mensal TCM-BA não possui cobertura completa."
+                )
+            endpoint_id = str(coverage["source_endpoint_id"])
+            started_at = coverage["started_at"]
+            completed_at = coverage["completed_at"]
+            expected = int(coverage["observed_records"])
+            counted = connection.execute(
+                """
+                with ranked_artifacts as materialized (
+                  select
+                    artifact.id,
+                    row_number() over (
+                      partition by
+                        (artifact.metadata -> 'cursor' ->> 'stage_index')::integer
+                      order by child_run.started_at desc,
+                               artifact.retrieved_at desc,
+                               artifact.id desc
+                    ) as observation_rank
+                  from raw.raw_artifacts as artifact
+                  join source.collection_runs as child_run
+                    on child_run.id = artifact.collection_run_id
+                  where artifact.source_endpoint_id = %s
+                    and artifact.metadata ->> 'schema_name' =
+                      'tcm-ba-monthly-public-accounts-interaction'
+                    and artifact.metadata -> 'cursor' ->> 'stage_index'
+                        ~ '^[0-9]+$'
+                    and child_run.status = 'succeeded'
+                    and child_run.started_at >= %s
+                    and child_run.started_at <= %s
+                )
+                select
+                  count(*) as documents,
+                  count(distinct record.source_record_key) as unique_keys,
+                  count(distinct (
+                    (record.payload ->> 'page_number') || ':' ||
+                    record.record_index::text
+                  )) as unique_positions,
+                  min(
+                    ((record.payload ->> 'page_number')::integer - 1) * 10
+                    + record.record_index + 1
+                  ) as first_position,
+                  max(
+                    ((record.payload ->> 'page_number')::integer - 1) * 10
+                    + record.record_index + 1
+                  ) as last_position,
+                  count(*) filter (
+                    where exists (
+                      select 1
+                      from raw.raw_artifacts as pdf
+                      where pdf.metadata ->> 'schema_name' =
+                        'tcm-ba-monthly-document'
+                        and pdf.metadata ->> 'source_record_key'
+                            = record.source_record_key
+                    )
+                  ) as preserved_documents
+                from raw.raw_records as record
+                join ranked_artifacts as artifact
+                  on artifact.id = record.raw_artifact_id
+                 and artifact.observation_rank = 1
+                where record.record_type = 'tcm_ba_monthly_document'
+                  and record.payload ->> 'competence' = %s
+                  and record.payload ->> 'page_number' ~ '^[1-9][0-9]*$'
+                  and record.record_index between 0 and 9
+                """,
+                (endpoint_id, started_at, completed_at, competence),
+            ).fetchone()
+            metric_names = (
+                "documents",
+                "unique_keys",
+                "unique_positions",
+                "first_position",
+                "last_position",
+                "preserved_documents",
+            )
+            metrics = {
+                key: int(counted[key])
+                if counted is not None and counted[key] is not None
+                else 0
+                for key in metric_names
+            }
+            if (
+                any(
+                    metrics[key] != expected
+                    for key in (
+                        "documents",
+                        "unique_keys",
+                        "unique_positions",
+                        "last_position",
+                    )
+                )
+                or metrics["first_position"] != 1
+            ):
+                raise PersistenceContractError(
+                    "Registros brutos TCM-BA divergem da cobertura mensal."
+                )
+            rows = connection.execute(
+                """
+                with ranked_artifacts as materialized (
+                  select
+                    artifact.id,
+                    row_number() over (
+                      partition by
+                        (artifact.metadata -> 'cursor' ->> 'stage_index')::integer
+                      order by child_run.started_at desc,
+                               artifact.retrieved_at desc,
+                               artifact.id desc
+                    ) as observation_rank
+                  from raw.raw_artifacts as artifact
+                  join source.collection_runs as child_run
+                    on child_run.id = artifact.collection_run_id
+                  where artifact.source_endpoint_id = %s
+                    and artifact.metadata ->> 'schema_name' =
+                      'tcm-ba-monthly-public-accounts-interaction'
+                    and artifact.metadata -> 'cursor' ->> 'stage_index'
+                        ~ '^[0-9]+$'
+                    and child_run.status = 'succeeded'
+                    and child_run.started_at >= %s
+                    and child_run.started_at <= %s
+                )
+                select
+                  record.source_record_key,
+                  artifact.id as parent_artifact_id,
+                  record.record_index,
+                  record.payload
+                from raw.raw_records as record
+                join ranked_artifacts as artifact
+                  on artifact.id = record.raw_artifact_id
+                 and artifact.observation_rank = 1
+                where record.record_type = 'tcm_ba_monthly_document'
+                  and record.payload ->> 'competence' = %s
+                  and not exists (
+                    select 1
+                    from raw.raw_artifacts as pdf
+                    where pdf.metadata ->> 'schema_name' = 'tcm-ba-monthly-document'
+                      and pdf.metadata ->> 'source_record_key'
+                          = record.source_record_key
+                  )
+                order by
+                  (record.payload ->> 'page_number')::integer,
+                  record.record_index
+                limit %s
+                """,
+                (endpoint_id, started_at, completed_at, competence, limit),
+            ).fetchall()
+            references = tuple(
+                self._tcm_ba_document_reference(
+                    row,
+                    competence=competence,
+                    expected=expected,
+                )
+                for row in rows
+            )
+            pending = expected - metrics["preserved_documents"]
+            if pending < 0 or len(references) != min(limit, pending):
+                raise PersistenceContractError(
+                    "Fila documental TCM-BA diverge dos artefatos preservados."
+                )
+            return TcmBaDocumentSelection(
+                competence=competence,
+                expected_total_documents=expected,
+                preserved_documents=metrics["preserved_documents"],
+                pending_documents=pending,
+                references=references,
+            )
+        finally:
+            connection.close()
+
+    @staticmethod
+    def _tcm_ba_document_reference(
+        row: Mapping[str, Any],
+        *,
+        competence: str,
+        expected: int,
+    ) -> TcmBaDocumentReference:
+        payload = row.get("payload")
+        if not isinstance(payload, Mapping):
+            raise PersistenceContractError("Payload bruto TCM-BA é inválido.")
+        try:
+            page_number = int(payload["page_number"])
+            record_index = int(row["record_index"])
+            document_position = (page_number - 1) * 10 + record_index + 1
+            values = {
+                key: str(payload[key]).strip()
+                for key in ("category", "name", "inserted_at", "download_form_id")
+            }
+            source_record_key = str(row["source_record_key"]).strip()
+            parent_artifact_id = str(row["parent_artifact_id"]).strip()
+        except (KeyError, TypeError, ValueError) as error:
+            raise PersistenceContractError(
+                "Referência bruta TCM-BA está incompleta."
+            ) from error
+        if (
+            page_number < 1
+            or record_index < 0
+            or record_index > 9
+            or document_position < 1
+            or document_position > expected
+            or not all(values.values())
+            or not source_record_key.startswith(f"tcm-ba:document:{competence}:")
+            or not parent_artifact_id
+        ):
+            raise PersistenceContractError(
+                "Referência bruta TCM-BA viola o contrato mensal."
+            )
+        return TcmBaDocumentReference(
+            competence=competence,
+            expected_total_documents=expected,
+            document_position=document_position,
+            source_record_key=source_record_key,
+            parent_artifact_id=parent_artifact_id,
+            category=values["category"],
+            name=values["name"],
+            inserted_at=values["inserted_at"],
+            page_number=page_number,
+            download_form_id=values["download_form_id"],
+        )
 
     def historical_proposal_ids(
         self,
@@ -1303,8 +1565,7 @@ class PostgresCollectionRepository:
                 (list(source_record_keys),),
             ).fetchall()
             return frozenset(
-                (str(row["source_record_key"]), str(row["source_url"]))
-                for row in rows
+                (str(row["source_record_key"]), str(row["source_url"])) for row in rows
             )
         finally:
             connection.close()
@@ -1537,9 +1798,7 @@ class PostgresCollectionRepository:
         if artifact_kind == "archive":
             metadata.update(
                 {
-                    "catalog_blob_url": getattr(
-                        batch.page, "catalog_blob_url", None
-                    ),
+                    "catalog_blob_url": getattr(batch.page, "catalog_blob_url", None),
                     "catalog_etag": getattr(batch.page, "catalog_etag", None),
                     "catalog_last_modified": getattr(
                         batch.page, "catalog_last_modified", None
