@@ -36,6 +36,7 @@ from ..resilience import CircuitBreaker, PacedRateLimiter, RetryPolicy
 SOURCE_CODE = "tcm-ba"
 ENDPOINT_CODE = "prestacoes-contas-mensais"
 BASE_URL = "https://e.tcm.ba.gov.br/epp/ConsultaPublica/listView.seam"
+DOWNLOAD_URL = "https://e.tcm.ba.gov.br/epp/PdfReadOnly/downloadDocumento.seam"
 ALLOWED_HOSTS = frozenset({"e.tcm.ba.gov.br"})
 FORM_ID = "consultaPublicaTabPanel:consultaPublicaPCSearchForm"
 TABLE_ID = "consultaPublicaTabPanel:tabelaDocumentos"
@@ -46,6 +47,7 @@ SAFE_RESPONSE_HEADERS = frozenset(
 RETRYABLE_HTTP_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
 MAX_DOCUMENT_PAGES_PER_SESSION = 60
 MAX_SESSION_RENEWAL_ATTEMPTS = 3
+DEFAULT_MAX_DOCUMENT_BYTES = 64 * 1024 * 1024
 
 
 class TcmBaError(RuntimeError):
@@ -237,6 +239,22 @@ class TcmBaDocument:
 
 
 @dataclass(frozen=True)
+class TcmBaDocumentDownload:
+    schema_name: str
+    schema_version: str
+    source_code: str
+    endpoint_code: str
+    source_url: str
+    download_url: str
+    competence: str
+    total_documents: int
+    document_position: int
+    document: TcmBaDocument
+    prepare_interaction: TcmBaInteraction
+    pdf_interaction: TcmBaInteraction
+
+
+@dataclass(frozen=True)
 class TcmBaMonthlyCatalog:
     schema_name: str
     schema_version: str
@@ -287,6 +305,49 @@ def validate_tcm_ba_catalog(catalog: TcmBaMonthlyCatalog) -> None:
         documents.extend(_parse_documents(page.raw_body, page_number=page_number))
     if tuple(documents) != catalog.documents or len(documents) != total_documents:
         raise TcmBaContractError("Documentos estruturados divergem do bruto do e-TCM.")
+
+
+def validate_tcm_ba_document_download(download: TcmBaDocumentDownload) -> None:
+    """Confirma metadados, sessão preparatória e bytes do PDF oficial."""
+
+    if download.schema_name != "tcm-ba-monthly-document":
+        raise TcmBaContractError("Schema inesperado para documento do e-TCM.")
+    if (
+        download.source_code != SOURCE_CODE
+        or download.endpoint_code != ENDPOINT_CODE
+        or download.source_url != BASE_URL
+        or download.download_url != DOWNLOAD_URL
+    ):
+        raise TcmBaContractError("Origem inesperada para documento do e-TCM.")
+    if not 1 <= download.document_position <= download.total_documents:
+        raise TcmBaContractError("Posição documental fora do catálogo mensal.")
+    expected_page = (download.document_position - 1) // PAGE_SIZE + 1
+    if download.document.page_number != expected_page:
+        raise TcmBaContractError("Página do documento diverge da posição no catálogo.")
+    if not download.document.name.casefold().endswith(".pdf"):
+        raise TcmBaContractError("Nome documental sem extensão PDF verificável.")
+
+    for interaction in (download.prepare_interaction, download.pdf_interaction):
+        if hashlib.sha256(interaction.raw_body).hexdigest() != interaction.body_sha256:
+            raise TcmBaContractError("Resposta documental diverge do hash calculado.")
+        validate_https_url(interaction.request_url, ALLOWED_HOSTS)
+        validate_https_url(interaction.final_url, ALLOWED_HOSTS)
+        if interaction.http_status != 200:
+            raise TcmBaContractError("Resposta documental não concluiu com HTTP 200.")
+
+    if _parse_download_url(download.prepare_interaction.raw_body) != DOWNLOAD_URL:
+        raise TcmBaContractError(
+            "Preparação do download apontou para endereço inesperado."
+        )
+    pdf = download.pdf_interaction
+    if pdf.request_url != DOWNLOAD_URL or pdf.final_url != DOWNLOAD_URL:
+        raise TcmBaContractError("PDF foi recebido fora do endpoint oficial esperado.")
+    if _response_media_type(pdf.response_headers) != "application/pdf":
+        raise TcmBaContractError("Endpoint de download não declarou application/pdf.")
+    if not pdf.raw_body.startswith(b"%PDF-"):
+        raise TcmBaContractError("O corpo retornado pelo e-TCM não é PDF.")
+    if b"%%EOF" not in pdf.raw_body[-8192:]:
+        raise TcmBaContractError("PDF do e-TCM não contém marcador final verificável.")
 
 
 @dataclass
@@ -375,17 +436,22 @@ class TcmBaPublicAccountsClient:
         requests_per_minute: int = 10,
         timeout_seconds: float = 30.0,
         max_body_bytes: int = 16 * 1024 * 1024,
+        max_document_bytes: int = DEFAULT_MAX_DOCUMENT_BYTES,
         rate_limiter: PacedRateLimiter | None = None,
         retry_policy: RetryPolicy | None = None,
         circuit_breaker: CircuitBreaker | None = None,
         sleep: Callable[[float], None] = time.sleep,
         random_value: Callable[[], float] = random.random,
     ) -> None:
-        if timeout_seconds <= 0 or max_body_bytes < 1:
-            raise ValueError("timeout_seconds e max_body_bytes devem ser positivos.")
+        if timeout_seconds <= 0 or max_body_bytes < 1 or max_document_bytes < 1:
+            raise ValueError(
+                "timeout_seconds, max_body_bytes e max_document_bytes "
+                "devem ser positivos."
+            )
         self.transport = transport or UrllibSessionTransport()
         self.timeout_seconds = timeout_seconds
         self.max_body_bytes = max_body_bytes
+        self.max_document_bytes = max_document_bytes
         self.rate_limiter = rate_limiter or PacedRateLimiter(requests_per_minute)
         self.retry_policy = retry_policy or RetryPolicy(max_attempts=4)
         self.circuit_breaker = circuit_breaker or CircuitBreaker(
@@ -473,17 +539,15 @@ class TcmBaPublicAccountsClient:
                             "O e-TCM não devolveu a tabela esperada para a página "
                             f"{page_number} após recuperação de sessão."
                         ) from error
-                    current, pagination_form_id = (
-                        self._renew_monthly_catalog_session(
-                            year=year,
-                            competence=competence,
-                            interactions=interactions,
-                            submission=submission,
-                            total_documents=total_documents,
-                            first_page_documents=first_page_documents,
-                            page_number=page_number,
-                            reason="recover",
-                        )
+                    current, pagination_form_id = self._renew_monthly_catalog_session(
+                        year=year,
+                        competence=competence,
+                        interactions=interactions,
+                        submission=submission,
+                        total_documents=total_documents,
+                        first_page_documents=first_page_documents,
+                        page_number=page_number,
+                        reason="recover",
                     )
                     page_attempt += 1
                     continue
@@ -505,6 +569,125 @@ class TcmBaPublicAccountsClient:
             documents=tuple(documents),
             interactions=tuple(interactions),
         )
+
+    def fetch_monthly_document(
+        self,
+        *,
+        year: int,
+        month: int,
+        document_position: int,
+        expected_total_documents: int | None = None,
+        expected_document: TcmBaDocument | None = None,
+    ) -> TcmBaDocumentDownload:
+        """Baixa um PDF exato após recompor a página correspondente do catálogo."""
+
+        current_year = datetime.now(UTC).year
+        if not 2015 <= year <= current_year:
+            raise ValueError(
+                "year deve estar no intervalo público de 2015 ao ano atual."
+            )
+        if not 1 <= month <= 12:
+            raise ValueError("month deve estar entre 1 e 12.")
+        if document_position < 1:
+            raise ValueError("document_position deve ser pelo menos 1.")
+        if expected_total_documents is not None and expected_total_documents < 1:
+            raise ValueError("expected_total_documents deve ser positivo.")
+
+        competence = f"{month:02d}/{year}"
+        interactions: list[TcmBaInteraction] = []
+        (
+            _submission,
+            detail,
+            total_documents,
+            pagination_form_id,
+        ) = self._open_monthly_catalog_session(
+            year=year,
+            competence=competence,
+            interactions=interactions,
+            stage_suffix="-document-download",
+        )
+        if (
+            expected_total_documents is not None
+            and total_documents != expected_total_documents
+        ):
+            raise TcmBaContractError(
+                "Total mensal do e-TCM divergiu do catálogo preservado."
+            )
+        if document_position > total_documents:
+            raise TcmBaContractError("Posição solicitada excede o catálogo mensal.")
+
+        target_page = (document_position - 1) // PAGE_SIZE + 1
+        page_interaction = detail
+        if target_page > 1:
+            pagination = {
+                "javax.faces.partial.ajax": "true",
+                "javax.faces.source": TABLE_ID,
+                "javax.faces.partial.execute": TABLE_ID,
+                "javax.faces.partial.render": TABLE_ID,
+                TABLE_ID: TABLE_ID,
+                f"{TABLE_ID}_pagination": "true",
+                f"{TABLE_ID}_first": str((target_page - 1) * PAGE_SIZE),
+                f"{TABLE_ID}_rows": str(PAGE_SIZE),
+                f"{TABLE_ID}_encodeFeature": "true",
+                pagination_form_id: pagination_form_id,
+                "javax.faces.ViewState": _view_state(detail.raw_body),
+            }
+            page_interaction = self._post(
+                f"document-download-page-{target_page}",
+                BASE_URL,
+                pagination,
+                interactions,
+            )
+        page_documents = _parse_documents(
+            page_interaction.raw_body,
+            page_number=target_page,
+        )
+        local_index = (document_position - 1) % PAGE_SIZE
+        if local_index >= len(page_documents):
+            raise TcmBaContractError(
+                "Página documental não contém a posição anunciada pelo e-TCM."
+            )
+        document = page_documents[local_index]
+        if expected_document is not None and document != expected_document:
+            raise TcmBaContractError(
+                "Documento atual divergiu do catálogo preservado; download bloqueado."
+            )
+
+        component = f"{document.download_form_id}:downloadDocBinario"
+        prepare_form = {
+            document.download_form_id: document.download_form_id,
+            "javax.faces.ViewState": _view_state(page_interaction.raw_body),
+            **_ajax_click_fields(component),
+        }
+        prepare = self._post(
+            f"prepare-document-{document_position}",
+            BASE_URL,
+            prepare_form,
+            interactions,
+        )
+        download_url = _parse_download_url(prepare.raw_body)
+        pdf = self._get(
+            f"download-document-{document_position}",
+            download_url,
+            interactions,
+            max_body_bytes=self.max_document_bytes,
+        )
+        result = TcmBaDocumentDownload(
+            schema_name="tcm-ba-monthly-document",
+            schema_version="1.0.0",
+            source_code=SOURCE_CODE,
+            endpoint_code=ENDPOINT_CODE,
+            source_url=BASE_URL,
+            download_url=download_url,
+            competence=competence,
+            total_documents=total_documents,
+            document_position=document_position,
+            document=document,
+            prepare_interaction=prepare,
+            pdf_interaction=pdf,
+        )
+        validate_tcm_ba_document_download(result)
+        return result
 
     def _renew_monthly_catalog_session(
         self,
@@ -531,9 +714,7 @@ class TcmBaPublicAccountsClient:
                     year=year,
                     competence=competence,
                     interactions=interactions,
-                    stage_suffix=(
-                        f"-{reason}-{page_number}-attempt-{renewal_attempt}"
-                    ),
+                    stage_suffix=(f"-{reason}-{page_number}-attempt-{renewal_attempt}"),
                 )
                 resumed_first_page = _parse_documents(
                     resumed_detail.raw_body,
@@ -675,7 +856,12 @@ class TcmBaPublicAccountsClient:
         stage: str,
         url: str,
         interactions: list[TcmBaInteraction],
+        *,
+        max_body_bytes: int | None = None,
     ) -> TcmBaInteraction:
+        response_limit = (
+            self.max_body_bytes if max_body_bytes is None else max_body_bytes
+        )
         return self._request(
             stage,
             url,
@@ -683,7 +869,7 @@ class TcmBaPublicAccountsClient:
                 url,
                 headers=_request_headers(),
                 timeout_seconds=self.timeout_seconds,
-                max_body_bytes=self.max_body_bytes,
+                max_body_bytes=response_limit,
             ),
             interactions,
         )
@@ -937,6 +1123,35 @@ def _parse_documents(body: bytes, *, page_number: int) -> tuple[TcmBaDocument, .
             )
         )
     return tuple(documents)
+
+
+def _parse_download_url(body: bytes) -> str:
+    try:
+        text = body.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise TcmBaContractError(
+            "Preparação do download não veio como XML UTF-8."
+        ) from error
+    matches = re.findall(
+        r"window\.open\(\s*(['\"])([^'\"]+)\1\s*\)",
+        text,
+    )
+    if len(matches) != 1:
+        raise TcmBaContractError(
+            "Preparação do download não contém um único endereço verificável."
+        )
+    target = urljoin(BASE_URL, matches[0][1])
+    validate_https_url(target, ALLOWED_HOSTS)
+    if target != DOWNLOAD_URL:
+        raise TcmBaContractError("Endpoint inesperado na preparação do download.")
+    return target
+
+
+def _response_media_type(headers: Mapping[str, str]) -> str:
+    for key, value in headers.items():
+        if key.casefold() == "content-type":
+            return value.split(";", 1)[0].strip().casefold()
+    return ""
 
 
 def _contains_partial_update(body: bytes, update_id: str) -> bool:
