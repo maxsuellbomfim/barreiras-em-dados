@@ -685,7 +685,10 @@ incluindo leitura física do Storage e vínculo ao registro bruto do catálogo.
 O comando documental exige um catálogo mensal já classificado como `complete`.
 Ele recusa competências com lacunas, posições repetidas, chaves conflitantes ou
 contagem diferente da cobertura registrada. PDFs já preservados são excluídos
-da fila por sua chave oficial.
+da fila por sua chave oficial. O banco remoto também precisa conter a migration
+`20260828113000_authorize_tcm_ba_monthly_documents_storage.sql`; sem ela, o
+Storage recusa o corredor documental e a execução falha de forma fechada, sem
+marcar o mês como coletado.
 
 Execute inicialmente um único documento:
 

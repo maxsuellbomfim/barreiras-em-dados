@@ -27,10 +27,12 @@ artefato HTML/XML do catálogo
 ```
 
 O XML e o PDF são gravados no bucket privado por SHA-256, relidos e comparados
-em tamanho e hash antes do registro no PostgreSQL. O lote é sequencial, limitado
-a cinco PDFs e a 30 requisições por minuto. A partição documental permanece
-`partial` enquanto houver pendências e só se torna `complete` após a preservação
-de todos os documentos esperados.
+em tamanho e hash antes do registro no PostgreSQL. Eles usam o corredor fechado
+`tcm-ba/monthly-documents/`, distinto do catálogo `tcm-ba/monthly/`, com uma
+identidade de workload autorizada somente para leitura e inserção nesse prefixo.
+O lote é sequencial, limitado a cinco PDFs e a 30 requisições por minuto. A
+partição documental permanece `partial` enquanto houver pendências e só se torna
+`complete` após a preservação de todos os documentos esperados.
 
 ## Consequências
 

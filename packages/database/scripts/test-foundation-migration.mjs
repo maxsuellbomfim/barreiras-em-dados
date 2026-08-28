@@ -1866,6 +1866,41 @@ try {
     adjacent_prefix_stays_denied: false,
   });
 
+  const tcmBaDocumentWorkload = await database.query(`
+    select object_prefix, can_select, can_insert, status
+    from audit.storage_workload_identities
+    where slug = 'tcm-ba-monthly-document-collector'
+  `);
+  assert.deepEqual(tcmBaDocumentWorkload.rows, [
+    {
+      object_prefix: "tcm-ba/monthly-documents/",
+      can_select: true,
+      can_insert: true,
+      status: "active",
+    },
+  ]);
+
+  const tcmBaDocumentStorageAuthorization = await database.query(`
+    select
+      api.can_access_raw_artifact(
+        'insert', 'raw-artifacts',
+        'tcm-ba/monthly-documents/2021/01/prepare/sha256/aa/file.xml'
+      ) as prepare_insert,
+      api.can_access_raw_artifact(
+        'insert', 'raw-artifacts',
+        'tcm-ba/monthly-documents/2021/01/pdf/sha256/bb/file.pdf'
+      ) as pdf_insert,
+      api.can_access_raw_artifact(
+        'insert', 'raw-artifacts',
+        'tcm-ba/monthly-documents-private/file.pdf'
+      ) as adjacent_prefix_stays_denied
+  `);
+  assert.deepEqual(tcmBaDocumentStorageAuthorization.rows[0], {
+    prepare_insert: true,
+    pdf_insert: true,
+    adjacent_prefix_stays_denied: false,
+  });
+
   const transferegovPrivatePrivileges = await database.query(`
     select
       has_table_privilege('anon', 'raw.raw_records', 'SELECT') as anon_raw,
