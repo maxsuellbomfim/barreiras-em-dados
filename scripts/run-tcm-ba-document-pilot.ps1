@@ -3,6 +3,7 @@ param(
     [ValidateRange(1, 5)]
     [int]$MaxDocuments = 1,
     [switch]$AutoCompetence,
+    [switch]$PlanOnly,
     [object]$RequestsPerMinute = 30,
     [string]$PythonPath = ""
 )
@@ -107,6 +108,9 @@ function Read-CompletedEvents {
 if ($AutoCompetence -and $PSBoundParameters.ContainsKey("Competence")) {
     throw "Não combine -AutoCompetence com -Competence."
 }
+if ($PlanOnly -and -not $AutoCompetence) {
+    throw "-PlanOnly exige -AutoCompetence."
+}
 if (
     -not $AutoCompetence -and
     $Competence -notmatch '^(0[1-9]|1[0-2])/\d{4}$'
@@ -199,7 +203,7 @@ try {
             try {
                 $ErrorActionPreference = "Continue"
                 $planOutput = @(
-                    & $python -B -m barreiras_collectors.commands.plan_tcm_ba_document_batch --year-from 2021 2>&1
+                    & $python -B -m barreiras_collectors.commands.plan_tcm_ba_document_batch --year-from 2021 --report 2>&1
                 )
                 $planExitCode = $LASTEXITCODE
             }
@@ -228,6 +232,10 @@ try {
         }
         $Competence = $plannedCompetences[0]
         Write-Host "Competência planejada: $Competence" -ForegroundColor Cyan
+        if ($PlanOnly) {
+            Write-Host "TCM_BA_DOCUMENT_PLAN_ONLY" -ForegroundColor Cyan
+            return
+        }
     }
     Push-Location $projectRoot
     try {

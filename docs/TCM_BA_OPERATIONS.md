@@ -777,6 +777,15 @@ documental ainda incompleta. Uma competência sem catálogo completo não é
 classificada como vazia e não recebe partição documental artificial. Ela
 permanece como lacuna de cobertura até a coleta íntegra do catálogo.
 
+O planejador local emite antes de cada lote um evento sanitizado
+`tcm_ba_document_plan`, com competência, total esperado, PDFs já preservados,
+restantes e estado de cobertura. O evento não contém nomes, credenciais, URLs
+privadas nem conteúdo documental. A linha seguinte conserva apenas a competência
+`MM/AAAA`, usada pelo wrapper como entrada validada. Se não houver competência
+elegível, o evento registra cobertura `complete` e não inventa um mês vazio.
+Para consultar o avanço sem abrir sessão no e-TCM nem alterar o banco:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tcm-ba-document-pilot.ps1 -AutoCompetence -PlanOnly
 Cada rodada preserva XML e PDF, fecha a execução como `partial` enquanto houver
 itens pendentes e chama o auditor relacional e físico antes do selo de
 aprovação. Ausência de objetos, divergência de hash, tamanho, MIME, linhagem ou
