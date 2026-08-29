@@ -791,6 +791,21 @@ itens pendentes e chama o auditor relacional e físico antes do selo de
 aprovação. Ausência de objetos, divergência de hash, tamanho, MIME, linhagem ou
 contador faz o workflow falhar. Se não existir competência elegível, a rodada
 termina sem coleta e sem alterar estados no banco.
+
+Depois do gate físico, o mesmo wrapper processa no máximo cinco PDFs já
+preservados. O processador relê o objeto privado, recomputa o SHA-256 e registra
+cada página em `raw.document_pages` com versão do extrator. Página sem texto
+embutido permanece explicitamente nula para OCR; não é tratada como página
+vazia. A transação cria o job `tcm_ba_document_text` somente junto com as
+páginas idempotentes. O selo final é bloqueado por PDF inválido, falha de
+processamento, lote vazio ou contadores de páginas incompatíveis. Esta etapa
+ainda não classifica o documento, não extrai empenhos e não publica valores.
+
+Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
+preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
+Agendador foi confrontado com o planejador somente leitura; o código `0` do
+Windows não foi aceito sozinho como prova de avanço.
+
 ### Evidência da seleção automática local
 
 Em 28/08/2026, o modo `-AutoCompetence` selecionou `01/2021` sem entrada

@@ -61,5 +61,23 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
         )
 
 
+    def test_tcm_ba_queue_selects_only_unprocessed_monthly_pdfs(self) -> None:
+        connection = RecordingConnection()
+        repository = PostgresExtractionRepository(lambda: connection)  # type: ignore[arg-type]
+
+        repository.pending_tcm_ba_pdf_artifacts(5)
+
+        query = connection.queries[0]
+        self.assertIn(
+            "artifact.metadata ->> 'schema_name' = 'tcm-ba-monthly-document'",
+            query,
+        )
+        self.assertIn(
+            "artifact.object_key like 'tcm-ba/monthly-documents/%%/pdf/%%'",
+            query,
+        )
+        self.assertIn("from raw.document_pages as page", query)
+        self.assertIn("page.parser_version =", query)
+        self.assertIn("order by artifact.created_at, artifact.id", query)
 if __name__ == "__main__":
     unittest.main()

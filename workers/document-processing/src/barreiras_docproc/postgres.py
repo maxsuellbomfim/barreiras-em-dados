@@ -115,6 +115,57 @@ class PostgresExtractionRepository:
         finally:
             connection.close()
 
+    def pending_tcm_ba_pdf_artifacts(
+        self,
+        limit: int,
+    ) -> tuple[TextArtifact, ...]:
+        """PDFs mensais TCM-BA ainda sem páginas desta versão do parser."""
+        if not 1 <= limit <= 50:
+            raise ValueError("limit deve estar entre 1 e 50.")
+        from .pdf_text import PDF_PARSER_VERSION
+
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select
+                  artifact.id::text as id,
+                  artifact.sha256,
+                  artifact.object_key
+                from raw.raw_artifacts as artifact
+                where artifact.artifact_kind = 'document'
+                  and artifact.metadata ->> 'schema_name'
+                      = 'tcm-ba-monthly-document'
+                  and artifact.object_key like
+                      'tcm-ba/monthly-documents/%%/pdf/%%'
+                  and artifact.content_type = 'application/pdf'
+                  and artifact.http_status between 200 and 299
+                  and not exists (
+                    select 1
+                    from raw.document_pages as page
+                    where page.raw_artifact_id = artifact.id
+                      and page.parser_version = %s
+                  )
+                order by artifact.created_at, artifact.id
+                limit %s
+                """,
+                (PDF_PARSER_VERSION, limit),
+            )
+            artifacts = []
+            while True:
+                row = rows.fetchone()
+                if row is None:
+                    break
+                artifacts.append(
+                    TextArtifact(
+                        raw_artifact_id=str(row["id"]),
+                        sha256=str(row["sha256"]),
+                        object_key=str(row["object_key"]),
+                    )
+                )
+            return tuple(artifacts)
+        finally:
+            connection.close()
     def persist_extraction(
         self,
         batch: ExtractionBatch,
@@ -780,6 +831,49 @@ class PostgresExtractionRepository:
         finally:
             connection.close()
 
+    def persist_tcm_document_text(
+        self,
+        artifact: TextArtifact,
+        pages,
+        *,
+        job_type: str,
+        job_idempotency_key: str,
+    ) -> bool:
+        """Registra páginas TCM-BA e o job concluído na mesma transação."""
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                self._insert_pages(connection, artifact.raw_artifact_id, pages)
+                row = connection.execute(
+                    """
+                    insert into raw.extraction_jobs (
+                      raw_artifact_id,
+                      job_type,
+                      idempotency_key,
+                      status,
+                      attempt_count
+                    )
+                    values (%s::uuid, %s, %s, 'succeeded', 1)
+                    on conflict (idempotency_key) do update set
+                      status = 'succeeded',
+                      attempt_count = raw.extraction_jobs.attempt_count + 1,
+                      last_error_code = null,
+                      last_error_detail = null,
+                      updated_at = statement_timestamp()
+                    where raw.extraction_jobs.status <> 'succeeded'
+                    returning id::text as id
+                    """,
+                    (
+                        artifact.raw_artifact_id,
+                        job_type,
+                        job_idempotency_key,
+                    ),
+                ).fetchone()
+            return row is not None
+        finally:
+            connection.close()
     @classmethod
     def _document_page(
         cls,
