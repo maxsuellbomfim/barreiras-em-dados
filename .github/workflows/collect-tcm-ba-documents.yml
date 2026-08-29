@@ -160,6 +160,14 @@ jobs:
           python -B -m
           barreiras_docproc.commands.report_tcm_ba_document_processing
 
+      - name: Inventariar famílias documentais pela categoria oficial
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_document_families
+          --limit 5
+
       - name: Identificar candidatos privados de notas de empenho
         if: steps.plan.outputs.competence != ''
         env:
@@ -208,6 +216,14 @@ jobs:
         run: >-
           python -B -m
           barreiras_docproc.commands.report_tcm_ba_document_processing
+
+      - name: Inventariar famílias documentais pela categoria oficial
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_document_families
+          --limit 5
 
       - name: Identificar candidatos privados de notas de empenho
         env:
@@ -287,6 +303,14 @@ jobs:
         run: >-
           python -B -m
           barreiras_docproc.commands.report_tcm_ba_document_processing
+
+      - name: Inventariar famílias documentais pela categoria oficial
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_document_families
+          --limit 5
 
       - name: Identificar candidatos privados de notas de empenho
         env:
