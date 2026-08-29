@@ -41,6 +41,7 @@ $trigger = New-ScheduledTaskTrigger `
 $settings = New-ScheduledTaskSettingsSet `
     -MultipleInstances IgnoreNew `
     -StartWhenAvailable `
+    -WakeToRun `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
 $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 $principal = New-ScheduledTaskPrincipal `
@@ -59,4 +60,4 @@ if ($StartNow) {
 }
 $registered = Get-ScheduledTask -TaskName $taskName
 Write-Host "Tarefa $($registered.TaskName) registrada para $currentUser." -ForegroundColor Green
-Write-Host "Sem sobreposição; até 5 documentos por rodada; 30 RPM."
+Write-Host "Sem sobreposição; retoma horários perdidos e acorda em suspensão quando conectado à energia; até 5 documentos por rodada; 30 RPM."
