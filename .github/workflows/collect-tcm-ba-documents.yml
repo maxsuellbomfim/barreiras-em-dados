@@ -48,7 +48,12 @@ jobs:
           cache: pip
 
       - name: Instalar dependências fixadas
-        run: python -m pip install --disable-pip-version-check ".[postgres,storage,pdf]"
+        run: python -m pip install --disable-pip-version-check ".[postgres,storage,pdf,ocr]"
+
+      - name: Instalar OCR em português
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q tesseract-ocr tesseract-ocr-por
 
       - name: Verificar CA oficial do Supabase
         run: >-
@@ -122,6 +127,20 @@ jobs:
           python -B -m
           barreiras_docproc.commands.process_tcm_ba_documents
           --limit "$TCM_MAX_DOCUMENTS"
+
+      - name: OCR das páginas escaneadas do TCM-BA
+        if: steps.plan.outputs.competence != ''
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_WORKLOAD_EMAIL: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL }}
+          SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.ocr_gazette_pages
+          --source tcm-ba
+          --limit-pages 30
 
       - name: Aprovar lote auditado
         if: steps.plan.outputs.competence != ''

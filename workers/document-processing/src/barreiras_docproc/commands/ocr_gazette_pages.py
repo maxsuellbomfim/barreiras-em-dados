@@ -1,4 +1,4 @@
-"""Aplica OCR às páginas escaneadas pendentes, com origem declarada."""
+"""Aplica OCR às páginas escaneadas pendentes da fonte declarada."""
 
 from __future__ import annotations
 
@@ -11,7 +11,12 @@ from barreiras_collectors.logging import log_event
 from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
-from ..ocr import OCR_PARSER_VERSION, OcrError, TesseractEngine, ocr_page
+from ..ocr import (
+    OcrError,
+    TesseractEngine,
+    ocr_page,
+    parser_version_for_source,
+)
 from ..postgres import PostgresExtractionRepository
 from ..processing import PageInput
 
@@ -24,6 +29,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     )
     parser.add_argument("--limit-pages", type=int, default=30)
+    parser.add_argument(
+        "--source",
+        choices=("querido-diario", "tcm-ba"),
+        default="querido-diario",
+    )
     arguments = parser.parse_args(argv)
     if not 1 <= arguments.limit_pages <= 200:
         parser.error("--limit-pages deve estar entre 1 e 200.")
@@ -80,9 +90,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         persistence_settings.database_url
     )
     engine = TesseractEngine()
+    parser_version = parser_version_for_source(arguments.source)
 
     logger = logging.getLogger(__name__)
-    pending = repository.pending_ocr_pages(arguments.limit_pages)
+    pending = repository.pending_ocr_pages(
+        arguments.limit_pages,
+        source=arguments.source,
+    )
     pages_done = 0
     artifacts_touched = 0
     for artifact, page_numbers in pending:
@@ -97,7 +111,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             results.append(
                 PageInput(
                     page_number=outcome.page_number,
-                    parser_version=OCR_PARSER_VERSION,
+                    parser_version=parser_version,
                     text=outcome.text,
                     sha256=outcome.sha256,
                     extraction_method="ocr",
@@ -110,7 +124,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             logger,
             logging.INFO,
             "docproc_ocr_pages_persisted",
-            source="querido-diario",
+            source=arguments.source,
             artifact_hash=artifact.sha256,
             pages=len(results),
         )
@@ -119,11 +133,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         logger,
         logging.INFO,
         "docproc_ocr_batch_completed",
-        source="querido-diario",
+        source=arguments.source,
         artifacts=artifacts_touched,
         pages=pages_done,
         limit_pages=arguments.limit_pages,
-        parser_version=OCR_PARSER_VERSION,
+        parser_version=parser_version,
     )
     return 0
 

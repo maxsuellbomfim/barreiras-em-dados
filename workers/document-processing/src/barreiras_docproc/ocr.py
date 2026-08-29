@@ -17,6 +17,17 @@ from typing import Protocol
 from .canonical import sanitize_text
 
 OCR_PARSER_VERSION = "gazette-ocr-text/1.0.0"
+TCM_BA_OCR_PARSER_VERSION = "tcm-ba-document-ocr-text/1.0.0"
+
+
+def parser_version_for_source(source: str) -> str:
+    if source == "querido-diario":
+        return OCR_PARSER_VERSION
+    if source == "tcm-ba":
+        return TCM_BA_OCR_PARSER_VERSION
+    raise OcrError("Fonte OCR desconhecida.")
+
+
 # 300 DPI é o ponto doce do Tesseract; PDFs usam 72 pontos por polegada.
 RENDER_SCALE = 300 / 72
 OCR_LANGUAGE = "por"

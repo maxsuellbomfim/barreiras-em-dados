@@ -13,10 +13,11 @@ class EmptyResult:
 class RecordingConnection:
     def __init__(self) -> None:
         self.queries: list[str] = []
+        self.params: list[object] = []
 
     def execute(self, query, params=None):
-        del params
         self.queries.append(" ".join(query.split()))
+        self.params.append(params)
         return EmptyResult()
 
     def close(self):
@@ -60,6 +61,26 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
             query,
         )
 
+    def test_ocr_queue_is_scoped_to_the_requested_source(self) -> None:
+        connection = RecordingConnection()
+        repository = PostgresExtractionRepository(lambda: connection)  # type: ignore[arg-type]
+
+        repository.pending_ocr_pages(30, source="tcm-ba")
+
+        query = connection.queries[0]
+        self.assertIn("source_scope.value = 'querido-diario'", query)
+        self.assertIn("source_scope.value = 'tcm-ba'", query)
+        self.assertIn("= 'tcm-ba-monthly-document'", query)
+        self.assertEqual(connection.params[0], ("tcm-ba", 30))
+
+    def test_ocr_queue_rejects_unknown_source_before_querying(self) -> None:
+        connection = RecordingConnection()
+        repository = PostgresExtractionRepository(lambda: connection)  # type: ignore[arg-type]
+
+        with self.assertRaises(ValueError):
+            repository.pending_ocr_pages(30, source="unknown")
+
+        self.assertEqual(connection.queries, [])
 
     def test_tcm_ba_queue_selects_only_unprocessed_monthly_pdfs(self) -> None:
         connection = RecordingConnection()

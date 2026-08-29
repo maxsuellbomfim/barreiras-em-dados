@@ -801,6 +801,12 @@ páginas idempotentes. O selo final é bloqueado por PDF inválido, falha de
 processamento, lote vazio ou contadores de páginas incompatíveis. Esta etapa
 ainda não classifica o documento, não extrai empenhos e não publica valores.
 
+O OCR seguinte usa uma fila obrigatoriamente escopada à fonte TCM-BA; ele nunca
+consome páginas do Diário Oficial nem registra origem incorreta. São processadas
+até 30 páginas escaneadas por rodada, com método declarado como OCR e versão
+tcm-ba-document-ocr-text/1.0.0. O texto OCR complementa a página nula sem
+substituir o registro do extrator PDF nem ocultar a técnica utilizada.
+
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do
