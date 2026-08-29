@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from barreiras_collectors.logging import log_event
-from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
+from barreiras_collectors.settings import CollectorSettings, PostgresSettings
 
 from ..tcm_ba_commitment_repository import (
     TcmBaCommitmentExtractionRepository,
@@ -144,20 +144,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--limit deve estar entre 1 e 50.")
 
     collector_settings = CollectorSettings.from_env()
-    persistence = PersistenceSettings.from_env()
+    postgres = PostgresSettings.from_env()
     logging.basicConfig(
         level=getattr(logging, collector_settings.log_level),
         format="%(message)s",
         force=True,
     )
-    if persistence.mode != "postgres-supabase":
-        raise RuntimeError(
-            "A extração TCM-BA requer PERSISTENCE_MODE=postgres-supabase."
-        )
-    if persistence.database_url is None:
-        raise RuntimeError("DATABASE_URL não configurada.")
-
-    repository = TcmBaCommitmentExtractionRepository.from_dsn(persistence.database_url)
+    repository = TcmBaCommitmentExtractionRepository.from_dsn(postgres.database_url)
     summary = run_batch(
         repository=repository,
         service=TcmBaCommitmentExtractionService(repository=repository),

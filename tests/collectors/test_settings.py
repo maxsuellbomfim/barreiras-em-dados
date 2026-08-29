@@ -7,6 +7,7 @@ from barreiras_collectors.settings import (
     CollectorSettings,
     EnvironmentValidationError,
     PersistenceSettings,
+    PostgresSettings,
 )
 
 
@@ -67,6 +68,40 @@ class CollectorSettingsTests(unittest.TestCase):
             CollectorSettings.from_env(
                 {"NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY": "must-not-leak"}
             )
+
+    def test_postgres_settings_require_only_the_scoped_database_url(self) -> None:
+        settings = PostgresSettings.from_env(
+            {
+                "APP_ENV": "production",
+                "PERSISTENCE_MODE": "postgres-supabase",
+                "DATABASE_URL": (
+                    "postgresql://collector_querido_diario:password@db.example/"
+                    "postgres?sslmode=verify-full&sslrootcert=config/"
+                    "certificates/supabase-prod-ca-2021.crt"
+                ),
+            }
+        )
+
+        self.assertIn("collector_querido_diario", settings.database_url)
+
+    def test_postgres_settings_keep_tls_and_role_validation(self) -> None:
+        for database_url in (
+            "postgresql://collector_querido_diario:password@db.example/postgres",
+            (
+                "postgresql://postgres:password@db.example/postgres"
+                "?sslmode=verify-full&sslrootcert=config/certificates/"
+                "supabase-prod-ca-2021.crt"
+            ),
+        ):
+            with self.subTest(database_url=database_url):
+                with self.assertRaises(EnvironmentValidationError):
+                    PostgresSettings.from_env(
+                        {
+                            "APP_ENV": "production",
+                            "PERSISTENCE_MODE": "postgres-supabase",
+                            "DATABASE_URL": database_url,
+                        }
+                    )
 
     def test_persistence_settings_require_scoped_workload_credentials(self) -> None:
         settings = PersistenceSettings.from_env(
