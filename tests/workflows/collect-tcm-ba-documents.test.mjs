@@ -39,6 +39,12 @@ test("lote documental TCM-BA é serial, limitado e auditado", () => {
   const familyCoverageIndex = workflow.indexOf(
     "barreiras_docproc.commands.report_tcm_ba_document_families",
   );
+  const contractDocumentIndex = workflow.indexOf(
+    "barreiras_docproc.commands.process_tcm_ba_contract_documents",
+  );
+  const contractCoverageIndex = workflow.indexOf(
+    "barreiras_docproc.commands.report_tcm_ba_contract_documents",
+  );
   const commitmentIndex = workflow.indexOf(
     "barreiras_docproc.commands.process_tcm_ba_commitments",
   );
@@ -50,7 +56,9 @@ test("lote documental TCM-BA é serial, limitado e auditado", () => {
   assert.ok(reportIndex > ocrIndex);
   assert.ok(familyIndex > reportIndex);
   assert.ok(familyCoverageIndex > familyIndex);
-  assert.ok(commitmentIndex > familyCoverageIndex);
+  assert.ok(contractDocumentIndex > familyCoverageIndex);
+  assert.ok(contractCoverageIndex > contractDocumentIndex);
+  assert.ok(commitmentIndex > contractCoverageIndex);
   assert.ok(approveIndex > commitmentIndex);
   assert.match(
     workflow,
@@ -117,6 +125,14 @@ test("modo de backlog processa acervo preservado sem acessar o e-TCM", () => {
   );
   assert.match(
     backlogJob,
+    /barreiras_docproc\.commands\.process_tcm_ba_contract_documents/,
+  );
+  assert.match(
+    backlogJob,
+    /barreiras_docproc\.commands\.report_tcm_ba_contract_documents/,
+  );
+  assert.match(
+    backlogJob,
     /barreiras_docproc\.commands\.process_tcm_ba_commitments/,
   );
   assert.match(backlogJob, /TCM_BA_COMMITMENT_BACKLOG_APPROVED/);
@@ -142,6 +158,12 @@ test("modo de páginas processa Storage já preservado sem abrir o e-TCM", () =>
   const familyCoverageIndex = pagesJob.indexOf(
     "barreiras_docproc.commands.report_tcm_ba_document_families",
   );
+  const contractDocumentIndex = pagesJob.indexOf(
+    "barreiras_docproc.commands.process_tcm_ba_contract_documents",
+  );
+  const contractCoverageIndex = pagesJob.indexOf(
+    "barreiras_docproc.commands.report_tcm_ba_contract_documents",
+  );
   const commitmentIndex = pagesJob.indexOf(
     "barreiras_docproc.commands.process_tcm_ba_commitments",
   );
@@ -154,7 +176,9 @@ test("modo de páginas processa Storage já preservado sem abrir o e-TCM", () =>
   assert.ok(reportIndex > ocrIndex);
   assert.ok(familyIndex > reportIndex);
   assert.ok(familyCoverageIndex > familyIndex);
-  assert.ok(commitmentIndex > familyCoverageIndex);
+  assert.ok(contractDocumentIndex > familyCoverageIndex);
+  assert.ok(contractCoverageIndex > contractDocumentIndex);
+  assert.ok(commitmentIndex > contractCoverageIndex);
   assert.match(pagesJob, /TCM_BA_PRESERVED_PAGES_APPROVED/);
   assert.match(pagesJob, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL/);
   assert.match(pagesJob, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD/);

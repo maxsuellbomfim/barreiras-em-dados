@@ -175,6 +175,22 @@ jobs:
           python -B -m
           barreiras_docproc.commands.report_tcm_ba_document_families
 
+      - name: Segmentar contratos e aditivos em área privada
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          TCM_MAX_DOCUMENTS: ${{ inputs.max_documents }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_contract_documents
+          --limit "$TCM_MAX_DOCUMENTS"
+
+      - name: Reconciliar cobertura privada dos segmentos contratuais
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.report_tcm_ba_contract_documents
+
       - name: Identificar candidatos privados de notas de empenho
         if: steps.plan.outputs.competence != ''
         env:
@@ -238,6 +254,22 @@ jobs:
         run: >-
           python -B -m
           barreiras_docproc.commands.report_tcm_ba_document_families
+
+      - name: Segmentar contratos e aditivos em área privada
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          TCM_MAX_DOCUMENTS: ${{ inputs.max_documents }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_contract_documents
+          --limit "$TCM_MAX_DOCUMENTS"
+
+      - name: Reconciliar cobertura privada dos segmentos contratuais
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.report_tcm_ba_contract_documents
 
       - name: Identificar candidatos privados de notas de empenho
         env:
@@ -332,6 +364,22 @@ jobs:
         run: >-
           python -B -m
           barreiras_docproc.commands.report_tcm_ba_document_families
+
+      - name: Segmentar contratos e aditivos em área privada
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          TCM_MAX_DOCUMENTS: ${{ inputs.max_documents }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_contract_documents
+          --limit "$TCM_MAX_DOCUMENTS"
+
+      - name: Reconciliar cobertura privada dos segmentos contratuais
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.report_tcm_ba_contract_documents
 
       - name: Identificar candidatos privados de notas de empenho
         env:
