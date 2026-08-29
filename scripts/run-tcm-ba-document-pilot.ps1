@@ -282,6 +282,44 @@ function Invoke-TcmBaContractDocumentCoverage {
         throw "A cobertura privada dos contratos TCM-BA foi bloqueada."
     }
 }
+function Invoke-TcmBaContractFieldProcessing {
+    param(
+        [string]$Python,
+        [string]$ProjectRoot,
+        [ValidateRange(1, 50)]
+        [int]$Limit
+    )
+
+    Push-Location $ProjectRoot
+    try {
+        & $Python -B -m barreiras_docproc.commands.process_tcm_ba_contract_fields --limit $Limit
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        Pop-Location
+    }
+    if ($exitCode -ne 0) {
+        throw "A extração privada dos campos contratuais TCM-BA falhou."
+    }
+}
+function Invoke-TcmBaContractFieldCoverage {
+    param(
+        [string]$Python,
+        [string]$ProjectRoot
+    )
+
+    Push-Location $ProjectRoot
+    try {
+        & $Python -B -m barreiras_docproc.commands.report_tcm_ba_contract_fields
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        Pop-Location
+    }
+    if ($exitCode -ne 0) {
+        throw "A cobertura privada dos campos contratuais TCM-BA foi bloqueada."
+    }
+}
 if ($AutoCompetence -and $PSBoundParameters.ContainsKey("Competence")) {
     throw "Não combine -AutoCompetence com -Competence."
 }
@@ -530,6 +568,8 @@ try {
         -ProjectRoot $projectRoot
     Invoke-TcmBaContractDocumentProcessing -Python $python -ProjectRoot $projectRoot -Limit $MaxDocuments
     Invoke-TcmBaContractDocumentCoverage -Python $python -ProjectRoot $projectRoot
+    Invoke-TcmBaContractFieldProcessing -Python $python -ProjectRoot $projectRoot -Limit $MaxDocuments
+    Invoke-TcmBaContractFieldCoverage -Python $python -ProjectRoot $projectRoot
     Invoke-TcmBaCommitmentCandidateProcessing `
         -Python $python `
         -ProjectRoot $projectRoot `
