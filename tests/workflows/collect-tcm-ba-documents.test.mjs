@@ -84,13 +84,17 @@ test("workflow usa apenas credenciais técnicas existentes e CA verificada", () 
 test("modo de backlog processa acervo preservado sem acessar o e-TCM", () => {
   assert.match(
     workflow,
-    /mode:[\s\S]*options:\s*\n\s+- "collect"\s*\n\s+- "process_existing"/,
+    /mode:[\s\S]*options:\s*\n\s+- "collect"\s*\n\s+- "process_existing"\s*\n\s+- "process_pages"/,
   );
   assert.match(
     workflow,
     /process_existing:[\s\S]*if: github\.event_name == 'workflow_dispatch' && inputs\.mode == 'process_existing'/,
   );
-  const backlogJob = workflow.slice(workflow.indexOf("  process_existing:"));
+  const processExistingStart = workflow.indexOf("  process_existing:");
+  const processPagesStart = workflow.indexOf("  process_pages:");
+  assert.ok(processExistingStart >= 0);
+  assert.ok(processPagesStart > processExistingStart);
+  const backlogJob = workflow.slice(processExistingStart, processPagesStart);
   assert.match(
     backlogJob,
     /barreiras_docproc\.commands\.report_tcm_ba_document_processing/,
@@ -104,4 +108,31 @@ test("modo de backlog processa acervo preservado sem acessar o e-TCM", () => {
     backlogJob,
     /collect_tcm_ba_documents|SUPABASE_WORKLOAD_(?:EMAIL|PASSWORD)|SUPABASE_PUBLISHABLE_KEY/,
   );
+});
+test("modo de páginas processa Storage já preservado sem abrir o e-TCM", () => {
+  const pagesJob = workflow.slice(workflow.indexOf("  process_pages:"));
+  const textIndex = pagesJob.indexOf(
+    "barreiras_docproc.commands.process_tcm_ba_documents",
+  );
+  const ocrIndex = pagesJob.indexOf(
+    "barreiras_docproc.commands.ocr_gazette_pages",
+  );
+  const reportIndex = pagesJob.indexOf(
+    "barreiras_docproc.commands.report_tcm_ba_document_processing",
+  );
+  const commitmentIndex = pagesJob.indexOf(
+    "barreiras_docproc.commands.process_tcm_ba_commitments",
+  );
+  assert.match(
+    pagesJob,
+    /if: github\.event_name == 'workflow_dispatch' && inputs\.mode == 'process_pages'/,
+  );
+  assert.ok(textIndex >= 0);
+  assert.ok(ocrIndex > textIndex);
+  assert.ok(reportIndex > ocrIndex);
+  assert.ok(commitmentIndex > reportIndex);
+  assert.match(pagesJob, /TCM_BA_PRESERVED_PAGES_APPROVED/);
+  assert.match(pagesJob, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL/);
+  assert.match(pagesJob, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD/);
+  assert.doesNotMatch(pagesJob, /collect_tcm_ba_documents/);
 });
