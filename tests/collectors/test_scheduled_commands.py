@@ -205,26 +205,37 @@ class ScheduledWorkflowTests(unittest.TestCase):
             7,
         )
 
-    def test_catalog_failure_does_not_skip_preserved_document_processing(self) -> None:
+    def test_source_failure_does_not_skip_preserved_document_processing(self) -> None:
         repository_root = Path(__file__).parents[2]
         workflow = (
             repository_root / ".github" / "workflows" / "collect-querido-diario.yml"
         ).read_text(encoding="utf-8")
 
+        querido_diario = workflow.index("- name: Coletar e preservar")
         catalog = workflow.index("- name: Preservar catálogo oficial do Diário")
         direct = workflow.index("- name: Coletar edições diretas do Diário")
         ocr = workflow.index("- name: OCR das páginas escaneadas")
         integral = workflow.index("- name: Organizar edições em documentos integrais")
-        failure_gate = workflow.find("- name: Sinalizar falha do catálogo oficial")
+        failure_gate = workflow.find("- name: Sinalizar falha obrigatória das fontes")
 
         self.assertGreaterEqual(failure_gate, 0)
+        self.assertLess(querido_diario, catalog)
         self.assertLess(catalog, direct)
         self.assertLess(direct, ocr)
         self.assertLess(integral, failure_gate)
+        querido_diario_block = workflow[querido_diario:catalog]
         catalog_block = workflow[catalog:direct]
+        direct_block = workflow[direct:ocr]
+        self.assertIn("id: querido_diario", querido_diario_block)
+        self.assertIn("continue-on-error: true", querido_diario_block)
         self.assertIn("id: official_catalog", catalog_block)
         self.assertIn("continue-on-error: true", catalog_block)
+        self.assertIn("id: direct_diary", direct_block)
+        self.assertIn("continue-on-error: true", direct_block)
+        self.assertIn("steps.querido_diario.outcome == 'failure'", workflow)
+        self.assertIn("steps.window.outputs.mode == 'backfill'", workflow)
         self.assertIn("steps.official_catalog.outcome == 'failure'", workflow)
+        self.assertIn("steps.direct_diary.outcome == 'failure'", workflow)
 
     def test_new_scanned_pdf_can_be_extracted_after_ocr_in_the_same_run(self) -> None:
         repository_root = Path(__file__).parents[2]

@@ -23,6 +23,25 @@ test("coleta diária organiza o integral sem depender de IA", () => {
   assert.doesNotMatch(segmentBlock, /GROQ_API_KEY|OPENROUTER_API_KEY|GEMINI_API_KEY|NVIDIA_API_KEY/);
 });
 
+test("indisponibilidade do Querido Diário não bloqueia as fontes oficiais", () => {
+  assert.match(
+    collectWorkflow,
+    /name: Coletar e preservar[\s\S]*?id: querido_diario[\s\S]*?continue-on-error: true/,
+  );
+  assert.match(
+    collectWorkflow,
+    /name: Coletar edições diretas do Diário[\s\S]*?id: direct_diary[\s\S]*?continue-on-error: true/,
+  );
+  assert.match(
+    collectWorkflow,
+    /steps\.querido_diario\.outcome == 'failure'[\s\S]*?steps\.window\.outputs\.mode == 'backfill'/,
+  );
+  assert.match(
+    collectWorkflow,
+    /steps\.official_catalog\.outcome == 'failure'[\s\S]*?steps\.direct_diary\.outcome == 'failure'/,
+  );
+});
+
 test("backfill preserva o bruto e retoma por limites independentes", () => {
   assert.match(backfillWorkflow, /segment_gazette_editions/);
   assert.match(backfillWorkflow, /integral_limit/);

@@ -111,6 +111,10 @@ jobs:
           fi
 
       - name: Coletar e preservar
+        id: querido_diario
+        # A API complementar pode ficar indisponível sem bloquear as fontes
+        # oficiais. O backfill continua exigindo esta etapa no gate final.
+        continue-on-error: true
         if: steps.window.outputs.skip != 'true'
         env:
           COLLECTION_SINCE: ${{ steps.window.outputs.since }}
@@ -132,6 +136,10 @@ jobs:
           python -B -m barreiras_collectors.commands.collect_official_diary_catalog
 
       - name: Coletar edições diretas do Diário
+        id: direct_diary
+        # Uma falha desta trilha não impede processar artefatos já preservados;
+        # o gate final mantém a falha oficial visível.
+        continue-on-error: true
         # O catálogo fornece os números existentes; a sonda direta completa a
         # descoberta sem presumir que todas as numerações sejam contíguas.
         # O backfill não deve repetir essas chamadas várias vezes por dia.
@@ -211,13 +219,49 @@ jobs:
               --limit "${INTEGRAL_LIMIT}"
           fi
 
-      - name: Sinalizar falha do catálogo oficial
+      - name: Registrar indisponibilidade da API complementar
         if: >-
           always() &&
           steps.window.outputs.mode != 'backfill' &&
-          steps.official_catalog.outcome == 'failure'
+          steps.querido_diario.outcome == 'failure'
+        env:
+          COLLECTION_SINCE: ${{ steps.window.outputs.since }}
+          COLLECTION_UNTIL: ${{ steps.window.outputs.until }}
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.write_failure_record
+          --destination artifacts/querido-diario-api-failure.json
+
+      - name: Preservar DLQ da API complementar
+        if: >-
+          always() &&
+          steps.window.outputs.mode != 'backfill' &&
+          steps.querido_diario.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: querido-diario-api-dlq-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/querido-diario-api-failure.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Sinalizar falha obrigatória das fontes
+        if: >-
+          always() &&
+          (
+            (
+              steps.querido_diario.outcome == 'failure' &&
+              steps.window.outputs.mode == 'backfill'
+            ) ||
+            (
+              steps.window.outputs.mode != 'backfill' &&
+              (
+                steps.official_catalog.outcome == 'failure' ||
+                steps.direct_diary.outcome == 'failure'
+              )
+            )
+          )
         run: |
-          echo "O catálogo oficial falhou, mas os artefatos preservados foram processados."
+          echo "O backfill complementar ou uma fonte oficial falhou; os artefatos disponíveis foram processados."
           exit 1
 
       - name: Registrar falha sanitizada
