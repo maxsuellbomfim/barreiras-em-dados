@@ -281,7 +281,9 @@ test("wrapper documental limita lote, RPM e não expõe credenciais", () => {
   assert.match(documentScript, /TCM_BA_DOCUMENT_PILOT_APPROVED/);
   assert.match(documentScript, /collector-credential-store\.ps1/);
   assert.match(documentScript, /\[switch\]\$AutoCompetence/);
-  assert.match(documentScript, /plan_tcm_ba_document_batch --year-from 2021/);
+  assert.match(documentScript, /\[switch\]\$PlanOnly/);
+  assert.match(documentScript, /TCM_BA_DOCUMENT_PLAN_ONLY/);
+  assert.match(documentScript, /plan_tcm_ba_document_batch --year-from 2021 --report/);
   assert.match(documentScript, /TCM_BA_DOCUMENT_NO_ELIGIBLE_COMPETENCE/);
   assert.match(documentScript, /finally\s*\{/);
   assert.doesNotMatch(
