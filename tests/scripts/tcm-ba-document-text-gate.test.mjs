@@ -54,13 +54,17 @@ test("wrapper processa texto somente depois da auditoria física", () => {
   const report = wrapper.lastIndexOf(
     "Invoke-TcmBaDocumentProcessingReport",
   );
+  const commitments = wrapper.lastIndexOf(
+    "Invoke-TcmBaCommitmentCandidateProcessing",
+  );
   const approval = wrapper.indexOf("TCM_BA_DOCUMENT_PILOT_APPROVED");
   assert.ok(audit >= 0);
   assert.ok(processor > audit);
   assert.ok(textGate > processor);
   assert.ok(ocr > textGate);
   assert.ok(report > ocr);
-  assert.ok(approval > report);
+  assert.ok(commitments > report);
+  assert.ok(approval > commitments);
   assert.match(
     wrapper,
     /workers\/collectors\/src;workers\/document-processing\/src/,

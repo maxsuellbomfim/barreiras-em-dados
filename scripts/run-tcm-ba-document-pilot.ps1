@@ -158,6 +158,35 @@ function Invoke-TcmBaDocumentProcessingReport {
         throw "O relatório documental TCM-BA terminou com código $reportExitCode."
     }
 }
+function Invoke-TcmBaCommitmentCandidateProcessing {
+    param(
+        [string]$Python,
+        [string]$ProjectRoot,
+        [int]$Limit
+    )
+
+    Push-Location $ProjectRoot
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $candidateOutput = @(
+                & $Python -B -m barreiras_docproc.commands.process_tcm_ba_commitments --limit $Limit 2>&1
+            )
+            $candidateExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    $candidateOutput | ForEach-Object { Write-Host $_ }
+    if ($candidateExitCode -ne 0) {
+        throw "O processador de candidatos TCM-BA terminou com código $candidateExitCode."
+    }
+}
 if ($AutoCompetence -and $PSBoundParameters.ContainsKey("Competence")) {
     throw "Não combine -AutoCompetence com -Competence."
 }
@@ -397,6 +426,10 @@ try {
         throw "O OCR TCM-BA terminou com código $ocrExitCode."
     }
     Invoke-TcmBaDocumentProcessingReport -Python $python -ProjectRoot $projectRoot
+    Invoke-TcmBaCommitmentCandidateProcessing `
+        -Python $python `
+        -ProjectRoot $projectRoot `
+        -Limit $MaxDocuments
     Write-Host "TCM_BA_DOCUMENT_PILOT_APPROVED" -ForegroundColor Green
 }
 finally {
