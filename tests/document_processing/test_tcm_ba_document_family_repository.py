@@ -36,6 +36,7 @@ class RecordingConnection:
     def __init__(self) -> None:
         self.queries: list[tuple[str, object]] = []
         self.pending_rows = []
+        self.coverage_row = None
         self.job_row = {"id": "00000000-0000-0000-0000-000000000905"}
 
     def execute(self, query, params=None):
@@ -43,6 +44,8 @@ class RecordingConnection:
         self.queries.append((normalized, params))
         if "with preserved_documents as" in normalized:
             return Cursor(rows=self.pending_rows)
+        if "with preserved as" in normalized:
+            return Cursor(row=self.coverage_row)
         if "insert into raw.extraction_jobs" in normalized:
             return Cursor(row=self.job_row)
         return Cursor()
@@ -147,6 +150,31 @@ class TcmBaDocumentFamilyRepositoryTests(unittest.TestCase):
                 for query, _params in self.connection.queries
             )
         )
+
+
+    def test_coverage_reconciles_preserved_pdfs_with_current_results(self) -> None:
+        self.connection.coverage_row = {
+            "preserved_documents": 68,
+            "classified_documents": 68,
+            "unknown_documents": 0,
+            "missing_documents": 0,
+            "duplicate_results": 0,
+            "invalid_results": 0,
+            "open_failures": 0,
+        }
+
+        coverage = self.repository.document_family_coverage()
+
+        self.assertEqual(coverage.preserved_documents, 68)
+        self.assertEqual(coverage.classified_documents, 68)
+        self.assertEqual(coverage.missing_documents, 0)
+        query = self.connection.queries[0][0]
+        self.assertIn("count(distinct pdf.id)", query)
+        self.assertIn("result.extractor_version = %s", query)
+        self.assertIn("from current_jobs as job", query)
+        self.assertIn("'failed'", query)
+        self.assertIn("'retry_scheduled'", query)
+        self.assertIn("'dead_lettered'", query)
 
 
 if __name__ == "__main__":

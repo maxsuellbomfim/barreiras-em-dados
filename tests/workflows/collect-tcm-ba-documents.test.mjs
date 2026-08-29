@@ -36,6 +36,9 @@ test("lote documental TCM-BA é serial, limitado e auditado", () => {
   const familyIndex = workflow.indexOf(
     "barreiras_docproc.commands.process_tcm_ba_document_families",
   );
+  const familyCoverageIndex = workflow.indexOf(
+    "barreiras_docproc.commands.report_tcm_ba_document_families",
+  );
   const commitmentIndex = workflow.indexOf(
     "barreiras_docproc.commands.process_tcm_ba_commitments",
   );
@@ -46,7 +49,8 @@ test("lote documental TCM-BA é serial, limitado e auditado", () => {
   assert.ok(ocrIndex > textIndex);
   assert.ok(reportIndex > ocrIndex);
   assert.ok(familyIndex > reportIndex);
-  assert.ok(commitmentIndex > familyIndex);
+  assert.ok(familyCoverageIndex > familyIndex);
+  assert.ok(commitmentIndex > familyCoverageIndex);
   assert.ok(approveIndex > commitmentIndex);
   assert.match(
     workflow,
@@ -109,6 +113,10 @@ test("modo de backlog processa acervo preservado sem acessar o e-TCM", () => {
   );
   assert.match(
     backlogJob,
+    /barreiras_docproc\.commands\.report_tcm_ba_document_families/,
+  );
+  assert.match(
+    backlogJob,
     /barreiras_docproc\.commands\.process_tcm_ba_commitments/,
   );
   assert.match(backlogJob, /TCM_BA_COMMITMENT_BACKLOG_APPROVED/);
@@ -131,6 +139,9 @@ test("modo de páginas processa Storage já preservado sem abrir o e-TCM", () =>
   const familyIndex = pagesJob.indexOf(
     "barreiras_docproc.commands.process_tcm_ba_document_families",
   );
+  const familyCoverageIndex = pagesJob.indexOf(
+    "barreiras_docproc.commands.report_tcm_ba_document_families",
+  );
   const commitmentIndex = pagesJob.indexOf(
     "barreiras_docproc.commands.process_tcm_ba_commitments",
   );
@@ -142,7 +153,8 @@ test("modo de páginas processa Storage já preservado sem abrir o e-TCM", () =>
   assert.ok(ocrIndex > textIndex);
   assert.ok(reportIndex > ocrIndex);
   assert.ok(familyIndex > reportIndex);
-  assert.ok(commitmentIndex > familyIndex);
+  assert.ok(familyCoverageIndex > familyIndex);
+  assert.ok(commitmentIndex > familyCoverageIndex);
   assert.match(pagesJob, /TCM_BA_PRESERVED_PAGES_APPROVED/);
   assert.match(pagesJob, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL/);
   assert.match(pagesJob, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD/);
