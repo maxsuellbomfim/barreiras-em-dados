@@ -4,6 +4,14 @@ on:
 
   workflow_dispatch:
     inputs:
+      mode:
+        description: "Operação segura a executar"
+        required: true
+        default: "collect"
+        type: choice
+        options:
+          - "collect"
+          - "process_existing"
       competence:
         description: "Competência MM/AAAA; vazio escolhe a mais antiga incompleta"
         required: false
@@ -27,6 +35,7 @@ concurrency:
 
 jobs:
   collect:
+    if: github.event_name != 'workflow_dispatch' || inputs.mode == 'collect'
     name: Preservar e auditar lote documental do TCM-BA
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -163,3 +172,50 @@ jobs:
       - name: Aprovar lote auditado
         if: steps.plan.outputs.competence != ''
         run: echo "TCM_BA_DOCUMENT_PILOT_APPROVED"
+  process_existing:
+    name: Processar candidatos no acervo TCM-BA já preservado
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'process_existing'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: workers/collectors/src:workers/document-processing/src
+      PERSISTENCE_MODE: postgres-supabase
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências fixadas
+        run: python -m pip install --disable-pip-version-check ".[postgres,pdf,ocr]"
+
+      - name: Verificar CA oficial do Supabase
+        run: >-
+          echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
+          | sha256sum --check --strict
+
+      - name: Conferir cobertura já preservada
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.report_tcm_ba_document_processing
+
+      - name: Identificar candidatos privados de notas de empenho
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          TCM_MAX_DOCUMENTS: ${{ inputs.max_documents }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_commitments
+          --limit "$TCM_MAX_DOCUMENTS"
+
+      - name: Aprovar processamento privado do backlog
+        run: echo "TCM_BA_COMMITMENT_BACKLOG_APPROVED"
