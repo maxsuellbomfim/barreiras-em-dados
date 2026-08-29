@@ -105,6 +105,30 @@ function Read-CompletedEvents {
     return $events
 }
 
+function Read-TextEvents {
+    param([object[]]$Output)
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -eq "tcm_ba_document_text_batch_completed") {
+            $events += $event
+        }
+    }
+    if ($events.Count -eq 0) {
+        throw "O processador não produziu o evento final de texto TCM-BA."
+    }
+    return $events
+}
 if ($AutoCompetence -and $PSBoundParameters.ContainsKey("Competence")) {
     throw "Não combine -AutoCompetence com -Competence."
 }
@@ -187,7 +211,9 @@ try {
     $env:APP_ENV = "development"
     $env:LOG_LEVEL = "INFO"
     $env:PYTHONDONTWRITEBYTECODE = "1"
-    $env:PYTHONPATH = "workers/collectors/src"
+    $env:PYTHONPATH = (
+        "workers/collectors/src;workers/document-processing/src"
+    )
     $env:PERSISTENCE_MODE = "postgres-supabase"
     $env:SUPABASE_URL = "https://$projectRef.supabase.co"
     $env:SUPABASE_PUBLISHABLE_KEY = $publishableKey
@@ -287,6 +313,31 @@ try {
     $null = Assert-TcmBaDocumentAuditApproval `
         -CollectorEvent $collectorEvent `
         -AuditEvents $auditEvents
+    Push-Location $projectRoot
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $textOutput = @(
+                & $python -B -m barreiras_docproc.commands.process_tcm_ba_documents --limit $MaxDocuments 2>&1
+            )
+            $textExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    $textOutput | ForEach-Object { Write-Host $_ }
+    if ($textExitCode -ne 0) {
+        throw "O processador de texto terminou com código $textExitCode."
+    }
+    $textEvents = @(Read-TextEvents -Output $textOutput)
+    $null = Assert-TcmBaDocumentTextApproval `
+        -Events $textEvents `
+        -MaxDocuments $MaxDocuments
     Write-Host "TCM_BA_DOCUMENT_PILOT_APPROVED" -ForegroundColor Green
 }
 finally {

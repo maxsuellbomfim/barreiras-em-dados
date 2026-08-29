@@ -299,3 +299,50 @@ function Assert-TcmBaDocumentAuditApproval {
     }
     return $true
 }
+
+function Assert-TcmBaDocumentTextApproval {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object[]]$Events,
+        [ValidateRange(1, 5)]
+        [int]$MaxDocuments
+    )
+
+    $completedEvents = @(
+        $Events | Where-Object {
+            $_.event -eq "tcm_ba_document_text_batch_completed"
+        }
+    )
+    if ($completedEvents.Count -ne 1) {
+        throw (
+            "A aprovação exige exatamente um evento " +
+            "tcm_ba_document_text_batch_completed."
+        )
+    }
+    $event = $completedEvents[0]
+    $pending = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.pending_found -FieldName "pending_found"
+    $processed = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.processed -FieldName "processed"
+    $failed = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.failed -FieldName "failed"
+    $pages = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.pages_total -FieldName "pages_total"
+    $embedded = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.pages_with_embedded_text `
+        -FieldName "pages_with_embedded_text"
+    $ocr = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.pages_awaiting_ocr -FieldName "pages_awaiting_ocr"
+
+    if ($pending -le 0 -or $pending -gt $MaxDocuments) {
+        throw "O processamento deve encontrar entre 1 e MaxDocuments PDFs."
+    }
+    if ($failed -ne 0 -or $processed -ne $pending) {
+        throw "Todos os PDFs encontrados devem ser processados sem falha."
+    }
+    if ($pages -lt $processed -or ($embedded + $ocr) -ne $pages) {
+        throw "Os contadores de páginas processadas são divergentes."
+    }
+    return $true
+}

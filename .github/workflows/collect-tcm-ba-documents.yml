@@ -34,7 +34,7 @@ jobs:
       APP_ENV: production
       LOG_LEVEL: INFO
       PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONPATH: workers/collectors/src
+      PYTHONPATH: workers/collectors/src:workers/document-processing/src
       PERSISTENCE_MODE: postgres-supabase
       SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
     steps:
@@ -48,7 +48,7 @@ jobs:
           cache: pip
 
       - name: Instalar dependências fixadas
-        run: python -m pip install --disable-pip-version-check ".[postgres,storage]"
+        run: python -m pip install --disable-pip-version-check ".[postgres,storage,pdf]"
 
       - name: Verificar CA oficial do Supabase
         run: >-
@@ -108,6 +108,20 @@ jobs:
           python -B -m
           barreiras_collectors.commands.audit_tcm_ba_document_batch
           --competence "$TCM_COMPETENCE"
+
+      - name: Derivar texto página a página
+        if: steps.plan.outputs.competence != ''
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_WORKLOAD_EMAIL: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL }}
+          SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD }}
+          TCM_MAX_DOCUMENTS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_documents || '5' }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_documents
+          --limit "$TCM_MAX_DOCUMENTS"
 
       - name: Aprovar lote auditado
         if: steps.plan.outputs.competence != ''
