@@ -187,6 +187,35 @@ function Invoke-TcmBaCommitmentCandidateProcessing {
         throw "O processador de candidatos TCM-BA terminou com código $candidateExitCode."
     }
 }
+function Invoke-TcmBaDocumentFamilyInventory {
+    param(
+        [string]$Python,
+        [string]$ProjectRoot,
+        [int]$Limit
+    )
+
+    Push-Location $ProjectRoot
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $familyOutput = @(
+                & $Python -B -m barreiras_docproc.commands.process_tcm_ba_document_families --limit $Limit 2>&1
+            )
+            $familyExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    $familyOutput | ForEach-Object { Write-Host $_ }
+    if ($familyExitCode -ne 0) {
+        throw "O inventário de famílias TCM-BA terminou com código $familyExitCode."
+    }
+}
 if ($AutoCompetence -and $PSBoundParameters.ContainsKey("Competence")) {
     throw "Não combine -AutoCompetence com -Competence."
 }
@@ -426,6 +455,10 @@ try {
         throw "O OCR TCM-BA terminou com código $ocrExitCode."
     }
     Invoke-TcmBaDocumentProcessingReport -Python $python -ProjectRoot $projectRoot
+    Invoke-TcmBaDocumentFamilyInventory `
+        -Python $python `
+        -ProjectRoot $projectRoot `
+        -Limit $MaxDocuments
     Invoke-TcmBaCommitmentCandidateProcessing `
         -Python $python `
         -ProjectRoot $projectRoot `
