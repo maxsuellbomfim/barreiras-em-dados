@@ -57,7 +57,6 @@ class GazetteDocumentRepository:
         edition: int | None = None,
         edition_year: int | None = None,
     ) -> Sequence[GazetteArtifact]:
-        del limit
         connection = self.connection_factory()
         try:
             rows = connection.execute(
@@ -136,6 +135,14 @@ class GazetteDocumentRepository:
                   on page.raw_artifact_id = edition.id
                 where (%s::integer is null or edition.edition = %s::integer)
                   and (%s::integer is null or edition.edition_year = %s::integer)
+                  and (
+                    (%s::integer is not null and %s::integer is not null)
+                    or not exists (
+                      select 1
+                      from editorial.gazette_document_versions as version
+                      where version.raw_artifact_id = edition.id
+                    )
+                  )
                 group by edition.id, edition.sha256, edition.edition,
                   edition.edition_year, edition.edition_date, edition.created_at,
                   edition.source_priority
@@ -145,8 +152,17 @@ class GazetteDocumentRepository:
                     = max(page.page_number)
                 order by edition.edition_year desc, edition.edition desc,
                   edition.source_priority asc, edition.created_at desc
+                limit %s
                 """,
-                (edition, edition, edition_year, edition_year),
+                (
+                    edition,
+                    edition,
+                    edition_year,
+                    edition_year,
+                    edition,
+                    edition_year,
+                    limit,
+                ),
             )
             found = []
             while (row := rows.fetchone()) is not None:

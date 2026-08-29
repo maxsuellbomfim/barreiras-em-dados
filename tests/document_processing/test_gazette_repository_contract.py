@@ -110,6 +110,30 @@ class GazetteRepositoryContractTests(unittest.TestCase):
             query,
         )
 
+    def test_pending_artifacts_bounds_automatic_scan_and_skips_versioned_artifacts(
+        self,
+    ) -> None:
+        self.repository.pending_artifacts(7)
+
+        query, params = self.connection.queries[0]
+        self.assertIn(
+            "not exists ( select 1 from editorial.gazette_document_versions",
+            query,
+        )
+        self.assertIn("where version.raw_artifact_id = edition.id", query)
+        self.assertTrue(query.endswith("limit %s"))
+        self.assertEqual(params, (None, None, None, None, None, None, 7))
+
+    def test_pending_artifacts_keeps_explicit_edition_replay_available(self) -> None:
+        self.repository.pending_artifacts(2, edition=4706, edition_year=2026)
+
+        query, params = self.connection.queries[0]
+        self.assertIn(
+            "(%s::integer is not null and %s::integer is not null) or not exists",
+            query,
+        )
+        self.assertEqual(params, (4706, 4706, 2026, 2026, 4706, 2026, 2))
+
     def test_pending_artifacts_includes_querido_diario_record_metadata(self) -> None:
         self.connection.pending_rows = [
             {
