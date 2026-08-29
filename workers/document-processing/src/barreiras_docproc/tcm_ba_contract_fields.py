@@ -16,7 +16,7 @@ from .tcm_ba_contract_documents import (
     TcmBaContractDocumentSegment,
 )
 
-EXTRACTOR_VERSION = "tcm-ba-contract-field-candidates/1.0.0"
+EXTRACTOR_VERSION = "tcm-ba-contract-field-candidates/1.1.1"
 VALIDATOR_VERSION = "private-source-anchor-review/1.0.0"
 JOB_TYPE = "tcm_ba_contract_field_candidates"
 
@@ -120,12 +120,14 @@ class _ObservedValue:
 
 
 _NUMBER = r"(?P<value>[A-Z0-9][A-Z0-9./-]{0,39})"
+_VALUE_SEPARATOR = r"(?:[ \t]*[:.-][ \t]*|[ \t]+)"
 _AMENDMENT_NUMBER = re.compile(
     r"(?:TERMO\s+)?ADITIV[OA]\s+N\s*[º°O.]?\s*" + _NUMBER,
     re.IGNORECASE,
 )
 _RELATED_CONTRACT_NUMBER = re.compile(
-    r"\bAO\s+CONTRATO\s+N\s*[º°O.]?\s*" + _NUMBER,
+    r"\b(?:AO|DO|REFERENTE\s+AO)\s+CONTRATO(?:\s+ADMINISTRATIVO)?\s+"
+    r"N\s*[º°O.]?\s*" + _NUMBER,
     re.IGNORECASE,
 )
 _INSTRUMENT_PATTERNS: dict[str, re.Pattern[str]] = {
@@ -172,26 +174,31 @@ _ADMINISTRATIVE_PROCESS = re.compile(
 )
 _PARTY = re.compile(
     r"^[ \t]*(?:CONTRATAD[OA]|CREDENCIAD[OA]|FORNECEDOR(?:A)?)"
-    r"\s*[:.-]\s*(?P<value>[^\n]+)",
+    + _VALUE_SEPARATOR
+    + r"(?P<value>[^\n]+)",
     re.IGNORECASE | re.MULTILINE,
 )
 _OBJECT = re.compile(
-    r"^[ \t]*(?:DO\s+)?OBJETO\s*[:.-]\s*(?P<value>[^\n]+)",
+    r"^[ \t]*(?:DO\s+)?OBJETO" + _VALUE_SEPARATOR + r"(?P<value>[^\n]+)",
     re.IGNORECASE | re.MULTILINE,
 )
 _AMOUNT = re.compile(
-    r"^[ \t]*(?:VALOR(?:\s+GLOBAL|\s+DO\s+CONTRATO)?)\s*[:.-]\s*"
-    r"(?:R\$\s*)?(?P<value>-?[\d.]+,\d{2})",
+    r"^[ \t]*(?:VALOR(?:\s+(?:GLOBAL|TOTAL|ESTIMADO|MENSAL|DO\s+CONTRATO))?)"
+    + _VALUE_SEPARATOR
+    + r"(?:R\$\s*)?(?P<value>-?[\d.]+,\d{2})",
     re.IGNORECASE | re.MULTILINE,
 )
 _SIGNATURE_DATE = re.compile(
-    r"^[ \t]*(?:DATA\s+DA\s+ASSINATURA|ASSINATURA)\s*[:.-]\s*"
-    r"(?P<value>\d{1,2}/\d{1,2}/\d{4})",
+    r"^[ \t]*(?:DATA\s+(?:DA|DE)\s+ASSINATURA|"
+    r"ASSINATURA(?:\s+DO\s+CONTRATO)?)"
+    + _VALUE_SEPARATOR
+    + r"(?P<value>\d{1,2}/\d{1,2}/\d{4})",
     re.IGNORECASE | re.MULTILINE,
 )
 _VALIDITY = re.compile(
-    r"^[ \t]*(?:VIG[EÊ]NCIA|PRAZO(?:\s+DE\s+VIG[EÊ]NCIA)?)\s*[:.-]\s*"
-    r"(?P<value>[^\n]+)",
+    r"^[ \t]*(?:VIG[EÊ]NCIA|PRAZO(?:\s+DE\s+VIG[EÊ]NCIA)?)"
+    + _VALUE_SEPARATOR
+    + r"(?P<value>[^\n]+)",
     re.IGNORECASE | re.MULTILINE,
 )
 _DOCUMENT_SUFFIX = re.compile(
@@ -199,6 +206,7 @@ _DOCUMENT_SUFFIX = re.compile(
     r"\b.*$",
     re.IGNORECASE,
 )
+_CPF = re.compile(r"(?<!\d)\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}(?!\d)")
 _CNPJ = re.compile(
     r"(?<!\d)(\d{2})\.?([\d]{3})\.?([\d]{3})/?([\d]{4})-?([\d]{2})(?!\d)"
 )
@@ -270,8 +278,16 @@ def _observe(
 def _party_name(value: str | None) -> str | None:
     if value is None:
         return None
-    name = _DOCUMENT_SUFFIX.sub("", value).strip(" \t-|")
+    name = _DOCUMENT_SUFFIX.sub("", value)
+    name = _CPF.sub("", name).strip(" \t-|")
     return name or None
+
+
+def _redacted_personal_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    redacted = _CPF.sub("***.***.***-**", value).strip()
+    return redacted or None
 
 
 def _party_cnpj(value: str | None) -> str | None:
@@ -356,7 +372,7 @@ def _candidate(
         ),
         "contracted_party_name": _party_name(party.value if party else None),
         "contracted_party_cnpj": _party_cnpj(party.value if party else None),
-        "object_text": (
+        "object_text": _redacted_personal_text(
             observed["object_text"].value
             if observed["object_text"] is not None
             else None
@@ -371,7 +387,7 @@ def _candidate(
             if observed["signature_date"] is not None
             else None
         ),
-        "validity_text": (
+        "validity_text": _redacted_personal_text(
             observed["validity_text"].value
             if observed["validity_text"] is not None
             else None

@@ -60,7 +60,6 @@ class TcmBaContractFieldTests(unittest.TestCase):
             ).complete
         )
 
-
     def test_extracts_conservative_fields_with_exact_source_anchors(self) -> None:
         pages = (
             page(
@@ -120,13 +119,77 @@ class TcmBaContractFieldTests(unittest.TestCase):
         self.assertIsNone(candidate.amount_text)
         self.assertIn("amount_text", candidate.unobserved_fields)
 
+    def test_accepts_explicit_official_label_variants_without_punctuation(self) -> None:
+        pages = (
+            page(
+                5,
+                "CONTRATO Nº 31/2023\n"
+                "CONTRATADA EMPRESA EXEMPLO LTDA CNPJ 12.345.678/0001-90\n"
+                "OBJETO prestação de serviços continuados.\n"
+                "VALOR TOTAL R$ 98.765,43\n"
+                "DATA DE ASSINATURA 21/08/2023\n"
+                "PRAZO DE VIGÊNCIA 180 dias.\n",
+                "e",
+            ),
+        )
+
+        candidate = extract_contract_field_candidates(
+            pages,
+            segment_contract_documents(pages),
+        )[0]
+
+        self.assertEqual(candidate.contracted_party_name, "EMPRESA EXEMPLO LTDA")
+        self.assertEqual(candidate.contracted_party_cnpj, "12345678000190")
+        self.assertEqual(candidate.object_text, "prestação de serviços continuados.")
+        self.assertEqual(candidate.amount_text, "98.765,43")
+        self.assertEqual(candidate.signature_date, "2023-08-21")
+        self.assertEqual(candidate.validity_text, "180 dias.")
+
+    def test_amendment_accepts_explicit_related_contract_variants(self) -> None:
+        pages = (
+            page(
+                9,
+                "PRIMEIRO TERMO ADITIVO\n"
+                "REFERENTE AO CONTRATO ADMINISTRATIVO Nº 55/2022\n"
+                "OBJETO: prorrogação de vigência.\n",
+                "f",
+            ),
+        )
+
+        candidate = extract_contract_field_candidates(
+            pages,
+            segment_contract_documents(pages),
+        )[0]
+
+        self.assertEqual(candidate.document_kind, "contract_amendment")
+        self.assertEqual(candidate.related_contract_number, "55/2022")
+
+    def test_currency_and_date_mentions_without_labels_are_not_fields(self) -> None:
+        pages = (
+            page(
+                6,
+                "CONTRATO Nº 6/2023\n"
+                "A despesa estimada é de R$ 1.234,56.\n"
+                "O documento foi recebido em 21/08/2023.\n",
+                "a",
+            ),
+        )
+
+        candidate = extract_contract_field_candidates(
+            pages,
+            segment_contract_documents(pages),
+        )[0]
+
+        self.assertIsNone(candidate.amount_text)
+        self.assertIsNone(candidate.signature_date)
+
     def test_payload_never_contains_cpf_or_raw_evidence(self) -> None:
         pages = (
             page(
                 2,
                 "CONTRATO Nº 4/2023\n"
                 "CONTRATADO: PESSOA EXEMPLO - CPF 123.456.789-09\n"
-                "OBJETO: consultoria técnica.\n",
+                "OBJETO: consultoria técnica para 12345678909 e 123 456 789 09.\n",
                 "c",
             ),
         )
@@ -141,6 +204,9 @@ class TcmBaContractFieldTests(unittest.TestCase):
         self.assertEqual(payload["contracted_party_name"], "PESSOA EXEMPLO")
         self.assertIsNone(payload["contracted_party_cnpj"])
         self.assertNotIn("123.456.789-09", serialized)
+        self.assertNotIn("12345678909", serialized)
+        self.assertNotIn("123 456 789 09", serialized)
+        self.assertIn("***.***.***-**", payload["object_text"])
         self.assertNotIn("CPF", serialized)
         self.assertNotIn("raw_text", serialized)
         self.assertEqual(payload["source_segment_ordinal"], 1)
