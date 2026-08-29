@@ -73,22 +73,10 @@ class GazetteDocumentRepository:
                     ) as edition_year,
                     coalesce(
                       (artifact.metadata ->> 'date')::date,
-                      (artifact.metadata ->> 'edition_date')::date,
-                      publication.edition_date
+                      (artifact.metadata ->> 'edition_date')::date
                     ) as edition_date,
                     0 as source_priority
                   from raw.raw_artifacts as artifact
-                  left join lateral (
-                    select (record.payload ->> 'date')::date as edition_date
-                    from raw.raw_records as record
-                    where record.record_type = 'barreiras_diario_publication'
-                      and record.payload ->> 'edition' = artifact.metadata ->> 'edition'
-                      and record.payload ->> 'date' ~ '^\\d{4}-\\d{2}-\\d{2}$'
-                      and extract(year from (record.payload ->> 'date')::date)::integer
-                        = (artifact.metadata ->> 'year')::integer
-                    order by record.collected_at desc
-                    limit 1
-                  ) as publication on true
                   where artifact.metadata ->> 'schema_name' = 'gazette-direct-edition'
                     and coalesce(artifact.metadata ->> 'edition', '') ~ '^[0-9]+$'
                     and coalesce(artifact.metadata ->> 'year', '') ~ '^[0-9]{4}$'
@@ -122,7 +110,7 @@ class GazetteDocumentRepository:
                       and record.payload ->> 'date' ~ '^\\d{4}-\\d{2}-\\d{2}$'
                     order by artifact.id, record.collected_at desc
                   ) as querido
-                )
+                ), selected_editions as (
                 select
                   edition.id::text as id,
                   edition.sha256,
@@ -153,6 +141,30 @@ class GazetteDocumentRepository:
                 order by edition.edition_year desc, edition.edition desc,
                   edition.source_priority asc, edition.created_at desc
                 limit %s
+                )
+                select
+                  edition.id,
+                  edition.sha256,
+                  edition.edition,
+                  edition.edition_year,
+                  coalesce(edition.edition_date, publication.edition_date)
+                    as edition_date,
+                  edition.created_at
+                from selected_editions as edition
+                left join lateral (
+                  select (record.payload ->> 'date')::date as edition_date
+                  from raw.raw_records as record
+                  where edition.edition_date is null
+                    and record.record_type = 'barreiras_diario_publication'
+                    and record.payload ->> 'edition' = edition.edition::text
+                    and record.payload ->> 'date' ~ '^\\d{4}-\\d{2}-\\d{2}$'
+                    and extract(year from (record.payload ->> 'date')::date)::integer
+                      = edition.edition_year
+                  order by record.collected_at desc
+                  limit 1
+                ) as publication on true
+                order by edition.edition_year desc, edition.edition desc,
+                  edition.source_priority asc, edition.created_at desc
                 """,
                 (
                     edition,
