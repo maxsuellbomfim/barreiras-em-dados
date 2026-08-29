@@ -166,6 +166,99 @@ class PostgresExtractionRepository:
             return tuple(artifacts)
         finally:
             connection.close()
+    def tcm_ba_document_processing_report(self):
+        """Resume PDFs, páginas, OCR e falhas sem retornar conteúdo."""
+        from .ocr import TCM_BA_OCR_PARSER_VERSION
+        from .pdf_text import PDF_PARSER_VERSION
+        from .tcm_ba_document_text import TcmBaDocumentProcessingReport
+
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                with tcm_pdfs as (
+                  select artifact.id
+                  from raw.raw_artifacts as artifact
+                  where artifact.artifact_kind = 'document'
+                    and artifact.metadata ->> 'schema_name'
+                        = 'tcm-ba-monthly-document'
+                    and artifact.content_type = 'application/pdf'
+                    and artifact.http_status between 200 and 299
+                ),
+                base_pages as (
+                  select
+                    page.raw_artifact_id,
+                    page.page_number,
+                    page.text_content
+                  from raw.document_pages as page
+                  join tcm_pdfs as artifact
+                    on artifact.id = page.raw_artifact_id
+                  where page.parser_version = %s
+                ),
+                ocr_pages as (
+                  select
+                    page.raw_artifact_id,
+                    page.page_number
+                  from raw.document_pages as page
+                  join tcm_pdfs as artifact
+                    on artifact.id = page.raw_artifact_id
+                  where page.parser_version = %s
+                    and page.extraction_method = 'ocr'
+                    and page.text_content is not null
+                )
+                select
+                  (select count(*) from tcm_pdfs)::integer
+                    as total_pdfs,
+                  (
+                    select count(distinct raw_artifact_id)
+                    from base_pages
+                  )::integer as pdfs_with_pages,
+                  (select count(*) from base_pages)::integer
+                    as pages_total,
+                  (
+                    select count(*)
+                    from base_pages
+                    where text_content is not null
+                  )::integer as pages_embedded,
+                  (select count(*) from ocr_pages)::integer
+                    as pages_ocr,
+                  (
+                    select count(*)
+                    from base_pages as base
+                    where base.text_content is null
+                      and not exists (
+                        select 1
+                        from ocr_pages as ocr
+                        where ocr.raw_artifact_id = base.raw_artifact_id
+                          and ocr.page_number = base.page_number
+                      )
+                  )::integer as pages_awaiting_ocr,
+                  (
+                    select count(*)
+                    from raw.extraction_jobs as job
+                    join tcm_pdfs as artifact
+                      on artifact.id = job.raw_artifact_id
+                    where job.job_type = 'tcm_ba_document_text'
+                      and job.status = 'failed'
+                  )::integer as failed_jobs
+                """,
+                (PDF_PARSER_VERSION, TCM_BA_OCR_PARSER_VERSION),
+            ).fetchone()
+            if row is None:
+                raise ProcessingError(
+                    "O relatório documental TCM-BA não retornou contadores."
+                )
+            return TcmBaDocumentProcessingReport(
+                total_pdfs=int(row["total_pdfs"]),
+                pdfs_with_pages=int(row["pdfs_with_pages"]),
+                pages_total=int(row["pages_total"]),
+                pages_embedded=int(row["pages_embedded"]),
+                pages_ocr=int(row["pages_ocr"]),
+                pages_awaiting_ocr=int(row["pages_awaiting_ocr"]),
+                failed_jobs=int(row["failed_jobs"]),
+            )
+        finally:
+            connection.close()
     def persist_extraction(
         self,
         batch: ExtractionBatch,

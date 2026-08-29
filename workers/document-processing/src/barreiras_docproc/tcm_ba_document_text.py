@@ -35,6 +35,32 @@ def job_idempotency_key(artifact_sha256: str) -> str:
 
 
 @dataclass(frozen=True)
+class TcmBaDocumentProcessingReport:
+    total_pdfs: int
+    pdfs_with_pages: int
+    pages_total: int
+    pages_embedded: int
+    pages_ocr: int
+    pages_awaiting_ocr: int
+    failed_jobs: int
+
+    @property
+    def approved(self) -> bool:
+        return (
+            self.total_pdfs > 0
+            and 0 < self.pdfs_with_pages <= self.total_pdfs
+            and self.pages_total >= self.pdfs_with_pages
+            and (
+                self.pages_embedded
+                + self.pages_ocr
+                + self.pages_awaiting_ocr
+            )
+            == self.pages_total
+            and self.failed_jobs == 0
+        )
+
+
+@dataclass(frozen=True)
 class TcmBaDocumentTextResult:
     pages_total: int
     pages_with_embedded_text: int

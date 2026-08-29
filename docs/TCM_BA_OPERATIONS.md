@@ -812,6 +812,12 @@ preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do
 Windows não foi aceito sozinho como prova de avanço.
 
+Na rodada automática das 13h29, a cobertura subiu de 48 para 53 PDFs. O
+relatório sanitizado e somente leitura confirmou cinco PDFs com páginas
+canônicas, 107 páginas totais, todas com texto embutido, nenhuma aguardando OCR
+e nenhum job de texto falho. O relatório retornou approved=true; nenhum conteúdo
+de página, credencial ou chave de objeto foi exposto.
+
 ### Evidência da seleção automática local
 
 Em 28/08/2026, o modo `-AutoCompetence` selecionou `01/2021` sem entrada

@@ -4,6 +4,7 @@ param(
     [int]$MaxDocuments = 1,
     [switch]$AutoCompetence,
     [switch]$PlanOnly,
+    [switch]$ReportOnly,
     [object]$RequestsPerMinute = 30,
     [string]$PythonPath = ""
 )
@@ -129,11 +130,42 @@ function Read-TextEvents {
     }
     return $events
 }
+function Invoke-TcmBaDocumentProcessingReport {
+    param(
+        [string]$Python,
+        [string]$ProjectRoot
+    )
+
+    Push-Location $ProjectRoot
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $reportOutput = @(
+                & $Python -B -m barreiras_docproc.commands.report_tcm_ba_document_processing 2>&1
+            )
+            $reportExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    $reportOutput | ForEach-Object { Write-Host $_ }
+    if ($reportExitCode -ne 0) {
+        throw "O relatório documental TCM-BA terminou com código $reportExitCode."
+    }
+}
 if ($AutoCompetence -and $PSBoundParameters.ContainsKey("Competence")) {
     throw "Não combine -AutoCompetence com -Competence."
 }
 if ($PlanOnly -and -not $AutoCompetence) {
     throw "-PlanOnly exige -AutoCompetence."
+}
+if ($ReportOnly -and ($AutoCompetence -or $PlanOnly)) {
+    throw "-ReportOnly não pode ser combinado com -AutoCompetence ou -PlanOnly."
 }
 if (
     -not $AutoCompetence -and
@@ -222,6 +254,11 @@ try {
     $env:SUPABASE_RAW_ARTIFACTS_BUCKET = "raw-artifacts"
 
     $python = Find-Python
+    if ($ReportOnly) {
+        Invoke-TcmBaDocumentProcessingReport -Python $python -ProjectRoot $projectRoot
+        Write-Host "TCM_BA_DOCUMENT_REPORT_ONLY" -ForegroundColor Cyan
+        return
+    }
     if ($AutoCompetence) {
         Push-Location $projectRoot
         try {
@@ -359,6 +396,7 @@ try {
     if ($ocrExitCode -ne 0) {
         throw "O OCR TCM-BA terminou com código $ocrExitCode."
     }
+    Invoke-TcmBaDocumentProcessingReport -Python $python -ProjectRoot $projectRoot
     Write-Host "TCM_BA_DOCUMENT_PILOT_APPROVED" -ForegroundColor Green
 }
 finally {
