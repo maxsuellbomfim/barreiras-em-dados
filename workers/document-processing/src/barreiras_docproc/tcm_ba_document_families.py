@@ -10,8 +10,8 @@ from typing import Protocol
 
 from .processing import TextArtifact
 
-EXTRACTOR_VERSION = "tcm-ba-document-family-inventory/1.0.0"
-VALIDATOR_VERSION = "official-catalog-category-allowlist/1.0.0"
+EXTRACTOR_VERSION = "tcm-ba-document-family-inventory/1.1.0"
+VALIDATOR_VERSION = "official-catalog-category-allowlist/1.1.0"
 JOB_TYPE = "tcm_ba_document_family_inventory"
 
 _CODE_PATTERN = re.compile(r"^\s*(PCMGE\d{3})(?:\b|\s*[-\u2013\u2014])", re.IGNORECASE)
@@ -24,6 +24,9 @@ _FAMILY_BY_CODE = {
     "PCMGE010": "agreements_and_credit_notices",
     "PCMGE011": "qdd_decrees",
     "PCMGE012": "special_credit_decrees",
+    "PCMGE013": "extraordinary_credit_decrees",
+    "PCMGE014": "supplementary_credit_decrees",
+    "PCMGE015": "analytical_budget_expense_statement",
 }
 
 
@@ -56,6 +59,29 @@ class TcmBaDocumentFamilyPersistResult:
     job_created: bool
     results_inserted: int
     family: str
+
+
+@dataclass(frozen=True)
+class TcmBaDocumentFamilyCoverage:
+    preserved_documents: int
+    classified_documents: int
+    unknown_documents: int
+    missing_documents: int
+    duplicate_results: int
+    invalid_results: int
+    open_failures: int
+
+    @property
+    def complete(self) -> bool:
+        return (
+            self.preserved_documents > 0
+            and self.classified_documents + self.unknown_documents
+            == self.preserved_documents
+            and self.missing_documents == 0
+            and self.duplicate_results == 0
+            and self.invalid_results == 0
+            and self.open_failures == 0
+        )
 
 
 class TcmBaDocumentFamilyRepository(Protocol):

@@ -19,6 +19,15 @@ class TcmBaDocumentFamilyTests(unittest.TestCase):
             "pcmge010 - Convênios e avisos de crédito": "agreements_and_credit_notices",
             " PCMGE011 — Decretos de QDD ": "qdd_decrees",
             "PCMGE012 - Créditos adicionais especiais": "special_credit_decrees",
+            "PCMGE013 - Créditos adicionais extraordinários": (
+                "extraordinary_credit_decrees"
+            ),
+            "PCMGE014 - Créditos adicionais suplementares": (
+                "supplementary_credit_decrees"
+            ),
+            "PCMGE015 - Demonstrativo analítico de despesa": (
+                "analytical_budget_expense_statement"
+            ),
             "Documentos Adicionais": "additional_documents",
         }
 

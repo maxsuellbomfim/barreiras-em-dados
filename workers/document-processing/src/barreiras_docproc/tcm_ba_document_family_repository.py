@@ -13,6 +13,7 @@ from .tcm_ba_document_families import (
     VALIDATOR_VERSION,
     TcmBaCatalogDocument,
     TcmBaDocumentFamilyBatch,
+    TcmBaDocumentFamilyCoverage,
     TcmBaDocumentFamilyPersistResult,
     document_family_payload,
 )
@@ -123,6 +124,121 @@ class TcmBaDocumentFamilyExtractionRepository:
                     )
                 )
             return tuple(documents)
+        finally:
+            connection.close()
+
+    def document_family_coverage(self) -> TcmBaDocumentFamilyCoverage:
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                with preserved as (
+                  select pdf.id, pdf.sha256
+                  from raw.raw_artifacts as pdf
+                  where pdf.artifact_kind = 'document'
+                    and pdf.metadata ->> 'schema_name' =
+                      'tcm-ba-monthly-document'
+                    and pdf.content_type = 'application/pdf'
+                    and pdf.http_status between 200 and 299
+                ),
+                current_jobs as (
+                  select job.id, job.raw_artifact_id, job.status
+                  from raw.extraction_jobs as job
+                  join preserved as pdf on pdf.id = job.raw_artifact_id
+                  where job.job_type = %s
+                    and job.idempotency_key = encode(
+                      sha256(
+                        ('tcm-ba-document-family:' || pdf.sha256 || ':' ||
+                          %s)::bytea
+                      ),
+                      'hex'
+                    )
+                ),
+                current_results as (
+                  select job.raw_artifact_id, job.status as job_status,
+                    result.validation_status,
+                    result.result_payload
+                  from current_jobs as job
+                  join raw.extraction_results as result
+                    on result.extraction_job_id = job.id
+                  where result.candidate_type = 'tcm_ba_document_family'
+                    and result.extractor_version = %s
+                ),
+                result_counts as (
+                  select raw_artifact_id, count(*) as result_count,
+                    count(*) filter (
+                      where validation_status = 'valid'
+                        and result_payload ->> 'family' <> 'unknown'
+                    ) as classified_count,
+                    count(*) filter (
+                      where validation_status = 'needs_review'
+                        and result_payload ->> 'family' = 'unknown'
+                    ) as unknown_count,
+                    count(*) filter (
+                      where result_payload ->> 'schema_name'
+                          <> 'tcm-ba-document-family'
+                         or result_payload ->> 'family' is null
+                         or validation_status = 'invalid'
+                         or (
+                           result_payload ->> 'family' = 'unknown'
+                           and validation_status <> 'needs_review'
+                         )
+                         or (
+                           result_payload ->> 'family' <> 'unknown'
+                           and validation_status <> 'valid'
+                         )
+                    ) as invalid_count
+                  from current_results
+                  group by raw_artifact_id
+                )
+                select
+                  count(distinct pdf.id)::integer as preserved_documents,
+                  coalesce(sum(counts.classified_count), 0)::integer
+                    as classified_documents,
+                  coalesce(sum(counts.unknown_count), 0)::integer
+                    as unknown_documents,
+                  count(*) filter (where counts.raw_artifact_id is null)::integer
+                    as missing_documents,
+                  coalesce(sum(greatest(counts.result_count - 1, 0)), 0)::integer
+                    as duplicate_results,
+                  coalesce(sum(counts.invalid_count), 0)::integer
+                    as invalid_results,
+                  (
+                    select count(*)::integer
+                    from current_jobs as job
+                    where job.status in (
+                      'failed', 'retry_scheduled', 'dead_lettered'
+                    )
+                  ) as open_failures
+                from preserved as pdf
+                left join result_counts as counts
+                  on counts.raw_artifact_id = pdf.id
+                """,
+                (JOB_TYPE, EXTRACTOR_VERSION, EXTRACTOR_VERSION),
+            ).fetchone()
+            if row is None:
+                raise ProcessingError(
+                    "A cobertura das famílias TCM-BA não foi retornada."
+                )
+            try:
+                coverage = TcmBaDocumentFamilyCoverage(
+                    preserved_documents=int(row["preserved_documents"]),
+                    classified_documents=int(row["classified_documents"]),
+                    unknown_documents=int(row["unknown_documents"]),
+                    missing_documents=int(row["missing_documents"]),
+                    duplicate_results=int(row["duplicate_results"]),
+                    invalid_results=int(row["invalid_results"]),
+                    open_failures=int(row["open_failures"]),
+                )
+            except (KeyError, TypeError, ValueError) as error:
+                raise ProcessingError(
+                    "A cobertura das famílias TCM-BA está incompleta."
+                ) from error
+            if any(value < 0 for value in coverage.__dict__.values()):
+                raise ProcessingError(
+                    "A cobertura das famílias TCM-BA possui contador inválido."
+                )
+            return coverage
         finally:
             connection.close()
 

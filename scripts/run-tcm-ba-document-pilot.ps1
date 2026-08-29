@@ -216,6 +216,34 @@ function Invoke-TcmBaDocumentFamilyInventory {
         throw "O inventário de famílias TCM-BA terminou com código $familyExitCode."
     }
 }
+function Invoke-TcmBaDocumentFamilyCoverage {
+    param(
+        [string]$Python,
+        [string]$ProjectRoot
+    )
+
+    Push-Location $ProjectRoot
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $coverageOutput = @(
+                & $Python -B -m barreiras_docproc.commands.report_tcm_ba_document_families 2>&1
+            )
+            $coverageExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    $coverageOutput | ForEach-Object { Write-Host $_ }
+    if ($coverageExitCode -ne 0) {
+        throw "A cobertura das famílias TCM-BA foi bloqueada."
+    }
+}
 if ($AutoCompetence -and $PSBoundParameters.ContainsKey("Competence")) {
     throw "Não combine -AutoCompetence com -Competence."
 }
@@ -459,6 +487,9 @@ try {
         -Python $python `
         -ProjectRoot $projectRoot `
         -Limit $MaxDocuments
+    Invoke-TcmBaDocumentFamilyCoverage `
+        -Python $python `
+        -ProjectRoot $projectRoot
     Invoke-TcmBaCommitmentCandidateProcessing `
         -Python $python `
         -ProjectRoot $projectRoot `
