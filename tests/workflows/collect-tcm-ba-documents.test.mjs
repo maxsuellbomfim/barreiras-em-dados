@@ -80,3 +80,28 @@ test("workflow usa apenas credenciais técnicas existentes e CA verificada", () 
   const beforeSteps = workflow.slice(0, workflow.indexOf("    steps:"));
   assert.doesNotMatch(beforeSteps, /secrets\.|SUPABASE_WORKLOAD_PASSWORD/);
 });
+
+test("modo de backlog processa acervo preservado sem acessar o e-TCM", () => {
+  assert.match(
+    workflow,
+    /mode:[\s\S]*options:\s*\n\s+- "collect"\s*\n\s+- "process_existing"/,
+  );
+  assert.match(
+    workflow,
+    /process_existing:[\s\S]*if: github\.event_name == 'workflow_dispatch' && inputs\.mode == 'process_existing'/,
+  );
+  const backlogJob = workflow.slice(workflow.indexOf("  process_existing:"));
+  assert.match(
+    backlogJob,
+    /barreiras_docproc\.commands\.report_tcm_ba_document_processing/,
+  );
+  assert.match(
+    backlogJob,
+    /barreiras_docproc\.commands\.process_tcm_ba_commitments/,
+  );
+  assert.match(backlogJob, /TCM_BA_COMMITMENT_BACKLOG_APPROVED/);
+  assert.doesNotMatch(
+    backlogJob,
+    /collect_tcm_ba_documents|SUPABASE_WORKLOAD_(?:EMAIL|PASSWORD)|SUPABASE_PUBLISHABLE_KEY/,
+  );
+});
