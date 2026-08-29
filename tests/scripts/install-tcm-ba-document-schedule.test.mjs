@@ -14,6 +14,8 @@ test("tarefa local usa DPAPI, seleção automática e limites fechados", () => {
   assert.match(script, /-MaxDocuments 5/);
   assert.match(script, /-RequestsPerMinute 30/);
   assert.match(script, /-MultipleInstances IgnoreNew/);
+  assert.match(script, /-StartWhenAvailable/);
+  assert.match(script, /-WakeToRun/);
   assert.match(script, /-LogonType Interactive/);
   assert.match(script, /-RunLevel Limited/);
   assert.match(script, /-ExecutionTimeLimit \(New-TimeSpan -Minutes 30\)/);
