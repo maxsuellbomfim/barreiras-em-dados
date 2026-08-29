@@ -12,6 +12,7 @@ on:
         options:
           - "collect"
           - "process_existing"
+          - "process_pages"
       competence:
         description: "Competência MM/AAAA; vazio escolhe a mais antiga incompleta"
         required: false
@@ -219,3 +220,82 @@ jobs:
 
       - name: Aprovar processamento privado do backlog
         run: echo "TCM_BA_COMMITMENT_BACKLOG_APPROVED"
+  process_pages:
+    name: Derivar páginas do acervo TCM-BA já preservado
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'process_pages'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: workers/collectors/src:workers/document-processing/src
+      PERSISTENCE_MODE: postgres-supabase
+      SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências fixadas
+        run: python -m pip install --disable-pip-version-check ".[postgres,storage,pdf,ocr]"
+
+      - name: Instalar OCR em português
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q tesseract-ocr tesseract-ocr-por
+
+      - name: Verificar CA oficial do Supabase
+        run: >-
+          echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
+          | sha256sum --check --strict
+
+      - name: Derivar texto página a página
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_WORKLOAD_EMAIL: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL }}
+          SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD }}
+          TCM_MAX_DOCUMENTS: ${{ inputs.max_documents }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_documents
+          --limit "$TCM_MAX_DOCUMENTS"
+
+      - name: OCR das páginas escaneadas do TCM-BA
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_WORKLOAD_EMAIL: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL }}
+          SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.ocr_gazette_pages
+          --source tcm-ba
+          --limit-pages 30
+
+      - name: Conferir cobertura de páginas e OCR
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.report_tcm_ba_document_processing
+
+      - name: Identificar candidatos privados de notas de empenho
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          TCM_MAX_DOCUMENTS: ${{ inputs.max_documents }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_commitments
+          --limit "$TCM_MAX_DOCUMENTS"
+
+      - name: Aprovar páginas preservadas e candidatos privados
+        run: echo "TCM_BA_PRESERVED_PAGES_APPROVED"
