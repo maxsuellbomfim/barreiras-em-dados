@@ -102,6 +102,11 @@ class GazetteRepositoryContractTests(unittest.TestCase):
             query,
         )
         self.assertIn(
+            "edition.edition_date, edition.source_priority, "
+            "edition.created_at::text as created_at",
+            query,
+        )
+        self.assertIn(
             "where (%s::integer is null or edition.edition = %s::integer)",
             query,
         )
