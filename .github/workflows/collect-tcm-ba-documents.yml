@@ -150,6 +150,16 @@ jobs:
           python -B -m
           barreiras_docproc.commands.report_tcm_ba_document_processing
 
+      - name: Identificar candidatos privados de notas de empenho
+        if: steps.plan.outputs.competence != ''
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          TCM_MAX_DOCUMENTS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_documents || '5' }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.process_tcm_ba_commitments
+          --limit "$TCM_MAX_DOCUMENTS"
+
       - name: Aprovar lote auditado
         if: steps.plan.outputs.competence != ''
         run: echo "TCM_BA_DOCUMENT_PILOT_APPROVED"
