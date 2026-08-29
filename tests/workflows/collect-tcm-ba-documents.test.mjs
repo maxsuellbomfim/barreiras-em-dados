@@ -33,13 +33,17 @@ test("lote documental TCM-BA é serial, limitado e auditado", () => {
   const reportIndex = workflow.indexOf(
     "barreiras_docproc.commands.report_tcm_ba_document_processing",
   );
+  const commitmentIndex = workflow.indexOf(
+    "barreiras_docproc.commands.process_tcm_ba_commitments",
+  );
   const approveIndex = workflow.indexOf("TCM_BA_DOCUMENT_PILOT_APPROVED");
   assert.ok(collectIndex >= 0);
   assert.ok(auditIndex > collectIndex);
   assert.ok(textIndex > auditIndex);
   assert.ok(ocrIndex > textIndex);
   assert.ok(reportIndex > ocrIndex);
-  assert.ok(approveIndex > reportIndex);
+  assert.ok(commitmentIndex > reportIndex);
+  assert.ok(approveIndex > commitmentIndex);
   assert.match(
     workflow,
     /PYTHONPATH: workers\/collectors\/src:workers\/document-processing\/src/,
