@@ -121,7 +121,7 @@ class GazetteRepositoryContractTests(unittest.TestCase):
             query,
         )
         self.assertIn("where version.raw_artifact_id = edition.id", query)
-        self.assertTrue(query.endswith("limit %s"))
+        self.assertIn("limit %s ) select", query)
         self.assertEqual(params, (None, None, None, None, None, None, 7))
 
     def test_pending_artifacts_keeps_explicit_edition_replay_available(self) -> None:
@@ -177,12 +177,16 @@ class GazetteRepositoryContractTests(unittest.TestCase):
         self.assertIn("left join lateral", query)
         self.assertIn("record.record_type = 'barreiras_diario_publication'", query)
         self.assertIn(
-            "record.payload ->> 'edition' = artifact.metadata ->> 'edition'",
+            "record.payload ->> 'edition' = edition.edition::text",
             query,
         )
         self.assertIn(
             "extract(year from (record.payload ->> 'date')::date)::integer",
             query,
+        )
+        self.assertLess(
+            query.index("limit %s ) select"),
+            query.index("left join lateral"),
         )
 
     def test_batch_exists_checks_the_exact_idempotency_key(self) -> None:
