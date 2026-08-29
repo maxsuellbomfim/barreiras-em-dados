@@ -51,12 +51,16 @@ test("wrapper processa texto somente depois da auditoria física", () => {
   );
   const textGate = wrapper.indexOf("Assert-TcmBaDocumentTextApproval");
   const ocr = wrapper.indexOf("--source tcm-ba");
+  const report = wrapper.lastIndexOf(
+    "Invoke-TcmBaDocumentProcessingReport",
+  );
   const approval = wrapper.indexOf("TCM_BA_DOCUMENT_PILOT_APPROVED");
   assert.ok(audit >= 0);
   assert.ok(processor > audit);
   assert.ok(textGate > processor);
   assert.ok(ocr > textGate);
-  assert.ok(approval > ocr);
+  assert.ok(report > ocr);
+  assert.ok(approval > report);
   assert.match(
     wrapper,
     /workers\/collectors\/src;workers\/document-processing\/src/,
@@ -84,4 +88,18 @@ test("gate rejeita evento duplicado e lote acima do máximo", () => {
   assert.notEqual(duplicate.status, 0);
   const aboveLimit = runGate([event({ pending_found: 5, processed: 5 })], 4);
   assert.notEqual(aboveLimit.status, 0);
+});
+test("wrapper oferece relatório somente leitura sem iniciar o coletor", () => {
+  const reportOnly = wrapper.indexOf("if ($ReportOnly)");
+  const reportCall = wrapper.indexOf(
+    "Invoke-TcmBaDocumentProcessingReport",
+    reportOnly,
+  );
+  const collector = wrapper.indexOf(
+    "barreiras_collectors.commands.collect_tcm_ba_documents",
+  );
+  assert.match(wrapper, /\[switch\]\$ReportOnly/);
+  assert.ok(reportOnly >= 0);
+  assert.ok(reportCall > reportOnly);
+  assert.ok(collector > reportCall);
 });
