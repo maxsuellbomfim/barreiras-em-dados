@@ -172,6 +172,30 @@ class CollectorSettings:
 
 
 @dataclass(frozen=True)
+class PostgresSettings:
+    database_url: str
+
+    @classmethod
+    def from_env(
+        cls,
+        environment: Mapping[str, str] | None = None,
+    ) -> PostgresSettings:
+        values = environment if environment is not None else os.environ
+        collector = CollectorSettings.from_env(values)
+        mode = values.get("PERSISTENCE_MODE", "filesystem").strip()
+        if mode != "postgres-supabase":
+            raise EnvironmentValidationError(
+                "A operação PostgreSQL requer PERSISTENCE_MODE=postgres-supabase."
+            )
+        return cls(
+            database_url=_validated_database_url(
+                _required(values, "DATABASE_URL"),
+                collector,
+            )
+        )
+
+
+@dataclass(frozen=True)
 class PersistenceSettings:
     mode: str
     local_data_directory: Path | None
@@ -227,7 +251,10 @@ class PersistenceSettings:
                 raw_artifacts_bucket=None,
             )
 
-        database_url = _required(values, "DATABASE_URL")
+        database_url = _validated_database_url(
+            _required(values, "DATABASE_URL"),
+            collector,
+        )
         supabase_url = _required(values, "SUPABASE_URL").rstrip("/")
         publishable_key = _required(values, "SUPABASE_PUBLISHABLE_KEY")
         workload_email = _required(values, "SUPABASE_WORKLOAD_EMAIL")
@@ -240,42 +267,6 @@ class PersistenceSettings:
         if values.get("SUPABASE_SECRET_KEY") or values.get("SUPABASE_SERVICE_ROLE_KEY"):
             raise EnvironmentValidationError(
                 "O coletor não aceita secret/service role que ignore RLS."
-            )
-
-        parsed_database = urlparse(database_url)
-        if (
-            parsed_database.scheme not in {"postgres", "postgresql"}
-            or not parsed_database.hostname
-            or not parsed_database.username
-            or not parsed_database.password
-        ):
-            raise EnvironmentValidationError("DATABASE_URL não é uma URL PostgreSQL.")
-
-        local_database = parsed_database.hostname in {"127.0.0.1", "localhost"}
-        database_query = parse_qs(parsed_database.query)
-        ssl_mode = database_query.get("sslmode", [None])[0]
-        if not local_database:
-            if ssl_mode not in {"require", "verify-ca", "verify-full"}:
-                raise EnvironmentValidationError(
-                    "DATABASE_URL remota deve exigir TLS por sslmode."
-                )
-            if collector.app_env in {"staging", "production"}:
-                ssl_root_certificate = database_query.get(
-                    "sslrootcert",
-                    [None],
-                )[0]
-                if (
-                    ssl_mode != "verify-full"
-                    or ssl_root_certificate != PRODUCTION_SSL_ROOT_CERTIFICATE
-                ):
-                    raise EnvironmentValidationError(
-                        "DATABASE_URL de staging/produção deve usar "
-                        "sslmode=verify-full e a CA oficial versionada."
-                    )
-        database_role = parsed_database.username.split(".", maxsplit=1)[0]
-        if not local_database and database_role != "collector_querido_diario":
-            raise EnvironmentValidationError(
-                "DATABASE_URL remota deve usar collector_querido_diario."
             )
 
         parsed_supabase = urlparse(supabase_url)
@@ -333,6 +324,45 @@ class PersistenceSettings:
             supabase_workload_password=workload_password,
             raw_artifacts_bucket=bucket,
         )
+
+
+def _validated_database_url(
+    database_url: str,
+    collector: CollectorSettings,
+) -> str:
+    parsed_database = urlparse(database_url)
+    if (
+        parsed_database.scheme not in {"postgres", "postgresql"}
+        or not parsed_database.hostname
+        or not parsed_database.username
+        or not parsed_database.password
+    ):
+        raise EnvironmentValidationError("DATABASE_URL não é uma URL PostgreSQL.")
+
+    local_database = parsed_database.hostname in {"127.0.0.1", "localhost"}
+    database_query = parse_qs(parsed_database.query)
+    ssl_mode = database_query.get("sslmode", [None])[0]
+    if not local_database:
+        if ssl_mode not in {"require", "verify-ca", "verify-full"}:
+            raise EnvironmentValidationError(
+                "DATABASE_URL remota deve exigir TLS por sslmode."
+            )
+        if collector.app_env in {"staging", "production"}:
+            ssl_root_certificate = database_query.get("sslrootcert", [None])[0]
+            if (
+                ssl_mode != "verify-full"
+                or ssl_root_certificate != PRODUCTION_SSL_ROOT_CERTIFICATE
+            ):
+                raise EnvironmentValidationError(
+                    "DATABASE_URL de staging/produção deve usar "
+                    "sslmode=verify-full e a CA oficial versionada."
+                )
+    database_role = parsed_database.username.split(".", maxsplit=1)[0]
+    if not local_database and database_role != "collector_querido_diario":
+        raise EnvironmentValidationError(
+            "DATABASE_URL remota deve usar collector_querido_diario."
+        )
+    return database_url
 
 
 def _bounded_int(
