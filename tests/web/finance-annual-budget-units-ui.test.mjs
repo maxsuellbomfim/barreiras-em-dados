@@ -17,11 +17,14 @@ test("página anual consulta e agrega unidades para os mesmos relatórios compar
 
 test("UI explica unidade contábil, prioriza oito e recolhe o restante", async () => {
   const component = await readFile(componentPath, "utf8");
-  assert.match(component, /Quem executou os pagamentos/);
+  assert.match(component, /Pagamentos por unidade orçamentária/);
   assert.match(component, /unidade orçamentária[\s\S]*não significa que o titular[\s\S]*gastou/i);
   assert.match(component, /slice\(0, PRIMARY_UNIT_COUNT\)/);
   assert.match(component, /<details className="finance-annual-category-more">/);
   assert.match(component, /Mês sem atribuição integral não foi convertido em zero/);
   assert.match(component, /Abrir balancete oficial/);
   assert.match(component, /IA não calcula valores/);
+  assert.match(component, /não identifica empenhos individuais/i);
+  assert.match(component, /não liga esta unidade\s+a contratos ou fornecedores/i);
+  assert.match(component, /número oficial do empenho/i);
 });

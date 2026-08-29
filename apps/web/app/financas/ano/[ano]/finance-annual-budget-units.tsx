@@ -136,11 +136,12 @@ export function FinanceAnnualBudgetUnits({
     <section className="finance-year-category-section" aria-labelledby="finance-year-unit-title">
       <div className="section-heading compact">
         <span className="eyebrow">Responsabilidade administrativa</span>
-        <h2 id="finance-year-unit-title">Quem executou os pagamentos</h2>
+        <h2 id="finance-year-unit-title">Pagamentos por unidade orçamentária</h2>
         <p>
           A unidade orçamentária é o órgão, secretaria, fundo ou gabinete indicado em cada
-          linha do balancete. Isso não significa que o titular da unidade gastou pessoalmente
-          o valor, nem avalia a qualidade do gasto.
+          linha do balancete. Isso mostra a responsabilidade contábil registrada.
+          Não significa que o titular da unidade gastou pessoalmente o valor nem
+          avalia a qualidade do gasto.
         </p>
       </div>
       <div className="finance-year-category-coverage" role="status">
@@ -161,6 +162,11 @@ export function FinanceAnnualBudgetUnits({
           </ol>
         </details>
       ) : null}
+      <p className="finance-annual-method">
+        Este balancete não identifica empenhos individuais e, por isso, não liga esta unidade
+        a contratos ou fornecedores. Esse vínculo só será exibido quando uma fonte oficial
+        trouxer o número oficial do empenho em ambos os registros.
+      </p>
       <p className="finance-annual-method">
         Soma e percentuais calculados em centavos por código determinístico, com o nome
         literal do balancete e vínculo ao PDF preservado. IA não calcula valores.
