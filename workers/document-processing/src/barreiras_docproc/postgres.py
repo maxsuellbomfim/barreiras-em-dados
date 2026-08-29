@@ -751,8 +751,12 @@ class PostgresExtractionRepository:
     def pending_ocr_pages(
         self,
         limit_pages: int,
+        *,
+        source: str = "querido-diario",
     ) -> tuple[tuple[TextArtifact, tuple[int, ...]], ...]:
-        """Páginas nulas ainda sem linha OCR, agrupadas por artefato."""
+        """Páginas nulas da fonte indicada, agrupadas por artefato."""
+        if source not in {"querido-diario", "tcm-ba"}:
+            raise ValueError("source deve ser querido-diario ou tcm-ba.")
         connection = self.connection_factory()
         try:
             rows = connection.execute(
@@ -765,7 +769,25 @@ class PostgresExtractionRepository:
                 from raw.document_pages as page
                 join raw.raw_artifacts as artifact
                   on artifact.id = page.raw_artifact_id
-                where page.text_content is null
+                cross join (
+                  select %s::text as value
+                ) as source_scope
+                where (
+                    (
+                      source_scope.value = 'querido-diario'
+                      and (
+                        artifact.metadata ->> 'schema_name'
+                            = 'gazette-direct-edition'
+                        or artifact.metadata ->> 'document_role' = 'txt'
+                      )
+                    )
+                    or (
+                      source_scope.value = 'tcm-ba'
+                      and artifact.metadata ->> 'schema_name'
+                          = 'tcm-ba-monthly-document'
+                    )
+                  )
+                  and page.text_content is null
                   and not exists (
                     select 1
                     from raw.document_pages as supplemental
@@ -791,7 +813,7 @@ class PostgresExtractionRepository:
                   page.page_number
                 limit %s
                 """,
-                (limit_pages,),
+                (source, limit_pages),
             )
             grouped: dict[str, tuple[TextArtifact, list[int]]] = {}
             while True:

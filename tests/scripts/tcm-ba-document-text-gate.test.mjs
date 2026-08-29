@@ -50,11 +50,13 @@ test("wrapper processa texto somente depois da auditoria física", () => {
     "barreiras_docproc.commands.process_tcm_ba_documents",
   );
   const textGate = wrapper.indexOf("Assert-TcmBaDocumentTextApproval");
+  const ocr = wrapper.indexOf("--source tcm-ba");
   const approval = wrapper.indexOf("TCM_BA_DOCUMENT_PILOT_APPROVED");
   assert.ok(audit >= 0);
   assert.ok(processor > audit);
   assert.ok(textGate > processor);
-  assert.ok(approval > textGate);
+  assert.ok(ocr > textGate);
+  assert.ok(approval > ocr);
   assert.match(
     wrapper,
     /workers\/collectors\/src;workers\/document-processing\/src/,

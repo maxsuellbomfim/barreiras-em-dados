@@ -8,9 +8,11 @@ from unittest.mock import patch
 
 from barreiras_docproc.ocr import (
     OCR_PARSER_VERSION,
+    TCM_BA_OCR_PARSER_VERSION,
     OcrError,
     TesseractEngine,
     ocr_page,
+    parser_version_for_source,
     rasterize_page,
 )
 from PIL import Image
@@ -86,6 +88,16 @@ class OcrPageTests(unittest.TestCase):
             f"{OCR_PARSER_VERSION}+tesseract-psm6",
         )
 
+    def test_stored_parser_version_distinguishes_tcm_ba_from_gazettes(self) -> None:
+        self.assertEqual(
+            parser_version_for_source("querido-diario"),
+            OCR_PARSER_VERSION,
+        )
+        self.assertEqual(
+            parser_version_for_source("tcm-ba"),
+            TCM_BA_OCR_PARSER_VERSION,
+        )
+        self.assertNotIn("gazette", TCM_BA_OCR_PARSER_VERSION)
 
 @unittest.skipUnless(
     shutil.which("tesseract"),

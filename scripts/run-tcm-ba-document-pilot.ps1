@@ -338,6 +338,27 @@ try {
     $null = Assert-TcmBaDocumentTextApproval `
         -Events $textEvents `
         -MaxDocuments $MaxDocuments
+    Push-Location $projectRoot
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $ocrOutput = @(
+                & $python -B -m barreiras_docproc.commands.ocr_gazette_pages --source tcm-ba --limit-pages 30 2>&1
+            )
+            $ocrExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    $ocrOutput | ForEach-Object { Write-Host $_ }
+    if ($ocrExitCode -ne 0) {
+        throw "O OCR TCM-BA terminou com código $ocrExitCode."
+    }
     Write-Host "TCM_BA_DOCUMENT_PILOT_APPROVED" -ForegroundColor Green
 }
 finally {
