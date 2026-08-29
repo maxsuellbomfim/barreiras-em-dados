@@ -117,6 +117,7 @@ class GazetteDocumentRepository:
                   edition.edition,
                   edition.edition_year,
                   edition.edition_date,
+                  edition.source_priority,
                   edition.created_at::text as created_at
                 from candidate_editions as edition
                 join raw.document_pages as page
