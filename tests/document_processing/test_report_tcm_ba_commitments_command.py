@@ -43,6 +43,9 @@ class ReportTcmBaCommitmentsCommandTests(unittest.TestCase):
             total_candidates=2,
             complete_candidates=1,
             spatial_budget_allocations=1,
+            spatial_issue_dates=0,
+            spatial_amounts=1,
+            invalid_spatial_evidence=0,
             missing_issue_date=0,
             missing_creditor_name=0,
             missing_amount_text=0,
@@ -70,12 +73,23 @@ class ReportTcmBaCommitmentsCommandTests(unittest.TestCase):
                 ),
             )
         )
+        self.assertFalse(
+            field_breakdown_matches_coverage(
+                coverage(),
+                TcmBaCommitmentFieldBreakdown(
+                    **(valid.__dict__ | {"invalid_spatial_evidence": 1}),
+                ),
+            )
+        )
 
     def test_field_breakdown_payload_contains_only_aggregate_counts(self) -> None:
         breakdown = TcmBaCommitmentFieldBreakdown(
             total_candidates=98,
             complete_candidates=4,
             spatial_budget_allocations=13,
+            spatial_issue_dates=0,
+            spatial_amounts=37,
+            invalid_spatial_evidence=0,
             missing_issue_date=5,
             missing_creditor_name=9,
             missing_amount_text=9,
@@ -96,6 +110,11 @@ class ReportTcmBaCommitmentsCommandTests(unittest.TestCase):
 
         self.assertEqual(payload["total_candidates"], 98)
         self.assertEqual(payload["spatial_budget_allocations"], 13)
+        self.assertEqual(payload["invalid_spatial_evidence"], 0)
+        self.assertEqual(
+            payload["spatial_field_counts"],
+            {"issue_date": 0, "amount_text": 37, "budget_allocation": 13},
+        )
         self.assertEqual(
             payload["missing_field_counts"],
             {

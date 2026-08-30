@@ -9,11 +9,13 @@ from dataclasses import dataclass
 from barreiras_collectors.persistence.postgres import DatabaseConnection
 
 from .ocr import TCM_BA_OCR_PARSER_VERSION
+from .pdf_layout import PDF_LAYOUT_VERSION
 from .pdf_text import PDF_PARSER_VERSION
 from .processing import PageInput, ProcessingError, TextArtifact, canonical_json
 from .tcm_ba_commitments import (
     EXTRACTOR_VERSION,
     JOB_TYPE,
+    SCHEMA_VERSION,
     TcmBaCommitmentBatch,
     TcmBaCommitmentCoverage,
     TcmBaCommitmentFieldBreakdown,
@@ -271,6 +273,9 @@ class TcmBaCommitmentExtractionRepository:
                               result_payload ->> 'schema_name', ''
                             ) <> 'tcm-ba-commitment-candidate'
                          or coalesce(
+                              result_payload ->> 'schema_version', ''
+                            ) <> %s
+                         or coalesce(
                               result_payload ->> 'candidate_status', ''
                             ) not in ('complete', 'incomplete')
                          or coalesce(
@@ -348,6 +353,7 @@ class TcmBaCommitmentExtractionRepository:
                     JOB_TYPE,
                     EXTRACTOR_VERSION,
                     EXTRACTOR_VERSION,
+                    SCHEMA_VERSION,
                 ),
             ).fetchone()
             if row is None:
@@ -426,13 +432,149 @@ class TcmBaCommitmentExtractionRepository:
                       result_payload -> 'budget_allocation_evidence'
                     ) = 'object'
                   )::integer as spatial_budget_count,
+                  count(*) filter (
+                    where jsonb_typeof(
+                      result_payload -> 'issue_date_evidence'
+                    ) = 'object'
+                  )::integer as spatial_issue_date_count,
+                  count(*) filter (
+                    where jsonb_typeof(
+                      result_payload -> 'amount_text_evidence'
+                    ) = 'object'
+                  )::integer as spatial_amount_count,
+                  count(*) filter (
+                    where (
+                      case
+                        when result_payload -> 'issue_date_evidence' is null
+                          or jsonb_typeof(
+                            result_payload -> 'issue_date_evidence'
+                          ) = 'null'
+                          then false
+                        when jsonb_typeof(
+                          result_payload -> 'issue_date_evidence'
+                        ) <> 'object'
+                          then true
+                        else
+                          coalesce(result_payload ->> 'issue_date', '')
+                            !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                          or coalesce(
+                            result_payload -> 'issue_date_evidence'
+                              ->> 'parser_version', ''
+                          ) <> %s
+                          or coalesce(
+                            result_payload -> 'issue_date_evidence'
+                              ->> 'page_number', ''
+                          ) !~ '^[1-9][0-9]*$'
+                          or (
+                            result_payload -> 'issue_date_evidence'
+                              ->> 'page_number'
+                          ) <> result_payload ->> 'source_page_number'
+                          or coalesce(
+                            result_payload -> 'issue_date_evidence'
+                              ->> 'label_block_order', ''
+                          ) !~ '^[0-9]+$'
+                          or coalesce(
+                            result_payload -> 'issue_date_evidence'
+                              ->> 'value_block_order', ''
+                          ) !~ '^[0-9]+$'
+                          or coalesce(
+                            result_payload -> 'issue_date_evidence'
+                              ->> 'relation', ''
+                          ) not in ('below', 'right')
+                      end
+                    ) or (
+                      case
+                        when result_payload -> 'amount_text_evidence' is null
+                          or jsonb_typeof(
+                            result_payload -> 'amount_text_evidence'
+                          ) = 'null'
+                          then false
+                        when jsonb_typeof(
+                          result_payload -> 'amount_text_evidence'
+                        ) <> 'object'
+                          then true
+                        else
+                          coalesce(result_payload ->> 'amount_text', '')
+                            !~ '^-?[0-9.]+,[0-9]{2}$'
+                          or coalesce(
+                            result_payload -> 'amount_text_evidence'
+                              ->> 'parser_version', ''
+                          ) <> %s
+                          or coalesce(
+                            result_payload -> 'amount_text_evidence'
+                              ->> 'page_number', ''
+                          ) !~ '^[1-9][0-9]*$'
+                          or (
+                            result_payload -> 'amount_text_evidence'
+                              ->> 'page_number'
+                          ) <> result_payload ->> 'source_page_number'
+                          or coalesce(
+                            result_payload -> 'amount_text_evidence'
+                              ->> 'label_block_order', ''
+                          ) !~ '^[0-9]+$'
+                          or coalesce(
+                            result_payload -> 'amount_text_evidence'
+                              ->> 'value_block_order', ''
+                          ) !~ '^[0-9]+$'
+                          or coalesce(
+                            result_payload -> 'amount_text_evidence'
+                              ->> 'relation', ''
+                          ) not in ('below', 'right')
+                      end
+                    ) or (
+                      case
+                        when result_payload -> 'budget_allocation_evidence' is null
+                          or jsonb_typeof(
+                            result_payload -> 'budget_allocation_evidence'
+                          ) = 'null'
+                          then false
+                        when jsonb_typeof(
+                          result_payload -> 'budget_allocation_evidence'
+                        ) <> 'object'
+                          then true
+                        else
+                          coalesce(result_payload ->> 'budget_allocation', '') = ''
+                          or coalesce(
+                            result_payload -> 'budget_allocation_evidence'
+                              ->> 'parser_version', ''
+                          ) <> %s
+                          or coalesce(
+                            result_payload -> 'budget_allocation_evidence'
+                              ->> 'page_number', ''
+                          ) !~ '^[1-9][0-9]*$'
+                          or (
+                            result_payload -> 'budget_allocation_evidence'
+                              ->> 'page_number'
+                          ) <> result_payload ->> 'source_page_number'
+                          or coalesce(
+                            result_payload -> 'budget_allocation_evidence'
+                              ->> 'label_block_order', ''
+                          ) !~ '^[0-9]+$'
+                          or coalesce(
+                            result_payload -> 'budget_allocation_evidence'
+                              ->> 'value_block_order', ''
+                          ) !~ '^[0-9]+$'
+                          or coalesce(
+                            result_payload -> 'budget_allocation_evidence'
+                              ->> 'relation', ''
+                          ) not in ('below', 'right')
+                      end
+                    )
+                  )::integer as invalid_spatial_count,
                   'commitment_missing_field_breakdown' as report_marker
                 from current_results
                 group by result_payload -> 'missing_fields'
                 order by candidate_count desc,
                   (result_payload -> 'missing_fields')::text
                 """,
-                (JOB_TYPE, EXTRACTOR_VERSION, EXTRACTOR_VERSION),
+                (
+                    JOB_TYPE,
+                    EXTRACTOR_VERSION,
+                    EXTRACTOR_VERSION,
+                    PDF_LAYOUT_VERSION,
+                    PDF_LAYOUT_VERSION,
+                    PDF_LAYOUT_VERSION,
+                ),
             ).fetchall()
         finally:
             connection.close()
@@ -445,6 +587,9 @@ class TcmBaCommitmentExtractionRepository:
         }
         groups: list[TcmBaCommitmentMissingFieldGroup] = []
         spatial_budget_allocations = 0
+        spatial_issue_dates = 0
+        spatial_amounts = 0
+        invalid_spatial_evidence = 0
         counts = {field: 0 for field in allowed_fields}
         complete_candidates = 0
         for row in rows:
@@ -472,6 +617,9 @@ class TcmBaCommitmentExtractionRepository:
             try:
                 candidate_count = int(row["candidate_count"])
                 spatial_budget_count = int(row["spatial_budget_count"])
+                spatial_issue_date_count = int(row["spatial_issue_date_count"])
+                spatial_amount_count = int(row["spatial_amount_count"])
+                invalid_spatial_count = int(row["invalid_spatial_count"])
             except (KeyError, TypeError, ValueError) as error:
                 raise ProcessingError(
                     "A distribuição de campos faltantes está incompleta."
@@ -480,6 +628,12 @@ class TcmBaCommitmentExtractionRepository:
                 candidate_count < 0
                 or spatial_budget_count < 0
                 or spatial_budget_count > candidate_count
+                or spatial_issue_date_count < 0
+                or spatial_issue_date_count > candidate_count
+                or spatial_amount_count < 0
+                or spatial_amount_count > candidate_count
+                or invalid_spatial_count < 0
+                or invalid_spatial_count > candidate_count
             ):
                 raise ProcessingError(
                     "A distribuição de campos faltantes possui contador inválido."
@@ -489,6 +643,9 @@ class TcmBaCommitmentExtractionRepository:
             for field in missing_fields:
                 counts[field] += candidate_count
             spatial_budget_allocations += spatial_budget_count
+            spatial_issue_dates += spatial_issue_date_count
+            spatial_amounts += spatial_amount_count
+            invalid_spatial_evidence += invalid_spatial_count
             groups.append(
                 TcmBaCommitmentMissingFieldGroup(
                     missing_fields=missing_fields,
@@ -499,7 +656,14 @@ class TcmBaCommitmentExtractionRepository:
             key=lambda group: (-group.candidates, group.missing_fields),
         )
         total_candidates = sum(group.candidates for group in groups)
-        if spatial_budget_allocations > total_candidates:
+        if any(
+            count > total_candidates
+            for count in (
+                spatial_budget_allocations,
+                spatial_issue_dates,
+                spatial_amounts,
+            )
+        ):
             raise ProcessingError(
                 "A cobertura espacial excede a quantidade de candidatos."
             )
@@ -507,6 +671,9 @@ class TcmBaCommitmentExtractionRepository:
             total_candidates=total_candidates,
             complete_candidates=complete_candidates,
             spatial_budget_allocations=spatial_budget_allocations,
+            spatial_issue_dates=spatial_issue_dates,
+            spatial_amounts=spatial_amounts,
+            invalid_spatial_evidence=invalid_spatial_evidence,
             missing_issue_date=counts["issue_date"],
             missing_creditor_name=counts["creditor_name"],
             missing_amount_text=counts["amount_text"],
