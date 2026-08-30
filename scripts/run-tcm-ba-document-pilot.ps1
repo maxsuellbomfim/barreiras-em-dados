@@ -5,6 +5,7 @@ param(
     [switch]$AutoCompetence,
     [switch]$PlanOnly,
     [switch]$ReportOnly,
+    [switch]$AuditOnly,
     [object]$RequestsPerMinute = 30,
     [string]$PythonPath = ""
 )
@@ -329,6 +330,9 @@ if ($PlanOnly -and -not $AutoCompetence) {
 if ($ReportOnly -and ($AutoCompetence -or $PlanOnly)) {
     throw "-ReportOnly não pode ser combinado com -AutoCompetence ou -PlanOnly."
 }
+if ($AuditOnly -and ($AutoCompetence -or $PlanOnly -or $ReportOnly)) {
+    throw "-AuditOnly não pode ser combinado com outro modo somente leitura."
+}
 if (
     -not $AutoCompetence -and
     $Competence -notmatch '^(0[1-9]|1[0-2])/\d{4}$'
@@ -416,6 +420,39 @@ try {
     $env:SUPABASE_RAW_ARTIFACTS_BUCKET = "raw-artifacts"
 
     $python = Find-Python
+    if ($AuditOnly) {
+        Push-Location $projectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $auditOutput = @(
+                    & $python -B -m barreiras_collectors.commands.audit_tcm_ba_document_batch --competence $Competence 2>&1
+                )
+                $auditExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $auditOutput | ForEach-Object { Write-Host $_ }
+        if ($auditExitCode -ne 0) {
+            throw "O auditor terminou com código $auditExitCode."
+        }
+        $auditEvents = @(Read-AuditEvents -Output $auditOutput)
+        if (
+            $auditEvents.Count -ne 1 -or
+            $auditEvents[0].gate -ne "PASS" -or
+            $auditEvents[0].competence -ne $Competence
+        ) {
+            throw "A auditoria não aprovou uma competência única e exata."
+        }
+        Write-Host "TCM_BA_DOCUMENT_AUDIT_ONLY" -ForegroundColor Cyan
+        return
+    }
     if ($ReportOnly) {
         Invoke-TcmBaDocumentProcessingReport -Python $python -ProjectRoot $projectRoot
         Write-Host "TCM_BA_DOCUMENT_REPORT_ONLY" -ForegroundColor Cyan

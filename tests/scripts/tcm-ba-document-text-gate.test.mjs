@@ -134,4 +134,18 @@ test("wrapper oferece relatório somente leitura sem iniciar o coletor", () => {
   assert.ok(reportOnly >= 0);
   assert.ok(reportCall > reportOnly);
   assert.ok(collector > reportCall);
+});test("wrapper oferece auditoria física somente leitura sem iniciar o coletor", () => {
+  const auditOnly = wrapper.indexOf("if ($AuditOnly)");
+  const auditCall = wrapper.indexOf(
+    "barreiras_collectors.commands.audit_tcm_ba_document_batch",
+    auditOnly,
+  );
+  const collector = wrapper.indexOf(
+    "barreiras_collectors.commands.collect_tcm_ba_documents",
+  );
+  assert.match(wrapper, /\[switch\]\$AuditOnly/);
+  assert.ok(auditOnly >= 0);
+  assert.ok(auditCall > auditOnly);
+  assert.ok(collector > auditCall);
+  assert.match(wrapper, /TCM_BA_DOCUMENT_AUDIT_ONLY/);
 });
