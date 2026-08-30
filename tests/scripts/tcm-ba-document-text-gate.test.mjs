@@ -31,6 +31,20 @@ function runGate(events, maxDocuments = 5) {
   );
 }
 
+function familyCatchUpLimit(maxDocuments) {
+  const helperPath = helper.replaceAll("'", "''");
+  return spawnSync(
+    process.env.PWSH_PATH ?? "pwsh",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      `. '${helperPath}'; Get-TcmBaDocumentFamilyCatchUpLimit -MaxDocuments ${maxDocuments}`,
+    ],
+    { encoding: "utf8" },
+  );
+}
+
 function event(overrides = {}) {
   return {
     event: "tcm_ba_document_text_batch_completed",
@@ -96,6 +110,17 @@ test("wrapper processa texto somente depois da auditoria física", () => {
   assert.match(
     wrapper,
     /workers\/collectors\/src;workers\/document-processing\/src/,
+  );
+});
+
+test("wrapper reserva uma segunda janela limitada para drenar famílias atrasadas", () => {
+  const result = familyCatchUpLimit(5);
+  assert.equal(result.status, 0, result.stdout + "\n" + result.stderr);
+  assert.equal(result.stdout.trim(), "10");
+  assert.match(wrapper, /Get-TcmBaDocumentFamilyCatchUpLimit/);
+  assert.match(
+    wrapper,
+    /Invoke-TcmBaDocumentFamilyInventory[\s\S]*?-Limit \$familyCatchUpLimit/,
   );
 });
 
