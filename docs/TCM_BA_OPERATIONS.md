@@ -860,6 +860,28 @@ ausências, duplicidades ou payloads inválidos. Em 22 candidatos, somente a
 dotação permaneceu ausente; nenhum deles foi marcado como completo ou
 publicável, pois a dotação ainda não pôde ser extraída com segurança.
 
+A versão 1.3 relê o PDF privado, confere novamente o SHA-256 e usa as
+coordenadas do texto somente quando há uma única nota na página e seleciona
+a célula de melhor escore alinhada ao rótulo de dotação. Empates, rótulos
+fragmentados e
+páginas sem coordenadas permanecem incompletos; nenhum resultado é publicado.
+O replay de 30/08/2026 reconciliou 413 de 413 PDFs elegíveis e manteve os 98
+candidatos. Dezenove dotações foram recuperadas com evidência de página, ordem
+dos blocos, versão do parser e relação geométrica `below`; cinco candidatos
+ficaram completos e quatorze ainda carecem de outros campos. Não houve
+resultado inválido, duplicidade, artefato ausente nem falha aberta. Todos os
+candidatos continuam em `needs_review` no domínio privado.
+A auditoria geométrica posterior mostrou que as 19 páginas tinham uma única
+etiqueta, porém de três a seis sequências numéricas plausíveis na mesma coluna.
+Por isso a versão 1.4 substituiu o critério de melhor distância por dois gates:
+a primeira célula deve ter escore máximo 20 e ficar ao menos 5 pontos à frente
+da segunda. Se qualquer condição falhar, a dotação continua ausente. O replay
+final reconciliou 418 de 418 PDFs, preservou os 98 candidatos e aceitou somente
+13 dotações; quatro candidatos ficaram completos e nove ainda carecem de outros
+campos. Seis associações aceitas no benchmark 1.3 foram descartadas. Não houve
+duplicidade, payload inválido, artefato ausente nem falha aberta, e os 98
+resultados permanecem privados em `needs_review`.
+
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do

@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from barreiras_collectors.logging import log_event
-from barreiras_collectors.settings import CollectorSettings, PostgresSettings
+from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
+from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
 from ..tcm_ba_commitment_repository import (
     TcmBaCommitmentExtractionRepository,
@@ -144,16 +145,60 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--limit deve estar entre 1 e 50.")
 
     collector_settings = CollectorSettings.from_env()
-    postgres = PostgresSettings.from_env()
+    persistence = PersistenceSettings.from_env()
     logging.basicConfig(
         level=getattr(logging, collector_settings.log_level),
         format="%(message)s",
         force=True,
     )
-    repository = TcmBaCommitmentExtractionRepository.from_dsn(postgres.database_url)
+    if persistence.mode != "postgres-supabase":
+        raise RuntimeError(
+            "O processamento espacial TCM-BA requer Storage autenticado."
+        )
+    if (
+        persistence.database_url is None
+        or persistence.supabase_url is None
+        or persistence.supabase_publishable_key is None
+        or persistence.supabase_workload_email is None
+        or persistence.supabase_workload_password is None
+        or persistence.raw_artifacts_bucket is None
+    ):
+        raise RuntimeError("Configuração de nuvem incompleta.")
+    try:
+        from supabase import create_client
+    except ImportError as error:
+        raise RuntimeError(
+            "Instale a dependência opcional 'storage' para processar PDFs."
+        ) from error
+
+    client = create_client(
+        persistence.supabase_url,
+        persistence.supabase_publishable_key,
+    )
+    try:
+        authentication = client.auth.sign_in_with_password(
+            {
+                "email": persistence.supabase_workload_email,
+                "password": persistence.supabase_workload_password,
+            }
+        )
+    except Exception as error:
+        raise RuntimeError(
+            "Falha ao autenticar a identidade técnica do Storage."
+        ) from error
+    if authentication.session is None or authentication.user is None:
+        raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
+
+    repository = TcmBaCommitmentExtractionRepository.from_dsn(persistence.database_url)
+    object_reader = SupabaseStorageObjectStore(
+        client.storage.from_(persistence.raw_artifacts_bucket)
+    )
     summary = run_batch(
         repository=repository,
-        service=TcmBaCommitmentExtractionService(repository=repository),
+        service=TcmBaCommitmentExtractionService(
+            repository=repository,
+            object_reader=object_reader,
+        ),
         limit=arguments.limit,
     )
     return batch_exit_code(summary)

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import unittest
 
-from barreiras_docproc.processing import PageInput, TextArtifact
+from barreiras_docproc.processing import (
+    ArtifactMismatchError,
+    PageInput,
+    TextArtifact,
+)
 from barreiras_docproc.tcm_ba_commitments import (
     EXTRACTOR_VERSION,
     TcmBaCommitmentBatch,
@@ -11,6 +15,14 @@ from barreiras_docproc.tcm_ba_commitments import (
     commitment_candidate_payload,
     commitment_job_idempotency_key,
 )
+
+
+class FakeReader:
+    def __init__(self, body: bytes) -> None:
+        self.body = body
+
+    def read(self, _object_key: str) -> bytes:
+        return self.body
 
 
 class FakeRepository:
@@ -109,6 +121,50 @@ class TcmBaCommitmentProcessingTests(unittest.TestCase):
         self.assertTrue(result.job_created)
         self.assertEqual(result.results_inserted, 0)
         self.assertEqual(repository.batches[0].candidates, ())
+
+    def test_service_requires_private_reader_for_incomplete_budget(self) -> None:
+        repository = FakeRepository()
+        incomplete = PageInput(
+            page_number=1,
+            parser_version="pypdf/fixture",
+            text=(
+                "NOTA DE EMPENHO Nº 45/2021\n"
+                "Emissão: 20/01/2021\n"
+                "Credor: EMPRESA EXEMPLO LTDA\n"
+                "Valor: R$ 2.000,00\n"
+            ),
+            sha256="d" * 64,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "leitor privado"):
+            TcmBaCommitmentExtractionService(repository=repository).process(
+                artifact(),
+                (incomplete,),
+            )
+
+        self.assertEqual(repository.batches, [])
+
+    def test_service_rejects_pdf_bytes_with_divergent_hash(self) -> None:
+        repository = FakeRepository()
+        incomplete = PageInput(
+            page_number=1,
+            parser_version="pypdf/fixture",
+            text=(
+                "NOTA DE EMPENHO Nº 45/2021\n"
+                "Emissão: 20/01/2021\n"
+                "Credor: EMPRESA EXEMPLO LTDA\n"
+                "Valor: R$ 2.000,00\n"
+            ),
+            sha256="d" * 64,
+        )
+
+        with self.assertRaises(ArtifactMismatchError):
+            TcmBaCommitmentExtractionService(
+                repository=repository,
+                object_reader=FakeReader(b"%PDF-bytes-divergentes"),
+            ).process(artifact(), (incomplete,))
+
+        self.assertEqual(repository.batches, [])
 
 
 if __name__ == "__main__":

@@ -5,13 +5,23 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Protocol
 
-from .processing import PageInput, TextArtifact
+from .pdf_layout import PDF_LAYOUT_VERSION, PdfLayoutPage, derive_pdf_layout
+from .processing import (
+    ArtifactMismatchError,
+    ObjectReader,
+    PageInput,
+    TextArtifact,
+)
+from .tcm_ba_commitment_layout import (
+    SpatialBudgetMatch,
+    find_spatial_budget_allocation,
+)
 
-EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.2.0"
+EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.4.0"
 JOB_TYPE = "tcm_ba_commitment_candidates"
 
 
@@ -26,6 +36,7 @@ class TcmBaCommitmentCandidate:
     missing_fields: tuple[str, ...]
     evidence_excerpt: str
     creditor_cnpj: str | None = None
+    budget_allocation_evidence: SpatialBudgetMatch | None = None
 
     @property
     def complete(self) -> bool:
@@ -92,9 +103,10 @@ def commitment_candidate_payload(
     candidate: TcmBaCommitmentCandidate,
     artifact: TextArtifact,
 ) -> dict[str, object]:
+    spatial = candidate.budget_allocation_evidence
     return {
         "schema_name": "tcm-ba-commitment-candidate",
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "candidate_status": "complete" if candidate.complete else "incomplete",
         "commitment_number": candidate.commitment_number,
         "issue_date": candidate.issue_date,
@@ -102,6 +114,17 @@ def commitment_candidate_payload(
         "creditor_cnpj": candidate.creditor_cnpj,
         "amount_text": candidate.amount_text,
         "budget_allocation": candidate.budget_allocation,
+        "budget_allocation_evidence": (
+            None
+            if spatial is None
+            else {
+                "parser_version": PDF_LAYOUT_VERSION,
+                "page_number": spatial.page_number,
+                "label_block_order": spatial.label_block_order,
+                "value_block_order": spatial.value_block_order,
+                "relation": spatial.relation,
+            }
+        ),
         "missing_fields": list(candidate.missing_fields),
         "source_page_number": candidate.page_number,
         "evidence_excerpt": candidate.evidence_excerpt,
@@ -110,22 +133,87 @@ def commitment_candidate_payload(
     }
 
 
+def apply_spatial_budget_allocations(
+    candidates: tuple[TcmBaCommitmentCandidate, ...],
+    layout_pages: tuple[PdfLayoutPage, ...],
+) -> tuple[TcmBaCommitmentCandidate, ...]:
+    """Preenche somente uma nota incompleta em página espacial inequívoca."""
+    candidates_per_page: dict[int, int] = {}
+    for candidate in candidates:
+        candidates_per_page[candidate.page_number] = (
+            candidates_per_page.get(candidate.page_number, 0) + 1
+        )
+    layouts = {page.page_number: page for page in layout_pages}
+    enriched: list[TcmBaCommitmentCandidate] = []
+    for candidate in candidates:
+        layout = layouts.get(candidate.page_number)
+        if (
+            candidate.budget_allocation is not None
+            or candidates_per_page[candidate.page_number] != 1
+            or layout is None
+            or layout.extraction_method != "embedded_layout"
+        ):
+            enriched.append(candidate)
+            continue
+        match = find_spatial_budget_allocation(layout.blocks)
+        if match is None:
+            enriched.append(candidate)
+            continue
+        enriched.append(
+            replace(
+                candidate,
+                budget_allocation=match.value,
+                missing_fields=tuple(
+                    field
+                    for field in candidate.missing_fields
+                    if field != "budget_allocation"
+                ),
+                budget_allocation_evidence=match,
+            )
+        )
+    return tuple(enriched)
+
+
 class TcmBaCommitmentExtractionService:
-    def __init__(self, *, repository: TcmBaCommitmentRepository) -> None:
+    def __init__(
+        self,
+        *,
+        repository: TcmBaCommitmentRepository,
+        object_reader: ObjectReader | None = None,
+    ) -> None:
         self.repository = repository
+        self.object_reader = object_reader
 
     def process(
         self,
         artifact: TextArtifact,
         pages: tuple[PageInput, ...],
     ) -> TcmBaCommitmentPersistResult:
+        candidates = find_commitment_candidates(pages)
+        requires_layout = any(
+            candidate.budget_allocation is None for candidate in candidates
+        )
+        if requires_layout:
+            if self.object_reader is None:
+                raise RuntimeError(
+                    "A extração espacial requer leitor privado do artefato."
+                )
+            raw_body = self.object_reader.read(artifact.object_key)
+            if hashlib.sha256(raw_body).hexdigest() != artifact.sha256:
+                raise ArtifactMismatchError(
+                    "O PDF restaurado diverge do hash registrado do artefato."
+                )
+            candidates = apply_spatial_budget_allocations(
+                candidates,
+                derive_pdf_layout(raw_body),
+            )
         batch = TcmBaCommitmentBatch(
             artifact=artifact,
             pages=pages,
             job_type=JOB_TYPE,
             job_idempotency_key=commitment_job_idempotency_key(artifact.sha256),
             extractor_version=EXTRACTOR_VERSION,
-            candidates=find_commitment_candidates(pages),
+            candidates=candidates,
         )
         return self.repository.persist_tcm_ba_commitment_candidates(batch)
 
