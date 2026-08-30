@@ -483,6 +483,10 @@ try {
     }
     if ($ReportOnly) {
         Invoke-TcmBaDocumentProcessingReport -Python $python -ProjectRoot $projectRoot
+        Invoke-TcmBaDocumentFamilyCoverage -Python $python -ProjectRoot $projectRoot
+        Invoke-TcmBaContractDocumentCoverage -Python $python -ProjectRoot $projectRoot
+        Invoke-TcmBaContractFieldCoverage -Python $python -ProjectRoot $projectRoot
+        Invoke-TcmBaCommitmentCandidateCoverage -Python $python -ProjectRoot $projectRoot
         Write-Host "TCM_BA_DOCUMENT_REPORT_ONLY" -ForegroundColor Cyan
         return
     }

@@ -8,6 +8,7 @@ from barreiras_docproc.tcm_ba_commitment_repository import (
 )
 from barreiras_docproc.tcm_ba_commitments import (
     EXTRACTOR_VERSION,
+    JOB_TYPE,
     TcmBaCommitmentBatch,
     TcmBaCommitmentExtractionService,
 )
@@ -40,11 +41,14 @@ class RecordingConnection:
         self.queries: list[tuple[str, object]] = []
         self.pending_rows = []
         self.coverage_row = None
+        self.breakdown_rows = []
         self.job_row = {"id": "00000000-0000-0000-0000-000000000905"}
 
     def execute(self, query, params=None):
         normalized = " ".join(query.split())
         self.queries.append((normalized, params))
+        if "commitment_missing_field_breakdown" in normalized:
+            return Cursor(rows=self.breakdown_rows)
         if "commitment_coverage_eligible" in normalized:
             return Cursor(row=self.coverage_row)
         if "with tcm_artifacts as" in normalized:
@@ -176,6 +180,51 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
         self.assertIn("jsonb_typeof", query)
         self.assertIn("coalesce(validation_status, '')", query)
         self.assertIn("is distinct from 'array'", query)
+
+    def test_missing_field_breakdown_is_aggregate_and_version_scoped(self) -> None:
+        self.connection.breakdown_rows = [
+            {
+                "missing_fields": [],
+                "candidate_count": 4,
+                "spatial_budget_count": 4,
+            },
+            {
+                "missing_fields": ["issue_date"],
+                "candidate_count": 5,
+                "spatial_budget_count": 3,
+            },
+            {
+                "missing_fields": ["budget_allocation"],
+                "candidate_count": 80,
+                "spatial_budget_count": 0,
+            },
+            {
+                "missing_fields": ["creditor_name", "amount_text"],
+                "candidate_count": 9,
+                "spatial_budget_count": 6,
+            },
+        ]
+
+        breakdown = self.repository.commitment_missing_field_breakdown()
+
+        self.assertEqual(breakdown.total_candidates, 98)
+        self.assertEqual(breakdown.complete_candidates, 4)
+        self.assertEqual(breakdown.spatial_budget_allocations, 13)
+        self.assertEqual(breakdown.missing_issue_date, 5)
+        self.assertEqual(breakdown.missing_creditor_name, 9)
+        self.assertEqual(breakdown.missing_amount_text, 9)
+        self.assertEqual(breakdown.missing_budget_allocation, 80)
+        self.assertEqual(
+            breakdown.groups[0].missing_fields,
+            ("budget_allocation",),
+        )
+        query, params = next(
+            (query, params)
+            for query, params in self.connection.queries
+            if "commitment_missing_field_breakdown" in query
+        )
+        self.assertIn("result.extractor_version = %s", query)
+        self.assertEqual(params, (JOB_TYPE, EXTRACTOR_VERSION, EXTRACTOR_VERSION))
 
     def test_rejects_page_without_verified_text_hash(self) -> None:
         self.connection.pending_rows = [

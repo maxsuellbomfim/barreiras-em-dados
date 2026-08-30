@@ -798,8 +798,9 @@ qualquer registro:
 O modo `AuditOnly` exige um único evento `PASS` da competência exata. Ele abre o
 banco somente para leitura, baixa os XMLs e PDFs do último lote, recalcula tamanho
 e SHA-256 e confere cobertura, linhagem, tipos de mídia e falhas abertas. O modo
-`ReportOnly` continua reservado ao relatório agregado de páginas processadas;
-ele não substitui a auditoria física.
+`ReportOnly` executa somente leituras agregadas e reconcilia páginas,
+famílias documentais, segmentos e campos contratuais e candidatos de empenho.
+Ele não baixa objetos nem substitui a auditoria física de uma competência.
 
 Cada rodada preserva XML e PDF, fecha a execução como `partial` enquanto houver
 itens pendentes e chama o auditor relacional e físico antes do selo de
@@ -881,6 +882,15 @@ final reconciliou 418 de 418 PDFs, preservou os 98 candidatos e aceitou somente
 campos. Seis associações aceitas no benchmark 1.3 foram descartadas. Não houve
 duplicidade, payload inválido, artefato ausente nem falha aberta, e os 98
 resultados permanecem privados em `needs_review`.
+
+Após o primeiro ciclo agendado com a versão 1.4, a cobertura passou a 423 de
+423 PDFs, 9.078 páginas e zero falha aberta. O relatório agregado de campos
+reconciliou os mesmos 98 candidatos e quatro completos. Permaneceram ausentes
+85 dotações, 74 valores, 63 datas e 56 credores; 50 candidatos continham os
+quatro campos ausentes. A distribuição não inclui nomes, documentos fiscais
+nem trechos dos PDFs e bloqueia a execução se os totais divergirem da cobertura
+principal. Esses números orientam o próximo extrator espacial, mas não tornam
+nenhum candidato publicável sem o restante dos gates e revisão.
 
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do

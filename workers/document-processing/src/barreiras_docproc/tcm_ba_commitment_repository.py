@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -15,6 +16,8 @@ from .tcm_ba_commitments import (
     JOB_TYPE,
     TcmBaCommitmentBatch,
     TcmBaCommitmentCoverage,
+    TcmBaCommitmentFieldBreakdown,
+    TcmBaCommitmentMissingFieldGroup,
     TcmBaCommitmentPersistResult,
     commitment_candidate_payload,
 )
@@ -358,9 +361,7 @@ class TcmBaCommitmentExtractionRepository:
                     candidate_results=int(row["candidate_results"]),
                     complete_candidates=int(row["complete_candidates"]),
                     incomplete_candidates=int(row["incomplete_candidates"]),
-                    zero_candidate_artifacts=int(
-                        row["zero_candidate_artifacts"]
-                    ),
+                    zero_candidate_artifacts=int(row["zero_candidate_artifacts"]),
                     missing_artifacts=int(row["missing_artifacts"]),
                     duplicate_results=int(row["duplicate_results"]),
                     invalid_results=int(row["invalid_results"]),
@@ -377,6 +378,141 @@ class TcmBaCommitmentExtractionRepository:
             return coverage
         finally:
             connection.close()
+
+    def commitment_missing_field_breakdown(
+        self,
+    ) -> TcmBaCommitmentFieldBreakdown:
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                with tcm_artifacts as (
+                  select artifact.id, artifact.sha256
+                  from raw.raw_artifacts as artifact
+                  where artifact.artifact_kind = 'document'
+                    and artifact.metadata ->> 'schema_name'
+                        = 'tcm-ba-monthly-document'
+                    and artifact.content_type = 'application/pdf'
+                    and artifact.http_status between 200 and 299
+                ),
+                current_jobs as (
+                  select job.id
+                  from raw.extraction_jobs as job
+                  join tcm_artifacts as artifact
+                    on artifact.id = job.raw_artifact_id
+                  where job.job_type = %s
+                    and job.status = 'succeeded'
+                    and job.idempotency_key = encode(
+                      sha256(
+                        ('tcm-ba-commitments:' || artifact.sha256 || ':' ||
+                          %s)::bytea
+                      ),
+                      'hex'
+                    )
+                ),
+                current_results as (
+                  select result.result_payload
+                  from current_jobs as job
+                  join raw.extraction_results as result
+                    on result.extraction_job_id = job.id
+                  where result.candidate_type = 'tcm_ba_commitment_note'
+                    and result.extractor_version = %s
+                )
+                select
+                  result_payload -> 'missing_fields' as missing_fields,
+                  count(*)::integer as candidate_count,
+                  count(*) filter (
+                    where jsonb_typeof(
+                      result_payload -> 'budget_allocation_evidence'
+                    ) = 'object'
+                  )::integer as spatial_budget_count,
+                  'commitment_missing_field_breakdown' as report_marker
+                from current_results
+                group by result_payload -> 'missing_fields'
+                order by candidate_count desc,
+                  (result_payload -> 'missing_fields')::text
+                """,
+                (JOB_TYPE, EXTRACTOR_VERSION, EXTRACTOR_VERSION),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        allowed_fields = {
+            "issue_date",
+            "creditor_name",
+            "amount_text",
+            "budget_allocation",
+        }
+        groups: list[TcmBaCommitmentMissingFieldGroup] = []
+        spatial_budget_allocations = 0
+        counts = {field: 0 for field in allowed_fields}
+        complete_candidates = 0
+        for row in rows:
+            raw_fields = row["missing_fields"]
+            if isinstance(raw_fields, str):
+                try:
+                    raw_fields = json.loads(raw_fields)
+                except json.JSONDecodeError as error:
+                    raise ProcessingError(
+                        "A combinação de campos faltantes não é JSON válido."
+                    ) from error
+            if not isinstance(raw_fields, list) or any(
+                not isinstance(field, str) for field in raw_fields
+            ):
+                raise ProcessingError(
+                    "A combinação de campos faltantes não é uma lista textual."
+                )
+            missing_fields = tuple(raw_fields)
+            if len(set(missing_fields)) != len(missing_fields) or not set(
+                missing_fields
+            ).issubset(allowed_fields):
+                raise ProcessingError(
+                    "A combinação de campos faltantes possui campo inválido."
+                )
+            try:
+                candidate_count = int(row["candidate_count"])
+                spatial_budget_count = int(row["spatial_budget_count"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ProcessingError(
+                    "A distribuição de campos faltantes está incompleta."
+                ) from error
+            if (
+                candidate_count < 0
+                or spatial_budget_count < 0
+                or spatial_budget_count > candidate_count
+            ):
+                raise ProcessingError(
+                    "A distribuição de campos faltantes possui contador inválido."
+                )
+            if not missing_fields:
+                complete_candidates += candidate_count
+            for field in missing_fields:
+                counts[field] += candidate_count
+            spatial_budget_allocations += spatial_budget_count
+            groups.append(
+                TcmBaCommitmentMissingFieldGroup(
+                    missing_fields=missing_fields,
+                    candidates=candidate_count,
+                )
+            )
+        groups.sort(
+            key=lambda group: (-group.candidates, group.missing_fields),
+        )
+        total_candidates = sum(group.candidates for group in groups)
+        if spatial_budget_allocations > total_candidates:
+            raise ProcessingError(
+                "A cobertura espacial excede a quantidade de candidatos."
+            )
+        return TcmBaCommitmentFieldBreakdown(
+            total_candidates=total_candidates,
+            complete_candidates=complete_candidates,
+            spatial_budget_allocations=spatial_budget_allocations,
+            missing_issue_date=counts["issue_date"],
+            missing_creditor_name=counts["creditor_name"],
+            missing_amount_text=counts["amount_text"],
+            missing_budget_allocation=counts["budget_allocation"],
+            groups=tuple(groups),
+        )
 
     def persist_tcm_ba_commitment_candidates(
         self,
