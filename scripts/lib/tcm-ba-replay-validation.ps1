@@ -45,6 +45,16 @@ function Assert-TcmBaRequestsPerMinute {
     return $candidate
 }
 
+function Get-TcmBaDocumentFamilyCatchUpLimit {
+    [CmdletBinding()]
+    param(
+        [ValidateRange(1, 5)]
+        [int]$MaxDocuments
+    )
+
+    return [Math]::Min(50, 2 * $MaxDocuments)
+}
+
 function Assert-TcmBaReplayApproval {
     [CmdletBinding()]
     param(

@@ -625,10 +625,12 @@ try {
         throw "O OCR TCM-BA terminou com código $ocrExitCode."
     }
     Invoke-TcmBaDocumentProcessingReport -Python $python -ProjectRoot $projectRoot
+    $familyCatchUpLimit = Get-TcmBaDocumentFamilyCatchUpLimit `
+        -MaxDocuments $MaxDocuments
     Invoke-TcmBaDocumentFamilyInventory `
         -Python $python `
         -ProjectRoot $projectRoot `
-        -Limit $MaxDocuments
+        -Limit $familyCatchUpLimit
     Invoke-TcmBaDocumentFamilyCoverage `
         -Python $python `
         -ProjectRoot $projectRoot
