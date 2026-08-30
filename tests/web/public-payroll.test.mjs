@@ -83,7 +83,7 @@ const validNonpayrollCoverageRow = {
   artifact_sha256:
     "611cd4f055f0e57cd1b0bc111683798ae0b28d84b7d6013d069cc9ca2a3ed0e8",
   catalog_checked_at: "2026-08-30T04:00:00.000Z",
-  methodology_version: "nonpayroll-workforce-coverage/1.0.0",
+  methodology_version: "nonpayroll-workforce-coverage/1.0.1",
 };
 
 const validRegimeRows = [

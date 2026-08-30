@@ -32,7 +32,7 @@ const NONPAYROLL_WORKFORCE_STATUSES = new Set([
   "not_listed",
 ]);
 const NONPAYROLL_WORKFORCE_VERSION =
-  "nonpayroll-workforce-coverage/1.0.0";
+  "nonpayroll-workforce-coverage/1.0.1";
 const NONPAYROLL_WORKFORCE_FIELDS = [
   "artifact_sha256",
   "catalog_checked_at",

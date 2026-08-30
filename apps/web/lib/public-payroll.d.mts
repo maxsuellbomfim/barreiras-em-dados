@@ -79,7 +79,7 @@ export type PublicNonpayrollWorkforceCoverageRow = Readonly<{
   sourceUrl: string;
   artifactSha256: string | null;
   catalogCheckedAt: string;
-  methodologyVersion: "nonpayroll-workforce-coverage/1.0.0";
+  methodologyVersion: "nonpayroll-workforce-coverage/1.0.1";
 }>;
 
 export type PublicNonpayrollWorkforceCoverageResult =
