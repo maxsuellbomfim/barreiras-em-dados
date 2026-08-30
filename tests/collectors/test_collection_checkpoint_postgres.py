@@ -202,6 +202,27 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
         self.assertEqual(repository.pncp_backfill_anchor(), date(2025, 6, 8))
         self.assertTrue(connection.closed)
 
+    def test_tcm_document_planner_respects_open_retry_schedule(self) -> None:
+        connection = CheckpointConnection(None)
+        repository = PostgresCollectionRepository(lambda: connection)
+
+        self.assertIsNone(
+            repository.next_tcm_ba_document_competence(year_from=2021)
+        )
+
+        query, params = connection.calls[0]
+        normalized = " ".join(query.lower().split())
+        self.assertIn("source.collection_failures", normalized)
+        self.assertIn("failure.status <> 'resolved'", normalized)
+        self.assertIn("failure.error_type = 'tcmbaerror'", normalized)
+        self.assertIn("failure.status = 'dead_lettered'", normalized)
+        self.assertIn("or not failure.retryable", normalized)
+        self.assertIn("failure.failed_at + interval '1 hour'", normalized)
+        self.assertIn("> statement_timestamp()", normalized)
+        self.assertIn("failure.partition_key = replace", normalized)
+        self.assertEqual(params, (2021,))
+        self.assertTrue(connection.closed)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -393,6 +393,29 @@ class PostgresCollectionRepository:
                   and catalog.observed_records > 0
                   and catalog_run.status = 'succeeded'
                   and catalog_run.metrics ->> 'collection_outcome' = 'complete'
+                  and not exists (
+                    select 1
+                    from source.collection_failures as failure
+                    where failure.source_endpoint_id =
+                      catalog.source_endpoint_id
+                      and (
+                        failure.partition_key = replace(
+                          catalog.partition_key,
+                          'competence:',
+                          'documents:'
+                        )
+                        or failure.error_type = 'TcmBaError'
+                      )
+                      and failure.status <> 'resolved'
+                      and (
+                        failure.status = 'dead_lettered'
+                        or not failure.retryable
+                        or coalesce(
+                          failure.next_retry_at,
+                          failure.failed_at + interval '1 hour'
+                        ) > statement_timestamp()
+                      )
+                  )
                   and (
                     documents.id is null
                     or documents.status <> 'complete'
