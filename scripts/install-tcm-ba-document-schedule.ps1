@@ -1,6 +1,6 @@
 param(
-    [ValidateRange(1, 24)]
-    [int]$IntervalHours = 1,
+    [ValidateRange(15, 1440)]
+    [int]$IntervalMinutes = 15,
     [switch]$StartNow
 )
 $ErrorActionPreference = "Stop"
@@ -36,7 +36,7 @@ $action = New-ScheduledTaskAction `
 $trigger = New-ScheduledTaskTrigger `
     -Once `
     -At (Get-Date).AddMinutes(2) `
-    -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) `
+    -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) `
     -RepetitionDuration (New-TimeSpan -Days 3650)
 $settings = New-ScheduledTaskSettingsSet `
     -MultipleInstances IgnoreNew `
@@ -53,11 +53,11 @@ $task = New-ScheduledTask `
     -Trigger $trigger `
     -Settings $settings `
     -Principal $principal `
-    -Description "Drena até 5 documentos TCM-BA por hora com auditoria física."
+    -Description "Drena até 5 documentos TCM-BA a cada $IntervalMinutes minutos com auditoria física."
 Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
 if ($StartNow) {
     Start-ScheduledTask -TaskName $taskName
 }
 $registered = Get-ScheduledTask -TaskName $taskName
 Write-Host "Tarefa $($registered.TaskName) registrada para $currentUser." -ForegroundColor Green
-Write-Host "Sem sobreposição; retoma horários perdidos e acorda em suspensão quando conectado à energia; até 5 documentos por rodada; 30 RPM."
+Write-Host "Cadência: $IntervalMinutes minutos; sem sobreposição; retoma horários perdidos e acorda em suspensão quando conectado à energia; até 5 documentos por rodada; 30 RPM."
