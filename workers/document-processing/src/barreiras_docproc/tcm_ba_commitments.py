@@ -87,6 +87,24 @@ class TcmBaCommitmentCoverage:
         )
 
 
+@dataclass(frozen=True)
+class TcmBaCommitmentMissingFieldGroup:
+    missing_fields: tuple[str, ...]
+    candidates: int
+
+
+@dataclass(frozen=True)
+class TcmBaCommitmentFieldBreakdown:
+    total_candidates: int
+    complete_candidates: int
+    spatial_budget_allocations: int
+    missing_issue_date: int
+    missing_creditor_name: int
+    missing_amount_text: int
+    missing_budget_allocation: int
+    groups: tuple[TcmBaCommitmentMissingFieldGroup, ...]
+
+
 class TcmBaCommitmentRepository(Protocol):
     def persist_tcm_ba_commitment_candidates(
         self,

@@ -9,11 +9,47 @@ from barreiras_collectors.logging import log_event
 from barreiras_collectors.settings import CollectorSettings, PostgresSettings
 
 from ..tcm_ba_commitment_repository import TcmBaCommitmentExtractionRepository
-from ..tcm_ba_commitments import TcmBaCommitmentCoverage
+from ..tcm_ba_commitments import (
+    TcmBaCommitmentCoverage,
+    TcmBaCommitmentFieldBreakdown,
+)
 
 
 def coverage_exit_code(coverage: TcmBaCommitmentCoverage) -> int:
     return 0 if coverage.complete else 1
+
+
+def field_breakdown_matches_coverage(
+    coverage: TcmBaCommitmentCoverage,
+    breakdown: TcmBaCommitmentFieldBreakdown,
+) -> bool:
+    return (
+        breakdown.total_candidates == coverage.candidate_results
+        and breakdown.complete_candidates == coverage.complete_candidates
+    )
+
+
+def field_breakdown_payload(
+    breakdown: TcmBaCommitmentFieldBreakdown,
+) -> dict[str, object]:
+    return {
+        "total_candidates": breakdown.total_candidates,
+        "complete_candidates": breakdown.complete_candidates,
+        "spatial_budget_allocations": breakdown.spatial_budget_allocations,
+        "missing_field_counts": {
+            "issue_date": breakdown.missing_issue_date,
+            "creditor_name": breakdown.missing_creditor_name,
+            "amount_text": breakdown.missing_amount_text,
+            "budget_allocation": breakdown.missing_budget_allocation,
+        },
+        "missing_combinations": [
+            {
+                "missing_fields": list(group.missing_fields),
+                "candidates": group.candidates,
+            }
+            for group in breakdown.groups
+        ],
+    }
 
 
 def main(_argv: Sequence[str] | None = None) -> int:
@@ -24,11 +60,12 @@ def main(_argv: Sequence[str] | None = None) -> int:
         format="%(message)s",
         force=True,
     )
-    repository = TcmBaCommitmentExtractionRepository.from_dsn(
-        postgres.database_url
-    )
+    repository = TcmBaCommitmentExtractionRepository.from_dsn(postgres.database_url)
     coverage = repository.commitment_coverage()
+    breakdown = repository.commitment_missing_field_breakdown()
     exit_code = coverage_exit_code(coverage)
+    if not field_breakdown_matches_coverage(coverage, breakdown):
+        exit_code = 1
     log_event(
         logging.getLogger(__name__),
         logging.INFO if exit_code == 0 else logging.ERROR,
@@ -44,6 +81,12 @@ def main(_argv: Sequence[str] | None = None) -> int:
         invalid_results=coverage.invalid_results,
         open_failures=coverage.open_failures,
         gate="PASS" if exit_code == 0 else "BLOCK",
+    )
+    log_event(
+        logging.getLogger(__name__),
+        logging.INFO,
+        "tcm_ba_commitment_missing_field_breakdown",
+        **field_breakdown_payload(breakdown),
     )
     return exit_code
 
