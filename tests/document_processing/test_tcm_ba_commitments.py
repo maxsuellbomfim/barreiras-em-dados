@@ -211,6 +211,52 @@ class TcmBaCommitmentCandidateTests(unittest.TestCase):
         )
         self.assertTrue(candidate.complete)
 
+    def test_extracts_values_from_explicit_labels_on_following_lines(self) -> None:
+        candidates = find_commitment_candidates(
+            (
+                page(
+                    "NOTA DE EMPENHO\n"
+                    "EMPENHO: 321 / 2021\n"
+                    "DATA DO EMPENHO:\n"
+                    "25/01/2021\n"
+                    "R.SOCIAL/NOME:\n"
+                    "EMPRESA EXEMPLO LTDA\n"
+                    "VALOR BRUTO:\n"
+                    "9.876,54\n"
+                    "DOTAÇÃO ORÇAMENTÁRIA:\n"
+                    "02.05.04.122.001.2001\n"
+                ),
+            )
+        )
+
+        self.assertEqual(len(candidates), 1)
+        candidate = candidates[0]
+        self.assertEqual(candidate.issue_date, "2021-01-25")
+        self.assertEqual(candidate.creditor_name, "EMPRESA EXEMPLO LTDA")
+        self.assertEqual(candidate.amount_text, "9.876,54")
+        self.assertEqual(
+            candidate.budget_allocation,
+            "02.05.04.122.001.2001",
+        )
+        self.assertTrue(candidate.complete)
+
+    def test_does_not_treat_following_field_label_as_creditor(self) -> None:
+        candidates = find_commitment_candidates(
+            (
+                page(
+                    "NOTA DE EMPENHO\n"
+                    "EMPENHO: 322 / 2021\n"
+                    "R.SOCIAL/NOME:\n"
+                    "VALOR BRUTO:\n"
+                    "500,00\n"
+                ),
+            )
+        )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertIsNone(candidates[0].creditor_name)
+        self.assertEqual(candidates[0].amount_text, "500,00")
+
     def test_accepts_observed_ocr_label_variants_as_incomplete_review_candidate(
         self,
     ) -> None:
