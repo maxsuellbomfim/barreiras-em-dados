@@ -10,8 +10,8 @@ from typing import Protocol
 
 from .processing import TextArtifact
 
-EXTRACTOR_VERSION = "tcm-ba-document-family-inventory/1.2.0"
-VALIDATOR_VERSION = "official-catalog-category-allowlist/1.2.0"
+EXTRACTOR_VERSION = "tcm-ba-document-family-inventory/1.3.0"
+VALIDATOR_VERSION = "official-catalog-category-allowlist/1.3.0"
 JOB_TYPE = "tcm_ba_document_family_inventory"
 
 _CODE_PATTERN = re.compile(r"^\s*(PCMGE\d{3})(?:\b|\s*[-\u2013\u2014])", re.IGNORECASE)
@@ -31,6 +31,46 @@ _FAMILY_BY_CODE = {
     "PCMGE018": "general_ledger_accounts_statement",
     "PCMGE019": "extra_budgetary_inflows_outflows_statement",
     "PCMGE020": "ratified_procurement_waivers_and_noncompetitive_contracts",
+    "PCMGE021": "bank_statements_and_reconciliations",
+    "PCMGE022": "tcm_fines_and_reimbursements_revenue_guides",
+    "PCMGE023": "asset_disposal_revenue_guides",
+    "PCMGE024": "multi_year_plan_amendments",
+    "PCMGE025": "budget_guidelines_law_amendments",
+    "PCMGE026": "positions_and_salaries_plan_amendments",
+    "PCMGE027": "travel_allowance_law_amendments",
+    "PCMGE028": "political_agent_compensation_reviews",
+    "PCMGE029": "special_credit_laws",
+    "PCMGE030": "supplementary_credit_laws",
+    "PCMGE031": "monthly_accounts_submission_letter",
+    "PCMGE035": "synthetic_payroll_payment_processes",
+    "PCMGE037": "education_25_percent_payment_processes",
+    "PCMGE038": "health_15_percent_payment_processes",
+    "PCMGE041": "fundeb_40_percent_payment_processes",
+    "PCMGE043": "fundeb_60_percent_payment_processes",
+    "PCMGE046": "political_agents_synthetic_payroll_payment_processes",
+    "PCMGE049": "budgetary_payment_processes",
+    "PCMGE050": "extra_budgetary_payment_processes",
+    "PCMGE051": "homologated_procurement_processes",
+    "PCMGE053": "bank_accounts_and_financial_investments_register",
+    "PCMGE054": "collected_revenue_guides_register",
+    "PCMGE055": "extra_budgetary_payment_process_register",
+    "PCMGE056": "budgetary_payment_process_register",
+    "PCMGE058": "internal_control_report",
+    "PCMGE075": "budget_guidelines_law",
+    "PCMGE076": "annual_budget_law",
+    "PCMGE077": "financial_schedule_and_disbursement_timeline",
+    "PCMGE078": "bimonthly_revenue_targets",
+    "PCMGE079": "administrative_structure_law",
+    "PCMGE080": "civil_service_statute",
+    "PCMGE081": "municipal_pension_regime_law",
+    "PCMGE082": "temporary_hiring_law",
+    "PCMGE083": "municipal_tax_code",
+    "PCMGE084": "land_use_law",
+    "PCMGE085": "holiday_calendar",
+    "PCMGE091": "positions_and_salaries_plan_law",
+    "PCMGE094": "travel_allowance_law",
+    "PCMGE095": "municipal_organic_law",
+    "PCMGE096": "political_agent_compensation_law",
 }
 
 
@@ -98,9 +138,7 @@ class TcmBaDocumentFamilyRepository(Protocol):
 def _plain(value: str) -> str:
     decomposed = unicodedata.normalize("NFKD", value)
     without_marks = "".join(
-        character
-        for character in decomposed
-        if not unicodedata.combining(character)
+        character for character in decomposed if not unicodedata.combining(character)
     )
     return " ".join(without_marks.casefold().split())
 
@@ -131,9 +169,7 @@ def classify_document_family(
 
 
 def document_family_job_idempotency_key(artifact_sha256: str) -> str:
-    material = (
-        f"tcm-ba-document-family:{artifact_sha256}:{EXTRACTOR_VERSION}"
-    )
+    material = f"tcm-ba-document-family:{artifact_sha256}:{EXTRACTOR_VERSION}"
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
