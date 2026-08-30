@@ -167,7 +167,31 @@ test("wrapper oferece relatório somente leitura sem iniciar o coletor", () => {
   assert.ok(reportOnly >= 0);
   assert.ok(reportCall > reportOnly);
   assert.ok(collector > reportCall);
-});test("wrapper oferece auditoria física somente leitura sem iniciar o coletor", () => {
+});
+
+test("wrapper oferece replay privado limitado sem iniciar o coletor", () => {
+  const replayOnly = wrapper.indexOf("if ($CommitmentReplayOnly)");
+  const processor = wrapper.indexOf(
+    "barreiras_docproc.commands.process_tcm_ba_commitments --limit 50",
+    replayOnly,
+  );
+  const coverage = wrapper.indexOf(
+    "Invoke-TcmBaCommitmentCandidateCoverage",
+    processor,
+  );
+  const collector = wrapper.indexOf(
+    "barreiras_collectors.commands.collect_tcm_ba_documents",
+  );
+  assert.match(wrapper, /\[switch\]\$CommitmentReplayOnly/);
+  assert.match(wrapper, /for \(\$batch = 1; \$batch -le 20; \$batch\+\+\)/);
+  assert.ok(replayOnly >= 0);
+  assert.ok(processor > replayOnly);
+  assert.ok(coverage > processor);
+  assert.ok(collector > coverage);
+  assert.match(wrapper, /TCM_BA_COMMITMENT_REPLAY_APPROVED/);
+});
+
+test("wrapper oferece auditoria física somente leitura sem iniciar o coletor", () => {
   const auditOnly = wrapper.indexOf("if ($AuditOnly)");
   const auditCall = wrapper.indexOf(
     "barreiras_collectors.commands.audit_tcm_ba_document_batch",

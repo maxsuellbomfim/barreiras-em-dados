@@ -18,10 +18,14 @@ from .processing import (
 )
 from .tcm_ba_commitment_layout import (
     SpatialBudgetMatch,
+    SpatialScalarMatch,
+    find_spatial_amount_text,
     find_spatial_budget_allocation,
+    find_spatial_issue_date,
 )
 
-EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.4.0"
+EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.5.0"
+SCHEMA_VERSION = "1.2.0"
 JOB_TYPE = "tcm_ba_commitment_candidates"
 
 
@@ -37,6 +41,8 @@ class TcmBaCommitmentCandidate:
     evidence_excerpt: str
     creditor_cnpj: str | None = None
     budget_allocation_evidence: SpatialBudgetMatch | None = None
+    issue_date_evidence: SpatialScalarMatch | None = None
+    amount_text_evidence: SpatialScalarMatch | None = None
 
     @property
     def complete(self) -> bool:
@@ -98,6 +104,9 @@ class TcmBaCommitmentFieldBreakdown:
     total_candidates: int
     complete_candidates: int
     spatial_budget_allocations: int
+    spatial_issue_dates: int
+    spatial_amounts: int
+    invalid_spatial_evidence: int
     missing_issue_date: int
     missing_creditor_name: int
     missing_amount_text: int
@@ -122,15 +131,31 @@ def commitment_candidate_payload(
     artifact: TextArtifact,
 ) -> dict[str, object]:
     spatial = candidate.budget_allocation_evidence
+
+    def spatial_payload(
+        match: SpatialScalarMatch | None,
+    ) -> dict[str, object] | None:
+        if match is None:
+            return None
+        return {
+            "parser_version": PDF_LAYOUT_VERSION,
+            "page_number": match.page_number,
+            "label_block_order": match.label_block_order,
+            "value_block_order": match.value_block_order,
+            "relation": match.relation,
+        }
+
     return {
         "schema_name": "tcm-ba-commitment-candidate",
-        "schema_version": "1.1.0",
+        "schema_version": SCHEMA_VERSION,
         "candidate_status": "complete" if candidate.complete else "incomplete",
         "commitment_number": candidate.commitment_number,
         "issue_date": candidate.issue_date,
+        "issue_date_evidence": spatial_payload(candidate.issue_date_evidence),
         "creditor_name": candidate.creditor_name,
         "creditor_cnpj": candidate.creditor_cnpj,
         "amount_text": candidate.amount_text,
+        "amount_text_evidence": spatial_payload(candidate.amount_text_evidence),
         "budget_allocation": candidate.budget_allocation,
         "budget_allocation_evidence": (
             None
@@ -192,6 +217,57 @@ def apply_spatial_budget_allocations(
     return tuple(enriched)
 
 
+def apply_spatial_scalar_fields(
+    candidates: tuple[TcmBaCommitmentCandidate, ...],
+    layout_pages: tuple[PdfLayoutPage, ...],
+) -> tuple[TcmBaCommitmentCandidate, ...]:
+    """Preenche data e valor somente para uma nota inequívoca por página."""
+    candidates_per_page: dict[int, int] = {}
+    for candidate in candidates:
+        candidates_per_page[candidate.page_number] = (
+            candidates_per_page.get(candidate.page_number, 0) + 1
+        )
+    layouts = {page.page_number: page for page in layout_pages}
+    enriched: list[TcmBaCommitmentCandidate] = []
+    for candidate in candidates:
+        layout = layouts.get(candidate.page_number)
+        if (
+            candidates_per_page[candidate.page_number] != 1
+            or layout is None
+            or layout.extraction_method != "embedded_layout"
+        ):
+            enriched.append(candidate)
+            continue
+        issue_match = (
+            None
+            if candidate.issue_date is not None
+            else find_spatial_issue_date(layout.blocks)
+        )
+        amount_match = (
+            None
+            if candidate.amount_text is not None
+            else find_spatial_amount_text(layout.blocks)
+        )
+        replacements: dict[str, object] = {}
+        resolved_fields: set[str] = set()
+        if issue_match is not None:
+            replacements["issue_date"] = issue_match.value
+            replacements["issue_date_evidence"] = issue_match
+            resolved_fields.add("issue_date")
+        if amount_match is not None:
+            replacements["amount_text"] = amount_match.value
+            replacements["amount_text_evidence"] = amount_match
+            resolved_fields.add("amount_text")
+        if not replacements:
+            enriched.append(candidate)
+            continue
+        replacements["missing_fields"] = tuple(
+            field for field in candidate.missing_fields if field not in resolved_fields
+        )
+        enriched.append(replace(candidate, **replacements))
+    return tuple(enriched)
+
+
 class TcmBaCommitmentExtractionService:
     def __init__(
         self,
@@ -209,7 +285,10 @@ class TcmBaCommitmentExtractionService:
     ) -> TcmBaCommitmentPersistResult:
         candidates = find_commitment_candidates(pages)
         requires_layout = any(
-            candidate.budget_allocation is None for candidate in candidates
+            candidate.budget_allocation is None
+            or candidate.issue_date is None
+            or candidate.amount_text is None
+            for candidate in candidates
         )
         if requires_layout:
             if self.object_reader is None:
@@ -221,9 +300,14 @@ class TcmBaCommitmentExtractionService:
                 raise ArtifactMismatchError(
                     "O PDF restaurado diverge do hash registrado do artefato."
                 )
+            layout_pages = derive_pdf_layout(raw_body)
             candidates = apply_spatial_budget_allocations(
                 candidates,
-                derive_pdf_layout(raw_body),
+                layout_pages,
+            )
+            candidates = apply_spatial_scalar_fields(
+                candidates,
+                layout_pages,
             )
         batch = TcmBaCommitmentBatch(
             artifact=artifact,

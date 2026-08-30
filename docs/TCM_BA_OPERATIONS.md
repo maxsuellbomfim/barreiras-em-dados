@@ -892,6 +892,20 @@ nem trechos dos PDFs e bloqueia a execução se os totais divergirem da cobertur
 principal. Esses números orientam o próximo extrator espacial, mas não tornam
 nenhum candidato publicável sem o restante dos gates e revisão.
 
+A versão 1.5 aplicou a mesma régua geométrica fail-closed aos rótulos de data e
+valor. O replay privado e append-only foi limitado a 20 lotes de 50, relendo os
+objetos autenticados e recomputando seus hashes, sem executar nova coleta. A
+cobertura inicial fechou 433 de 433 PDFs e preservou os mesmos 98 candidatos,
+quatro completos, sem falha, duplicidade ou payload inválido. Durante a
+validação final chegaram mais cinco PDFs; o replay incremental os classificou
+sem novos candidatos e o gate definitivo fechou 438 de 438. Foram associados 37
+valores monetários com evidência de página e blocos; a ausência de valor caiu
+de 74 para 37. Nenhuma data passou os gates no acervo real, e por isso a
+ausência de data permaneceu em 63, sem relaxar distância ou ambiguidade. As 13
+dotações da versão 1.4 foram preservadas. Todos os resultados continuam
+privados em `needs_review`; o gate confirmou zero evidência espacial inválida
+e nenhum valor foi publicado.
+
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do

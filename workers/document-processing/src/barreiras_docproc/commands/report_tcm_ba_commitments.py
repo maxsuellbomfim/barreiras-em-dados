@@ -26,6 +26,7 @@ def field_breakdown_matches_coverage(
     return (
         breakdown.total_candidates == coverage.candidate_results
         and breakdown.complete_candidates == coverage.complete_candidates
+        and breakdown.invalid_spatial_evidence == 0
     )
 
 
@@ -36,6 +37,12 @@ def field_breakdown_payload(
         "total_candidates": breakdown.total_candidates,
         "complete_candidates": breakdown.complete_candidates,
         "spatial_budget_allocations": breakdown.spatial_budget_allocations,
+        "invalid_spatial_evidence": breakdown.invalid_spatial_evidence,
+        "spatial_field_counts": {
+            "issue_date": breakdown.spatial_issue_dates,
+            "amount_text": breakdown.spatial_amounts,
+            "budget_allocation": breakdown.spatial_budget_allocations,
+        },
         "missing_field_counts": {
             "issue_date": breakdown.missing_issue_date,
             "creditor_name": breakdown.missing_creditor_name,

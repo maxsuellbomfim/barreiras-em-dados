@@ -6,6 +6,7 @@ param(
     [switch]$PlanOnly,
     [switch]$ReportOnly,
     [switch]$AuditOnly,
+    [switch]$CommitmentReplayOnly,
     [object]$RequestsPerMinute = 30,
     [string]$PythonPath = ""
 )
@@ -130,6 +131,30 @@ function Read-TextEvents {
         throw "O processador não produziu o evento final de texto TCM-BA."
     }
     return $events
+}
+function Read-CommitmentCandidateEvents {
+    param([object[]]$Output)
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -eq "tcm_ba_commitment_candidate_batch_completed") {
+            $events += $event
+        }
+    }
+    if ($events.Count -ne 1) {
+        throw "O processador não produziu um único evento final de empenhos."
+    }
+    return $events[0]
 }
 function Invoke-TcmBaDocumentProcessingReport {
     param(
@@ -358,8 +383,17 @@ if ($PlanOnly -and -not $AutoCompetence) {
 if ($ReportOnly -and ($AutoCompetence -or $PlanOnly)) {
     throw "-ReportOnly não pode ser combinado com -AutoCompetence ou -PlanOnly."
 }
-if ($AuditOnly -and ($AutoCompetence -or $PlanOnly -or $ReportOnly)) {
+if (
+    $AuditOnly -and
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $CommitmentReplayOnly)
+) {
     throw "-AuditOnly não pode ser combinado com outro modo somente leitura."
+}
+if (
+    $CommitmentReplayOnly -and
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly)
+) {
+    throw "-CommitmentReplayOnly não pode ser combinado com outro modo."
 }
 if (
     -not $AutoCompetence -and
@@ -488,6 +522,43 @@ try {
         Invoke-TcmBaContractFieldCoverage -Python $python -ProjectRoot $projectRoot
         Invoke-TcmBaCommitmentCandidateCoverage -Python $python -ProjectRoot $projectRoot
         Write-Host "TCM_BA_DOCUMENT_REPORT_ONLY" -ForegroundColor Cyan
+        return
+    }
+    if ($CommitmentReplayOnly) {
+        $drained = $false
+        for ($batch = 1; $batch -le 20; $batch++) {
+            Push-Location $projectRoot
+            try {
+                $previousErrorActionPreference = $ErrorActionPreference
+                try {
+                    $ErrorActionPreference = "Continue"
+                    $candidateOutput = @(
+                        & $python -B -m barreiras_docproc.commands.process_tcm_ba_commitments --limit 50 2>&1
+                    )
+                    $candidateExitCode = $LASTEXITCODE
+                }
+                finally {
+                    $ErrorActionPreference = $previousErrorActionPreference
+                }
+            }
+            finally {
+                Pop-Location
+            }
+            $candidateOutput | ForEach-Object { Write-Host $_ }
+            if ($candidateExitCode -ne 0) {
+                throw "O replay privado de empenhos falhou no lote $batch."
+            }
+            $event = Read-CommitmentCandidateEvents -Output $candidateOutput
+            if ($event.pending_found -eq 0) {
+                $drained = $true
+                break
+            }
+        }
+        if (-not $drained) {
+            throw "O replay privado excedeu o limite de 1.000 artefatos."
+        }
+        Invoke-TcmBaCommitmentCandidateCoverage -Python $python -ProjectRoot $projectRoot
+        Write-Host "TCM_BA_COMMITMENT_REPLAY_APPROVED" -ForegroundColor Cyan
         return
     }
     if ($AutoCompetence) {

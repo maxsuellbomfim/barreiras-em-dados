@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal
 
 from .gazette_documents import BoundingBox, DocumentBlock
@@ -19,6 +21,17 @@ _BUDGET_LABELS = {
     "DOTACAO",
     "DOTACAO ORCAMENTARIA",
     "CLASSIFICACAO ORCAMENTARIA",
+}
+_ISSUE_DATE_LABELS = {
+    "DATA DE EMISSAO",
+    "DATA DO EMPANHO",
+    "DATA DO EMPENHO",
+    "EMISSAO",
+}
+_AMOUNT_LABELS = {
+    "VALOR",
+    "VALOR BRUTO",
+    "VALOR DO EMPENHO",
 }
 _MAX_PRIMARY_SCORE = 20.0
 _MIN_SECONDARY_SCORE_DELTA = 5.0
@@ -36,6 +49,21 @@ class SpatialBudgetMatch:
 @dataclass(frozen=True)
 class _ScoredMatch:
     match: SpatialBudgetMatch
+    score: float
+
+
+@dataclass(frozen=True)
+class SpatialScalarMatch:
+    value: str
+    page_number: int
+    label_block_order: int
+    value_block_order: int
+    relation: SpatialRelation
+
+
+@dataclass(frozen=True)
+class _ScoredScalarMatch:
+    match: SpatialScalarMatch
     score: float
 
 
@@ -167,3 +195,103 @@ def find_spatial_budget_allocation(
     ):
         return None
     return scored[0].match
+
+
+def _normalized_issue_date(text: str) -> str | None:
+    value = " ".join(text.split())
+    if _DATE.fullmatch(value) is None:
+        return None
+    try:
+        return datetime.strptime(value, "%d/%m/%Y").date().isoformat()
+    except ValueError:
+        return None
+
+
+def _normalized_amount_text(text: str) -> str | None:
+    value = " ".join(text.split())
+    if _MONEY.fullmatch(value) is None:
+        return None
+    return re.sub(r"^R\$\s*", "", value, flags=re.IGNORECASE)
+
+
+def _find_spatial_scalar(
+    blocks: tuple[DocumentBlock, ...],
+    *,
+    labels: set[str],
+    normalize_value: Callable[[str], str | None],
+) -> SpatialScalarMatch | None:
+    label_count = sum(
+        block.bbox is not None and _normalized_label(block.text) in labels
+        for block in blocks
+    )
+    if label_count != 1:
+        return None
+    scored: list[_ScoredScalarMatch] = []
+    for label in blocks:
+        if label.bbox is None or _normalized_label(label.text) not in labels:
+            continue
+        for value in blocks:
+            if (
+                value is label
+                or value.bbox is None
+                or value.page_number != label.page_number
+            ):
+                continue
+            normalized_value = normalize_value(value.text)
+            if normalized_value is None:
+                continue
+            below = _below_score(label.bbox, value.bbox)
+            right = _right_score(label.bbox, value.bbox)
+            options = tuple(
+                (relation, score)
+                for relation, score in (("below", below), ("right", right))
+                if score is not None
+            )
+            if not options:
+                continue
+            relation, score = min(options, key=lambda item: item[1])
+            scored.append(
+                _ScoredScalarMatch(
+                    match=SpatialScalarMatch(
+                        value=normalized_value,
+                        page_number=value.page_number,
+                        label_block_order=label.block_order,
+                        value_block_order=value.block_order,
+                        relation=relation,
+                    ),
+                    score=score,
+                )
+            )
+    if not scored:
+        return None
+    scored.sort(key=lambda candidate: candidate.score)
+    if scored[0].score > _MAX_PRIMARY_SCORE:
+        return None
+    if (
+        len(scored) > 1
+        and scored[1].score - scored[0].score < _MIN_SECONDARY_SCORE_DELTA
+    ):
+        return None
+    return scored[0].match
+
+
+def find_spatial_issue_date(
+    blocks: tuple[DocumentBlock, ...],
+) -> SpatialScalarMatch | None:
+    """Associa uma data real somente a um rótulo oficial inequívoco."""
+    return _find_spatial_scalar(
+        blocks,
+        labels=_ISSUE_DATE_LABELS,
+        normalize_value=_normalized_issue_date,
+    )
+
+
+def find_spatial_amount_text(
+    blocks: tuple[DocumentBlock, ...],
+) -> SpatialScalarMatch | None:
+    """Associa um valor monetário somente a um rótulo oficial inequívoco."""
+    return _find_spatial_scalar(
+        blocks,
+        labels=_AMOUNT_LABELS,
+        normalize_value=_normalized_amount_text,
+    )
