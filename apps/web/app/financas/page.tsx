@@ -31,6 +31,7 @@ import {
   type PublicObligationCoverageRow,
 } from "../../lib/public-obligations.mjs";
 import {
+  getPublicNonpayrollWorkforceCoverage,
   getPublicPayrollRegimeBreakdown,
   getPublicPayrollCompensationDistribution,
   getPublicPayrollCoverage,
@@ -40,6 +41,7 @@ import {
   summarizePublicPayrollYears,
   type PublicPayrollMonth,
 } from "../../lib/public-payroll.mjs";
+import FinanceNonpayrollWorkforceCoverage from "./finance-nonpayroll-workforce-coverage";
 import FinancePayrollCoverage from "./finance-payroll-coverage";
 import FinancePayrollHistory from "./finance-payroll-history";
 import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
@@ -222,6 +224,7 @@ export default async function FinancesPage() {
     obligationCoverageResult,
     payrollResult,
     payrollCoverageResult,
+    nonpayrollWorkforceCoverageResult,
     siconfiAnnualResult,
     siconfiReconciliationResult,
   ] = await Promise.all([
@@ -235,6 +238,7 @@ export default async function FinancesPage() {
     getPublicObligationCoverage(),
     getPublicPayrollMonths(120),
     getPublicPayrollCoverage(120),
+    getPublicNonpayrollWorkforceCoverage(120),
     getPublicSiconfiAnnualTotals(),
     getPublicSiconfiMonthlyReconciliation(),
   ]);
@@ -294,6 +298,10 @@ export default async function FinancesPage() {
   const payrollCoverageRows =
     payrollCoverageResult.state === "available"
       ? payrollCoverageResult.rows
+      : [];
+  const nonpayrollWorkforceCoverageRows =
+    nonpayrollWorkforceCoverageResult.state === "available"
+      ? nonpayrollWorkforceCoverageResult.rows
       : [];
   const siconfiAnnualYears =
     siconfiAnnualResult.state === "available"
@@ -566,6 +574,9 @@ export default async function FinancesPage() {
               </div>
             </div>
           )}
+          <FinanceNonpayrollWorkforceCoverage
+            rows={nonpayrollWorkforceCoverageRows}
+          />
         </section>
 
         {coverageResult.state === "available" ? (

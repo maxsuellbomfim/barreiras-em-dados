@@ -661,7 +661,17 @@ ADR adicional.
   13º sem dupla contagem;
 - [x] manter relatórios de terceirizados e estagiários fora da folha regular no
   backfill histórico;
-- [ ] modelar uma projeção pública separada para terceirizados e estagiários.
+- [x] modelar uma projeção pública separada de cobertura para terceirizados e
+  estagiários, sem publicar valores até a reconciliação determinística.
+
+Em 30/08/2026, a projeção `api.get_public_nonpayroll_workforce_coverage`
+passou a explicar separadamente estagiários e terceirizados a partir da última
+partição completa do catálogo. A auditoria estrutural de três leiautes de
+estagiários e uma amostra escaneada de terceirizados não encontrou reconciliação
+segura entre colunas e total global. Por isso, a entrega publica somente
+competência, categoria, cobertura documental, fonte, hash e ressalva; nenhum
+valor, nome, CPF ou dado bancário é exposto. O ADR 0085 mantém os totais
+bloqueados até existir parser versionado com reconciliação integral.
 
 Em 21/08/2026, janeiro a julho de 2026 foram reprocessados com
 `payroll-report-aggregate/1.2.0` e consultados novamente pela RPC pública. As

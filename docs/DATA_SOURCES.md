@@ -133,6 +133,17 @@ quatro recursos adicionais no portal da Prefeitura:
   metodologia. “Documento não localizado” nunca é convertido em valor zero.
   Múltiplas versões preservadas do mesmo item do catálogo contam como um único
   documento esperado, embora todas permaneçam no acervo bruto append-only.
+  A projeção separada `api.get_public_nonpayroll_workforce_coverage` usa a
+  última partição completa do mesmo catálogo. Títulos oficiais exatos de
+  estagiários e terceirizados prevalecem sobre o campo `tipo`, recuperando erros
+  conhecidos da fonte; `tipo=3` e `tipo=4` funcionam como fallback. A RPC expõe
+  somente competência,
+  categoria, cobertura documental, URL do catálogo, hash e data da conferência.
+  As cópias preservadas permanecem privadas; nomes, CPF, dados bancários e
+  valores não
+  atravessam a RPC. Como os leiautes auditados não fecharam deterministicamente
+  e parte do acervo é escaneada, cobertura preservada não significa total
+  financeiro publicado.
   Para documentos que trazem a coluna `Regime/Vínculo`, o parser
   `payroll-regime-breakdown/1.0.0` percorre todas as linhas, valida a aritmética
   e exige que os oito grupos permitidos fechem exatamente com o agregado do

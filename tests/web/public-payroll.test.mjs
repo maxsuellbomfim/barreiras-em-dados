@@ -4,12 +4,14 @@ import test from "node:test";
 
 import {
   getPublicPayrollCompensationDistribution,
+  getPublicNonpayrollWorkforceCoverage,
   getPublicPayrollRegimeBreakdown,
   getPublicPayrollCoverage,
   getPublicPayrollMonths,
   payrollCompensationMatchesMonth,
   payrollRegimeBreakdownMatchesMonth,
   parsePublicPayrollCompensationRow,
+  parsePublicNonpayrollWorkforceCoverageRow,
   parsePublicPayrollCoverageRow,
   parsePublicPayrollRegimeRow,
   parsePublicPayrollRow,
@@ -65,6 +67,23 @@ const validCoverageRow = {
   artifact_sha256: null,
   catalog_checked_at: "2026-08-22T04:00:00.000Z",
   methodology_version: "payroll-coverage/1.0.0",
+};
+
+const validNonpayrollCoverageRow = {
+  reference_month: "2026-08-01",
+  workforce_category: "interns",
+  category_label: "Estagiários",
+  coverage_status: "document_preserved",
+  coverage_note:
+    "O PDF oficial foi preservado, mas nenhum total agregado será publicado antes de uma reconciliação determinística.",
+  catalog_document_count: 1,
+  preserved_document_count: 1,
+  source_url:
+    "https://portaldatransparencia.barreiras.ba.gov.br/api?resource=servidores",
+  artifact_sha256:
+    "611cd4f055f0e57cd1b0bc111683798ae0b28d84b7d6013d069cc9ca2a3ed0e8",
+  catalog_checked_at: "2026-08-30T04:00:00.000Z",
+  methodology_version: "nonpayroll-workforce-coverage/1.0.0",
 };
 
 const validRegimeRows = [
@@ -305,6 +324,67 @@ test("cobertura da folha recusa estado, fonte e versão não contratados", () =>
   );
 });
 
+test("cobertura separada não transforma estagiários e terceirizados em folha", () => {
+  const preserved = parsePublicNonpayrollWorkforceCoverageRow(
+    validNonpayrollCoverageRow,
+  );
+  const notListed = parsePublicNonpayrollWorkforceCoverageRow({
+    ...validNonpayrollCoverageRow,
+    workforce_category: "outsourced_workers",
+    category_label: "Terceirizados",
+    coverage_status: "not_listed",
+    coverage_note:
+      "O catálogo oficial completo não listou documento desta categoria no mês; isso não significa gasto zero.",
+    catalog_document_count: 0,
+    preserved_document_count: 0,
+    artifact_sha256: null,
+  });
+
+  assert.ok(preserved);
+  assert.equal(preserved.workforceCategory, "interns");
+  assert.equal(preserved.coverageStatus, "document_preserved");
+  assert.ok(notListed);
+  assert.equal(notListed.categoryLabel, "Terceirizados");
+  for (const row of [preserved, notListed]) {
+    assert.equal("cpf" in row, false);
+    assert.equal("name" in row, false);
+    assert.equal("amount" in row, false);
+    assert.equal("bankAccount" in row, false);
+  }
+});
+
+test("cobertura separada recusa categoria, estado, contagem e campos extras", () => {
+  assert.equal(
+    parsePublicNonpayrollWorkforceCoverageRow({
+      ...validNonpayrollCoverageRow,
+      workforce_category: "employees",
+    }),
+    null,
+  );
+  assert.equal(
+    parsePublicNonpayrollWorkforceCoverageRow({
+      ...validNonpayrollCoverageRow,
+      coverage_status: "published",
+    }),
+    null,
+  );
+  assert.equal(
+    parsePublicNonpayrollWorkforceCoverageRow({
+      ...validNonpayrollCoverageRow,
+      coverage_status: "catalogued",
+      preserved_document_count: 1,
+    }),
+    null,
+  );
+  assert.equal(
+    parsePublicNonpayrollWorkforceCoverageRow({
+      ...validNonpayrollCoverageRow,
+      cpf: "000.000.000-00",
+    }),
+    null,
+  );
+});
+
 test("folha publica normaliza centavos e conserva somente totais", () => {
   const row = parsePublicPayrollRow(validRow);
 
@@ -523,6 +603,45 @@ test("cobertura da folha consulta a projeção pública sem acessar tabelas priv
   }
 });
 
+test("cobertura separada consulta somente a RPC pública", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.PUBLIC_DATA_SUPABASE_URL;
+  const originalKey = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+  let requestedUrl = null;
+  let requestedBody = null;
+
+  process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
+  process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  globalThis.fetch = async (url, options) => {
+    requestedUrl = url;
+    requestedBody = JSON.parse(options.body);
+    return new Response(JSON.stringify([validNonpayrollCoverageRow]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const result = await getPublicNonpayrollWorkforceCoverage(120);
+    assert.equal(result.state, "available");
+    assert.equal(result.rows.length, 1);
+    assert.match(
+      requestedUrl,
+      /rpc\/get_public_nonpayroll_workforce_coverage$/,
+    );
+    assert.deepEqual(requestedBody, { month_limit: 120 });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.PUBLIC_DATA_SUPABASE_URL;
+    else process.env.PUBLIC_DATA_SUPABASE_URL = originalUrl;
+    if (originalKey === undefined) {
+      delete process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+    } else {
+      process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = originalKey;
+    }
+  }
+});
+
 test("pagina explica vínculos, descontos e limite da informação", async () => {
   const [page, sources, breakdown, compensation] = await Promise.all([
     readFile(
@@ -599,6 +718,29 @@ test("pagina mantém o mês mais recente em destaque e recolhe o histórico", as
   assert.match(history, /Conferir \{month\.documentCount/);
   assert.match(sources, /Abrir PDF oficial/);
   assert.match(history, /Mês validado por código/);
+});
+
+test("pagina separa estagiários e terceirizados sem publicar valores pessoais", async () => {
+  const [page, coverage] = await Promise.all([
+    readFile(
+      new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../../apps/web/app/financas/finance-nonpayroll-workforce-coverage.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(page, /getPublicNonpayrollWorkforceCoverage\(120\)/);
+  assert.match(page, /FinanceNonpayrollWorkforceCoverage/);
+  assert.match(coverage, /Estagiários e terceirizados/);
+  assert.match(coverage, /não entram no total da folha regular/);
+  assert.match(coverage, /nenhum valor agregado é presumido/);
+  assert.match(coverage, /<details/);
 });
 
 test("pagina explica competências da folha sem total em uma sanfona", async () => {
