@@ -68,6 +68,27 @@ export type PublicPayrollCoverageResult =
     }>
   | Readonly<{ state: "unavailable" }>;
 
+export type PublicNonpayrollWorkforceCoverageRow = Readonly<{
+  referenceMonth: string;
+  workforceCategory: "interns" | "outsourced_workers";
+  categoryLabel: "Estagiários" | "Terceirizados";
+  coverageStatus: "document_preserved" | "catalogued" | "not_listed";
+  coverageNote: string;
+  catalogDocumentCount: number;
+  preservedDocumentCount: number;
+  sourceUrl: string;
+  artifactSha256: string | null;
+  catalogCheckedAt: string;
+  methodologyVersion: "nonpayroll-workforce-coverage/1.0.0";
+}>;
+
+export type PublicNonpayrollWorkforceCoverageResult =
+  | Readonly<{
+      state: "available";
+      rows: readonly PublicNonpayrollWorkforceCoverageRow[];
+    }>
+  | Readonly<{ state: "unavailable" }>;
+
 export type PublicPayrollRegimeRow = Readonly<{
   referenceMonth: string;
   regimeCode:
@@ -134,6 +155,14 @@ export function parsePublicPayrollCoverageRow(
 export function getPublicPayrollCoverage(
   maxMonths?: number,
 ): Promise<PublicPayrollCoverageResult>;
+
+export function parsePublicNonpayrollWorkforceCoverageRow(
+  row: Record<string, unknown>,
+): PublicNonpayrollWorkforceCoverageRow | null;
+
+export function getPublicNonpayrollWorkforceCoverage(
+  maxMonths?: number,
+): Promise<PublicNonpayrollWorkforceCoverageResult>;
 
 export function parsePublicPayrollRegimeRow(
   row: Record<string, unknown>,

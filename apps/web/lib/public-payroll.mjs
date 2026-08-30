@@ -22,6 +22,30 @@ const PAYROLL_COVERAGE_STATUSES = new Set([
   "processing_pending",
 ]);
 const PAYROLL_COVERAGE_VERSION = "payroll-coverage/1.0.0";
+const NONPAYROLL_WORKFORCE_CATEGORIES = new Map([
+  ["interns", "Estagiários"],
+  ["outsourced_workers", "Terceirizados"],
+]);
+const NONPAYROLL_WORKFORCE_STATUSES = new Set([
+  "document_preserved",
+  "catalogued",
+  "not_listed",
+]);
+const NONPAYROLL_WORKFORCE_VERSION =
+  "nonpayroll-workforce-coverage/1.0.0";
+const NONPAYROLL_WORKFORCE_FIELDS = [
+  "artifact_sha256",
+  "catalog_checked_at",
+  "catalog_document_count",
+  "category_label",
+  "coverage_note",
+  "coverage_status",
+  "methodology_version",
+  "preserved_document_count",
+  "reference_month",
+  "source_url",
+  "workforce_category",
+];
 const PAYROLL_REGIME_VERSION = "payroll-regime-monthly/1.0.0";
 const PAYROLL_REGIME_LABELS = new Map([
   ["statutory", "Estatutários"],
@@ -314,6 +338,75 @@ export function parsePublicPayrollCoverageRow(row) {
   };
 }
 
+export function parsePublicNonpayrollWorkforceCoverageRow(row) {
+  if (typeof row !== "object" || row === null) return null;
+  const keys = Object.keys(row).sort();
+  if (
+    keys.length !== NONPAYROLL_WORKFORCE_FIELDS.length ||
+    keys.some((key, index) => key !== NONPAYROLL_WORKFORCE_FIELDS[index])
+  ) {
+    return null;
+  }
+  const referenceMonth = text(row.reference_month);
+  const workforceCategory = text(row.workforce_category);
+  const categoryLabel = text(row.category_label);
+  const coverageStatus = text(row.coverage_status);
+  const coverageNote = text(row.coverage_note);
+  const catalogDocumentCount = integer(row.catalog_document_count);
+  const preservedDocumentCount = integer(row.preserved_document_count);
+  const sourceUrl = text(row.source_url);
+  const artifactSha256 = text(row.artifact_sha256);
+  const catalogCheckedAt = text(row.catalog_checked_at);
+  const methodologyVersion = text(row.methodology_version);
+  if (
+    referenceMonth === null ||
+    !ISO_DATE.test(referenceMonth) ||
+    workforceCategory === null ||
+    NONPAYROLL_WORKFORCE_CATEGORIES.get(workforceCategory) !== categoryLabel ||
+    coverageStatus === null ||
+    !NONPAYROLL_WORKFORCE_STATUSES.has(coverageStatus) ||
+    coverageNote === null ||
+    catalogDocumentCount === null ||
+    preservedDocumentCount === null ||
+    preservedDocumentCount > catalogDocumentCount ||
+    sourceUrl === null ||
+    !sourceUrl.startsWith("https://") ||
+    (artifactSha256 !== null && !SHA256.test(artifactSha256)) ||
+    catalogCheckedAt === null ||
+    Number.isNaN(Date.parse(catalogCheckedAt)) ||
+    methodologyVersion !== NONPAYROLL_WORKFORCE_VERSION
+  ) {
+    return null;
+  }
+  const validState =
+    (coverageStatus === "not_listed" &&
+      catalogDocumentCount === 0 &&
+      preservedDocumentCount === 0 &&
+      artifactSha256 === null) ||
+    (coverageStatus === "catalogued" &&
+      catalogDocumentCount > 0 &&
+      preservedDocumentCount === 0 &&
+      artifactSha256 === null) ||
+    (coverageStatus === "document_preserved" &&
+      catalogDocumentCount > 0 &&
+      preservedDocumentCount > 0 &&
+      artifactSha256 !== null);
+  if (!validState) return null;
+  return {
+    referenceMonth,
+    workforceCategory,
+    categoryLabel,
+    coverageStatus,
+    coverageNote,
+    catalogDocumentCount,
+    preservedDocumentCount,
+    sourceUrl,
+    artifactSha256,
+    catalogCheckedAt,
+    methodologyVersion,
+  };
+}
+
 export function parsePublicPayrollRegimeRow(row) {
   if (typeof row !== "object" || row === null) return null;
   const keys = Object.keys(row).sort();
@@ -538,6 +631,55 @@ export async function getPublicPayrollCoverage(maxMonths = 120) {
     if (
       rows.some((row) => row === null) ||
       new Set(rows.map((row) => row.referenceMonth)).size !== rows.length
+    ) {
+      return { state: "unavailable" };
+    }
+    return { state: "available", rows };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function getPublicNonpayrollWorkforceCoverage(maxMonths = 120) {
+  const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const publishableKey =
+    process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (
+    !Number.isSafeInteger(maxMonths) ||
+    maxMonths < 1 ||
+    maxMonths > 120 ||
+    !supabaseUrl?.startsWith("https://") ||
+    !publishableKey?.startsWith("sb_publishable_")
+  ) {
+    return { state: "unavailable" };
+  }
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/get_public_nonpayroll_workforce_coverage`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Profile": "api",
+          apikey: publishableKey,
+          "Content-Profile": "api",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ month_limit: maxMonths }),
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) return { state: "unavailable" };
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return { state: "unavailable" };
+    const rows = payload.map(parsePublicNonpayrollWorkforceCoverageRow);
+    const rowKeys = rows.map(
+      (row) => `${row?.referenceMonth ?? ""}:${row?.workforceCategory ?? ""}`,
+    );
+    if (
+      rows.some((row) => row === null) ||
+      new Set(rowKeys).size !== rows.length
     ) {
       return { state: "unavailable" };
     }
