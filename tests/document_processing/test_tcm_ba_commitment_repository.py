@@ -10,6 +10,7 @@ from barreiras_docproc.tcm_ba_commitment_repository import (
 from barreiras_docproc.tcm_ba_commitments import (
     EXTRACTOR_VERSION,
     JOB_TYPE,
+    SCHEMA_VERSION,
     TcmBaCommitmentBatch,
     TcmBaCommitmentExtractionService,
 )
@@ -43,6 +44,7 @@ class RecordingConnection:
         self.pending_rows = []
         self.coverage_row = None
         self.breakdown_rows = []
+        self.creditor_target_rows = []
         self.job_row = {"id": "00000000-0000-0000-0000-000000000905"}
 
     def execute(self, query, params=None):
@@ -50,6 +52,8 @@ class RecordingConnection:
         self.queries.append((normalized, params))
         if "commitment_missing_field_breakdown" in normalized:
             return Cursor(rows=self.breakdown_rows)
+        if "commitment_creditor_layout_targets" in normalized:
+            return Cursor(rows=self.creditor_target_rows)
         if "commitment_coverage_eligible" in normalized:
             return Cursor(row=self.coverage_row)
         if "with tcm_artifacts as" in normalized:
@@ -191,6 +195,7 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
                 "spatial_budget_count": 4,
                 "spatial_issue_date_count": 1,
                 "spatial_amount_count": 2,
+                "spatial_creditor_count": 1,
                 "invalid_spatial_count": 0,
             },
             {
@@ -199,6 +204,7 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
                 "spatial_budget_count": 3,
                 "spatial_issue_date_count": 0,
                 "spatial_amount_count": 2,
+                "spatial_creditor_count": 0,
                 "invalid_spatial_count": 0,
             },
             {
@@ -207,6 +213,7 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
                 "spatial_budget_count": 0,
                 "spatial_issue_date_count": 20,
                 "spatial_amount_count": 30,
+                "spatial_creditor_count": 20,
                 "invalid_spatial_count": 0,
             },
             {
@@ -215,6 +222,7 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
                 "spatial_budget_count": 6,
                 "spatial_issue_date_count": 1,
                 "spatial_amount_count": 0,
+                "spatial_creditor_count": 1,
                 "invalid_spatial_count": 0,
             },
         ]
@@ -225,6 +233,7 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
         self.assertEqual(breakdown.spatial_budget_allocations, 13)
         self.assertEqual(breakdown.spatial_issue_dates, 22)
         self.assertEqual(breakdown.spatial_amounts, 34)
+        self.assertEqual(breakdown.spatial_creditor_names, 22)
         self.assertEqual(breakdown.invalid_spatial_evidence, 0)
         self.assertEqual(breakdown.missing_issue_date, 5)
         self.assertEqual(breakdown.missing_creditor_name, 9)
@@ -250,7 +259,34 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
                 PDF_LAYOUT_VERSION,
                 PDF_LAYOUT_VERSION,
                 PDF_LAYOUT_VERSION,
+                PDF_LAYOUT_VERSION,
             ),
+        )
+
+    def test_creditor_layout_targets_are_version_scoped_and_bounded(self) -> None:
+        self.connection.creditor_target_rows = [
+            {
+                "artifact_id": "00000000-0000-0000-0000-000000000902",
+                "sha256": "b" * 64,
+                "object_key": "private/a.pdf",
+                "candidate_page_counts": [[1, 1], [3, 2]],
+                "total_artifacts": 1,
+            }
+        ]
+
+        targets = self.repository.creditor_layout_targets(limit=25)
+
+        self.assertEqual(len(targets), 1)
+        self.assertEqual(targets[0].candidate_page_counts, ((1, 1), (3, 2)))
+        query, params = next(
+            (query, params)
+            for query, params in self.connection.queries
+            if "commitment_creditor_layout_targets" in query
+        )
+        self.assertIn("missing_fields' ? 'creditor_name'", query)
+        self.assertEqual(
+            params,
+            (JOB_TYPE, EXTRACTOR_VERSION, EXTRACTOR_VERSION, SCHEMA_VERSION, 25),
         )
 
     def test_rejects_page_without_verified_text_hash(self) -> None:

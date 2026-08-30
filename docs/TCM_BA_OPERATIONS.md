@@ -906,6 +906,22 @@ dotações da versão 1.4 foram preservadas. Todos os resultados continuam
 privados em `needs_review`; o gate confirmou zero evidência espacial inválida
 e nenhum valor foi publicado.
 
+A versão 1.6 estendeu a régua somente ao nome do credor. Antes do replay, um
+benchmark privado e sem persistência contabilizou os 56 candidatos que ainda
+careciam desse campo: 47 tinham um único rótulo `CREDOR` e um único valor
+geométrico compatível; nove não tinham rótulo reconhecível. O replay append-only
+reprocessou os PDFs com nova versão de idempotência e, com a chegada de quinze
+artefatos desde o fechamento anterior, reconciliou 453 de 453 PDFs e 103
+candidatos. Cinquenta e um nomes de credor ficaram associados a evidência de
+página, blocos, versão do parser e relação geométrica; nove permaneceram
+ausentes. O relatório fechou com quatro candidatos completos, zero ausência de
+artefato, duplicidade, payload inválido, evidência espacial inválida ou falha
+aberta. O benchmark pós-replay examinou exatamente os nove restantes e
+classificou todos como `no_label`, sem forçar associação. Os logs HTTP privados
+foram silenciados e os eventos por artefato passaram a `DEBUG` sem hash; em
+`INFO` permanece somente o resumo agregado. Todos os candidatos continuam
+privados em `needs_review` e nenhum empenho foi publicado.
+
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do

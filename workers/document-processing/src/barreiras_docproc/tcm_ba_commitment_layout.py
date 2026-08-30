@@ -12,6 +12,19 @@ from typing import Literal
 from .gazette_documents import BoundingBox, DocumentBlock
 
 SpatialRelation = Literal["below", "right"]
+CreditorLabelKind = Literal[
+    "creditor",
+    "favored",
+    "beneficiary",
+    "social_name",
+]
+CreditorDiagnosisStatus = Literal[
+    "matched",
+    "no_label",
+    "multiple_labels",
+    "no_compatible_value",
+    "ambiguous_values",
+]
 
 _MONEY = re.compile(r"^(?:R\$\s*)?-?[\d.]+,\d{2}$", re.IGNORECASE)
 _DATE = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
@@ -33,6 +46,23 @@ _AMOUNT_LABELS = {
     "VALOR BRUTO",
     "VALOR DO EMPENHO",
 }
+_CREDITOR_LABEL_KINDS: dict[str, CreditorLabelKind] = {
+    "CREDOR": "creditor",
+    "FAVORECIDO": "favored",
+    "BENEFICIARIO": "beneficiary",
+    "SOCIAL NOME": "social_name",
+    "R SOCIAL NOME": "social_name",
+    "RAZAO SOCIAL NOME": "social_name",
+}
+_ALL_FIELD_LABELS = (
+    _BUDGET_LABELS | _ISSUE_DATE_LABELS | _AMOUNT_LABELS | set(_CREDITOR_LABEL_KINDS)
+)
+_DOCUMENT_SUFFIX = re.compile(
+    r"\s*(?:[-|]\s*)?(?:CPF|CNPJ|C\.?P\.?F\.?|C\.?N\.?P\.?J\.?)"
+    r"\b.*$",
+    re.IGNORECASE,
+)
+
 _MAX_PRIMARY_SCORE = 20.0
 _MIN_SECONDARY_SCORE_DELTA = 5.0
 
@@ -65,6 +95,13 @@ class SpatialScalarMatch:
 class _ScoredScalarMatch:
     match: SpatialScalarMatch
     score: float
+
+
+@dataclass(frozen=True)
+class SpatialCreditorDiagnosis:
+    status: CreditorDiagnosisStatus
+    label_kind: CreditorLabelKind | None = None
+    match: SpatialScalarMatch | None = None
 
 
 def _normalized_label(text: str) -> str:
@@ -138,6 +175,23 @@ def _right_score(label: BoundingBox, value: BoundingBox) -> float | None:
     if minimum_height <= 0.0 or vertical_overlap / minimum_height < 0.5:
         return None
     return max(horizontal_gap, 0.0) + abs(_center_y(label) - _center_y(value)) * 0.25
+
+
+def _creditor_below_score(
+    label: BoundingBox,
+    value: BoundingBox,
+) -> float | None:
+    vertical_gap = label[1] - value[3]
+    if not -2.0 <= vertical_gap <= 72.0:
+        return None
+    horizontal_overlap = _overlap(label[0], label[2], value[0], value[2])
+    minimum_width = min(_width(label), _width(value))
+    if minimum_width <= 0.0 or horizontal_overlap / minimum_width < 0.35:
+        return None
+    left_delta = abs(label[0] - value[0])
+    if left_delta > 48.0:
+        return None
+    return max(vertical_gap, 0.0) + left_delta * 0.25
 
 
 def find_spatial_budget_allocation(
@@ -294,4 +348,96 @@ def find_spatial_amount_text(
         blocks,
         labels=_AMOUNT_LABELS,
         normalize_value=_normalized_amount_text,
+    )
+
+
+def _normalized_creditor_value(text: str) -> str | None:
+    value = " ".join(text.split())
+    name = _DOCUMENT_SUFFIX.sub("", value).strip(" -|\t")
+    normalized = _normalized_label(name)
+    if not 3 <= len(name) <= 200:
+        return None
+    if sum(character.isalpha() for character in name) < 2:
+        return None
+    if normalized in _ALL_FIELD_LABELS or normalized in {"NOME", "NOTA DE EMPENHO"}:
+        return None
+    if (
+        _MONEY.fullmatch(name) is not None
+        or _DATE.fullmatch(name) is not None
+        or _CPF.fullmatch(name) is not None
+        or _CNPJ.fullmatch(name) is not None
+    ):
+        return None
+    return name
+
+
+def diagnose_spatial_creditor(
+    blocks: tuple[DocumentBlock, ...],
+) -> SpatialCreditorDiagnosis:
+    """Classifica a geometria do credor sem expor o valor no relatório."""
+    labels = tuple(
+        (block, _CREDITOR_LABEL_KINDS[_normalized_label(block.text)])
+        for block in blocks
+        if block.bbox is not None
+        and _normalized_label(block.text) in _CREDITOR_LABEL_KINDS
+    )
+    if not labels:
+        return SpatialCreditorDiagnosis(status="no_label")
+    if len(labels) != 1:
+        return SpatialCreditorDiagnosis(status="multiple_labels")
+    label, label_kind = labels[0]
+    label_box = label.bbox
+    if label_box is None:
+        return SpatialCreditorDiagnosis(status="no_label")
+    scored: list[_ScoredScalarMatch] = []
+    for value in blocks:
+        if (
+            value is label
+            or value.bbox is None
+            or value.page_number != label.page_number
+        ):
+            continue
+        normalized_value = _normalized_creditor_value(value.text)
+        if normalized_value is None:
+            continue
+        below = _creditor_below_score(label_box, value.bbox)
+        right = _right_score(label_box, value.bbox)
+        options = tuple(
+            (relation, score)
+            for relation, score in (("below", below), ("right", right))
+            if score is not None
+        )
+        if not options:
+            continue
+        relation, score = min(options, key=lambda item: item[1])
+        scored.append(
+            _ScoredScalarMatch(
+                match=SpatialScalarMatch(
+                    value=normalized_value,
+                    page_number=value.page_number,
+                    label_block_order=label.block_order,
+                    value_block_order=value.block_order,
+                    relation=relation,
+                ),
+                score=score,
+            )
+        )
+    scored.sort(key=lambda candidate: candidate.score)
+    if not scored or scored[0].score > _MAX_PRIMARY_SCORE:
+        return SpatialCreditorDiagnosis(
+            status="no_compatible_value",
+            label_kind=label_kind,
+        )
+    if (
+        len(scored) > 1
+        and scored[1].score - scored[0].score < _MIN_SECONDARY_SCORE_DELTA
+    ):
+        return SpatialCreditorDiagnosis(
+            status="ambiguous_values",
+            label_kind=label_kind,
+        )
+    return SpatialCreditorDiagnosis(
+        status="matched",
+        label_kind=label_kind,
+        match=scored[0].match,
     )

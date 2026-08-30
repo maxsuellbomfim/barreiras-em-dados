@@ -45,6 +45,7 @@ class ReportTcmBaCommitmentsCommandTests(unittest.TestCase):
             spatial_budget_allocations=1,
             spatial_issue_dates=0,
             spatial_amounts=1,
+            spatial_creditor_names=1,
             invalid_spatial_evidence=0,
             missing_issue_date=0,
             missing_creditor_name=0,
@@ -89,6 +90,7 @@ class ReportTcmBaCommitmentsCommandTests(unittest.TestCase):
             spatial_budget_allocations=13,
             spatial_issue_dates=0,
             spatial_amounts=37,
+            spatial_creditor_names=47,
             invalid_spatial_evidence=0,
             missing_issue_date=5,
             missing_creditor_name=9,
@@ -113,7 +115,12 @@ class ReportTcmBaCommitmentsCommandTests(unittest.TestCase):
         self.assertEqual(payload["invalid_spatial_evidence"], 0)
         self.assertEqual(
             payload["spatial_field_counts"],
-            {"issue_date": 0, "amount_text": 37, "budget_allocation": 13},
+            {
+                "issue_date": 0,
+                "creditor_name": 47,
+                "amount_text": 37,
+                "budget_allocation": 13,
+            },
         )
         self.assertEqual(
             payload["missing_field_counts"],

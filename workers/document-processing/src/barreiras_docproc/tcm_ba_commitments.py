@@ -19,13 +19,14 @@ from .processing import (
 from .tcm_ba_commitment_layout import (
     SpatialBudgetMatch,
     SpatialScalarMatch,
+    diagnose_spatial_creditor,
     find_spatial_amount_text,
     find_spatial_budget_allocation,
     find_spatial_issue_date,
 )
 
-EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.5.0"
-SCHEMA_VERSION = "1.2.0"
+EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.6.0"
+SCHEMA_VERSION = "1.3.0"
 JOB_TYPE = "tcm_ba_commitment_candidates"
 
 
@@ -43,6 +44,7 @@ class TcmBaCommitmentCandidate:
     budget_allocation_evidence: SpatialBudgetMatch | None = None
     issue_date_evidence: SpatialScalarMatch | None = None
     amount_text_evidence: SpatialScalarMatch | None = None
+    creditor_name_evidence: SpatialScalarMatch | None = None
 
     @property
     def complete(self) -> bool:
@@ -106,6 +108,7 @@ class TcmBaCommitmentFieldBreakdown:
     spatial_budget_allocations: int
     spatial_issue_dates: int
     spatial_amounts: int
+    spatial_creditor_names: int
     invalid_spatial_evidence: int
     missing_issue_date: int
     missing_creditor_name: int
@@ -153,6 +156,7 @@ def commitment_candidate_payload(
         "issue_date": candidate.issue_date,
         "issue_date_evidence": spatial_payload(candidate.issue_date_evidence),
         "creditor_name": candidate.creditor_name,
+        "creditor_name_evidence": spatial_payload(candidate.creditor_name_evidence),
         "creditor_cnpj": candidate.creditor_cnpj,
         "amount_text": candidate.amount_text,
         "amount_text_evidence": spatial_payload(candidate.amount_text_evidence),
@@ -268,6 +272,47 @@ def apply_spatial_scalar_fields(
     return tuple(enriched)
 
 
+def apply_spatial_creditor_names(
+    candidates: tuple[TcmBaCommitmentCandidate, ...],
+    layout_pages: tuple[PdfLayoutPage, ...],
+) -> tuple[TcmBaCommitmentCandidate, ...]:
+    """Preenche credor somente para uma nota e um vencedor inequívocos."""
+    candidates_per_page: dict[int, int] = {}
+    for candidate in candidates:
+        candidates_per_page[candidate.page_number] = (
+            candidates_per_page.get(candidate.page_number, 0) + 1
+        )
+    layouts = {page.page_number: page for page in layout_pages}
+    enriched: list[TcmBaCommitmentCandidate] = []
+    for candidate in candidates:
+        layout = layouts.get(candidate.page_number)
+        if (
+            candidate.creditor_name is not None
+            or candidates_per_page[candidate.page_number] != 1
+            or layout is None
+            or layout.extraction_method != "embedded_layout"
+        ):
+            enriched.append(candidate)
+            continue
+        diagnosis = diagnose_spatial_creditor(layout.blocks)
+        if diagnosis.status != "matched" or diagnosis.match is None:
+            enriched.append(candidate)
+            continue
+        enriched.append(
+            replace(
+                candidate,
+                creditor_name=diagnosis.match.value,
+                creditor_name_evidence=diagnosis.match,
+                missing_fields=tuple(
+                    field
+                    for field in candidate.missing_fields
+                    if field != "creditor_name"
+                ),
+            )
+        )
+    return tuple(enriched)
+
+
 class TcmBaCommitmentExtractionService:
     def __init__(
         self,
@@ -288,6 +333,7 @@ class TcmBaCommitmentExtractionService:
             candidate.budget_allocation is None
             or candidate.issue_date is None
             or candidate.amount_text is None
+            or candidate.creditor_name is None
             for candidate in candidates
         )
         if requires_layout:
@@ -306,6 +352,10 @@ class TcmBaCommitmentExtractionService:
                 layout_pages,
             )
             candidates = apply_spatial_scalar_fields(
+                candidates,
+                layout_pages,
+            )
+            candidates = apply_spatial_creditor_names(
                 candidates,
                 layout_pages,
             )

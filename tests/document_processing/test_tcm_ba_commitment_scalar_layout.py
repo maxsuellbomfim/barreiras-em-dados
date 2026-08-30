@@ -195,7 +195,7 @@ class TcmBaCommitmentScalarLayoutTests(unittest.TestCase):
             candidate,
             TextArtifact("artifact-id", "b" * 64, "private.pdf"),
         )
-        self.assertEqual(payload["schema_version"], "1.2.0")
+        self.assertEqual(payload["schema_version"], "1.3.0")
         self.assertEqual(
             payload["issue_date_evidence"]["value_block_order"],
             1,
