@@ -831,11 +831,25 @@ duplicidades, payloads inválidos e falhas abertas. Artefatos sem candidato são
 contados explicitamente, pois um extrator determinístico pode não reconhecer o
 leiaute sem que isso prove ausência de nota de empenho no documento.
 
-Em 30/08/2026, o primeiro fechamento encontrou 378 artefatos elegíveis, 228
-processados e 145 ausentes. O backlog foi drenado em lotes idempotentes de 50,
-50 e 45; a reconciliação final fechou 378 de 378, sem falhas. Como a versão
-atual ainda produziu zero candidatos, esse número permanece um diagnóstico do
-extrator, não uma conclusão financeira nem uma autorização de publicação.
+Em 30/08/2026, o primeiro fechamento da versão 1.0 encontrou 378 artefatos
+eligíveis, 228 processados e 145 ausentes. O backlog foi drenado em lotes
+idempotentes de 50, 50 e 45; a reconciliação final fechou 378 de 378, sem
+falhas. Como essa versão produziu zero candidatos, o resultado permaneceu um
+diagnóstico do extrator, não uma conclusão financeira.
+
+A auditoria dos leiautes preservados mostrou que o e-TCM imprime o marcador
+NOTA DE EMPENHO separado do campo rotulado EMPENHO: e utiliza variantes de
+OCR nos demais rótulos. A versão 1.1 passou a reconhecer somente essa estrutura
+oficial, normalizar o número e remover apenas candidatos com identidade extraída
+idêntica; notas de mesmo número com credor ou data diferentes continuam
+separadas.
+
+O replay integral da versão 1.1 reconciliou 388 de 388 PDFs elegíveis. Foram
+registrados 98 candidatos em 94 artefatos e 294 artefatos explicitamente sem
+candidato; não houve ausência, duplicidade, payload inválido nem falha aberta.
+Todos os 98 candidatos permaneceram incompletos e privados, aguardando revisão
+e novos extratores de campos tabulares. O gate retornou PASS para a cobertura
+do processamento, mas não autorizou publicar nenhum empenho ou valor.
 
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
