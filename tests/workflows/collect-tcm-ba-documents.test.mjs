@@ -77,6 +77,19 @@ test("lote documental TCM-BA é serial, limitado e auditado", () => {
   assert.match(workflow, /--source tcm-ba/);
 });
 
+test("inventário de famílias usa lote de metadados sem elevar etapas pesadas", () => {
+  const familyCommands = [
+    ...workflow.matchAll(
+      /barreiras_docproc\.commands\.process_tcm_ba_document_families\s*\n\s+--limit 50/g,
+    ),
+  ];
+  assert.equal(familyCommands.length, 3);
+  assert.doesNotMatch(
+    workflow,
+    /barreiras_docproc\.commands\.(?:process_tcm_ba_documents|process_tcm_ba_contract_documents|process_tcm_ba_contract_fields|process_tcm_ba_commitments)\s*\n\s+--limit 50/,
+  );
+});
+
 test("agendamento escolhe a competência mais antiga sem entrada livre no shell", () => {
   assert.match(
     workflow,

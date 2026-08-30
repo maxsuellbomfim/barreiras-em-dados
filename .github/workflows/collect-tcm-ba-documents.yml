@@ -166,7 +166,7 @@ jobs:
         run: >-
           python -B -m
           barreiras_docproc.commands.process_tcm_ba_document_families
-          --limit 5
+          --limit 50
 
       - name: Reconciliar cobertura privada das famílias documentais
         env:
@@ -262,7 +262,7 @@ jobs:
         run: >-
           python -B -m
           barreiras_docproc.commands.process_tcm_ba_document_families
-          --limit 5
+          --limit 50
 
       - name: Reconciliar cobertura privada das famílias documentais
         env:
@@ -388,7 +388,7 @@ jobs:
         run: >-
           python -B -m
           barreiras_docproc.commands.process_tcm_ba_document_families
-          --limit 5
+          --limit 50
 
       - name: Reconciliar cobertura privada das famílias documentais
         env:

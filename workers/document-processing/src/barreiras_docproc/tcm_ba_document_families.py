@@ -10,8 +10,8 @@ from typing import Protocol
 
 from .processing import TextArtifact
 
-EXTRACTOR_VERSION = "tcm-ba-document-family-inventory/1.1.0"
-VALIDATOR_VERSION = "official-catalog-category-allowlist/1.1.0"
+EXTRACTOR_VERSION = "tcm-ba-document-family-inventory/1.2.0"
+VALIDATOR_VERSION = "official-catalog-category-allowlist/1.2.0"
 JOB_TYPE = "tcm_ba_document_family_inventory"
 
 _CODE_PATTERN = re.compile(r"^\s*(PCMGE\d{3})(?:\b|\s*[-\u2013\u2014])", re.IGNORECASE)
@@ -27,6 +27,10 @@ _FAMILY_BY_CODE = {
     "PCMGE013": "extraordinary_credit_decrees",
     "PCMGE014": "supplementary_credit_decrees",
     "PCMGE015": "analytical_budget_expense_statement",
+    "PCMGE016": "analytical_budget_revenue_statement",
+    "PCMGE018": "general_ledger_accounts_statement",
+    "PCMGE019": "extra_budgetary_inflows_outflows_statement",
+    "PCMGE020": "ratified_procurement_waivers_and_noncompetitive_contracts",
 }
 
 
