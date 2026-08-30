@@ -28,6 +28,52 @@ from .models import (
     TcmBaDocumentSelection,
 )
 
+# Prioridade operacional, não juízo de relevância ou irregularidade. Todos os
+# documentos continuam elegíveis e a competência só fecha com cobertura total.
+TCM_BA_MONEY_TRAIL_PRIMARY_CATEGORY_CODES = (
+    "PCMGE004",
+    "PCMGE005",
+    "PCMGE006",
+    "PCMGE008",
+    "PCMGE009",
+    "PCMGE010",
+    "PCMGE015",
+    "PCMGE016",
+    "PCMGE018",
+    "PCMGE019",
+    "PCMGE020",
+    "PCMGE021",
+    "PCMGE051",
+    "PCMGE053",
+    "PCMGE054",
+    "PCMGE055",
+    "PCMGE056",
+    "PCMGE075",
+    "PCMGE076",
+    "PCMGE077",
+    "PCMGE078",
+)
+TCM_BA_MONEY_TRAIL_SUPPORTING_CATEGORY_CODES = (
+    "PCMGE011",
+    "PCMGE012",
+    "PCMGE013",
+    "PCMGE014",
+    "PCMGE022",
+    "PCMGE023",
+    "PCMGE024",
+    "PCMGE025",
+    "PCMGE029",
+    "PCMGE030",
+    "PCMGE035",
+    "PCMGE037",
+    "PCMGE038",
+    "PCMGE041",
+    "PCMGE043",
+    "PCMGE046",
+    "PCMGE049",
+    "PCMGE050",
+)
+
 
 class QueryResult(Protocol):
     def fetchone(self) -> Mapping[str, Any] | None: ...
@@ -320,6 +366,15 @@ class PostgresCollectionRepository:
                     record.source_record_key = any(%s::text[])
                   )
                 order by
+                  case
+                    when left(upper(btrim(coalesce(
+                      record.payload ->> 'category', ''
+                    ))), 8) = any(%s::text[]) then 0
+                    when left(upper(btrim(coalesce(
+                      record.payload ->> 'category', ''
+                    ))), 8) = any(%s::text[]) then 1
+                    else 2
+                  end,
                   (record.payload ->> 'page_number')::integer,
                   record.record_index
                 limit %s
@@ -330,6 +385,8 @@ class PostgresCollectionRepository:
                     completed_at,
                     competence,
                     preserved_keys,
+                    list(TCM_BA_MONEY_TRAIL_PRIMARY_CATEGORY_CODES),
+                    list(TCM_BA_MONEY_TRAIL_SUPPORTING_CATEGORY_CODES),
                     limit,
                 ),
             ).fetchall()

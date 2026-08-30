@@ -97,17 +97,18 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
         self.assertEqual(selection.references[0].document_position, 1)
         self.assertEqual(selection.references[0].expected_total_documents, 11)
         self.assertEqual(connection.calls[0][1], ("competence:2023-04",))
+        reference_params = connection.calls[3][1]
         self.assertEqual(
-            connection.calls[3][1],
+            reference_params[:5],
             (
                 "endpoint-1",
                 "2026-08-28T10:00:00Z",
                 "2026-08-28T11:00:00Z",
                 "04/2023",
                 [],
-                1,
             ),
         )
+        self.assertEqual(reference_params[-1], 1)
         self.assertEqual(
             connection.calls[2][1],
             (
@@ -127,6 +128,44 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
         self.assertIn("any(%s::text[])", connection.calls[3][0].lower())
         self.assertIn("tcm-ba-monthly-document", connection.calls[2][0])
         self.assertTrue(connection.closed)
+
+    def test_prioritizes_money_trail_categories_before_official_position(self) -> None:
+        connection = SequenceConnection(
+            [
+                complete_catalog(documents=1),
+                consistent_count(documents=1),
+                QueryResult(rows=[]),
+                QueryResult(
+                    rows=[
+                        {
+                            "source_record_key": "tcm-ba:document:04/2023:abc",
+                            "parent_artifact_id": "catalog-artifact-1",
+                            "record_index": 0,
+                            "payload": {
+                                "category": "PCMGE054 - Receitas arrecadadas",
+                                "name": "receitas.pdf",
+                                "inserted_at": "03/05/2023 10:00",
+                                "page_number": 1,
+                                "download_form_id": "form:download",
+                            },
+                        }
+                    ]
+                ),
+            ]
+        )
+
+        PostgresCollectionRepository(lambda: connection).tcm_ba_document_references(
+            competence="04/2023", limit=1
+        )
+
+        query, params = connection.calls[3]
+        ordering = query.lower().rsplit("order by", maxsplit=1)[1]
+        self.assertIn("case", ordering)
+        self.assertEqual(ordering.count("any(%s::text[])"), 2)
+        self.assertLess(ordering.index("case"), ordering.index("page_number"))
+        self.assertIn("PCMGE054", params[-3])
+        self.assertIn("PCMGE049", params[-2])
+        self.assertEqual(params[-1], 1)
 
     def test_counts_only_preserved_keys_from_current_catalog(self) -> None:
         connection = SequenceConnection(
@@ -166,17 +205,18 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
         self.assertEqual(selection.preserved_documents, 1)
         self.assertEqual(selection.pending_documents, 1)
         self.assertEqual(selection.references[0].document_position, 2)
+        reference_params = connection.calls[3][1]
         self.assertEqual(
-            connection.calls[3][1],
+            reference_params[:5],
             (
                 "endpoint-1",
                 "2026-08-28T10:00:00Z",
                 "2026-08-28T11:00:00Z",
                 "04/2023",
                 ["tcm-ba:document:04/2023:abc"],
-                1,
             ),
         )
+        self.assertEqual(reference_params[-1], 1)
 
     def test_refuses_month_without_complete_coverage(self) -> None:
         connection = SequenceConnection([QueryResult(row=None)])
@@ -212,11 +252,10 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             repository.tcm_ba_document_references(competence="04/2023", limit=6)
 
+
 class TcmBaDocumentPlanTests(unittest.TestCase):
     def test_selects_oldest_complete_catalog_with_pending_documents(self) -> None:
-        connection = SequenceConnection(
-            [QueryResult(row={"competence": "01/2021"})]
-        )
+        connection = SequenceConnection([QueryResult(row={"competence": "01/2021"})])
 
         result = PostgresCollectionRepository(
             lambda: connection
@@ -248,14 +287,13 @@ class TcmBaDocumentPlanTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             repository.next_tcm_ba_document_competence(year_from=1999)
 
-        connection = SequenceConnection(
-            [QueryResult(row={"competence": "2021-01"})]
-        )
+        connection = SequenceConnection([QueryResult(row={"competence": "2021-01"})])
         with self.assertRaisesRegex(PersistenceContractError, "planejada é inválida"):
             PostgresCollectionRepository(
                 lambda: connection
             ).next_tcm_ba_document_competence(year_from=2021)
         self.assertTrue(connection.closed)
+
 
 if __name__ == "__main__":
     unittest.main()
