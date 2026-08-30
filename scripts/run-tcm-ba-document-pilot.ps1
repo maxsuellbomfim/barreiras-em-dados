@@ -443,17 +443,46 @@ try {
         if ($planExitCode -ne 0) {
             throw "O planejador terminou com código $planExitCode."
         }
+        $planEvents = @()
+        foreach ($line in $planOutput) {
+            $text = $line.ToString().Trim()
+            if (-not $text.StartsWith("{")) {
+                continue
+            }
+            try {
+                $event = $text | ConvertFrom-Json
+            }
+            catch {
+                continue
+            }
+            if ($event.event -eq "tcm_ba_document_plan") {
+                $planEvents += $event
+            }
+        }
+        if ($planEvents.Count -ne 1) {
+            throw "O planejador não retornou um evento de cobertura único."
+        }
         $plannedCompetences = @(
             $planOutput |
                 ForEach-Object { $_.ToString().Trim() } |
                 Where-Object { $_ -match '^(0[1-9]|1[0-2])/\d{4}$' }
         )
         if ($plannedCompetences.Count -eq 0) {
+            if ($planEvents[0].coverage_status -eq "blocked") {
+                Write-Host "TCM_BA_DOCUMENT_BACKLOG_BLOCKED" -ForegroundColor Yellow
+                return
+            }
+            if ($planEvents[0].coverage_status -ne "complete") {
+                throw "O estado sem competência do planejador é inválido."
+            }
             Write-Host "TCM_BA_DOCUMENT_NO_ELIGIBLE_COMPETENCE" -ForegroundColor Cyan
             return
         }
-        if ($plannedCompetences.Count -ne 1) {
-            throw "O planejador não retornou uma competência única."
+        if (
+            $plannedCompetences.Count -ne 1 -or
+            $planEvents[0].coverage_status -ne "partial"
+        ) {
+            throw "O planejador não retornou uma competência parcial única."
         }
         $Competence = $plannedCompetences[0]
         Write-Host "Competência planejada: $Competence" -ForegroundColor Cyan
