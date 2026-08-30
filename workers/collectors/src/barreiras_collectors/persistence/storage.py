@@ -124,6 +124,9 @@ class SupabaseStorageObjectStore:
         )
 
     def read(self, object_key: str) -> bytes:
+        return self._with_consistency_retries(lambda: self._read_once(object_key))
+
+    def _read_once(self, object_key: str) -> bytes:
         value = self._download(object_key)
         if not value.startswith(self._MANIFEST_MAGIC):
             return value
@@ -320,7 +323,7 @@ class SupabaseStorageObjectStore:
         return value
 
     def _read_with_consistency_retries(self, object_key: str) -> bytes:
-        return self._with_consistency_retries(lambda: self.read(object_key))
+        return self.read(object_key)
 
     def _download_with_consistency_retries(self, object_key: str) -> bytes:
         return self._with_consistency_retries(lambda: self._download(object_key))

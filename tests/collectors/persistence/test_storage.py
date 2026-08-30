@@ -70,6 +70,24 @@ class TransientUploadFailureBucket(FakeBucket):
 
 
 class SupabaseStorageObjectStoreTests(unittest.TestCase):
+    def test_read_retries_transient_download_failure(self) -> None:
+        bucket = EventuallyConsistentBucket(hidden_downloads=1)
+        body = b"objeto-oficial-preservado"
+        digest = hashlib.sha256(body).hexdigest()
+        object_key = f"tcm-ba/documents/sha256/{digest[:2]}/{digest}.pdf"
+        bucket.objects[object_key] = body
+        sleeps: list[float] = []
+        store = SupabaseStorageObjectStore(
+            bucket,
+            consistency_attempts=2,
+            consistency_base_delay_seconds=0.1,
+            sleep=sleeps.append,
+        )
+
+        self.assertEqual(store.read(object_key), body)
+        self.assertEqual(bucket.download_attempts, 2)
+        self.assertEqual(sleeps, [0.1])
+
     def test_transient_upload_failure_retries_when_object_does_not_exist(self) -> None:
         bucket = TransientUploadFailureBucket()
         body = b"resposta-oficial-do-tcm-ba"
