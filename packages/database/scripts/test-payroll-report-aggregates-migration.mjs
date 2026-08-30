@@ -227,6 +227,71 @@ try {
   await database.exec("reset role");
   assert.equal(publicRowsAfterRepair.rows.length, 0);
 
+  await database.exec(`
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status,
+      started_at, completed_at, metrics, created_at
+    ) values (
+      '00000000-0000-0000-0000-000000007101',
+      '00000000-0000-0000-0000-000000009002',
+      'latest-complete-catalog-fixture', 'test/1', 'succeeded',
+      '2024-06-02 12:00:00+00', '2024-06-02 12:01:00+00',
+      '{"collection_outcome":"complete"}'::jsonb,
+      '2024-06-02 12:00:00+00'
+    );
+    insert into source.collection_partitions (
+      id, source_endpoint_id, partition_key, period_start, period_end,
+      status, expected_records, observed_records, collection_run_id,
+      completed_at
+    ) values (
+      '00000000-0000-0000-0000-000000007102',
+      '00000000-0000-0000-0000-000000009002',
+      'snapshot:servidores:lineage-regression',
+      '2024-05-01', '2024-05-31', 'complete', 1, 1,
+      '00000000-0000-0000-0000-000000007101',
+      '2024-06-02 12:01:00+00'
+    );
+  `);
+  await database.exec("set role anon");
+  const nonpayrollAcrossRuns = await database.query(`
+    select *
+    from api.get_public_nonpayroll_workforce_coverage(1)
+    order by workforce_category
+  `);
+  await database.exec("reset role");
+  assert.equal(nonpayrollAcrossRuns.rows.length, 2);
+  assert.deepEqual(
+    nonpayrollAcrossRuns.rows.map((row) => ({
+      reference_month: row.reference_month,
+      workforce_category: row.workforce_category,
+      coverage_status: row.coverage_status,
+      catalog_document_count: row.catalog_document_count,
+      preserved_document_count: row.preserved_document_count,
+      artifact_sha256: row.artifact_sha256,
+      methodology_version: row.methodology_version,
+    })),
+    [
+      {
+        reference_month: "2024-05-01",
+        workforce_category: "interns",
+        coverage_status: "document_preserved",
+        catalog_document_count: 1,
+        preserved_document_count: 1,
+        artifact_sha256: "9999999999999999999999999999999999999999999999999999999999999999",
+        methodology_version: "nonpayroll-workforce-coverage/1.0.1",
+      },
+      {
+        reference_month: "2024-05-01",
+        workforce_category: "outsourced_workers",
+        coverage_status: "not_listed",
+        catalog_document_count: 0,
+        preserved_document_count: 0,
+        artifact_sha256: null,
+        methodology_version: "nonpayroll-workforce-coverage/1.0.1",
+      },
+    ],
+  );
+
   const contracts = await database.query(`
     select
       to_regclass('hr.payroll_report_aggregates')::text as aggregate_table,
