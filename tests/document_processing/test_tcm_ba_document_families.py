@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import unittest
 
 from barreiras_docproc.processing import TextArtifact
@@ -27,6 +28,18 @@ class TcmBaDocumentFamilyTests(unittest.TestCase):
             ),
             "PCMGE015 - Demonstrativo analítico de despesa": (
                 "analytical_budget_expense_statement"
+            ),
+            "PCMGE016 - Demonstrativo analítico de receita orçamentária": (
+                "analytical_budget_revenue_statement"
+            ),
+            "PCMGE018 - Demonstrativo das contas do razão": (
+                "general_ledger_accounts_statement"
+            ),
+            "PCMGE019 - Ingressos e desembolsos extraorçamentários": (
+                "extra_budgetary_inflows_outflows_statement"
+            ),
+            "PCMGE020 - Dispensas e inexigibilidades ratificadas": (
+                "ratified_procurement_waivers_and_noncompetitive_contracts"
             ),
             "Documentos Adicionais": "additional_documents",
         }
@@ -76,9 +89,14 @@ class TcmBaDocumentFamilyTests(unittest.TestCase):
 
     def test_idempotency_changes_with_extractor_contract(self) -> None:
         key = document_family_job_idempotency_key("a" * 64)
+        previous_key = hashlib.sha256(
+            f"tcm-ba-document-family:{'a' * 64}:"
+            "tcm-ba-document-family-inventory/1.1.0".encode()
+        ).hexdigest()
 
         self.assertRegex(key, r"^[0-9a-f]{64}$")
         self.assertEqual(key, document_family_job_idempotency_key("a" * 64))
+        self.assertNotEqual(key, previous_key)
 
 
 if __name__ == "__main__":
