@@ -851,6 +851,15 @@ Todos os 98 candidatos permaneceram incompletos e privados, aguardando revisão
 e novos extratores de campos tabulares. O gate retornou PASS para a cobertura
 do processamento, mas não autorizou publicar nenhum empenho ou valor.
 
+A versão 1.2 corrigiu um risco em que espaços genéricos podiam atravessar a
+quebra de linha e interpretar o rótulo seguinte como valor do campo anterior.
+Os campos em linha separada passaram a exigir vínculo explícito com o rótulo e
+validação específica de data, credor, valor ou dotação. O replay preservou o
+mesmo universo de 98 candidatos e reconciliou 398 de 398 PDFs, sem falhas,
+ausências, duplicidades ou payloads inválidos. Em 22 candidatos, somente a
+dotação permaneceu ausente; nenhum deles foi marcado como completo ou
+publicável, pois a dotação ainda não pôde ser extraída com segurança.
+
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do

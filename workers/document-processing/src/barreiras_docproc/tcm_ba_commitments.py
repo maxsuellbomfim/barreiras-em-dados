@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
 from .processing import PageInput, TextArtifact
 
-EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.1.0"
+EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.2.0"
 JOB_TYPE = "tcm_ba_commitment_candidates"
 
 
@@ -145,28 +146,58 @@ _LABELED_COMMITMENT_NUMBER = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 _ISSUE_DATE = re.compile(
-    r"^[ \t]*(?:DATA\s+(?:DE\s+)?EMISSÃO|EMISSÃO|EMISSAO|"
-    r"DATA\s+DO\s+EMP[EA]NHO)\s*[:;.-]\s*"
+    r"^[ \t]*(?:DATA[ \t]+(?:DE[ \t]+)?EMISSÃO|EMISSÃO|EMISSAO|"
+    r"DATA[ \t]+DO[ \t]+EMP[EA]NHO)[ \t]*[:;.-][ \t]*"
     r"(?P<value>\d{1,2}/\d{1,2}/\d{4})[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_ISSUE_DATE_LABEL = re.compile(
+    r"^[ \t]*(?:DATA[ \t]+(?:DE[ \t]+)?EMISSÃO|EMISSÃO|EMISSAO|"
+    r"DATA[ \t]+DO[ \t]+EMP[EA]NHO)[ \t]*[:;.-]?[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
 )
 _CREDITOR = re.compile(
     r"^[ \t]*(?:CREDOR|FAVORECIDO|BENEFICIÁRIO|BENEFICIARIO|"
-    r"(?:R\.?\s*)?S[O0][A-Z]{2,6}\s*/\s*NOME)"
-    r"\s*[:;.-]\s*(?P<value>[^\n]+)$",
+    r"(?:R\.?[ \t]*)?S[O0][A-Z]{2,6}[ \t]*/[ \t]*NOME)"
+    r"[ \t]*[:;.-][ \t]*(?P<value>[^\n]+)$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_CREDITOR_LABEL = re.compile(
+    r"^[ \t]*(?:CREDOR|FAVORECIDO|BENEFICIÁRIO|BENEFICIARIO|"
+    r"(?:R\.?[ \t]*)?S[O0][A-Z]{2,6}[ \t]*/[ \t]*NOME)"
+    r"[ \t]*[:;.-]?[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
 )
 _AMOUNT = re.compile(
-    r"^[ \t]*VALOR(?:\s+(?:BRUTO|DO\s+EMPENHO))?\s*[:;.-]\s*"
-    r"(?:R\$\s*)?(?P<value>-?[\d.]+,\d{2})[ \t]*$",
+    r"^[ \t]*VALOR(?:[ \t]+(?:BRUTO|DO[ \t]+EMPENHO))?"
+    r"[ \t]*[:;.-][ \t]*(?:R\$[ \t]*)?"
+    r"(?P<value>-?[\d.]+,\d{2})[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
 )
+_AMOUNT_LABEL = re.compile(
+    r"^[ \t]*VALOR(?:[ \t]+(?:BRUTO|DO[ \t]+EMPENHO))?"
+    r"[ \t]*[:;.-]?[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_AMOUNT_VALUE = re.compile(r"^(?:R\$[ \t]*)?-?[\d.]+,\d{2}$", re.IGNORECASE)
 _BUDGET_ALLOCATION = re.compile(
-    r"^[ \t]*(?:DOTAÇÃO(?:\s+ORÇAMENTÁRIA)?|DOTACAO"
-    r"(?:\s+ORCAMENTARIA)?|CLASSIFICAÇÃO\s+ORÇAMENTÁRIA|"
-    r"CLASSIFICACAO\s+ORCAMENTARIA)\s*[:;.-]\s*"
+    r"^[ \t]*(?:DOTAÇÃO(?:[ \t]+ORÇAMENTÁRIA)?|DOTACAO"
+    r"(?:[ \t]+ORCAMENTARIA)?|CLASSIFICAÇÃO[ \t]+ORÇAMENTÁRIA|"
+    r"CLASSIFICACAO[ \t]+ORCAMENTARIA)[ \t]*[:;.-][ \t]*"
     r"(?P<value>[^\n]+)$",
     re.IGNORECASE | re.MULTILINE,
+)
+_BUDGET_ALLOCATION_LABEL = re.compile(
+    r"^[ \t]*(?:DOTAÇÃO(?:[ \t]+ORÇAMENTÁRIA)?|DOTACAO"
+    r"(?:[ \t]+ORCAMENTARIA)?|CLASSIFICAÇÃO[ \t]+ORÇAMENTÁRIA|"
+    r"CLASSIFICACAO[ \t]+ORCAMENTARIA)[ \t]*[:;.-]?[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_FIELD_LABELS = (
+    _ISSUE_DATE_LABEL,
+    _CREDITOR_LABEL,
+    _AMOUNT_LABEL,
+    _BUDGET_ALLOCATION_LABEL,
 )
 _DOCUMENT_SUFFIX = re.compile(
     r"\s*(?:[-|]\s*)?(?:CPF|CNPJ|C\.?P\.?F\.?|C\.?N\.?P\.?J\.?)"
@@ -216,6 +247,59 @@ def _canonical_commitment_number(value: str) -> str:
     return compact.strip(" ./-")
 
 
+def _is_field_label(value: str) -> bool:
+    return any(pattern.fullmatch(value) is not None for pattern in _FIELD_LABELS)
+
+
+def _valid_date_value(value: str) -> bool:
+    return _iso_date(value) is not None
+
+
+def _valid_creditor_value(value: str) -> bool:
+    name = _creditor_name(value)
+    return (
+        name is not None
+        and sum(character.isalpha() for character in name) >= 2
+        and not _is_field_label(value)
+        and _AMOUNT_VALUE.fullmatch(value) is None
+        and _iso_date(value) is None
+    )
+
+
+def _valid_amount_value(value: str) -> bool:
+    return _AMOUNT_VALUE.fullmatch(value) is not None
+
+
+def _valid_budget_value(value: str) -> bool:
+    return (
+        3 <= len(value) <= 200
+        and sum(character.isdigit() for character in value) >= 2
+        and not _is_field_label(value)
+        and _AMOUNT_VALUE.fullmatch(value) is None
+        and _iso_date(value) is None
+        and _CNPJ.search(value) is None
+        and _CPF.search(value) is None
+    )
+
+
+def _following_line_value(
+    pattern: re.Pattern[str],
+    text: str,
+    validator: Callable[[str], bool],
+) -> str | None:
+    match = pattern.search(text)
+    if match is None:
+        return None
+    for line in text[match.end() :].splitlines():
+        value = line.strip()
+        if not value:
+            continue
+        if _is_field_label(value):
+            return None
+        return value if validator(value) else None
+    return None
+
+
 def _redacted_evidence(text: str) -> str:
     return _CPF.sub("***.***.***-**", text[:_MAX_EVIDENCE_CHARS]).strip()
 
@@ -253,15 +337,34 @@ def find_commitment_candidates(
             )
             if not commitment_number:
                 continue
-            creditor_value = _match_value(_CREDITOR, block)
+            issue_value = _match_value(_ISSUE_DATE, block) or _following_line_value(
+                _ISSUE_DATE_LABEL,
+                block,
+                _valid_date_value,
+            )
+            creditor_value = _match_value(_CREDITOR, block) or _following_line_value(
+                _CREDITOR_LABEL,
+                block,
+                _valid_creditor_value,
+            )
+            amount_text = _match_value(_AMOUNT, block) or _following_line_value(
+                _AMOUNT_LABEL,
+                block,
+                _valid_amount_value,
+            )
+            budget_allocation = _match_value(
+                _BUDGET_ALLOCATION,
+                block,
+            ) or _following_line_value(
+                _BUDGET_ALLOCATION_LABEL,
+                block,
+                _valid_budget_value,
+            )
             values: dict[str, str | None] = {
-                "issue_date": _iso_date(_match_value(_ISSUE_DATE, block)),
+                "issue_date": _iso_date(issue_value),
                 "creditor_name": _creditor_name(creditor_value),
-                "amount_text": _match_value(_AMOUNT, block),
-                "budget_allocation": _match_value(
-                    _BUDGET_ALLOCATION,
-                    block,
-                ),
+                "amount_text": amount_text,
+                "budget_allocation": budget_allocation,
             }
             creditor_cnpj = _creditor_cnpj(block)
             candidate_identity = (
