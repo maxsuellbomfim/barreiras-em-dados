@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from ..collection_control import (
@@ -38,6 +39,7 @@ class OfficialDiaryCatalogSummary:
     inserted_records: int
     existing_records: int
     artifact_sha256: str
+    pages: int = 1
 
 
 def execute_controlled_catalog(
@@ -49,13 +51,18 @@ def execute_controlled_catalog(
     with control:
         summary = operation()
         control.complete(
-            outcome=CollectionOutcome.COMPLETE,
+            outcome=(
+                CollectionOutcome.COMPLETE
+                if summary.publications
+                else CollectionOutcome.EMPTY
+            ),
             observed_records=summary.publications,
             checkpoint={"artifact_sha256": summary.artifact_sha256},
             metrics={
                 "publications": summary.publications,
                 "inserted_records": summary.inserted_records,
                 "existing_records": summary.existing_records,
+                "pages": summary.pages,
             },
         )
     return summary
@@ -67,7 +74,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Preserva o catálogo oficial com edição, título, resumo e data."
         )
     )
-    parser.parse_args(argv)
+    parser.add_argument("--since", type=date.fromisoformat)
+    parser.add_argument("--until", type=date.fromisoformat)
+    arguments = parser.parse_args(argv)
+    if (arguments.since is None) != (arguments.until is None):
+        parser.error("--since e --until devem ser informados juntos.")
+    if arguments.since is not None and arguments.since > arguments.until:
+        parser.error("--since não pode ser posterior a --until.")
+    if (
+        arguments.since is not None
+        and (arguments.until - arguments.since).days >= 7
+    ):
+        parser.error("A janela oficial não pode exceder sete dias.")
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
     logging.basicConfig(
@@ -96,6 +114,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         persistence_settings.database_url
     )
     today = datetime.now(MUNICIPAL_TIMEZONE).date()
+    period_start = arguments.since or today
+    period_end = arguments.until or today
+    partition_key = (
+        f"catalog-window:{period_start.isoformat()}:{period_end.isoformat()}"
+        if arguments.since is not None
+        else f"catalog-snapshot:{today.isoformat()}"
+    )
     control = CollectionControl(
         repository=repository,
         source_code=SOURCE_CODE,
@@ -105,9 +130,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         collector_version=OFFICIAL_CATALOG_COLLECTOR_VERSION,
         parser_version=PARSER_VERSION,
-        partition_key=f"catalog-snapshot:{today.isoformat()}",
-        period_start=today,
-        period_end=today,
+        partition_key=partition_key,
+        period_start=period_start,
+        period_end=period_end,
     )
 
     def operation() -> OfficialDiaryCatalogSummary:
@@ -142,19 +167,44 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             repository=repository,
         )
-        snapshot = OfficialDiaryCatalogClient(
+        catalog_client = OfficialDiaryCatalogClient(
             timeout_seconds=(
                 collector_settings.connect_timeout_seconds
                 + collector_settings.read_timeout_seconds
             ),
             max_body_bytes=8 * 1024 * 1024,
-        ).fetch()
-        result = service.persist(snapshot)
+        )
+        snapshots = (
+            catalog_client.iter_window_pages(
+                published_since=arguments.since,
+                published_until=arguments.until,
+            )
+            if arguments.since is not None
+            else iter((catalog_client.fetch(),))
+        )
+        publications = inserted_records = existing_records = 0
+        artifact_hashes: list[str] = []
+        pages = 0
+        for snapshot in snapshots:
+            result = service.persist(snapshot)
+            pages += 1
+            publications += len(snapshot.publications)
+            inserted_records += result.inserted_records
+            existing_records += result.existing_records
+            artifact_hashes.append(snapshot.body_sha256)
+        manifest = (
+            artifact_hashes[0]
+            if len(artifact_hashes) == 1
+            else hashlib.sha256(
+                "\n".join(artifact_hashes).encode("ascii")
+            ).hexdigest()
+        )
         return OfficialDiaryCatalogSummary(
-            publications=len(snapshot.publications),
-            inserted_records=result.inserted_records,
-            existing_records=result.existing_records,
-            artifact_sha256=snapshot.body_sha256,
+            publications=publications,
+            inserted_records=inserted_records,
+            existing_records=existing_records,
+            artifact_sha256=manifest,
+            pages=pages,
         )
 
     summary = execute_controlled_catalog(control=control, operation=operation)
@@ -166,8 +216,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         publications=summary.publications,
         inserted_records=summary.inserted_records,
         existing_records=summary.existing_records,
+        pages=summary.pages,
         artifact_hash=summary.artifact_sha256,
-        coverage_status=CollectionOutcome.COMPLETE.value,
+        coverage_status=(
+            CollectionOutcome.COMPLETE.value
+            if summary.publications
+            else CollectionOutcome.EMPTY.value
+        ),
     )
     return 0
 

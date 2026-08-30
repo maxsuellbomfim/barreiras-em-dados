@@ -33,6 +33,8 @@ class ResolveBackfillWindowTests(unittest.TestCase):
         self.assertEqual(anchor, date(2026, 7, 31))
 
     def test_repository_anchor_uses_contiguous_successful_windows(self) -> None:
+        queries: list[str] = []
+
         class Result:
             def fetchone(self) -> dict[str, date]:
                 return {"anchor": date(2021, 1, 1)}
@@ -50,7 +52,8 @@ class ResolveBackfillWindowTests(unittest.TestCase):
                 ]
 
         class Connection:
-            def execute(self, _query: str) -> Result:
+            def execute(self, query: str) -> Result:
+                queries.append(query)
                 return Result()
 
             def close(self) -> None:
@@ -68,6 +71,10 @@ class ResolveBackfillWindowTests(unittest.TestCase):
         )
 
         self.assertEqual(anchor, date(2026, 7, 31))
+        self.assertIn("barreiras-diario-oficial", queries[0])
+        self.assertIn("catalogo-publicacoes", queries[0])
+        self.assertIn("catalog-window:%", queries[0])
+        self.assertIn("partition.status in ('complete', 'empty')", queries[0])
 
     def test_walks_back_seven_days_from_anchor(self) -> None:
         window = resolve_backfill_window(

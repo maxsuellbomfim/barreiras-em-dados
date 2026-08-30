@@ -194,17 +194,25 @@ class ScheduledWorkflowTests(unittest.TestCase):
         # Todo agendamento que não é a coleta da véspera é backfill.
         self.assertIn('!= "17 11 * * *"', workflow)
 
-    def test_backfill_does_not_repeat_recent_only_steps(self) -> None:
+    def test_backfill_runs_official_and_deterministic_steps(self) -> None:
         repository_root = Path(__file__).parents[2]
         workflow = (
             repository_root / ".github" / "workflows" / "collect-querido-diario.yml"
         ).read_text(encoding="utf-8")
 
-        self.assertGreaterEqual(
-            workflow.count("steps.window.outputs.mode != 'backfill'"),
-            7,
+        catalog = workflow.index("- name: Preservar catálogo oficial do Diário")
+        direct = workflow.index("- name: Coletar edições diretas do Diário")
+        deterministic = workflow.index(
+            "- name: Preparar texto e candidatos determinísticos"
         )
-
+        ai = workflow.index("- name: Sugerir campos e resumos com IA assistida")
+        publish = workflow.index(
+            "- name: Publicar candidatos verificados por código (ADR 0012)"
+        )
+        self.assertNotIn("mode != 'backfill'", workflow[catalog:direct])
+        self.assertNotIn("mode != 'backfill'", workflow[direct:deterministic])
+        self.assertNotIn("mode != 'backfill'", workflow[deterministic:ai])
+        self.assertIn("mode != 'backfill'", workflow[ai:publish])
     def test_source_failure_does_not_skip_preserved_document_processing(self) -> None:
         repository_root = Path(__file__).parents[2]
         workflow = (
@@ -233,9 +241,10 @@ class ScheduledWorkflowTests(unittest.TestCase):
         self.assertIn("id: direct_diary", direct_block)
         self.assertIn("continue-on-error: true", direct_block)
         self.assertIn("steps.querido_diario.outcome == 'failure'", workflow)
-        self.assertIn("steps.window.outputs.mode == 'backfill'", workflow)
-        self.assertIn("steps.official_catalog.outcome == 'failure'", workflow)
-        self.assertIn("steps.direct_diary.outcome == 'failure'", workflow)
+        mandatory_gate = workflow[failure_gate:]
+        self.assertNotIn("steps.querido_diario.outcome", mandatory_gate)
+        self.assertIn("steps.official_catalog.outcome == 'failure'", mandatory_gate)
+        self.assertIn("steps.direct_diary.outcome == 'failure'", mandatory_gate)
 
     def test_new_scanned_pdf_can_be_extracted_after_ocr_in_the_same_run(self) -> None:
         repository_root = Path(__file__).parents[2]

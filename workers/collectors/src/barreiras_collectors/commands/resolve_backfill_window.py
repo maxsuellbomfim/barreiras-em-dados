@@ -101,17 +101,31 @@ def coverage_anchor(
         rows = connection.execute(
             """
             select distinct
-              run.collection_window_start::date as period_start,
-              run.collection_window_end::date as period_end
-            from source.collection_runs as run
+              partition.period_start::date as period_start,
+              partition.period_end::date as period_end
+            from source.collection_partitions as partition
             join source.source_endpoints as endpoint
-              on endpoint.id = run.source_endpoint_id
+              on endpoint.id = partition.source_endpoint_id
             join source.data_sources as data_source
               on data_source.id = endpoint.data_source_id
-            where data_source.slug = 'querido-diario'
+            join source.collection_runs as run
+              on run.id = partition.collection_run_id
+            where (
+                (
+                  data_source.slug = 'querido-diario'
+                  and endpoint.slug = 'gazettes-api'
+                  and partition.partition_key like 'published:%'
+                )
+                or (
+                  data_source.slug = 'barreiras-diario-oficial'
+                  and endpoint.slug = 'catalogo-publicacoes'
+                  and partition.partition_key like 'catalog-window:%'
+                )
+              )
+              and partition.status in ('complete', 'empty')
               and run.status = 'succeeded'
-              and run.collection_window_start is not null
-              and run.collection_window_end is not null
+              and partition.period_start is not null
+              and partition.period_end is not null
             """
         ).fetchall()
     finally:

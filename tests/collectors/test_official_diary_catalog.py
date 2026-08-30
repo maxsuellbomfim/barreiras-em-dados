@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import unittest
+from datetime import date
 from hashlib import sha256
+from urllib.parse import parse_qs, urlparse
 
 from barreiras_collectors.connectors.official_diary_catalog import (
     OfficialCatalogSnapshot,
+    OfficialDiaryCatalogClient,
     OfficialPublication,
+    build_catalog_url,
     parse_catalog_html,
 )
+from barreiras_collectors.http import HttpResponse
 from barreiras_collectors.persistence.models import (
     RepositoryPersistResult,
     StoredObject,
@@ -67,6 +72,68 @@ class OfficialDiaryCatalogTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_catalog_html(b"<html><body>sem edicoes</body></html>")
 
+    def test_accepts_explicit_empty_filtered_catalog(self) -> None:
+        body = (
+            b"<html><body><span class='nulled'>Nenhum registro cadastrado "
+            b"ou compat\xc3\xadvel com a sua filtragem!</span></body></html>"
+        )
+
+        self.assertEqual(parse_catalog_html(body, allow_explicit_empty=True), ())
+
+    def test_filtered_catalog_url_keeps_dates_and_page(self) -> None:
+        url = build_catalog_url(
+            published_since=date(2021, 1, 1),
+            published_until=date(2021, 1, 7),
+            page=3,
+        )
+
+        query = parse_qs(urlparse(url).query)
+        self.assertEqual(query["data_inicial"], ["01/01/2021"])
+        self.assertEqual(query["data_final"], ["07/01/2021"])
+        self.assertEqual(query["filtered"], ["1"])
+        self.assertEqual(query["pagina"], ["3"])
+    def test_filtered_window_walks_all_declared_pages(self) -> None:
+        first_page = """
+        <table><tr><td>100</td><td>Diário Oficial - Edição 100</td>
+        <td>Resumo oficial suficientemente longo da primeira edição.</td>
+        <td>01/01/2021</td><td><a href="/publicacao?referencia=1">Ver</a></td>
+        </tr></table><a href="?pagina=2&amp;filtered=1">2</a>
+        """.encode()
+        second_page = """
+        <table><tr><td>101</td><td>Diário Oficial - Edição 101</td>
+        <td>Resumo oficial suficientemente longo da segunda edição.</td>
+        <td>02/01/2021</td><td><a href="/publicacao?referencia=2">Ver</a></td>
+        </tr></table>
+        """.encode()
+
+        class Transport:
+            def __init__(self) -> None:
+                self.urls: list[str] = []
+                self.bodies = [first_page, second_page]
+
+            def get(self, url, **_kwargs):
+                self.urls.append(url)
+                return HttpResponse(200, {}, self.bodies.pop(0), url)
+
+        class RateLimiter:
+            @staticmethod
+            def acquire() -> None:
+                return None
+
+        transport = Transport()
+        pages = tuple(
+            OfficialDiaryCatalogClient(
+                transport=transport,  # type: ignore[arg-type]
+                rate_limiter=RateLimiter(),  # type: ignore[arg-type]
+            ).iter_window_pages(
+                published_since=date(2021, 1, 1),
+                published_until=date(2021, 1, 7),
+            )
+        )
+
+        self.assertEqual([len(page.publications) for page in pages], [1, 1])
+        self.assertEqual(len(transport.urls), 2)
+        self.assertIn("pagina=2", transport.urls[1])
     def test_storage_uses_existing_gazette_corridor(self) -> None:
         body = b"<html>catalogo</html>"
         digest = sha256(body).hexdigest()
