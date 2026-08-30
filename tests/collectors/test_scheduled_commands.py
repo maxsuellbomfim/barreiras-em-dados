@@ -5,11 +5,15 @@ import tempfile
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from barreiras_collectors.commands.resolve_collection_window import (
     CollectionWindow,
     resolve_collection_window,
     write_github_output,
+)
+from barreiras_collectors.commands.resolve_collection_window import (
+    main as resolve_collection_window_main,
 )
 from barreiras_collectors.commands.write_failure_record import (
     build_failure_record,
@@ -63,6 +67,23 @@ class ResolveCollectionWindowTests(unittest.TestCase):
             self.assertEqual(
                 output_path.read_text(encoding="utf-8"),
                 "since=2026-07-30\nuntil=2026-07-30\nmode=recent\n",
+            )
+
+    def test_explicit_manual_window_is_written_as_backfill(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "github-output.txt"
+            with patch.dict(
+                "os.environ",
+                {"GITHUB_OUTPUT": str(output_path)},
+            ):
+                exit_code = resolve_collection_window_main(
+                    ["--since", "2021-01-01", "--until", "2021-01-07"]
+                )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                output_path.read_text(encoding="utf-8"),
+                "since=2021-01-01\nuntil=2021-01-07\nmode=backfill\n",
             )
 
 

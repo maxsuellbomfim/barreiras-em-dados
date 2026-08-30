@@ -61,6 +61,8 @@ def resolve_collection_window(
 def write_github_output(
     window: CollectionWindow,
     environment: Mapping[str, str],
+    *,
+    mode: str = "recent",
 ) -> None:
     raw_path = environment.get("GITHUB_OUTPUT", "").strip()
     if not raw_path:
@@ -69,7 +71,7 @@ def write_github_output(
     with output_path.open("a", encoding="utf-8", newline="\n") as output:
         output.write(f"since={window.since}\n")
         output.write(f"until={window.until}\n")
-        output.write("mode=recent\n")
+        output.write(f"mode={mode}\n")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -81,7 +83,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         window = resolve_collection_window(arguments.since, arguments.until)
     except ValueError as error:
         parser.error(str(error))
-    write_github_output(window, os.environ)
+    write_github_output(
+        window,
+        os.environ,
+        mode="backfill" if arguments.since.strip() else "recent",
+    )
     print(
         json.dumps(
             {
