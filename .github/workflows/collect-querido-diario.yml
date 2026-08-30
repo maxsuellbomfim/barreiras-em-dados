@@ -113,7 +113,7 @@ jobs:
       - name: Coletar e preservar
         id: querido_diario
         # A API complementar pode ficar indisponível sem bloquear as fontes
-        # oficiais. O backfill continua exigindo esta etapa no gate final.
+        # oficiais. A falha permanece visível na DLQ, mas não trava o backfill.
         continue-on-error: true
         if: steps.window.outputs.skip != 'true'
         env:
@@ -128,12 +128,24 @@ jobs:
 
       - name: Preservar catálogo oficial do Diário
         id: official_catalog
-        # A indisponibilidade do catálogo não pode impedir OCR e publicação
-        # de artefatos já preservados. A falha volta a ser sinalizada no fim.
+        # A fonte primária cobre também o backfill. A API do Querido Diário é
+        # complementar e nunca pode impedir a descoberta oficial por período.
         continue-on-error: true
-        if: steps.window.outputs.mode != 'backfill'
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_official_diary_catalog
+        if: steps.window.outputs.skip != 'true'
+        env:
+          COLLECTION_MODE: ${{ steps.window.outputs.mode }}
+          COLLECTION_SINCE: ${{ steps.window.outputs.since }}
+          COLLECTION_UNTIL: ${{ steps.window.outputs.until }}
+        run: |
+          if [ "${COLLECTION_MODE}" = "backfill" ]; then
+            python -B -m \
+              barreiras_collectors.commands.collect_official_diary_catalog \
+              --since "${COLLECTION_SINCE}" \
+              --until "${COLLECTION_UNTIL}"
+          else
+            python -B -m \
+              barreiras_collectors.commands.collect_official_diary_catalog
+          fi
 
       - name: Coletar edições diretas do Diário
         id: direct_diary
@@ -143,14 +155,14 @@ jobs:
         # O catálogo fornece os números existentes; a sonda direta completa a
         # descoberta sem presumir que todas as numerações sejam contíguas.
         # O backfill não deve repetir essas chamadas várias vezes por dia.
-        if: steps.window.outputs.mode != 'backfill'
+        if: steps.window.outputs.skip != 'true'
         run: >-
           python -B -m barreiras_collectors.commands.collect_direct_diary
 
       - name: Preparar texto e candidatos determinísticos
         # PDFs com texto são concluídos aqui; PDFs escaneados registram as
         # páginas pendentes para o OCR logo abaixo, ainda nesta execução.
-        if: steps.window.outputs.mode != 'backfill'
+        if: steps.window.outputs.skip != 'true'
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
         run: >-
@@ -158,7 +170,7 @@ jobs:
           --limit 30
 
       - name: OCR das páginas escaneadas
-        if: steps.window.outputs.mode != 'backfill'
+        if: steps.window.outputs.skip != 'true'
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
         run: >-
@@ -167,7 +179,7 @@ jobs:
 
       - name: Extrair candidatos determinísticos após OCR
         id: extract
-        if: steps.window.outputs.mode != 'backfill'
+        if: steps.window.outputs.skip != 'true'
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
         run: >-
@@ -190,7 +202,7 @@ jobs:
           --limit 25
 
       - name: Publicar candidatos verificados por código (ADR 0012)
-        if: steps.window.outputs.mode != 'backfill'
+        if: steps.window.outputs.skip != 'true'
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
         run: >-
@@ -198,7 +210,7 @@ jobs:
           --limit 20
 
       - name: Organizar edições em documentos integrais
-        if: steps.window.outputs.mode != 'backfill'
+        if: steps.window.outputs.skip != 'true'
         env:
           PYTHONPATH: workers/collectors/src:workers/document-processing/src
           INTEGRAL_LIMIT: ${{ inputs.integral_limit || '300' }}
@@ -222,7 +234,6 @@ jobs:
       - name: Registrar indisponibilidade da API complementar
         if: >-
           always() &&
-          steps.window.outputs.mode != 'backfill' &&
           steps.querido_diario.outcome == 'failure'
         env:
           COLLECTION_SINCE: ${{ steps.window.outputs.since }}
@@ -235,7 +246,6 @@ jobs:
       - name: Preservar DLQ da API complementar
         if: >-
           always() &&
-          steps.window.outputs.mode != 'backfill' &&
           steps.querido_diario.outcome == 'failure'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -247,21 +257,13 @@ jobs:
       - name: Sinalizar falha obrigatória das fontes
         if: >-
           always() &&
+          steps.window.outputs.skip != 'true' &&
           (
-            (
-              steps.querido_diario.outcome == 'failure' &&
-              steps.window.outputs.mode == 'backfill'
-            ) ||
-            (
-              steps.window.outputs.mode != 'backfill' &&
-              (
-                steps.official_catalog.outcome == 'failure' ||
-                steps.direct_diary.outcome == 'failure'
-              )
-            )
+            steps.official_catalog.outcome == 'failure' ||
+            steps.direct_diary.outcome == 'failure'
           )
         run: |
-          echo "O backfill complementar ou uma fonte oficial falhou; os artefatos disponíveis foram processados."
+          echo "Uma fonte oficial falhou; os artefatos disponíveis foram processados."
           exit 1
 
       - name: Registrar falha sanitizada

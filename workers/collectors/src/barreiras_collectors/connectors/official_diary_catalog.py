@@ -10,11 +10,11 @@ import hashlib
 import html
 import re
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from html.parser import HTMLParser
-from urllib.parse import urljoin
+from urllib.parse import urlencode, urljoin
 
 from ..http import HttpTransport, UrllibTransport, validate_https_url
 from ..resilience import (
@@ -65,6 +65,47 @@ class OfficialCatalogSnapshot:
 
 def _clean(value: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(value)).strip()
+
+
+def build_catalog_url(
+    *,
+    published_since: date | None = None,
+    published_until: date | None = None,
+    page: int = 1,
+) -> str:
+    """Monta uma consulta oficial, mantendo datas e paginação auditáveis."""
+    if (published_since is None) != (published_until is None):
+        raise ValueError(
+            "published_since e published_until devem ser informados juntos."
+        )
+    if published_since is not None and published_since > published_until:
+        raise ValueError(
+            "published_since não pode ser posterior a published_until."
+        )
+    if page < 1:
+        raise ValueError("page deve ser positivo.")
+    if published_since is None and page == 1:
+        return CATALOG_URL
+    params: list[tuple[str, str]] = []
+    if published_since is not None and published_until is not None:
+        params.extend(
+            (
+                ("data_inicial", published_since.strftime("%d/%m/%Y")),
+                ("data_final", published_until.strftime("%d/%m/%Y")),
+                ("filtered", "1"),
+            )
+        )
+    params.append(("pagina", str(page)))
+    url = f"{CATALOG_URL}?{urlencode(params)}"
+    validate_https_url(url, ALLOWED_HOSTS)
+    return url
+
+
+def catalog_page_count(body: bytes) -> int:
+    """Obtém a última página declarada; ausência de paginação significa uma."""
+    decoded = html.unescape(body.decode("utf-8", errors="replace"))
+    pages = [int(value) for value in re.findall(r"[?&]pagina=(\d+)", decoded)]
+    return max(pages, default=1)
 
 
 def _iso_date(value: str) -> str | None:
@@ -123,11 +164,15 @@ class _CatalogParser(HTMLParser):
 
 
 def parse_catalog_html(
-    body: bytes, *, base_url: str = CATALOG_URL
+    body: bytes,
+    *,
+    base_url: str = CATALOG_URL,
+    allow_explicit_empty: bool = False,
 ) -> tuple[OfficialPublication, ...]:
     """Valida e normaliza o catálogo oficial, sem inferir dados do PDF."""
+    decoded = body.decode("utf-8", errors="replace")
     parser = _CatalogParser()
-    parser.feed(body.decode("utf-8", errors="replace"))
+    parser.feed(decoded)
     parsed: list[OfficialPublication] = []
     seen: set[tuple[int, str]] = set()
     for cells, hrefs in parser.rows:
@@ -196,6 +241,13 @@ def parse_catalog_html(
             )
         )
     if not parsed:
+        normalized = _clean(decoded).casefold()
+        explicit_empty = (
+            "nenhum registro cadastrado ou compatível com a sua filtragem"
+            in normalized
+        )
+        if allow_explicit_empty and explicit_empty:
+            return ()
         raise ValueError(
             "O catálogo oficial não contém publicações reconhecíveis."
         )
@@ -228,7 +280,48 @@ class OfficialDiaryCatalogClient:
         self.now = now
         self.random_value = random_value
 
-    def fetch(self) -> OfficialCatalogSnapshot:
+    def fetch(
+        self,
+        *,
+        published_since: date | None = None,
+        published_until: date | None = None,
+        page: int = 1,
+    ) -> OfficialCatalogSnapshot:
+        request_url = build_catalog_url(
+            published_since=published_since,
+            published_until=published_until,
+            page=page,
+        )
+        return self._fetch_url(
+            request_url,
+            allow_explicit_empty=published_since is not None,
+        )
+
+    def iter_window_pages(
+        self,
+        *,
+        published_since: date,
+        published_until: date,
+    ) -> Iterator[OfficialCatalogSnapshot]:
+        """Percorre todas as páginas de uma janela oficial filtrada."""
+        first = self.fetch(
+            published_since=published_since,
+            published_until=published_until,
+        )
+        yield first
+        for page in range(2, catalog_page_count(first.raw_body) + 1):
+            yield self.fetch(
+                published_since=published_since,
+                published_until=published_until,
+                page=page,
+            )
+
+    def _fetch_url(
+        self,
+        request_url: str,
+        *,
+        allow_explicit_empty: bool,
+    ) -> OfficialCatalogSnapshot:
         try:
             self.circuit_breaker.before_request()
         except CircuitOpenError:
@@ -239,7 +332,7 @@ class OfficialDiaryCatalogClient:
             requested_at = self.now().isoformat()
             try:
                 response = self.transport.get(
-                    CATALOG_URL,
+                    request_url,
                     headers={"User-Agent": "Barreiras360-Collector/1.0"},
                     timeout_seconds=self.timeout_seconds,
                     max_body_bytes=self.max_body_bytes,
@@ -253,10 +346,12 @@ class OfficialDiaryCatalogClient:
             if response.status == 200:
                 self.circuit_breaker.record_success()
                 publications = parse_catalog_html(
-                    response.body, base_url=response.final_url
+                    response.body,
+                    base_url=response.final_url,
+                    allow_explicit_empty=allow_explicit_empty,
                 )
                 return OfficialCatalogSnapshot(
-                    request_url=CATALOG_URL,
+                    request_url=request_url,
                     final_url=response.final_url,
                     requested_at=requested_at,
                     received_at=received_at,

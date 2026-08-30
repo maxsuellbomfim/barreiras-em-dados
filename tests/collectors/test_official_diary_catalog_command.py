@@ -65,6 +65,7 @@ class OfficialDiaryCatalogCommandTests(unittest.TestCase):
                 "publications": 27,
                 "inserted_records": 10,
                 "existing_records": 17,
+                "pages": 1,
             },
         )
 
@@ -90,6 +91,22 @@ class OfficialDiaryCatalogCommandTests(unittest.TestCase):
         self.assertRegex(str(control.failure[1]), "autenticação")
         self.assertIsNone(control.completed)
 
+    def test_explicit_empty_window_is_not_reported_as_complete(self) -> None:
+        control = ControlProbe()
+
+        summary = command.execute_controlled_catalog(
+            control=control,  # type: ignore[arg-type]
+            operation=lambda: command.OfficialDiaryCatalogSummary(
+                publications=0,
+                inserted_records=0,
+                existing_records=0,
+                artifact_sha256="a" * 64,
+            ),
+        )
+
+        self.assertEqual(summary.publications, 0)
+        self.assertEqual(control.completed["outcome"], CollectionOutcome.EMPTY)
+        self.assertEqual(control.completed["observed_records"], 0)
 
 if __name__ == "__main__":
     unittest.main()

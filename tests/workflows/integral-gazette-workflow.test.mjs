@@ -23,7 +23,7 @@ test("coleta diária organiza o integral sem depender de IA", () => {
   assert.doesNotMatch(segmentBlock, /GROQ_API_KEY|OPENROUTER_API_KEY|GEMINI_API_KEY|NVIDIA_API_KEY/);
 });
 
-test("indisponibilidade do Querido Diário não bloqueia as fontes oficiais", () => {
+test("falha da API complementar vai para a DLQ e apenas fontes oficiais bloqueiam", () => {
   assert.match(
     collectWorkflow,
     /name: Coletar e preservar[\s\S]*?id: querido_diario[\s\S]*?continue-on-error: true/,
@@ -32,14 +32,15 @@ test("indisponibilidade do Querido Diário não bloqueia as fontes oficiais", ()
     collectWorkflow,
     /name: Coletar edições diretas do Diário[\s\S]*?id: direct_diary[\s\S]*?continue-on-error: true/,
   );
-  assert.match(
-    collectWorkflow,
-    /steps\.querido_diario\.outcome == 'failure'[\s\S]*?steps\.window\.outputs\.mode == 'backfill'/,
-  );
-  assert.match(
-    collectWorkflow,
-    /steps\.official_catalog\.outcome == 'failure'[\s\S]*?steps\.direct_diary\.outcome == 'failure'/,
-  );
+  const dlqStart = collectWorkflow.indexOf("name: Preservar DLQ da API complementar");
+  const mandatoryStart = collectWorkflow.indexOf("name: Sinalizar falha obrigatória das fontes");
+  const mandatoryEnd = collectWorkflow.indexOf("name: Registrar falha sanitizada", mandatoryStart);
+  const dlqBlock = collectWorkflow.slice(dlqStart, mandatoryStart);
+  const mandatoryBlock = collectWorkflow.slice(mandatoryStart, mandatoryEnd);
+  assert.match(dlqBlock, /steps\.querido_diario\.outcome == 'failure'/);
+  assert.match(mandatoryBlock, /steps\.official_catalog\.outcome == 'failure'/);
+  assert.match(mandatoryBlock, /steps\.direct_diary\.outcome == 'failure'/);
+  assert.doesNotMatch(mandatoryBlock, /steps\.querido_diario\.outcome/);
 });
 
 test("backfill preserva o bruto e retoma por limites independentes", () => {
