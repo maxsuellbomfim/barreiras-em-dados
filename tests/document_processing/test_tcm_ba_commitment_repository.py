@@ -39,11 +39,14 @@ class RecordingConnection:
     def __init__(self) -> None:
         self.queries: list[tuple[str, object]] = []
         self.pending_rows = []
+        self.coverage_row = None
         self.job_row = {"id": "00000000-0000-0000-0000-000000000905"}
 
     def execute(self, query, params=None):
         normalized = " ".join(query.split())
         self.queries.append((normalized, params))
+        if "commitment_coverage_eligible" in normalized:
+            return Cursor(row=self.coverage_row)
         if "with tcm_artifacts as" in normalized:
             return Cursor(rows=self.pending_rows)
         if "insert into raw.extraction_jobs" in normalized:
@@ -146,6 +149,33 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
         assert params is not None
         self.assertEqual(params[1], EXTRACTOR_VERSION)
         self.assertNotIn("123.456.789-09", str(params))
+
+    def test_coverage_reconciles_ready_artifacts_and_current_results(self) -> None:
+        self.connection.coverage_row = {
+            "eligible_artifacts": 10,
+            "processed_artifacts": 10,
+            "candidate_results": 2,
+            "complete_candidates": 1,
+            "incomplete_candidates": 1,
+            "zero_candidate_artifacts": 8,
+            "missing_artifacts": 0,
+            "duplicate_results": 0,
+            "invalid_results": 0,
+            "open_failures": 0,
+        }
+
+        coverage = self.repository.commitment_coverage()
+
+        self.assertTrue(coverage.complete)
+        query = next(
+            query
+            for query, _params in self.connection.queries
+            if "commitment_coverage_eligible" in query
+        )
+        self.assertIn("zero_candidate_artifacts", query)
+        self.assertIn("jsonb_typeof", query)
+        self.assertIn("coalesce(validation_status, '')", query)
+        self.assertIn("is distinct from 'array'", query)
 
     def test_rejects_page_without_verified_text_hash(self) -> None:
         self.connection.pending_rows = [

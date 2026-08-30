@@ -188,6 +188,34 @@ function Invoke-TcmBaCommitmentCandidateProcessing {
         throw "O processador de candidatos TCM-BA terminou com código $candidateExitCode."
     }
 }
+function Invoke-TcmBaCommitmentCandidateCoverage {
+    param(
+        [string]$Python,
+        [string]$ProjectRoot
+    )
+
+    Push-Location $ProjectRoot
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $coverageOutput = @(
+                & $Python -B -m barreiras_docproc.commands.report_tcm_ba_commitments 2>&1
+            )
+            $coverageExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    $coverageOutput | ForEach-Object { Write-Host $_ }
+    if ($coverageExitCode -ne 0) {
+        throw "A cobertura dos candidatos de empenho TCM-BA foi bloqueada."
+    }
+}
 function Invoke-TcmBaDocumentFamilyInventory {
     param(
         [string]$Python,
@@ -642,6 +670,9 @@ try {
         -Python $python `
         -ProjectRoot $projectRoot `
         -Limit $MaxDocuments
+    Invoke-TcmBaCommitmentCandidateCoverage `
+        -Python $python `
+        -ProjectRoot $projectRoot
     Write-Host "TCM_BA_DOCUMENT_PILOT_APPROVED" -ForegroundColor Green
 }
 finally {

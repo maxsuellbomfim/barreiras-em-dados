@@ -217,6 +217,14 @@ jobs:
           barreiras_docproc.commands.process_tcm_ba_commitments
           --limit "$TCM_MAX_DOCUMENTS"
 
+      - name: Reconciliar cobertura privada dos candidatos de empenho
+        if: steps.plan.outputs.competence != ''
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.report_tcm_ba_commitments
+
       - name: Aprovar lote auditado
         if: steps.plan.outputs.competence != ''
         run: echo "TCM_BA_DOCUMENT_PILOT_APPROVED"
@@ -311,6 +319,13 @@ jobs:
           python -B -m
           barreiras_docproc.commands.process_tcm_ba_commitments
           --limit "$TCM_MAX_DOCUMENTS"
+
+      - name: Reconciliar cobertura privada dos candidatos de empenho
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.report_tcm_ba_commitments
 
       - name: Aprovar processamento privado do backlog
         run: echo "TCM_BA_COMMITMENT_BACKLOG_APPROVED"
@@ -437,6 +452,13 @@ jobs:
           python -B -m
           barreiras_docproc.commands.process_tcm_ba_commitments
           --limit "$TCM_MAX_DOCUMENTS"
+
+      - name: Reconciliar cobertura privada dos candidatos de empenho
+        env:
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+        run: >-
+          python -B -m
+          barreiras_docproc.commands.report_tcm_ba_commitments
 
       - name: Aprovar páginas preservadas e candidatos privados
         run: echo "TCM_BA_PRESERVED_PAGES_APPROVED"

@@ -47,6 +47,34 @@ class TcmBaCommitmentPersistResult:
     results_inserted: int
 
 
+@dataclass(frozen=True)
+class TcmBaCommitmentCoverage:
+    eligible_artifacts: int
+    processed_artifacts: int
+    candidate_results: int
+    complete_candidates: int
+    incomplete_candidates: int
+    zero_candidate_artifacts: int
+    missing_artifacts: int
+    duplicate_results: int
+    invalid_results: int
+    open_failures: int
+
+    @property
+    def complete(self) -> bool:
+        return (
+            self.eligible_artifacts > 0
+            and self.processed_artifacts == self.eligible_artifacts
+            and self.candidate_results
+            == self.complete_candidates + self.incomplete_candidates
+            and 0 <= self.zero_candidate_artifacts <= self.processed_artifacts
+            and self.missing_artifacts == 0
+            and self.duplicate_results == 0
+            and self.invalid_results == 0
+            and self.open_failures == 0
+        )
+
+
 class TcmBaCommitmentRepository(Protocol):
     def persist_tcm_ba_commitment_candidates(
         self,

@@ -4,6 +4,7 @@ import unittest
 
 from barreiras_docproc.processing import PageInput, TextArtifact
 from barreiras_docproc.tcm_ba_commitments import (
+    TcmBaCommitmentCoverage,
     commitment_candidate_payload,
     find_commitment_candidates,
 )
@@ -19,6 +20,53 @@ def page(text: str, *, page_number: int = 1) -> PageInput:
 
 
 class TcmBaCommitmentCandidateTests(unittest.TestCase):
+    def test_coverage_requires_every_ready_artifact_without_requiring_candidates(
+        self,
+    ) -> None:
+        coverage = TcmBaCommitmentCoverage(
+            eligible_artifacts=373,
+            processed_artifacts=373,
+            candidate_results=0,
+            complete_candidates=0,
+            incomplete_candidates=0,
+            zero_candidate_artifacts=373,
+            missing_artifacts=0,
+            duplicate_results=0,
+            invalid_results=0,
+            open_failures=0,
+        )
+
+        self.assertTrue(coverage.complete)
+
+    def test_coverage_blocks_missing_duplicate_invalid_or_failed_results(
+        self,
+    ) -> None:
+        baseline = dict(
+            eligible_artifacts=10,
+            processed_artifacts=10,
+            candidate_results=2,
+            complete_candidates=1,
+            incomplete_candidates=1,
+            zero_candidate_artifacts=8,
+            missing_artifacts=0,
+            duplicate_results=0,
+            invalid_results=0,
+            open_failures=0,
+        )
+        variants = (
+            {"processed_artifacts": 9, "missing_artifacts": 1},
+            {"duplicate_results": 1},
+            {"invalid_results": 1},
+            {"open_failures": 1},
+            {"complete_candidates": 0},
+        )
+
+        for overrides in variants:
+            with self.subTest(overrides=overrides):
+                snapshot = TcmBaCommitmentCoverage(
+                    **(baseline | overrides),
+                )
+                self.assertFalse(snapshot.complete)
     def test_rejects_contract_clause_that_only_mentions_commitment_note(self) -> None:
         candidates = find_commitment_candidates(
             (
