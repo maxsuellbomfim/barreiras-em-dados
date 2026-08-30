@@ -789,6 +789,18 @@ elegível, o evento registra cobertura `complete` e não inventa um mês vazio.
 Para consultar o avanço sem abrir sessão no e-TCM nem alterar o banco:
 
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tcm-ba-document-pilot.ps1 -AutoCompetence -PlanOnly
+
+Para auditar novamente o último lote de uma competência sem coletar ou alterar
+qualquer registro:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tcm-ba-document-pilot.ps1 -Competence 01/2021 -AuditOnly
+
+O modo `AuditOnly` exige um único evento `PASS` da competência exata. Ele abre o
+banco somente para leitura, baixa os XMLs e PDFs do último lote, recalcula tamanho
+e SHA-256 e confere cobertura, linhagem, tipos de mídia e falhas abertas. O modo
+`ReportOnly` continua reservado ao relatório agregado de páginas processadas;
+ele não substitui a auditoria física.
+
 Cada rodada preserva XML e PDF, fecha a execução como `partial` enquanto houver
 itens pendentes e chama o auditor relacional e físico antes do selo de
 aprovação. Ausência de objetos, divergência de hash, tamanho, MIME, linhagem ou
