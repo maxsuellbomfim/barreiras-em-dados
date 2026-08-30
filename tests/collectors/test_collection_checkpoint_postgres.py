@@ -255,6 +255,24 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
         self.assertEqual(params, (2021,))
         self.assertTrue(connection.closed)
 
+    def test_tcm_document_planner_reports_blocked_incomplete_backlog(self) -> None:
+        connection = CheckpointConnection({"blocked": True})
+        repository = PostgresCollectionRepository(lambda: connection)
+
+        self.assertTrue(
+            repository.tcm_ba_document_backlog_blocked(year_from=2021)
+        )
+
+        query, params = connection.calls[0]
+        normalized = " ".join(query.lower().split())
+        self.assertIn("select exists", normalized)
+        self.assertIn("catalog.status = 'complete'", normalized)
+        self.assertIn("documents.status <> 'complete'", normalized)
+        self.assertIn("source.collection_failures", normalized)
+        self.assertIn("failure.status <> 'resolved'", normalized)
+        self.assertEqual(params, (2021,))
+        self.assertTrue(connection.closed)
+
 
 if __name__ == "__main__":
     unittest.main()

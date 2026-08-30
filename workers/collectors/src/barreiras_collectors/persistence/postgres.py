@@ -438,6 +438,85 @@ class PostgresCollectionRepository:
         finally:
             connection.close()
 
+    def tcm_ba_document_backlog_blocked(
+        self,
+        *,
+        year_from: int = 2021,
+    ) -> bool:
+        """Indica backlog documental incompleto adiado por falha ativa."""
+        if year_from < 2000 or year_from > 2100:
+            raise ValueError("year_from deve estar entre 2000 e 2100.")
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select exists (
+                  select 1
+                  from source.collection_partitions as catalog
+                  join source.source_endpoints as endpoint
+                    on endpoint.id = catalog.source_endpoint_id
+                  join source.data_sources as source
+                    on source.id = endpoint.data_source_id
+                  join source.collection_runs as catalog_run
+                    on catalog_run.id = catalog.collection_run_id
+                  left join source.collection_partitions as documents
+                    on documents.source_endpoint_id = catalog.source_endpoint_id
+                   and documents.partition_key = replace(
+                         catalog.partition_key,
+                         'competence:',
+                         'documents:'
+                       )
+                  where source.slug = 'tcm-ba'
+                    and endpoint.slug = 'prestacoes-contas-mensais'
+                    and catalog.partition_key ~
+                      '^competence:[0-9]{4}-[0-9]{2}$'
+                    and catalog.period_start >= make_date(%s, 1, 1)
+                    and catalog.status = 'complete'
+                    and catalog.completed_at is not null
+                    and catalog.observed_records > 0
+                    and catalog_run.status = 'succeeded'
+                    and catalog_run.metrics ->> 'collection_outcome' = 'complete'
+                    and (
+                      documents.id is null
+                      or documents.status <> 'complete'
+                      or documents.completed_at is null
+                      or documents.observed_records < catalog.observed_records
+                    )
+                    and exists (
+                      select 1
+                      from source.collection_failures as failure
+                      where failure.source_endpoint_id =
+                        catalog.source_endpoint_id
+                        and (
+                          failure.partition_key = replace(
+                            catalog.partition_key,
+                            'competence:',
+                            'documents:'
+                          )
+                          or failure.error_type = 'TcmBaError'
+                        )
+                        and failure.status <> 'resolved'
+                        and (
+                          failure.status = 'dead_lettered'
+                          or not failure.retryable
+                          or coalesce(
+                            failure.next_retry_at,
+                            failure.failed_at + interval '1 hour'
+                          ) > statement_timestamp()
+                        )
+                    )
+                ) as blocked
+                """,
+                (year_from,),
+            ).fetchone()
+            if row is None or not isinstance(row.get("blocked"), bool):
+                raise PersistenceContractError(
+                    "O bloqueio do backlog documental TCM-BA é inválido."
+                )
+            return bool(row["blocked"])
+        finally:
+            connection.close()
+
     def tcm_ba_document_audit_snapshot(
         self,
         *,

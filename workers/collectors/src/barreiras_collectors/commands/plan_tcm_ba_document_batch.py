@@ -30,11 +30,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     repository = PostgresCollectionRepository.from_dsn(database_url)
     competence = repository.next_tcm_ba_document_competence(year_from=args.year_from)
     if args.report:
+        blocked_backlog = (
+            repository.tcm_ba_document_backlog_blocked(year_from=args.year_from)
+            if competence is None
+            else False
+        )
         report: dict[str, object] = {
             "event": "tcm_ba_document_plan",
             "competence": competence,
-            "coverage_status": "complete" if competence is None else "partial",
+            "coverage_status": (
+                "blocked"
+                if blocked_backlog
+                else "complete" if competence is None else "partial"
+            ),
         }
+        if blocked_backlog:
+            report["block_reason"] = "collection_retry_or_failure"
         if competence is not None:
             selection = repository.tcm_ba_document_references(
                 competence=competence,

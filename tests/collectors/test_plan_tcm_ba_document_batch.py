@@ -92,6 +92,7 @@ class PlanTcmBaDocumentBatchCommandTests(unittest.TestCase):
     def test_report_marks_complete_without_inventing_competence(self) -> None:
         repository = Mock()
         repository.next_tcm_ba_document_competence.return_value = None
+        repository.tcm_ba_document_backlog_blocked.return_value = False
         with (
             patch.dict(os.environ, {"DATABASE_URL": "postgresql://db.example.invalid/test"}),
             patch.object(
@@ -113,6 +114,38 @@ class PlanTcmBaDocumentBatchCommandTests(unittest.TestCase):
             },
         )
         repository.tcm_ba_document_references.assert_not_called()
+        repository.tcm_ba_document_backlog_blocked.assert_called_once_with(
+            year_from=2021
+        )
+
+    def test_report_marks_blocked_backlog_without_inventing_completion(self) -> None:
+        repository = Mock()
+        repository.next_tcm_ba_document_competence.return_value = None
+        repository.tcm_ba_document_backlog_blocked.return_value = True
+        with (
+            patch.dict(os.environ, {"DATABASE_URL": "postgresql://db.example.invalid/test"}),
+            patch.object(
+                plan_tcm_ba_document_batch.PostgresCollectionRepository,
+                "from_dsn",
+                return_value=repository,
+            ),
+            redirect_stdout(io.StringIO()) as output,
+        ):
+            result = plan_tcm_ba_document_batch.main(["--report"])
+
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            json.loads(output.getvalue()),
+            {
+                "event": "tcm_ba_document_plan",
+                "competence": None,
+                "coverage_status": "blocked",
+                "block_reason": "collection_retry_or_failure",
+            },
+        )
+        repository.tcm_ba_document_backlog_blocked.assert_called_once_with(
+            year_from=2021
+        )
 
     def test_refuses_missing_database_url(self) -> None:
         with patch.dict(os.environ, {"DATABASE_URL": ""}):
