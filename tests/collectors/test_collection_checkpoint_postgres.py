@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from barreiras_collectors.persistence.postgres import PostgresCollectionRepository
 
@@ -93,6 +93,38 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
                 for query in queries
             )
         )
+        failure_call = next(
+            (query, params)
+            for query, params in connection.calls
+            if "insert into source.collection_failures" in query.lower()
+        )
+        self.assertIn("next_retry_at", failure_call[0].lower())
+        self.assertIn(completed_at + timedelta(hours=1), failure_call[1])
+        self.assertTrue(connection.closed)
+
+    def test_failed_retryable_run_persists_retry_time(self) -> None:
+        connection = CompletionConnection(None)
+        repository = PostgresCollectionRepository(lambda: connection)
+        failed_at = datetime(2026, 8, 30, 2, 9, tzinfo=UTC)
+
+        repository.fail_controlled_run(
+            run_id="00000000-0000-0000-0000-000000000012",
+            partition_key="documents:2021-01",
+            period_start=date(2021, 1, 1),
+            period_end=date(2021, 1, 31),
+            error_type="TcmBaError",
+            error_detail="Falha de transporte após quatro tentativas.",
+            retryable=True,
+            failed_at=failed_at,
+        )
+
+        failure_call = next(
+            (query, params)
+            for query, params in connection.calls
+            if "insert into source.collection_failures" in query.lower()
+        )
+        self.assertIn("next_retry_at", failure_call[0].lower())
+        self.assertIn(failed_at + timedelta(hours=1), failure_call[1])
         self.assertTrue(connection.closed)
 
     def test_complete_partition_resolves_prior_failure(self) -> None:
