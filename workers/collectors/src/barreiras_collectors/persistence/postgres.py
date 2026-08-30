@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 from collections.abc import Callable, Mapping
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Protocol
 
 from ..connectors.direct_diary import DirectEditionTarget
@@ -835,15 +835,18 @@ class PostgresCollectionRepository:
                 )
                 if partial_failure is not None:
                     retryable = bool(partial_failure["retryable"])
+                    next_retry_at = (
+                        completed_at + timedelta(hours=1) if retryable else None
+                    )
                     connection.execute(
                         """
                         insert into source.collection_failures (
                           collection_run_id, source_endpoint_id, partition_key,
                           status, error_type, error_detail, attempt_count,
-                          retryable, failed_at
+                          retryable, next_retry_at, failed_at
                         ) values (
                           %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s,
-                          %s::timestamptz
+                          %s::timestamptz, %s::timestamptz
                         )
                         on conflict (collection_run_id) do update
                         set status = excluded.status,
@@ -851,6 +854,7 @@ class PostgresCollectionRepository:
                             error_detail = excluded.error_detail,
                             attempt_count = excluded.attempt_count,
                             retryable = excluded.retryable,
+                            next_retry_at = excluded.next_retry_at,
                             failed_at = excluded.failed_at,
                             resolved_at = null,
                             resolution_run_id = null
@@ -864,6 +868,7 @@ class PostgresCollectionRepository:
                             str(partial_failure["error_detail"]),
                             int(run["attempt_count"]),
                             retryable,
+                            next_retry_at,
                             completed_at,
                         ),
                     )
@@ -902,6 +907,7 @@ class PostgresCollectionRepository:
     ) -> None:
         failure_status = "retry_scheduled" if retryable else "open"
         run_status = "retry_scheduled" if retryable else "failed"
+        next_retry_at = failed_at + timedelta(hours=1) if retryable else None
         connection = self.connection_factory()
         try:
             with connection.transaction():
@@ -935,10 +941,10 @@ class PostgresCollectionRepository:
                     insert into source.collection_failures (
                       collection_run_id, source_endpoint_id, partition_key,
                       status, error_type, error_detail, attempt_count,
-                      retryable, failed_at
+                      retryable, next_retry_at, failed_at
                     ) values (
                       %s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s,
-                      %s::timestamptz
+                      %s::timestamptz, %s::timestamptz
                     )
                     on conflict (collection_run_id) do nothing
                     """,
@@ -951,6 +957,7 @@ class PostgresCollectionRepository:
                         error_detail,
                         int(run["attempt_count"]),
                         retryable,
+                        next_retry_at,
                         failed_at,
                     ),
                 )
