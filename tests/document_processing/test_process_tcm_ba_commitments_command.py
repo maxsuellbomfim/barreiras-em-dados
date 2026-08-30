@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import unittest
 
 from barreiras_docproc.commands.process_tcm_ba_commitments import (
@@ -67,28 +68,36 @@ class FakeService:
 class ProcessTcmBaCommitmentsCommandTests(unittest.TestCase):
     def test_zero_candidates_is_a_successful_processed_artifact(self) -> None:
         repository = FakeRepository((page_set("1"),))
+        logger = logging.getLogger("test_tcm_ba_commitment_private_events")
 
-        summary = run_batch(
-            repository=repository,
-            service=FakeService(),
-            limit=5,
-        )
+        with self.assertLogs(logger, level=logging.DEBUG) as captured:
+            summary = run_batch(
+                repository=repository,
+                service=FakeService(),
+                limit=5,
+                logger=logger,
+            )
 
         self.assertEqual(summary.pending_found, 1)
         self.assertEqual(summary.processed, 1)
         self.assertEqual(summary.results_inserted, 0)
         self.assertEqual(summary.failed, 0)
         self.assertEqual(batch_exit_code(summary), 0)
+        self.assertEqual(captured.records[0].levelno, logging.DEBUG)
+        self.assertEqual(captured.records[-1].levelno, logging.INFO)
 
     def test_failure_is_recorded_without_copying_exception_detail(self) -> None:
         failing = page_set("2")
         repository = FakeRepository((failing,))
 
-        summary = run_batch(
-            repository=repository,
-            service=FakeService(fail_sha=failing.artifact.sha256),
-            limit=5,
-        )
+        logger = logging.getLogger("test_tcm_ba_commitment_private_failure")
+        with self.assertLogs(logger, level=logging.ERROR) as captured:
+            summary = run_batch(
+                repository=repository,
+                service=FakeService(fail_sha=failing.artifact.sha256),
+                limit=5,
+                logger=logger,
+            )
 
         self.assertEqual(summary.failed, 1)
         self.assertEqual(batch_exit_code(summary), 1)
@@ -97,6 +106,7 @@ class ProcessTcmBaCommitmentsCommandTests(unittest.TestCase):
         self.assertEqual(code, "processing_error")
         self.assertEqual(detail, "RuntimeError: processing failure")
         self.assertNotIn("conteúdo sensível", detail)
+        self.assertNotIn(failing.artifact.sha256, "\n".join(captured.output))
 
     def test_empty_queue_is_not_treated_as_a_collection_failure(self) -> None:
         summary = run_batch(

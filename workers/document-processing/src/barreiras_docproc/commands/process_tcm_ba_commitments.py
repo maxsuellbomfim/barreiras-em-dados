@@ -12,6 +12,7 @@ from barreiras_collectors.logging import log_event
 from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
+from ..private_logging import configure_private_logging
 from ..tcm_ba_commitment_repository import (
     TcmBaCommitmentExtractionRepository,
     TcmBaCommitmentPageSet,
@@ -89,7 +90,6 @@ def run_batch(
                 log,
                 logging.ERROR,
                 "tcm_ba_commitment_candidate_failed",
-                artifact_hash=page_set.artifact.sha256,
                 error_code="processing_error",
                 error_type=type(error).__name__,
             )
@@ -100,9 +100,8 @@ def run_batch(
         results_inserted += result.results_inserted
         log_event(
             log,
-            logging.INFO,
+            logging.DEBUG,
             "tcm_ba_commitment_candidates_processed",
-            artifact_hash=page_set.artifact.sha256,
             pages=len(page_set.pages),
             job_created=result.job_created,
             candidates=result.results_inserted,
@@ -146,11 +145,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     collector_settings = CollectorSettings.from_env()
     persistence = PersistenceSettings.from_env()
-    logging.basicConfig(
-        level=getattr(logging, collector_settings.log_level),
-        format="%(message)s",
-        force=True,
-    )
+    configure_private_logging(collector_settings.log_level)
+
     if persistence.mode != "postgres-supabase":
         raise RuntimeError(
             "O processamento espacial TCM-BA requer Storage autenticado."

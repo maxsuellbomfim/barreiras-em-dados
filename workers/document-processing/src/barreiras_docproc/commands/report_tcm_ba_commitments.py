@@ -40,6 +40,7 @@ def field_breakdown_payload(
         "invalid_spatial_evidence": breakdown.invalid_spatial_evidence,
         "spatial_field_counts": {
             "issue_date": breakdown.spatial_issue_dates,
+            "creditor_name": breakdown.spatial_creditor_names,
             "amount_text": breakdown.spatial_amounts,
             "budget_allocation": breakdown.spatial_budget_allocations,
         },

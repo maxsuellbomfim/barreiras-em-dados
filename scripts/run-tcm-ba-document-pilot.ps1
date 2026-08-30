@@ -7,6 +7,7 @@ param(
     [switch]$ReportOnly,
     [switch]$AuditOnly,
     [switch]$CommitmentReplayOnly,
+    [switch]$CommitmentCreditorBenchmarkOnly,
     [object]$RequestsPerMinute = 30,
     [string]$PythonPath = ""
 )
@@ -153,6 +154,30 @@ function Read-CommitmentCandidateEvents {
     }
     if ($events.Count -ne 1) {
         throw "O processador não produziu um único evento final de empenhos."
+    }
+    return $events[0]
+}
+function Read-CommitmentCreditorBenchmarkEvent {
+    param([object[]]$Output)
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -eq "tcm_ba_commitment_creditor_layout_benchmark") {
+            $events += $event
+        }
+    }
+    if ($events.Count -ne 1 -or $events[0].gate -ne "PASS") {
+        throw "O benchmark de credores não produziu um único gate aprovado."
     }
     return $events[0]
 }
@@ -385,15 +410,24 @@ if ($ReportOnly -and ($AutoCompetence -or $PlanOnly)) {
 }
 if (
     $AuditOnly -and
-    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $CommitmentReplayOnly)
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or
+        $CommitmentReplayOnly -or $CommitmentCreditorBenchmarkOnly)
 ) {
     throw "-AuditOnly não pode ser combinado com outro modo somente leitura."
 }
 if (
     $CommitmentReplayOnly -and
-    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly)
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
+        $CommitmentCreditorBenchmarkOnly)
 ) {
     throw "-CommitmentReplayOnly não pode ser combinado com outro modo."
+}
+if (
+    $CommitmentCreditorBenchmarkOnly -and
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
+        $CommitmentReplayOnly)
+) {
+    throw "-CommitmentCreditorBenchmarkOnly não pode ser combinado com outro modo."
 }
 if (
     -not $AutoCompetence -and
@@ -522,6 +556,32 @@ try {
         Invoke-TcmBaContractFieldCoverage -Python $python -ProjectRoot $projectRoot
         Invoke-TcmBaCommitmentCandidateCoverage -Python $python -ProjectRoot $projectRoot
         Write-Host "TCM_BA_DOCUMENT_REPORT_ONLY" -ForegroundColor Cyan
+        return
+    }
+    if ($CommitmentCreditorBenchmarkOnly) {
+        Push-Location $projectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $benchmarkOutput = @(
+                    & $python -B -m barreiras_docproc.commands.benchmark_tcm_ba_commitment_creditors --limit 500 2>&1
+                )
+                $benchmarkExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $benchmarkOutput | ForEach-Object { Write-Host $_ }
+        if ($benchmarkExitCode -ne 0) {
+            throw "O benchmark privado dos credores TCM-BA foi bloqueado."
+        }
+        Read-CommitmentCreditorBenchmarkEvent -Output $benchmarkOutput | Out-Null
+        Write-Host "TCM_BA_COMMITMENT_CREDITOR_BENCHMARK_APPROVED" -ForegroundColor Cyan
         return
     }
     if ($CommitmentReplayOnly) {
