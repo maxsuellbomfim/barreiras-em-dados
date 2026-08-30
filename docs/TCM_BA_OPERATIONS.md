@@ -764,12 +764,15 @@ workflow `collect-tcm-ba-documents.yml` permanece manual para diagnóstico e nã
 é tratado como mecanismo de cobertura. A drenagem automática usa uma tarefa do
 Windows, no mesmo ambiente em que os lotes reais foram validados.
 
-A tarefa `Barreiras360-TCMBA-Documents` executa no máximo um lote por hora, com
-até cinco documentos e limite fixo de 30 requisições por minuto. Ela roda apenas
-no usuário atual, em nível limitado, reutiliza o cofre DPAPI e ignora nova
-instância enquanto a anterior estiver ativa. Para instalar ou atualizar:
+A tarefa `Barreiras360-TCMBA-Documents` executa no máximo um lote a cada 15
+minutos, com até cinco documentos e limite fixo de 30 requisições por minuto.
+Ela roda apenas no usuário atual, em nível limitado, reutiliza o cofre DPAPI e
+ignora nova instância enquanto a anterior estiver ativa. A cadência mínima de 15
+minutos mantém no máximo vinte documentos por hora e não abre uma segunda
+execução se auditoria, OCR ou processamento ainda estiverem ativos. Para
+instalar ou atualizar:
 
-    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-tcm-ba-document-schedule.ps1 -IntervalHours 1 -StartNow
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-tcm-ba-document-schedule.ps1 -IntervalMinutes 15 -StartNow
 
 No agendamento local, um planejador somente leitura escolhe a competência cronológica
 mais antiga, a partir de 2021, que possua catálogo mensal completo e cobertura
@@ -817,6 +820,15 @@ relatório sanitizado e somente leitura confirmou cinco PDFs com páginas
 canônicas, 107 páginas totais, todas com texto embutido, nenhuma aguardando OCR
 e nenhum job de texto falho. O relatório retornou approved=true; nenhum conteúdo
 de página, credencial ou chave de objeto foi exposto.
+
+Em 30/08/2026, a rodada das 01h29 preservou mais cinco PDFs e cinco XMLs de
+preparação. A auditoria física releu os dez objetos, recomputou 16.410.792 bytes
+e dez hashes distintos, confirmou cinco vínculos exatos com o catálogo e zero
+falha aberta no lote. A competência `01/2021` avançou para 88 de 1.441 PDFs.
+Como a execução completa, incluindo extração, classificação e gates privados,
+terminou antes da janela seguinte, a cadência foi reduzida para 15 minutos sem
+alterar o teto de cinco documentos por lote, o pico de 30 RPM ou a proteção
+`IgnoreNew` contra sobreposição.
 
 ### Evidência da seleção automática local
 

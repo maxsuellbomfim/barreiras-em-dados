@@ -12,6 +12,12 @@ test("tarefa local usa DPAPI, seleção automática e limites fechados", () => {
   assert.match(script, /\.collector-credentials\.local\.json/);
   assert.match(script, /-AutoCompetence/);
   assert.match(script, /-MaxDocuments 5/);
+  assert.match(script, /\[ValidateRange\(15, 1440\)\]/);
+  assert.match(script, /\[int\]\$IntervalMinutes = 15/);
+  assert.match(
+    script,
+    /-RepetitionInterval \(New-TimeSpan -Minutes \$IntervalMinutes\)/,
+  );
   assert.match(script, /-RequestsPerMinute 30/);
   assert.match(script, /-MultipleInstances IgnoreNew/);
   assert.match(script, /-StartWhenAvailable/);
