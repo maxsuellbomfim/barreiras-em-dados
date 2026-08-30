@@ -951,7 +951,9 @@ class PostgresCollectionRepository:
                             completed_at,
                         ),
                     )
-                elif outcome in {"complete", "empty"}:
+                # A healthy partial batch proves that a prior incident recovered;
+                # the partition remains partial only because the controlled budget ended.
+                elif outcome in {"complete", "empty", "partial"}:
                     connection.execute(
                         """
                         update source.collection_failures

@@ -127,6 +127,38 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
         self.assertIn(failed_at + timedelta(hours=1), failure_call[1])
         self.assertTrue(connection.closed)
 
+    def test_successful_partial_progress_resolves_prior_failure(self) -> None:
+        connection = CompletionConnection(None)
+        repository = PostgresCollectionRepository(lambda: connection)
+        completed_at = datetime(2026, 8, 30, 5, 0, tzinfo=UTC)
+
+        repository.complete_controlled_run(
+            run_id="00000000-0000-0000-0000-000000000013",
+            partition_key="documents:2021-01",
+            period_start=date(2021, 1, 1),
+            period_end=date(2021, 1, 31),
+            outcome="partial",
+            observed_records=93,
+            checkpoint={"remaining_documents": 1348},
+            metrics={"documents_downloaded": 5},
+            block_reason=None,
+            partial_failure=None,
+            completed_at=completed_at,
+        )
+
+        update_calls = [
+            (query, params)
+            for query, params in connection.calls
+            if "update source.collection_failures" in query.lower()
+        ]
+        self.assertEqual(len(update_calls), 1)
+        query, params = update_calls[0]
+        self.assertIn("partition_key = %s", query.lower())
+        self.assertEqual(params[0], completed_at)
+        self.assertEqual(params[1], "00000000-0000-0000-0000-000000000013")
+        self.assertEqual(params[3], "documents:2021-01")
+        self.assertTrue(connection.closed)
+
     def test_complete_partition_resolves_prior_failure(self) -> None:
         connection = CompletionConnection(None)
         repository = PostgresCollectionRepository(lambda: connection)
