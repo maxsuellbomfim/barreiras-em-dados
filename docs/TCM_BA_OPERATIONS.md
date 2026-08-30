@@ -822,6 +822,21 @@ até 30 páginas escaneadas por rodada, com método declarado como OCR e versão
 tcm-ba-document-ocr-text/1.0.0. O texto OCR complementa a página nula sem
 substituir o registro do extrator PDF nem ocultar a técnica utilizada.
 
+### Cobertura privada dos candidatos de empenho
+
+Depois do processamento, `report_tcm_ba_commitments` reconcilia cada PDF com
+páginas verificadas contra o job idempotente da versão atual. O gate exige que
+todo artefato elegível tenha um job bem-sucedido e rejeita ausências,
+duplicidades, payloads inválidos e falhas abertas. Artefatos sem candidato são
+contados explicitamente, pois um extrator determinístico pode não reconhecer o
+leiaute sem que isso prove ausência de nota de empenho no documento.
+
+Em 30/08/2026, o primeiro fechamento encontrou 378 artefatos elegíveis, 228
+processados e 145 ausentes. O backlog foi drenado em lotes idempotentes de 50,
+50 e 45; a reconciliação final fechou 378 de 378, sem falhas. Como a versão
+atual ainda produziu zero candidatos, esse número permanece um diagnóstico do
+extrator, não uma conclusão financeira nem uma autorização de publicação.
+
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do

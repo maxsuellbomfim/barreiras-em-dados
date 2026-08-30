@@ -14,6 +14,7 @@ from .tcm_ba_commitments import (
     EXTRACTOR_VERSION,
     JOB_TYPE,
     TcmBaCommitmentBatch,
+    TcmBaCommitmentCoverage,
     TcmBaCommitmentPersistResult,
     commitment_candidate_payload,
 )
@@ -170,6 +171,210 @@ class TcmBaCommitmentExtractionRepository:
                 TcmBaCommitmentPageSet(artifact, tuple(pages))
                 for artifact, pages in grouped.values()
             )
+        finally:
+            connection.close()
+
+    def commitment_coverage(self) -> TcmBaCommitmentCoverage:
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                with tcm_artifacts as (
+                  select artifact.id, artifact.sha256
+                  from raw.raw_artifacts as artifact
+                  where artifact.artifact_kind = 'document'
+                    and artifact.metadata ->> 'schema_name'
+                        = 'tcm-ba-monthly-document'
+                    and artifact.content_type = 'application/pdf'
+                    and artifact.http_status between 200 and 299
+                ),
+                resolved_pages as (
+                  select base.raw_artifact_id,
+                    coalesce(base.text_content, ocr.text_content)
+                      as text_content,
+                    coalesce(base.text_sha256, ocr.text_sha256) as text_sha256
+                  from raw.document_pages as base
+                  join tcm_artifacts as artifact
+                    on artifact.id = base.raw_artifact_id
+                  left join lateral (
+                    select supplemental.text_content,
+                      supplemental.text_sha256
+                    from raw.document_pages as supplemental
+                    where supplemental.raw_artifact_id = base.raw_artifact_id
+                      and supplemental.page_number = base.page_number
+                      and supplemental.parser_version = %s
+                      and supplemental.text_content is not null
+                    order by supplemental.created_at desc
+                    limit 1
+                  ) as ocr on true
+                  where base.parser_version = %s
+                ),
+                commitment_coverage_eligible as (
+                  select artifact.id as raw_artifact_id, artifact.sha256
+                  from tcm_artifacts as artifact
+                  join (
+                    select page.raw_artifact_id
+                    from resolved_pages as page
+                    group by page.raw_artifact_id
+                    having count(*) > 0
+                      and bool_and(page.text_content is not null)
+                      and bool_and(page.text_sha256 is not null)
+                  ) as ready on ready.raw_artifact_id = artifact.id
+                ),
+                current_jobs as (
+                  select job.id, job.raw_artifact_id, job.status
+                  from raw.extraction_jobs as job
+                  join commitment_coverage_eligible as eligible
+                    on eligible.raw_artifact_id = job.raw_artifact_id
+                  where job.job_type = %s
+                    and job.idempotency_key = encode(
+                      sha256(
+                        ('tcm-ba-commitments:' || eligible.sha256 || ':' ||
+                          %s)::bytea
+                      ),
+                      'hex'
+                    )
+                ),
+                current_results as (
+                  select job.raw_artifact_id,
+                    eligible.sha256 as source_artifact_sha256,
+                    result.validation_status, result.result_payload
+                  from current_jobs as job
+                  join commitment_coverage_eligible as eligible
+                    on eligible.raw_artifact_id = job.raw_artifact_id
+                  join raw.extraction_results as result
+                    on result.extraction_job_id = job.id
+                  where result.candidate_type = 'tcm_ba_commitment_note'
+                    and result.extractor_version = %s
+                ),
+                result_counts as (
+                  select raw_artifact_id,
+                    count(*)::integer as result_count,
+                    count(distinct (
+                      coalesce(result_payload ->> 'source_page_number', '') ||
+                      ':' || coalesce(
+                        result_payload ->> 'commitment_number', ''
+                      )
+                    ))::integer as distinct_candidates,
+                    count(*) filter (
+                      where result_payload ->> 'candidate_status' = 'complete'
+                    )::integer as complete_count,
+                    count(*) filter (
+                      where result_payload ->> 'candidate_status' = 'incomplete'
+                    )::integer as incomplete_count,
+                    count(*) filter (
+                      where coalesce(validation_status, '') <> 'needs_review'
+                         or coalesce(
+                              result_payload ->> 'schema_name', ''
+                            ) <> 'tcm-ba-commitment-candidate'
+                         or coalesce(
+                              result_payload ->> 'candidate_status', ''
+                            ) not in ('complete', 'incomplete')
+                         or coalesce(
+                              result_payload ->> 'commitment_number', ''
+                            ) = ''
+                         or coalesce(
+                              result_payload ->> 'source_page_number', ''
+                            ) !~ '^[1-9][0-9]*$'
+                         or coalesce(
+                              result_payload ->> 'source_artifact_sha256', ''
+                            ) <> source_artifact_sha256
+                         or jsonb_typeof(result_payload -> 'missing_fields')
+                            is distinct from 'array'
+                         or case
+                           when jsonb_typeof(
+                             result_payload -> 'missing_fields'
+                           ) = 'array'
+                           then (
+                             result_payload ->> 'candidate_status' = 'complete'
+                             and jsonb_array_length(
+                               result_payload -> 'missing_fields'
+                             ) <> 0
+                           ) or (
+                             result_payload ->> 'candidate_status' = 'incomplete'
+                             and jsonb_array_length(
+                               result_payload -> 'missing_fields'
+                             ) = 0
+                           )
+                           else false
+                         end
+                    )::integer as invalid_count
+                  from current_results
+                  group by raw_artifact_id
+                )
+                select
+                  count(*)::integer as eligible_artifacts,
+                  count(*) filter (
+                    where job.status = 'succeeded'
+                  )::integer as processed_artifacts,
+                  coalesce(sum(counts.result_count), 0)::integer
+                    as candidate_results,
+                  coalesce(sum(counts.complete_count), 0)::integer
+                    as complete_candidates,
+                  coalesce(sum(counts.incomplete_count), 0)::integer
+                    as incomplete_candidates,
+                  count(*) filter (
+                    where job.status = 'succeeded'
+                      and coalesce(counts.result_count, 0) = 0
+                  )::integer as zero_candidate_artifacts,
+                  count(*) filter (
+                    where job.id is null or job.status <> 'succeeded'
+                  )::integer as missing_artifacts,
+                  coalesce(sum(greatest(
+                    counts.result_count - counts.distinct_candidates,
+                    0
+                  )), 0)::integer as duplicate_results,
+                  coalesce(sum(counts.invalid_count), 0)::integer
+                    as invalid_results,
+                  (
+                    select count(*)::integer
+                    from current_jobs as failed_job
+                    where failed_job.status in (
+                      'failed', 'retry_scheduled', 'dead_lettered'
+                    )
+                  ) as open_failures
+                from commitment_coverage_eligible as eligible
+                left join current_jobs as job
+                  on job.raw_artifact_id = eligible.raw_artifact_id
+                left join result_counts as counts
+                  on counts.raw_artifact_id = eligible.raw_artifact_id
+                """,
+                (
+                    TCM_BA_OCR_PARSER_VERSION,
+                    PDF_PARSER_VERSION,
+                    JOB_TYPE,
+                    EXTRACTOR_VERSION,
+                    EXTRACTOR_VERSION,
+                ),
+            ).fetchone()
+            if row is None:
+                raise ProcessingError(
+                    "A cobertura dos candidatos de empenho não foi retornada."
+                )
+            try:
+                coverage = TcmBaCommitmentCoverage(
+                    eligible_artifacts=int(row["eligible_artifacts"]),
+                    processed_artifacts=int(row["processed_artifacts"]),
+                    candidate_results=int(row["candidate_results"]),
+                    complete_candidates=int(row["complete_candidates"]),
+                    incomplete_candidates=int(row["incomplete_candidates"]),
+                    zero_candidate_artifacts=int(
+                        row["zero_candidate_artifacts"]
+                    ),
+                    missing_artifacts=int(row["missing_artifacts"]),
+                    duplicate_results=int(row["duplicate_results"]),
+                    invalid_results=int(row["invalid_results"]),
+                    open_failures=int(row["open_failures"]),
+                )
+            except (KeyError, TypeError, ValueError) as error:
+                raise ProcessingError(
+                    "A cobertura dos candidatos de empenho está incompleta."
+                ) from error
+            if any(value < 0 for value in coverage.__dict__.values()):
+                raise ProcessingError(
+                    "A cobertura dos candidatos de empenho possui contador inválido."
+                )
+            return coverage
         finally:
             connection.close()
 

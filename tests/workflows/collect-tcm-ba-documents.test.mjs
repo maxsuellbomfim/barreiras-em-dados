@@ -54,6 +54,9 @@ test("lote documental TCM-BA é serial, limitado e auditado", () => {
   const commitmentIndex = workflow.indexOf(
     "barreiras_docproc.commands.process_tcm_ba_commitments",
   );
+  const commitmentCoverageIndex = workflow.indexOf(
+    "barreiras_docproc.commands.report_tcm_ba_commitments",
+  );
   const approveIndex = workflow.indexOf("TCM_BA_DOCUMENT_PILOT_APPROVED");
   assert.ok(collectIndex >= 0);
   assert.ok(auditIndex > collectIndex);
@@ -67,7 +70,8 @@ test("lote documental TCM-BA é serial, limitado e auditado", () => {
   assert.ok(contractFieldIndex > contractCoverageIndex);
   assert.ok(contractFieldCoverageIndex > contractFieldIndex);
   assert.ok(commitmentIndex > contractFieldCoverageIndex);
-  assert.ok(approveIndex > commitmentIndex);
+  assert.ok(commitmentCoverageIndex > commitmentIndex);
+  assert.ok(approveIndex > commitmentCoverageIndex);
   assert.match(
     workflow,
     /PYTHONPATH: workers\/collectors\/src:workers\/document-processing\/src/,
@@ -164,6 +168,10 @@ test("modo de backlog processa acervo preservado sem acessar o e-TCM", () => {
     backlogJob,
     /barreiras_docproc\.commands\.process_tcm_ba_commitments/,
   );
+  assert.match(
+    backlogJob,
+    /barreiras_docproc\.commands\.report_tcm_ba_commitments/,
+  );
   assert.match(backlogJob, /TCM_BA_COMMITMENT_BACKLOG_APPROVED/);
   assert.doesNotMatch(
     backlogJob,
@@ -202,6 +210,9 @@ test("modo de páginas processa Storage já preservado sem abrir o e-TCM", () =>
   const commitmentIndex = pagesJob.indexOf(
     "barreiras_docproc.commands.process_tcm_ba_commitments",
   );
+  const commitmentCoverageIndex = pagesJob.indexOf(
+    "barreiras_docproc.commands.report_tcm_ba_commitments",
+  );
   assert.match(
     pagesJob,
     /if: github\.event_name == 'workflow_dispatch' && inputs\.mode == 'process_pages'/,
@@ -216,6 +227,7 @@ test("modo de páginas processa Storage já preservado sem abrir o e-TCM", () =>
   assert.ok(contractFieldIndex > contractCoverageIndex);
   assert.ok(contractFieldCoverageIndex > contractFieldIndex);
   assert.ok(commitmentIndex > contractFieldCoverageIndex);
+  assert.ok(commitmentCoverageIndex > commitmentIndex);
   assert.match(pagesJob, /TCM_BA_PRESERVED_PAGES_APPROVED/);
   assert.match(pagesJob, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL/);
   assert.match(pagesJob, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD/);

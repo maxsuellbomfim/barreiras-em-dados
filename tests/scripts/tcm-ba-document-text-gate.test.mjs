@@ -71,6 +71,9 @@ test("wrapper processa texto somente depois da auditoria física", () => {
   const commitments = wrapper.lastIndexOf(
     "Invoke-TcmBaCommitmentCandidateProcessing",
   );
+  const commitmentCoverage = wrapper.lastIndexOf(
+    "Invoke-TcmBaCommitmentCandidateCoverage",
+  );
   const families = wrapper.lastIndexOf(
     "Invoke-TcmBaDocumentFamilyInventory",
   );
@@ -102,10 +105,15 @@ test("wrapper processa texto somente depois da auditoria física", () => {
   assert.ok(contractFields > contractCoverage);
   assert.ok(contractFieldCoverage > contractFields);
   assert.ok(commitments > contractFieldCoverage);
-  assert.ok(approval > commitments);
+  assert.ok(commitmentCoverage > commitments);
+  assert.ok(approval > commitmentCoverage);
   assert.match(
     wrapper,
     /Invoke-TcmBaContractFieldCoverage[^\r\n]*\r?\n\s+Invoke-TcmBaCommitmentCandidateProcessing/,
+  );
+  assert.match(
+    wrapper,
+    /Invoke-TcmBaCommitmentCandidateProcessing[\s\S]*Invoke-TcmBaCommitmentCandidateCoverage/,
   );
   assert.match(
     wrapper,
