@@ -10,7 +10,7 @@ from typing import Protocol
 
 from .processing import PageInput, TextArtifact
 
-EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.0.0"
+EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.1.0"
 JOB_TYPE = "tcm_ba_commitment_candidates"
 
 
@@ -135,25 +135,36 @@ _HEADING = re.compile(
     r"(?P<number>\d[\d./-]{0,29})[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
 )
+_DOCUMENT_MARKER = re.compile(
+    r"\bNOTA\s+DE\s+EMPENHO\b",
+    re.IGNORECASE,
+)
+_LABELED_COMMITMENT_NUMBER = re.compile(
+    r"^[ \t]*(?:N\s*[º°O.]?\s*(?:DO\s+)?EMPENHO|EMPENHO)"
+    r"\s*[:;.-]\s*(?P<number>\d(?:[\d./ -]{0,28}\d)?)",
+    re.IGNORECASE | re.MULTILINE,
+)
 _ISSUE_DATE = re.compile(
-    r"^[ \t]*(?:DATA\s+(?:DE\s+)?EMISSÃO|EMISSÃO|EMISSAO)"
-    r"\s*[:.-]\s*(?P<value>\d{1,2}/\d{1,2}/\d{4})[ \t]*$",
+    r"^[ \t]*(?:DATA\s+(?:DE\s+)?EMISSÃO|EMISSÃO|EMISSAO|"
+    r"DATA\s+DO\s+EMP[EA]NHO)\s*[:;.-]\s*"
+    r"(?P<value>\d{1,2}/\d{1,2}/\d{4})[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
 )
 _CREDITOR = re.compile(
-    r"^[ \t]*(?:CREDOR|FAVORECIDO|BENEFICIÁRIO|BENEFICIARIO)"
-    r"\s*[:.-]\s*(?P<value>[^\n]+)$",
+    r"^[ \t]*(?:CREDOR|FAVORECIDO|BENEFICIÁRIO|BENEFICIARIO|"
+    r"(?:R\.?\s*)?S[O0][A-Z]{2,6}\s*/\s*NOME)"
+    r"\s*[:;.-]\s*(?P<value>[^\n]+)$",
     re.IGNORECASE | re.MULTILINE,
 )
 _AMOUNT = re.compile(
-    r"^[ \t]*VALOR(?:\s+DO\s+EMPENHO)?\s*[:.-]\s*"
+    r"^[ \t]*VALOR(?:\s+(?:BRUTO|DO\s+EMPENHO))?\s*[:;.-]\s*"
     r"(?:R\$\s*)?(?P<value>-?[\d.]+,\d{2})[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
 )
 _BUDGET_ALLOCATION = re.compile(
     r"^[ \t]*(?:DOTAÇÃO(?:\s+ORÇAMENTÁRIA)?|DOTACAO"
     r"(?:\s+ORCAMENTARIA)?|CLASSIFICAÇÃO\s+ORÇAMENTÁRIA|"
-    r"CLASSIFICACAO\s+ORCAMENTARIA)\s*[:.-]\s*"
+    r"CLASSIFICACAO\s+ORCAMENTARIA)\s*[:;.-]\s*"
     r"(?P<value>[^\n]+)$",
     re.IGNORECASE | re.MULTILINE,
 )
@@ -200,6 +211,11 @@ def _creditor_cnpj(value: str | None) -> str | None:
     return "".join(match.groups()) if match is not None else None
 
 
+def _canonical_commitment_number(value: str) -> str:
+    compact = re.sub(r"\s*([./-])\s*", r"\1", value.strip())
+    return compact.strip(" ./-")
+
+
 def _redacted_evidence(text: str) -> str:
     return _CPF.sub("***.***.***-**", text[:_MAX_EVIDENCE_CHARS]).strip()
 
@@ -208,6 +224,9 @@ def find_commitment_candidates(
     pages: tuple[PageInput, ...],
 ) -> tuple[TcmBaCommitmentCandidate, ...]:
     candidates: list[TcmBaCommitmentCandidate] = []
+    seen_candidates: set[
+        tuple[str, str | None, str | None, str | None, str | None, str | None]
+    ] = set()
     required_fields = (
         "issue_date",
         "creditor_name",
@@ -217,14 +236,23 @@ def find_commitment_candidates(
     for page in pages:
         if page.text is None:
             continue
-        headings = tuple(_HEADING.finditer(page.text))
-        for index, heading in enumerate(headings):
+        markers = tuple(_DOCUMENT_MARKER.finditer(page.text))
+        for index, marker in enumerate(markers):
             block_end = (
-                headings[index + 1].start()
-                if index + 1 < len(headings)
+                markers[index + 1].start()
+                if index + 1 < len(markers)
                 else len(page.text)
             )
-            block = page.text[heading.start() : block_end]
+            block = page.text[marker.start() : block_end]
+            heading = _HEADING.search(block)
+            number_match = heading or _LABELED_COMMITMENT_NUMBER.search(block)
+            if number_match is None:
+                continue
+            commitment_number = _canonical_commitment_number(
+                number_match.group("number")
+            )
+            if not commitment_number:
+                continue
             creditor_value = _match_value(_CREDITOR, block)
             values: dict[str, str | None] = {
                 "issue_date": _iso_date(_match_value(_ISSUE_DATE, block)),
@@ -235,10 +263,21 @@ def find_commitment_candidates(
                     block,
                 ),
             }
+            creditor_cnpj = _creditor_cnpj(block)
+            candidate_identity = (
+                commitment_number,
+                values["issue_date"],
+                values["creditor_name"],
+                creditor_cnpj,
+                values["amount_text"],
+                values["budget_allocation"],
+            )
+            if candidate_identity in seen_candidates:
+                continue
             candidates.append(
                 TcmBaCommitmentCandidate(
                     page_number=page.page_number,
-                    commitment_number=heading.group("number"),
+                    commitment_number=commitment_number,
                     issue_date=values["issue_date"],
                     creditor_name=values["creditor_name"],
                     amount_text=values["amount_text"],
@@ -247,7 +286,8 @@ def find_commitment_candidates(
                         field for field in required_fields if values[field] is None
                     ),
                     evidence_excerpt=_redacted_evidence(block),
-                    creditor_cnpj=_creditor_cnpj(creditor_value),
+                    creditor_cnpj=creditor_cnpj,
                 )
             )
+            seen_candidates.add(candidate_identity)
     return tuple(candidates)

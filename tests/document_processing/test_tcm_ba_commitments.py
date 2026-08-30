@@ -181,6 +181,110 @@ class TcmBaCommitmentCandidateTests(unittest.TestCase):
         )
         self.assertEqual(payload["creditor_cnpj"], "12345678000190")
 
+    def test_extracts_real_tcm_layout_with_number_below_document_banner(
+        self,
+    ) -> None:
+        candidates = find_commitment_candidates(
+            (
+                page(
+                    "PREFEITURA MUNICIPAL - NOTA DE EMPENHO ORDINARIO\n"
+                    "R.SOCIAL/NOME: EMPRESA EXEMPLO LTDA\n"
+                    "C.N.P.J/CPF: 12.345.678/0001-90\n"
+                    "EMPENHO: 123 / 1\n"
+                    "DATA DO EMPENHO: 15/01/2021\n"
+                    "VALOR BRUTO: 1.234,56\n"
+                    "DOTAÇÃO ORÇAMENTÁRIA: 02.05.04.122.001.2001\n"
+                ),
+            )
+        )
+
+        self.assertEqual(len(candidates), 1)
+        candidate = candidates[0]
+        self.assertEqual(candidate.commitment_number, "123/1")
+        self.assertEqual(candidate.issue_date, "2021-01-15")
+        self.assertEqual(candidate.creditor_name, "EMPRESA EXEMPLO LTDA")
+        self.assertEqual(candidate.creditor_cnpj, "12345678000190")
+        self.assertEqual(candidate.amount_text, "1.234,56")
+        self.assertEqual(
+            candidate.budget_allocation,
+            "02.05.04.122.001.2001",
+        )
+        self.assertTrue(candidate.complete)
+
+    def test_accepts_observed_ocr_label_variants_as_incomplete_review_candidate(
+        self,
+    ) -> None:
+        candidates = find_commitment_candidates(
+            (
+                page(
+                    "NOTA DE EMPENHO\n"
+                    "R.SOCLAL/NOME: ASSOCIAÇÃO EXEMPLO\n"
+                    "EMPENHO: 77 /\n"
+                    "DATA DO EMPANHO: 31/01/2021\n"
+                    "VALOR BRUTO: 500,00\n",
+                    page_number=9,
+                ),
+            )
+        )
+
+        self.assertEqual(len(candidates), 1)
+        candidate = candidates[0]
+        self.assertEqual(candidate.commitment_number, "77")
+        self.assertEqual(candidate.issue_date, "2021-01-31")
+        self.assertEqual(candidate.creditor_name, "ASSOCIAÇÃO EXEMPLO")
+        self.assertEqual(candidate.missing_fields, ("budget_allocation",))
+
+    def test_deduplicates_repeated_document_banner_for_same_commitment(self) -> None:
+        repeated = (
+            "NOTA DE EMPENHO\n"
+            "EMPENHO: 45 / 2021\n"
+            "DATA DO EMPENHO: 20/01/2021\n"
+            "R.SOCIAL/NOME: EMPRESA EXEMPLO LTDA\n"
+            "VALOR BRUTO: 2.000,00\n"
+            "DOTAÇÃO: 02.05.123.456\n"
+        )
+
+        candidates = find_commitment_candidates(
+            (page(repeated, page_number=1), page(repeated, page_number=2))
+        )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].page_number, 1)
+
+    def test_keeps_same_number_for_distinct_official_creditors(self) -> None:
+        first = (
+            "NOTA DE EMPENHO\n"
+            "EMPENHO: 45 / 2021\n"
+            "DATA DO EMPENHO: 20/01/2021\n"
+            "R.SOCIAL/NOME: EMPRESA UM LTDA\n"
+            "VALOR BRUTO: 2.000,00\n"
+            "DOTAÇÃO: 02.05.123.456\n"
+        )
+        second = first.replace("EMPRESA UM LTDA", "EMPRESA DOIS LTDA")
+
+        candidates = find_commitment_candidates(
+            (page(first, page_number=1), page(second, page_number=2))
+        )
+
+        self.assertEqual(len(candidates), 2)
+        self.assertEqual(
+            [candidate.creditor_name for candidate in candidates],
+            ["EMPRESA UM LTDA", "EMPRESA DOIS LTDA"],
+        )
+
+    def test_rejects_document_banner_without_labeled_number(self) -> None:
+        candidates = find_commitment_candidates(
+            (
+                page(
+                    "NOTA DE EMPENHO\n"
+                    "R.SOCIAL/NOME: EMPRESA EXEMPLO LTDA\n"
+                    "VALOR BRUTO: 500,00\n"
+                ),
+            )
+        )
+
+        self.assertEqual(candidates, ())
+
     def test_rejects_heading_without_an_official_number(self) -> None:
         candidates = find_commitment_candidates(
             (page("NOTA DE EMPENHO\nCredor: EXEMPLO\nValor: R$ 10,00\n"),)
