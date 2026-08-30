@@ -41,6 +41,94 @@ class TcmBaDocumentFamilyTests(unittest.TestCase):
             "PCMGE020 - Dispensas e inexigibilidades ratificadas": (
                 "ratified_procurement_waivers_and_noncompetitive_contracts"
             ),
+            "PCMGE021 - Extratos e conciliações bancárias": (
+                "bank_statements_and_reconciliations"
+            ),
+            "PCMGE022 - Guias de multas e ressarcimentos do TCM": (
+                "tcm_fines_and_reimbursements_revenue_guides"
+            ),
+            "PCMGE023 - Guias de alienação de bens": ("asset_disposal_revenue_guides"),
+            "PCMGE024 - Alteração do plano plurianual": ("multi_year_plan_amendments"),
+            "PCMGE025 - Alterações da LDO": "budget_guidelines_law_amendments",
+            "PCMGE026 - Alteração do plano de cargos e salários": (
+                "positions_and_salaries_plan_amendments"
+            ),
+            "PCMGE027 - Alterações da lei de diárias": (
+                "travel_allowance_law_amendments"
+            ),
+            "PCMGE028 - Revisão dos subsídios dos agentes políticos": (
+                "political_agent_compensation_reviews"
+            ),
+            "PCMGE029 - Leis de créditos especiais": "special_credit_laws",
+            "PCMGE030 - Leis de créditos suplementares": ("supplementary_credit_laws"),
+            "PCMGE031 - Ofício de encaminhamento da prestação mensal": (
+                "monthly_accounts_submission_letter"
+            ),
+            "PCMGE035 - Processos de pagamento da folha sintética": (
+                "synthetic_payroll_payment_processes"
+            ),
+            "PCMGE037 - Processos de pagamento da educação (25%)": (
+                "education_25_percent_payment_processes"
+            ),
+            "PCMGE038 - Processos de pagamento da saúde (15%)": (
+                "health_15_percent_payment_processes"
+            ),
+            "PCMGE041 - Processos de pagamento do FUNDEB (40%)": (
+                "fundeb_40_percent_payment_processes"
+            ),
+            "PCMGE043 - Processos de pagamento do FUNDEB (60%)": (
+                "fundeb_60_percent_payment_processes"
+            ),
+            "PCMGE046 - Folha sintética dos agentes políticos": (
+                "political_agents_synthetic_payroll_payment_processes"
+            ),
+            "PCMGE049 - Processos de pagamento orçamentário": (
+                "budgetary_payment_processes"
+            ),
+            "PCMGE050 - Processos de pagamento extraorçamentário": (
+                "extra_budgetary_payment_processes"
+            ),
+            "PCMGE051 - Processos licitatórios homologados": (
+                "homologated_procurement_processes"
+            ),
+            "PCMGE053 - Relação de contas e aplicações financeiras": (
+                "bank_accounts_and_financial_investments_register"
+            ),
+            "PCMGE054 - Relação das guias de receitas arrecadadas": (
+                "collected_revenue_guides_register"
+            ),
+            "PCMGE055 - Relação de pagamentos extraorçamentários": (
+                "extra_budgetary_payment_process_register"
+            ),
+            "PCMGE056 - Relação de pagamentos orçamentários": (
+                "budgetary_payment_process_register"
+            ),
+            "PCMGE058 - Relatório do Controle Interno": "internal_control_report",
+            "PCMGE075 - Lei de diretrizes orçamentárias": "budget_guidelines_law",
+            "PCMGE076 - Lei orçamentária anual": "annual_budget_law",
+            "PCMGE077 - Programação financeira e cronograma de desembolso": (
+                "financial_schedule_and_disbursement_timeline"
+            ),
+            "PCMGE078 - Metas bimestrais de arrecadação": ("bimonthly_revenue_targets"),
+            "PCMGE079 - Lei de estrutura administrativa": (
+                "administrative_structure_law"
+            ),
+            "PCMGE080 - Estatuto do servidor público": "civil_service_statute",
+            "PCMGE081 - Lei do regime próprio de previdência": (
+                "municipal_pension_regime_law"
+            ),
+            "PCMGE082 - Lei de contratação temporária": "temporary_hiring_law",
+            "PCMGE083 - Código tributário municipal": "municipal_tax_code",
+            "PCMGE084 - Lei de ordenamento e uso do solo": "land_use_law",
+            "PCMGE085 - Calendário de feriados": "holiday_calendar",
+            "PCMGE091 - Lei do plano de cargos e salários": (
+                "positions_and_salaries_plan_law"
+            ),
+            "PCMGE094 - Lei municipal de diárias": "travel_allowance_law",
+            "PCMGE095 - Lei Orgânica do Município": "municipal_organic_law",
+            "PCMGE096 - Lei dos subsídios dos agentes políticos": (
+                "political_agent_compensation_law"
+            ),
             "Documentos Adicionais": "additional_documents",
         }
 
@@ -88,10 +176,11 @@ class TcmBaDocumentFamilyTests(unittest.TestCase):
         self.assertNotIn("official_category", payload)
 
     def test_idempotency_changes_with_extractor_contract(self) -> None:
+        self.assertEqual(EXTRACTOR_VERSION, "tcm-ba-document-family-inventory/1.3.0")
         key = document_family_job_idempotency_key("a" * 64)
         previous_key = hashlib.sha256(
             f"tcm-ba-document-family:{'a' * 64}:"
-            "tcm-ba-document-family-inventory/1.1.0".encode()
+            "tcm-ba-document-family-inventory/1.2.0".encode()
         ).hexdigest()
 
         self.assertRegex(key, r"^[0-9a-f]{64}$")
