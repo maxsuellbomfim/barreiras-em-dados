@@ -615,6 +615,10 @@ try {
     database.query("select * from api.get_collection_health_v3(200)"),
     /acesso restrito a revisores ativos/,
   );
+  await assert.rejects(
+    database.query("select * from api.get_collection_health_v4(200)"),
+    /acesso restrito a revisores ativos/,
+  );
 
   await database.exec(`
     insert into audit.reviewer_identities (
@@ -718,14 +722,15 @@ try {
     insert into source.collection_partitions (
       id, source_endpoint_id, partition_key, period_start, period_end,
       status, observed_records, collection_run_id, last_attempted_at,
-      completed_at
+      completed_at, checkpoint
     ) values (
       '00000000-0000-0000-0000-000000000419',
       '00000000-0000-4000-8000-000000000417',
       'freshness-current', current_date, current_date, 'complete', 1,
       '00000000-0000-0000-0000-000000000418',
       statement_timestamp() - interval '1 hour',
-      statement_timestamp() - interval '1 hour'
+      statement_timestamp() - interval '1 hour',
+      '{"total_suppliers":602,"remaining_suppliers":402,"queried_cnpjs":100}'
     );
   `);
 
@@ -745,6 +750,10 @@ try {
   );
   await assert.rejects(
     database.query("select * from api.get_collection_health_v3(200)"),
+    /permission denied/,
+  );
+  await assert.rejects(
+    database.query("select * from api.get_collection_health_v4(200)"),
     /permission denied/,
   );
   await database.exec("reset role;");
@@ -821,6 +830,27 @@ try {
       freshness_status: "overdue",
       freshness_overdue: true,
       methodology_version: "collection-health/1.3.0",
+    },
+  ]);
+  await database.exec("set role authenticated;");
+  const collectionWorkProgress = await database.query(`
+    select
+      latest_work_completed,
+      latest_work_total,
+      latest_work_remaining,
+      latest_batch_processed,
+      methodology_version
+    from api.get_collection_health_v4(200)
+    where endpoint_slug = 'freshness-current-test'
+  `);
+  await database.exec("reset role;");
+  assert.deepEqual(collectionWorkProgress.rows, [
+    {
+      latest_work_completed: 200,
+      latest_work_total: 602,
+      latest_work_remaining: 402,
+      latest_batch_processed: 100,
+      methodology_version: "collection-health/1.4.0",
     },
   ]);
   await database.exec(`
