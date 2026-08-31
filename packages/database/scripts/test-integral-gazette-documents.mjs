@@ -70,6 +70,8 @@ try {
       ('c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a');
     create function auth.uid() returns uuid language sql stable set search_path = ''
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+    create function auth.jwt() returns jsonb language sql stable set search_path = ''
+      as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
     create schema storage;
     create table storage.buckets (id text primary key, name text not null, public boolean not null default false, file_size_limit bigint, allowed_mime_types text[]);
     create table storage.objects (id uuid primary key, bucket_id text not null references storage.buckets(id), name text not null, unique(bucket_id, name));
