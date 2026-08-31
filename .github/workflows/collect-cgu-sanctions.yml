@@ -2,7 +2,7 @@ name: Coletar sanções federais de fornecedores
 
 on:
   schedule:
-    - cron: "40 5 * * 1"
+    - cron: "40 5 * * *"
   workflow_dispatch: {}
 
 concurrency:
@@ -49,4 +49,6 @@ jobs:
           | sha256sum --check --strict
 
       - name: Consultar sanções dos fornecedores publicados
-        run: python -B -m barreiras_collectors.commands.collect_cgu_sanctions
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_cgu_sanctions
+          --limit 100

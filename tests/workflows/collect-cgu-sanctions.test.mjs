@@ -22,12 +22,12 @@ test("sanções usam a chave via secret e nunca em texto no workflow", () => {
   );
 });
 
-test("a coleta roda semanalmente com identidade municipal e comando dedicado", () => {
-  assert.match(workflow, /cron: "40 5 \* \* 1"/);
+test("a coleta roda diariamente em lote retomável com identidade municipal", () => {
+  assert.match(workflow, /cron: "40 5 \* \* \*"/);
   assert.match(workflow, /workflow_dispatch/);
   assert.match(
     workflow,
-    /barreiras_collectors\.commands\.collect_cgu_sanctions/,
+    /barreiras_collectors\.commands\.collect_cgu_sanctions\s+--limit 100/,
   );
   assert.match(
     workflow,
