@@ -44,6 +44,8 @@ try {
       ('00000000-0000-4000-8000-000000000001');
     create function auth.uid() returns uuid language sql stable set search_path = ''
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+    create function auth.jwt() returns jsonb language sql stable set search_path = ''
+      as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
     create schema storage;
     create table storage.buckets (
       id text primary key,

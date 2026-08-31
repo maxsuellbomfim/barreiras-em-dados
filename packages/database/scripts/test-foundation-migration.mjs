@@ -66,6 +66,17 @@ try {
         ''
       )::uuid;
     $$;
+    create function auth.jwt()
+    returns jsonb
+    language sql
+    stable
+    set search_path = ''
+    as $$
+      select coalesce(
+        nullif(current_setting('request.jwt.claims', true), '')::jsonb,
+        '{}'::jsonb
+      );
+    $$;
 
     create schema storage;
     create table storage.buckets (
@@ -149,7 +160,7 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  assert.equal(relations.rows[0].count, 61);
+  assert.equal(relations.rows[0].count, 62);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -165,7 +176,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 61);
+  assert.equal(rlsRelations.rows[0].count, 62);
 
   const originColumns = await database.query(`
     select count(*)::integer as count
@@ -627,6 +638,91 @@ try {
       '${reviewerUserId}', 'Revisor de Teste', 'active', statement_timestamp()
     );
     select set_config('request.jwt.claim.sub', '${reviewerUserId}', false);
+  `);
+
+  const initialReviewerMfaPolicy = await database.query(`
+    select
+      api.current_reviewer_mfa_mode() as mode,
+      api.is_active_reviewer() as can_review
+  `);
+  assert.deepEqual(initialReviewerMfaPolicy.rows, [
+    { mode: "observe", can_review: true },
+  ]);
+
+  await assert.rejects(
+    database.query(`
+      select * from api.set_reviewer_mfa_enforcement(
+        true,
+        'Tentativa AAL1 que deve ser recusada pelo banco.'
+      )
+    `),
+    /requer uma sessao AAL2/,
+  );
+
+  await database.exec(`
+    select set_config('request.jwt.claims', '{"aal":"aal2"}', false);
+  `);
+  const enabledReviewerMfaPolicy = await database.query(`
+    select mode
+    from api.set_reviewer_mfa_enforcement(
+      true,
+      'Ativacao AAL2 validada pelo teste de autorizacao.'
+    )
+  `);
+  assert.deepEqual(enabledReviewerMfaPolicy.rows, [{ mode: "required" }]);
+
+  await database.exec(`
+    select set_config('request.jwt.claims', '{"aal":"aal1"}', false);
+  `);
+  const aal1ReviewerAuthorization = await database.query(`
+    select api.is_active_reviewer() as can_review
+  `);
+  assert.deepEqual(aal1ReviewerAuthorization.rows, [{ can_review: false }]);
+  await assert.rejects(
+    database.query("select * from api.get_extraction_review_queue(20)"),
+    /acesso restrito a revisores ativos/,
+  );
+
+  await database.exec(`
+    select set_config('request.jwt.claims', '{"aal":"aal2"}', false);
+  `);
+  const aal2ReviewerAuthorization = await database.query(`
+    select api.is_active_reviewer() as can_review
+  `);
+  assert.deepEqual(aal2ReviewerAuthorization.rows, [{ can_review: true }]);
+
+  const disabledReviewerMfaPolicy = await database.query(`
+    select mode
+    from api.set_reviewer_mfa_enforcement(
+      false,
+      'Retorno ao modo observe para manter os demais testes acessiveis.'
+    )
+  `);
+  assert.deepEqual(disabledReviewerMfaPolicy.rows, [{ mode: "observe" }]);
+
+  const reviewerMfaAudit = await database.query(`
+    select
+      (select count(*)::integer
+       from audit.reviewer_mfa_policy_versions) as policy_versions,
+      (select count(*)::integer
+       from audit.audit_events
+       where action = 'reviewer_mfa_policy_changed') as audit_events
+  `);
+  assert.deepEqual(reviewerMfaAudit.rows, [
+    { policy_versions: 3, audit_events: 2 },
+  ]);
+
+  await assert.rejects(
+    database.exec(`
+      update audit.reviewer_mfa_policy_versions
+      set justification = 'Historico nao pode ser alterado depois de criado.'
+      where mode = 'required';
+    `),
+    /imutavel|immutable|nao pode/i,
+  );
+
+  await database.exec(`
+    select set_config('request.jwt.claims', '{}', false);
   `);
 
   await database.exec(`
