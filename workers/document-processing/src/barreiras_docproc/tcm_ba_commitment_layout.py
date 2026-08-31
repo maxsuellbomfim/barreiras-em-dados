@@ -40,6 +40,16 @@ BudgetDiagnosisStatus = Literal[
     "distant_value",
     "ambiguous_values",
 ]
+AmountLabelKind = Literal["amount", "gross_amount", "commitment_amount"]
+AmountDiagnosisStatus = Literal[
+    "matched",
+    "no_label",
+    "multiple_labels",
+    "no_compatible_value",
+    "no_spatial_candidate",
+    "distant_value",
+    "ambiguous_values",
+]
 CreditorLabelKind = Literal[
     "creditor",
     "favored",
@@ -124,11 +134,12 @@ _ISSUE_DATE_DIAGNOSTIC_LABEL_KINDS: dict[str, IssueDateLabelKind] = {
     "DATA": "generic_date",
     "DT": "generic_date",
 }
-_AMOUNT_LABELS = {
-    "VALOR",
-    "VALOR BRUTO",
-    "VALOR DO EMPENHO",
+_AMOUNT_LABEL_KINDS: dict[str, AmountLabelKind] = {
+    "VALOR": "amount",
+    "VALOR BRUTO": "gross_amount",
+    "VALOR DO EMPENHO": "commitment_amount",
 }
+_AMOUNT_LABELS = set(_AMOUNT_LABEL_KINDS)
 _CREDITOR_LABEL_KINDS: dict[str, CreditorLabelKind] = {
     "CREDOR": "creditor",
     "FAVORECIDO": "favored",
@@ -172,6 +183,15 @@ class SpatialBudgetDiagnosis:
     spatial_candidate_count: int
     label_kind: BudgetLabelKind | None = None
     match: SpatialBudgetMatch | None = None
+
+
+@dataclass(frozen=True)
+class SpatialAmountDiagnosis:
+    status: AmountDiagnosisStatus
+    compatible_value_count: int
+    spatial_candidate_count: int
+    label_kind: AmountLabelKind | None = None
+    match: SpatialScalarMatch | None = None
 
 
 @dataclass(frozen=True)
@@ -942,10 +962,117 @@ def find_spatial_amount_text(
     blocks: tuple[DocumentBlock, ...],
 ) -> SpatialScalarMatch | None:
     """Associa um valor monetário somente a um rótulo oficial inequívoco."""
-    return _find_spatial_scalar(
-        blocks,
-        labels=_AMOUNT_LABELS,
-        normalize_value=_normalized_amount_text,
+    diagnosis = diagnose_spatial_amount_text(blocks)
+    return diagnosis.match if diagnosis.status == "matched" else None
+
+
+def diagnose_spatial_amount_text(
+    blocks: tuple[DocumentBlock, ...],
+) -> SpatialAmountDiagnosis:
+    """Classifica a geometria do valor sem expor o valor no diagnóstico."""
+    labels = tuple(
+        block
+        for block in blocks
+        if block.bbox is not None and _normalized_label(block.text) in _AMOUNT_LABELS
+    )
+    compatible_values = tuple(
+        (block, normalized_value)
+        for block in blocks
+        if block.bbox is not None
+        and (normalized_value := _normalized_amount_text(block.text)) is not None
+    )
+    compatible_value_count = len(compatible_values)
+    if not labels:
+        return SpatialAmountDiagnosis(
+            status="no_label",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=0,
+        )
+    if len(labels) != 1:
+        return SpatialAmountDiagnosis(
+            status="multiple_labels",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=0,
+        )
+    label = labels[0]
+    label_kind = _AMOUNT_LABEL_KINDS[_normalized_label(label.text)]
+    if compatible_value_count == 0:
+        return SpatialAmountDiagnosis(
+            status="no_compatible_value",
+            compatible_value_count=0,
+            spatial_candidate_count=0,
+            label_kind=label_kind,
+        )
+    label_box = label.bbox
+    if label_box is None:
+        return SpatialAmountDiagnosis(
+            status="no_label",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=0,
+        )
+    scored: list[_ScoredScalarMatch] = []
+    for value, normalized_value in compatible_values:
+        value_box = value.bbox
+        if (
+            value is label
+            or value_box is None
+            or value.page_number != label.page_number
+        ):
+            continue
+        options = tuple(
+            (relation, score)
+            for relation, score in (
+                ("below", _below_score(label_box, value_box)),
+                ("right", _right_score(label_box, value_box)),
+            )
+            if score is not None
+        )
+        if not options:
+            continue
+        relation, score = min(options, key=lambda item: item[1])
+        scored.append(
+            _ScoredScalarMatch(
+                match=SpatialScalarMatch(
+                    value=normalized_value,
+                    page_number=value.page_number,
+                    label_block_order=label.block_order,
+                    value_block_order=value.block_order,
+                    relation=relation,
+                ),
+                score=score,
+            )
+        )
+    if not scored:
+        return SpatialAmountDiagnosis(
+            status="no_spatial_candidate",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=0,
+            label_kind=label_kind,
+        )
+    scored.sort(key=lambda candidate: candidate.score)
+    if scored[0].score > _MAX_PRIMARY_SCORE:
+        return SpatialAmountDiagnosis(
+            status="distant_value",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=len(scored),
+            label_kind=label_kind,
+        )
+    if (
+        len(scored) > 1
+        and scored[1].score - scored[0].score < _MIN_SECONDARY_SCORE_DELTA
+    ):
+        return SpatialAmountDiagnosis(
+            status="ambiguous_values",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=len(scored),
+            label_kind=label_kind,
+        )
+    return SpatialAmountDiagnosis(
+        status="matched",
+        compatible_value_count=compatible_value_count,
+        spatial_candidate_count=len(scored),
+        label_kind=label_kind,
+        match=scored[0].match,
     )
 
 

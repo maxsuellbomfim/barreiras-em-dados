@@ -8,6 +8,7 @@ param(
     [switch]$AuditOnly,
     [switch]$CommitmentReplayOnly,
     [switch]$CommitmentBudgetBenchmarkOnly,
+    [switch]$CommitmentAmountBenchmarkOnly,
     [switch]$CommitmentCreditorBenchmarkOnly,
     [switch]$CommitmentIssueDateBenchmarkOnly,
     [object]$RequestsPerMinute = 30,
@@ -438,7 +439,8 @@ if (
     $AuditOnly -and
     ($AutoCompetence -or $PlanOnly -or $ReportOnly -or
         $CommitmentReplayOnly -or $CommitmentBudgetBenchmarkOnly -or
-        $CommitmentCreditorBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
+        $CommitmentAmountBenchmarkOnly -or $CommitmentCreditorBenchmarkOnly -or
+        $CommitmentIssueDateBenchmarkOnly)
 ) {
     throw "-AuditOnly não pode ser combinado com outro modo somente leitura."
 }
@@ -446,7 +448,7 @@ if (
     $CommitmentReplayOnly -and
     ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
         $CommitmentBudgetBenchmarkOnly -or $CommitmentCreditorBenchmarkOnly -or
-        $CommitmentIssueDateBenchmarkOnly)
+        $CommitmentAmountBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
 ) {
     throw "-CommitmentReplayOnly não pode ser combinado com outro modo."
 }
@@ -454,7 +456,7 @@ if (
     $CommitmentBudgetBenchmarkOnly -and
     ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
         $CommitmentReplayOnly -or $CommitmentCreditorBenchmarkOnly -or
-        $CommitmentIssueDateBenchmarkOnly)
+        $CommitmentAmountBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
 ) {
     throw "-CommitmentBudgetBenchmarkOnly não pode ser combinado com outro modo."
 }
@@ -462,7 +464,7 @@ if (
     $CommitmentCreditorBenchmarkOnly -and
     ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
         $CommitmentReplayOnly -or $CommitmentBudgetBenchmarkOnly -or
-        $CommitmentIssueDateBenchmarkOnly)
+        $CommitmentAmountBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
 ) {
     throw "-CommitmentCreditorBenchmarkOnly não pode ser combinado com outro modo."
 }
@@ -470,9 +472,17 @@ if (
     $CommitmentIssueDateBenchmarkOnly -and
     ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
         $CommitmentReplayOnly -or $CommitmentBudgetBenchmarkOnly -or
-        $CommitmentCreditorBenchmarkOnly)
+        $CommitmentAmountBenchmarkOnly -or $CommitmentCreditorBenchmarkOnly)
 ) {
     throw "-CommitmentIssueDateBenchmarkOnly não pode ser combinado com outro modo."
+}
+if (
+    $CommitmentAmountBenchmarkOnly -and
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
+        $CommitmentReplayOnly -or $CommitmentBudgetBenchmarkOnly -or
+        $CommitmentCreditorBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
+) {
+    throw "-CommitmentAmountBenchmarkOnly não pode ser combinado com outro modo."
 }
 if (
     -not $AutoCompetence -and
@@ -628,6 +638,34 @@ try {
         Read-TcmBaCommitmentBudgetBenchmarkEvent `
             -Output $benchmarkOutput | Out-Null
         Write-Host "TCM_BA_COMMITMENT_BUDGET_BENCHMARK_APPROVED" `
+            -ForegroundColor Cyan
+        return
+    }
+    if ($CommitmentAmountBenchmarkOnly) {
+        Push-Location $projectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $benchmarkOutput = @(
+                    & $python -B -m barreiras_docproc.commands.benchmark_tcm_ba_commitment_amounts --limit 500 2>&1
+                )
+                $benchmarkExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $benchmarkOutput | ForEach-Object { Write-Host $_ }
+        if ($benchmarkExitCode -ne 0) {
+            throw "O benchmark privado dos valores TCM-BA foi bloqueado."
+        }
+        Read-TcmBaCommitmentAmountBenchmarkEvent `
+            -Output $benchmarkOutput | Out-Null
+        Write-Host "TCM_BA_COMMITMENT_AMOUNT_BENCHMARK_APPROVED" `
             -ForegroundColor Cyan
         return
     }

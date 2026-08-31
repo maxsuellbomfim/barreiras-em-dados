@@ -966,6 +966,18 @@ retornou `PASS`, mas recuperou zero dotações. Portanto, as ausências permanec
 explícitas e privadas: preencher qualquer uma delas automaticamente exigiria
 escolher entre valores concorrentes sem evidência suficiente.
 
+Em 31/08/2026, a leitura privada e somente agregada dos 44 candidatos ainda
+sem `amount_text`, distribuídos em 40 PDFs, validou o hash de cada objeto antes
+de derivar o layout. O gate contabilizou 44 de 44, sem falha de artefato ou de
+candidato, e recuperou zero valores: 37 páginas não tinham rótulo oficial, uma
+tinha rótulo mas nenhum valor monetário compatível e seis tinham múltiplos
+valores geometricamente concorrentes. Não houve página sem layout embutido,
+rótulo duplicado nem página com mais de um candidato. O modo privado
+`-CommitmentAmountBenchmarkOnly` reproduz esse diagnóstico sem registrar
+valores, nomes, hashes, caminhos ou trechos. Um `PASS` comprova a contabilização
+integral das pendências; não autoriza escolher um dos valores concorrentes nem
+preencher os campos ausentes.
+
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do

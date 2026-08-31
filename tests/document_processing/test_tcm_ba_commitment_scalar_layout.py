@@ -7,6 +7,7 @@ from barreiras_docproc.pdf_layout import PdfLayoutPage
 from barreiras_docproc.processing import TextArtifact
 from barreiras_docproc.tcm_ba_commitment_layout import (
     diagnose_inline_explicit_issue_date,
+    diagnose_spatial_amount_text,
     find_inline_explicit_issue_date,
     find_spatial_amount_text,
     find_spatial_issue_date,
@@ -199,6 +200,76 @@ class TcmBaCommitmentScalarLayoutTests(unittest.TestCase):
         assert match is not None
         self.assertEqual(match.value, "-1.234,56")
         self.assertEqual(match.relation, "right")
+
+    def test_diagnoses_unique_gross_amount_without_guessing(self) -> None:
+        diagnosis = diagnose_spatial_amount_text(
+            (
+                block(
+                    "VALOR BRUTO",
+                    order=0,
+                    bbox=(80.0, 700.0, 165.0, 712.0),
+                ),
+                block(
+                    "R$ 1.234,56",
+                    order=1,
+                    bbox=(175.0, 700.0, 260.0, 712.0),
+                ),
+            )
+        )
+
+        self.assertEqual(diagnosis.status, "matched")
+        self.assertEqual(diagnosis.label_kind, "gross_amount")
+        self.assertEqual(diagnosis.compatible_value_count, 1)
+        self.assertEqual(diagnosis.spatial_candidate_count, 1)
+        self.assertIsNotNone(diagnosis.match)
+
+    def test_diagnoses_explicitly_uninformed_commitment_amount(self) -> None:
+        diagnosis = diagnose_spatial_amount_text(
+            (
+                block(
+                    "VALOR DO EMPENHO",
+                    order=0,
+                    bbox=(80.0, 700.0, 205.0, 712.0),
+                ),
+                block(
+                    "NÃO INFORMADO",
+                    order=1,
+                    bbox=(215.0, 700.0, 320.0, 712.0),
+                ),
+            )
+        )
+
+        self.assertEqual(diagnosis.status, "no_compatible_value")
+        self.assertEqual(diagnosis.label_kind, "commitment_amount")
+        self.assertEqual(diagnosis.compatible_value_count, 0)
+        self.assertEqual(diagnosis.spatial_candidate_count, 0)
+        self.assertIsNone(diagnosis.match)
+
+    def test_diagnoses_ambiguous_values_instead_of_choosing_by_proximity(self) -> None:
+        diagnosis = diagnose_spatial_amount_text(
+            (
+                block(
+                    "VALOR BRUTO",
+                    order=0,
+                    bbox=(200.0, 700.0, 300.0, 712.0),
+                ),
+                block(
+                    "1.234,56",
+                    order=1,
+                    bbox=(202.0, 680.0, 270.0, 692.0),
+                ),
+                block(
+                    "9.876,54",
+                    order=2,
+                    bbox=(202.0, 676.0, 270.0, 688.0),
+                ),
+            )
+        )
+
+        self.assertEqual(diagnosis.status, "ambiguous_values")
+        self.assertEqual(diagnosis.compatible_value_count, 2)
+        self.assertEqual(diagnosis.spatial_candidate_count, 2)
+        self.assertIsNone(diagnosis.match)
 
     def test_rejects_two_amount_labels_on_same_page(self) -> None:
         self.assertIsNone(
