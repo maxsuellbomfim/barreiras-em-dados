@@ -12,6 +12,7 @@ from .ocr import TCM_BA_OCR_PARSER_VERSION
 from .pdf_layout import PDF_LAYOUT_VERSION
 from .pdf_text import PDF_PARSER_VERSION
 from .processing import PageInput, ProcessingError, TextArtifact, canonical_json
+from .tcm_ba_commitment_amount_diagnostic import TcmBaAmountLayoutTarget
 from .tcm_ba_commitment_budget_diagnostic import TcmBaBudgetLayoutTarget
 from .tcm_ba_commitment_creditor_diagnostic import TcmBaCreditorLayoutTarget
 from .tcm_ba_commitment_date_diagnostic import TcmBaIssueDateLayoutTarget
@@ -481,6 +482,94 @@ class TcmBaCommitmentExtractionRepository:
                 "O benchmark de credores excedeu o limite de artefatos."
             )
         return tuple(targets)
+
+    def amount_layout_targets(
+        self,
+        *,
+        limit: int = 500,
+    ) -> tuple[TcmBaAmountLayoutTarget, ...]:
+        if not 1 <= limit <= 500:
+            raise ValueError("limit deve estar entre 1 e 500.")
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                with tcm_artifacts as (
+                  select artifact.id, artifact.sha256, artifact.object_key
+                  from raw.raw_artifacts as artifact
+                  where artifact.artifact_kind = 'document'
+                    and artifact.metadata ->> 'schema_name'
+                        = 'tcm-ba-monthly-document'
+                    and artifact.content_type = 'application/pdf'
+                    and artifact.http_status between 200 and 299
+                ),
+                current_jobs as (
+                  select job.id, job.raw_artifact_id
+                  from raw.extraction_jobs as job
+                  join tcm_artifacts as artifact
+                    on artifact.id = job.raw_artifact_id
+                  where job.job_type = %s
+                    and job.status = 'succeeded'
+                    and job.idempotency_key = encode(
+                      sha256(
+                        ('tcm-ba-commitments:' || artifact.sha256 || ':' ||
+                          %s)::bytea
+                      ),
+                      'hex'
+                    )
+                ),
+                current_results as (
+                  select job.raw_artifact_id,
+                    (result.result_payload ->> 'source_page_number')::integer
+                      as page_number
+                  from current_jobs as job
+                  join raw.extraction_results as result
+                    on result.extraction_job_id = job.id
+                  where result.candidate_type = 'tcm_ba_commitment_note'
+                    and result.extractor_version = %s
+                    and result.validation_status = 'needs_review'
+                    and result.result_payload ->> 'schema_version' = %s
+                    and result.result_payload -> 'missing_fields' ? 'amount_text'
+                ),
+                page_counts as (
+                  select raw_artifact_id, page_number,
+                    count(*)::integer as candidate_count
+                  from current_results
+                  group by raw_artifact_id, page_number
+                )
+                select artifact.id::text as artifact_id,
+                  artifact.sha256, artifact.object_key,
+                  jsonb_agg(
+                    jsonb_build_array(page.page_number, page.candidate_count)
+                    order by page.page_number
+                  ) as candidate_page_counts,
+                  count(*) over()::integer as total_artifacts,
+                  'commitment_amount_layout_targets' as report_marker
+                from page_counts as page
+                join tcm_artifacts as artifact
+                  on artifact.id = page.raw_artifact_id
+                group by artifact.id, artifact.sha256, artifact.object_key
+                order by artifact.sha256
+                limit %s
+                """,
+                (
+                    JOB_TYPE,
+                    EXTRACTOR_VERSION,
+                    EXTRACTOR_VERSION,
+                    SCHEMA_VERSION,
+                    limit,
+                ),
+            ).fetchall()
+        finally:
+            connection.close()
+        budget_targets = self._budget_targets_from_rows(rows, limit=limit)
+        return tuple(
+            TcmBaAmountLayoutTarget(
+                artifact=target.artifact,
+                candidate_page_counts=target.candidate_page_counts,
+            )
+            for target in budget_targets
+        )
 
     def issue_date_layout_targets(
         self,

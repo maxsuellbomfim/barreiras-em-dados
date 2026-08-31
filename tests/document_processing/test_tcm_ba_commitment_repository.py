@@ -45,6 +45,7 @@ class RecordingConnection:
         self.coverage_row = None
         self.breakdown_rows = []
         self.budget_target_rows = []
+        self.amount_target_rows = []
         self.creditor_target_rows = []
         self.issue_date_target_rows = []
         self.job_row = {"id": "00000000-0000-0000-0000-000000000905"}
@@ -56,6 +57,8 @@ class RecordingConnection:
             return Cursor(rows=self.breakdown_rows)
         if "commitment_budget_layout_targets" in normalized:
             return Cursor(rows=self.budget_target_rows)
+        if "commitment_amount_layout_targets" in normalized:
+            return Cursor(rows=self.amount_target_rows)
         if "commitment_creditor_layout_targets" in normalized:
             return Cursor(rows=self.creditor_target_rows)
         if "commitment_issue_date_layout_targets" in normalized:
@@ -322,6 +325,32 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
             if "commitment_budget_layout_targets" in query
         )
         self.assertIn("missing_fields' ? 'budget_allocation'", query)
+        self.assertEqual(
+            params,
+            (JOB_TYPE, EXTRACTOR_VERSION, EXTRACTOR_VERSION, SCHEMA_VERSION, 25),
+        )
+
+    def test_amount_layout_targets_are_version_scoped_and_bounded(self) -> None:
+        self.connection.amount_target_rows = [
+            {
+                "artifact_id": "00000000-0000-0000-0000-000000000902",
+                "sha256": "b" * 64,
+                "object_key": "private/a.pdf",
+                "candidate_page_counts": [[1, 1], [3, 2]],
+                "total_artifacts": 1,
+            }
+        ]
+
+        targets = self.repository.amount_layout_targets(limit=25)
+
+        self.assertEqual(len(targets), 1)
+        self.assertEqual(targets[0].candidate_page_counts, ((1, 1), (3, 2)))
+        query, params = next(
+            (query, params)
+            for query, params in self.connection.queries
+            if "commitment_amount_layout_targets" in query
+        )
+        self.assertIn("missing_fields' ? 'amount_text'", query)
         self.assertEqual(
             params,
             (JOB_TYPE, EXTRACTOR_VERSION, EXTRACTOR_VERSION, SCHEMA_VERSION, 25),

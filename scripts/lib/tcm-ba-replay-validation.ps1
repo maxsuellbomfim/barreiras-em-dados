@@ -385,3 +385,32 @@ function Read-TcmBaCommitmentBudgetBenchmarkEvent {
     }
     return $events[0]
 }
+
+function Read-TcmBaCommitmentAmountBenchmarkEvent {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object[]]$Output
+    )
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -eq "tcm_ba_commitment_amount_layout_benchmark") {
+            $events += $event
+        }
+    }
+    if ($events.Count -ne 1 -or $events[0].gate -ne "PASS") {
+        throw "O benchmark de valores não produziu um único gate aprovado."
+    }
+    return $events[0]
+}
