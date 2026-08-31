@@ -206,9 +206,61 @@ class TcmBaCommitmentDateDiagnosticTests(unittest.TestCase):
         )
         self.assertEqual(result.single_explicit_issue_date_candidates, 1)
         self.assertEqual(result.no_explicit_issue_date_candidates, 2)
+        self.assertEqual(result.repeated_consensus_explicit_issue_date_candidates, 0)
+        self.assertEqual(result.conflicting_explicit_issue_date_candidates, 0)
         self.assertNotIn("31/01/2021", serialized)
         self.assertNotIn("30-01-2021", serialized)
         self.assertNotIn("2021-01-29", serialized)
+
+    def test_counts_repeated_consensus_and_conflicts_without_exposing_dates(
+        self,
+    ) -> None:
+        artifact = TextArtifact("artifact-id", "d" * 64, "private.pdf")
+        target = TcmBaIssueDateLayoutTarget(
+            artifact=artifact,
+            candidate_page_counts=((1, 1), (2, 1)),
+        )
+        layouts = (
+            PdfLayoutPage(
+                1,
+                (
+                    block("DATA EMPENHO: 31/01/2021", order=0, bbox=(1, 1, 2, 2)),
+                    block("EMISSÃO: 31/01/2021", order=1, bbox=(1, 2, 2, 3)),
+                ),
+                "embedded_layout",
+            ),
+            PdfLayoutPage(
+                2,
+                (
+                    DocumentBlock.create(
+                        page_number=2,
+                        block_order=0,
+                        text="DATA EMPENHO: 30/01/2021",
+                        bbox=(1, 1, 2, 2),
+                    ),
+                    DocumentBlock.create(
+                        page_number=2,
+                        block_order=1,
+                        text="EMISSÃO: 29/01/2021",
+                        bbox=(1, 2, 2, 3),
+                    ),
+                ),
+                "embedded_layout",
+            ),
+        )
+
+        result = benchmark_issue_date_layout(
+            (target,),
+            layout_loader=lambda _artifact: layouts,
+        )
+        serialized = json.dumps(benchmark_payload(result))
+
+        self.assertEqual(result.repeated_consensus_explicit_issue_date_candidates, 1)
+        self.assertEqual(result.conflicting_explicit_issue_date_candidates, 1)
+        self.assertNotIn("31/01/2021", serialized)
+        self.assertNotIn("30/01/2021", serialized)
+        self.assertNotIn("29/01/2021", serialized)
+
 
 if __name__ == "__main__":
     unittest.main()

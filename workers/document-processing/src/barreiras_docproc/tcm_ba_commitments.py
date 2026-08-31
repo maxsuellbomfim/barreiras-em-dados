@@ -26,8 +26,8 @@ from .tcm_ba_commitment_layout import (
     find_spatial_issue_date,
 )
 
-EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.7.0"
-SCHEMA_VERSION = "1.4.0"
+EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.8.0"
+SCHEMA_VERSION = "1.5.0"
 JOB_TYPE = "tcm_ba_commitment_candidates"
 
 
@@ -138,16 +138,21 @@ def commitment_candidate_payload(
 
     def spatial_payload(
         match: SpatialScalarMatch | None,
+        *,
+        include_occurrence_count: bool = False,
     ) -> dict[str, object] | None:
         if match is None:
             return None
-        return {
+        payload: dict[str, object] = {
             "parser_version": PDF_LAYOUT_VERSION,
             "page_number": match.page_number,
             "label_block_order": match.label_block_order,
             "value_block_order": match.value_block_order,
             "relation": match.relation,
         }
+        if include_occurrence_count:
+            payload["occurrence_count"] = match.occurrence_count
+        return payload
 
     return {
         "schema_name": "tcm-ba-commitment-candidate",
@@ -155,7 +160,10 @@ def commitment_candidate_payload(
         "candidate_status": "complete" if candidate.complete else "incomplete",
         "commitment_number": candidate.commitment_number,
         "issue_date": candidate.issue_date,
-        "issue_date_evidence": spatial_payload(candidate.issue_date_evidence),
+        "issue_date_evidence": spatial_payload(
+            candidate.issue_date_evidence,
+            include_occurrence_count=True,
+        ),
         "creditor_name": candidate.creditor_name,
         "creditor_name_evidence": spatial_payload(candidate.creditor_name_evidence),
         "creditor_cnpj": candidate.creditor_cnpj,

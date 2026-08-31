@@ -938,6 +938,20 @@ como `DATA` e `DT` continuam apenas no diagnóstico e nunca autorizam a extraç�
 Todos os resultados permanecem privados em `needs_review`; nenhum empenho foi
 publicado.
 
+A versão 1.8 acrescentou um segundo gate para repetições inline: somente aceita
+quando todas as ocorrências ligadas a rótulos oficiais completos contêm a mesma
+data, registrando também `occurrence_count` na evidência. O benchmark privado
+anterior ao replay dividiu os 33 casos com múltiplas datas explícitas em oito
+consensos integrais e 25 conflitos. O replay append-only alcançou 513 de 513
+PDFs e 9.959 páginas, incorporando 25 artefatos que chegaram após a versão 1.7,
+sem novos candidatos. As oito datas consensuais foram recuperadas e a ausência
+de data caiu de 48 para 40. O benchmark posterior contabilizou exatamente as 40
+pendências: 25 conflitos, 13 páginas com múltiplas datas sem vínculo e duas com
+uma única data sem rótulo; nenhum consenso seguro permaneceu. A cobertura fechou
+sem falha aberta, ausência, duplicidade, payload inválido ou evidência espacial
+inválida. Os 124 candidatos continuam privados em `needs_review`; nenhum valor
+foi publicado.
+
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do

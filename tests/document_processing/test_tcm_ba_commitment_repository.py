@@ -257,6 +257,8 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
             "not in ('below', 'right', 'inline')",
             query,
         )
+        self.assertIn("->> 'occurrence_count'", query)
+        self.assertIn("!~ '^[1-9][0-9]*$'", query)
         self.assertEqual(
             params,
             (

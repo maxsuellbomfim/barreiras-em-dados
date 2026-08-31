@@ -168,7 +168,7 @@ class TcmBaCommitmentCreditorDiagnosticTests(unittest.TestCase):
             enriched,
             TextArtifact("artifact-id", "b" * 64, "private.pdf"),
         )
-        self.assertEqual(payload["schema_version"], "1.4.0")
+        self.assertEqual(payload["schema_version"], "1.5.0")
         self.assertEqual(payload["creditor_name_evidence"]["value_block_order"], 1)
 
 

@@ -6,6 +6,7 @@ from barreiras_docproc.gazette_documents import DocumentBlock
 from barreiras_docproc.pdf_layout import PdfLayoutPage
 from barreiras_docproc.processing import TextArtifact
 from barreiras_docproc.tcm_ba_commitment_layout import (
+    diagnose_inline_explicit_issue_date,
     find_inline_explicit_issue_date,
     find_spatial_amount_text,
     find_spatial_issue_date,
@@ -131,6 +132,53 @@ class TcmBaCommitmentScalarLayoutTests(unittest.TestCase):
                 )
             )
         )
+    def test_diagnoses_repeated_equal_inline_dates_and_returns_auditable_match(
+        self,
+    ) -> None:
+        blocks = (
+            block(
+                "DATA EMPENHO: 31/01/2021",
+                order=0,
+                bbox=(90.0, 700.0, 260.0, 712.0),
+            ),
+            block(
+                "EMISSÃO: 31/01/2021",
+                order=1,
+                bbox=(90.0, 680.0, 260.0, 692.0),
+            ),
+        )
+
+        diagnosis = diagnose_inline_explicit_issue_date(blocks)
+
+        self.assertEqual(diagnosis.status, "repeated_consensus")
+        self.assertEqual(diagnosis.occurrence_count, 2)
+        self.assertIsNotNone(diagnosis.match)
+        match = find_inline_explicit_issue_date(blocks)
+        self.assertIsNotNone(match)
+        assert match is not None
+        self.assertEqual(match.value, "2021-01-31")
+        self.assertEqual(match.occurrence_count, 2)
+
+    def test_diagnoses_conflicting_inline_dates_without_returning_a_value(self) -> None:
+        blocks = (
+            block(
+                "DATA EMPENHO: 31/01/2021",
+                order=0,
+                bbox=(90.0, 700.0, 260.0, 712.0),
+            ),
+            block(
+                "EMISSÃO: 30/01/2021",
+                order=1,
+                bbox=(90.0, 680.0, 260.0, 692.0),
+            ),
+        )
+
+        diagnosis = diagnose_inline_explicit_issue_date(blocks)
+
+        self.assertEqual(diagnosis.status, "conflict")
+        self.assertEqual(diagnosis.occurrence_count, 2)
+        self.assertIsNone(diagnosis.match)
+
     def test_finds_signed_amount_to_the_right_and_removes_currency_prefix(self) -> None:
         match = find_spatial_amount_text(
             (
@@ -235,11 +283,12 @@ class TcmBaCommitmentScalarLayoutTests(unittest.TestCase):
             candidate,
             TextArtifact("artifact-id", "b" * 64, "private.pdf"),
         )
-        self.assertEqual(payload["schema_version"], "1.4.0")
+        self.assertEqual(payload["schema_version"], "1.5.0")
         self.assertEqual(
             payload["issue_date_evidence"]["value_block_order"],
             1,
         )
+        self.assertEqual(payload["issue_date_evidence"]["occurrence_count"], 1)
         self.assertEqual(
             payload["amount_text_evidence"]["value_block_order"],
             3,

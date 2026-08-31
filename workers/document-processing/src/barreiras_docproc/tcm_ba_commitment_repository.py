@@ -777,6 +777,20 @@ class TcmBaCommitmentExtractionRepository:
                             result_payload -> 'issue_date_evidence'
                               ->> 'relation', ''
                           ) not in ('below', 'right', 'inline')
+                          or coalesce(
+                            result_payload -> 'issue_date_evidence'
+                              ->> 'occurrence_count', ''
+                          ) !~ '^[1-9][0-9]*$'
+                          or (
+                            coalesce(
+                              result_payload -> 'issue_date_evidence'
+                                ->> 'relation', ''
+                            ) <> 'inline'
+                            and (
+                              result_payload -> 'issue_date_evidence'
+                                ->> 'occurrence_count'
+                            ) <> '1'
+                          )
                           or (
                             coalesce(
                               result_payload -> 'issue_date_evidence'

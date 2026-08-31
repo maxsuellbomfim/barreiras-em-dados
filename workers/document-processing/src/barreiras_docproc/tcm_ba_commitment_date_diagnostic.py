@@ -7,7 +7,10 @@ from dataclasses import dataclass
 
 from .pdf_layout import PdfLayoutPage
 from .processing import TextArtifact
-from .tcm_ba_commitment_layout import diagnose_spatial_issue_date
+from .tcm_ba_commitment_layout import (
+    diagnose_inline_explicit_issue_date,
+    diagnose_spatial_issue_date,
+)
 
 
 @dataclass(frozen=True)
@@ -40,6 +43,8 @@ class TcmBaIssueDateLayoutBenchmark:
     single_explicit_issue_date_candidates: int
     multiple_explicit_issue_date_candidates: int
     no_explicit_issue_date_candidates: int
+    repeated_consensus_explicit_issue_date_candidates: int
+    conflicting_explicit_issue_date_candidates: int
     safe_context_pattern_counts: tuple[tuple[str, int], ...]
 
     @property
@@ -95,6 +100,7 @@ def benchmark_issue_date_layout(
     role_counts: dict[str, int] = {}
     direct_role_counts: dict[str, int] = {}
     explicit_issue_candidate_counts = {"none": 0, "single": 0, "multiple": 0}
+    explicit_consensus_counts = {"repeated_consensus": 0, "conflict": 0}
     context_counts: dict[str, int] = {}
     failed_artifacts = 0
     missing_candidates = 0
@@ -123,6 +129,9 @@ def benchmark_issue_date_layout(
                 counters["no_embedded_layout_candidates"] += 1
                 continue
             diagnosis = diagnose_spatial_issue_date(layout.blocks)
+            inline_consensus = diagnose_inline_explicit_issue_date(layout.blocks)
+            if inline_consensus.status in explicit_consensus_counts:
+                explicit_consensus_counts[inline_consensus.status] += 1
             for format_kind, count in diagnosis.date_format_counts:
                 format_counts[format_kind] = format_counts.get(format_kind, 0) + count
             for role, count in diagnosis.date_role_counts:
@@ -171,6 +180,10 @@ def benchmark_issue_date_layout(
             "multiple"
         ],
         no_explicit_issue_date_candidates=explicit_issue_candidate_counts["none"],
+        repeated_consensus_explicit_issue_date_candidates=(
+            explicit_consensus_counts["repeated_consensus"]
+        ),
+        conflicting_explicit_issue_date_candidates=explicit_consensus_counts["conflict"],
         safe_context_pattern_counts=tuple(sorted(context_counts.items())),
         **counters,
     )
@@ -209,6 +222,12 @@ def benchmark_payload(
             "single": benchmark.single_explicit_issue_date_candidates,
             "multiple": benchmark.multiple_explicit_issue_date_candidates,
             "none": benchmark.no_explicit_issue_date_candidates,
+        },
+        "explicit_issue_date_consensus": {
+            "repeated_consensus": (
+                benchmark.repeated_consensus_explicit_issue_date_candidates
+            ),
+            "conflict": benchmark.conflicting_explicit_issue_date_candidates,
         },
         "safe_context_pattern_counts": dict(benchmark.safe_context_pattern_counts),
         "gate": "PASS" if benchmark.complete else "BLOCK",
