@@ -11,7 +11,7 @@ from typing import Literal
 
 from .gazette_documents import BoundingBox, DocumentBlock
 
-SpatialRelation = Literal["below", "right"]
+SpatialRelation = Literal["below", "right", "inline"]
 CreditorLabelKind = Literal[
     "creditor",
     "favored",
@@ -25,9 +25,42 @@ CreditorDiagnosisStatus = Literal[
     "no_compatible_value",
     "ambiguous_values",
 ]
+IssueDateLabelKind = Literal[
+    "commitment_date",
+    "issue_date",
+    "emission",
+    "generic_date",
+]
+IssueDateRole = Literal[
+    "commitment",
+    "emission",
+    "liquidation",
+    "payment",
+    "processing",
+    "due_date",
+    "publication",
+    "signature",
+    "period",
+    "generic_date",
+    "unknown",
+]
+IssueDateDiagnosisStatus = Literal[
+    "matched",
+    "inline_labeled",
+    "same_block_labeled",
+    "no_label",
+    "multiple_labels",
+    "no_compatible_value",
+    "ambiguous_values",
+]
 
 _MONEY = re.compile(r"^(?:R\$\s*)?-?[\d.]+,\d{2}$", re.IGNORECASE)
 _DATE = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
+_DATE_TOKEN_PATTERNS = (
+    ("dmy_slash", re.compile(r"(?<!\d)\d{1,2}/\d{1,2}/\d{4}(?!\d)"), "%d/%m/%Y"),
+    ("dmy_dash", re.compile(r"(?<!\d)\d{1,2}-\d{1,2}-\d{4}(?!\d)"), "%d-%m-%Y"),
+    ("iso", re.compile(r"(?<!\d)\d{4}-\d{1,2}-\d{1,2}(?!\d)"), "%Y-%m-%d"),
+)
 _CPF = re.compile(r"^\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}$")
 _CNPJ = re.compile(r"^\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}$")
 _BUDGET_LABELS = {
@@ -40,6 +73,17 @@ _ISSUE_DATE_LABELS = {
     "DATA DO EMPANHO",
     "DATA DO EMPENHO",
     "EMISSAO",
+}
+_ISSUE_DATE_DIAGNOSTIC_LABEL_KINDS: dict[str, IssueDateLabelKind] = {
+    "DATA DE EMISSAO": "issue_date",
+    "DATA EMISSAO": "issue_date",
+    "DATA DO EMPANHO": "commitment_date",
+    "DATA DO EMPENHO": "commitment_date",
+    "DATA EMPANHO": "commitment_date",
+    "DATA EMPENHO": "commitment_date",
+    "EMISSAO": "emission",
+    "DATA": "generic_date",
+    "DT": "generic_date",
 }
 _AMOUNT_LABELS = {
     "VALOR",
@@ -101,6 +145,19 @@ class _ScoredScalarMatch:
 class SpatialCreditorDiagnosis:
     status: CreditorDiagnosisStatus
     label_kind: CreditorLabelKind | None = None
+    match: SpatialScalarMatch | None = None
+
+
+@dataclass(frozen=True)
+class SpatialIssueDateDiagnosis:
+    status: IssueDateDiagnosisStatus
+    date_value_count: int
+    date_format_counts: tuple[tuple[str, int], ...]
+    date_role_counts: tuple[tuple[str, int], ...]
+    direct_date_role_counts: tuple[tuple[str, int], ...]
+    explicit_issue_date_count: int
+    safe_context_patterns: tuple[str, ...]
+    label_kind: IssueDateLabelKind | None = None
     match: SpatialScalarMatch | None = None
 
 
@@ -328,6 +385,353 @@ def _find_spatial_scalar(
         return None
     return scored[0].match
 
+
+def _embedded_date_formats(text: str) -> tuple[str, ...]:
+    formats: list[str] = []
+    for format_kind, pattern, date_format in _DATE_TOKEN_PATTERNS:
+        for match in pattern.finditer(text):
+            try:
+                datetime.strptime(match.group(0), date_format)
+            except ValueError:
+                continue
+            formats.append(format_kind)
+    return tuple(formats)
+
+
+def _date_role(text: str) -> IssueDateRole:
+    normalized = _normalized_label(text)
+    if "LIQUID" in normalized:
+        return "liquidation"
+    if "PAGAMENTO" in normalized or "PAGO" in normalized:
+        return "payment"
+    if "PROCESSAMENTO" in normalized or "PROCESSADO" in normalized:
+        return "processing"
+    if "VENCIMENTO" in normalized:
+        return "due_date"
+    if "PUBLICACAO" in normalized or "PUBLICADO" in normalized:
+        return "publication"
+    if "ASSINATURA" in normalized or "ASSINADO" in normalized:
+        return "signature"
+    if any(word in normalized for word in ("PERIODO", "INICIAL", "FINAL")):
+        return "period"
+    if "EMPENHO" in normalized or "EMPANHO" in normalized:
+        return "commitment"
+    if "EMISSAO" in normalized or "EMITIDO" in normalized or "EMITIDA" in normalized:
+        return "emission"
+    if normalized == "DATA" or normalized.startswith("DATA "):
+        return "generic_date"
+    return "unknown"
+
+
+def _direct_date_roles(text: str) -> tuple[IssueDateRole, ...]:
+    roles: list[IssueDateRole] = []
+    for line in text.splitlines() or (text,):
+        formats = _embedded_date_formats(line)
+        if formats:
+            role = _date_role(line)
+            roles.extend(role for _format in formats)
+    return tuple(roles)
+
+def _explicit_issue_date_count(text: str) -> int:
+    count = 0
+    trusted_kinds = {"commitment_date", "issue_date", "emission"}
+    for line in text.splitlines() or (text,):
+        formats = _embedded_date_formats(line)
+        kinds = set(_diagnostic_label_kinds(line))
+        if formats and len(kinds) == 1 and kinds.pop() in trusted_kinds:
+            count += len(formats)
+    return count
+
+def _embedded_date_roles(text: str) -> tuple[IssueDateRole, ...]:
+    roles: list[IssueDateRole] = []
+    previous_line = ""
+    for line in text.splitlines() or (text,):
+        formats = _embedded_date_formats(line)
+        if formats:
+            role = _date_role(line)
+            if role == "unknown" and previous_line:
+                role = _date_role(previous_line)
+            roles.extend(role for _format in formats)
+        if line.strip():
+            previous_line = line
+    return tuple(roles)
+
+def _diagnostic_text_category(text: str) -> str:
+    normalized = _normalized_label(text)
+    if normalized in {"DATA", "DT"}:
+        return "DATA_LABEL"
+    if _embedded_date_formats(text):
+        return f"{_date_role(text).upper()}_DATE"
+    role = _date_role(text)
+    return "OTHER" if role == "unknown" else role.upper()
+
+
+def diagnostic_issue_date_context_patterns(
+    blocks: tuple[DocumentBlock, ...],
+) -> tuple[str, ...]:
+    """Resume vizinhos de DATA em categorias fechadas, nunca em texto livre."""
+    lines = tuple(
+        line
+        for block in sorted(blocks, key=lambda item: item.block_order)
+        for line in block.text.splitlines() or (block.text,)
+        if line.strip()
+    )
+    categories = tuple(_diagnostic_text_category(line) for line in lines)
+    patterns: list[str] = []
+    for index, category in enumerate(categories):
+        if category not in {"DATA_LABEL", "GENERIC_DATE_DATE"}:
+            continue
+        start = max(index - 2, 0)
+        end = min(index + 3, len(categories))
+        patterns.append(">".join(categories[start:end]))
+    return tuple(patterns)
+
+def _diagnostic_label_kinds(text: str) -> tuple[IssueDateLabelKind, ...]:
+    kinds: list[IssueDateLabelKind] = []
+    ordered_labels = sorted(
+        _ISSUE_DATE_DIAGNOSTIC_LABEL_KINDS.items(),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+    for line in text.splitlines() or (text,):
+        normalized = _normalized_label(line)
+        for label, kind in ordered_labels:
+            if normalized == label or normalized.startswith(f"{label} "):
+                kinds.append(kind)
+                break
+    return tuple(kinds)
+
+
+def diagnose_spatial_issue_date(
+    blocks: tuple[DocumentBlock, ...],
+) -> SpatialIssueDateDiagnosis:
+    """Classifica o layout da data sem expor o valor no relatório."""
+    format_counts: dict[str, int] = {}
+    block_formats: list[tuple[DocumentBlock, tuple[str, ...]]] = []
+    for block in blocks:
+        if block.bbox is None:
+            continue
+        formats = _embedded_date_formats(block.text)
+        block_formats.append((block, formats))
+        for format_kind in formats:
+            format_counts[format_kind] = format_counts.get(format_kind, 0) + 1
+    date_format_counts = tuple(sorted(format_counts.items()))
+    role_counts: dict[str, int] = {}
+    for block in blocks:
+        if block.bbox is None:
+            continue
+        for role in _embedded_date_roles(block.text):
+            role_counts[role] = role_counts.get(role, 0) + 1
+    date_role_counts = tuple(sorted(role_counts.items()))
+    direct_role_counts: dict[str, int] = {}
+    for block in blocks:
+        if block.bbox is None:
+            continue
+        for role in _direct_date_roles(block.text):
+            direct_role_counts[role] = direct_role_counts.get(role, 0) + 1
+    direct_date_role_counts = tuple(sorted(direct_role_counts.items()))
+    explicit_issue_date_count = sum(
+        _explicit_issue_date_count(block.text)
+        for block in blocks
+        if block.bbox is not None
+    )
+    safe_context_patterns = diagnostic_issue_date_context_patterns(blocks)
+    date_value_count = sum(format_counts.values())
+    date_values = tuple(
+        (block, normalized)
+        for block in blocks
+        if block.bbox is not None
+        and (normalized := _normalized_issue_date(block.text)) is not None
+    )
+    labels = tuple(
+        (block, _ISSUE_DATE_DIAGNOSTIC_LABEL_KINDS[_normalized_label(block.text)])
+        for block in blocks
+        if block.bbox is not None
+        and _normalized_label(block.text) in _ISSUE_DATE_DIAGNOSTIC_LABEL_KINDS
+    )
+    if not labels:
+        inline_kinds: list[IssueDateLabelKind] = []
+        same_block_kinds: list[IssueDateLabelKind] = []
+        for block, formats in block_formats:
+            if not formats:
+                continue
+            block_kinds = _diagnostic_label_kinds(block.text)
+            if not block_kinds:
+                continue
+            same_block_kinds.extend(block_kinds)
+            for line in block.text.splitlines() or (block.text,):
+                if _embedded_date_formats(line):
+                    inline_kinds.extend(_diagnostic_label_kinds(line))
+        if date_value_count == 1 and len(inline_kinds) == 1:
+            return SpatialIssueDateDiagnosis(
+                status="inline_labeled",
+                date_value_count=date_value_count,
+                date_format_counts=date_format_counts,
+                date_role_counts=date_role_counts,
+                direct_date_role_counts=direct_date_role_counts,
+                explicit_issue_date_count=explicit_issue_date_count,
+                safe_context_patterns=safe_context_patterns,
+                label_kind=inline_kinds[0],
+            )
+        if date_value_count == 1 and len(same_block_kinds) == 1:
+            return SpatialIssueDateDiagnosis(
+                status="same_block_labeled",
+                date_value_count=date_value_count,
+                date_format_counts=date_format_counts,
+                date_role_counts=date_role_counts,
+                direct_date_role_counts=direct_date_role_counts,
+                explicit_issue_date_count=explicit_issue_date_count,
+                safe_context_patterns=safe_context_patterns,
+                label_kind=same_block_kinds[0],
+            )
+        if len(inline_kinds) > 1 or len(same_block_kinds) > 1:
+            return SpatialIssueDateDiagnosis(
+                status="multiple_labels",
+                date_value_count=date_value_count,
+                date_format_counts=date_format_counts,
+                date_role_counts=date_role_counts,
+                direct_date_role_counts=direct_date_role_counts,
+                explicit_issue_date_count=explicit_issue_date_count,
+                safe_context_patterns=safe_context_patterns,
+            )
+        return SpatialIssueDateDiagnosis(
+            status="no_label",
+            date_value_count=date_value_count,
+            date_format_counts=date_format_counts,
+            date_role_counts=date_role_counts,
+            direct_date_role_counts=direct_date_role_counts,
+            explicit_issue_date_count=explicit_issue_date_count,
+            safe_context_patterns=safe_context_patterns,
+        )
+    if len(labels) != 1:
+        return SpatialIssueDateDiagnosis(
+            status="multiple_labels",
+            date_value_count=date_value_count,
+            date_format_counts=date_format_counts,
+            date_role_counts=date_role_counts,
+            direct_date_role_counts=direct_date_role_counts,
+            explicit_issue_date_count=explicit_issue_date_count,
+            safe_context_patterns=safe_context_patterns,
+        )
+    label, label_kind = labels[0]
+    label_box = label.bbox
+    if label_box is None:
+        return SpatialIssueDateDiagnosis(
+            status="no_label",
+            date_value_count=date_value_count,
+            date_format_counts=date_format_counts,
+            date_role_counts=date_role_counts,
+            direct_date_role_counts=direct_date_role_counts,
+            explicit_issue_date_count=explicit_issue_date_count,
+            safe_context_patterns=safe_context_patterns,
+        )
+    scored: list[_ScoredScalarMatch] = []
+    for value, normalized_value in date_values:
+        value_box = value.bbox
+        if (
+            value is label
+            or value_box is None
+            or value.page_number != label.page_number
+        ):
+            continue
+        below = _below_score(label_box, value_box)
+        right = _right_score(label_box, value_box)
+        options = tuple(
+            (relation, score)
+            for relation, score in (("below", below), ("right", right))
+            if score is not None
+        )
+        if not options:
+            continue
+        relation, score = min(options, key=lambda item: item[1])
+        scored.append(
+            _ScoredScalarMatch(
+                match=SpatialScalarMatch(
+                    value=normalized_value,
+                    page_number=value.page_number,
+                    label_block_order=label.block_order,
+                    value_block_order=value.block_order,
+                    relation=relation,
+                ),
+                score=score,
+            )
+        )
+    scored.sort(key=lambda candidate: candidate.score)
+    if not scored or scored[0].score > _MAX_PRIMARY_SCORE:
+        return SpatialIssueDateDiagnosis(
+            status="no_compatible_value",
+            date_value_count=date_value_count,
+            date_format_counts=date_format_counts,
+            date_role_counts=date_role_counts,
+            direct_date_role_counts=direct_date_role_counts,
+            explicit_issue_date_count=explicit_issue_date_count,
+            safe_context_patterns=safe_context_patterns,
+            label_kind=label_kind,
+        )
+    if (
+        len(scored) > 1
+        and scored[1].score - scored[0].score < _MIN_SECONDARY_SCORE_DELTA
+    ):
+        return SpatialIssueDateDiagnosis(
+            status="ambiguous_values",
+            date_value_count=date_value_count,
+            date_format_counts=date_format_counts,
+            date_role_counts=date_role_counts,
+            direct_date_role_counts=direct_date_role_counts,
+            explicit_issue_date_count=explicit_issue_date_count,
+            safe_context_patterns=safe_context_patterns,
+            label_kind=label_kind,
+        )
+    return SpatialIssueDateDiagnosis(
+        status="matched",
+        date_value_count=date_value_count,
+        date_format_counts=date_format_counts,
+        date_role_counts=date_role_counts,
+        direct_date_role_counts=direct_date_role_counts,
+        explicit_issue_date_count=explicit_issue_date_count,
+        safe_context_patterns=safe_context_patterns,
+        label_kind=label_kind,
+        match=scored[0].match,
+    )
+
+def _embedded_date_values(text: str) -> tuple[str, ...]:
+    values: list[str] = []
+    for _format_kind, pattern, date_format in _DATE_TOKEN_PATTERNS:
+        for match in pattern.finditer(text):
+            try:
+                value = (
+                    datetime.strptime(match.group(0), date_format).date().isoformat()
+                )
+            except ValueError:
+                continue
+            values.append(value)
+    return tuple(values)
+
+
+def find_inline_explicit_issue_date(
+    blocks: tuple[DocumentBlock, ...],
+) -> SpatialScalarMatch | None:
+    """Aceita somente um valor na mesma linha de um rótulo oficial completo."""
+    trusted_kinds = {"commitment_date", "issue_date", "emission"}
+    matches: list[SpatialScalarMatch] = []
+    for block in blocks:
+        if block.bbox is None:
+            continue
+        for line in block.text.splitlines() or (block.text,):
+            kinds = set(_diagnostic_label_kinds(line))
+            if len(kinds) != 1 or kinds.pop() not in trusted_kinds:
+                continue
+            for value in _embedded_date_values(line):
+                matches.append(
+                    SpatialScalarMatch(
+                        value=value,
+                        page_number=block.page_number,
+                        label_block_order=block.block_order,
+                        value_block_order=block.block_order,
+                        relation="inline",
+                    )
+                )
+    return matches[0] if len(matches) == 1 else None
 
 def find_spatial_issue_date(
     blocks: tuple[DocumentBlock, ...],

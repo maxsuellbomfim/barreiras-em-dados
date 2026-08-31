@@ -6,6 +6,7 @@ from barreiras_docproc.gazette_documents import DocumentBlock
 from barreiras_docproc.pdf_layout import PdfLayoutPage
 from barreiras_docproc.processing import TextArtifact
 from barreiras_docproc.tcm_ba_commitment_layout import (
+    find_inline_explicit_issue_date,
     find_spatial_amount_text,
     find_spatial_issue_date,
 )
@@ -91,6 +92,45 @@ class TcmBaCommitmentScalarLayoutTests(unittest.TestCase):
             )
         )
 
+    def test_finds_single_inline_date_with_official_complete_label(self) -> None:
+        match = find_inline_explicit_issue_date(
+            (
+                block(
+                    "DATA EMPENHO: 31/01/2021",
+                    order=0,
+                    bbox=(90.0, 700.0, 260.0, 712.0),
+                ),
+                block(
+                    "ASSINADO EM 05/02/2021",
+                    order=1,
+                    bbox=(90.0, 680.0, 260.0, 692.0),
+                ),
+            )
+        )
+
+        self.assertIsNotNone(match)
+        assert match is not None
+        self.assertEqual(match.value, "2021-01-31")
+        self.assertEqual(match.relation, "inline")
+        self.assertEqual(match.label_block_order, match.value_block_order)
+
+    def test_rejects_multiple_inline_dates_with_official_labels(self) -> None:
+        self.assertIsNone(
+            find_inline_explicit_issue_date(
+                (
+                    block(
+                        "DATA EMPENHO: 31/01/2021",
+                        order=0,
+                        bbox=(90.0, 700.0, 260.0, 712.0),
+                    ),
+                    block(
+                        "EMISSÃO: 30/01/2021",
+                        order=1,
+                        bbox=(90.0, 680.0, 260.0, 692.0),
+                    ),
+                )
+            )
+        )
     def test_finds_signed_amount_to_the_right_and_removes_currency_prefix(self) -> None:
         match = find_spatial_amount_text(
             (
@@ -195,7 +235,7 @@ class TcmBaCommitmentScalarLayoutTests(unittest.TestCase):
             candidate,
             TextArtifact("artifact-id", "b" * 64, "private.pdf"),
         )
-        self.assertEqual(payload["schema_version"], "1.3.0")
+        self.assertEqual(payload["schema_version"], "1.4.0")
         self.assertEqual(
             payload["issue_date_evidence"]["value_block_order"],
             1,

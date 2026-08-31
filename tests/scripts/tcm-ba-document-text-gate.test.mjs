@@ -207,6 +207,21 @@ test("wrapper oferece benchmark privado e agregado de credores", () => {
   assert.match(wrapper, /TCM_BA_COMMITMENT_CREDITOR_BENCHMARK_APPROVED/);
 });
 
+test("wrapper oferece benchmark privado e agregado de datas", () => {
+  const benchmarkOnly = wrapper.indexOf("if ($CommitmentIssueDateBenchmarkOnly)");
+  const benchmark = wrapper.indexOf(
+    "barreiras_docproc.commands.benchmark_tcm_ba_commitment_dates --limit 500",
+    benchmarkOnly,
+  );
+  const collector = wrapper.indexOf(
+    "barreiras_collectors.commands.collect_tcm_ba_documents",
+  );
+  assert.match(wrapper, /\[switch\]\$CommitmentIssueDateBenchmarkOnly/);
+  assert.ok(benchmarkOnly >= 0);
+  assert.ok(benchmark > benchmarkOnly);
+  assert.ok(collector > benchmark);
+  assert.match(wrapper, /TCM_BA_COMMITMENT_ISSUE_DATE_BENCHMARK_APPROVED/);
+});
 test("wrapper oferece auditoria física somente leitura sem iniciar o coletor", () => {
   const auditOnly = wrapper.indexOf("if ($AuditOnly)");
   const auditCall = wrapper.indexOf(
