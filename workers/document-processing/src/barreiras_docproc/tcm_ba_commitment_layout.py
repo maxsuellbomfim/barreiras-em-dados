@@ -12,6 +12,34 @@ from typing import Literal
 from .gazette_documents import BoundingBox, DocumentBlock
 
 SpatialRelation = Literal["below", "right", "inline"]
+BudgetLabelKind = Literal["budget_allocation", "budget_classification"]
+BudgetContextPattern = Literal[
+    "BUDGET_UNIT",
+    "CLASSIFICATION_AND_BUDGET",
+    "CLASSIFICATION_BUDGET_EMBEDDED",
+    "CLASSIFICATION_BUDGET_PREFIX_COMPATIBLE_SUFFIX",
+    "CLASSIFICATION_BUDGET_PREFIX_NONCOMPATIBLE_SUFFIX",
+    "CLASSIFICATION_BUDGET_SUFFIX_FEW_DIGITS",
+    "CLASSIFICATION_BUDGET_SUFFIX_NO_DIGITS",
+    "CLASSIFICATION_BUDGET_SUFFIX_OTHER",
+    "CLASSIFICATION_BUDGET_SUFFIX_TOO_LONG",
+    "CLASSIFICATION_BUDGET_WORDS_SEPARATED",
+    "CONTAINS_DOTACAO",
+    "EXPENSE_ELEMENT",
+    "FUNDING_SOURCE",
+    "PROJECT_ACTIVITY",
+    "STANDALONE_BUDGET_TERM",
+    "STANDALONE_CLASSIFICATION",
+]
+BudgetDiagnosisStatus = Literal[
+    "matched",
+    "no_label",
+    "multiple_labels",
+    "no_compatible_value",
+    "no_spatial_candidate",
+    "distant_value",
+    "ambiguous_values",
+]
 CreditorLabelKind = Literal[
     "creditor",
     "favored",
@@ -74,6 +102,11 @@ _BUDGET_LABELS = {
     "DOTACAO ORCAMENTARIA",
     "CLASSIFICACAO ORCAMENTARIA",
 }
+_BUDGET_LABEL_KINDS: dict[str, BudgetLabelKind] = {
+    "DOTACAO": "budget_allocation",
+    "DOTACAO ORCAMENTARIA": "budget_allocation",
+    "CLASSIFICACAO ORCAMENTARIA": "budget_classification",
+}
 _ISSUE_DATE_LABELS = {
     "DATA DE EMISSAO",
     "DATA DO EMPANHO",
@@ -130,6 +163,15 @@ class SpatialBudgetMatch:
 class _ScoredMatch:
     match: SpatialBudgetMatch
     score: float
+
+
+@dataclass(frozen=True)
+class SpatialBudgetDiagnosis:
+    status: BudgetDiagnosisStatus
+    compatible_value_count: int
+    spatial_candidate_count: int
+    label_kind: BudgetLabelKind | None = None
+    match: SpatialBudgetMatch | None = None
 
 
 @dataclass(frozen=True)
@@ -203,6 +245,57 @@ def _is_budget_value(text: str) -> bool:
     )
 
 
+def diagnostic_budget_context_patterns(
+    blocks: tuple[DocumentBlock, ...],
+) -> tuple[BudgetContextPattern, ...]:
+    """Classifica cabeçalhos orçamentários sem retornar texto ou valores."""
+    patterns: set[BudgetContextPattern] = set()
+    for block in blocks:
+        normalized = _normalized_label(block.text)
+        tokens = set(normalized.split())
+        if "DOTACAO" in tokens:
+            patterns.add("CONTAINS_DOTACAO")
+        if {"CLASSIFICACAO", "ORCAMENTARIA"} <= tokens:
+            patterns.add("CLASSIFICATION_AND_BUDGET")
+            phrase = "CLASSIFICACAO ORCAMENTARIA"
+            if phrase not in normalized:
+                patterns.add("CLASSIFICATION_BUDGET_WORDS_SEPARATED")
+            elif not normalized.startswith(phrase):
+                patterns.add("CLASSIFICATION_BUDGET_EMBEDDED")
+            else:
+                suffix = normalized[len(phrase) :].strip()
+                if suffix and _is_budget_value(suffix):
+                    patterns.add(
+                        "CLASSIFICATION_BUDGET_PREFIX_COMPATIBLE_SUFFIX"
+                    )
+                elif suffix:
+                    patterns.add(
+                        "CLASSIFICATION_BUDGET_PREFIX_NONCOMPATIBLE_SUFFIX"
+                    )
+                    digit_count = sum(character.isdigit() for character in suffix)
+                    if len(suffix) > 200:
+                        patterns.add("CLASSIFICATION_BUDGET_SUFFIX_TOO_LONG")
+                    elif digit_count == 0:
+                        patterns.add("CLASSIFICATION_BUDGET_SUFFIX_NO_DIGITS")
+                    elif digit_count < 6:
+                        patterns.add("CLASSIFICATION_BUDGET_SUFFIX_FEW_DIGITS")
+                    else:
+                        patterns.add("CLASSIFICATION_BUDGET_SUFFIX_OTHER")
+        if normalized == "CLASSIFICACAO":
+            patterns.add("STANDALONE_CLASSIFICATION")
+        if normalized == "ORCAMENTARIA":
+            patterns.add("STANDALONE_BUDGET_TERM")
+        if {"UNIDADE", "ORCAMENTARIA"} <= tokens:
+            patterns.add("BUDGET_UNIT")
+        if {"PROJETO", "ATIVIDADE"} <= tokens:
+            patterns.add("PROJECT_ACTIVITY")
+        if {"ELEMENTO", "DESPESA"} <= tokens:
+            patterns.add("EXPENSE_ELEMENT")
+        if "FONTE" in tokens and ({"RECURSO", "RECURSOS"} & tokens):
+            patterns.add("FUNDING_SOURCE")
+    return tuple(sorted(patterns))
+
+
 def _width(box: BoundingBox) -> float:
     return max(box[2] - box[0], 0.0)
 
@@ -269,57 +362,107 @@ def find_spatial_budget_allocation(
     blocks: tuple[DocumentBlock, ...],
 ) -> SpatialBudgetMatch | None:
     """Retorna apenas uma associação geométrica inequívoca para a dotação."""
-    label_count = sum(
-        block.bbox is not None and _is_budget_label(block.text) for block in blocks
+    diagnosis = diagnose_spatial_budget_allocation(blocks)
+    return diagnosis.match if diagnosis.status == "matched" else None
+
+
+def diagnose_spatial_budget_allocation(
+    blocks: tuple[DocumentBlock, ...],
+) -> SpatialBudgetDiagnosis:
+    """Classifica a geometria da dotação sem expor valores no diagnóstico."""
+    labels = tuple(
+        block
+        for block in blocks
+        if block.bbox is not None and _is_budget_label(block.text)
     )
-    if label_count != 1:
-        return None
+    compatible_value_count = sum(
+        block.bbox is not None and _is_budget_value(block.text) for block in blocks
+    )
+    if not labels:
+        return SpatialBudgetDiagnosis(
+            status="no_label",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=0,
+        )
+    if len(labels) != 1:
+        return SpatialBudgetDiagnosis(
+            status="multiple_labels",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=0,
+        )
+    label = labels[0]
+    label_kind = _BUDGET_LABEL_KINDS[_normalized_label(label.text)]
+    if compatible_value_count == 0:
+        return SpatialBudgetDiagnosis(
+            status="no_compatible_value",
+            compatible_value_count=0,
+            spatial_candidate_count=0,
+            label_kind=label_kind,
+        )
     scored: list[_ScoredMatch] = []
-    for label in blocks:
-        if label.bbox is None or not _is_budget_label(label.text):
+    for value in blocks:
+        if (
+            value is label
+            or value.bbox is None
+            or value.page_number != label.page_number
+            or not _is_budget_value(value.text)
+        ):
             continue
-        for value in blocks:
-            if (
-                value is label
-                or value.bbox is None
-                or value.page_number != label.page_number
-                or not _is_budget_value(value.text)
-            ):
-                continue
-            below = _below_score(label.bbox, value.bbox)
-            right = _right_score(label.bbox, value.bbox)
-            options = tuple(
-                (relation, score)
-                for relation, score in (("below", below), ("right", right))
-                if score is not None
+        below = _below_score(label.bbox, value.bbox)
+        right = _right_score(label.bbox, value.bbox)
+        options = tuple(
+            (relation, score)
+            for relation, score in (("below", below), ("right", right))
+            if score is not None
+        )
+        if not options:
+            continue
+        relation, score = min(options, key=lambda item: item[1])
+        scored.append(
+            _ScoredMatch(
+                match=SpatialBudgetMatch(
+                    value=" ".join(value.text.split()),
+                    page_number=value.page_number,
+                    label_block_order=label.block_order,
+                    value_block_order=value.block_order,
+                    relation=relation,
+                ),
+                score=score,
             )
-            if not options:
-                continue
-            relation, score = min(options, key=lambda item: item[1])
-            scored.append(
-                _ScoredMatch(
-                    match=SpatialBudgetMatch(
-                        value=" ".join(value.text.split()),
-                        page_number=value.page_number,
-                        label_block_order=label.block_order,
-                        value_block_order=value.block_order,
-                        relation=relation,
-                    ),
-                    score=score,
-                )
-            )
+        )
 
     if not scored:
-        return None
+        return SpatialBudgetDiagnosis(
+            status="no_spatial_candidate",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=0,
+            label_kind=label_kind,
+        )
     scored.sort(key=lambda candidate: candidate.score)
     if scored[0].score > _MAX_PRIMARY_SCORE:
-        return None
+        return SpatialBudgetDiagnosis(
+            status="distant_value",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=len(scored),
+            label_kind=label_kind,
+        )
     if (
         len(scored) > 1
         and scored[1].score - scored[0].score < _MIN_SECONDARY_SCORE_DELTA
     ):
-        return None
-    return scored[0].match
+        return SpatialBudgetDiagnosis(
+            status="ambiguous_values",
+            compatible_value_count=compatible_value_count,
+            spatial_candidate_count=len(scored),
+            label_kind=label_kind,
+        )
+    return SpatialBudgetDiagnosis(
+        status="matched",
+        compatible_value_count=compatible_value_count,
+        spatial_candidate_count=len(scored),
+        label_kind=label_kind,
+        match=scored[0].match,
+    )
 
 
 def _normalized_issue_date(text: str) -> str | None:

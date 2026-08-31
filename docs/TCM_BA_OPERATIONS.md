@@ -952,6 +952,20 @@ sem falha aberta, ausência, duplicidade, payload inválido ou evidência espaci
 inválida. Os 124 candidatos continuam privados em `needs_review`; nenhum valor
 foi publicado.
 
+Em 30/08/2026, o modo privado e somente leitura
+`-CommitmentBudgetBenchmarkOnly` reconciliou os 110 candidatos que ainda não
+tinham `budget_allocation`, distribuídos em 105 PDFs, sem falha de leitura ou
+artefato incompatível. Nenhuma nova associação satisfez a régua conservadora:
+101 páginas não tinham rótulo oficial exato e todas continham múltiplas
+sequências numéricas estruturalmente plausíveis; nove tinham o rótulo
+`CLASSIFICAÇÃO ORÇAMENTÁRIA`, mas seis valores estavam fora da distância máxima
+e três eram geometricamente ambíguos. Em treze das 101 páginas apareceu a
+expressão de classificação como prefixo, porém o sufixo continha somente texto,
+sem dígitos; dez mencionavam fonte de recurso. O gate contabilizou 110 de 110 e
+retornou `PASS`, mas recuperou zero dotações. Portanto, as ausências permanecem
+explícitas e privadas: preencher qualquer uma delas automaticamente exigiria
+escolher entre valores concorrentes sem evidência suficiente.
+
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do
