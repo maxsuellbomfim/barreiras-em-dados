@@ -17,6 +17,13 @@ const component = await readFile(
   new URL("../../apps/admin/app/collection-health.tsx", import.meta.url),
   "utf8",
 );
+const progressMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260831160000_admin_collection_work_progress.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("saúde das fontes é uma projeção sanitizada e restrita a revisores", () => {
   assert.match(migration, /create function api\.get_collection_health\(/);
@@ -60,4 +67,18 @@ test("painel mostra alertas de atualidade sem chamar fonte sazonal de atrasada",
   assert.match(component, /Situação do prazo/);
   assert.match(component, /formatFreshnessStatus/);
   assert.match(component, /not_monitored/);
+});
+
+test("painel expõe somente contadores sanitizados do trabalho retomável", () => {
+  assert.match(progressMigration, /create function api\.get_collection_health_v4\(/);
+  assert.match(progressMigration, /latest_work_completed integer/);
+  assert.match(progressMigration, /latest_work_total integer/);
+  assert.match(progressMigration, /latest_work_remaining integer/);
+  assert.match(progressMigration, /latest_batch_processed integer/);
+  assert.doesNotMatch(progressMigration, /next_after_cnpj/);
+  assert.match(component, /Progresso do ciclo/);
+  assert.match(component, /formatCollectionWorkProgress/);
+  assert.match(page, /get_collection_health_v4/);
+  assert.match(page, /error\?\.code === "PGRST202"/);
+  assert.match(page, /get_collection_health_v3/);
 });

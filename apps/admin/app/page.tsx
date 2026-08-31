@@ -1296,10 +1296,16 @@ export default function ReviewQueuePage() {
 
   const loadCollectionHealth = useCallback(async () => {
     setCollectionHealth({ kind: "loading" });
-    const { data, error } = await supabase.rpc(
-      "get_collection_health_v3",
+    let { data, error } = await supabase.rpc(
+      "get_collection_health_v4",
       { page_size: 200 },
     );
+    if (error?.code === "PGRST202") {
+      ({ data, error } = await supabase.rpc(
+        "get_collection_health_v3",
+        { page_size: 200 },
+      ));
+    }
     if (error) {
       setCollectionHealth({ kind: "error", message: error.message });
       return;

@@ -1,6 +1,7 @@
 "use client";
 
 import { formatBackfillProgress } from "./collection-backfill.mjs";
+import { formatCollectionWorkProgress } from "./collection-work-progress.mjs";
 import {
   formatFreshnessPolicy,
   formatFreshnessStatus,
@@ -69,6 +70,10 @@ export type CollectionHealthItem = Readonly<{
   backfill_total_days: number | null;
   backfill_progress_percent: number | null;
   methodology_version: string;
+  latest_work_completed: number | null;
+  latest_work_total: number | null;
+  latest_work_remaining: number | null;
+  latest_batch_processed: number | null;
 }>;
 
 export type CollectionHealthState =
@@ -273,6 +278,7 @@ function CollectionHealthCard({
 }: Readonly<{ item: CollectionHealthItem }>) {
   const tone = healthTone(item);
   const backfill = formatBackfillProgress(item);
+  const workProgress = formatCollectionWorkProgress(item);
   return (
     <article className="source-health-card">
       <div className="card-top">
@@ -352,6 +358,30 @@ function CollectionHealthCard({
         {item.failed_partitions.toLocaleString("pt-BR")} falhas ·{" "}
         {item.blocked_partitions.toLocaleString("pt-BR")} bloqueadas
       </p>
+      {workProgress ? (
+        <section
+          className="source-health-backfill"
+          aria-label="Progresso do ciclo de coleta"
+        >
+          <div className="source-health-backfill-heading">
+            <h4>Progresso do ciclo</h4>
+            <strong>{workProgress.completed}</strong>
+          </div>
+          <progress
+            aria-label="Percentual de itens concluídos no ciclo"
+            max={100}
+            value={workProgress.percent}
+          />
+          <p>
+            {workProgress.remaining} · {workProgress.latestBatch}
+          </p>
+          <p>
+            O número representa itens já consultados neste ciclo. Cobertura
+            parcial não significa falha: a próxima execução retoma do ponto
+            preservado até concluir todo o universo.
+          </p>
+        </section>
+      ) : null}
       <p className="source-health-policy-note">
         {item.freshness_policy_note}
       </p>
