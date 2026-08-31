@@ -356,3 +356,32 @@ function Assert-TcmBaDocumentTextApproval {
     }
     return $true
 }
+
+function Read-TcmBaCommitmentBudgetBenchmarkEvent {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object[]]$Output
+    )
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -eq "tcm_ba_commitment_budget_layout_benchmark") {
+            $events += $event
+        }
+    }
+    if ($events.Count -ne 1 -or $events[0].gate -ne "PASS") {
+        throw "O benchmark de dotações não produziu um único gate aprovado."
+    }
+    return $events[0]
+}
