@@ -53,6 +53,12 @@ IssueDateDiagnosisStatus = Literal[
     "no_compatible_value",
     "ambiguous_values",
 ]
+InlineIssueDateConsensusStatus = Literal[
+    "none",
+    "single",
+    "repeated_consensus",
+    "conflict",
+]
 
 _MONEY = re.compile(r"^(?:R\$\s*)?-?[\d.]+,\d{2}$", re.IGNORECASE)
 _DATE = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
@@ -133,6 +139,7 @@ class SpatialScalarMatch:
     label_block_order: int
     value_block_order: int
     relation: SpatialRelation
+    occurrence_count: int = 1
 
 
 @dataclass(frozen=True)
@@ -158,6 +165,13 @@ class SpatialIssueDateDiagnosis:
     explicit_issue_date_count: int
     safe_context_patterns: tuple[str, ...]
     label_kind: IssueDateLabelKind | None = None
+    match: SpatialScalarMatch | None = None
+
+
+@dataclass(frozen=True)
+class InlineIssueDateConsensus:
+    status: InlineIssueDateConsensusStatus
+    occurrence_count: int
     match: SpatialScalarMatch | None = None
 
 
@@ -708,10 +722,10 @@ def _embedded_date_values(text: str) -> tuple[str, ...]:
     return tuple(values)
 
 
-def find_inline_explicit_issue_date(
+def diagnose_inline_explicit_issue_date(
     blocks: tuple[DocumentBlock, ...],
-) -> SpatialScalarMatch | None:
-    """Aceita somente um valor na mesma linha de um rótulo oficial completo."""
+) -> InlineIssueDateConsensus:
+    """Classifica repetições inline sem expor os valores no diagnóstico."""
     trusted_kinds = {"commitment_date", "issue_date", "emission"}
     matches: list[SpatialScalarMatch] = []
     for block in blocks:
@@ -731,7 +745,44 @@ def find_inline_explicit_issue_date(
                         relation="inline",
                     )
                 )
-    return matches[0] if len(matches) == 1 else None
+    if not matches:
+        return InlineIssueDateConsensus(status="none", occurrence_count=0)
+    if len(matches) == 1:
+        return InlineIssueDateConsensus(
+            status="single",
+            occurrence_count=1,
+            match=matches[0],
+        )
+    if len({match.value for match in matches}) == 1:
+        first = matches[0]
+        return InlineIssueDateConsensus(
+            status="repeated_consensus",
+            occurrence_count=len(matches),
+            match=SpatialScalarMatch(
+                value=first.value,
+                page_number=first.page_number,
+                label_block_order=first.label_block_order,
+                value_block_order=first.value_block_order,
+                relation=first.relation,
+                occurrence_count=len(matches),
+            ),
+        )
+    return InlineIssueDateConsensus(
+        status="conflict",
+        occurrence_count=len(matches),
+    )
+
+
+def find_inline_explicit_issue_date(
+    blocks: tuple[DocumentBlock, ...],
+) -> SpatialScalarMatch | None:
+    """Aceita somente um valor na mesma linha de um rótulo oficial completo."""
+    diagnosis = diagnose_inline_explicit_issue_date(blocks)
+    return (
+        diagnosis.match
+        if diagnosis.status in {"single", "repeated_consensus"}
+        else None
+    )
 
 def find_spatial_issue_date(
     blocks: tuple[DocumentBlock, ...],
