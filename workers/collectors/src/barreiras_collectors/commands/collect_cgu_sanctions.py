@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 from collections.abc import Callable, Mapping, Sequence
@@ -45,6 +46,45 @@ class CGUSanctionCollectionSummary:
     inserted_records: int
     existing_records: int
     bundle_sha256: str
+    total_suppliers: int
+    remaining_suppliers: int
+    next_after_cnpj: str | None
+
+
+@dataclass(frozen=True)
+class CGUSupplierBatch:
+    cnpjs: tuple[str, ...]
+    total_suppliers: int
+    remaining_suppliers: int
+    next_after_cnpj: str | None
+
+
+def plan_supplier_batch(
+    cnpjs: Sequence[str],
+    *,
+    after_cnpj: str | None,
+    limit: int,
+) -> CGUSupplierBatch:
+    if not 1 <= limit <= 200:
+        raise ValueError("limit deve estar entre 1 e 200.")
+    if after_cnpj is not None and (
+        len(after_cnpj) != 14 or not after_cnpj.isdigit()
+    ):
+        raise ValueError("O checkpoint de CNPJ é inválido.")
+    ordered = tuple(sorted(set(cnpjs)))
+    if any(len(cnpj) != 14 or not cnpj.isdigit() for cnpj in ordered):
+        raise ValueError("A lista de fornecedores contém CNPJ inválido.")
+    pending = tuple(
+        cnpj for cnpj in ordered if after_cnpj is None or cnpj > after_cnpj
+    )
+    selected = pending[:limit]
+    remaining = len(pending) - len(selected)
+    return CGUSupplierBatch(
+        cnpjs=selected,
+        total_suppliers=len(ordered),
+        remaining_suppliers=remaining,
+        next_after_cnpj=selected[-1] if selected and remaining > 0 else None,
+    )
 
 
 def build_sanction_execution_key(
@@ -65,17 +105,24 @@ def execute_controlled_sanction_collection(
         summary = operation()
         control.complete(
             outcome=(
-                CollectionOutcome.COMPLETE
-                if summary.queried_cnpjs > 0
+                CollectionOutcome.PARTIAL
+                if summary.remaining_suppliers > 0
+                else CollectionOutcome.COMPLETE
+                if summary.total_suppliers > 0
                 else CollectionOutcome.EMPTY
             ),
             observed_records=summary.sanctions,
             checkpoint={
                 "bundle_sha256": summary.bundle_sha256,
                 "queried_cnpjs": summary.queried_cnpjs,
+                "total_suppliers": summary.total_suppliers,
+                "remaining_suppliers": summary.remaining_suppliers,
+                "next_after_cnpj": summary.next_after_cnpj,
             },
             metrics={
                 "queried_cnpjs": summary.queried_cnpjs,
+                "total_suppliers": summary.total_suppliers,
+                "remaining_suppliers": summary.remaining_suppliers,
                 "sanctions": summary.sanctions,
                 "sanctioned_cnpjs": summary.sanctioned_cnpjs,
                 "skipped_natural_persons": summary.skipped_natural_persons,
@@ -89,7 +136,13 @@ def execute_controlled_sanction_collection(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    del argv
+    parser = argparse.ArgumentParser(
+        description="Consulta um lote retomável de fornecedores nos cadastros CGU."
+    )
+    parser.add_argument("--limit", type=int, default=100)
+    arguments = parser.parse_args(argv)
+    if not 1 <= arguments.limit <= 200:
+        parser.error("--limit deve estar entre 1 e 200.")
     collected_on = datetime.now(MUNICIPAL_TIMEZONE).date()
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
@@ -126,9 +179,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     def operation() -> CGUSanctionCollectionSummary:
-        cnpjs = sorted(repository.published_supplier_cnpjs())
+        checkpoint = repository.collection_partition_checkpoint(
+            source_code=SOURCE_CODE,
+            endpoint_code=ENDPOINT_CODE,
+            partition_key="sanctions:published-suppliers:barreiras",
+        ) or {}
+        raw_after_cnpj = checkpoint.get("next_after_cnpj")
+        after_cnpj = str(raw_after_cnpj) if raw_after_cnpj else None
+        batch = plan_supplier_batch(
+            tuple(repository.published_supplier_cnpjs()),
+            after_cnpj=after_cnpj,
+            limit=arguments.limit,
+        )
         snapshot = fetch_cgu_supplier_sanctions(
-            cnpjs=cnpjs,
+            cnpjs=batch.cnpjs,
             api_key=api_key,
             logger=logging.getLogger(__name__),
         )
@@ -145,6 +209,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             inserted_records=result.inserted_records,
             existing_records=result.existing_records,
             bundle_sha256=result.sha256,
+            total_suppliers=batch.total_suppliers,
+            remaining_suppliers=batch.remaining_suppliers,
+            next_after_cnpj=batch.next_after_cnpj,
         )
 
     summary = execute_controlled_sanction_collection(
@@ -162,6 +229,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         skipped_natural_persons=summary.skipped_natural_persons,
         inserted_records=summary.inserted_records,
         existing_records=summary.existing_records,
+        total_suppliers=summary.total_suppliers,
+        remaining_suppliers=summary.remaining_suppliers,
         artifact_hash=summary.bundle_sha256,
     )
     return 0
