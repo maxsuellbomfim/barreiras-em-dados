@@ -13,6 +13,7 @@ from .pdf_layout import PDF_LAYOUT_VERSION
 from .pdf_text import PDF_PARSER_VERSION
 from .processing import PageInput, ProcessingError, TextArtifact, canonical_json
 from .tcm_ba_commitment_creditor_diagnostic import TcmBaCreditorLayoutTarget
+from .tcm_ba_commitment_date_diagnostic import TcmBaIssueDateLayoutTarget
 from .tcm_ba_commitments import (
     EXTRACTOR_VERSION,
     JOB_TYPE,
@@ -325,6 +326,150 @@ class TcmBaCommitmentExtractionRepository:
             )
         return tuple(targets)
 
+    def issue_date_layout_targets(
+        self,
+        *,
+        limit: int = 500,
+    ) -> tuple[TcmBaIssueDateLayoutTarget, ...]:
+        if not 1 <= limit <= 500:
+            raise ValueError("limit deve estar entre 1 e 500.")
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                with tcm_artifacts as (
+                  select artifact.id, artifact.sha256, artifact.object_key
+                  from raw.raw_artifacts as artifact
+                  where artifact.artifact_kind = 'document'
+                    and artifact.metadata ->> 'schema_name'
+                        = 'tcm-ba-monthly-document'
+                    and artifact.content_type = 'application/pdf'
+                    and artifact.http_status between 200 and 299
+                ),
+                current_jobs as (
+                  select job.id, job.raw_artifact_id
+                  from raw.extraction_jobs as job
+                  join tcm_artifacts as artifact
+                    on artifact.id = job.raw_artifact_id
+                  where job.job_type = %s
+                    and job.status = 'succeeded'
+                    and job.idempotency_key = encode(
+                      sha256(
+                        ('tcm-ba-commitments:' || artifact.sha256 || ':' ||
+                          %s)::bytea
+                      ),
+                      'hex'
+                    )
+                ),
+                current_results as (
+                  select job.raw_artifact_id,
+                    (result.result_payload ->> 'source_page_number')::integer
+                      as page_number
+                  from current_jobs as job
+                  join raw.extraction_results as result
+                    on result.extraction_job_id = job.id
+                  where result.candidate_type = 'tcm_ba_commitment_note'
+                    and result.extractor_version = %s
+                    and result.validation_status = 'needs_review'
+                    and result.result_payload ->> 'schema_version' = %s
+                    and result.result_payload -> 'missing_fields'
+                        ? 'issue_date'
+                ),
+                page_counts as (
+                  select raw_artifact_id, page_number,
+                    count(*)::integer as candidate_count
+                  from current_results
+                  group by raw_artifact_id, page_number
+                )
+                select artifact.id::text as artifact_id,
+                  artifact.sha256, artifact.object_key,
+                  jsonb_agg(
+                    jsonb_build_array(page.page_number, page.candidate_count)
+                    order by page.page_number
+                  ) as candidate_page_counts,
+                  count(*) over()::integer as total_artifacts,
+                  'commitment_issue_date_layout_targets' as report_marker
+                from page_counts as page
+                join tcm_artifacts as artifact
+                  on artifact.id = page.raw_artifact_id
+                group by artifact.id, artifact.sha256, artifact.object_key
+                order by artifact.sha256
+                limit %s
+                """,
+                (
+                    JOB_TYPE,
+                    EXTRACTOR_VERSION,
+                    EXTRACTOR_VERSION,
+                    SCHEMA_VERSION,
+                    limit,
+                ),
+            ).fetchall()
+        finally:
+            connection.close()
+        targets: list[TcmBaIssueDateLayoutTarget] = []
+        total_artifacts: int | None = None
+        for row in rows:
+            try:
+                row_total = int(row["total_artifacts"])
+                raw_counts = row["candidate_page_counts"]
+                artifact_id = str(row["artifact_id"])
+                sha256 = str(row["sha256"])
+                object_key = str(row["object_key"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ProcessingError(
+                    "O alvo espacial de data está incompleto."
+                ) from error
+            if total_artifacts is None:
+                total_artifacts = row_total
+            elif total_artifacts != row_total:
+                raise ProcessingError("A contagem total dos alvos de data divergiu.")
+            if isinstance(raw_counts, str):
+                try:
+                    raw_counts = json.loads(raw_counts)
+                except json.JSONDecodeError as error:
+                    raise ProcessingError(
+                        "As páginas dos alvos de data não são JSON válido."
+                    ) from error
+            if not isinstance(raw_counts, list):
+                raise ProcessingError(
+                    "As páginas dos alvos de data não formam uma lista."
+                )
+            page_counts: list[tuple[int, int]] = []
+            for raw_pair in raw_counts:
+                if not isinstance(raw_pair, list) or len(raw_pair) != 2:
+                    raise ProcessingError(
+                        "Uma contagem de página da data é inválida."
+                    )
+                try:
+                    page_number, candidate_count = map(int, raw_pair)
+                except (TypeError, ValueError) as error:
+                    raise ProcessingError(
+                        "Uma contagem de página da data não é numérica."
+                    ) from error
+                if page_number < 1 or candidate_count < 1:
+                    raise ProcessingError(
+                        "Uma contagem de página da data está fora do limite."
+                    )
+                page_counts.append((page_number, candidate_count))
+            if (
+                len({page for page, _count in page_counts}) != len(page_counts)
+                or page_counts != sorted(page_counts)
+                or len(sha256) != 64
+                or any(character not in "0123456789abcdef" for character in sha256)
+                or not object_key
+            ):
+                raise ProcessingError("O alvo espacial de data é inválido.")
+            targets.append(
+                TcmBaIssueDateLayoutTarget(
+                    artifact=TextArtifact(artifact_id, sha256, object_key),
+                    candidate_page_counts=tuple(page_counts),
+                )
+            )
+        if total_artifacts is not None and total_artifacts > limit:
+            raise ProcessingError(
+                "O benchmark de datas excedeu o limite de artefatos."
+            )
+        return tuple(targets)
     def commitment_coverage(self) -> TcmBaCommitmentCoverage:
         connection = self.connection_factory()
         try:
@@ -631,7 +776,20 @@ class TcmBaCommitmentExtractionRepository:
                           or coalesce(
                             result_payload -> 'issue_date_evidence'
                               ->> 'relation', ''
-                          ) not in ('below', 'right')
+                          ) not in ('below', 'right', 'inline')
+                          or (
+                            coalesce(
+                              result_payload -> 'issue_date_evidence'
+                                ->> 'relation', ''
+                            ) = 'inline'
+                            and (
+                              result_payload -> 'issue_date_evidence'
+                                ->> 'label_block_order'
+                            ) <> (
+                              result_payload -> 'issue_date_evidence'
+                                ->> 'value_block_order'
+                            )
+                          )
                       end
                     ) or (
                       case

@@ -922,6 +922,22 @@ foram silenciados e os eventos por artefato passaram a `DEBUG` sem hash; em
 `INFO` permanece somente o resumo agregado. Todos os candidatos continuam
 privados em `needs_review` e nenhum empenho foi publicado.
 
+A versão 1.7 tratou exclusivamente datas de emissão ou de empenho escritas na
+mesma linha de um rótulo oficial completo. O benchmark privado anterior ao
+replay encontrou 74 candidatos sem data: 27 tinham uma única data ligada a um
+rótulo explícito; 32 continham múltiplos rótulos ou valores e 15 não tinham
+evidência suficiente. O replay append-only reconciliou 488 de 488 PDFs, 9.756
+páginas e 124 candidatos. Vinte e seis datas novas foram associadas com
+evidência de página e bloco `inline`; uma das 27 ocorrências já estava resolvida
+por regra espacial na versão reprocessada. Permaneceram 48 datas ausentes. O
+benchmark posterior examinou exatamente essas 48 e encontrou zero associação
+estrita restante: 33 tinham múltiplos rótulos, 13 múltiplas datas sem vínculo e
+duas apenas uma data sem rótulo. A cobertura fechou com zero falha aberta,
+duplicidade, payload inválido ou evidência espacial inválida. Rótulos genéricos
+como `DATA` e `DT` continuam apenas no diagnóstico e nunca autorizam a extração.
+Todos os resultados permanecem privados em `needs_review`; nenhum empenho foi
+publicado.
+
 Em 29/08/2026, a tarefa das 12h29 avançou automaticamente de 43 para 48 PDFs
 preservados em `01/2021`, deixando 1.393 de 1.441 pendentes. O resultado do
 Agendador foi confrontado com o planejador somente leitura; o código `0` do

@@ -8,6 +8,7 @@ param(
     [switch]$AuditOnly,
     [switch]$CommitmentReplayOnly,
     [switch]$CommitmentCreditorBenchmarkOnly,
+    [switch]$CommitmentIssueDateBenchmarkOnly,
     [object]$RequestsPerMinute = 30,
     [string]$PythonPath = ""
 )
@@ -178,6 +179,30 @@ function Read-CommitmentCreditorBenchmarkEvent {
     }
     if ($events.Count -ne 1 -or $events[0].gate -ne "PASS") {
         throw "O benchmark de credores não produziu um único gate aprovado."
+    }
+    return $events[0]
+}
+function Read-CommitmentIssueDateBenchmarkEvent {
+    param([object[]]$Output)
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -eq "tcm_ba_commitment_issue_date_layout_benchmark") {
+            $events += $event
+        }
+    }
+    if ($events.Count -ne 1 -or $events[0].gate -ne "PASS") {
+        throw "O benchmark de datas não produziu um único gate aprovado."
     }
     return $events[0]
 }
@@ -411,23 +436,31 @@ if ($ReportOnly -and ($AutoCompetence -or $PlanOnly)) {
 if (
     $AuditOnly -and
     ($AutoCompetence -or $PlanOnly -or $ReportOnly -or
-        $CommitmentReplayOnly -or $CommitmentCreditorBenchmarkOnly)
+        $CommitmentReplayOnly -or $CommitmentCreditorBenchmarkOnly -or
+        $CommitmentIssueDateBenchmarkOnly)
 ) {
     throw "-AuditOnly não pode ser combinado com outro modo somente leitura."
 }
 if (
     $CommitmentReplayOnly -and
     ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
-        $CommitmentCreditorBenchmarkOnly)
+        $CommitmentCreditorBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
 ) {
     throw "-CommitmentReplayOnly não pode ser combinado com outro modo."
 }
 if (
     $CommitmentCreditorBenchmarkOnly -and
     ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
-        $CommitmentReplayOnly)
+        $CommitmentReplayOnly -or $CommitmentIssueDateBenchmarkOnly)
 ) {
     throw "-CommitmentCreditorBenchmarkOnly não pode ser combinado com outro modo."
+}
+if (
+    $CommitmentIssueDateBenchmarkOnly -and
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
+        $CommitmentReplayOnly -or $CommitmentCreditorBenchmarkOnly)
+) {
+    throw "-CommitmentIssueDateBenchmarkOnly não pode ser combinado com outro modo."
 }
 if (
     -not $AutoCompetence -and
@@ -582,6 +615,32 @@ try {
         }
         Read-CommitmentCreditorBenchmarkEvent -Output $benchmarkOutput | Out-Null
         Write-Host "TCM_BA_COMMITMENT_CREDITOR_BENCHMARK_APPROVED" -ForegroundColor Cyan
+        return
+    }
+    if ($CommitmentIssueDateBenchmarkOnly) {
+        Push-Location $projectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $benchmarkOutput = @(
+                    & $python -B -m barreiras_docproc.commands.benchmark_tcm_ba_commitment_dates --limit 500 2>&1
+                )
+                $benchmarkExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $benchmarkOutput | ForEach-Object { Write-Host $_ }
+        if ($benchmarkExitCode -ne 0) {
+            throw "O benchmark privado das datas TCM-BA foi bloqueado."
+        }
+        Read-CommitmentIssueDateBenchmarkEvent -Output $benchmarkOutput | Out-Null
+        Write-Host "TCM_BA_COMMITMENT_ISSUE_DATE_BENCHMARK_APPROVED" -ForegroundColor Cyan
         return
     }
     if ($CommitmentReplayOnly) {

@@ -20,13 +20,14 @@ from .tcm_ba_commitment_layout import (
     SpatialBudgetMatch,
     SpatialScalarMatch,
     diagnose_spatial_creditor,
+    find_inline_explicit_issue_date,
     find_spatial_amount_text,
     find_spatial_budget_allocation,
     find_spatial_issue_date,
 )
 
-EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.6.0"
-SCHEMA_VERSION = "1.3.0"
+EXTRACTOR_VERSION = "tcm-ba-commitment-candidates/1.7.0"
+SCHEMA_VERSION = "1.4.0"
 JOB_TYPE = "tcm_ba_commitment_candidates"
 
 
@@ -245,7 +246,10 @@ def apply_spatial_scalar_fields(
         issue_match = (
             None
             if candidate.issue_date is not None
-            else find_spatial_issue_date(layout.blocks)
+            else (
+                find_spatial_issue_date(layout.blocks)
+                or find_inline_explicit_issue_date(layout.blocks)
+            )
         )
         amount_match = (
             None
