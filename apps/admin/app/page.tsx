@@ -3,6 +3,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { AdminMfaGate } from "./admin-mfa-gate";
 import {
   CollectionHealth,
   type CollectionHealthItem,
@@ -1521,7 +1522,8 @@ export default function ReviewQueuePage() {
   }
 
   return (
-    <main>
+    <AdminMfaGate client={supabase} sessionKey={session.access_token}>
+      <main>
       <h1>Revisão de candidatos</h1>
       <p className="page-lede">
         Conectado como {session.user.email} ·{" "}
@@ -1747,6 +1749,7 @@ export default function ReviewQueuePage() {
           )}
         </>
       )}
-    </main>
+      </main>
+    </AdminMfaGate>
   );
 }
