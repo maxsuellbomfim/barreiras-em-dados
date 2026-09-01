@@ -386,6 +386,34 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
             )
         )
 
+    def test_financial_document_filter_accepts_api_year_and_month(self) -> None:
+        self.assertTrue(
+            matches_document_reference(
+                {
+                    "ano": "2023",
+                    "mes": "4",
+                    "tipo": "21",
+                    "titulo": "DEMONSTRATIVO ANALÍTICO DE DESPESA - ABRIL 2023",
+                },
+                reference_month=date(2023, 4, 1),
+                allowed_types=None,
+            )
+        )
+
+    def test_document_filter_rejects_conflicting_month_fields(self) -> None:
+        self.assertFalse(
+            matches_document_reference(
+                {
+                    "ano_ref": "2023",
+                    "mes_ref": "4",
+                    "ano": "2023",
+                    "mes": "5",
+                },
+                reference_month=date(2023, 4, 1),
+                allowed_types=None,
+            )
+        )
+
     def test_bounded_env_int_rejects_values_outside_safe_window(self) -> None:
         with patch.dict("os.environ", {"TEST_MUNICIPAL_LIMIT": "61"}, clear=False):
             with self.assertRaises(RuntimeError):

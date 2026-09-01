@@ -58,6 +58,11 @@ on:
         required: false
         default: ""
         type: string
+      finance_reference_month:
+        description: "Competência exata do documento financeiro a preservar (AAAA-MM)"
+        required: false
+        default: ""
+        type: string
       include_transferegov:
         description: "Preservar também propostas e parcerias destinadas a Barreiras"
         required: false
@@ -214,9 +219,14 @@ jobs:
           DRAIN_MAX_PAGES: >-
             ${{ (matrix.resource == 'balancetes' || matrix.resource == 'servidores') && '1' || inputs.max_pages || '3' }}
           INPUT_PERSONNEL_REFERENCE_MONTH: ${{ inputs.personnel_reference_month }}
+          INPUT_FINANCE_REFERENCE_MONTH: ${{ inputs.finance_reference_month }}
         shell: bash
         run: |
           extra_args=()
+          if [[ -n "${INPUT_PERSONNEL_REFERENCE_MONTH:-}" && -n "${INPUT_FINANCE_REFERENCE_MONTH:-}" ]]; then
+            echo "competencias exatas de pessoal e financas sao mutuamente exclusivas" >&2
+            exit 2
+          fi
           if [[ -n "${INPUT_PERSONNEL_REFERENCE_MONTH:-}" ]]; then
             if [[ "${{ matrix.resource }}" != "servidores" ]]; then
               echo "personnel_reference_month exige resource=servidores" >&2
@@ -233,6 +243,21 @@ jobs:
               --document-title "Relação Servidores"
               --document-title "Relação de Servidores 13º Salário"
               --allow-untyped-document-title "Relação de Servidores"
+              --require-document-match
+            )
+          fi
+          if [[ -n "${INPUT_FINANCE_REFERENCE_MONTH:-}" ]]; then
+            if [[ "${{ matrix.resource }}" == "servidores" || "${{ matrix.resource }}" == "processos" ]]; then
+              echo "finance_reference_month exige recurso financeiro documental" >&2
+              exit 2
+            fi
+            if [[ ! "$INPUT_FINANCE_REFERENCE_MONTH" =~ ^20[2-9][0-9]-(0[1-9]|1[0-2])$ ]]; then
+              echo "finance_reference_month exige AAAA-MM desde 2020" >&2
+              exit 2
+            fi
+            extra_args+=(
+              --document-reference-month "$INPUT_FINANCE_REFERENCE_MONTH"
+              --require-document-match
             )
           fi
           python -B -m barreiras_collectors.commands.collect_municipal_transparency \

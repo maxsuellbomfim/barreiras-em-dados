@@ -260,12 +260,21 @@ def matches_document_reference(
     """Filtra por competência, tipo e título oficial semanticamente exato."""
 
     if reference_month is not None:
-        try:
-            year = int(str(item.get("ano_ref", "")).strip())
-            month = int(str(item.get("mes_ref", "")).strip())
-        except ValueError:
-            return False
-        if (year, month) != (reference_month.year, reference_month.month):
+        observed_periods: set[tuple[int, int]] = set()
+        for year_field, month_field in (("ano_ref", "mes_ref"), ("ano", "mes")):
+            year_raw = item.get(year_field)
+            month_raw = item.get(month_field)
+            if year_raw is None and month_raw is None:
+                continue
+            if year_raw is None or month_raw is None:
+                return False
+            try:
+                observed_periods.add(
+                    (int(str(year_raw).strip()), int(str(month_raw).strip()))
+                )
+            except ValueError:
+                return False
+        if observed_periods != {(reference_month.year, reference_month.month)}:
             return False
     normalized_title = _normalize_document_title(str(item.get("titulo", "")))
     normalized_allowed_titles = {
@@ -561,13 +570,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.document_reference_month,
             "%Y-%m",
         ).date()
+    if document_reference_month is not None and (
+        not args.download_documents or args.resource not in DOCUMENT_RESOURCES
+    ):
+        parser.error(
+            "filtro de competência exige download de recurso documental validado."
+        )
     if (
-        document_reference_month is not None
-        or args.document_type is not None
+        args.document_type is not None
         or args.document_title is not None
         or args.allow_untyped_document_title is not None
     ) and (not args.download_documents or args.resource != "servidores"):
-        parser.error("filtro de competência/tipo exige download do recurso servidores.")
+        parser.error("filtro de tipo/título exige download do recurso servidores.")
     if args.allow_untyped_document_title is not None and args.document_type is None:
         parser.error("título sem tipo exige ao menos um --document-type permitido.")
     if args.document_title is not None and args.document_type is None:
