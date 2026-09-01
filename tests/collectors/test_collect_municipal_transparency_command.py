@@ -219,10 +219,11 @@ class MunicipalTransparencyCommandTests(unittest.TestCase):
             ),
             "pdf",
         )
-        self.assertIsNone(
+        self.assertEqual(
             resolve_municipal_document_role(
                 "https://barreiras.mtransparente.com.br/contas.docx"
-            )
+            ),
+            "docx",
         )
         self.assertIsNone(
             resolve_municipal_document_role(

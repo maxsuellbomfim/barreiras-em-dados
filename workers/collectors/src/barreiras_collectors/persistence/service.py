@@ -97,7 +97,7 @@ from .ports import ArtifactObjectStore, CollectionRepository
 COLLECTOR_VERSION = "querido-diario-collector/0.1.0"
 PARSER_VERSION = "querido-diario-gazette-page/1.0.0"
 RECORD_TYPE = "querido_diario_gazette"
-DOCUMENT_EXTENSIONS = {"pdf": "pdf", "txt": "txt"}
+DOCUMENT_EXTENSIONS = {"pdf": "pdf", "txt": "txt", "docx": "docx"}
 DIRECT_COLLECTOR_VERSION = "barreiras-diario-collector/0.1.0"
 OFFICIAL_CATALOG_COLLECTOR_VERSION = "barreiras-diario-catalog-collector/1.0.0"
 PNCP_COLLECTOR_VERSION = "pncp-registry-collector/0.1.0"
@@ -1984,7 +1984,7 @@ class MunicipalTransparencyPersistenceService:
         source_code: str,
         endpoint_code: str,
     ) -> DocumentPersistResult:
-        """Preserva um PDF municipal como artefato filho da resposta JSON."""
+        """Preserva um documento municipal como filho da resposta JSON."""
 
         extension = DOCUMENT_EXTENSIONS.get(document.role)
         if extension is None:

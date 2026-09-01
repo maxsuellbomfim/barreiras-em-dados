@@ -158,7 +158,7 @@ def resolve_endpoint_code(source: str, resource: str) -> str:
 
 
 def resolve_municipal_document_role(url: str) -> str | None:
-    """Reconhece PDFs explícitos e downloads oficiais sem extensão.
+    """Reconhece PDF/DOCX explícitos e downloads oficiais sem extensão.
 
     O catálogo histórico da Prefeitura contém alguns caminhos ``/admin/data/``
     que representam demonstrativos, mas omitem ``.pdf``. Eles precisam ser
@@ -171,6 +171,8 @@ def resolve_municipal_document_role(url: str) -> str | None:
     path = parsed.path.lower()
     if path.endswith(".pdf"):
         return "pdf"
+    if path.endswith(".docx"):
+        return "docx"
     if (
         (parsed.hostname or "").lower() == "barreiras.mtransparente.com.br"
         and re.fullmatch(r"/admin/+data/prestacaodecontas\d+", path)

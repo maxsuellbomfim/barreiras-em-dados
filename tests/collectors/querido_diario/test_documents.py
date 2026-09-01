@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import unittest
+import zipfile
 
 from barreiras_collectors.connectors.gazette_documents import (
     MUNICIPAL_ARTIFACT_HOSTS,
@@ -17,6 +19,15 @@ from barreiras_collectors.http import HttpResponse
 from barreiras_collectors.resilience import RetryPolicy
 
 PDF_URL = "https://data.queridodiario.ok.org.br/2903201/2026-07-01/exemplo.pdf"
+
+
+def docx_body(*, include_document: bool = True) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", "<Types />")
+        if include_document:
+            archive.writestr("word/document.xml", "<w:document />")
+    return buffer.getvalue()
 
 
 class ScriptedTransport:
@@ -139,6 +150,32 @@ class GazetteDocumentClientTests(unittest.TestCase):
 
         with self.assertRaises(SourceContractError):
             client.fetch(PDF_URL, role="pdf")
+
+    def test_accepts_valid_docx_and_rejects_generic_zip(self) -> None:
+        valid = HttpResponse(
+            status=200,
+            headers={"Content-Type": "application/octet-stream"},
+            body=docx_body(),
+            final_url="https://barreiras.mtransparente.com.br/arquivo.docx",
+        )
+        client, _transport = make_client([valid])
+
+        document = client.fetch(PDF_URL.replace(".pdf", ".docx"), role="docx")
+
+        self.assertEqual(
+            document.media_type,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+
+        invalid = HttpResponse(
+            status=200,
+            headers={"Content-Type": "application/zip"},
+            body=docx_body(include_document=False),
+            final_url="https://barreiras.mtransparente.com.br/arquivo.docx",
+        )
+        client, _transport = make_client([invalid])
+        with self.assertRaises(SourceContractError):
+            client.fetch(PDF_URL.replace(".pdf", ".docx"), role="docx")
 
     def test_rejects_empty_document(self) -> None:
         client, _transport = make_client([response(200, b"")])
