@@ -161,3 +161,12 @@ pendência de revisão. O fechamento público está `operational`, com
 R$ 14.765.663,26 empenhados, R$ 36.366.146,44 liquidados,
 R$ 38.361.003,05 pagos e diferença operacional de R$ 6.014.562,80. O RPC e a
 página pública contêm os dois hashes e as URLs oficiais.
+
+Maio de 2021 completou a sequência. O `PCMGE016`, hash
+`7d30f74cd109be527e4e0f3348bc42246073a9c79c3892b15a431c271d12d057`,
+publicou 253 rubricas e R$ 43.876.720,05 líquidos. O `PCMGE015`, hash
+`76dcf9924fdc997545a4747ee8325cd6741c4acfb080b1fc2b7692f64e1905c4`,
+possui 188 páginas com texto embutido e uma única linhagem oficial. O detalhe
+público está `operational`, com R$ 14.728.786,14 empenhados,
+R$ 42.783.737,60 liquidados, R$ 36.046.119,18 pagos e diferença operacional de
+R$ 7.830.600,87. O RPC e a página pública exibem os dois hashes oficiais.
