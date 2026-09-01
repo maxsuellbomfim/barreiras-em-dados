@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 from barreiras_normalization.commands.publish_revenue_reports import (
@@ -246,9 +247,9 @@ class RevenuePublisherTests(unittest.TestCase):
         batch = repository.inserted_batches[0][1]
         self.assertEqual(
             batch.methodology_version,
-            "tcm-ba-analytical-revenue/1.0.0",
+            "tcm-ba-analytical-revenue/1.1.0",
         )
-        self.assertEqual(batch.total_period_amount, 14)
+        self.assertEqual(batch.total_period_amount, Decimal("45849799.31"))
 
 
 if __name__ == "__main__":
