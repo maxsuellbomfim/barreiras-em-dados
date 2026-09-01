@@ -148,6 +148,12 @@ class RevenuePublisherTests(unittest.TestCase):
         )
 
         query = " ".join(connection.query.lower().split())
+        self.assertNotIn("document.id::text", query)
+        self.assertIn(
+            "revenue.source_document_artifact_id = candidates.id",
+            query,
+        )
+        self.assertIn("job.raw_artifact_id = candidates.id", query)
         self.assertIn("tcm_ba_candidates as", query)
         self.assertIn("tcm-ba-monthly-document", query)
         self.assertIn("tcm-ba-document-download-prepare", query)
