@@ -113,10 +113,11 @@ function isFiscalDocument(document: { sourceResource: string }): boolean {
 }
 
 function isObligationDocument(document: { sourceResource: string }): boolean {
-  return (
-    document.sourceResource === "balancetes" ||
-    document.sourceResource === "pdc-contas-anuais"
-  );
+  return document.sourceResource === "balancetes";
+}
+
+function isMunicipalControlDocument(document: { sourceResource: string }): boolean {
+  return document.sourceResource === "pdc-contas-anuais";
 }
 
 function sortNewest<T extends { revenueDate?: string | null; referenceDate?: string | null; collectedAt: string }>(
@@ -357,8 +358,12 @@ export default async function FinancesPage() {
   const sortedDocuments = sortNewest(documents, "referenceDate");
   const fiscalDocuments = sortedDocuments.filter(isFiscalDocument);
   const obligationDocuments = sortedDocuments.filter(isObligationDocument);
+  const municipalControlDocuments = sortedDocuments.filter(isMunicipalControlDocument);
   const operationalDocuments = sortedDocuments.filter(
-    (document) => !isFiscalDocument(document) && !isObligationDocument(document),
+    (document) =>
+      !isFiscalDocument(document) &&
+      !isObligationDocument(document) &&
+      !isMunicipalControlDocument(document),
   );
   const sortedMonthlyClosures = [...monthlyClosures].sort((left, right) =>
     right.periodEnd.localeCompare(left.periodEnd),
@@ -1212,7 +1217,7 @@ export default async function FinancesPage() {
             <span className="eyebrow">Passivos públicos</span>
             <h2 id="obligation-document-title">Dívidas e obrigações em apuração</h2>
             <p>
-              Balancetes, contas anuais e RGF são fontes para identificar empréstimos,
+              Balancetes, DCA e RGF são fontes para identificar empréstimos,
               precatórios, restos a pagar e outras obrigações. Um documento isolado não
               representa o total da dívida municipal; os valores só serão consolidados
               depois de reconciliar período, natureza, saldo e retificações.
@@ -1223,7 +1228,7 @@ export default async function FinancesPage() {
               <div>
                 <strong>Documentos-base ainda não preservados nesta projeção</strong>
                 <p>
-                  A coleta foi preparada para balancetes e contas anuais. Enquanto os
+                  A coleta foi preparada para balancetes e demonstrativos fiscais. Enquanto os
                   artefatos não forem preservados e validados, o portal não exibirá um
                   número de dívida sem sustentação.
                 </p>
@@ -1278,6 +1283,55 @@ export default async function FinancesPage() {
             </details>
           )}
         </section>
+
+        {municipalControlDocuments.length > 0 ? (
+          <section
+            aria-labelledby="municipal-control-document-title"
+            className="finance-documents"
+          >
+            <div className="section-heading compact">
+              <span className="eyebrow">Base legal municipal</span>
+              <h2 id="municipal-control-document-title">
+                Controle e prestação de contas
+              </h2>
+              <p>
+                Esta série do Portal da Prefeitura reúne leis e fundamentos de
+                controle. Ela não contém os demonstrativos anuais nem autoriza
+                calcular receitas, despesas ou saldo. As contas anuais comparáveis
+                são publicadas separadamente na DCA do Tesouro.
+              </p>
+            </div>
+            <details className="finance-details">
+              <summary>
+                Ver {municipalControlDocuments.length.toLocaleString("pt-BR")} registros
+                da base legal
+              </summary>
+              <div className="digest-grid">
+                {municipalControlDocuments.map((document) => (
+                  <article className="digest-card" key={document.documentId}>
+                    <div className="track-top">
+                      <span>{financeResourceLabel(document.sourceResource)}</span>
+                      <span className="track-status">
+                        {document.fiscalYear ?? "ano não informado"}
+                      </span>
+                    </div>
+                    <h3 className="procurement-object">{document.title}</h3>
+                    {document.description ? <p>{document.description}</p> : null}
+                    <p className="act-evidence">
+                      <a href={document.documentUrl} target="_blank" rel="noreferrer">
+                        Abrir documento oficial →
+                      </a>{" "}
+                      · resposta da API preservada · {document.documentPreserved
+                        ? "documento preservado"
+                        : "documento ainda não preservado"}{" "}
+                      · hash {document.artifactSha256.slice(0, 12)}…
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </details>
+          </section>
+        ) : null}
 
         <section aria-labelledby="document-title" className="finance-documents">
           <div className="section-heading compact">

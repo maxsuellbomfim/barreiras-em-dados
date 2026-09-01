@@ -133,7 +133,7 @@ export async function getPublicFinanceDocuments(
 export function financeResourceLabel(resource: string): string {
   const labels: Record<string, string> = {
     balancetes: "Balancetes mensais",
-    "pdc-contas-anuais": "Contas anuais",
+    "pdc-contas-anuais": "Legislação de controle e prestação de contas",
     "pdc-receita-tributaria": "Receita tributaria",
     "pdc-recursos-extraordinarios": "Receitas extraorcamentarias",
     "pdc-resumo-execucao-da-receita": "Execucao da receita",
