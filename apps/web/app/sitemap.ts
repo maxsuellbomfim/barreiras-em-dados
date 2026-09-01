@@ -12,6 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { route: "/recursos", changeFrequency: "daily", priority: 0.9 },
     { route: "/representantes", changeFrequency: "weekly", priority: 0.8 },
     { route: "/camara", changeFrequency: "daily", priority: 0.8 },
+    { route: "/estado", changeFrequency: "daily", priority: 0.7 },
     { route: "/sobre", changeFrequency: "monthly", priority: 0.5 },
   ].map((entry) => ({
     url: `${BASE_URL}${entry.route}`,

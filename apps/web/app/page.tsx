@@ -103,6 +103,12 @@ const quickLinks = [
     href: "/recursos",
     tone: "green",
   },
+  {
+    label: "Estado das fontes",
+    detail: "Veja o que responde agora e o que está temporariamente indisponível.",
+    href: "/estado",
+    tone: "violet",
+  },
 ] as const;
 
 const evidenceSteps = [

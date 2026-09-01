@@ -50,15 +50,16 @@ test("saúde pública retorna 503 quando nenhum domínio pode ser verificado", (
   assert.equal(result.checks.every((check) => check.records === null), true);
 });
 
-test("rota de saúde é dinâmica e consulta os domínios públicos reais", async () => {
-  const source = await readFile(
-    new URL("../app/api/health/route.ts", import.meta.url),
-    "utf8",
-  );
+test("rota de saúde é dinâmica e reutiliza a fotografia dos domínios reais", async () => {
+  const [source, snapshot] = await Promise.all([
+    readFile(new URL("../app/api/health/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("./operational-health-snapshot.ts", import.meta.url), "utf8"),
+  ]);
 
   assert.match(source, /dynamic\s*=\s*["']force-dynamic["']/);
-  assert.match(source, /getOfficialDiaryCatalog/);
-  assert.match(source, /getPublicFinanceCoverage/);
-  assert.match(source, /getMunicipalCouncillors/);
+  assert.match(source, /getOperationalHealthSnapshot/);
   assert.doesNotMatch(source, /status:\s*["']ok["']/);
+  assert.match(snapshot, /getOfficialDiaryCatalog/);
+  assert.match(snapshot, /getPublicFinanceCoverage/);
+  assert.match(snapshot, /getMunicipalCouncillors/);
 });

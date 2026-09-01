@@ -55,8 +55,8 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 ## Próximo fluxo vertical
 
-Concluir o pacote de prontidão pública: saúde operacional real, índice do
-Diário leve com inteiro teor em endereço permanente, correções responsivas e
-uma página pública de estado/cobertura. Em seguida, medir e fechar as lacunas
-retroativas por fonte, começando pelas famílias financeiras com maior impacto
-no rastro do dinheiro.
+O pacote inicial de prontidão pública — saúde operacional real, índice leve do
+Diário, inteiro teor permanente, correções responsivas e página pública de
+estado — está implementado. O próximo fluxo é medir e publicar, sem dados
+internos, a matriz de cobertura desde 2021 por fonte e período, começando pelas
+famílias financeiras com maior impacto no rastro do dinheiro.
