@@ -16,7 +16,8 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 - Diário Oficial com busca global, paginação, edição permanente, texto literal,
   páginas, fonte e hashes;
 - atos oficiais aprovados com evidência e canal público de correção;
-- receitas, despesas, fechamentos, obrigações e folha em agregados validados;
+- receitas, despesas, fechamentos, obrigações e folha em agregados validados,
+  com matriz pública mensal de cobertura de receitas e despesas desde 2021;
 - licitações, processos, contratos, itens, fornecedores e recortes do PNCP;
 - leis e proposições da Câmara com autoria publicada e aliases revisados;
 - Executivo, vereadores, representantes estaduais e federais, candidaturas e
@@ -57,6 +58,8 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 O pacote inicial de prontidão pública — saúde operacional real, índice leve do
 Diário, inteiro teor permanente, correções responsivas e página pública de
-estado — está implementado. O próximo fluxo é medir e publicar, sem dados
-internos, a matriz de cobertura desde 2021 por fonte e período, começando pelas
-famílias financeiras com maior impacto no rastro do dinheiro.
+estado — está implementado. A primeira matriz de cobertura financeira também
+está publicada para receitas e despesas municipais desde 2021, distinguindo
+ausência de relatório, competência não classificada e valor zero. O próximo
+fluxo é ampliar a mesma leitura por fonte e período para obrigações, folha e
+demonstrativos fiscais, sem ocultar diferenças de periodicidade entre elas.

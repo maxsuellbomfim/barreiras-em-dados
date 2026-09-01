@@ -22,7 +22,7 @@ import { monthlyFinanceHref } from "../../lib/monthly-finance-detail.mjs";
 import { summarizeAnnualFinances } from "../../lib/annual-finance-summary.mjs";
 import ShareLink from "../share-link";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
-import { getPublicFinanceCoverage, type PublicFinanceCoverageRow } from "../../lib/finance-coverage";
+import { getPublicFinanceCoverage } from "../../lib/finance-coverage";
 import {
   describePublicObligationCoverage,
   getPublicObligationCoverage,
@@ -42,6 +42,7 @@ import {
   type PublicPayrollMonth,
 } from "../../lib/public-payroll.mjs";
 import FinanceNonpayrollWorkforceCoverage from "./finance-nonpayroll-workforce-coverage";
+import FinanceCoverageMatrix from "./finance-coverage-matrix";
 import FinancePayrollCoverage from "./finance-payroll-coverage";
 import FinancePayrollHistory from "./finance-payroll-history";
 import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
@@ -200,14 +201,6 @@ function signalSeverityLabel(severity: PublicFinanceSignal["severity"]): string 
   return "informativo";
 }
 
-function coverageStatusLabel(status: PublicFinanceCoverageRow["coverageStatus"]): string {
-  if (status === "complete") return "comparável";
-  if (status === "needs_review") return "revisão";
-  if (status === "revenue_only") return "só receita";
-  if (status === "expense_only") return "só despesa";
-  return "sem relatório";
-}
-
 function formatAmount(value: string | null, unavailable = "não disponível"): string {
   return value === null ? unavailable : formatBrlDecimal(value);
 }
@@ -342,9 +335,6 @@ export default async function FinancesPage() {
     right.periodEnd.localeCompare(left.periodEnd),
   );
   const annualFinanceSummaries = summarizeAnnualFinances(sortedMonthlyClosures);
-  const sortedCoverageRows = [...coverageRows].sort((left, right) =>
-    right.periodEnd.localeCompare(left.periodEnd),
-  );
   const latestRevenue = sortedRevenues[0]?.revenueDate ?? null;
   const latestClosure = sortedMonthlyClosures[0] ?? null;
 
@@ -583,10 +573,11 @@ export default async function FinancesPage() {
           <section className="finance-coverage-section" aria-labelledby="finance-coverage-title">
             <div className="section-heading compact">
               <span className="eyebrow">Cobertura da série</span>
-              <h2 id="finance-coverage-title">Onde já temos dados comparáveis</h2>
+              <h2 id="finance-coverage-title">Quais meses podem ser comparados</h2>
               <p>
-                A série começa em 2021. “Sem relatório” significa que ainda não preservamos um
-                documento validado para o mês — nunca significa arrecadação ou gasto zero.
+                A matriz mostra, mês a mês desde 2021, se há relatórios validados de
+                receita e despesa. Lacuna de documento e competência não classificada
+                são estados diferentes — nenhum deles significa arrecadação ou gasto zero.
               </p>
             </div>
             <div className="finance-coverage-summary" aria-label="Resumo da cobertura financeira">
@@ -594,26 +585,7 @@ export default async function FinancesPage() {
               <div><strong>{missingMonths.toLocaleString("pt-BR")}</strong><span>meses sem relatório</span></div>
               <div><strong>{coverageRows.length.toLocaleString("pt-BR")}</strong><span>meses acompanhados</span></div>
             </div>
-            <details className="finance-details">
-              <summary>Ver a situação mês a mês</summary>
-              <div className="finance-coverage-list">
-                {sortedCoverageRows.slice(0, 12).map((row) => (
-                  <div className="finance-coverage-row" key={row.coverageId}>
-                    <div>
-                      <strong>{formatMonthTitle(row.periodEnd)}</strong>
-                      <small>{row.publicBodyName}</small>
-                    </div>
-                    <span className={`finance-coverage-badge finance-coverage-${row.coverageStatus}`}>
-                      {coverageStatusLabel(row.coverageStatus)}
-                    </span>
-                    <p>{row.coverageNote}</p>
-                  </div>
-                ))}
-              </div>
-              {coverageRows.length > 12 ? (
-                <p className="finance-details-note">A lista pública mostra os 12 meses mais recentes; o inventário completo permanece disponível no painel administrativo.</p>
-              ) : null}
-            </details>
+            <FinanceCoverageMatrix rows={coverageRows} />
           </section>
         ) : null}
 
