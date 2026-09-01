@@ -132,4 +132,10 @@ quando outra linha do próprio documento comprova uma interpretação única. As
 pública permanece corretamente em `needs_data`: há um relatório de despesa,
 nenhum relatório de receita e aviso explícito de que ainda não existe receita
 comparável. O próximo recorte é recuperar e validar o demonstrativo oficial de
-receita `PCMGE016` da mesma competência, sem fabricar fechamento antes disso.
+receita `PCMGE016` da mesma competência, sem fabricar fechamento antes disso. O
+PDF já preservado possui linhagem oficial única, 11 páginas com texto e 248
+rubricas. O parser determinístico específico do SIGA validou os sete valores de
+cada rubrica, a equação de saldo, as categorias de primeiro nível, o total geral
+e o resumo: R$ 514.717.532,00 previstos e R$ 65.083.819,60 arrecadados em
+janeiro. A publicação permanece bloqueada até uma migration separada ampliar a
+linhagem financeira exata, hoje restrita ao `PCMGE015`, para o `PCMGE016`.

@@ -1,0 +1,30 @@
+Tribunal de Contas dos Municípios do Estado da Bahia
+SIGA - Sistema Integrado de Gestão e Auditoria Emissão: 23/02/2021 15:31:25
+Demonstrativo da Receita Orçamentária
+Unidade: Prefeitura Municipal de BARREIRAS
+Competência: 01/2021
+Código Descrição
+Receita Prevista Arrecadada no Mês Anulada no Mês Arrecadada até Mês
+Saldo p/ Mais Saldo p/ Menos Anulada até Mês
+1.0.0.0.00.0.0.00.00 100,00 10,00 1,00 10,00 0,00 91,00Receitas Correntes
+1,00
+Página 1 de 2 Receita Orçamentária
+Processo: fixture - Doc. 1
+
+Tribunal de Contas dos Municípios do Estado da Bahia
+SIGA - Sistema Integrado de Gestão e Auditoria Emissão: 23/02/2021 15:31:25
+Demonstrativo da Receita Orçamentária
+Unidade: Prefeitura Municipal de BARREIRAS
+Competência: 01/2021
+Código Descrição
+Receita Prevista Arrecadada no Mês Anulada no Mês Arrecadada até Mês
+Saldo p/ Mais Saldo p/ Menos Anulada até Mês
+2.0.0.0.00.0.0.00.00 50,00 5,00 0,00 5,00 0,00 45,00Receitas de
+Capital
+0,00
+150,00 15,00 1,00 15,00 0,00 136,00TOTAL
+RESUMO
+Arrecadada no Mês: Arrecadada até Mês:
+Totais: 15,00 15,00
+Página 2 de 2 Receita Orçamentária
+Processo: fixture - Doc. 1
