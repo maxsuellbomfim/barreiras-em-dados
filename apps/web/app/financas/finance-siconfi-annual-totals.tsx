@@ -11,6 +11,7 @@ import type {
   SiconfiReconciliationMetricKey,
 } from "../../lib/siconfi-monthly-reconciliation-parser.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
+import { FinanceDcaAnnualCoverage } from "./finance-dca-annual-coverage";
 
 const LABELS: Record<SiconfiAnnualMetricKey, string> = {
   gross_revenue_realized: "Receita bruta realizada",
@@ -133,6 +134,7 @@ export function FinanceSiconfiAnnualTotals({
           não são a mesma coisa.
         </p>
       </div>
+      <FinanceDcaAnnualCoverage years={years} />
       <article className="finance-siconfi-latest">
         <header>
           <div>

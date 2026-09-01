@@ -73,5 +73,9 @@ RREO e três quadrimestres do RGF por exercício, com distinção entre PDF
 preservado, registro apenas catalogado, período vencido não localizado e prazo
 ainda aberto. A regra fica visível com links ao Siconfi e ao IBGE, e a página
 reconsulta as duas famílias em tempo de execução se o HTML inicial não obtiver a
-fonte. A DCA permanece uma trilha anual separada. O próximo fluxo é publicar uma
-matriz anual da DCA/Siconfi, sem inferir valores de um exercício ausente.
+fonte. A DCA permanece uma trilha anual separada e agora possui matriz pública
+desde 2021. A consulta de produção de 01/09/2026 encontrou declarações completas
+de 2021 a 2025, com sete métricas validadas em cada exercício; 2026 aparece como
+exercício em andamento, não como ausência ou valor zero. O próximo fluxo é
+reconciliar o catálogo municipal de contas anuais com a DCA do Siconfi, mantendo
+fontes e conceitos separados e tornando divergências documentais verificáveis.
