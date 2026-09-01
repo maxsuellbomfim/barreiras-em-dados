@@ -162,7 +162,11 @@ class RevenuePublisherTests(unittest.TestCase):
             query,
         )
         self.assertIn("'tcm_ba'::text as source_kind", query)
-        self.assertIn("candidates.sha256 = %s", query)
+        self.assertIn(
+            "(%s::text is null or candidates.sha256 = %s::text)",
+            query,
+        )
+        self.assertIn("%s::text is not null", query)
         self.assertIn("job.status = 'dead_lettered'", query)
         self.assertNotIn("job.status = 'failed'", query)
 
