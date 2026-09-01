@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
+import re
 from collections.abc import Sequence
 from datetime import date
 
@@ -21,6 +23,26 @@ def completion_exit_code(*, needs_review: int) -> int:
     """Falha o workflow quando algum PDF não pôde ser publicado."""
 
     return 1 if needs_review else 0
+
+
+def build_completion_event(
+    *,
+    artifact_sha256: str | None,
+    artifacts: int,
+    published_rows: int,
+    already_published: int,
+    needs_review: int,
+) -> dict[str, str | int | None]:
+    """Emite um contrato sanitizado para o gate do replay exato."""
+
+    return {
+        "event": "revenue_publication_completed",
+        "artifact_sha256": artifact_sha256,
+        "artifacts": artifacts,
+        "published_rows": published_rows,
+        "already_published": already_published,
+        "needs_review": needs_review,
+    }
 
 
 def _cloud_client(settings):
@@ -57,11 +79,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--fiscal-year-from", type=int, default=2021)
     parser.add_argument("--fiscal-year-to", type=int, default=date.today().year)
+    parser.add_argument("--artifact-sha256", default="")
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 100:
         parser.error("--limit deve estar entre 1 e 100")
     if not 1900 <= args.fiscal_year_from <= args.fiscal_year_to <= 2200:
         parser.error("intervalo fiscal inválido")
+    artifact_sha256 = args.artifact_sha256.strip().lower() or None
+    if artifact_sha256 is not None and not re.fullmatch(
+        r"[0-9a-f]{64}", artifact_sha256
+    ):
+        parser.error("--artifact-sha256 deve ser um SHA-256 hexadecimal")
 
     from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
     from barreiras_collectors.settings import PersistenceSettings
@@ -82,6 +110,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         limit=args.limit,
         fiscal_year_from=args.fiscal_year_from,
         fiscal_year_to=args.fiscal_year_to,
+        artifact_sha256=artifact_sha256,
     )
     for artifact in artifacts:
         try:
@@ -109,13 +138,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             already_published += 1
 
+    completion_event = build_completion_event(
+        artifact_sha256=artifact_sha256,
+        artifacts=len(artifacts),
+        published_rows=published,
+        already_published=already_published,
+        needs_review=needs_review,
+    )
     logging.getLogger(__name__).info(
-        "revenue_publication_completed artifacts=%s published_rows=%s "
-        "already_published=%s needs_review=%s",
-        len(artifacts),
-        published,
-        already_published,
-        needs_review,
+        json.dumps(completion_event, ensure_ascii=False, sort_keys=True)
     )
     return completion_exit_code(needs_review=needs_review)
 

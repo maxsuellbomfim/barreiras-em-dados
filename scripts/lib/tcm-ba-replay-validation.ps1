@@ -407,6 +407,57 @@ function Assert-TcmBaExpensePublicationApproval {
     return $true
 }
 
+function Assert-TcmBaRevenuePublicationApproval {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object[]]$Events,
+        [Parameter(Mandatory = $true)]
+        [string]$ArtifactSha256
+    )
+
+    if ($ArtifactSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "A aprovação exige um SHA-256 hexadecimal."
+    }
+    $completedEvents = @(
+        $Events | Where-Object {
+            $_.event -eq "revenue_publication_completed"
+        }
+    )
+    if ($completedEvents.Count -ne 1) {
+        throw "A aprovação exige um único evento final de receita."
+    }
+    $event = $completedEvents[0]
+    if (
+        $event.artifact_sha256 -isnot [string] -or
+        $event.artifact_sha256.ToLowerInvariant() -ne
+            $ArtifactSha256.ToLowerInvariant()
+    ) {
+        throw "O publicador não atingiu o SHA-256 solicitado."
+    }
+    $artifacts = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.artifacts -FieldName "artifacts"
+    $publishedRows = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.published_rows -FieldName "published_rows"
+    $alreadyPublished = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.already_published -FieldName "already_published"
+    $needsReview = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.needs_review -FieldName "needs_review"
+
+    if ($artifacts -ne 1 -or $needsReview -ne 0) {
+        throw "A publicação exata não comprovou um relatório íntegro."
+    }
+    if (
+        -not (
+            ($publishedRows -gt 0 -and $alreadyPublished -eq 0) -or
+            ($publishedRows -eq 0 -and $alreadyPublished -eq 1)
+        )
+    ) {
+        throw "O resultado da publicação de receita é inconsistente."
+    }
+    return $true
+}
+
 function Read-TcmBaCommitmentBudgetBenchmarkEvent {
     [CmdletBinding()]
     param(

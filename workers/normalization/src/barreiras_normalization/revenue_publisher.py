@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 from .financial_revenue_pdf import parse_revenue_pdf_text
@@ -14,6 +14,9 @@ from .revenue_publication import (
     RevenuePublicationBatch,
     build_publication_batch,
 )
+from .tcm_ba_revenue_pdf import parse_tcm_ba_revenue_pdf_text
+
+TCM_BA_REVENUE_METHODOLOGY_VERSION = "tcm-ba-analytical-revenue/1.0.0"
 
 
 class ArtifactMismatchError(RuntimeError):
@@ -27,6 +30,7 @@ class RevenueDocumentArtifact(Protocol):
     byte_size: int
     parent_record_id: str
     source_url: str
+    source_kind: str
 
 
 @dataclass(frozen=True)
@@ -37,6 +41,7 @@ class RevenueArtifact:
     byte_size: int
     parent_record_id: str
     source_url: str
+    source_kind: str = "municipal"
 
 
 @dataclass(frozen=True)
@@ -58,6 +63,7 @@ class RevenuePublicationRepository(Protocol):
         limit: int,
         fiscal_year_from: int,
         fiscal_year_to: int,
+        artifact_sha256: str | None = None,
     ) -> tuple[RevenueArtifact, ...]: ...
 
     def persist_validated_report(
@@ -112,8 +118,19 @@ class RevenueReportPublisher:
                 f"Artefato {artifact.id} diverge do hash ou tamanho catalogado."
             )
         text = self.text_extractor(raw_body)
-        report = parse_revenue_pdf_text(text)
-        batch = build_publication_batch(report)
+        if artifact.source_kind == "municipal":
+            report = parse_revenue_pdf_text(text)
+            batch = build_publication_batch(report)
+        elif artifact.source_kind == "tcm_ba":
+            report = parse_tcm_ba_revenue_pdf_text(text)
+            batch = replace(
+                build_publication_batch(report),
+                methodology_version=TCM_BA_REVENUE_METHODOLOGY_VERSION,
+            )
+        else:
+            raise ValueError(
+                f"origem de receita não suportada: {artifact.source_kind}"
+            )
         published_rows = self.repository.persist_validated_report(artifact, batch)
         self.logger.info(
             "revenue_report_published",
@@ -152,12 +169,13 @@ class PostgresRevenuePublicationRepository:
         limit: int,
         fiscal_year_from: int,
         fiscal_year_to: int,
+        artifact_sha256: str | None = None,
     ) -> tuple[RevenueArtifact, ...]:
         connection = self.connection_factory()
         try:
             result = connection.execute(
                 """
-                with candidates as (
+                with municipal_candidates as (
                   select distinct on (document.id)
                     document.id::text,
                     document.sha256,
@@ -165,6 +183,7 @@ class PostgresRevenuePublicationRepository:
                     document.byte_size,
                     record.id::text as parent_record_id,
                     document.source_url,
+                    'municipal'::text as source_kind,
                     document.created_at
                   from raw.raw_artifacts as document
                   join raw.raw_artifacts as parent_artifact
@@ -180,30 +199,85 @@ class PostgresRevenuePublicationRepository:
                     = 'municipal_transparency_pdc-resumo-execucao-da-receita'
                   and record.payload ->> 'ano' ~ '^[0-9]{4}$'
                   and (record.payload ->> 'ano')::integer between %s and %s
-                  and not exists (
-                    select 1
-                    from finance.revenues as revenue
-                    where revenue.source_document_artifact_id = document.id
-                      and revenue.validation_status = 'validated'
+                  order by document.id, record.created_at desc, record.id desc
+                ), tcm_ba_candidates as (
+                  select distinct on (document.id)
+                    document.id::text,
+                    document.sha256,
+                    document.object_key,
+                    document.byte_size,
+                    record.id::text as parent_record_id,
+                    document.source_url,
+                    'tcm_ba'::text as source_kind,
+                    document.created_at
+                  from raw.raw_artifacts as document
+                  join raw.raw_artifacts as prepare
+                    on prepare.id = document.parent_artifact_id
+                  join raw.raw_artifacts as catalog
+                    on catalog.id = prepare.parent_artifact_id
+                  join raw.raw_records as record
+                    on record.raw_artifact_id = catalog.id
+                   and record.source_record_key
+                     = document.metadata ->> 'source_record_key'
+                  where document.artifact_kind = 'document'
+                    and document.metadata ->> 'schema_name'
+                      = 'tcm-ba-monthly-document'
+                    and document.metadata ->> 'document_role' = 'pdf'
+                    and document.source_url
+                      = 'https://e.tcm.ba.gov.br/epp/PdfReadOnly/downloadDocumento.seam'
+                    and prepare.artifact_kind = 'document'
+                    and prepare.metadata ->> 'schema_name'
+                      = 'tcm-ba-document-download-prepare'
+                    and prepare.metadata ->> 'source_record_key'
+                      = record.source_record_key
+                    and record.record_type = 'tcm_ba_monthly_document'
+                    and left(record.payload ->> 'category', 8) = 'PCMGE016'
+                    and record.payload ->> 'unit'
+                      = 'Prefeitura Municipal de BARREIRAS'
+                    and record.payload ->> 'competence'
+                      ~ '^(0[1-9]|1[0-2])/[0-9]{4}$'
+                    and right(record.payload ->> 'competence', 4)::integer
+                      between %s and %s
+                  order by document.id, record.created_at desc, record.id desc
+                ), candidates as (
+                  select * from municipal_candidates
+                  union all
+                  select * from tcm_ba_candidates
+                ), pending as (
+                  select candidates.*
+                  from candidates
+                  where (%s is null or candidates.sha256 = %s)
+                  and (
+                    %s is not null
+                    or not exists (
+                      select 1
+                      from finance.revenues as revenue
+                      where revenue.source_document_artifact_id = candidates.id
+                        and revenue.validation_status = 'validated'
+                    )
                   )
                   and not exists (
                     select 1
                     from raw.extraction_jobs as job
-                    where job.raw_artifact_id = document.id
+                    where job.raw_artifact_id = candidates.id
                       and job.job_type = %s
                       and job.status = 'dead_lettered'
                   )
-                  order by document.id, record.created_at desc, record.id desc
                 )
                 select id, sha256, object_key, byte_size, parent_record_id,
-                  source_url
-                from candidates
+                  source_url, source_kind
+                from pending
                 order by created_at, id
                 limit %s
                 """,
                 (
                     fiscal_year_from,
                     fiscal_year_to,
+                    fiscal_year_from,
+                    fiscal_year_to,
+                    artifact_sha256,
+                    artifact_sha256,
+                    artifact_sha256,
                     REVENUE_PUBLICATION_JOB_TYPE,
                     limit,
                 ),
@@ -216,6 +290,7 @@ class PostgresRevenuePublicationRepository:
                     byte_size=int(row["byte_size"]),
                     parent_record_id=str(row["parent_record_id"]),
                     source_url=str(row["source_url"]),
+                    source_kind=str(row["source_kind"]),
                 )
                 for row in result.fetchall()
             )
