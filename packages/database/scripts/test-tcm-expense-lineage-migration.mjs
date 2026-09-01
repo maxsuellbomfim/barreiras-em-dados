@@ -137,6 +137,28 @@ try {
       '2023-05-18 12:02:00+00', 1000, '${"5".repeat(64)}',
       'tcm-ba/monthly/2023/04/expense.pdf', 'test/1',
       '{"schema_name":"tcm-ba-monthly-document","document_role":"pdf","source_record_key":"tcm-ba:document:04/2023:expense"}'::jsonb
+    ),
+    (
+      '00000000-0000-0000-0000-000000009611',
+      '00000000-0000-0000-0000-000000009603',
+      '00000000-0000-0000-0000-000000009602',
+      '00000000-0000-0000-0000-000000009604',
+      'tcm-lineage-revenue-prepare', 'document',
+      'https://e.tcm.ba.gov.br/epp/ConsultaPublica/listView.seam',
+      '2023-05-18 12:04:00+00', 200, '${"6".repeat(64)}',
+      'tcm-ba/monthly/2023/04/revenue-prepare.xml', 'test/1',
+      '{"schema_name":"tcm-ba-document-download-prepare","document_role":"download-prepare","source_record_key":"tcm-ba:document:04/2023:revenue"}'::jsonb
+    ),
+    (
+      '00000000-0000-0000-0000-000000009612',
+      '00000000-0000-0000-0000-000000009603',
+      '00000000-0000-0000-0000-000000009602',
+      '00000000-0000-0000-0000-000000009611',
+      'tcm-lineage-revenue-pdf', 'document',
+      'https://e.tcm.ba.gov.br/epp/PdfReadOnly/downloadDocumento.seam',
+      '2023-05-18 12:05:00+00', 1100, '${"7".repeat(64)}',
+      'tcm-ba/monthly/2023/04/revenue.pdf', 'test/1',
+      '{"schema_name":"tcm-ba-monthly-document","document_role":"pdf","source_record_key":"tcm-ba:document:04/2023:revenue"}'::jsonb
     );
     insert into org.public_bodies (
       id, origin_raw_record_id, ibge_code, name, body_type, state_code
@@ -160,12 +182,17 @@ try {
       finance.has_exact_document_lineage(
         '00000000-0000-0000-0000-000000009606',
         '00000000-0000-0000-0000-000000009608'
-      ) as unrelated_matches
+      ) as unrelated_matches,
+      finance.has_tcm_ba_document_lineage(
+        '00000000-0000-0000-0000-000000009606',
+        '00000000-0000-0000-0000-000000009612'
+      ) as revenue_matches
   `);
   assert.deepEqual(lineage.rows, [{
     tcm_matches: true,
     exact_matches: true,
     unrelated_matches: false,
+    revenue_matches: true,
   }]);
 
   const pairs = await database.query(`
@@ -176,6 +203,16 @@ try {
   assert.deepEqual(pairs.rows, [{
     origin_raw_record_id: "00000000-0000-0000-0000-000000009605",
     document_artifact_id: "00000000-0000-0000-0000-000000009608",
+  }]);
+
+  const revenuePairs = await database.query(`
+    select origin_raw_record_id::text, document_artifact_id::text
+    from finance.get_exact_document_lineage_pairs()
+    where document_artifact_id = '00000000-0000-0000-0000-000000009612'
+  `);
+  assert.deepEqual(revenuePairs.rows, [{
+    origin_raw_record_id: "00000000-0000-0000-0000-000000009606",
+    document_artifact_id: "00000000-0000-0000-0000-000000009612",
   }]);
 
   await database.exec(`
@@ -226,7 +263,9 @@ try {
     authenticated_can_execute: false,
   }]);
 
-  console.log("Linhagem exata TCM-BA e projeção resumida validadas.");
+  console.log(
+    "Linhagem exata TCM-BA de despesa/receita e projeção validadas.",
+  );
 } finally {
   await database.close();
 }

@@ -9,6 +9,7 @@ param(
     [switch]$DocumentLineageOnly,
     [switch]$DocumentTextOnly,
     [switch]$ExpenseSummaryOnly,
+    [switch]$RevenueReportOnly,
     [string]$ArtifactSha256 = "",
     [switch]$AuditOnly,
     [switch]$CommitmentReplayOnly,
@@ -157,6 +158,27 @@ function Read-ExpensePublicationEvents {
             continue
         }
         if ($event.event -eq "expense_publication_completed") {
+            $events += $event
+        }
+    }
+    return $events
+}
+function Read-RevenuePublicationEvents {
+    param([object[]]$Output)
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -eq "revenue_publication_completed") {
             $events += $event
         }
     }
@@ -457,6 +479,7 @@ $exclusiveModes = @(@(
     $DocumentLineageOnly,
     $DocumentTextOnly,
     $ExpenseSummaryOnly,
+    $RevenueReportOnly,
     $AuditOnly,
     $CommitmentReplayOnly,
     $CommitmentBudgetBenchmarkOnly,
@@ -479,6 +502,9 @@ if ($DocumentTextOnly -and ($AutoCompetence -or $PlanOnly)) {
 if ($ExpenseSummaryOnly -and ($AutoCompetence -or $PlanOnly)) {
     throw "-ExpenseSummaryOnly não pode ser combinado com outro modo."
 }
+if ($RevenueReportOnly -and ($AutoCompetence -or $PlanOnly)) {
+    throw "-RevenueReportOnly não pode ser combinado com outro modo."
+}
 if ($ReportOnly -and ($AutoCompetence -or $PlanOnly -or $DocumentLineageOnly)) {
     throw "-ReportOnly não pode ser combinado com -AutoCompetence ou -PlanOnly."
 }
@@ -497,7 +523,10 @@ if (
     throw "-DocumentLineageOnly exige -ArtifactSha256 hexadecimal de 64 caracteres."
 }
 if (
-    -not ($DocumentLineageOnly -or $DocumentTextOnly -or $ExpenseSummaryOnly) -and
+    -not (
+        $DocumentLineageOnly -or $DocumentTextOnly -or
+        $ExpenseSummaryOnly -or $RevenueReportOnly
+    ) -and
     -not [string]::IsNullOrWhiteSpace($ArtifactSha256)
 ) {
     throw "-ArtifactSha256 exige um modo documental exato."
@@ -513,6 +542,12 @@ if (
     $ArtifactSha256 -notmatch '^[0-9a-fA-F]{64}$'
 ) {
     throw "-ExpenseSummaryOnly exige -ArtifactSha256 hexadecimal de 64 caracteres."
+}
+if (
+    $RevenueReportOnly -and
+    $ArtifactSha256 -notmatch '^[0-9a-fA-F]{64}$'
+) {
+    throw "-RevenueReportOnly exige -ArtifactSha256 hexadecimal de 64 caracteres."
 }
 if (
     $AuditOnly -and
@@ -579,6 +614,7 @@ if (-not [string]::IsNullOrWhiteSpace($CategoryCode)) {
     if (
         $AutoCompetence -or $PlanOnly -or $ReportOnly -or
         $DocumentLineageOnly -or $DocumentTextOnly -or $ExpenseSummaryOnly -or
+        $RevenueReportOnly -or
         $AuditOnly -or $CommitmentReplayOnly -or
         $CommitmentBudgetBenchmarkOnly -or $CommitmentAmountBenchmarkOnly -or
         $CommitmentCreditorBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly
@@ -665,6 +701,37 @@ try {
     $env:SUPABASE_RAW_ARTIFACTS_BUCKET = "raw-artifacts"
 
     $python = Find-Python
+    if ($RevenueReportOnly) {
+        Push-Location $projectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $publicationOutput = @(
+                    & $python -B -m barreiras_normalization.commands.publish_revenue_reports --limit 1 --artifact-sha256 $ArtifactSha256 2>&1
+                )
+                $publicationExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $publicationOutput | ForEach-Object { Write-Host $_ }
+        if ($publicationExitCode -ne 0) {
+            throw "A publicação exata de receita terminou com código $publicationExitCode."
+        }
+        $publicationEvents = @(
+            Read-RevenuePublicationEvents -Output $publicationOutput
+        )
+        $null = Assert-TcmBaRevenuePublicationApproval `
+            -Events $publicationEvents `
+            -ArtifactSha256 $ArtifactSha256
+        Write-Host "TCM_BA_REVENUE_REPORT_APPROVED" -ForegroundColor Green
+        return
+    }
     if ($ExpenseSummaryOnly) {
         Push-Location $projectRoot
         try {

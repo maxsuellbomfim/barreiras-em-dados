@@ -73,6 +73,19 @@ R$ 514.717.532,00 previstos, R$ 65.083.819,60 arrecadados no mês e o mesmo valo
 acumulado. Esse estágio apenas valida; a publicação depende da ampliação
 auditável da linhagem financeira para `PCMGE016`.
 
+Após aplicar a migration que reconhece o `PCMGE016`, publique ou confira
+idempotentemente apenas esse relatório pelo hash imutável:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/run-tcm-ba-document-pilot.ps1 `
+  -RevenueReportOnly `
+  -ArtifactSha256 9857120561d0371fcbd6868555c5531ee816fbdb1b9e70a8b7db96cf54101a59
+```
+
+O wrapper exige exatamente um artefato, nenhuma pendência de revisão e um
+resultado coerente de publicação ou replay. Um lote vazio não é aprovado.
+
 Para publicar ou repetir de forma idempotente um único demonstrativo já
 preservado, use o modo exato:
 

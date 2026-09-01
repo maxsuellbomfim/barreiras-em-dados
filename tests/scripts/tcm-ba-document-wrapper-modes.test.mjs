@@ -116,6 +116,29 @@ function expensePublicationEvent(overrides = {}) {
   };
 }
 
+function revenuePublicationGateCommand(events, sha256 = "8".repeat(64)) {
+  const helper = validationHelperPath.replaceAll("'", "''");
+  const payload = JSON.stringify(events).replaceAll("'", "''");
+  return (
+    `. '${helper}'; ` +
+    `$events = ConvertFrom-Json '${payload}'; ` +
+    `Assert-TcmBaRevenuePublicationApproval ` +
+    `-Events @($events) -ArtifactSha256 '${sha256}' | Out-Null`
+  );
+}
+
+function revenuePublicationEvent(overrides = {}) {
+  return {
+    event: "revenue_publication_completed",
+    artifact_sha256: "8".repeat(64),
+    artifacts: 1,
+    published_rows: 248,
+    already_published: 0,
+    needs_review: 0,
+    ...overrides,
+  };
+}
+
 test("publica um resumo TCM-BA somente pelo SHA exato", () => {
   assert.match(wrapper, /\[switch\]\$ExpenseSummaryOnly/);
   assert.match(
@@ -173,6 +196,37 @@ test("gate rejeita lote vazio, SHA divergente, falha ou evento duplicado", () =>
     [expensePublicationEvent(), expensePublicationEvent()],
   ]) {
     const result = runPowerShell(expensePublicationGateCommand(events));
+    assert.notEqual(result.status, 0, result.stdout + result.stderr);
+  }
+});
+
+test("publica o relatório de receita TCM-BA somente pelo SHA exato", () => {
+  assert.match(wrapper, /\[switch\]\$RevenueReportOnly/);
+  assert.match(
+    wrapper,
+    /publish_revenue_reports --limit 1 --artifact-sha256 \$ArtifactSha256/,
+  );
+  assert.match(wrapper, /Assert-TcmBaRevenuePublicationApproval/);
+  assert.match(wrapper, /TCM_BA_REVENUE_REPORT_APPROVED/);
+});
+
+test("gate de receita aceita publicação e replay, nunca lote vazio", () => {
+  for (const event of [
+    revenuePublicationEvent(),
+    revenuePublicationEvent({ published_rows: 0, already_published: 1 }),
+  ]) {
+    const result = runPowerShell(revenuePublicationGateCommand([event]));
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+
+  for (const events of [
+    [revenuePublicationEvent({ artifacts: 0, published_rows: 0 })],
+    [revenuePublicationEvent({ artifact_sha256: "9".repeat(64) })],
+    [revenuePublicationEvent({ published_rows: 0, needs_review: 1 })],
+    [revenuePublicationEvent({ published_rows: 0, already_published: 0 })],
+    [revenuePublicationEvent(), revenuePublicationEvent()],
+  ]) {
+    const result = runPowerShell(revenuePublicationGateCommand(events));
     assert.notEqual(result.status, 0, result.stdout + result.stderr);
   }
 });
