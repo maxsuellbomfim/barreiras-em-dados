@@ -8,6 +8,7 @@ import {
 import {
   financeResourceLabel,
   getPublicFinanceDocuments,
+  mergePublicFinanceDocumentResults,
   type FinanceDocumentsResult,
 } from "../../lib/finance-documents";
 import {
@@ -251,6 +252,8 @@ export default async function FinancesPage() {
     siconfiReconciliationResult,
     rreoDocumentsResult,
     rgfDocumentsResult,
+    municipalControlDocumentsResult,
+    balanceteDocumentsResult,
   ] = await Promise.all([
     getPublicExpenseReports(),
     getPublicRevenues(),
@@ -267,6 +270,8 @@ export default async function FinancesPage() {
     getPublicSiconfiMonthlyReconciliation(),
     getPublicFinanceDocuments("rreo"),
     getPublicFinanceDocuments("rgf"),
+    getPublicFinanceDocuments("pdc-contas-anuais"),
+    getPublicFinanceDocuments("balancetes"),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -281,8 +286,13 @@ export default async function FinancesPage() {
     expenseLinesResult.state === "available" ? expenseLinesResult.lines : [];
   const revenues =
     revenuesResult.state === "available" ? revenuesResult.revenues : [];
-  const documents =
-    documentsResult.state === "available" ? documentsResult.documents : [];
+  const documents = mergePublicFinanceDocumentResults(
+    documentsResult,
+    rreoDocumentsResult,
+    rgfDocumentsResult,
+    municipalControlDocumentsResult,
+    balanceteDocumentsResult,
+  );
   const monthlyClosures =
     monthlyResult.state === "available" ? monthlyResult.closures : [];
   const financeSignals = signalsResult.state === "available" ? signalsResult.signals : [];
