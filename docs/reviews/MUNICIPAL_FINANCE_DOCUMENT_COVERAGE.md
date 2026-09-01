@@ -14,6 +14,14 @@ consultada separadamente para as famílias mensais. A consulta retornou:
 Os registros de balancete anteriores a 2021 permanecem preservados, mas o
 calendário público começa em 2021, conforme o recorte histórico do portal.
 
+O único registro mensal somente catalogado é o **Demonstrativo Analítico de
+Despesa — abril de 2023** (`document_id`
+`9d3b403d-ebab-4385-9846-92b1c08a57ec`). A API oficial informa a competência,
+o título e a descrição, porém a URL de documento publicada redireciona para o
+login administrativo e não devolve um PDF. A execução direcionada
+`33542347455` comprovou a falha como `SourceContractError`; por isso o mês
+permanece `needs_data` e nenhum valor foi inferido da descrição do catálogo.
+
 ## Regra pública
 
 - cada célula representa uma família e uma competência, nunca um valor;
@@ -34,3 +42,12 @@ Este calendário comprova presença documental. Ele não extrai, soma ou compara
 valores de receita, despesa ou balancete. A publicação de números continua
 dependendo de extração determinística, reconciliação da competência e vínculo
 com o PDF preservado.
+
+## Recuperação direcionada
+
+O workflow `collect-finance-documents.yml` aceita uma
+`finance_reference_month` no formato `AAAA-MM` junto de um recurso financeiro
+documental. Nesse modo, o coletor seleciona somente a competência solicitada e
+exige que todos os documentos correspondentes sejam preservados. Ausência no
+catálogo, HTML no lugar do PDF, limite parcial ou falha de download terminam o
+workflow com erro explícito; não há selo verde sem evidência.

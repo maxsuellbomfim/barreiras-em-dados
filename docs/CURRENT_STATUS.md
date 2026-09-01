@@ -109,4 +109,9 @@ o replay controlado foi concluído: os doze fechamentos mensais estão
 de receita e um relatório de despesa. A conferência do detalhe mensal também
 comprovou URLs oficiais e hashes de linhagem para os documentos de receita e
 despesa. A próxima lacuna objetiva é abril de 2023, que possui receita publicada
-mas ainda não fecha a despesa mensal.
+mas ainda não fecha a despesa mensal. A auditoria da fonte encontrou o registro
+oficial dessa despesa, porém a URL publicada redireciona para o login
+administrativo e não entrega um PDF. O portal mantém o mês como `needs_data`,
+sem aproveitar como valor a descrição do catálogo. O coletor agora oferece
+resgate por competência e falha explicitamente se o documento exato não puder
+ser preservado, eliminando o antigo falso verde dessa operação direcionada.

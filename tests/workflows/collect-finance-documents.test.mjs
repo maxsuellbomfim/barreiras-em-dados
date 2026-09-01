@@ -138,6 +138,19 @@ test("coleta de pessoal aceita uma competencia exata sem baixar outros tipos", (
     workflow,
     /\^20\[2-9\]\[0-9\]-\(0\[1-9\]\|1\[0-2\]\)\$/,
   );
+  assert.match(workflow, /--require-document-match/);
+});
+
+test("resgate financeiro exato falha quando o PDF oficial nao e preservado", () => {
+  assert.match(workflow, /finance_reference_month:/);
+  assert.match(workflow, /INPUT_FINANCE_REFERENCE_MONTH:/);
+  assert.match(
+    workflow,
+    /--document-reference-month "\$INPUT_FINANCE_REFERENCE_MONTH"/,
+  );
+  assert.match(workflow, /finance_reference_month exige recurso financeiro/);
+  assert.match(workflow, /competencias exatas de pessoal e financas sao mutuamente exclusivas/);
+  assert.match(workflow, /--require-document-match/);
 });
 
 test("cobertura de balancetes nao espera o download de todo o acervo", () => {
