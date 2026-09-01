@@ -246,9 +246,9 @@ class PostgresRevenuePublicationRepository:
                 ), pending as (
                   select candidates.*
                   from candidates
-                  where (%s is null or candidates.sha256 = %s)
+                  where (%s::text is null or candidates.sha256 = %s::text)
                   and (
-                    %s is not null
+                    %s::text is not null
                     or not exists (
                       select 1
                       from finance.revenues as revenue
