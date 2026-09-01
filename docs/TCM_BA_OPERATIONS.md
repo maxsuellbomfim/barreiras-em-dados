@@ -62,6 +62,17 @@ fechamento público `operational` de abril de 2023. A página identifica o
 TCM-BA como origem distinta do portal municipal e preserva os dois links e os
 dois hashes para conferência.
 
+O demonstrativo analítico de receita `PCMGE016` de `01/2021` também está
+preservado, com hash
+`9857120561d0371fcbd6868555c5531ee816fbdb1b9e70a8b7db96cf54101a59`.
+A linhagem identifica uma única observação oficial e as 11 páginas possuem
+texto embutido. O parser específico reconheceu 248 rubricas, incluindo os sete
+valores separados entre a linha principal e a linha seguinte, e reconciliou as
+categorias de primeiro nível com o total geral. O benchmark confirmou
+R$ 514.717.532,00 previstos, R$ 65.083.819,60 arrecadados no mês e o mesmo valor
+acumulado. Esse estágio apenas valida; a publicação depende da ampliação
+auditável da linhagem financeira para `PCMGE016`.
+
 Para publicar ou repetir de forma idempotente um único demonstrativo já
 preservado, use o modo exato:
 
