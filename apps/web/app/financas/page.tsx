@@ -8,6 +8,7 @@ import {
 import {
   financeResourceLabel,
   getPublicFinanceDocuments,
+  type FinanceDocumentsResult,
 } from "../../lib/finance-documents";
 import {
   formatBrlDecimal,
@@ -58,6 +59,12 @@ import { buildFinanceFamilyCoverage } from "../../lib/finance-family-coverage.mj
 import FinanceFamilyCoverageMap from "./finance-family-coverage-map";
 import FinanceObligationCoverageMatrix from "./finance-obligation-coverage-matrix";
 import FinancePayrollCoverageMatrix from "./finance-payroll-coverage-matrix";
+import FinanceFiscalReportCoverageMatrix from "./finance-fiscal-report-coverage-matrix";
+import {
+  toFiscalCoverageEntry,
+  type FiscalReportCoverageEntry,
+  type FiscalReportCoverageResult,
+} from "../../lib/fiscal-report-coverage-matrix.mjs";
 
 export const revalidate = 300;
 
@@ -209,6 +216,22 @@ function formatAmount(value: string | null, unavailable = "não disponível"): s
   return value === null ? unavailable : formatBrlDecimal(value);
 }
 
+function fiscalCoverageResult(
+  rreo: FinanceDocumentsResult,
+  rgf: FinanceDocumentsResult,
+): FiscalReportCoverageResult {
+  if (rreo.state !== "available" || rgf.state !== "available") {
+    return { state: "unavailable" };
+  }
+  const entries: FiscalReportCoverageEntry[] = [];
+  for (const document of [...rreo.documents, ...rgf.documents]) {
+    const entry = toFiscalCoverageEntry(document);
+    if (!entry) return { state: "unavailable" };
+    entries.push(entry);
+  }
+  return { state: "available", entries };
+}
+
 export default async function FinancesPage() {
   const [
     expensesResult,
@@ -224,6 +247,8 @@ export default async function FinancesPage() {
     nonpayrollWorkforceCoverageResult,
     siconfiAnnualResult,
     siconfiReconciliationResult,
+    rreoDocumentsResult,
+    rgfDocumentsResult,
   ] = await Promise.all([
     getPublicExpenseReports(),
     getPublicRevenues(),
@@ -238,6 +263,8 @@ export default async function FinancesPage() {
     getPublicNonpayrollWorkforceCoverage(120),
     getPublicSiconfiAnnualTotals(),
     getPublicSiconfiMonthlyReconciliation(),
+    getPublicFinanceDocuments("rreo"),
+    getPublicFinanceDocuments("rgf"),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -345,6 +372,7 @@ export default async function FinancesPage() {
     fiscalDocuments,
     siconfiYears: siconfiAnnualYears,
   });
+  const fiscalCoverage = fiscalCoverageResult(rreoDocumentsResult, rgfDocumentsResult);
 
   return (
     <main>
@@ -1315,6 +1343,19 @@ export default async function FinancesPage() {
               ))}
             </div>
           )}
+        </section>
+
+        <section className="finance-coverage-section" aria-labelledby="fiscal-report-coverage-title">
+          <div className="section-heading compact">
+            <span className="eyebrow">Calendário fiscal</span>
+            <h2 id="fiscal-report-coverage-title">Quais RREO e RGF foram localizados</h2>
+            <p>
+              Cada família conserva sua periodicidade: seis RREO bimestrais e
+              três RGF quadrimestrais por exercício. Documento catalogado sem PDF,
+              prazo futuro e período vencido não localizado são estados diferentes.
+            </p>
+          </div>
+          <FinanceFiscalReportCoverageMatrix initialResult={fiscalCoverage} />
         </section>
 
         {fiscalDocuments.length > 0 ? (
