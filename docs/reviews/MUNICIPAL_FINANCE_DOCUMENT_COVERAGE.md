@@ -51,3 +51,12 @@ documental. Nesse modo, o coletor seleciona somente a competência solicitada e
 exige que todos os documentos correspondentes sejam preservados. Ausência no
 catálogo, HTML no lugar do PDF, limite parcial ou falha de download terminam o
 workflow com erro explícito; não há selo verde sem evidência.
+
+Como segunda fonte oficial, o inventário privado do TCM-BA foi consultado pelo
+hash do único demonstrativo analítico de despesa já classificado. A linhagem
+comprovou que esse PDF pertence a **janeiro de 2021** (`PCMGE015`), não a abril
+de 2023. O coletor TCM-BA agora aceita seleção dirigida por competência e código
+oficial de categoria. A recuperação de abril deve usar `04/2023` + `PCMGE015`;
+o arquivo somente poderá apoiar uma reconciliação depois de preservação, hash,
+texto e equivalência metodológica, sem substituir silenciosamente a fonte
+municipal quebrada.

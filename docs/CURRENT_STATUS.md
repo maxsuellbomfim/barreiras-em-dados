@@ -115,3 +115,9 @@ administrativo e não entrega um PDF. O portal mantém o mês como `needs_data`,
 sem aproveitar como valor a descrição do catálogo. O coletor agora oferece
 resgate por competência e falha explicitamente se o documento exato não puder
 ser preservado, eliminando o antigo falso verde dessa operação direcionada.
+A busca na segunda fonte oficial também deixou de depender da ordem genérica da
+fila: a linhagem pelo hash provou que o demonstrativo TCM-BA antes disponível é
+de janeiro de 2021, e a coleta documental agora pode exigir simultaneamente a
+competência e o código oficial `PCMGE015`. O próximo passo operacional é
+preservar esse documento para abril de 2023 e só então comparar sua metodologia
+com o demonstrativo municipal ausente.

@@ -111,6 +111,23 @@ test("agendamento escolhe a competência mais antiga sem entrada livre no shell"
   );
 });
 
+test("coleta dirigida aceita somente código oficial junto de competência explícita", () => {
+  assert.match(
+    workflow,
+    /category_code:[\s\S]*description:[^\n]*PCMGE015/,
+  );
+  assert.match(workflow, /TCM_CATEGORY_CODE:/);
+  assert.match(workflow, /--category-code "\$TCM_CATEGORY_CODE"/);
+  assert.match(
+    workflow,
+    /\^PCMGE\[0-9\]\{3\}\$/,
+  );
+  assert.match(
+    workflow,
+    /Código de categoria exige competência explícita/,
+  );
+});
+
 test("workflow usa apenas credenciais técnicas existentes e CA verificada", () => {
   assert.match(workflow, /QUERIDO_DIARIO_DATABASE_URL/);
   assert.match(workflow, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_EMAIL/);

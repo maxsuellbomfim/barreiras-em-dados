@@ -50,6 +50,7 @@ def execute_tcm_ba_document_batch(
     service: TcmBaDocumentPersistenceService,
     client: TcmBaPublicAccountsClient,
     control: CollectionControl,
+    category_code: str | None = None,
 ) -> TcmBaDocumentBatchSummary:
     """Executa um lote e só fecha o mês quando todos os PDFs foram preservados."""
     month, year = _parse_competence(competence)
@@ -60,6 +61,7 @@ def execute_tcm_ba_document_batch(
         selection = repository.tcm_ba_document_references(
             competence=competence,
             limit=max_documents,
+            category_code=category_code,
         )
         hashes: list[str] = []
         for reference in selection.references:
@@ -105,12 +107,14 @@ def execute_tcm_ba_document_batch(
                 "preserved_documents": preserved_after,
                 "remaining_documents": remaining,
                 "latest_pdf_hashes": hashes,
+                "requested_category_code": category_code,
             },
             metrics={
                 "documents_downloaded": downloaded,
                 "documents_preserved_before": selection.preserved_documents,
                 "documents_preserved_after": preserved_after,
                 "documents_remaining": remaining,
+                "requested_category_code": category_code,
             },
         )
 
@@ -135,6 +139,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--competence", required=True, help="Competência MM/AAAA")
     parser.add_argument("--max-documents", type=int, default=1)
     parser.add_argument("--requests-per-minute", type=int, default=30)
+    parser.add_argument("--category-code", default="")
     args = parser.parse_args(argv)
     try:
         month, year = _parse_competence(args.competence)
@@ -144,6 +149,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--max-documents deve estar entre 1 e 5.")
     if not 1 <= args.requests_per_minute <= 30:
         parser.error("--requests-per-minute deve estar entre 1 e 30.")
+    category_code = args.category_code.strip().upper() or None
+    if category_code is not None and not re.fullmatch(r"PCMGE\d{3}", category_code):
+        parser.error("--category-code deve usar PCMGE seguido de três dígitos.")
 
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
@@ -189,6 +197,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         service=service,
         client=client,
         control=control,
+        category_code=category_code,
     )
     log_event(
         logging.getLogger(__name__),
@@ -201,6 +210,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         preserved_documents=summary.preserved_after,
         remaining_documents=summary.remaining_documents,
         coverage_status=("complete" if summary.remaining_documents == 0 else "partial"),
+        requested_category_code=category_code,
     )
     return 0
 
