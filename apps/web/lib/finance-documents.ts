@@ -130,6 +130,21 @@ export async function getPublicFinanceDocuments(
   }
 }
 
+export function mergePublicFinanceDocumentResults(
+  ...results: readonly FinanceDocumentsResult[]
+): PublicFinanceDocument[] {
+  const documents = new Map<string, PublicFinanceDocument>();
+  for (const result of results) {
+    if (result.state !== "available") continue;
+    for (const document of result.documents) {
+      if (!documents.has(document.documentId)) {
+        documents.set(document.documentId, document);
+      }
+    }
+  }
+  return [...documents.values()];
+}
+
 export function financeResourceLabel(resource: string): string {
   const labels: Record<string, string> = {
     balancetes: "Balancetes mensais",
