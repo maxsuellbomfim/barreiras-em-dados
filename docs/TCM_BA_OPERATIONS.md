@@ -23,6 +23,16 @@ Em 01/09/2026, esse diagnóstico associou o hash
 exclusivamente à competência `01/2021`, categoria `PCMGE015`. Portanto, ele não
 fecha a lacuna municipal de abril de 2023.
 
+O PDF de janeiro possui 173 páginas e combina fontes SIGA de três dígitos
+(`100`, `114`, `119`, `214`) com fontes de quatro dígitos (`6102`, `7101`). Em
+algumas linhas, a fonte e o primeiro valor foram extraídos sem espaço. A versão
+`tcm-ba-analytical-expense/1.1.0` resolve essa junção somente quando ocorrências
+separadas no próprio PDF comprovam um único código; ambiguidade sem evidência
+continua bloqueada. Todas as linhas, subtotais, o `Total do Poder` e o resumo
+fecharam antes da publicação. A RPC pública registra uma despesa para `2021-01`,
+mas mantém `needs_data`, receita nula e a nota de que ainda não há relatório de
+receita comparável.
+
 Na mesma data, a recuperação exata de `PCMGE015` em `04/2023` preservou o PDF
 `6670a953af416ee2d9028653ffe2b67f1c8e047cdc9d31b94fa13ed8e63620fe`.
 A auditoria física releu o PDF e o XML de preparação, verificou 993.957 bytes,

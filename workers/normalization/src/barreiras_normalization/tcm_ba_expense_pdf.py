@@ -38,7 +38,10 @@ _EXPENSE_START = re.compile(
     r"^(?P<code>\d\.\d\.\d{2}\.\d{2}\.\d{2})\s+"
     r"(?P<description>.+)$"
 )
-_SOURCE_AMOUNTS = re.compile(rf"^(?P<source>\d{{4}})\s*{_AMOUNT_SEQUENCE}$")
+_SOURCE_AMOUNTS_SPACED = re.compile(
+    rf"^(?P<source>\d{{3,4}})\s+{_AMOUNT_SEQUENCE}$"
+)
+_AMOUNTS_ONLY = re.compile(rf"^{_AMOUNT_SEQUENCE}$")
 _UNIT_TOTAL = re.compile(
     rf"^Total\s+da\s+Unidade\s*:\s*{_AMOUNT_SEQUENCE}$",
     re.IGNORECASE,
@@ -74,6 +77,37 @@ def _amounts(value: str, *, field: str) -> tuple[Decimal, ...]:
 def _amount(value: str) -> Decimal:
     sign = Decimal("-1") if value.startswith("-") else Decimal("1")
     return sign * parse_brl_amount(value.removeprefix("-"))
+
+
+def _source_amounts(
+    line: str,
+    *,
+    evidenced_sources: frozenset[str],
+) -> tuple[str, str] | None:
+    spaced = _SOURCE_AMOUNTS_SPACED.match(line)
+    if spaced is not None:
+        return spaced.group("source"), spaced.group("amounts")
+
+    candidates: list[tuple[str, str]] = []
+    for source_length in (3, 4):
+        source = line[:source_length]
+        if len(source) != source_length or not source.isdigit():
+            continue
+        amounts = _AMOUNTS_ONLY.match(line[source_length:])
+        if amounts is not None:
+            candidates.append((source, amounts.group("amounts")))
+    supported = [
+        candidate for candidate in candidates if candidate[0] in evidenced_sources
+    ]
+    if len(supported) == 1:
+        return supported[0]
+    if len(candidates) == 1:
+        return candidates[0]
+    if candidates:
+        raise TcmBaExpenseContractError(
+            "fonte concatenada ao primeiro valor possui interpretação ambígua"
+        )
+    return None
 
 
 def _summary_amount(text: str, label: str) -> Decimal:
@@ -184,6 +218,14 @@ def parse_tcm_ba_expense_pdf_text(text: str) -> ExpensePdfReport:
     if not isinstance(text, str) or not text.strip():
         raise TcmBaExpenseContractError("texto do demonstrativo vazio")
     period_start, period_end = _validate_pages_and_period(text)
+    evidenced_sources = frozenset(
+        match.group("source")
+        for line in text.splitlines()
+        if (
+            match := _SOURCE_AMOUNTS_SPACED.match(" ".join(line.split()))
+        )
+        is not None
+    )
 
     rows: list[ExpensePdfRow] = []
     unit_totals: list[ExpensePdfUnitTotal] = []
@@ -198,21 +240,25 @@ def parse_tcm_ba_expense_pdf_text(text: str) -> ExpensePdfReport:
         if not stripped:
             continue
 
-        source_match = _SOURCE_AMOUNTS.match(stripped)
-        if pending_code is not None and source_match is not None:
+        source_values = (
+            _source_amounts(stripped, evidenced_sources=evidenced_sources)
+            if pending_code is not None
+            else None
+        )
+        if pending_code is not None and source_values is not None:
             if current_unit is None:
                 raise TcmBaExpenseContractError(
                     f"linha de despesa sem unidade na linha {line_number}"
                 )
             values = _amounts(
-                source_match.group("amounts"), field=f"linha {line_number}"
+                source_values[1], field=f"linha {line_number}"
             )
             row = ExpensePdfRow(
                 budget_unit_code=current_unit[0],
                 budget_unit_name=current_unit[1],
                 expense_code=pending_code,
                 description=" ".join(pending_description),
-                source_code=source_match.group("source"),
+                source_code=source_values[0],
                 **dict(zip(_AMOUNT_FIELDS, values, strict=True)),
             )
             rows.append(row)

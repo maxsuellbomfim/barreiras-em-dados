@@ -21,7 +21,7 @@ from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
 from .tcm_ba_expense_pdf import parse_tcm_ba_expense_pdf_text
 
 EXPENSE_PUBLICATION_JOB_TYPE = "financial_expense_publication"
-TCM_BA_EXPENSE_METHODOLOGY_VERSION = "tcm-ba-analytical-expense/1.0.0"
+TCM_BA_EXPENSE_METHODOLOGY_VERSION = "tcm-ba-analytical-expense/1.1.0"
 
 
 class ExpensePublicationIntegrityError(ExpensePublicationError):
