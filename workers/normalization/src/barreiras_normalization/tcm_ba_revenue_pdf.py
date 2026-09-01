@@ -123,7 +123,15 @@ def _build_row(
         raise TcmBaRevenueContractError(f"descrição corrompida na rubrica {code}")
     values = (*first_values, annulled_to_date)
     forecast, collected, annulled, accumulated, more, less, annulled_total = values
-    net_accumulated = accumulated - annulled_total
+    # O SIGA/TCM-BA imprime anulações como valores já assinados. Portanto, o
+    # líquido é a soma algébrica; subtrair aqui inverteria o efeito e inflaria
+    # receita sempre que a anulação fosse negativa.
+    if annulled > 0 or annulled_total > 0:
+        raise TcmBaRevenueContractError(
+            f"anulação da rubrica {code} deve ser zero ou negativa"
+        )
+    net_period = collected + annulled
+    net_accumulated = accumulated + annulled_total
     if more < 0 or less < 0 or (more > 0 and less > 0):
         raise TcmBaRevenueContractError(f"saldo da rubrica {code} é inválido")
     if more - less != net_accumulated - forecast:
@@ -133,7 +141,7 @@ def _build_row(
             revenue_code=code,
             description=description,
             forecast_amount=forecast,
-            period_amount=collected - annulled,
+            period_amount=net_period,
             accumulated_amount=net_accumulated,
             difference_more=more,
             difference_less=less,
@@ -261,8 +269,8 @@ def parse_tcm_ba_revenue_pdf_text(text: str) -> RevenuePdfReport:
         period_end=period_end,
         fiscal_year=period_end.year,
         total_forecast_amount=total[0],
-        total_period_amount=total[1] - total[2],
-        total_accumulated_amount=total[3] - top_sums[6],
+        total_period_amount=total[1] + total[2],
+        total_accumulated_amount=total[3] + top_sums[6],
         total_difference_more=total[4],
         total_difference_less=total[5],
         rows=tuple(row.published for row in rows),
