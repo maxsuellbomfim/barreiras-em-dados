@@ -85,6 +85,18 @@ coincidem com o quadro-resumo oficial. O `PCMGE015` da mesma competência, hash
 também passou pela linhagem e pelo parser determinístico. O detalhe público
 fechou como `operational`, com uma receita e uma despesa, sem somar versões.
 
+Em `03/2021`, a recuperação dirigida preservou os dois documentos antes da
+publicação. O `PCMGE016`, hash
+`801a3453c993655f67ecaa3d386ede1408f3e56f93af9b81ae52d55d645cb1de`,
+gerou 253 rubricas e R$ 41.163.050,37 líquidos no mês. O `PCMGE015`, hash
+`736629dee3e3b048922dc797b90be73c867011ab06281e12d27362c5168cedfa`,
+foi localizado por uma única cadeia catálogo -> preparação -> PDF e publicado
+sem pendência de revisão. O detalhe público contém uma receita e uma despesa,
+R$ 10.165.224,76 empenhados, R$ 37.659.408,60 liquidados,
+R$ 38.079.191,26 pagos e estado `operational`. A diferença operacional de
+R$ 3.083.859,11 compara receita declarada e pagamento do mês; não representa
+superávit fiscal.
+
 Para conferir idempotentemente apenas o relatório de janeiro pelo hash
 imutável:
 

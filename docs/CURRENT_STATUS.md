@@ -139,3 +139,15 @@ mantêm URLs oficiais e hashes distintos de receita e despesa para conferência.
 Disparos manuais dos publicadores de receita — e de despesa quando o escopo é
 explicitamente `expenses` — falham se não houver artefato elegível. Uma rotina
 agendada sem pendência continua sendo um `no-op`, não uma falha da fonte.
+
+Março de 2021 também foi fechado pelo mesmo caminho exato. O demonstrativo de
+receita `PCMGE016`, hash
+`801a3453c993655f67ecaa3d386ede1408f3e56f93af9b81ae52d55d645cb1de`,
+publicou 253 rubricas e R$ 41.163.050,37 líquidos no mês. O demonstrativo de
+despesa `PCMGE015`, hash
+`736629dee3e3b048922dc797b90be73c867011ab06281e12d27362c5168cedfa`,
+possui uma única linhagem oficial e publicou R$ 10.165.224,76 empenhados,
+R$ 37.659.408,60 liquidados e R$ 38.079.191,26 pagos. A RPC pública está
+`operational`, com diferença operacional de R$ 3.083.859,11, expressamente não
+tratada como superávit fiscal. A página pública foi conferida após a
+revalidação e contém os dois hashes oficiais.
