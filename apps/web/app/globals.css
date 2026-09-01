@@ -2358,6 +2358,11 @@ footer {
   margin-top: 1.25rem;
 }
 
+.finance-coverage-matrix > .finance-coverage-summary {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
 .finance-coverage-legend {
   display: flex;
   flex-wrap: wrap;
