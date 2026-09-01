@@ -68,5 +68,10 @@ classificada de documento apenas observado e preservando a periodicidade de
 obrigações, folha, RREO, RGF e DCA. Restos a pagar e folha agora têm matrizes
 mensais navegáveis, atualização em tempo real e acesso contextual à fonte de
 cada estado; estagiários e terceirizados continuam separados da folha agregada.
-O próximo fluxo é classificar a cobertura esperada dos RREO e RGF por bimestre e
-quadrimestre, mantendo a DCA anual fora desse calendário.
+RREO e RGF agora têm calendário público próprio desde 2021: seis bimestres do
+RREO e três quadrimestres do RGF por exercício, com distinção entre PDF
+preservado, registro apenas catalogado, período vencido não localizado e prazo
+ainda aberto. A regra fica visível com links ao Siconfi e ao IBGE, e a página
+reconsulta as duas famílias em tempo de execução se o HTML inicial não obtiver a
+fonte. A DCA permanece uma trilha anual separada. O próximo fluxo é publicar uma
+matriz anual da DCA/Siconfi, sem inferir valores de um exercício ausente.

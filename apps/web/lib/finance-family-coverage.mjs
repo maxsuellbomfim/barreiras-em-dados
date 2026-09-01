@@ -119,7 +119,7 @@ export function buildFinanceFamilyCoverage(input) {
     key: "fiscal-statements",
     title: "RREO e RGF",
     cadence: "Bimestral e quadrimestral",
-    href: "#fiscal-document-title",
+    href: "#fiscal-report-coverage-title",
     periods: [...uniqueFiscalDocuments.values()],
   });
 
