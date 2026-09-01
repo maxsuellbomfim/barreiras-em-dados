@@ -23,6 +23,13 @@ const catalogMigration = await readFile(
   ),
   "utf8",
 );
+const lineageMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260901010000_repair_fiscal_document_lineage.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const client = await readFile(new URL("../../apps/web/lib/finance-documents.ts", import.meta.url), "utf8");
 const page = await readFile(new URL("../../apps/web/app/financas/page.tsx", import.meta.url), "utf8");
 
@@ -34,8 +41,8 @@ test("catalogo fiscal usa ano_ref e informacoes de RREO/RGF", () => {
 });
 
 test("cliente valida a nova versao do catalogo fiscal", () => {
-  assert.match(client, /public-finance-documents\/1\.5\.0/);
-  assert.doesNotMatch(client, /public-finance-documents\/1\.4\.0/);
+  assert.match(client, /public-finance-documents\/1\.6\.0/);
+  assert.doesNotMatch(client, /public-finance-documents\/1\.5\.0/);
 });
 
 test("projecao publica inclui RGF e documentos de obrigacoes sem inferir saldo", () => {
@@ -63,6 +70,28 @@ test("catalogo 1.5.0 publica transferencias concedidas e obras sem somar valores
   );
   assert.match(client, /"pdc-convenios-transferencias-realizadas": "Transferencias concedidas"/);
   assert.match(client, /"pdc-obras-pdc": "Obras e prestacao de contas"/);
+});
+
+test("catalogo 1.6.0 reconhece PDF preservado em replay idempotente", () => {
+  assert.match(lineageMigration, /public-finance-documents\/1\.6\.0/);
+  assert.match(
+    lineageMigration,
+    /child\.source_endpoint_id\s*=\s*artifact\.source_endpoint_id/,
+  );
+  assert.match(
+    lineageMigration,
+    /child\.metadata ->> 'source_record_key'\s*=\s*record\.source_record_key/,
+  );
+  assert.match(
+    lineageMigration,
+    /child\.source_url\s*=\s*record\.payload ->> 'url'/,
+  );
+  assert.doesNotMatch(
+    lineageMigration,
+    /child\.parent_artifact_id\s*=\s*artifact\.id/,
+    "o replay pode preservar o PDF em artefato de catalogo anterior",
+  );
+  assert.match(client, /public-finance-documents\/1\.6\.0/);
 });
 
 test("interface separa demonstrativos fiscais de fechamentos mensais", () => {
