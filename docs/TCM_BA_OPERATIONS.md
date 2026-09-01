@@ -144,6 +144,20 @@ R$ 48.806.026,83 pagos. A diferença operacional de -R$ 2.806.415,25 não é
 interpretada como déficit ou irregularidade. O RPC respondeu em 3,26 s e o
 HTML público continha os dois hashes.
 
+Em `08/2021`, a cobertura do catálogo continuou baseada nos 1.901 documentos
+observados; nenhum gate aceitou lote vazio como competência completa. O
+`PCMGE016`, hash
+`4ef96cb127ee9ef28336dc65def6768b6db386ffb6e2f963bb41f72c41152109`,
+passou por 12 páginas com texto embutido e publicou 257 rubricas sem revisão. O
+`PCMGE015`, hash
+`f89462d45ee0b8af43ef72410f9163c25860d9727940922c376dc019af17f755`,
+passou por 195 páginas com texto embutido e uma única linhagem oficial. O
+detalhe público fechou `operational`: R$ 48.274.758,65 de receita líquida,
+R$ 26.576.384,38 empenhados, R$ 49.861.914,42 liquidados e
+R$ 48.795.152,19 pagos. A diferença operacional de -R$ 520.393,54 não recebe
+interpretação fiscal. O RPC respondeu em 3,25 s e o HTML continha os dois
+hashes.
+
 Para conferir idempotentemente apenas o relatório de janeiro pelo hash
 imutável:
 
