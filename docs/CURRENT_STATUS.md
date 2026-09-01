@@ -193,3 +193,15 @@ mostra R$ 25.912.406,60 empenhados, R$ 48.284.964,74 liquidados e
 R$ 48.806.026,83 pagos. A diferença operacional é -R$ 2.806.415,25, sem
 inferência de déficit ou irregularidade. O RPC respondeu em 3,26 s e a página
 pública apresentou os dois hashes e estado operacional.
+
+Agosto de 2021 foi fechado sem recorrer a contagem esperada zero: o catálogo
+oficial possui 1.901 documentos e a recuperação dirigida preservou somente os
+dois demonstrativos necessários. O `PCMGE016`, hash
+`4ef96cb127ee9ef28336dc65def6768b6db386ffb6e2f963bb41f72c41152109`,
+publicou 257 rubricas e R$ 48.274.758,65 líquidos. O `PCMGE015`, hash
+`f89462d45ee0b8af43ef72410f9163c25860d9727940922c376dc019af17f755`,
+possui 195 páginas com texto embutido e uma única linhagem oficial. O detalhe
+está `operational`, com R$ 26.576.384,38 empenhados,
+R$ 49.861.914,42 liquidados, R$ 48.795.152,19 pagos e diferença operacional de
+-R$ 520.393,54, sem inferência fiscal. O RPC respondeu em 3,25 s e o HTML
+público contém os dois hashes.
