@@ -57,6 +57,7 @@ import { getPublicSiconfiMonthlyReconciliation } from "../../lib/siconfi-monthly
 import { buildFinanceFamilyCoverage } from "../../lib/finance-family-coverage.mjs";
 import FinanceFamilyCoverageMap from "./finance-family-coverage-map";
 import FinanceObligationCoverageMatrix from "./finance-obligation-coverage-matrix";
+import FinancePayrollCoverageMatrix from "./finance-payroll-coverage-matrix";
 
 export const revalidate = 300;
 
@@ -576,6 +577,19 @@ export default async function FinancesPage() {
           <FinanceNonpayrollWorkforceCoverage
             rows={nonpayrollWorkforceCoverageRows}
           />
+        </section>
+
+        <section className="finance-coverage-section" aria-labelledby="payroll-matrix-title">
+          <div className="section-heading compact">
+            <span className="eyebrow">Cobertura da folha</span>
+            <h2 id="payroll-matrix-title">Quais competências da folha estão publicadas</h2>
+            <p>
+              O calendário separa mês publicado, documento não localizado,
+              processamento pendente e conflito entre ciclos. Nenhum desses
+              estados autoriza presumir gasto zero.
+            </p>
+          </div>
+          <FinancePayrollCoverageMatrix initialResult={payrollCoverageResult} />
         </section>
 
         <section className="finance-coverage-section" aria-labelledby="finance-coverage-title">
