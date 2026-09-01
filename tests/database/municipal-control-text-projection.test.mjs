@@ -8,6 +8,10 @@ const migrationUrl = new URL(
   "../../supabase/migrations/20260901040000_publish_municipal_control_text.sql",
   import.meta.url,
 );
+const optimizationMigrationUrl = new URL(
+  "../../supabase/migrations/20260901050000_optimize_municipal_control_detail.sql",
+  import.meta.url,
+);
 
 test("texto da base legal publica somente a projeção oficial verificada", async () => {
   const database = new PGlite();
@@ -55,6 +59,7 @@ test("texto da base legal publica somente a projeção oficial verificada", asyn
       );
     `);
     await database.exec(await readFile(migrationUrl, "utf8"));
+    await database.exec(await readFile(optimizationMigrationUrl, "utf8"));
     await database.exec(`
       insert into raw.raw_artifacts (
         id, source_endpoint_id, artifact_kind, source_url, sha256,
@@ -103,6 +108,13 @@ test("texto da base legal publica somente a projeção oficial verificada", asyn
           'municipal_transparency_pdc-contas-anuais',
           '{"titulo":"Lei ainda não processada","data":"02/01/2024","url":"https://barreiras.ba.gov.br/lei-sem-texto.docx"}',
           '2026-09-01 10:00:00+00'
+        ),
+        (
+          '00000000-0000-0000-0000-000000000913',
+          '00000000-0000-0000-0000-000000000901', 'controle:1',
+          'municipal_transparency_pdc-contas-anuais',
+          '{"titulo":"Lei de controle interno","data":"01/01/2024","url":"https://barreiras.ba.gov.br/lei-controle.docx"}',
+          '2026-09-01 10:03:00+00'
         );
       insert into raw.document_pages (
         id, raw_artifact_id, page_number, parser_version, extraction_method,
@@ -132,6 +144,12 @@ test("texto da base legal publica somente a projeção oficial verificada", asyn
       select document_id, title, full_text, document_artifact_sha256,
         text_sha256, parser_version, methodology_version
       from api.get_public_municipal_control_document(
+        '00000000-0000-0000-0000-000000000913'
+      )
+    `);
+    const stale = await database.query(`
+      select document_id
+      from api.get_public_municipal_control_document(
         '00000000-0000-0000-0000-000000000911'
       )
     `);
@@ -141,7 +159,7 @@ test("texto da base legal publica somente a projeção oficial verificada", asyn
     `);
 
     assert.deepEqual(search.rows, [{
-      document_id: "00000000-0000-0000-0000-000000000911",
+      document_id: "00000000-0000-0000-0000-000000000913",
       title: "Lei de controle interno",
       excerpt:
         "Art. 1º Esta lei organiza o controle interno do Município de Barreiras.",
@@ -149,7 +167,7 @@ test("texto da base legal publica somente a projeção oficial verificada", asyn
       methodology_version: "municipal-control-text/1.0.0",
     }]);
     assert.deepEqual(detail.rows, [{
-      document_id: "00000000-0000-0000-0000-000000000911",
+      document_id: "00000000-0000-0000-0000-000000000913",
       title: "Lei de controle interno",
       full_text:
         "Art. 1º Esta lei organiza o controle interno do Município de Barreiras.",
@@ -158,6 +176,7 @@ test("texto da base legal publica somente a projeção oficial verificada", asyn
       parser_version: "docx-wordprocessingml/1.0.0",
       methodology_version: "municipal-control-text/1.0.0",
     }]);
+    assert.deepEqual(stale.rows, []);
     assert.deepEqual(hidden.rows, []);
     await assert.rejects(
       database.query("select text_content from raw.document_pages"),
