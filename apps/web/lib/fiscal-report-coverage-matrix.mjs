@@ -59,15 +59,75 @@ function parseEntry(value) {
 
 export function toFiscalCoverageEntry(document) {
   if (!document || typeof document !== "object" || Array.isArray(document)) return null;
+  const referenceMonth = resolveReferenceMonth(document);
   return parseEntry({
     resource: document.sourceResource,
     fiscalYear: document.fiscalYear,
-    referenceMonth: document.referenceMonth,
+    referenceMonth,
     documentUrl: document.documentUrl,
     documentPreserved: document.documentPreserved,
     artifactSha256: document.documentArtifactSha256,
     collectedAt: document.collectedAt,
   });
+}
+
+function titleReferenceMonth(resource, title, description) {
+  const combined = [title, description]
+    .filter((value) => typeof value === "string")
+    .join(" ");
+  const match = /\b([1-6])\s*(?:º|°|o)?\s*(bimestre|quadrimestre)\b/i.exec(combined);
+  if (!match) return null;
+  const ordinal = Number(match[1]);
+  const namedResource = match[2].toLowerCase() === "bimestre" ? "rreo" : "rgf";
+  if (namedResource !== resource) return Number.NaN;
+  const month = namedResource === "rreo" ? ordinal * 2 : ordinal * 4;
+  return month <= 12 ? month : Number.NaN;
+}
+
+function dateReferenceMonth(resource, fiscalYear, referenceDate) {
+  const match = typeof referenceDate === "string" ? ISO_DATE.exec(referenceDate) : null;
+  if (!match || !Number.isSafeInteger(fiscalYear)) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year === fiscalYear + 1 && month >= 1 && month <= (resource === "rreo" ? 2 : 3)) {
+    return 12;
+  }
+  if (year !== fiscalYear) return null;
+  if (resource === "rgf") {
+    if (month === 5 || month === 6) return 4;
+    if (month === 9 || month === 10) return 8;
+    if (month === 12) return 12;
+    return null;
+  }
+  if (month === 2 || month === 3) return 2;
+  if (month === 4) return day <= 15 ? 2 : 4;
+  if (month === 5) return 4;
+  if (month === 6) return day <= 15 ? 4 : 6;
+  if (month === 7 || month === 8) return 6;
+  if (month === 9 || month === 10) return 8;
+  if (month === 11) return 10;
+  if (month === 12) return day <= 15 ? 10 : 12;
+  return null;
+}
+
+function resolveReferenceMonth(document) {
+  const explicit = Number.isSafeInteger(document.referenceMonth)
+    ? document.referenceMonth
+    : null;
+  const fromTitle = titleReferenceMonth(
+    document.sourceResource,
+    document.title,
+    document.description,
+  );
+  const fromDate = dateReferenceMonth(
+    document.sourceResource,
+    document.fiscalYear,
+    document.referenceDate,
+  );
+  const candidates = [explicit, fromTitle, fromDate].filter((value) => value !== null);
+  if (candidates.some((value) => !Number.isSafeInteger(value))) return null;
+  return new Set(candidates).size === 1 ? candidates[0] : null;
 }
 
 function dueTimestamp(year, referenceMonth) {

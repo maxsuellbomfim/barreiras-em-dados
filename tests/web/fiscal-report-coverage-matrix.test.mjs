@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildFiscalReportCoverageMatrix,
   parseFiscalReportCoverageApiPayload,
+  toFiscalCoverageEntry,
 } from "../../apps/web/lib/fiscal-report-coverage-matrix.mjs";
 
 function entry(overrides = {}) {
@@ -65,4 +66,47 @@ test("payload vazio confirmado gera calendário sem transformar períodos futuro
     "not_found", "not_found", "not_found", "not_due", "not_due", "not_due",
     "not_found", "not_due", "not_due",
   ]);
+});
+
+test("deriva período fiscal nulo pelo título ou pela janela oficial de publicação", () => {
+  const base = {
+    sourceResource: "rreo",
+    fiscalYear: 2025,
+    referenceMonth: null,
+    title: "Documento financeiro oficial",
+    description: null,
+    referenceDate: "2025-07-30",
+    documentUrl: "https://barreiras.mtransparente.com.br/rreo.pdf",
+    documentPreserved: false,
+    documentArtifactSha256: null,
+    collectedAt: "2026-08-30T12:00:00.000Z",
+  };
+  assert.equal(toFiscalCoverageEntry(base)?.referenceMonth, 6);
+  assert.equal(toFiscalCoverageEntry({
+    ...base,
+    title: "RREO – Relatório Resumido de Execução Orçamentária 2º Bimestre",
+    referenceDate: "2025-04-30",
+  })?.referenceMonth, 4);
+  assert.equal(toFiscalCoverageEntry({
+    ...base,
+    sourceResource: "rgf",
+    fiscalYear: 2024,
+    title: "Documento financeiro oficial",
+    referenceDate: "2025-01-02",
+  })?.referenceMonth, 12);
+});
+
+test("bloqueia título e data que apontam para períodos fiscais diferentes", () => {
+  assert.equal(toFiscalCoverageEntry({
+    sourceResource: "rgf",
+    fiscalYear: 2025,
+    referenceMonth: null,
+    title: "RGF 1º Quadrimestre",
+    description: null,
+    referenceDate: "2025-09-26",
+    documentUrl: "https://barreiras.mtransparente.com.br/rgf.pdf",
+    documentPreserved: false,
+    documentArtifactSha256: null,
+    collectedAt: "2026-08-30T12:00:00.000Z",
+  }), null);
 });

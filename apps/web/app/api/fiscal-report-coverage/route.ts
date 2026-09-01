@@ -18,6 +18,7 @@ async function loadCoverage(): Promise<FiscalReportCoverageResult> {
   }
   const entries: FiscalReportCoverageEntry[] = [];
   for (const document of [...rreo.documents, ...rgf.documents]) {
+    if (document.fiscalYear !== null && document.fiscalYear < 2021) continue;
     const entry = toFiscalCoverageEntry(document);
     if (!entry) return { state: "unavailable" };
     entries.push(entry);
