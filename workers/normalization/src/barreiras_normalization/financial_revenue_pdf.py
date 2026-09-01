@@ -54,7 +54,12 @@ _ROW = re.compile(
     rf"^(?P<code>{_CODE})\s+(?P<description>.+?)\s+"
     rf"(?P<forecast>{_AMOUNT})\s+(?P<period>{_AMOUNT})\s+"
     rf"(?P<accumulated>{_AMOUNT})\s+(?P<more>{_AMOUNT})\s+"
-    rf"(?P<less>{_AMOUNT})\s*$"
+    # Nos relatórios analíticos históricos o código de três dígitos da fonte
+    # é extraído colado ao último valor (por exemplo, ``0,00010``). Ele é
+    # evidência de desagregação da linha, mas o contrato público vigente é por
+    # código de receita; por isso o código da fonte é reconhecido e descartado
+    # somente depois que os valores foram separados sem ambiguidade.
+    rf"(?P<less>{_AMOUNT})(?P<source_code>\d{{3}})?\s*$"
 )
 _TOTAL = re.compile(
     rf"^Total\s+da\s+Receita\s*:\s*"
@@ -93,7 +98,7 @@ def parse_revenue_pdf_text(text: str) -> RevenuePdfReport:
         raise RevenuePdfContractError("inicio do periodo posterior ao fim")
 
     rows: list[RevenuePdfRow] = []
-    seen_codes: set[str] = set()
+    row_index_by_code: dict[str, int] = {}
     total_match = None
     for line_number, line in enumerate(text.splitlines(), start=1):
         stripped = line.strip()
@@ -102,24 +107,39 @@ def parse_revenue_pdf_text(text: str) -> RevenuePdfReport:
         if match is None:
             continue
         code = match.group("code")
-        if code in seen_codes:
-            raise RevenuePdfContractError(
-                f"codigo de receita repetido na linha {line_number}: {code}"
-            )
         description = " ".join(match.group("description").split())
         if not description:
             raise RevenuePdfContractError(f"descricao vazia na linha {line_number}")
-        seen_codes.add(code)
-        rows.append(
-            RevenuePdfRow(
-                revenue_code=code,
-                description=description,
-                forecast_amount=_amount(match.group("forecast")),
-                period_amount=_amount(match.group("period")),
-                accumulated_amount=_amount(match.group("accumulated")),
-                difference_more=_amount(match.group("more")),
-                difference_less=_amount(match.group("less")),
+        parsed_row = RevenuePdfRow(
+            revenue_code=code,
+            description=description,
+            forecast_amount=_amount(match.group("forecast")),
+            period_amount=_amount(match.group("period")),
+            accumulated_amount=_amount(match.group("accumulated")),
+            difference_more=_amount(match.group("more")),
+            difference_less=_amount(match.group("less")),
+        )
+        existing_index = row_index_by_code.get(code)
+        if existing_index is None:
+            row_index_by_code[code] = len(rows)
+            rows.append(parsed_row)
+            continue
+        existing = rows[existing_index]
+        if existing.description != description:
+            raise RevenuePdfContractError(
+                f"codigo de receita repetido com descricao divergente na linha "
+                f"{line_number}: {code}"
             )
+        rows[existing_index] = RevenuePdfRow(
+            revenue_code=code,
+            description=description,
+            forecast_amount=existing.forecast_amount + parsed_row.forecast_amount,
+            period_amount=existing.period_amount + parsed_row.period_amount,
+            accumulated_amount=(
+                existing.accumulated_amount + parsed_row.accumulated_amount
+            ),
+            difference_more=existing.difference_more + parsed_row.difference_more,
+            difference_less=existing.difference_less + parsed_row.difference_less,
         )
 
     if not rows:

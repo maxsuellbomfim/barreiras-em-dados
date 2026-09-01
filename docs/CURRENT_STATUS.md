@@ -96,7 +96,13 @@ versão observada; elas são identificadas como versões, nunca somadas. A matri
 falha fechada se qualquer família estiver indisponível e descreve lacuna apenas
 como documento não localizado no catálogo preservado consultado, nunca como
 valor zero. A lista textual foi reduzida aos 36 documentos mais recentes; o
-calendário mantém o acesso histórico por competência. O próximo fluxo é
-reconciliar os valores publicados de receita e despesa com esses PDFs, uma
-competência por vez, começando pela mais recente com as duas famílias
-preservadas.
+calendário mantém o acesso histórico por competência. O primeiro recorte de
+reconciliação encontrou uma lacuna material em todo o ano de 2022: Receita e
+Despesa tinham PDFs preservados, mas o layout analítico por fonte da Receita não
+era reconhecido. O parser agora separa o código de fonte colado ao último valor,
+agrega parcelas do mesmo código apenas quando a descrição coincide e mantém
+conflito explícito quando não coincide. Os doze PDFs oficiais de 2022 passaram
+pelo parser corrigido. O publicador também deixou de ignorar falhas para sempre
+e não pode mais encerrar verde com documentos em `needs_review`. O próximo gate
+é executar o replay de 2022 e comprovar, nos RPCs públicos, doze fechamentos
+mensais operacionais com linhagem aos PDFs.

@@ -191,7 +191,7 @@ class PostgresRevenuePublicationRepository:
                     from raw.extraction_jobs as job
                     where job.raw_artifact_id = document.id
                       and job.job_type = %s
-                      and job.status = 'failed'
+                      and job.status = 'dead_lettered'
                   )
                   order by document.id, record.created_at desc, record.id desc
                 )
@@ -349,6 +349,7 @@ class PostgresRevenuePublicationRepository:
                             batch.methodology_version,
                         ),
                     )
+                self._record_success(connection, artifact)
             return inserted
         finally:
             connection.close()
@@ -371,7 +372,12 @@ class PostgresRevenuePublicationRepository:
                   %s::uuid, %s, %s, 'failed', 1, %s, %s
                 )
                 on conflict (idempotency_key) do update set
-                  status = 'failed',
+                  status = case
+                    when raw.extraction_jobs.attempt_count + 1 >=
+                      raw.extraction_jobs.max_attempts
+                    then 'dead_lettered'
+                    else 'failed'
+                  end,
                   attempt_count = raw.extraction_jobs.attempt_count + 1,
                   last_error_code = excluded.last_error_code,
                   last_error_detail = excluded.last_error_detail,
@@ -387,6 +393,30 @@ class PostgresRevenuePublicationRepository:
             )
         finally:
             connection.close()
+
+    @staticmethod
+    def _record_success(connection, artifact: RevenueArtifact) -> None:
+        connection.execute(
+            """
+            insert into raw.extraction_jobs (
+              raw_artifact_id, job_type, idempotency_key, status,
+              attempt_count, last_error_code, last_error_detail
+            ) values (
+              %s::uuid, %s, %s, 'succeeded', 1, null, null
+            )
+            on conflict (idempotency_key) do update set
+              status = 'succeeded',
+              attempt_count = raw.extraction_jobs.attempt_count + 1,
+              last_error_code = null,
+              last_error_detail = null,
+              updated_at = statement_timestamp()
+            """,
+            (
+                artifact.id,
+                REVENUE_PUBLICATION_JOB_TYPE,
+                _failure_key(artifact.sha256),
+            ),
+        )
 
 
 def _failure_key(artifact_sha256: str) -> str:

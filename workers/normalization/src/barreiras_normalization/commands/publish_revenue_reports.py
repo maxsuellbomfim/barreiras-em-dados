@@ -17,6 +17,12 @@ from ..revenue_publisher import (
 )
 
 
+def completion_exit_code(*, needs_review: int) -> int:
+    """Falha o workflow quando algum PDF não pôde ser publicado."""
+
+    return 1 if needs_review else 0
+
+
 def _cloud_client(settings):
     if settings.mode != "postgres-supabase":
         raise RuntimeError("PERSISTENCE_MODE=postgres-supabase é obrigatório")
@@ -111,7 +117,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         already_published,
         needs_review,
     )
-    return 0
+    return completion_exit_code(needs_review=needs_review)
 
 
 if __name__ == "__main__":
