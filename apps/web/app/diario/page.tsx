@@ -8,6 +8,7 @@ import {
   enrichIntegralGazetteEditions,
   getIntegralGazetteEditions,
 } from "../../lib/integral-gazette-documents";
+import { toIntegralGazetteIndex } from "../../lib/integral-gazette-index.mjs";
 import {
   getOfficialDiaryCatalog,
   type OfficialDiaryCatalogEntry,
@@ -16,7 +17,7 @@ import {
   getPublicDiaryCoverage,
   type PublicDiaryCoverageResult,
 } from "../../lib/public-diary-coverage";
-import { IntegralGazetteExplorer } from "./integral-gazette-explorer";
+import { IntegralGazetteIndex } from "./integral-gazette-index";
 
 export const revalidate = 300;
 
@@ -163,6 +164,7 @@ export default async function IntegralDiaryPage({
     integralResult.state === "available"
       ? enrichIntegralGazetteEditions(integralResult.editions, catalogEntries)
       : [];
+  const editionIndex = toIntegralGazetteIndex(editions);
   const latestCatalogCollectedAt = catalogEntries
     .map((entry) => entry.collectedAt)
     .sort()
@@ -259,7 +261,7 @@ export default async function IntegralDiaryPage({
           </div>
         ) : (
           <>
-            <IntegralGazetteExplorer editions={editions} initialQuery={query} />
+            <IntegralGazetteIndex editions={editionIndex} />
             {integralResult.state === "available" ? (
               <nav
                 className="diary-pagination"

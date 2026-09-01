@@ -17,6 +17,20 @@ const explorer = await readFile(
   ),
   "utf8",
 );
+const index = await readFile(
+  new URL(
+    "../../apps/web/app/diario/integral-gazette-index.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const editionPage = await readFile(
+  new URL(
+    "../../apps/web/app/diario/[ano]/[edicao]/page.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const coverage = await readFile(
   new URL("../../apps/web/lib/public-diary-coverage.ts", import.meta.url),
   "utf8",
@@ -37,7 +51,8 @@ test("busca global mantém o termo e pagina sem expor tabelas brutas", () => {
   assert.match(client, /query_text/);
   assert.match(page, /diary-global-query/);
   assert.match(page, /querySuffix/);
-  assert.match(explorer, /initialQuery/);
+  assert.match(page, /IntegralGazetteIndex/);
+  assert.doesNotMatch(index, /type="search"/);
 });
 
 test("diario explica cobertura sem confundir pagina com acervo total", () => {
@@ -74,9 +89,11 @@ test("contrato público usa a RPC integral e rejeita payload incompleto", () => 
 
 test("interface mostra texto literal completo e não usa digest ou paráfrase", () => {
   assert.match(page, /getIntegralGazetteEditions/);
-  assert.match(page, /IntegralGazetteExplorer/);
+  assert.match(page, /IntegralGazetteIndex/);
+  assert.match(editionPage, /IntegralGazetteExplorer/);
   assert.match(explorer, /<pre/);
   assert.match(explorer, /fullText/);
+  assert.doesNotMatch(index, /fullText/);
   assert.match(explorer, /Edição integral — separação segura indisponível/);
   assert.match(explorer, /type="search"/);
   assert.match(explorer, /document\.literalTitle/);

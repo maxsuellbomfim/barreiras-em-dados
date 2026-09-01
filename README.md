@@ -9,6 +9,7 @@ Portal de pré-lançamento:
 
 ## Documentação essencial
 
+- [Estado atual e gates](docs/CURRENT_STATUS.md)
 - [Visão do produto](docs/PRODUCT_VISION.md)
 - [Arquitetura](docs/ARCHITECTURE.md)
 - [Fontes de dados](docs/DATA_SOURCES.md)
@@ -29,23 +30,15 @@ Portal de pré-lançamento:
 
 ## Estado atual
 
-Este repositório está na etapa 1A. O escopo ativo é:
+O portal está em **pré-lançamento, estabilização e construção do rastro do
+dinheiro**. Já existem projeções públicas do Diário, atos, finanças, compras,
+Legislativo, representação e emendas. Cobertura histórica, qualidade da fonte
+e limitações continuam explícitas: dado não localizado nunca é convertido em
+zero, nem anomalia em acusação.
 
-- documentação de produto, arquitetura, governança, segurança e política
-  editorial;
-- contratos de dados independentes de linguagem;
-- migrations fundamentais do PostgreSQL;
-- conector e persistência idempotente do Querido Diário;
-- coleta diária automatizada fora da Vercel, com credenciais de privilégio
-  mínimo e replay manual;
-- acervo local append-only por SHA-256, sem dependência de nuvem;
-- portal público Next.js de pré-lançamento, sem dados cívicos não revisados;
-- status público agregado da coleta, sem expor tabelas brutas;
-- fixtures e testes do conector.
-
-Não existe ainda conteúdo público de caráter reputacional, detecção de
-irregularidade ou integração PNCP. O portal publicado apresenta apenas fontes,
-metodologia e o estado técnico real da construção.
+Consulte [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) antes de iniciar uma
+mudança. Esse documento concentra o estágio vigente, as limitações e o próximo
+fluxo vertical; `docs/ROADMAP.md` preserva o histórico detalhado.
 
 ### Portal web local
 
@@ -65,9 +58,9 @@ pnpm.cmd audit --prod
 ## Comece por aqui
 
 1. Leia `docs/PRODUCT_VISION.md`.
-2. Leia `docs/ARCHITECTURE.md` e os ADRs em `docs/adr/`.
-3. Siga `docs/DEVELOPMENT_PLAN.md` para a ordem de implementação.
-4. No Claude Code, leia `CLAUDE.md` antes de delegar módulos.
+2. Leia `docs/CURRENT_STATUS.md`.
+3. Leia apenas a parte de `docs/ARCHITECTURE.md` e o ADR aplicável ao domínio.
+4. Agentes de código seguem `AGENTS.md`; o Claude Code também lê `CLAUDE.md`.
 
 Os três arquivos ZIP na raiz são referências externas e não fazem parte do
 produto. Nenhum deles deve ser extraído ou incorporado sem revisão de licença,

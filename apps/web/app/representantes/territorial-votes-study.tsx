@@ -223,7 +223,12 @@ export default function TerritorialVotesStudy({
               <div><span className="eyebrow">Explorar registros</span><h3 id="territorial-results-title">Candidaturas mais votadas no recorte</h3></div>
               <span className="territorial-muted">{formatNumber(filteredVotes.length)} encontradas</span>
             </div>
-            <div className="territorial-table-wrap">
+            <div
+              className="territorial-table-wrap"
+              role="region"
+              aria-labelledby="territorial-results-title"
+              tabIndex={0}
+            >
               <table className="territorial-table">
                 <caption className="sr-only">Candidaturas filtradas por votação em Barreiras</caption>
                 <thead><tr><th scope="col">Candidatura</th><th scope="col">Cargo disputado / eleição</th><th scope="col">Situação naquele pleito</th><th scope="col">Partido</th><th scope="col">Votos</th></tr></thead>

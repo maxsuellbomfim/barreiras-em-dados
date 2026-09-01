@@ -1861,6 +1861,28 @@ footer {
   overflow: hidden;
 }
 
+.integral-document-index {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+}
+
+.integral-document-index > a {
+  flex: 0 0 auto;
+  color: #315fd4;
+  font-size: 0.76rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.integral-document-index > a:hover,
+.integral-document-index > a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
 .integral-document > summary {
   display: flex;
   align-items: center;
@@ -1965,6 +1987,17 @@ footer {
 
   .integral-edition-count {
     width: fit-content;
+  }
+
+  .integral-document-index {
+    display: grid;
+  }
+
+  .integral-document-index > a {
+    width: fit-content;
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
   }
 }
 
@@ -5130,8 +5163,13 @@ footer {
 
 .territorial-study {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   margin-top: 1rem;
+}
+
+.territorial-study > * {
+  min-width: 0;
 }
 
 .territorial-study-intro,
@@ -5204,6 +5242,7 @@ footer {
 
 .territorial-filters label {
   display: grid;
+  min-width: 0;
   gap: 0.35rem;
   color: #66748a;
   font-size: 0.73rem;
@@ -5213,6 +5252,7 @@ footer {
 .territorial-filters select,
 .territorial-filters input {
   width: 100%;
+  max-width: 100%;
   min-height: 2.65rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid rgba(28, 40, 61, 0.16);
@@ -5307,10 +5347,18 @@ footer {
 }
 
 .territorial-table-wrap {
+  max-width: 100%;
   margin-top: 1rem;
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid rgba(28, 40, 61, 0.1);
   border-radius: 0.9rem;
+}
+
+.territorial-table-wrap:focus-visible {
+  outline: 3px solid rgba(23, 105, 224, 0.24);
+  outline-offset: 3px;
 }
 
 .territorial-table {

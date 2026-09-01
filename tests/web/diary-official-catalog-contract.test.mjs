@@ -51,7 +51,8 @@ test("catálogo oficial preserva bruto e publica campos oficiais separados da IA
   assert.match(projectionMigration, /edition-digests\/1\.2\.0/);
   assert.match(workflow, /collect_official_diary_catalog/);
   assert.match(diaryPage, /getIntegralGazetteEditions/);
-  assert.match(diaryPage, /IntegralGazetteExplorer/);
+  assert.match(diaryPage, /toIntegralGazetteIndex/);
+  assert.match(diaryPage, /IntegralGazetteIndex/);
 });
 
 test("edições sem texto integral ficam explicitamente pendentes", () => {

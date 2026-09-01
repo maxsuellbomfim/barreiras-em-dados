@@ -99,3 +99,20 @@ A adaptação municipal deve priorizar profundidade:
 
 A pressão pública vem da permanência, legibilidade e verificabilidade dos
 fatos — não de uma nota produzida pelo portal.
+
+## Referências operacionais revisitadas em 31/08/2026
+
+- `open-contracting/kingfisher-collect` e `kingfisher-process`: manter aquisição
+  e processamento como responsabilidades separadas, com testes próprios e
+  armazenamento preservado antes da transformação;
+- `alphagov/govuk-frontend` e `govuk-design-system`: preferir HTML progressivo,
+  foco visível, navegação por teclado, componentes que funcionam sem JavaScript
+  e validação WCAG 2.2 AA em vez de importar uma biblioteca visual inteira;
+- `openai/codex`: usar `AGENTS.md` curto e hierárquico, com regras executáveis
+  no escopo do repositório;
+- `humanlayer/12-factor-agents`: manter o fluxo majoritariamente determinístico
+  e usar IA apenas onde a interpretação acrescenta valor.
+
+Decisão: nenhuma dependência foi incorporada. Os padrões foram reimplementados
+no escopo local; adicionar frameworks aumentaria superfície de manutenção e
+contexto dos agentes sem resolver os gargalos observados.
