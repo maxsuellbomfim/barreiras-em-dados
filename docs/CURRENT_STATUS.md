@@ -136,3 +136,6 @@ de fevereiro está `operational`: R$ 34.412.345,07 empenhados,
 R$ 37.885.590,11 liquidados, R$ 35.611.012,38 pagos e diferença operacional de
 R$ 10.238.786,93, expressamente não tratada como superávit fiscal. Os dois meses
 mantêm URLs oficiais e hashes distintos de receita e despesa para conferência.
+Disparos manuais dos publicadores de receita — e de despesa quando o escopo é
+explicitamente `expenses` — falham se não houver artefato elegível. Uma rotina
+agendada sem pendência continua sendo um `no-op`, não uma falha da fonte.

@@ -34,6 +34,9 @@ test("workflow de despesas usa o publicador versionado e limite seguro", () => {
     workflow.indexOf("- name: Publicar pagamentos de restos a pagar"),
   );
   assert.match(expenseStep, /limit="\$\{INPUT_LIMIT:-5\}"/);
+  assert.match(expenseStep, /INPUT_PUBLICATION_SCOPE/);
+  assert.match(expenseStep, /GITHUB_EVENT_NAME/);
+  assert.match(expenseStep, /--require-artifact/);
 });
 
 test("workflow permite publicar despesas, restos a pagar ou folha", () => {

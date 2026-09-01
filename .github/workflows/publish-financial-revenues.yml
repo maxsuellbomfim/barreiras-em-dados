@@ -73,7 +73,12 @@ jobs:
           year_from="${INPUT_FISCAL_YEAR_FROM:-2021}"
           year_to="${INPUT_FISCAL_YEAR_TO:-$(date +%Y)}"
           limit="${INPUT_LIMIT:-50}"
+          extra_args=()
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            extra_args+=(--require-artifact)
+          fi
           python -B -m barreiras_normalization.commands.publish_revenue_reports \
             --limit "$limit" \
             --fiscal-year-from "$year_from" \
-            --fiscal-year-to "$year_to"
+            --fiscal-year-to "$year_to" \
+            "${extra_args[@]}"

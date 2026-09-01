@@ -657,6 +657,24 @@ class ExpensePublisherTests(unittest.TestCase):
         self.assertEqual(completion_exit_code(needs_review=0), 0)
         self.assertEqual(completion_exit_code(needs_review=1), 1)
 
+    def test_targeted_expense_backfill_fails_when_no_artifact_is_eligible(self) -> None:
+        self.assertEqual(
+            completion_exit_code(
+                needs_review=0,
+                artifacts=0,
+                require_artifact=True,
+            ),
+            1,
+        )
+        self.assertEqual(
+            completion_exit_code(
+                needs_review=0,
+                artifacts=1,
+                require_artifact=True,
+            ),
+            0,
+        )
+
     def test_completion_event_distinguishes_summary_from_empty_batch(self) -> None:
         sha256 = "6" * 64
 

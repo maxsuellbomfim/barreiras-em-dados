@@ -111,16 +111,23 @@ jobs:
           INPUT_FISCAL_YEAR_FROM: ${{ inputs.fiscal_year_from }}
           INPUT_FISCAL_YEAR_TO: ${{ inputs.fiscal_year_to }}
           INPUT_LIMIT: ${{ inputs.limit }}
+          INPUT_PUBLICATION_SCOPE: ${{ inputs.publication_scope }}
         run: |
           year_from="${INPUT_FISCAL_YEAR_FROM:-2021}"
           year_to="${INPUT_FISCAL_YEAR_TO:-$(date +%Y)}"
           # Cinco PDFs permitem avançar o replay das unidades sem transformar
           # esta rotina diária em uma carga irrestrita.
           limit="${INPUT_LIMIT:-5}"
+          extra_args=()
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" \
+            && "${INPUT_PUBLICATION_SCOPE:-all}" == "expenses" ]]; then
+            extra_args+=(--require-artifact)
+          fi
           python -B -m barreiras_normalization.commands.publish_expense_reports \
             --limit "$limit" \
             --fiscal-year-from "$year_from" \
-            --fiscal-year-to "$year_to"
+            --fiscal-year-to "$year_to" \
+            "${extra_args[@]}"
 
       - name: Publicar pagamentos de restos a pagar dos balancetes
         if: >-
