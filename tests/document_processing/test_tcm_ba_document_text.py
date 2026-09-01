@@ -4,7 +4,10 @@ import hashlib
 import io
 import unittest
 
-from barreiras_docproc.commands.process_tcm_ba_documents import batch_exit_code
+from barreiras_docproc.commands.process_tcm_ba_documents import (
+    batch_exit_code,
+    normalize_artifact_sha256,
+)
 from barreiras_docproc.processing import ArtifactMismatchError, TextArtifact
 from barreiras_docproc.tcm_ba_document_text import TcmBaDocumentTextService
 
@@ -80,6 +83,15 @@ def artifact_for(body: bytes, *, sha256: str | None = None) -> TextArtifact:
 
 
 class TcmBaDocumentTextServiceTests(unittest.TestCase):
+    def test_normalizes_and_validates_optional_exact_artifact_hash(self) -> None:
+        self.assertIsNone(normalize_artifact_sha256(""))
+        self.assertEqual(
+            normalize_artifact_sha256(" A" + "B" * 63 + " "),
+            "a" + "b" * 63,
+        )
+        with self.assertRaisesRegex(ValueError, "SHA-256"):
+            normalize_artifact_sha256("curto")
+
     def test_batch_fails_closed_without_pending_pdf_or_after_any_failure(self) -> None:
         self.assertEqual(batch_exit_code(pending_found=5, failed=0), 0)
         self.assertEqual(batch_exit_code(pending_found=0, failed=0), 1)

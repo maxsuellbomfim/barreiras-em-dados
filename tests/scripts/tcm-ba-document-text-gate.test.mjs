@@ -62,8 +62,9 @@ test("wrapper processa texto somente depois da auditoria física", () => {
   const audit = wrapper.indexOf("Assert-TcmBaDocumentAuditApproval");
   const processor = wrapper.indexOf(
     "barreiras_docproc.commands.process_tcm_ba_documents",
+    audit,
   );
-  const textGate = wrapper.indexOf("Assert-TcmBaDocumentTextApproval");
+  const textGate = wrapper.indexOf("Assert-TcmBaDocumentTextApproval", processor);
   const ocr = wrapper.indexOf("--source tcm-ba");
   const report = wrapper.lastIndexOf(
     "Invoke-TcmBaDocumentProcessingReport",

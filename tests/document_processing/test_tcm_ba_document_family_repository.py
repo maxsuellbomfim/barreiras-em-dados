@@ -105,6 +105,25 @@ class TcmBaDocumentFamilyRepositoryTests(unittest.TestCase):
         )
         self.assertIn("job.status in ('succeeded', 'dead_lettered')", query)
 
+    def test_pending_documents_can_be_scoped_to_one_exact_hash(self) -> None:
+        artifact_sha256 = "d" * 64
+
+        self.repository.pending_documents(
+            1,
+            artifact_sha256=artifact_sha256,
+        )
+
+        query, params = self.connection.queries[0]
+        self.assertIn("pdf.sha256 = %s", query)
+        self.assertEqual(params[:2], (artifact_sha256, artifact_sha256))
+        self.assertEqual(params[-1], 1)
+
+    def test_pending_documents_reject_invalid_exact_hash(self) -> None:
+        with self.assertRaisesRegex(ValueError, "artifact_sha256"):
+            self.repository.pending_documents(1, artifact_sha256="invalid")
+
+        self.assertEqual(self.connection.queries, [])
+
     def test_document_lineage_by_sha256_returns_every_official_observation(
         self,
     ) -> None:

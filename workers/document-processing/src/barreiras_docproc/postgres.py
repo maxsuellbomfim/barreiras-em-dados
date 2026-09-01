@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 
 from barreiras_collectors.persistence.postgres import DatabaseConnection
@@ -118,10 +119,16 @@ class PostgresExtractionRepository:
     def pending_tcm_ba_pdf_artifacts(
         self,
         limit: int,
+        *,
+        artifact_sha256: str | None = None,
     ) -> tuple[TextArtifact, ...]:
         """PDFs mensais TCM-BA ainda sem páginas desta versão do parser."""
         if not 1 <= limit <= 50:
             raise ValueError("limit deve estar entre 1 e 50.")
+        if artifact_sha256 is not None and not re.fullmatch(
+            r"[0-9a-f]{64}", artifact_sha256
+        ):
+            raise ValueError("artifact_sha256 deve ser um sha256 hexadecimal.")
         from .pdf_text import PDF_PARSER_VERSION
 
         connection = self.connection_factory()
@@ -140,6 +147,7 @@ class PostgresExtractionRepository:
                       'tcm-ba/monthly-documents/%%/pdf/%%'
                   and artifact.content_type = 'application/pdf'
                   and artifact.http_status between 200 and 299
+                  and (%s::text is null or artifact.sha256 = %s)
                   and not exists (
                     select 1
                     from raw.document_pages as page
@@ -149,7 +157,12 @@ class PostgresExtractionRepository:
                 order by artifact.created_at, artifact.id
                 limit %s
                 """,
-                (PDF_PARSER_VERSION, limit),
+                (
+                    artifact_sha256,
+                    artifact_sha256,
+                    PDF_PARSER_VERSION,
+                    limit,
+                ),
             )
             artifacts = []
             while True:

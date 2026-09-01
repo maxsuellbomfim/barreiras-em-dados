@@ -1,11 +1,13 @@
 param(
     [string]$Competence = "01/2021",
+    [string]$CategoryCode = "",
     [ValidateRange(1, 5)]
     [int]$MaxDocuments = 1,
     [switch]$AutoCompetence,
     [switch]$PlanOnly,
     [switch]$ReportOnly,
     [switch]$DocumentLineageOnly,
+    [switch]$DocumentTextOnly,
     [string]$ArtifactSha256 = "",
     [switch]$AuditOnly,
     [switch]$CommitmentReplayOnly,
@@ -428,11 +430,28 @@ function Invoke-TcmBaContractFieldCoverage {
         throw "A cobertura privada dos campos contratuais TCM-BA foi bloqueada."
     }
 }
+$exclusiveModes = @(@(
+    $ReportOnly,
+    $DocumentLineageOnly,
+    $DocumentTextOnly,
+    $AuditOnly,
+    $CommitmentReplayOnly,
+    $CommitmentBudgetBenchmarkOnly,
+    $CommitmentAmountBenchmarkOnly,
+    $CommitmentCreditorBenchmarkOnly,
+    $CommitmentIssueDateBenchmarkOnly
+) | Where-Object { $_ })
+if ($exclusiveModes.Count -gt 1) {
+    throw "Não combine este modo com outro modo de execução especial."
+}
 if ($AutoCompetence -and $PSBoundParameters.ContainsKey("Competence")) {
     throw "Não combine -AutoCompetence com -Competence."
 }
 if ($PlanOnly -and -not $AutoCompetence) {
     throw "-PlanOnly exige -AutoCompetence."
+}
+if ($DocumentTextOnly -and ($AutoCompetence -or $PlanOnly)) {
+    throw "-DocumentTextOnly não pode ser combinado com outro modo."
 }
 if ($ReportOnly -and ($AutoCompetence -or $PlanOnly -or $DocumentLineageOnly)) {
     throw "-ReportOnly não pode ser combinado com -AutoCompetence ou -PlanOnly."
@@ -451,8 +470,17 @@ if (
 ) {
     throw "-DocumentLineageOnly exige -ArtifactSha256 hexadecimal de 64 caracteres."
 }
-if (-not $DocumentLineageOnly -and -not [string]::IsNullOrWhiteSpace($ArtifactSha256)) {
-    throw "-ArtifactSha256 exige -DocumentLineageOnly."
+if (
+    -not ($DocumentLineageOnly -or $DocumentTextOnly) -and
+    -not [string]::IsNullOrWhiteSpace($ArtifactSha256)
+) {
+    throw "-ArtifactSha256 exige -DocumentLineageOnly ou -DocumentTextOnly."
+}
+if (
+    $DocumentTextOnly -and
+    $ArtifactSha256 -notmatch '^[0-9a-fA-F]{64}$'
+) {
+    throw "-DocumentTextOnly exige -ArtifactSha256 hexadecimal de 64 caracteres."
 }
 if (
     $AuditOnly -and
@@ -508,6 +536,22 @@ if (
     $Competence -notmatch '^(0[1-9]|1[0-2])/\d{4}$'
 ) {
     throw "A competência deve usar o formato MM/AAAA."
+}
+if (-not [string]::IsNullOrWhiteSpace($CategoryCode)) {
+    if (-not $PSBoundParameters.ContainsKey("Competence")) {
+        throw "-CategoryCode exige -Competence explícita."
+    }
+    if ($CategoryCode -notmatch '^PCMGE\d{3}$') {
+        throw "-CategoryCode deve usar PCMGE seguido de três dígitos."
+    }
+    if (
+        $AutoCompetence -or $PlanOnly -or $ReportOnly -or
+        $DocumentLineageOnly -or $DocumentTextOnly -or $AuditOnly -or $CommitmentReplayOnly -or
+        $CommitmentBudgetBenchmarkOnly -or $CommitmentAmountBenchmarkOnly -or
+        $CommitmentCreditorBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly
+    ) {
+        throw "-CategoryCode só pode ser usado na coleta documental explícita."
+    }
 }
 Write-Host "Piloto local seguro dos documentos mensais do TCM-BA" -ForegroundColor Green
 Write-Host "As senhas ficam protegidas pelo usuário atual do Windows."
@@ -590,6 +634,40 @@ try {
     $env:SUPABASE_RAW_ARTIFACTS_BUCKET = "raw-artifacts"
 
     $python = Find-Python
+    if ($DocumentTextOnly) {
+        Push-Location $projectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $textOutput = @(
+                    & $python -B -m barreiras_docproc.commands.process_tcm_ba_documents --limit 1 --artifact-sha256 $ArtifactSha256 2>&1
+                )
+                $textExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $textOutput | ForEach-Object { Write-Host $_ }
+        if ($textExitCode -ne 0) {
+            throw "O processamento exato de texto terminou com código $textExitCode."
+        }
+        $textEvents = @(Read-TextEvents -Output $textOutput)
+        $null = Assert-TcmBaDocumentTextApproval -Events $textEvents -MaxDocuments 1
+        $processedHashes = @($textEvents[0].processed_hashes)
+        if (
+            $processedHashes.Count -ne 1 -or
+            $processedHashes[0] -ne $ArtifactSha256.ToLowerInvariant()
+        ) {
+            throw "O processamento exato atingiu um PDF diferente do solicitado."
+        }
+        Write-Host "TCM_BA_DOCUMENT_TEXT_ONLY_APPROVED" -ForegroundColor Cyan
+        return
+    }
     if ($DocumentLineageOnly) {
         Push-Location $projectRoot
         try {
@@ -878,7 +956,7 @@ try {
         try {
             $ErrorActionPreference = "Continue"
             $output = @(
-                & $python -B -m barreiras_collectors.commands.collect_tcm_ba_documents --competence $Competence --max-documents $MaxDocuments --requests-per-minute $RequestsPerMinute 2>&1
+                & $python -B -m barreiras_collectors.commands.collect_tcm_ba_documents --competence $Competence --max-documents $MaxDocuments --category-code $CategoryCode --requests-per-minute $RequestsPerMinute 2>&1
             )
             $nativeExitCode = $LASTEXITCODE
         }
@@ -896,6 +974,14 @@ try {
     $events = @(Read-CompletedEvents -Output $output)
     $null = Assert-TcmBaDocumentBatchApproval -Events $events -ExpectedCompetence $Competence -MaxDocuments $MaxDocuments
     $collectorEvent = $events[0]
+    $targetArtifactSha256 = $null
+    if (-not [string]::IsNullOrWhiteSpace($CategoryCode)) {
+        $pdfHashes = @($collectorEvent.pdf_hashes)
+        if ($pdfHashes.Count -ne 1 -or $pdfHashes[0] -notmatch '^[0-9a-f]{64}$') {
+            throw "A coleta dirigida deve retornar exatamente um SHA-256 de PDF."
+        }
+        $targetArtifactSha256 = $collectorEvent.pdf_hashes[0]
+    }
 
     Push-Location $projectRoot
     try {
@@ -927,9 +1013,16 @@ try {
         $previousErrorActionPreference = $ErrorActionPreference
         try {
             $ErrorActionPreference = "Continue"
-            $textOutput = @(
-                & $python -B -m barreiras_docproc.commands.process_tcm_ba_documents --limit $MaxDocuments 2>&1
-            )
+            if ($null -ne $targetArtifactSha256) {
+                $textOutput = @(
+                    & $python -B -m barreiras_docproc.commands.process_tcm_ba_documents --limit 1 --artifact-sha256 $targetArtifactSha256 2>&1
+                )
+            }
+            else {
+                $textOutput = @(
+                    & $python -B -m barreiras_docproc.commands.process_tcm_ba_documents --limit $MaxDocuments 2>&1
+                )
+            }
             $textExitCode = $LASTEXITCODE
         }
         finally {
@@ -947,6 +1040,38 @@ try {
     $null = Assert-TcmBaDocumentTextApproval `
         -Events $textEvents `
         -MaxDocuments $MaxDocuments
+    if ($null -ne $targetArtifactSha256) {
+        $textEvent = $textEvents[0]
+        $processedHashes = @($textEvent.processed_hashes)
+        if (
+            $processedHashes.Count -ne 1 -or
+            $processedHashes[0] -ne $targetArtifactSha256
+        ) {
+            throw "O processamento dirigido atingiu um PDF diferente do coletado."
+        }
+        if ([int]$textEvent.pages_awaiting_ocr -gt 0) {
+            throw (
+                "O PDF dirigido possui páginas escaneadas; " +
+                "o OCR exato por SHA ainda é obrigatório."
+            )
+        }
+        Push-Location $projectRoot
+        try {
+            & $python -B -m barreiras_docproc.commands.process_tcm_ba_document_families --limit 1 --artifact-sha256 $targetArtifactSha256
+            $familyExitCode = $LASTEXITCODE
+        }
+        finally {
+            Pop-Location
+        }
+        if ($familyExitCode -ne 0) {
+            throw "A classificação exata da família documental falhou."
+        }
+        Invoke-TcmBaDocumentFamilyCoverage `
+            -Python $python `
+            -ProjectRoot $projectRoot
+        Write-Host "TCM_BA_DOCUMENT_CATEGORY_RECOVERY_APPROVED" -ForegroundColor Green
+        return
+    }
     Push-Location $projectRoot
     try {
         $previousErrorActionPreference = $ErrorActionPreference
