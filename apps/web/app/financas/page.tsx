@@ -253,7 +253,6 @@ export default async function FinancesPage() {
   const monthlyClosures =
     monthlyResult.state === "available" ? monthlyResult.closures : [];
   const financeSignals = signalsResult.state === "available" ? signalsResult.signals : [];
-  const coverageRows = coverageResult.state === "available" ? coverageResult.rows : [];
   const publicObligations =
     obligationsResult.state === "available"
       ? obligationsResult.obligations
@@ -322,8 +321,6 @@ export default async function FinancesPage() {
   const obligationSourceConflictMonths = publicObligationCoverage.filter(
     (row) => row.coverageStatus === "source_conflict",
   ).length;
-  const comparableMonths = coverageRows.filter((row) => row.coverageStatus === "complete").length;
-  const missingMonths = coverageRows.filter((row) => row.coverageStatus === "missing").length;
   const sortedRevenues = sortNewest(revenues, "revenueDate");
   const sortedDocuments = sortNewest(documents, "referenceDate");
   const fiscalDocuments = sortedDocuments.filter(isFiscalDocument);
@@ -569,25 +566,18 @@ export default async function FinancesPage() {
           />
         </section>
 
-        {coverageResult.state === "available" ? (
-          <section className="finance-coverage-section" aria-labelledby="finance-coverage-title">
-            <div className="section-heading compact">
-              <span className="eyebrow">Cobertura da série</span>
-              <h2 id="finance-coverage-title">Quais meses podem ser comparados</h2>
-              <p>
-                A matriz mostra, mês a mês desde 2021, se há relatórios validados de
-                receita e despesa. Lacuna de documento e competência não classificada
-                são estados diferentes — nenhum deles significa arrecadação ou gasto zero.
-              </p>
-            </div>
-            <div className="finance-coverage-summary" aria-label="Resumo da cobertura financeira">
-              <div><strong>{comparableMonths.toLocaleString("pt-BR")}</strong><span>meses comparáveis</span></div>
-              <div><strong>{missingMonths.toLocaleString("pt-BR")}</strong><span>meses sem relatório</span></div>
-              <div><strong>{coverageRows.length.toLocaleString("pt-BR")}</strong><span>meses acompanhados</span></div>
-            </div>
-            <FinanceCoverageMatrix rows={coverageRows} />
-          </section>
-        ) : null}
+        <section className="finance-coverage-section" aria-labelledby="finance-coverage-title">
+          <div className="section-heading compact">
+            <span className="eyebrow">Cobertura da série</span>
+            <h2 id="finance-coverage-title">Quais meses podem ser comparados</h2>
+            <p>
+              A matriz mostra, mês a mês desde 2021, se há relatórios validados de
+              receita e despesa. Lacuna de documento e competência não classificada
+              são estados diferentes — nenhum deles significa arrecadação ou gasto zero.
+            </p>
+          </div>
+          <FinanceCoverageMatrix initialResult={coverageResult} />
+        </section>
 
         <FinanceAnnualSummary summaries={annualFinanceSummaries} />
 

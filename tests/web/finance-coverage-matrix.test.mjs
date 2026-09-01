@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildFinanceCoverageMatrix,
   financeCoverageStatusLabel,
+  parseFinanceCoverageApiPayload,
 } from "../../apps/web/lib/finance-coverage-matrix.mjs";
 
 function coverageRow({
@@ -87,5 +88,36 @@ test("rótulos explicam todos os estados sem depender apenas de cor", () => {
       "Não classificado",
       "Fora do período acompanhado",
     ],
+  );
+});
+
+test("payload público só é aceito quando todas as competências respeitam o contrato", () => {
+  const validRow = coverageRow({
+    month: "2021-01",
+    status: "complete",
+    revenue: 1,
+    expense: 1,
+  });
+
+  assert.deepEqual(
+    parseFinanceCoverageApiPayload({ state: "available", rows: [validRow] }),
+    { state: "available", rows: [validRow] },
+  );
+  assert.deepEqual(parseFinanceCoverageApiPayload({ state: "unavailable" }), {
+    state: "unavailable",
+  });
+  assert.equal(
+    parseFinanceCoverageApiPayload({
+      state: "available",
+      rows: [{ ...validRow, expenseReportCount: -1 }],
+    }),
+    null,
+  );
+  assert.equal(
+    parseFinanceCoverageApiPayload({
+      state: "available",
+      rows: [{ ...validRow, coverageNote: "" }],
+    }),
+    null,
   );
 });

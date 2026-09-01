@@ -1,4 +1,7 @@
-import type { PublicFinanceCoverageRow } from "./finance-coverage";
+import type {
+  PublicFinanceCoverageResult,
+  PublicFinanceCoverageRow,
+} from "./finance-coverage";
 
 export type FinanceCoverageMatrixStatus =
   | PublicFinanceCoverageRow["coverageStatus"]
@@ -28,3 +31,7 @@ export function buildFinanceCoverageMatrix(
   rows: readonly PublicFinanceCoverageRow[],
   startYear?: number,
 ): FinanceCoverageMatrix | null;
+
+export function parseFinanceCoverageApiPayload(
+  payload: unknown,
+): PublicFinanceCoverageResult | null;

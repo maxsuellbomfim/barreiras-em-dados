@@ -1,7 +1,12 @@
-import type { PublicFinanceCoverageRow } from "../../lib/finance-coverage";
+"use client";
+
+import { useEffect, useState } from "react";
+
+import type { PublicFinanceCoverageResult } from "../../lib/finance-coverage";
 import {
   buildFinanceCoverageMatrix,
   financeCoverageStatusLabel,
+  parseFinanceCoverageApiPayload,
   type FinanceCoverageMatrixStatus,
 } from "../../lib/finance-coverage-matrix.mjs";
 
@@ -30,8 +35,58 @@ function cellLabel(status: FinanceCoverageMatrixStatus): string {
 }
 
 export default function FinanceCoverageMatrix({
-  rows,
-}: Readonly<{ rows: readonly PublicFinanceCoverageRow[] }>) {
+  initialResult,
+}: Readonly<{ initialResult: PublicFinanceCoverageResult }>) {
+  const [result, setResult] = useState(initialResult);
+  const [isRefreshing, setIsRefreshing] = useState(initialResult.state === "unavailable");
+
+  useEffect(() => {
+    if (initialResult.state === "available") return;
+    const controller = new AbortController();
+    let active = true;
+    async function refresh(): Promise<void> {
+      try {
+        const response = await fetch("/api/finance-coverage", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload: unknown = await response.json();
+        const parsed = parseFinanceCoverageApiPayload(payload);
+        if (active && response.ok && parsed?.state === "available") {
+          setResult(parsed);
+        }
+      } catch {
+        // O estado público abaixo preserva a indisponibilidade sem fabricar dados.
+      } finally {
+        if (active) setIsRefreshing(false);
+      }
+    }
+    void refresh();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [initialResult]);
+
+  if (result.state === "unavailable") {
+    return (
+      <div className="collection-unavailable" role="status" aria-live="polite">
+        <div>
+          <strong>
+            {isRefreshing
+              ? "Consultando a cobertura financeira"
+              : "Cobertura financeira temporariamente indisponível"}
+          </strong>
+          <p>
+            A página não recebeu a classificação mensal nesta tentativa. Isso
+            não significa ausência de relatórios nem valores iguais a zero.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const rows = result.rows;
   const matrix = buildFinanceCoverageMatrix(rows);
   if (!matrix || matrix.bodies.length === 0) {
     return (
@@ -47,8 +102,16 @@ export default function FinanceCoverageMatrix({
     );
   }
 
+  const comparableMonths = rows.filter((row) => row.coverageStatus === "complete").length;
+  const missingMonths = rows.filter((row) => row.coverageStatus === "missing").length;
+
   return (
     <div className="finance-coverage-matrix">
+      <div className="finance-coverage-summary" aria-label="Resumo da cobertura financeira">
+        <div><strong>{comparableMonths.toLocaleString("pt-BR")}</strong><span>meses comparáveis</span></div>
+        <div><strong>{missingMonths.toLocaleString("pt-BR")}</strong><span>meses sem relatório</span></div>
+        <div><strong>{rows.length.toLocaleString("pt-BR")}</strong><span>meses acompanhados</span></div>
+      </div>
       <ul className="finance-coverage-legend" aria-label="Legenda da matriz">
         {LEGEND_STATUSES.map((status) => (
           <li key={status}>
