@@ -166,6 +166,120 @@ class PostgresExtractionRepository:
             return tuple(artifacts)
         finally:
             connection.close()
+
+    def pending_municipal_docx_artifacts(
+        self,
+        limit: int,
+    ) -> tuple[TextArtifact, ...]:
+        """DOCX municipais oficiais ainda sem texto desta versão."""
+        if not 1 <= limit <= 50:
+            raise ValueError("limit deve estar entre 1 e 50.")
+        from .docx_text import DOCX_PARSER_VERSION
+        from .municipal_docx_text import JOB_TYPE
+
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select
+                  artifact.id::text as id,
+                  artifact.sha256,
+                  artifact.object_key
+                from raw.raw_artifacts as artifact
+                where artifact.artifact_kind = 'document'
+                  and artifact.metadata ->> 'schema_name'
+                      = 'municipal-transparency-document'
+                  and artifact.metadata ->> 'document_role' = 'docx'
+                  and artifact.content_type =
+                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                  and artifact.object_key like
+                      'municipal-transparency/documents/%%.docx'
+                  and artifact.http_status between 200 and 299
+                  and not exists (
+                    select 1
+                    from raw.document_pages as page
+                    where page.raw_artifact_id = artifact.id
+                      and page.parser_version = %s
+                  )
+                  and not exists (
+                    select 1
+                    from raw.extraction_jobs as job
+                    where job.raw_artifact_id = artifact.id
+                      and job.job_type = %s
+                      and job.status = 'dead_lettered'
+                      and job.idempotency_key = encode(
+                        sha256(
+                          (%s || ':' || artifact.sha256 || ':' || %s)::bytea
+                        ),
+                        'hex'
+                      )
+                  )
+                order by artifact.created_at, artifact.id
+                limit %s
+                """,
+                (
+                    DOCX_PARSER_VERSION,
+                    JOB_TYPE,
+                    JOB_TYPE,
+                    DOCX_PARSER_VERSION,
+                    limit,
+                ),
+            )
+            artifacts = []
+            while True:
+                row = rows.fetchone()
+                if row is None:
+                    break
+                artifacts.append(
+                    TextArtifact(
+                        raw_artifact_id=str(row["id"]),
+                        sha256=str(row["sha256"]),
+                        object_key=str(row["object_key"]),
+                    )
+                )
+            return tuple(artifacts)
+        finally:
+            connection.close()
+
+    def municipal_docx_processed_total(self) -> int:
+        """Conta DOCX oficiais com texto e job atual concluído."""
+        from .docx_text import DOCX_PARSER_VERSION
+        from .municipal_docx_text import JOB_TYPE
+
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select count(distinct artifact.id)::integer
+                    as municipal_docx_processed_total
+                from raw.raw_artifacts as artifact
+                join raw.document_pages as page
+                  on page.raw_artifact_id = artifact.id
+                 and page.parser_version = %s
+                 and page.text_content is not null
+                 and page.text_sha256 is not null
+                join raw.extraction_jobs as job
+                  on job.raw_artifact_id = artifact.id
+                 and job.job_type = %s
+                 and job.status = 'succeeded'
+                where artifact.artifact_kind = 'document'
+                  and artifact.metadata ->> 'schema_name'
+                      = 'municipal-transparency-document'
+                  and artifact.metadata ->> 'document_role' = 'docx'
+                  and artifact.content_type =
+                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                  and artifact.object_key like
+                      'municipal-transparency/documents/%%.docx'
+                  and artifact.http_status between 200 and 299
+                """,
+                (DOCX_PARSER_VERSION, JOB_TYPE),
+            ).fetchone()
+            if row is None:
+                return 0
+            return int(row["municipal_docx_processed_total"])
+        finally:
+            connection.close()
+
     def tcm_ba_document_processing_report(self):
         """Resume PDFs, páginas, OCR e falhas sem retornar conteúdo."""
         from .ocr import TCM_BA_OCR_PARSER_VERSION
@@ -955,6 +1069,21 @@ class PostgresExtractionRepository:
         job_idempotency_key: str,
     ) -> bool:
         """Registra páginas TCM-BA e o job concluído na mesma transação."""
+        return self._persist_document_text_job(
+            artifact,
+            pages,
+            job_type=job_type,
+            job_idempotency_key=job_idempotency_key,
+        )
+
+    def _persist_document_text_job(
+        self,
+        artifact: TextArtifact,
+        pages,
+        *,
+        job_type: str,
+        job_idempotency_key: str,
+    ) -> bool:
         connection = self.connection_factory()
         try:
             with connection.transaction():
@@ -989,6 +1118,23 @@ class PostgresExtractionRepository:
             return row is not None
         finally:
             connection.close()
+
+    def persist_municipal_docx_text(
+        self,
+        artifact: TextArtifact,
+        pages,
+        *,
+        job_type: str,
+        job_idempotency_key: str,
+    ) -> bool:
+        """Registra texto DOCX e job concluído na transação existente."""
+        return self._persist_document_text_job(
+            artifact,
+            pages,
+            job_type=job_type,
+            job_idempotency_key=job_idempotency_key,
+        )
+
     @classmethod
     def _document_page(
         cls,
