@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 
 const wrapperPath = fileURLToPath(
   new URL("../../scripts/run-tcm-ba-document-pilot.ps1", import.meta.url),
@@ -12,6 +13,17 @@ const validationHelperPath = path.resolve(
     new URL("../../scripts/lib/tcm-ba-replay-validation.ps1", import.meta.url),
   ),
 );
+const wrapper = readFileSync(wrapperPath, "utf8");
+
+test("consulta de linhagem exige hash e chama somente o relatório exato", () => {
+  assert.match(wrapper, /\[switch\]\$DocumentLineageOnly/);
+  assert.match(wrapper, /\[string\]\$ArtifactSha256/);
+  assert.match(
+    wrapper,
+    /report_tcm_ba_document_lineage --sha256 \$ArtifactSha256/,
+  );
+  assert.match(wrapper, /TCM_BA_DOCUMENT_LINEAGE_ONLY/);
+});
 
 function runPowerShell(command) {
   const executable = process.platform === "win32" ? "powershell.exe" : "pwsh";

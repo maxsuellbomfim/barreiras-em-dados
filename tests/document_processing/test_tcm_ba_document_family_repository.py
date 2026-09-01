@@ -37,6 +37,7 @@ class RecordingConnection:
         self.queries: list[tuple[str, object]] = []
         self.pending_rows = []
         self.coverage_row = None
+        self.lineage_rows = []
         self.job_row = {"id": "00000000-0000-0000-0000-000000000905"}
 
     def execute(self, query, params=None):
@@ -44,6 +45,8 @@ class RecordingConnection:
         self.queries.append((normalized, params))
         if "with preserved_documents as" in normalized:
             return Cursor(rows=self.pending_rows)
+        if "where pdf.sha256 = %s" in normalized:
+            return Cursor(rows=self.lineage_rows)
         if "with preserved as" in normalized:
             return Cursor(row=self.coverage_row)
         if "insert into raw.extraction_jobs" in normalized:
@@ -101,6 +104,37 @@ class TcmBaDocumentFamilyRepositoryTests(unittest.TestCase):
             query,
         )
         self.assertIn("job.status in ('succeeded', 'dead_lettered')", query)
+
+    def test_document_lineage_by_sha256_returns_every_official_observation(
+        self,
+    ) -> None:
+        artifact_sha256 = "e" * 64
+        self.connection.lineage_rows = [
+            {
+                "artifact_id": "00000000-0000-0000-0000-000000000903",
+                "sha256": artifact_sha256,
+                "object_key": "tcm-ba/monthly-documents/2023/04/e.pdf",
+                "source_record_key": "tcm-ba:document:04/2023:expense",
+                "competence": "04/2023",
+                "official_category": "PCMGE015 - Demonstrativo analítico",
+                "document_name": "Demonstrativo da despesa",
+            }
+        ]
+
+        rows = self.repository.document_lineage_by_sha256(artifact_sha256)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].competence, "04/2023")
+        self.assertEqual(rows[0].official_category_code, "PCMGE015")
+        self.assertEqual(rows[0].family, "analytical_budget_expense_statement")
+        query, params = self.connection.queries[0]
+        self.assertIn("record.payload ->> 'competence'", query)
+        self.assertIn("record.payload ->> 'name'", query)
+        self.assertEqual(params, (artifact_sha256,))
+
+    def test_document_lineage_rejects_invalid_sha256(self) -> None:
+        with self.assertRaisesRegex(ValueError, "sha256"):
+            self.repository.document_lineage_by_sha256("not-a-hash")
 
     def test_classified_family_is_private_valid_result_without_document_name(
         self,

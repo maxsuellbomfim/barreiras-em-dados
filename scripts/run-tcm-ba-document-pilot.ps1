@@ -5,6 +5,8 @@ param(
     [switch]$AutoCompetence,
     [switch]$PlanOnly,
     [switch]$ReportOnly,
+    [switch]$DocumentLineageOnly,
+    [string]$ArtifactSha256 = "",
     [switch]$AuditOnly,
     [switch]$CommitmentReplayOnly,
     [switch]$CommitmentBudgetBenchmarkOnly,
@@ -432,12 +434,29 @@ if ($AutoCompetence -and $PSBoundParameters.ContainsKey("Competence")) {
 if ($PlanOnly -and -not $AutoCompetence) {
     throw "-PlanOnly exige -AutoCompetence."
 }
-if ($ReportOnly -and ($AutoCompetence -or $PlanOnly)) {
+if ($ReportOnly -and ($AutoCompetence -or $PlanOnly -or $DocumentLineageOnly)) {
     throw "-ReportOnly não pode ser combinado com -AutoCompetence ou -PlanOnly."
 }
 if (
+    $DocumentLineageOnly -and
+    ($AutoCompetence -or $PlanOnly -or $AuditOnly -or $CommitmentReplayOnly -or
+        $CommitmentBudgetBenchmarkOnly -or $CommitmentAmountBenchmarkOnly -or
+        $CommitmentCreditorBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
+) {
+    throw "-DocumentLineageOnly não pode ser combinado com outro modo."
+}
+if (
+    $DocumentLineageOnly -and
+    $ArtifactSha256 -notmatch '^[0-9a-fA-F]{64}$'
+) {
+    throw "-DocumentLineageOnly exige -ArtifactSha256 hexadecimal de 64 caracteres."
+}
+if (-not $DocumentLineageOnly -and -not [string]::IsNullOrWhiteSpace($ArtifactSha256)) {
+    throw "-ArtifactSha256 exige -DocumentLineageOnly."
+}
+if (
     $AuditOnly -and
-    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $DocumentLineageOnly -or
         $CommitmentReplayOnly -or $CommitmentBudgetBenchmarkOnly -or
         $CommitmentAmountBenchmarkOnly -or $CommitmentCreditorBenchmarkOnly -or
         $CommitmentIssueDateBenchmarkOnly)
@@ -446,7 +465,7 @@ if (
 }
 if (
     $CommitmentReplayOnly -and
-    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $DocumentLineageOnly -or $AuditOnly -or
         $CommitmentBudgetBenchmarkOnly -or $CommitmentCreditorBenchmarkOnly -or
         $CommitmentAmountBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
 ) {
@@ -454,7 +473,7 @@ if (
 }
 if (
     $CommitmentBudgetBenchmarkOnly -and
-    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $DocumentLineageOnly -or $AuditOnly -or
         $CommitmentReplayOnly -or $CommitmentCreditorBenchmarkOnly -or
         $CommitmentAmountBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
 ) {
@@ -462,7 +481,7 @@ if (
 }
 if (
     $CommitmentCreditorBenchmarkOnly -and
-    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $DocumentLineageOnly -or $AuditOnly -or
         $CommitmentReplayOnly -or $CommitmentBudgetBenchmarkOnly -or
         $CommitmentAmountBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
 ) {
@@ -470,7 +489,7 @@ if (
 }
 if (
     $CommitmentIssueDateBenchmarkOnly -and
-    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $DocumentLineageOnly -or $AuditOnly -or
         $CommitmentReplayOnly -or $CommitmentBudgetBenchmarkOnly -or
         $CommitmentAmountBenchmarkOnly -or $CommitmentCreditorBenchmarkOnly)
 ) {
@@ -478,7 +497,7 @@ if (
 }
 if (
     $CommitmentAmountBenchmarkOnly -and
-    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $AuditOnly -or
+    ($AutoCompetence -or $PlanOnly -or $ReportOnly -or $DocumentLineageOnly -or $AuditOnly -or
         $CommitmentReplayOnly -or $CommitmentBudgetBenchmarkOnly -or
         $CommitmentCreditorBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly)
 ) {
@@ -571,6 +590,31 @@ try {
     $env:SUPABASE_RAW_ARTIFACTS_BUCKET = "raw-artifacts"
 
     $python = Find-Python
+    if ($DocumentLineageOnly) {
+        Push-Location $projectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $lineageOutput = @(
+                    & $python -B -m barreiras_docproc.commands.report_tcm_ba_document_lineage --sha256 $ArtifactSha256 2>&1
+                )
+                $lineageExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $lineageOutput | ForEach-Object { Write-Host $_ }
+        if ($lineageExitCode -ne 0) {
+            throw "A linhagem documental TCM-BA não foi localizada."
+        }
+        Write-Host "TCM_BA_DOCUMENT_LINEAGE_ONLY" -ForegroundColor Cyan
+        return
+    }
     if ($AuditOnly) {
         Push-Location $projectRoot
         try {

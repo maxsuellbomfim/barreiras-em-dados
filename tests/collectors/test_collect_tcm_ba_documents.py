@@ -99,6 +99,7 @@ class CollectTcmBaDocumentsTests(unittest.TestCase):
         summary = execute_tcm_ba_document_batch(
             competence="04/2023",
             max_documents=1,
+            category_code="PCMGE015",
             repository=repository,
             service=service,
             client=client,
@@ -112,6 +113,10 @@ class CollectTcmBaDocumentsTests(unittest.TestCase):
         self.assertEqual(service.calls[0][2], "download-run-1")
         self.assertEqual(client.calls[0]["expected_total_documents"], 3)
         self.assertEqual(client.calls[0]["expected_document"].name, "documento-2.pdf")
+        self.assertEqual(
+            repository.selection_calls[0]["category_code"],
+            "PCMGE015",
+        )
 
     def test_final_batch_closes_month_only_after_last_pdf(self) -> None:
         final_reference = reference(3)

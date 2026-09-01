@@ -1,5 +1,28 @@
 # Operação do catálogo mensal do TCM-BA
 
+## Seleção documental exata por categoria
+
+Uma recuperação dirigida pode informar, no workflow **Coletar documentos
+mensais do TCM-BA**, uma competência explícita e o código oficial da categoria.
+Para o demonstrativo analítico de despesa, use `PCMGE015`. O código é validado
+antes de acessar a fonte e não pode ser usado sem competência; se a categoria
+não existir entre os documentos pendentes, a execução é bloqueada.
+
+O diagnóstico local de linhagem também pode conferir a origem de um PDF já
+preservado sem ler seu conteúdo:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/run-tcm-ba-document-pilot.ps1 `
+  -DocumentLineageOnly `
+  -ArtifactSha256 <sha256>
+```
+
+Em 01/09/2026, esse diagnóstico associou o hash
+`efbebf2fb048c37e5ea5e7052282281cfcb043b4a69d3237d68a10757e02081d`
+exclusivamente à competência `01/2021`, categoria `PCMGE015`. Portanto, ele não
+fecha a lacuna municipal de abril de 2023.
+
 ## Escopo e limite
 
 O comando cataloga as prestações mensais e os documentos entregues pela

@@ -128,6 +128,19 @@ class TcmBaDocumentFamilyCoverage:
         )
 
 
+@dataclass(frozen=True)
+class TcmBaDocumentLineage:
+    artifact_id: str
+    artifact_sha256: str
+    object_key: str
+    source_record_key: str
+    competence: str
+    official_category: str
+    official_category_code: str | None
+    family: str
+    document_name: str
+
+
 class TcmBaDocumentFamilyRepository(Protocol):
     def persist_document_family(
         self,

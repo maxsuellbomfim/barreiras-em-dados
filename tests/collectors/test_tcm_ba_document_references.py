@@ -167,6 +167,58 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
         self.assertIn("PCMGE049", params[-2])
         self.assertEqual(params[-1], 1)
 
+    def test_filters_pending_reference_by_exact_official_category_code(self) -> None:
+        connection = SequenceConnection(
+            [
+                complete_catalog(documents=1),
+                consistent_count(documents=1),
+                QueryResult(rows=[]),
+                QueryResult(
+                    rows=[
+                        {
+                            "source_record_key": "tcm-ba:document:04/2023:abc",
+                            "parent_artifact_id": "catalog-artifact-1",
+                            "record_index": 0,
+                            "payload": {
+                                "category": "PCMGE015 - Demonstrativo analítico",
+                                "name": "despesa.pdf",
+                                "inserted_at": "03/05/2023 10:00",
+                                "page_number": 1,
+                                "download_form_id": "form:download",
+                            },
+                        }
+                    ]
+                ),
+            ]
+        )
+
+        selection = PostgresCollectionRepository(
+            lambda: connection
+        ).tcm_ba_document_references(
+            competence="04/2023",
+            limit=1,
+            category_code="PCMGE015",
+        )
+
+        self.assertEqual(selection.references[0].category[:8], "PCMGE015")
+        query, params = connection.calls[3]
+        self.assertIn("record.payload ->> 'category'", query)
+        self.assertIn("= %s::text", query)
+        self.assertEqual(params[-5:-3], ("PCMGE015", "PCMGE015"))
+        self.assertEqual(params[-1], 1)
+
+    def test_refuses_invalid_official_category_code(self) -> None:
+        repository = PostgresCollectionRepository(
+            lambda: self.fail("não deve abrir conexão")
+        )
+
+        with self.assertRaisesRegex(ValueError, "category_code"):
+            repository.tcm_ba_document_references(
+                competence="04/2023",
+                limit=1,
+                category_code="pcmge15",
+            )
+
     def test_counts_only_preserved_keys_from_current_catalog(self) -> None:
         connection = SequenceConnection(
             [

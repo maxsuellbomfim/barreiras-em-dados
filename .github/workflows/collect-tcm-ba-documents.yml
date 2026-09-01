@@ -18,6 +18,11 @@ on:
         required: false
         default: ""
         type: string
+      category_code:
+        description: "Código oficial exato, por exemplo PCMGE015; exige competência"
+        required: false
+        default: ""
+        type: string
       max_documents:
         description: "Máximo de PDFs nesta execução"
         required: false
@@ -75,8 +80,19 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
           REQUESTED_COMPETENCE: ${{ github.event_name == 'workflow_dispatch' && inputs.competence || '' }}
+          REQUESTED_CATEGORY_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.category_code || '' }}
         shell: bash
         run: |
+          if [[ -n "$REQUESTED_CATEGORY_CODE" ]]; then
+            if [[ -z "$REQUESTED_COMPETENCE" ]]; then
+              echo "Código de categoria exige competência explícita." >&2
+              exit 1
+            fi
+            if [[ ! "$REQUESTED_CATEGORY_CODE" =~ ^PCMGE[0-9]{3}$ ]]; then
+              echo "Código de categoria inválido; use PCMGE e três dígitos." >&2
+              exit 1
+            fi
+          fi
           if [[ -n "$REQUESTED_COMPETENCE" ]]; then
             if [[ ! "$REQUESTED_COMPETENCE" =~ ^(0[1-9]|1[0-2])/[0-9]{4}$ ]]; then
               echo "Competência inválida; use MM/AAAA." >&2
@@ -103,11 +119,13 @@ jobs:
           SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD }}
           TCM_COMPETENCE: ${{ steps.plan.outputs.competence }}
           TCM_MAX_DOCUMENTS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_documents || '5' }}
+          TCM_CATEGORY_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.category_code || '' }}
         run: >-
           python -B -m
           barreiras_collectors.commands.collect_tcm_ba_documents
           --competence "$TCM_COMPETENCE"
           --max-documents "$TCM_MAX_DOCUMENTS"
+          --category-code "$TCM_CATEGORY_CODE"
           --requests-per-minute "30"
 
       - name: Auditar banco e objetos privados

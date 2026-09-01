@@ -172,12 +172,17 @@ class PostgresCollectionRepository:
         *,
         competence: str,
         limit: int,
+        category_code: str | None = None,
     ) -> TcmBaDocumentSelection:
         """Seleciona documentos exatos de um catálogo mensal completo do TCM-BA."""
         if not re.fullmatch(r"(0[1-9]|1[0-2])/\d{4}", competence):
             raise ValueError("competence deve usar MM/AAAA.")
         if limit < 1 or limit > 5:
             raise ValueError("limit deve estar entre 1 e 5.")
+        if category_code is not None and not re.fullmatch(
+            r"PCMGE\d{3}", category_code
+        ):
+            raise ValueError("category_code deve usar PCMGE seguido de três dígitos.")
         month, year = (int(part) for part in competence.split("/"))
         partition_key = f"competence:{year:04d}-{month:02d}"
         connection = self.connection_factory()
@@ -365,6 +370,12 @@ class PostgresCollectionRepository:
                   and not (
                     record.source_record_key = any(%s::text[])
                   )
+                  and (
+                    %s::text is null
+                    or left(upper(btrim(coalesce(
+                      record.payload ->> 'category', ''
+                    ))), 8) = %s::text
+                  )
                 order by
                   case
                     when left(upper(btrim(coalesce(
@@ -385,6 +396,8 @@ class PostgresCollectionRepository:
                     completed_at,
                     competence,
                     preserved_keys,
+                    category_code,
+                    category_code,
                     list(TCM_BA_MONEY_TRAIL_PRIMARY_CATEGORY_CODES),
                     list(TCM_BA_MONEY_TRAIL_SUPPORTING_CATEGORY_CODES),
                     limit,
@@ -400,9 +413,15 @@ class PostgresCollectionRepository:
             )
             preserved_documents = len(preserved_keys)
             pending = expected - preserved_documents
-            if pending < 0 or len(references) != min(limit, pending):
+            invalid_reference_count = (
+                len(references) != min(limit, pending)
+                if category_code is None
+                else not 1 <= len(references) <= min(limit, pending)
+            )
+            if pending < 0 or invalid_reference_count:
                 raise PersistenceContractError(
-                    "Fila documental TCM-BA diverge dos artefatos preservados."
+                    "Fila documental TCM-BA diverge dos artefatos preservados "
+                    "ou não contém a categoria oficial solicitada."
                 )
             return TcmBaDocumentSelection(
                 competence=competence,
