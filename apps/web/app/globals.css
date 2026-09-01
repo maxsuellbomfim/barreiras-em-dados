@@ -2618,6 +2618,7 @@ footer {
 }
 
 .finance-coverage-matrix {
+  min-width: 0;
   margin-top: 1.25rem;
 }
 
@@ -2780,6 +2781,36 @@ footer {
 .finance-coverage-method a {
   color: #315fd4;
   font-weight: 700;
+}
+
+.finance-municipal-document-years {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.finance-municipal-document-years details {
+  border: 1px solid #dce3ef;
+  border-radius: 1rem;
+  background: #fff;
+  overflow: hidden;
+}
+
+.finance-municipal-document-years summary {
+  padding: 0.85rem 1rem;
+  color: #233149;
+  background: #f8faff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.finance-municipal-document-table {
+  border: 0;
+  border-top: 1px solid #dce3ef;
+  border-radius: 0;
+}
+
+.finance-municipal-document-table table {
+  min-width: 38rem;
 }
 
 .supplier-concentration-section {

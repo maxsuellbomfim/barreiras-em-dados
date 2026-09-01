@@ -15,7 +15,7 @@ test("documentos de entrada apontam para um único estado atual", async () => {
   assert.match(readme, /docs\/CURRENT_STATUS\.md/);
   assert.match(claude, /docs\/CURRENT_STATUS\.md/);
   assert.match(plan, /docs\/CURRENT_STATUS\.md/);
-  assert.match(current, /31\/08\/2026/);
+  assert.match(current, /01\/09\/2026/);
   assert.doesNotMatch(readme, /Este repositório está na etapa 1A/);
   assert.doesNotMatch(plan, /etapa zero/i);
   assert.doesNotMatch(

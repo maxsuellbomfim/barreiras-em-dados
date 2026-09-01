@@ -1,6 +1,6 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **31/08/2026**. Este é o ponto de entrada operacional; o histórico
+Atualizado em **01/09/2026**. Este é o ponto de entrada operacional; o histórico
 de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
@@ -86,3 +86,17 @@ somente no detalhe e mantém fonte oficial e hashes visíveis; os dois registros
 somente catalogados continuam identificados como tal, sem conteúdo inventado.
 O próximo fluxo é provar essa projeção em produção e retomar a reconciliação
 apenas entre fontes que expressem o mesmo conceito e período.
+
+Os documentos financeiros mensais agora também possuem calendário público
+próprio desde 2021, comparando Balancete, Execução da Receita e Execução da
+Despesa por competência. A consulta de 01/09/2026 encontrou 230 registros no
+acervo completo dessas três famílias: 229 PDFs preservados e um documento de
+despesa somente catalogado. Sete competências desde 2021 possuem mais de uma
+versão observada; elas são identificadas como versões, nunca somadas. A matriz
+falha fechada se qualquer família estiver indisponível e descreve lacuna apenas
+como documento não localizado no catálogo preservado consultado, nunca como
+valor zero. A lista textual foi reduzida aos 36 documentos mais recentes; o
+calendário mantém o acesso histórico por competência. O próximo fluxo é
+reconciliar os valores publicados de receita e despesa com esses PDFs, uma
+competência por vez, começando pela mais recente com as duas famílias
+preservadas.
