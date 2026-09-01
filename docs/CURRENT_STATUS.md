@@ -182,3 +182,14 @@ R$ 3.524.862,65 e não recebe rótulo de déficit ou irregularidade. Uma primeir
 chamada direta do RPC atingiu o timeout; o retry imediato respondeu em 1,19 s,
 e a página pública permaneceu disponível com os dois hashes. A ocorrência deve
 continuar monitorada, sem ser ocultada pelo cache da aplicação.
+
+Julho de 2021 está `operational` com os dois documentos oficiais. O
+`PCMGE016`, hash
+`5adaf8beff64b177aaf647d50b49768532ecea9063f26aef871f1c04f17735bd`,
+publicou 253 rubricas e R$ 45.999.611,58 líquidos. O `PCMGE015`, hash
+`5b914f82c687dc320dbb1311dcc0db8d73479250c5ce55a5333f3aeaf52f0682`,
+possui 193 páginas com texto embutido e uma única linhagem oficial. O detalhe
+mostra R$ 25.912.406,60 empenhados, R$ 48.284.964,74 liquidados e
+R$ 48.806.026,83 pagos. A diferença operacional é -R$ 2.806.415,25, sem
+inferência de déficit ou irregularidade. O RPC respondeu em 3,26 s e a página
+pública apresentou os dois hashes e estado operacional.
