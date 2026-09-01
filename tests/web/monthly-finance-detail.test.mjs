@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  monthlyFinanceDocumentSourceCopy,
   monthlyFinanceHref,
   monthlyFinanceStatusCopy,
   parseMonthlyFinanceDetail,
@@ -79,6 +80,48 @@ test("valida o fechamento e preserva os documentos oficiais do mês", () => {
   );
   assert.equal(detail?.revenueDocuments.length, 2);
   assert.equal(detail?.expenseDocuments.length, 2);
+});
+
+test("identifica explicitamente evidências obtidas no e-TCM", () => {
+  assert.deepEqual(
+    monthlyFinanceDocumentSourceCopy({
+      documentUrl: "https://e.tcm.ba.gov.br/epp/PdfReadOnly/downloadDocumento.seam",
+      sourceUrl: "https://e.tcm.ba.gov.br/epp/ConsultaPublica/listView.seam",
+    }),
+    {
+      label: "TCM-BA",
+      explanation:
+        "Este demonstrativo foi obtido no e-TCM e é mostrado como fonte oficial distinta do portal municipal.",
+      documentAction: "Abrir PDF no TCM-BA",
+      sourceAction: "Abrir registro no e-TCM",
+    },
+  );
+});
+
+test("mantém rótulo neutro quando a evidência não é do e-TCM", () => {
+  assert.deepEqual(
+    monthlyFinanceDocumentSourceCopy({
+      documentUrl: "https://dados.barreiras.ba.gov.br/despesa-junho.pdf",
+      sourceUrl: "https://dados.barreiras.ba.gov.br/api/despesas",
+    }),
+    {
+      label: "Fonte oficial do documento",
+      explanation:
+        "O arquivo e a resposta de origem permanecem separados para conferência.",
+      documentAction: "Abrir PDF oficial",
+      sourceAction: "Abrir resposta da fonte",
+    },
+  );
+});
+
+test("não atribui documento misto ao TCM-BA", () => {
+  assert.equal(
+    monthlyFinanceDocumentSourceCopy({
+      documentUrl: "https://dados.barreiras.ba.gov.br/despesa-junho.pdf",
+      sourceUrl: "https://e.tcm.ba.gov.br/epp/ConsultaPublica/listView.seam",
+    }).label,
+    "Fonte oficial do documento",
+  );
 });
 
 test("rejeita evidência sem HTTPS, hash ou metodologia conhecida", () => {

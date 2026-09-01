@@ -48,8 +48,18 @@ export type MonthlyFinanceStatusCopy = Readonly<{
   canShowDifference: boolean;
 }>;
 
+export type MonthlyFinanceDocumentSourceCopy = Readonly<{
+  label: string;
+  explanation: string;
+  documentAction: string;
+  sourceAction: string;
+}>;
+
 export function periodStartFromSlug(slug: string): string | null;
 export function monthlyFinanceHref(periodStart: string): string;
+export function monthlyFinanceDocumentSourceCopy(
+  document: Readonly<{ documentUrl: string; sourceUrl: string }>,
+): MonthlyFinanceDocumentSourceCopy;
 export function monthlyFinanceStatusCopy(
   detail: PublicMonthlyFinanceDetail | null,
 ): MonthlyFinanceStatusCopy;

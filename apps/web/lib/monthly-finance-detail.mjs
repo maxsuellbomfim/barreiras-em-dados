@@ -133,6 +133,38 @@ export function monthlyFinanceHref(periodStart) {
   return `/financas/${periodStart.slice(0, 7)}`;
 }
 
+export function monthlyFinanceDocumentSourceCopy(document) {
+  let documentHostname = "";
+  let sourceHostname = "";
+  try {
+    documentHostname = new URL(document?.documentUrl).hostname.toLowerCase();
+    sourceHostname = new URL(document?.sourceUrl).hostname.toLowerCase();
+  } catch {
+    // A interface recebe documentos já validados, mas mantém texto neutro por segurança.
+  }
+
+  if (
+    documentHostname === "e.tcm.ba.gov.br"
+    && sourceHostname === "e.tcm.ba.gov.br"
+  ) {
+    return {
+      label: "TCM-BA",
+      explanation:
+        "Este demonstrativo foi obtido no e-TCM e é mostrado como fonte oficial distinta do portal municipal.",
+      documentAction: "Abrir PDF no TCM-BA",
+      sourceAction: "Abrir registro no e-TCM",
+    };
+  }
+
+  return {
+    label: "Fonte oficial do documento",
+    explanation:
+      "O arquivo e a resposta de origem permanecem separados para conferência.",
+    documentAction: "Abrir PDF oficial",
+    sourceAction: "Abrir resposta da fonte",
+  };
+}
+
 export function monthlyFinanceStatusCopy(detail) {
   if (!detail) {
     return {
