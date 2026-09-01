@@ -54,6 +54,8 @@ import { FinanceAnnualSummary } from "./finance-annual-summary";
 import { FinanceSiconfiAnnualTotals } from "./finance-siconfi-annual-totals";
 import { getPublicSiconfiAnnualTotals } from "../../lib/siconfi-annual-totals";
 import { getPublicSiconfiMonthlyReconciliation } from "../../lib/siconfi-monthly-reconciliation";
+import { buildFinanceFamilyCoverage } from "../../lib/finance-family-coverage.mjs";
+import FinanceFamilyCoverageMap from "./finance-family-coverage-map";
 
 export const revalidate = 300;
 
@@ -334,6 +336,13 @@ export default async function FinancesPage() {
   const annualFinanceSummaries = summarizeAnnualFinances(sortedMonthlyClosures);
   const latestRevenue = sortedRevenues[0]?.revenueDate ?? null;
   const latestClosure = sortedMonthlyClosures[0] ?? null;
+  const financeFamilies = buildFinanceFamilyCoverage({
+    financeRows: coverageResult.state === "available" ? coverageResult.rows : [],
+    obligationRows: publicObligationCoverage,
+    payrollRows: payrollCoverageRows,
+    fiscalDocuments,
+    siconfiYears: siconfiAnnualYears,
+  });
 
   return (
     <main>
@@ -405,6 +414,8 @@ export default async function FinancesPage() {
             valor nunca significa arrecadação ou gasto zero.
           </p>
         </section>
+
+        <FinanceFamilyCoverageMap families={financeFamilies} />
 
         <FinanceSiconfiAnnualTotals
           years={siconfiAnnualYears}
