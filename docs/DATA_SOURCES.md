@@ -52,10 +52,12 @@ valor zero.
 
 ## Fontes para dívidas e obrigações municipais
 
-O Portal da Transparência da Prefeitura publica `balancetes`,
-`pdc-contas-anuais`, `rreo` e `rgf`. Esses recursos são preservados como
-documentos-base para localizar empréstimos, precatórios, restos a pagar e
-outros passivos.
+O Portal da Transparência da Prefeitura publica `balancetes`, `rreo` e `rgf`.
+Esses recursos são preservados como documentos-base para localizar
+empréstimos, precatórios, restos a pagar e outros passivos. Apesar do nome
+técnico herdado, `pdc-contas-anuais` devolve leis e fundamentos de controle,
+não os demonstrativos anuais. Ele permanece preservado como base legal e não
+participa de cálculos financeiros. A DCA do Tesouro é a série anual comparável.
 
 ### Recursos municipais verificados em 18/08/2026
 

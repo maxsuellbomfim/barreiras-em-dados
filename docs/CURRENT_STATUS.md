@@ -76,6 +76,8 @@ reconsulta as duas famílias em tempo de execução se o HTML inicial não obtiv
 fonte. A DCA permanece uma trilha anual separada e agora possui matriz pública
 desde 2021. A consulta de produção de 01/09/2026 encontrou declarações completas
 de 2021 a 2025, com sete métricas validadas em cada exercício; 2026 aparece como
-exercício em andamento, não como ausência ou valor zero. O próximo fluxo é
-reconciliar o catálogo municipal de contas anuais com a DCA do Siconfi, mantendo
-fontes e conceitos separados e tornando divergências documentais verificáveis.
+exercício em andamento, não como ausência ou valor zero. A auditoria da série
+municipal `pdc-contas-anuais` comprovou que seus seis registros únicos são leis
+e fundamentos de controle, não demonstrativos anuais. A interface agora separa
+essa base legal da DCA. O próximo fluxo é preservar os quatro DOCX ainda ausentes
+e reconciliar apenas fontes que expressem o mesmo conceito e período.
