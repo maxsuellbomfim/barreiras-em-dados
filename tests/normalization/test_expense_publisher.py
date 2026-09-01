@@ -580,7 +580,11 @@ class ExpensePublisherTests(unittest.TestCase):
         self.assertIn("tcm_ba_candidates as", query)
         self.assertIn("tcm-ba-monthly-document", query)
         self.assertIn("tcm-ba-document-download-prepare", query)
-        self.assertIn("pcmge015", query)
+        self.assertIn(
+            "left(record.payload ->> 'category', 8) = 'pcmge015'",
+            query,
+        )
+        self.assertNotIn("like 'pcmge015%'", query)
         self.assertIn("candidates.sha256 = %s", query)
 
     def test_older_methodology_creates_a_new_auditable_version(self) -> None:
