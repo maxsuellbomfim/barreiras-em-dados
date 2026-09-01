@@ -61,11 +61,17 @@ import FinanceFamilyCoverageMap from "./finance-family-coverage-map";
 import FinanceObligationCoverageMatrix from "./finance-obligation-coverage-matrix";
 import FinancePayrollCoverageMatrix from "./finance-payroll-coverage-matrix";
 import FinanceFiscalReportCoverageMatrix from "./finance-fiscal-report-coverage-matrix";
+import FinanceMunicipalDocumentCoverage from "./finance-municipal-document-coverage";
 import {
   toFiscalCoverageEntry,
   type FiscalReportCoverageEntry,
   type FiscalReportCoverageResult,
 } from "../../lib/fiscal-report-coverage-matrix.mjs";
+import {
+  toMunicipalFinanceDocumentCoverageEntry,
+  type MunicipalFinanceDocumentCoverageEntry,
+  type MunicipalFinanceDocumentCoverageResult,
+} from "../../lib/municipal-finance-document-coverage.mjs";
 
 export const revalidate = 300;
 
@@ -235,6 +241,25 @@ function fiscalCoverageResult(
   return { state: "available", entries };
 }
 
+function municipalFinanceDocumentCoverageResult(
+  results: readonly FinanceDocumentsResult[],
+): MunicipalFinanceDocumentCoverageResult {
+  if (results.some((result) => result.state !== "available")) {
+    return { state: "unavailable" };
+  }
+  const entries: MunicipalFinanceDocumentCoverageEntry[] = [];
+  for (const result of results) {
+    if (result.state !== "available") return { state: "unavailable" };
+    for (const document of result.documents) {
+      if (document.fiscalYear !== null && document.fiscalYear < 2021) continue;
+      const entry = toMunicipalFinanceDocumentCoverageEntry(document);
+      if (!entry) return { state: "unavailable" };
+      entries.push(entry);
+    }
+  }
+  return { state: "available", entries };
+}
+
 export default async function FinancesPage() {
   const [
     expensesResult,
@@ -254,6 +279,8 @@ export default async function FinancesPage() {
     rgfDocumentsResult,
     municipalControlDocumentsResult,
     balanceteDocumentsResult,
+    revenueDocumentsResult,
+    expenseDocumentsResult,
   ] = await Promise.all([
     getPublicExpenseReports(),
     getPublicRevenues(),
@@ -272,6 +299,8 @@ export default async function FinancesPage() {
     getPublicFinanceDocuments("rgf"),
     getPublicFinanceDocuments("pdc-contas-anuais"),
     getPublicFinanceDocuments("balancetes"),
+    getPublicFinanceDocuments("pdc-resumo-execucao-da-receita"),
+    getPublicFinanceDocuments("pdc-resumo-execucao-da-despesa"),
   ]);
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
@@ -292,6 +321,8 @@ export default async function FinancesPage() {
     rgfDocumentsResult,
     municipalControlDocumentsResult,
     balanceteDocumentsResult,
+    revenueDocumentsResult,
+    expenseDocumentsResult,
   );
   const monthlyClosures =
     monthlyResult.state === "available" ? monthlyResult.closures : [];
@@ -375,6 +406,7 @@ export default async function FinancesPage() {
       !isObligationDocument(document) &&
       !isMunicipalControlDocument(document),
   );
+  const recentOperationalDocuments = operationalDocuments.slice(0, 36);
   const sortedMonthlyClosures = [...monthlyClosures].sort((left, right) =>
     right.periodEnd.localeCompare(left.periodEnd),
   );
@@ -389,6 +421,11 @@ export default async function FinancesPage() {
     siconfiYears: siconfiAnnualYears,
   });
   const fiscalCoverage = fiscalCoverageResult(rreoDocumentsResult, rgfDocumentsResult);
+  const municipalDocumentCoverage = municipalFinanceDocumentCoverageResult([
+    balanceteDocumentsResult,
+    revenueDocumentsResult,
+    expenseDocumentsResult,
+  ]);
 
   return (
     <main>
@@ -1348,13 +1385,26 @@ export default async function FinancesPage() {
           </section>
         ) : null}
 
+        <section className="finance-coverage-section" aria-labelledby="municipal-document-coverage-title">
+          <div className="section-heading compact">
+            <span className="eyebrow">Cobertura dos documentos mensais</span>
+            <h2 id="municipal-document-coverage-title">Balancete, receita e despesa por competência</h2>
+            <p>
+              Compare as três famílias sem misturar seus valores. PDF preservado,
+              registro apenas catalogado, versões da mesma competência, prazo aberto e
+              documento não localizado são estados diferentes.
+            </p>
+          </div>
+          <FinanceMunicipalDocumentCoverage initialResult={municipalDocumentCoverage} />
+        </section>
+
         <section aria-labelledby="document-title" className="finance-documents">
           <div className="section-heading compact">
             <span className="eyebrow">Documentos oficiais</span>
             <h2 id="document-title">O que a Prefeitura publicou</h2>
             <p>
               {operationalDocuments.length > 0
-                ? `Exibindo ${operationalDocuments.length.toLocaleString("pt-BR")} documentos de execução e arrecadação, do mais recente ao mais antigo.`
+                ? `${operationalDocuments.length.toLocaleString("pt-BR")} documentos no catálogo. A lista abaixo mostra os ${recentOperationalDocuments.length.toLocaleString("pt-BR")} mais recentes; o calendário acima dá acesso por competência.`
                 : "Ainda não há documentos mensais de execução ou arrecadação disponíveis."}
             </p>
           </div>
@@ -1378,8 +1428,12 @@ export default async function FinancesPage() {
               </div>
             </div>
           ) : (
-            <div className="digest-grid">
-              {operationalDocuments.map((document) => (
+            <details className="finance-details">
+              <summary>
+                Ver {recentOperationalDocuments.length.toLocaleString("pt-BR")} documentos mais recentes
+              </summary>
+              <div className="digest-grid">
+              {recentOperationalDocuments.map((document) => (
                 <article className="digest-card" key={document.documentId}>
                   <div className="track-top">
                     <span>{financeResourceLabel(document.sourceResource)}</span>
@@ -1411,7 +1465,8 @@ export default async function FinancesPage() {
                   </p>
                 </article>
               ))}
-            </div>
+              </div>
+            </details>
           )}
         </section>
 
