@@ -16,6 +16,7 @@ from barreiras_normalization.expense_publication import (
 )
 from barreiras_normalization.expense_publisher import (
     ExpenseArtifact,
+    ExpensePersistenceResult,
     ExpensePublicationIntegrityError,
     ExpenseReportPublisher,
     PostgresExpensePublicationRepository,
@@ -29,6 +30,12 @@ FIXTURE_TEXT = (
     / "fixtures"
     / "documents"
     / "financial-expense-report-sample.txt"
+).read_text(encoding="utf-8")
+TCM_FIXTURE_TEXT = (
+    Path(__file__).parents[2]
+    / "fixtures"
+    / "documents"
+    / "tcm-ba-analytical-expense-sample.txt"
 ).read_text(encoding="utf-8")
 PDF_BODY = b"%PDF-1.7 deterministic-expense-fixture"
 
@@ -46,11 +53,17 @@ class FakeRepository:
     def __init__(self) -> None:
         self.inserted_batches = []
 
-    def persist_validated_report(self, artifact, batch) -> int:
+    def persist_validated_report(self, artifact, batch) -> ExpensePersistenceResult:
         if self.inserted_batches:
-            return 0
+            return ExpensePersistenceResult(
+                report_inserted=False,
+                published_lines=0,
+            )
         self.inserted_batches.append((artifact, batch))
-        return len(batch.rows)
+        return ExpensePersistenceResult(
+            report_inserted=True,
+            published_lines=len(batch.rows),
+        )
 
 
 class FakeRows:
@@ -306,6 +319,18 @@ def artifact_for(body: bytes = PDF_BODY) -> ExpenseArtifact:
     )
 
 
+def tcm_artifact_for(body: bytes = PDF_BODY) -> ExpenseArtifact:
+    return ExpenseArtifact(
+        id="00000000-0000-4000-8000-000000000914",
+        sha256=hashlib.sha256(body).hexdigest(),
+        object_key="tcm-ba/monthly/2023/04/expense-example.pdf",
+        byte_size=len(body),
+        parent_record_id="00000000-0000-4000-8000-000000000915",
+        source_url="https://e.tcm.ba.gov.br/epp/PdfReadOnly/downloadDocumento.seam",
+        source_kind="tcm_ba",
+    )
+
+
 class ExpensePublisherTests(unittest.TestCase):
     def test_persists_literal_total_source_conflict_with_two_evidences(
         self,
@@ -441,7 +466,10 @@ class ExpensePublisherTests(unittest.TestCase):
 
         self.assertEqual(
             repository.persist_validated_report(artifact_for(), batch),
-            0,
+            ExpensePersistenceResult(
+                report_inserted=False,
+                published_lines=0,
+            ),
         )
 
         self.assertEqual(len(connection.allocation_parameters), 3)
@@ -500,6 +528,7 @@ class ExpensePublisherTests(unittest.TestCase):
         self.assertIn("current_reports as materialized", query)
         self.assertIn("report.methodology_version <> %s", query)
         self.assertIn("new_candidates as", query)
+        self.assertIn("tcm_ba_candidates as", query)
         self.assertIn("union all", query)
         self.assertIn("report.origin_raw_record_id::text as parent_record_id", query)
         self.assertIn("job.status = 'dead_lettered'", query)
@@ -510,13 +539,49 @@ class ExpensePublisherTests(unittest.TestCase):
                 2021,
                 2026,
                 "public-expense-pdf/1.4.0",
+                "tcm-ba-analytical-expense/1.0.0",
                 2021,
                 2026,
+                2021,
+                2026,
+                None,
+                None,
                 "financial_expense_publication",
                 5,
             ),
         )
         self.assertTrue(connection.closed)
+
+    def test_pending_documents_can_target_exact_tcm_expense_artifact(self) -> None:
+        connection = CapturingConnection(
+            rows=(
+                {
+                    "id": tcm_artifact_for().id,
+                    "sha256": tcm_artifact_for().sha256,
+                    "object_key": tcm_artifact_for().object_key,
+                    "byte_size": tcm_artifact_for().byte_size,
+                    "parent_record_id": tcm_artifact_for().parent_record_id,
+                    "source_url": tcm_artifact_for().source_url,
+                    "source_kind": "tcm_ba",
+                },
+            )
+        )
+        repository = PostgresExpensePublicationRepository(lambda: connection)
+
+        artifacts = repository.pending_documents(
+            limit=1,
+            fiscal_year_from=2023,
+            fiscal_year_to=2023,
+            artifact_sha256=tcm_artifact_for().sha256,
+        )
+
+        self.assertEqual(artifacts, (tcm_artifact_for(),))
+        query = " ".join(connection.query.lower().split())
+        self.assertIn("tcm_ba_candidates as", query)
+        self.assertIn("tcm-ba-monthly-document", query)
+        self.assertIn("tcm-ba-document-download-prepare", query)
+        self.assertIn("pcmge015", query)
+        self.assertIn("candidates.sha256 = %s", query)
 
     def test_older_methodology_creates_a_new_auditable_version(self) -> None:
         batch = build_expense_publication_batch(parse_expense_pdf_text(FIXTURE_TEXT))
@@ -542,6 +607,31 @@ class ExpensePublisherTests(unittest.TestCase):
             plan.origin_raw_record_id,
             "00000000-0000-4000-8000-000000000913",
         )
+
+    def test_older_tcm_methodology_creates_a_new_auditable_version(self) -> None:
+        base = build_expense_publication_batch(
+            parse_expense_pdf_text(FIXTURE_TEXT)
+        )
+        batch = replace(
+            base,
+            rows=(),
+            methodology_version="tcm-ba-analytical-expense/1.1.0",
+        )
+
+        plan = plan_expense_report_version(
+            {
+                "id": "00000000-0000-4000-8000-000000000921",
+                "origin_raw_record_id": "00000000-0000-4000-8000-000000000913",
+                "version": 1,
+                "external_id": "immutable-old-digest",
+                "methodology_version": "tcm-ba-analytical-expense/1.0.0",
+            },
+            artifact=tcm_artifact_for(),
+            batch=batch,
+        )
+
+        self.assertEqual(plan.action, "insert")
+        self.assertEqual(plan.version, 2)
 
     def test_failure_is_retryable_until_dead_letter(self) -> None:
         connection = CapturingConnection()
@@ -590,6 +680,33 @@ class ExpensePublisherTests(unittest.TestCase):
         self.assertEqual(second.status, "already_published")
         self.assertEqual(second.published_lines, 0)
         self.assertEqual(len(repository.inserted_batches), 1)
+
+    def test_tcm_publisher_validates_all_rows_but_publishes_summary_only(self) -> None:
+        repository = FakeRepository()
+        publisher = ExpenseReportPublisher(
+            object_reader=FakeReader(PDF_BODY),
+            repository=repository,
+            text_extractor=lambda _body: TCM_FIXTURE_TEXT,
+        )
+
+        result = publisher.publish(tcm_artifact_for())
+
+        self.assertEqual(result.status, "published")
+        self.assertEqual(result.published_lines, 0)
+        self.assertEqual(len(repository.inserted_batches), 1)
+        _artifact, batch = repository.inserted_batches[0]
+        self.assertEqual(batch.rows, ())
+        self.assertEqual(
+            batch.methodology_version,
+            "tcm-ba-analytical-expense/1.0.0",
+        )
+        self.assertEqual(batch.total_paid_period_amount, Decimal("10.00"))
+        serialized_batch = json.dumps(
+            batch.__dict__,
+            ensure_ascii=False,
+            default=str,
+        )
+        self.assertNotIn("�", serialized_batch)
 
 
 if __name__ == "__main__":

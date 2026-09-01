@@ -122,6 +122,10 @@ competência e o código oficial `PCMGE015`. O próximo passo operacional é
 preservar esse documento para abril de 2023 e só então comparar sua metodologia
 com o demonstrativo municipal ausente. O documento exato já foi preservado e
 seu parser SIGA passou por todas as 184 páginas, 2.655 linhas e 25 unidades sem
-divergência contábil. A próxima entrega é registrar a linhagem TCM-BA como uma
-origem pública distinta e publicar o fechamento alternativo com essa ressalva,
-sem reclassificar o documento como se viesse do portal municipal.
+divergência contábil. A linhagem exata TCM-BA agora reconhece somente a cadeia
+registro `PCMGE015` -> preparação -> PDF oficial e rejeita documentos de outra
+família. O publicador usa todas as linhas para reconciliar os totais, mas mantém
+as descrições analíticas fora da projeção enquanto o texto da fonte contiver
+caracteres corrompidos. A próxima operação é aplicar essa migration, publicar
+apenas o resumo validado de abril de 2023 e auditar o RPC e a página pública
+antes de declarar o fechamento alternativo disponível.
