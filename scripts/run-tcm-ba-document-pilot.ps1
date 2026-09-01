@@ -8,6 +8,7 @@ param(
     [switch]$ReportOnly,
     [switch]$DocumentLineageOnly,
     [switch]$DocumentTextOnly,
+    [switch]$ExpenseSummaryOnly,
     [string]$ArtifactSha256 = "",
     [switch]$AuditOnly,
     [switch]$CommitmentReplayOnly,
@@ -137,6 +138,27 @@ function Read-TextEvents {
     }
     if ($events.Count -eq 0) {
         throw "O processador não produziu o evento final de texto TCM-BA."
+    }
+    return $events
+}
+function Read-ExpensePublicationEvents {
+    param([object[]]$Output)
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -eq "expense_publication_completed") {
+            $events += $event
+        }
     }
     return $events
 }
@@ -434,6 +456,7 @@ $exclusiveModes = @(@(
     $ReportOnly,
     $DocumentLineageOnly,
     $DocumentTextOnly,
+    $ExpenseSummaryOnly,
     $AuditOnly,
     $CommitmentReplayOnly,
     $CommitmentBudgetBenchmarkOnly,
@@ -453,6 +476,9 @@ if ($PlanOnly -and -not $AutoCompetence) {
 if ($DocumentTextOnly -and ($AutoCompetence -or $PlanOnly)) {
     throw "-DocumentTextOnly não pode ser combinado com outro modo."
 }
+if ($ExpenseSummaryOnly -and ($AutoCompetence -or $PlanOnly)) {
+    throw "-ExpenseSummaryOnly não pode ser combinado com outro modo."
+}
 if ($ReportOnly -and ($AutoCompetence -or $PlanOnly -or $DocumentLineageOnly)) {
     throw "-ReportOnly não pode ser combinado com -AutoCompetence ou -PlanOnly."
 }
@@ -471,16 +497,22 @@ if (
     throw "-DocumentLineageOnly exige -ArtifactSha256 hexadecimal de 64 caracteres."
 }
 if (
-    -not ($DocumentLineageOnly -or $DocumentTextOnly) -and
+    -not ($DocumentLineageOnly -or $DocumentTextOnly -or $ExpenseSummaryOnly) -and
     -not [string]::IsNullOrWhiteSpace($ArtifactSha256)
 ) {
-    throw "-ArtifactSha256 exige -DocumentLineageOnly ou -DocumentTextOnly."
+    throw "-ArtifactSha256 exige um modo documental exato."
 }
 if (
     $DocumentTextOnly -and
     $ArtifactSha256 -notmatch '^[0-9a-fA-F]{64}$'
 ) {
     throw "-DocumentTextOnly exige -ArtifactSha256 hexadecimal de 64 caracteres."
+}
+if (
+    $ExpenseSummaryOnly -and
+    $ArtifactSha256 -notmatch '^[0-9a-fA-F]{64}$'
+) {
+    throw "-ExpenseSummaryOnly exige -ArtifactSha256 hexadecimal de 64 caracteres."
 }
 if (
     $AuditOnly -and
@@ -546,7 +578,8 @@ if (-not [string]::IsNullOrWhiteSpace($CategoryCode)) {
     }
     if (
         $AutoCompetence -or $PlanOnly -or $ReportOnly -or
-        $DocumentLineageOnly -or $DocumentTextOnly -or $AuditOnly -or $CommitmentReplayOnly -or
+        $DocumentLineageOnly -or $DocumentTextOnly -or $ExpenseSummaryOnly -or
+        $AuditOnly -or $CommitmentReplayOnly -or
         $CommitmentBudgetBenchmarkOnly -or $CommitmentAmountBenchmarkOnly -or
         $CommitmentCreditorBenchmarkOnly -or $CommitmentIssueDateBenchmarkOnly
     ) {
@@ -623,9 +656,7 @@ try {
     $env:APP_ENV = "development"
     $env:LOG_LEVEL = "INFO"
     $env:PYTHONDONTWRITEBYTECODE = "1"
-    $env:PYTHONPATH = (
-        "workers/collectors/src;workers/document-processing/src"
-    )
+    $env:PYTHONPATH = "workers/collectors/src;workers/document-processing/src;workers/normalization/src"
     $env:PERSISTENCE_MODE = "postgres-supabase"
     $env:SUPABASE_URL = "https://$projectRef.supabase.co"
     $env:SUPABASE_PUBLISHABLE_KEY = $publishableKey
@@ -634,6 +665,35 @@ try {
     $env:SUPABASE_RAW_ARTIFACTS_BUCKET = "raw-artifacts"
 
     $python = Find-Python
+    if ($ExpenseSummaryOnly) {
+        Push-Location $projectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $publicationOutput = @(
+                    & $python -B -m barreiras_normalization.commands.publish_expense_reports --limit 1 --artifact-sha256 $ArtifactSha256 2>&1
+                )
+                $publicationExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $publicationOutput | ForEach-Object { Write-Host $_ }
+        if ($publicationExitCode -ne 0) {
+            throw "A publicação exata de despesa terminou com código $publicationExitCode."
+        }
+        $publicationEvents = @(Read-ExpensePublicationEvents -Output $publicationOutput)
+        $null = Assert-TcmBaExpensePublicationApproval `
+            -Events $publicationEvents `
+            -ArtifactSha256 $ArtifactSha256
+        Write-Host "TCM_BA_EXPENSE_SUMMARY_APPROVED" -ForegroundColor Green
+        return
+    }
     if ($DocumentTextOnly) {
         Push-Location $projectRoot
         try {

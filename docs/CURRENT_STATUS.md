@@ -108,13 +108,12 @@ o replay controlado foi concluído: os doze fechamentos mensais estão
 `operational` no RPC público, cada um com um relatório de receita, 281 rubricas
 de receita e um relatório de despesa. A conferência do detalhe mensal também
 comprovou URLs oficiais e hashes de linhagem para os documentos de receita e
-despesa. A próxima lacuna objetiva é abril de 2023, que possui receita publicada
-mas ainda não fecha a despesa mensal. A auditoria da fonte encontrou o registro
-oficial dessa despesa, porém a URL publicada redireciona para o login
-administrativo e não entrega um PDF. O portal mantém o mês como `needs_data`,
-sem aproveitar como valor a descrição do catálogo. O coletor agora oferece
-resgate por competência e falha explicitamente se o documento exato não puder
-ser preservado, eliminando o antigo falso verde dessa operação direcionada.
+despesa. A lacuna de abril de 2023 possuía receita publicada, mas ainda não
+fechava a despesa mensal. A auditoria da primeira fonte encontrou o registro
+oficial, porém a URL publicada redirecionava para o login administrativo e não
+entregava um PDF. O coletor passou a oferecer resgate por competência e a
+falhar explicitamente se o documento exato não pudesse ser preservado,
+eliminando o antigo falso verde dessa operação direcionada.
 A busca na segunda fonte oficial também deixou de depender da ordem genérica da
 fila: a linhagem pelo hash provou que o demonstrativo TCM-BA antes disponível é
 de janeiro de 2021, e a coleta documental agora pode exigir simultaneamente a
@@ -126,6 +125,12 @@ divergência contábil. A linhagem exata TCM-BA agora reconhece somente a cadeia
 registro `PCMGE015` -> preparação -> PDF oficial e rejeita documentos de outra
 família. O publicador usa todas as linhas para reconciliar os totais, mas mantém
 as descrições analíticas fora da projeção enquanto o texto da fonte contiver
-caracteres corrompidos. A próxima operação é aplicar essa migration, publicar
-apenas o resumo validado de abril de 2023 e auditar o RPC e a página pública
-antes de declarar o fechamento alternativo disponível.
+caracteres corrompidos. A migration foi aplicada e o resumo validado foi
+publicado. O RPC e a página de abril de 2023 foram auditados: um relatório de
+receita e um de despesa fecham como `operational`, com URLs e hashes
+verificáveis. A interface identifica o demonstrativo como proveniente do
+TCM-BA e explica que ele é uma fonte oficial distinta do portal municipal. O
+comando local de publicação exata agora exige um SHA-256, um único relatório e
+zero falha; um lote vazio não pode receber selo de sucesso. O próximo recorte
+financeiro deve ser escolhido pela matriz de cobertura, priorizando a
+competência cronológica mais antiga que ainda não possua fechamento operacional.

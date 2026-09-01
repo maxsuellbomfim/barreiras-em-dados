@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import re
 from collections.abc import Sequence
@@ -22,6 +23,28 @@ def completion_exit_code(*, needs_review: int) -> int:
     """Não mascara como sucesso um lote que teve falha de publicação."""
 
     return 1 if needs_review else 0
+
+
+def build_completion_event(
+    *,
+    artifact_sha256: str | None,
+    artifacts: int,
+    reports_published: int,
+    published_lines: int,
+    already_published: int,
+    needs_review: int,
+) -> dict[str, str | int | None]:
+    """Emite um contrato sanitizado que wrappers podem validar sem ler texto."""
+
+    return {
+        "event": "expense_publication_completed",
+        "artifact_sha256": artifact_sha256,
+        "artifacts": artifacts,
+        "reports_published": reports_published,
+        "published_lines": published_lines,
+        "already_published": already_published,
+        "needs_review": needs_review,
+    }
 
 
 def _cloud_client(settings):
@@ -82,7 +105,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     publisher = ExpenseReportPublisher(object_reader=reader, repository=repository)
 
-    published = 0
+    reports_published = 0
+    published_lines = 0
     already_published = 0
     needs_review = 0
     artifacts = repository.pending_documents(
@@ -121,18 +145,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             continue
         if result.status == "published":
-            published += result.published_lines
+            reports_published += 1
+            published_lines += result.published_lines
         else:
             already_published += 1
 
-    logger.info(
-        "expense_publication_completed artifacts=%s published_lines=%s "
-        "already_published=%s needs_review=%s",
-        len(artifacts),
-        published,
-        already_published,
-        needs_review,
+    completion_event = build_completion_event(
+        artifact_sha256=artifact_sha256,
+        artifacts=len(artifacts),
+        reports_published=reports_published,
+        published_lines=published_lines,
+        already_published=already_published,
+        needs_review=needs_review,
     )
+    logger.info(json.dumps(completion_event, ensure_ascii=False, sort_keys=True))
     return completion_exit_code(needs_review=needs_review)
 
 

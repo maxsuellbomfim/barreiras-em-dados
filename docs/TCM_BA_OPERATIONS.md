@@ -37,13 +37,37 @@ unidades orçamentárias e exigiu igualdade entre cada linha, os subtotais das
 unidades, o `Total do Poder` e os valores repetidos no resumo. O benchmark
 fechou sem conflito e confirmou, para abril de 2023, R$ 16.029.966,95
 empenhados no mês, R$ 62.639.688,25 liquidados e R$ 56.656.735,88 pagos. Esses
-valores ainda não são publicados por este estágio. A migration de linhagem
+valores não foram publicados por esse estágio. A migration de linhagem
 financeira passa a aceitar somente a cadeia oficial `PCMGE015` -> preparação
 -> PDF e o publicador dirigido pode selecionar o artefato por SHA-256. Ele
 reconcilia as 2.655 linhas, mas persiste somente os totais: descrições com
 caracteres de substituição permanecem indisponíveis em vez de serem exibidas de
-forma enganosa. A publicação operacional exige migration aplicada, replay do
-hash exato e auditoria posterior do RPC público.
+forma enganosa. A migration foi aplicada em 01/09/2026 e o relatório
+`9b9c2e1d-ca81-4d00-a70a-8c82ada97898` foi publicado somente como resumo
+validado. A auditoria posterior confirmou o PDF de hash
+`6670a953af416ee2d9028653ffe2b67f1c8e047cdc9d31b94fa13ed8e63620fe`, a
+resposta de origem de hash
+`cd960048aa445eca23e532c3c7b170441aba51da964b76438150d1e14000d275` e o
+fechamento público `operational` de abril de 2023. A página identifica o
+TCM-BA como origem distinta do portal municipal e preserva os dois links e os
+dois hashes para conferência.
+
+Para publicar ou repetir de forma idempotente um único demonstrativo já
+preservado, use o modo exato:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/run-tcm-ba-document-pilot.ps1 `
+  -ExpenseSummaryOnly `
+  -ArtifactSha256 <sha256>
+```
+
+O selo `TCM_BA_EXPENSE_SUMMARY_APPROVED` exige exatamente um evento final, o
+mesmo SHA solicitado, um relatório publicado ou reconhecido como idempotente e
+zero falha. O gate aceita zero linhas analíticas porque o demonstrativo TCM-BA
+usa todas as linhas na reconciliação, mas publica somente os totais enquanto as
+descrições estiverem corrompidas. Em contraste, zero artefatos encontrados
+sempre bloqueia o selo.
 
 Quando `-CategoryCode` é usado, o wrapper exige exatamente um hash retornado
 pelo coletor e encaminha esse hash tanto ao processador de texto quanto ao

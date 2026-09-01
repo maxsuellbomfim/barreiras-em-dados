@@ -8,6 +8,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from barreiras_normalization.commands.publish_expense_reports import (
+    build_completion_event,
     completion_exit_code,
 )
 from barreiras_normalization.expense_publication import (
@@ -655,6 +656,24 @@ class ExpensePublisherTests(unittest.TestCase):
     def test_command_fails_when_any_artifact_needs_review(self) -> None:
         self.assertEqual(completion_exit_code(needs_review=0), 0)
         self.assertEqual(completion_exit_code(needs_review=1), 1)
+
+    def test_completion_event_distinguishes_summary_from_empty_batch(self) -> None:
+        sha256 = "6" * 64
+
+        event = build_completion_event(
+            artifact_sha256=sha256,
+            artifacts=1,
+            reports_published=1,
+            published_lines=0,
+            already_published=0,
+            needs_review=0,
+        )
+
+        self.assertEqual(event["event"], "expense_publication_completed")
+        self.assertEqual(event["artifact_sha256"], sha256)
+        self.assertEqual(event["artifacts"], 1)
+        self.assertEqual(event["reports_published"], 1)
+        self.assertEqual(event["published_lines"], 0)
 
     def test_publisher_rejects_tampered_pdf_before_insert(self) -> None:
         repository = FakeRepository()
