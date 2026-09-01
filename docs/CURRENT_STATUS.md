@@ -103,6 +103,10 @@ era reconhecido. O parser agora separa o código de fonte colado ao último valo
 agrega parcelas do mesmo código apenas quando a descrição coincide e mantém
 conflito explícito quando não coincide. Os doze PDFs oficiais de 2022 passaram
 pelo parser corrigido. O publicador também deixou de ignorar falhas para sempre
-e não pode mais encerrar verde com documentos em `needs_review`. O próximo gate
-é executar o replay de 2022 e comprovar, nos RPCs públicos, doze fechamentos
-mensais operacionais com linhagem aos PDFs.
+e não pode mais encerrar verde com documentos em `needs_review`. Em 01/09/2026,
+o replay controlado foi concluído: os doze fechamentos mensais estão
+`operational` no RPC público, cada um com um relatório de receita, 281 rubricas
+de receita e um relatório de despesa. A conferência do detalhe mensal também
+comprovou URLs oficiais e hashes de linhagem para os documentos de receita e
+despesa. A próxima lacuna objetiva é abril de 2023, que possui receita publicada
+mas ainda não fecha a despesa mensal.
