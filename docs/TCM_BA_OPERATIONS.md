@@ -70,11 +70,23 @@ texto embutido. O parser específico reconheceu 248 rubricas, incluindo os sete
 valores separados entre a linha principal e a linha seguinte, e reconciliou as
 categorias de primeiro nível com o total geral. O benchmark confirmou
 R$ 514.717.532,00 previstos, R$ 65.083.819,60 arrecadados no mês e o mesmo valor
-acumulado. Esse estágio apenas valida; a publicação depende da ampliação
-auditável da linhagem financeira para `PCMGE016`.
+acumulado. A migration de linhagem foi aplicada e o relatório foi publicado
+sob metodologia versionada, mantendo o PDF e a resposta da fonte verificáveis.
 
-Após aplicar a migration que reconhece o `PCMGE016`, publique ou confira
-idempotentemente apenas esse relatório pelo hash imutável:
+O demonstrativo `PCMGE016` de `02/2021`, hash
+`0ab77493c9d36471441d1406ea88c1f518c747c034aa83ba893b362eb48b7cc2`,
+possui 12 páginas e 253 rubricas. Ele comprovou uma diferença de sinal que não
+aparecia em janeiro: `Anulada no Mês` e `Anulada até Mês` já são valores
+negativos. A metodologia `tcm-ba-analytical-revenue/1.1.0` usa soma algébrica,
+rejeita valor positivo nesse leiaute e conserva todos os demais gates. Os
+totais líquidos de R$ 45.849.799,31 no mês e R$ 110.933.618,91 acumulados
+coincidem com o quadro-resumo oficial. O `PCMGE015` da mesma competência, hash
+`9040b4327f478e72f5065efdfc73e4bfc65033e46bb6e03647e25199f875d694`,
+também passou pela linhagem e pelo parser determinístico. O detalhe público
+fechou como `operational`, com uma receita e uma despesa, sem somar versões.
+
+Para conferir idempotentemente apenas o relatório de janeiro pelo hash
+imutável:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass `

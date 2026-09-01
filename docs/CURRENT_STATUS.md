@@ -124,18 +124,15 @@ interface identifica o TCM-BA como fonte oficial distinta do portal municipal.
 O comando local de publicação exata exige um SHA-256, um único relatório e zero
 falha; lote vazio não recebe selo de sucesso.
 
-Em 01/09/2026, o mesmo gate validou o PDF `PCMGE015` de janeiro de 2021. O
-parser `tcm-ba-analytical-expense/1.1.0` passou a representar as fontes SIGA de
-três ou quatro dígitos e resolve uma fonte concatenada ao primeiro valor apenas
-quando outra linha do próprio documento comprova uma interpretação única. As
-173 páginas fecharam integralmente e o resumo de despesa foi publicado. A RPC
-pública permanece corretamente em `needs_data`: há um relatório de despesa,
-nenhum relatório de receita e aviso explícito de que ainda não existe receita
-comparável. O próximo recorte é recuperar e validar o demonstrativo oficial de
-receita `PCMGE016` da mesma competência, sem fabricar fechamento antes disso. O
-PDF já preservado possui linhagem oficial única, 11 páginas com texto e 248
-rubricas. O parser determinístico específico do SIGA validou os sete valores de
-cada rubrica, a equação de saldo, as categorias de primeiro nível, o total geral
-e o resumo: R$ 514.717.532,00 previstos e R$ 65.083.819,60 arrecadados em
-janeiro. A publicação permanece bloqueada até uma migration separada ampliar a
-linhagem financeira exata, hoje restrita ao `PCMGE015`, para o `PCMGE016`.
+Em 01/09/2026, o mesmo gate fechou janeiro e fevereiro de 2021 com os pares
+oficiais `PCMGE015` e `PCMGE016`. Janeiro possui um relatório de receita, 248
+rubricas e um relatório de despesa. Fevereiro possui um relatório de receita,
+253 rubricas e um relatório de despesa. O PDF de receita de fevereiro comprovou
+que o SIGA imprime anulações com sinal negativo; a metodologia
+`tcm-ba-analytical-revenue/1.1.0` passou a aplicar a soma algébrica e a rejeitar
+anulações positivas nesse leiaute. O quadro-resumo oficial fechou em
+R$ 45.849.799,31 líquidos no mês e R$ 110.933.618,91 acumulados. A RPC pública
+de fevereiro está `operational`: R$ 34.412.345,07 empenhados,
+R$ 37.885.590,11 liquidados, R$ 35.611.012,38 pagos e diferença operacional de
+R$ 10.238.786,93, expressamente não tratada como superávit fiscal. Os dois meses
+mantêm URLs oficiais e hashes distintos de receita e despesa para conferência.
