@@ -132,6 +132,18 @@ interpretada como déficit. Uma chamada direta atingiu o timeout e o retry
 imediato concluiu em 1,19 s; o HTML público permaneceu correto. O episódio é
 transitório até nova reprodução, mas deve permanecer observável.
 
+Em `07/2021`, o `PCMGE016`, hash
+`5adaf8beff64b177aaf647d50b49768532ecea9063f26aef871f1c04f17735bd`,
+passou por 12 páginas com texto embutido, 253 rubricas e publicação sem
+revisão. O `PCMGE015`, hash
+`5b914f82c687dc320dbb1311dcc0db8d73479250c5ce55a5333f3aeaf52f0682`,
+passou por 193 páginas com texto embutido e uma única linhagem oficial. O
+detalhe público fechou `operational`: R$ 45.999.611,58 de receita líquida,
+R$ 25.912.406,60 empenhados, R$ 48.284.964,74 liquidados e
+R$ 48.806.026,83 pagos. A diferença operacional de -R$ 2.806.415,25 não é
+interpretada como déficit ou irregularidade. O RPC respondeu em 3,26 s e o
+HTML público continha os dois hashes.
+
 Para conferir idempotentemente apenas o relatório de janeiro pelo hash
 imutável:
 
