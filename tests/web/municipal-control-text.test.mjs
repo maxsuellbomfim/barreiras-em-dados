@@ -22,6 +22,10 @@ const financePage = await readFile(
   new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
   "utf8",
 );
+const sitemapSource = await readFile(
+  new URL("../../apps/web/app/sitemap.ts", import.meta.url),
+  "utf8",
+);
 
 const originalFetch = globalThis.fetch;
 const originalUrl = process.env.PUBLIC_DATA_SUPABASE_URL;
@@ -116,4 +120,11 @@ test("páginas explicam o limite e ligam lista, detalhe e fonte oficial", () => 
   assert.match(detailPage, /Abrir documento oficial/);
   assert.match(detailPage, /SHA-256/);
   assert.match(financePage, /href="\/financas\/base-legal"/);
+});
+
+test("sitemap publica a coleção e somente detalhes verificados", () => {
+  assert.match(sitemapSource, /route:\s*["']\/financas\/base-legal["']/);
+  assert.match(sitemapSource, /searchMunicipalControlDocuments\(\{ pageSize: 50 \}\)/);
+  assert.match(sitemapSource, /legalDocuments\.state === ["']available["']/);
+  assert.match(sitemapSource, /financas\/base-legal\/\$\{document\.documentId\}/);
 });
