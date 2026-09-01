@@ -357,6 +357,56 @@ function Assert-TcmBaDocumentTextApproval {
     return $true
 }
 
+function Assert-TcmBaExpensePublicationApproval {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object[]]$Events,
+        [Parameter(Mandatory = $true)]
+        [string]$ArtifactSha256
+    )
+
+    if ($ArtifactSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "A aprovação exige um SHA-256 hexadecimal."
+    }
+    $completedEvents = @(
+        $Events | Where-Object {
+            $_.event -eq "expense_publication_completed"
+        }
+    )
+    if ($completedEvents.Count -ne 1) {
+        throw "A aprovação exige um único evento final de despesa."
+    }
+    $event = $completedEvents[0]
+    if (
+        $event.artifact_sha256 -isnot [string] -or
+        $event.artifact_sha256.ToLowerInvariant() -ne
+            $ArtifactSha256.ToLowerInvariant()
+    ) {
+        throw "O publicador não atingiu o SHA-256 solicitado."
+    }
+    $artifacts = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.artifacts -FieldName "artifacts"
+    $reportsPublished = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.reports_published -FieldName "reports_published"
+    $publishedLines = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.published_lines -FieldName "published_lines"
+    $alreadyPublished = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.already_published -FieldName "already_published"
+    $needsReview = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.needs_review -FieldName "needs_review"
+    $null = $publishedLines
+
+    if (
+        $artifacts -ne 1 -or
+        $needsReview -ne 0 -or
+        ($reportsPublished + $alreadyPublished) -ne 1
+    ) {
+        throw "A publicação exata não comprovou um relatório íntegro."
+    }
+    return $true
+}
+
 function Read-TcmBaCommitmentBudgetBenchmarkEvent {
     [CmdletBinding()]
     param(

@@ -92,6 +92,91 @@ function amountGateCommand(events) {
   );
 }
 
+function expensePublicationGateCommand(events, sha256 = "6".repeat(64)) {
+  const helper = validationHelperPath.replaceAll("'", "''");
+  const payload = JSON.stringify(events).replaceAll("'", "''");
+  return (
+    `. '${helper}'; ` +
+    `$events = ConvertFrom-Json '${payload}'; ` +
+    `Assert-TcmBaExpensePublicationApproval ` +
+    `-Events @($events) -ArtifactSha256 '${sha256}' | Out-Null`
+  );
+}
+
+function expensePublicationEvent(overrides = {}) {
+  return {
+    event: "expense_publication_completed",
+    artifact_sha256: "6".repeat(64),
+    artifacts: 1,
+    reports_published: 1,
+    published_lines: 0,
+    already_published: 0,
+    needs_review: 0,
+    ...overrides,
+  };
+}
+
+test("publica um resumo TCM-BA somente pelo SHA exato", () => {
+  assert.match(wrapper, /\[switch\]\$ExpenseSummaryOnly/);
+  assert.match(
+    wrapper,
+    /publish_expense_reports --limit 1 --artifact-sha256 \$ArtifactSha256/,
+  );
+  assert.match(wrapper, /Assert-TcmBaExpensePublicationApproval/);
+  assert.match(wrapper, /TCM_BA_EXPENSE_SUMMARY_APPROVED/);
+  assert.match(
+    wrapper,
+    /workers\/collectors\/src;workers\/document-processing\/src;workers\/normalization\/src/,
+  );
+});
+
+test("modo de resumo rejeita SHA ausente antes de ler credenciais", () => {
+  const executable = process.platform === "win32" ? "powershell.exe" : "pwsh";
+  const result = spawnSync(
+    executable,
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      wrapperPath,
+      "-ExpenseSummaryOnly",
+    ],
+    { encoding: "utf8" },
+  );
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+
+  assert.notEqual(result.status, 0);
+  assert.match(output, /exige -ArtifactSha256/);
+  assert.doesNotMatch(output, /\.env\.collector\.local/);
+});
+
+test("gate aceita resumo sem linhas e replay idempotente", () => {
+  for (const event of [
+    expensePublicationEvent(),
+    expensePublicationEvent({
+      reports_published: 0,
+      already_published: 1,
+    }),
+  ]) {
+    const result = runPowerShell(expensePublicationGateCommand([event]));
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+});
+
+test("gate rejeita lote vazio, SHA divergente, falha ou evento duplicado", () => {
+  for (const events of [
+    [expensePublicationEvent({ artifacts: 0, reports_published: 0 })],
+    [expensePublicationEvent({ artifact_sha256: "7".repeat(64) })],
+    [expensePublicationEvent({ reports_published: 0, needs_review: 1 })],
+    [expensePublicationEvent(), expensePublicationEvent()],
+  ]) {
+    const result = runPowerShell(expensePublicationGateCommand(events));
+    assert.notEqual(result.status, 0, result.stdout + result.stderr);
+  }
+});
+
 test("benchmark de dotação é mutuamente exclusivo antes de ler credenciais", () => {
   const executable = process.platform === "win32" ? "powershell.exe" : "pwsh";
   const result = spawnSync(
