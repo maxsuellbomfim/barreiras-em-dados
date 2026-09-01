@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import logging
 import random
 import time
 import urllib.error
+import zipfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -28,10 +30,17 @@ from .querido_diario import (
     SourceUnavailableError,
 )
 
-DOCUMENT_ROLES = frozenset({"pdf", "txt"})
+DOCUMENT_ROLES = frozenset({"pdf", "txt", "docx"})
 # O CDN devolve tipos imprecisos (ex.: binary/octet-stream); classificamos o
 # artefato pelo papel anunciado e preservamos o header observado nos metadados.
-DOCUMENT_MEDIA_TYPES = {"pdf": "application/pdf", "txt": "text/plain"}
+DOCUMENT_MEDIA_TYPES = {
+    "pdf": "application/pdf",
+    "txt": "text/plain",
+    "docx": (
+        "application/vnd.openxmlformats-officedocument."
+        "wordprocessingml.document"
+    ),
+}
 MUNICIPAL_ARTIFACT_HOSTS = frozenset({"barreiras.mtransparente.com.br"})
 
 
@@ -193,6 +202,21 @@ class GazetteDocumentClient:
             raise SourceContractError(
                 f"O corpo baixado de {url} não é um PDF válido."
             )
+        if role == "docx":
+            try:
+                with zipfile.ZipFile(io.BytesIO(body)) as archive:
+                    members = frozenset(archive.namelist())
+            except (OSError, zipfile.BadZipFile) as error:
+                raise SourceContractError(
+                    f"O corpo baixado de {url} não é um DOCX válido."
+                ) from error
+            required_members = frozenset(
+                {"[Content_Types].xml", "word/document.xml"}
+            )
+            if not required_members <= members:
+                raise SourceContractError(
+                    f"O corpo baixado de {url} não é um DOCX válido."
+                )
 
     def _backoff(self, attempt: int) -> None:
         self.sleep(self.retry_policy.delay(attempt, self.random_value()))

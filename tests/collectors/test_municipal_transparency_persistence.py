@@ -238,6 +238,47 @@ class MunicipalTransparencyPersistenceTests(unittest.TestCase):
             ),
         )
 
+    def test_persists_docx_with_its_original_media_type_and_suffix(self) -> None:
+        repository = FakeRepository()
+        store = FakeObjectStore()
+        service = MunicipalTransparencyPersistenceService(
+            object_store=store,
+            repository=repository,
+        )
+        page = page_fixture()
+        page_result = service.persist(page)
+        body = b"PK\x03\x04docx-validado-pelo-conector"
+        media_type = (
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        )
+        document = CollectedDocument(
+            role="docx",
+            source_url="https://barreiras.mtransparente.com.br/arquivo.docx",
+            final_url="https://barreiras.mtransparente.com.br/arquivo.docx",
+            requested_at="2026-09-01T12:00:00+00:00",
+            received_at="2026-09-01T12:00:01+00:00",
+            attempts=1,
+            http_status=200,
+            body_sha256=hashlib.sha256(body).hexdigest(),
+            body_size_bytes=len(body),
+            media_type=media_type,
+            response_headers={"content-type": media_type},
+            raw_body=body,
+        )
+
+        result = service.persist_document(
+            page_result=page_result,
+            record=service.record_input(page, index=0, item=page.items[0]),
+            document=document,
+            source_code="prefeitura-barreiras-transparencia",
+            endpoint_code="dados-abertos-api",
+        )
+
+        self.assertTrue(result.object_key.endswith(".docx"))
+        self.assertEqual(store.objects[result.object_key], body)
+        self.assertEqual(repository.document_batches[0].document.media_type, media_type)
+
 
 if __name__ == "__main__":
     unittest.main()
