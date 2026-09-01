@@ -18,6 +18,10 @@ const diaryPage = new URL(
   "../../apps/web/app/diario/page.tsx",
   import.meta.url,
 );
+const editionPage = new URL(
+  "../../apps/web/app/diario/[ano]/[edicao]/page.tsx",
+  import.meta.url,
+);
 
 test("cota esgotada mantém explicação factual local e auditável", async () => {
   const [command, module] = await Promise.all([
@@ -38,8 +42,13 @@ test("Diário local só resume atos reconhecidos e marca cobertura parcial", asy
 });
 
 test("a página pública não depende de assistência para mostrar texto integral", async () => {
-  const page = await readFile(diaryPage, "utf8");
-  assert.match(page, /IntegralGazetteExplorer/);
+  const [page, detail] = await Promise.all([
+    readFile(diaryPage, "utf8"),
+    readFile(editionPage, "utf8"),
+  ]);
+  assert.match(page, /IntegralGazetteIndex/);
+  assert.match(detail, /IntegralGazetteExplorer/);
   assert.doesNotMatch(page, /DigestCard|ItemRow|assistMethod/);
+  assert.doesNotMatch(detail, /DigestCard|ItemRow|assistMethod/);
   assert.doesNotMatch(page, /Resumo oficial da Prefeitura|Diário Oficial traduzido/);
 });

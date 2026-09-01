@@ -41,7 +41,10 @@ function DocumentDetails({
 }>) {
   const fallback = document.publicationStatus === "edition_fallback";
   return (
-    <details className="integral-document">
+    <details
+      className="integral-document"
+      id={`document-${document.documentId}`}
+    >
       <summary>
         <span className="integral-document-summary">
           <strong>{document.literalTitle}</strong>

@@ -14,6 +14,10 @@ const explorer = await readFile(
   new URL("../../apps/web/app/diario/integral-gazette-explorer.tsx", import.meta.url),
   "utf8",
 );
+const index = await readFile(
+  new URL("../../apps/web/app/diario/integral-gazette-index.tsx", import.meta.url),
+  "utf8",
+);
 const diaryPage = await readFile(
   new URL("../../apps/web/app/diario/page.tsx", import.meta.url),
   "utf8",
@@ -35,8 +39,9 @@ test("diário publica a data da fonte e mantém os documentos recolhidos", () =>
   assert.match(digestMigration, /edition_date date/);
   assert.match(digestMigration, /querido_diario_gazette/);
   assert.match(integralClient, /editionDate/);
-  assert.match(diaryPage, /IntegralGazetteExplorer/);
-  assert.match(explorer, /Data da edição não informada/);
+  assert.match(diaryPage, /IntegralGazetteIndex/);
+  assert.match(index, /Data da edição não informada/);
+  assert.match(explorer, /fullText/);
 });
 
 test("atos padronizam título e data sem esconder a evidência", () => {
