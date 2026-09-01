@@ -119,6 +119,19 @@ R$ 14.728.786,14 empenhados, R$ 42.783.737,60 liquidados e
 R$ 36.046.119,18 pagos. A diferença operacional é R$ 7.830.600,87 e mantém a
 ressalva de não representar superávit fiscal.
 
+Em `06/2021`, o `PCMGE016`, hash
+`d786cec704c19bc74f28df3bf3ae9fe1085b39597940cb13c56ad28e332ad269`,
+passou por 12 páginas com texto embutido, 253 rubricas e publicação sem
+revisão. O `PCMGE015`, hash
+`77993ec0980b45059746d7c4a981dabc868390699756f27bb7a617f5766e40f2`,
+passou por 191 páginas com texto embutido e uma única linhagem oficial. O
+detalhe público fechou `operational`: R$ 42.715.255,06 de receita líquida,
+R$ 26.263.437,98 empenhados, R$ 42.635.614,97 liquidados e
+R$ 46.240.117,71 pagos. A diferença operacional de -R$ 3.524.862,65 não é
+interpretada como déficit. Uma chamada direta atingiu o timeout e o retry
+imediato concluiu em 1,19 s; o HTML público permaneceu correto. O episódio é
+transitório até nova reprodução, mas deve permanecer observável.
+
 Para conferir idempotentemente apenas o relatório de janeiro pelo hash
 imutável:
 

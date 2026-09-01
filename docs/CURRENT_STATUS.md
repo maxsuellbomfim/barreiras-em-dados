@@ -170,3 +170,15 @@ possui 188 páginas com texto embutido e uma única linhagem oficial. O detalhe
 público está `operational`, com R$ 14.728.786,14 empenhados,
 R$ 42.783.737,60 liquidados, R$ 36.046.119,18 pagos e diferença operacional de
 R$ 7.830.600,87. O RPC e a página pública exibem os dois hashes oficiais.
+
+Junho de 2021 também está `operational`. O `PCMGE016`, hash
+`d786cec704c19bc74f28df3bf3ae9fe1085b39597940cb13c56ad28e332ad269`,
+publicou 253 rubricas e R$ 42.715.255,06 líquidos. O `PCMGE015`, hash
+`77993ec0980b45059746d7c4a981dabc868390699756f27bb7a617f5766e40f2`,
+possui 191 páginas com texto embutido e uma única linhagem oficial. O detalhe
+mostra R$ 26.263.437,98 empenhados, R$ 42.635.614,97 liquidados e
+R$ 46.240.117,71 pagos. A diferença operacional é negativa em
+R$ 3.524.862,65 e não recebe rótulo de déficit ou irregularidade. Uma primeira
+chamada direta do RPC atingiu o timeout; o retry imediato respondeu em 1,19 s,
+e a página pública permaneceu disponível com os dois hashes. A ocorrência deve
+continuar monitorada, sem ser ocultada pelo cache da aplicação.
