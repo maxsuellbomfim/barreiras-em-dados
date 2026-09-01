@@ -152,7 +152,7 @@ jobs:
       APP_ENV: production
       LOG_LEVEL: INFO
       PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONPATH: workers/collectors/src
+      PYTHONPATH: workers/collectors/src:workers/document-processing/src
       PERSISTENCE_MODE: postgres-supabase
       DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
       SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
@@ -244,6 +244,13 @@ jobs:
             --download-documents \
             --allow-partial \
             "${extra_args[@]}"
+
+      - name: Processar texto dos DOCX municipais
+        if: matrix.resource == 'pdc-contas-anuais'
+        run: >-
+          python -B -m barreiras_docproc.commands.process_municipal_docx
+          --limit 10
+          --minimum-total 4
 
   transferegov:
     name: Preservar emendas federais e parcerias

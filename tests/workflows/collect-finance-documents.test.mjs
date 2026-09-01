@@ -165,6 +165,30 @@ test("cobertura de balancetes nao espera o download de todo o acervo", () => {
   assert.match(drainStep, /--download-documents/);
 });
 
+test("DOCX municipais preservados recebem texto privado uma unica vez", () => {
+  const collectJob = workflow.slice(
+    workflow.indexOf("  collect:"),
+    workflow.indexOf("  transferegov:"),
+  );
+  const drainIndex = collectJob.indexOf("- name: Drenar documentos municipais");
+  const processIndex = collectJob.indexOf("- name: Processar texto dos DOCX municipais");
+
+  assert.match(
+    collectJob,
+    /PYTHONPATH: workers\/collectors\/src:workers\/document-processing\/src/,
+  );
+  assert.ok(drainIndex >= 0);
+  assert.ok(processIndex > drainIndex);
+  assert.match(
+    collectJob,
+    /if: matrix\.resource == 'pdc-contas-anuais'/,
+  );
+  assert.match(
+    collectJob,
+    /barreiras_docproc\.commands\.process_municipal_docx\s+--limit 10\s+--minimum-total 4/,
+  );
+});
+
 test("Transferegov classifica cada ano desde 2021 sem entrada livre no shell", () => {
   const transferegovJob = workflow.slice(workflow.indexOf("  transferegov:"));
 
