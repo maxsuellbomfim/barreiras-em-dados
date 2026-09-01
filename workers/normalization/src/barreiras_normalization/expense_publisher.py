@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 from .expense_publication import (
@@ -17,8 +18,10 @@ from .expense_publication import (
 )
 from .financial_expense_pdf import parse_expense_pdf_text
 from .revenue_publisher import ArtifactMismatchError, default_pdf_text_extractor
+from .tcm_ba_expense_pdf import parse_tcm_ba_expense_pdf_text
 
 EXPENSE_PUBLICATION_JOB_TYPE = "financial_expense_publication"
+TCM_BA_EXPENSE_METHODOLOGY_VERSION = "tcm-ba-analytical-expense/1.0.0"
 
 
 class ExpensePublicationIntegrityError(ExpensePublicationError):
@@ -33,6 +36,7 @@ class ExpenseArtifact:
     byte_size: int
     parent_record_id: str
     source_url: str
+    source_kind: str = "municipal"
 
 
 @dataclass(frozen=True)
@@ -40,6 +44,12 @@ class ExpensePublishResult:
     artifact_id: str
     status: str
     published_lines: int = 0
+
+
+@dataclass(frozen=True)
+class ExpensePersistenceResult:
+    report_inserted: bool
+    published_lines: int
 
 
 @dataclass(frozen=True)
@@ -51,14 +61,26 @@ class ExpenseReportVersionPlan:
     report_id: str | None = None
 
 
-def _methodology_revision(value: object) -> tuple[int, int, int] | None:
-    prefix = "public-expense-pdf/"
-    if not isinstance(value, str) or not value.startswith(prefix):
+def _methodology_revision(
+    value: object,
+) -> tuple[str, tuple[int, int, int]] | None:
+    if not isinstance(value, str):
         return None
-    parts = value.removeprefix(prefix).split(".")
-    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+    match = re.fullmatch(
+        r"(?P<family>[a-z0-9-]+(?:/[a-z0-9-]+)*)/"
+        r"(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)",
+        value,
+    )
+    if match is None:
         return None
-    return tuple(int(part) for part in parts)  # type: ignore[return-value]
+    return (
+        match.group("family"),
+        (
+            int(match.group("major")),
+            int(match.group("minor")),
+            int(match.group("patch")),
+        ),
+    )
 
 
 def plan_expense_report_version(
@@ -88,7 +110,11 @@ def plan_expense_report_version(
         raise ExpensePublicationIntegrityError(
             "versão metodológica do relatório é inválida"
         )
-    if current_revision == next_revision:
+    if current_revision[0] != next_revision[0]:
+        raise ExpensePublicationIntegrityError(
+            "família metodológica do relatório foi alterada"
+        )
+    if current_revision[1] == next_revision[1]:
         if current.get("external_id") != expected_external_id:
             raise ExpensePublicationIntegrityError(
                 "artefato imutável diverge na mesma versão metodológica"
@@ -100,7 +126,7 @@ def plan_expense_report_version(
             supersedes_id=None,
             report_id=report_id,
         )
-    if current_revision > next_revision:
+    if current_revision[1] > next_revision[1]:
         raise ExpensePublicationIntegrityError(
             "metodologia atual do relatório é mais nova que o publicador"
         )
@@ -123,13 +149,14 @@ class ExpensePublicationRepository(Protocol):
         limit: int,
         fiscal_year_from: int,
         fiscal_year_to: int,
+        artifact_sha256: str | None = None,
     ) -> tuple[ExpenseArtifact, ...]: ...
 
     def persist_validated_report(
         self,
         artifact: ExpenseArtifact,
         batch: ExpensePublicationBatch,
-    ) -> int: ...
+    ) -> ExpensePersistenceResult: ...
 
     def record_failure(
         self,
@@ -164,22 +191,42 @@ class ExpenseReportPublisher:
                 f"Artefato {artifact.id} diverge do hash ou tamanho catalogado."
             )
         text = self.text_extractor(raw_body)
-        report = parse_expense_pdf_text(text)
-        batch = build_expense_publication_batch(report)
-        published_lines = self.repository.persist_validated_report(artifact, batch)
+        if artifact.source_kind == "municipal":
+            report = parse_expense_pdf_text(text)
+            batch = build_expense_publication_batch(report)
+        elif artifact.source_kind == "tcm_ba":
+            report = parse_tcm_ba_expense_pdf_text(text)
+            validated_batch = build_expense_publication_batch(report)
+            if validated_batch.total_source_conflicts:
+                raise ExpensePublicationIntegrityError(
+                    "demonstrativo TCM-BA possui conflito interno"
+                )
+            batch = replace(
+                validated_batch,
+                rows=(),
+                methodology_version=TCM_BA_EXPENSE_METHODOLOGY_VERSION,
+            )
+        else:
+            raise ExpensePublicationIntegrityError(
+                f"origem de despesa não suportada: {artifact.source_kind}"
+            )
+        persisted = self.repository.persist_validated_report(artifact, batch)
         self.logger.info(
             "expense_report_published",
             extra={
                 "artifact_id": artifact.id,
                 "period_end": batch.period_end,
-                "published_lines": published_lines,
+                "published_lines": persisted.published_lines,
                 "methodology_version": batch.methodology_version,
+                "source_kind": artifact.source_kind,
             },
         )
         return ExpensePublishResult(
             artifact_id=artifact.id,
-            status="published" if published_lines else "already_published",
-            published_lines=published_lines,
+            status=(
+                "published" if persisted.report_inserted else "already_published"
+            ),
+            published_lines=persisted.published_lines,
         )
 
 
@@ -204,6 +251,7 @@ class PostgresExpensePublicationRepository:
         limit: int,
         fiscal_year_from: int,
         fiscal_year_to: int,
+        artifact_sha256: str | None = None,
     ) -> tuple[ExpenseArtifact, ...]:
         connection = self.connection_factory()
         try:
@@ -231,11 +279,26 @@ class PostgresExpensePublicationRepository:
                     document.byte_size,
                     report.origin_raw_record_id::text as parent_record_id,
                     document.source_url,
+                    case
+                      when document.metadata ->> 'schema_name'
+                        = 'tcm-ba-monthly-document'
+                        then 'tcm_ba'
+                      else 'municipal'
+                    end as source_kind,
                     document.created_at
                   from current_reports as report
                   join raw.raw_artifacts as document
                     on document.id = report.source_document_artifact_id
-                  where report.methodology_version <> %s
+                  where (
+                      document.metadata ->> 'schema_name'
+                        = 'municipal-transparency-document'
+                      and report.methodology_version <> %s
+                    )
+                    or (
+                      document.metadata ->> 'schema_name'
+                        = 'tcm-ba-monthly-document'
+                      and report.methodology_version <> %s
+                    )
                     or exists (
                         select 1
                         from finance.expense_lines as line
@@ -257,6 +320,7 @@ class PostgresExpensePublicationRepository:
                     document.byte_size,
                     record.id::text as parent_record_id,
                     document.source_url,
+                    'municipal'::text as source_kind,
                     document.created_at
                   from raw.raw_artifacts as document
                   join raw.raw_artifacts as parent_artifact
@@ -279,15 +343,63 @@ class PostgresExpensePublicationRepository:
                       and report.validation_status = 'validated'
                   )
                   order by document.id, record.created_at desc, record.id desc
+                ), tcm_ba_candidates as (
+                  select distinct on (document.id)
+                    document.id::text,
+                    document.sha256,
+                    document.object_key,
+                    document.byte_size,
+                    record.id::text as parent_record_id,
+                    document.source_url,
+                    'tcm_ba'::text as source_kind,
+                    document.created_at
+                  from raw.raw_artifacts as document
+                  join raw.raw_artifacts as prepare
+                    on prepare.id = document.parent_artifact_id
+                  join raw.raw_artifacts as catalog
+                    on catalog.id = prepare.parent_artifact_id
+                  join raw.raw_records as record
+                    on record.raw_artifact_id = catalog.id
+                   and record.source_record_key
+                     = document.metadata ->> 'source_record_key'
+                  where document.artifact_kind = 'document'
+                    and document.metadata ->> 'schema_name'
+                      = 'tcm-ba-monthly-document'
+                    and document.metadata ->> 'document_role' = 'pdf'
+                    and document.source_url
+                      = 'https://e.tcm.ba.gov.br/epp/PdfReadOnly/downloadDocumento.seam'
+                    and prepare.artifact_kind = 'document'
+                    and prepare.metadata ->> 'schema_name'
+                      = 'tcm-ba-document-download-prepare'
+                    and prepare.metadata ->> 'source_record_key'
+                      = record.source_record_key
+                    and record.record_type = 'tcm_ba_monthly_document'
+                    and record.payload ->> 'category' like 'PCMGE015%'
+                    and record.payload ->> 'unit'
+                      = 'Prefeitura Municipal de BARREIRAS'
+                    and record.payload ->> 'competence'
+                      ~ '^(0[1-9]|1[0-2])/[0-9]{4}$'
+                    and right(record.payload ->> 'competence', 4)::integer
+                      between %s and %s
+                    and not exists (
+                      select 1
+                      from finance.expense_reports as report
+                      where report.source_document_artifact_id = document.id
+                        and report.validation_status = 'validated'
+                    )
+                  order by document.id, record.created_at desc, record.id desc
                 ), candidates as (
                   select * from replay_candidates
                   union all
                   select * from new_candidates
+                  union all
+                  select * from tcm_ba_candidates
                 )
                 select id, sha256, object_key, byte_size, parent_record_id,
-                  source_url
+                  source_url, source_kind
                 from candidates
-                where not exists (
+                where (%s::text is null or candidates.sha256 = %s)
+                and not exists (
                   select 1
                   from raw.extraction_jobs as job
                   where job.raw_artifact_id = candidates.id::uuid
@@ -301,8 +413,13 @@ class PostgresExpensePublicationRepository:
                     fiscal_year_from,
                     fiscal_year_to,
                     EXPENSE_PUBLICATION_METHODOLOGY_VERSION,
+                    TCM_BA_EXPENSE_METHODOLOGY_VERSION,
                     fiscal_year_from,
                     fiscal_year_to,
+                    fiscal_year_from,
+                    fiscal_year_to,
+                    artifact_sha256,
+                    artifact_sha256,
                     EXPENSE_PUBLICATION_JOB_TYPE,
                     limit,
                 ),
@@ -315,6 +432,7 @@ class PostgresExpensePublicationRepository:
                     byte_size=int(row["byte_size"]),
                     parent_record_id=str(row["parent_record_id"]),
                     source_url=str(row["source_url"]),
+                    source_kind=str(row["source_kind"]),
                 )
                 for row in result.fetchall()
             )
@@ -325,7 +443,7 @@ class PostgresExpensePublicationRepository:
         self,
         artifact: ExpenseArtifact,
         batch: ExpensePublicationBatch,
-    ) -> int:
+    ) -> ExpensePersistenceResult:
         connection = self.connection_factory()
         try:
             with connection.transaction():
@@ -392,7 +510,10 @@ class PostgresExpensePublicationRepository:
                         origin_raw_record_id=plan.origin_raw_record_id,
                     )
                     self._record_success(connection, artifact)
-                    return 0
+                    return ExpensePersistenceResult(
+                        report_inserted=False,
+                        published_lines=0,
+                    )
 
                 report_row = connection.execute(
                     """
@@ -469,7 +590,10 @@ class PostgresExpensePublicationRepository:
                     origin_raw_record_id=plan.origin_raw_record_id,
                 )
                 self._record_success(connection, artifact)
-                return published_lines
+                return ExpensePersistenceResult(
+                    report_inserted=True,
+                    published_lines=published_lines,
+                )
         finally:
             connection.close()
 

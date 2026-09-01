@@ -37,9 +37,13 @@ unidades orçamentárias e exigiu igualdade entre cada linha, os subtotais das
 unidades, o `Total do Poder` e os valores repetidos no resumo. O benchmark
 fechou sem conflito e confirmou, para abril de 2023, R$ 16.029.966,95
 empenhados no mês, R$ 62.639.688,25 liquidados e R$ 56.656.735,88 pagos. Esses
-valores ainda não são publicados por este estágio: a projeção financeira só
-pode avançar depois que a linhagem pública distinguir explicitamente o TCM-BA
-do documento municipal ausente.
+valores ainda não são publicados por este estágio. A migration de linhagem
+financeira passa a aceitar somente a cadeia oficial `PCMGE015` -> preparação
+-> PDF e o publicador dirigido pode selecionar o artefato por SHA-256. Ele
+reconcilia as 2.655 linhas, mas persiste somente os totais: descrições com
+caracteres de substituição permanecem indisponíveis em vez de serem exibidas de
+forma enganosa. A publicação operacional exige migration aplicada, replay do
+hash exato e auditoria posterior do RPC público.
 
 Quando `-CategoryCode` é usado, o wrapper exige exatamente um hash retornado
 pelo coletor e encaminha esse hash tanto ao processador de texto quanto ao

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 from collections.abc import Sequence
 from datetime import date
 
@@ -57,11 +58,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=1)
     parser.add_argument("--fiscal-year-from", type=int, default=2021)
     parser.add_argument("--fiscal-year-to", type=int, default=date.today().year)
+    parser.add_argument("--artifact-sha256", default="")
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 20:
         parser.error("--limit deve estar entre 1 e 20")
     if not 1900 <= args.fiscal_year_from <= args.fiscal_year_to <= 2200:
         parser.error("intervalo fiscal inválido")
+    artifact_sha256 = args.artifact_sha256.strip().lower() or None
+    if artifact_sha256 is not None and not re.fullmatch(
+        r"[0-9a-f]{64}", artifact_sha256
+    ):
+        parser.error("--artifact-sha256 deve ser um SHA-256 hexadecimal")
 
     from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
     from barreiras_collectors.settings import PersistenceSettings
@@ -82,6 +89,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         limit=args.limit,
         fiscal_year_from=args.fiscal_year_from,
         fiscal_year_to=args.fiscal_year_to,
+        artifact_sha256=artifact_sha256,
     )
     logger = logging.getLogger(__name__)
     for index, artifact in enumerate(artifacts, start=1):
