@@ -11,8 +11,8 @@ from typing import Literal
 from .financial_revenue_pdf import RevenuePdfReport
 from .revenue import RevenueNormalizationError
 
-PUBLICATION_METHODOLOGY_VERSION = "public-revenue-pdf/1.1.0"
-REVENUE_PUBLICATION_JOB_TYPE = "financial_revenue_publication/1.1.0"
+PUBLICATION_METHODOLOGY_VERSION = "public-revenue-pdf/1.2.0"
+REVENUE_PUBLICATION_JOB_TYPE = "financial_revenue_publication/1.2.0"
 CollectionDirection = Literal["credit", "deduction", "adjustment"]
 
 

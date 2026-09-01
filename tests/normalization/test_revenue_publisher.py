@@ -4,8 +4,12 @@ import hashlib
 import unittest
 from pathlib import Path
 
+from barreiras_normalization.commands.publish_revenue_reports import (
+    completion_exit_code,
+)
 from barreiras_normalization.revenue_publisher import (
     ArtifactMismatchError,
+    PostgresRevenuePublicationRepository,
     RevenueArtifact,
     RevenueReportPublisher,
 )
@@ -43,6 +47,29 @@ class FakeRepository:
         self.failures.append((artifact, error_code, error_detail))
 
 
+class FakeRows:
+    def __init__(self, rows=()) -> None:
+        self.rows = rows
+
+    def fetchall(self):
+        return self.rows
+
+
+class CapturingConnection:
+    def __init__(self) -> None:
+        self.query = ""
+        self.parameters = ()
+        self.closed = False
+
+    def execute(self, query, parameters=()):
+        self.query = query
+        self.parameters = parameters
+        return FakeRows()
+
+    def close(self):
+        self.closed = True
+
+
 def artifact_for(body: bytes = PDF_BODY) -> RevenueArtifact:
     return RevenueArtifact(
         id="00000000-0000-4000-8000-000000000901",
@@ -55,6 +82,47 @@ def artifact_for(body: bytes = PDF_BODY) -> RevenueArtifact:
 
 
 class RevenuePublisherTests(unittest.TestCase):
+    def test_pending_documents_retries_failed_until_dead_letter(self) -> None:
+        connection = CapturingConnection()
+        repository = PostgresRevenuePublicationRepository(lambda: connection)
+
+        self.assertEqual(
+            repository.pending_documents(
+                limit=12,
+                fiscal_year_from=2022,
+                fiscal_year_to=2022,
+            ),
+            (),
+        )
+
+        query = " ".join(connection.query.lower().split())
+        self.assertIn("job.status = 'dead_lettered'", query)
+        self.assertNotIn("job.status = 'failed'", query)
+        self.assertEqual(
+            connection.parameters,
+            (2022, 2022, "financial_revenue_publication/1.2.0", 12),
+        )
+        self.assertTrue(connection.closed)
+
+    def test_failure_is_retryable_until_dead_letter(self) -> None:
+        connection = CapturingConnection()
+        repository = PostgresRevenuePublicationRepository(lambda: connection)
+
+        repository.record_failure(
+            artifact_for(),
+            error_code="RevenuePdfContractError",
+            error_detail="layout histórico não reconhecido",
+        )
+
+        query = " ".join(connection.query.lower().split())
+        self.assertIn("attempt_count + 1 >= raw.extraction_jobs.max_attempts", query)
+        self.assertIn("then 'dead_lettered'", query)
+        self.assertIn("else 'failed'", query)
+
+    def test_command_fails_when_any_artifact_needs_review(self) -> None:
+        self.assertEqual(completion_exit_code(needs_review=0), 0)
+        self.assertEqual(completion_exit_code(needs_review=1), 1)
+
     def test_publisher_rejects_tampered_pdf_before_insert(self) -> None:
         repository = FakeRepository()
         publisher = RevenueReportPublisher(
