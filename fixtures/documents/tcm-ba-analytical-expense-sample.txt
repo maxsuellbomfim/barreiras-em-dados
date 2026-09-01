@@ -1,0 +1,40 @@
+Tribunal de Contas dos Municípios do Estado da Bahia
+SIGA - Sistema Integrado de Gestão e Auditoria Emissão: 11/05/2023 08:19:11
+Demonstrativo da Despesa Orçamentária
+Unidade: Prefeitura Municipal de BARREIRAS Competência: 04/2023
+Código Descrição
+Fonte de Recurso Fixada Alterações Anulações Total da
+Empenhos do Mês Até Mês Liquidações do Mês Até Mês
+Pagamentos do Mês Até Mês Empenhada Não Paga Saldo Disponível
+1 PREFEITURA MUNICIPAL DE BARREIRAS
+1.3020GABINETE DO PREFEITO
+1.3020.4.122.2.2.2004 GESTÃO DAS AÇÕES DA CASA DOS CONSELHOS
+3.3.90.14.00 Diárias - Civil
+1500 60,00 10,00 5,00 65,00 12,00 40,00 8,00 30,00 7,00 20,00 20,00 25,00
+3.3.90.36.00 Outros Serviços de Terceiros - Pessoa
+Física
+1500 40,00 0,00 0,00 40,00 8,00 20,00 7,00 10,00 3,00 10,00 10,00 20,00
+Total do Projeto/Atividade: 100,00 10,00 5,00 105,00 20,00 60,00 15,00 40,00 10,00 30,00 30,00 45,00
+Total da Unidade: 100,00 10,00 5,00 105,00 20,00 60,00 15,00 40,00 10,00 30,00 30,00 45,00
+Página 1 de 2 Despesa Orçamentária
+Processo: fixture - Doc. 1
+
+Tribunal de Contas dos Municípios do Estado da Bahia
+SIGA - Sistema Integrado de Gestão e Auditoria Emissão: 11/05/2023 08:19:11
+Demonstrativo da Despesa Orçamentária
+Unidade: Prefeitura Municipal de BARREIRAS Competência: 04/2023
+Código Descrição
+Fonte de Recurso Fixada Alterações Anulações Total da
+Empenhos do Mês Até Mês Liquidações do Mês Até Mês
+Pagamentos do Mês Até Mês Empenhada Não Paga Saldo Disponível
+Total do Poder: 100,00 10,00 5,00 105,00 20,00 60,00 15,00 40,00 10,00 30,00 30,00 45,00
+RESUMO
+Até o Mês:
+Dotação Inicial: 100,00
+Alterações p/ Mais: 10,00
+Alterações p/ Menos: 5,00
+Dotação Atualizada: 105,00
+Saldo da Dotação: 45,00
+Despesa a Pagar: 30,00
+Página 2 de 2 Despesa Orçamentária
+Processo: fixture - Doc. 1
