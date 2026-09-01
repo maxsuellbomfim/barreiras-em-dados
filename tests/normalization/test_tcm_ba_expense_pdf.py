@@ -62,6 +62,38 @@ class TcmBaExpensePdfTests(unittest.TestCase):
         self.assertEqual(report.rows[0].source_code, "1500")
         self.assertEqual(report.rows[0].fixed_amount, Decimal("60.00"))
 
+    def test_accepts_three_digit_source_codes_used_by_siga_in_2021(self) -> None:
+        text = FIXTURE.read_text(encoding="utf-8").replace("1500 ", "100 ")
+
+        report = parse_tcm_ba_expense_pdf_text(text)
+
+        self.assertEqual({row.source_code for row in report.rows}, {"100"})
+
+    def test_resolves_joined_three_digit_source_from_document_evidence(self) -> None:
+        text = (
+            FIXTURE.read_text(encoding="utf-8")
+            .replace("1500 ", "100 ")
+            .replace("100 60,00 10,00", "10060,00 10,00", 1)
+        )
+
+        report = parse_tcm_ba_expense_pdf_text(text)
+
+        self.assertEqual(report.rows[0].source_code, "100")
+        self.assertEqual(report.rows[0].fixed_amount, Decimal("60.00"))
+
+    def test_rejects_joined_source_without_unique_document_evidence(self) -> None:
+        text = (
+            FIXTURE.read_text(encoding="utf-8")
+            .replace("1500 60,00 10,00", "10060,00 10,00", 1)
+            .replace("1500 40,00", "200 40,00", 1)
+        )
+
+        with self.assertRaisesRegex(
+            TcmBaExpenseContractError,
+            "interpretação ambígua",
+        ):
+            parse_tcm_ba_expense_pdf_text(text)
+
     def test_rejects_another_municipality(self) -> None:
         text = FIXTURE.read_text(encoding="utf-8").replace(
             "Prefeitura Municipal de BARREIRAS",

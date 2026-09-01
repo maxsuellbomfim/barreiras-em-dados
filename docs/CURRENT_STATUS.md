@@ -115,22 +115,21 @@ entregava um PDF. O coletor passou a oferecer resgate por competência e a
 falhar explicitamente se o documento exato não pudesse ser preservado,
 eliminando o antigo falso verde dessa operação direcionada.
 A busca na segunda fonte oficial também deixou de depender da ordem genérica da
-fila: a linhagem pelo hash provou que o demonstrativo TCM-BA antes disponível é
-de janeiro de 2021, e a coleta documental agora pode exigir simultaneamente a
-competência e o código oficial `PCMGE015`. O próximo passo operacional é
-preservar esse documento para abril de 2023 e só então comparar sua metodologia
-com o demonstrativo municipal ausente. O documento exato já foi preservado e
-seu parser SIGA passou por todas as 184 páginas, 2.655 linhas e 25 unidades sem
-divergência contábil. A linhagem exata TCM-BA agora reconhece somente a cadeia
-registro `PCMGE015` -> preparação -> PDF oficial e rejeita documentos de outra
-família. O publicador usa todas as linhas para reconciliar os totais, mas mantém
-as descrições analíticas fora da projeção enquanto o texto da fonte contiver
-caracteres corrompidos. A migration foi aplicada e o resumo validado foi
-publicado. O RPC e a página de abril de 2023 foram auditados: um relatório de
-receita e um de despesa fecham como `operational`, com URLs e hashes
-verificáveis. A interface identifica o demonstrativo como proveniente do
-TCM-BA e explica que ele é uma fonte oficial distinta do portal municipal. O
-comando local de publicação exata agora exige um SHA-256, um único relatório e
-zero falha; um lote vazio não pode receber selo de sucesso. O próximo recorte
-financeiro deve ser escolhido pela matriz de cobertura, priorizando a
-competência cronológica mais antiga que ainda não possua fechamento operacional.
+fila: a linhagem pelo hash e pela categoria `PCMGE015` reconhece somente a cadeia
+registro -> preparação -> PDF oficial e rejeita documentos de outra família. O
+demonstrativo de abril de 2023 passou por 184 páginas, 2.655 linhas e 25 unidades
+sem divergência contábil; seu resumo foi publicado e o fechamento público está
+`operational`, com uma receita, uma despesa, URLs e hashes verificáveis. A
+interface identifica o TCM-BA como fonte oficial distinta do portal municipal.
+O comando local de publicação exata exige um SHA-256, um único relatório e zero
+falha; lote vazio não recebe selo de sucesso.
+
+Em 01/09/2026, o mesmo gate validou o PDF `PCMGE015` de janeiro de 2021. O
+parser `tcm-ba-analytical-expense/1.1.0` passou a representar as fontes SIGA de
+três ou quatro dígitos e resolve uma fonte concatenada ao primeiro valor apenas
+quando outra linha do próprio documento comprova uma interpretação única. As
+173 páginas fecharam integralmente e o resumo de despesa foi publicado. A RPC
+pública permanece corretamente em `needs_data`: há um relatório de despesa,
+nenhum relatório de receita e aviso explícito de que ainda não existe receita
+comparável. O próximo recorte é recuperar e validar o demonstrativo oficial de
+receita `PCMGE016` da mesma competência, sem fabricar fechamento antes disso.

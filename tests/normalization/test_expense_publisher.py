@@ -540,7 +540,7 @@ class ExpensePublisherTests(unittest.TestCase):
                 2021,
                 2026,
                 "public-expense-pdf/1.4.0",
-                "tcm-ba-analytical-expense/1.0.0",
+                "tcm-ba-analytical-expense/1.1.0",
                 2021,
                 2026,
                 2021,
@@ -721,7 +721,7 @@ class ExpensePublisherTests(unittest.TestCase):
         self.assertEqual(batch.rows, ())
         self.assertEqual(
             batch.methodology_version,
-            "tcm-ba-analytical-expense/1.0.0",
+            "tcm-ba-analytical-expense/1.1.0",
         )
         self.assertEqual(batch.total_paid_period_amount, Decimal("10.00"))
         serialized_batch = json.dumps(
