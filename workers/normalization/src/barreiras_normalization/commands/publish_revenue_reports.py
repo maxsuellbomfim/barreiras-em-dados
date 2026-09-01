@@ -19,10 +19,15 @@ from ..revenue_publisher import (
 )
 
 
-def completion_exit_code(*, needs_review: int) -> int:
-    """Falha o workflow quando algum PDF não pôde ser publicado."""
+def completion_exit_code(
+    *,
+    needs_review: int,
+    artifacts: int = 0,
+    require_artifact: bool = False,
+) -> int:
+    """Falha quando houve revisão ou um backfill exigido ficou vazio."""
 
-    return 1 if needs_review else 0
+    return 1 if needs_review or (require_artifact and artifacts == 0) else 0
 
 
 def build_completion_event(
@@ -80,6 +85,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--fiscal-year-from", type=int, default=2021)
     parser.add_argument("--fiscal-year-to", type=int, default=date.today().year)
     parser.add_argument("--artifact-sha256", default="")
+    parser.add_argument("--require-artifact", action="store_true")
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 100:
         parser.error("--limit deve estar entre 1 e 100")
@@ -148,7 +154,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     logging.getLogger(__name__).info(
         json.dumps(completion_event, ensure_ascii=False, sort_keys=True)
     )
-    return completion_exit_code(needs_review=needs_review)
+    return completion_exit_code(
+        needs_review=needs_review,
+        artifacts=len(artifacts),
+        require_artifact=args.require_artifact,
+    )
 
 
 if __name__ == "__main__":

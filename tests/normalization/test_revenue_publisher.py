@@ -190,6 +190,24 @@ class RevenuePublisherTests(unittest.TestCase):
         self.assertEqual(completion_exit_code(needs_review=0), 0)
         self.assertEqual(completion_exit_code(needs_review=1), 1)
 
+    def test_manual_backfill_fails_when_no_artifact_is_eligible(self) -> None:
+        self.assertEqual(
+            completion_exit_code(
+                needs_review=0,
+                artifacts=0,
+                require_artifact=True,
+            ),
+            1,
+        )
+        self.assertEqual(
+            completion_exit_code(
+                needs_review=0,
+                artifacts=1,
+                require_artifact=True,
+            ),
+            0,
+        )
+
     def test_completion_event_proves_exact_revenue_artifact(self) -> None:
         event = build_completion_event(
             artifact_sha256="b" * 64,

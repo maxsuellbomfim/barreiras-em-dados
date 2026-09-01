@@ -97,6 +97,9 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 
 O wrapper exige exatamente um artefato, nenhuma pendência de revisão e um
 resultado coerente de publicação ou replay. Um lote vazio não é aprovado.
+O workflow de receitas aplica a mesma exigência em todo disparo manual. A
+execução diária agendada pode terminar sem artefatos quando não existe
+pendência; esse `no-op` não é usado como prova de cobertura ou de backfill.
 
 Para publicar ou repetir de forma idempotente um único demonstrativo já
 preservado, use o modo exato:
