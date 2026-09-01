@@ -17,7 +17,9 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
   páginas, fonte e hashes;
 - atos oficiais aprovados com evidência e canal público de correção;
 - receitas, despesas, fechamentos, obrigações e folha em agregados validados,
-  com matriz pública mensal de cobertura de receitas e despesas desde 2021;
+  com matriz pública mensal de cobertura de receitas e despesas desde 2021 e
+  mapa de fontes que preserva as cadências mensal, bimestral, quadrimestral e
+  anual sem criar uma taxa global enganosa;
 - licitações, processos, contratos, itens, fornecedores e recortes do PNCP;
 - leis e proposições da Câmara com autoria publicada e aliases revisados;
 - Executivo, vereadores, representantes estaduais e federais, candidaturas e
@@ -58,8 +60,9 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 O pacote inicial de prontidão pública — saúde operacional real, índice leve do
 Diário, inteiro teor permanente, correções responsivas e página pública de
-estado — está implementado. A primeira matriz de cobertura financeira também
-está publicada para receitas e despesas municipais desde 2021, distinguindo
-ausência de relatório, competência não classificada e valor zero. O próximo
-fluxo é ampliar a mesma leitura por fonte e período para obrigações, folha e
-demonstrativos fiscais, sem ocultar diferenças de periodicidade entre elas.
+estado — está implementado. A matriz mensal de receitas e despesas e o mapa das
+famílias financeiras também estão publicados, distinguindo cobertura
+classificada de documento apenas observado e preservando a periodicidade de
+obrigações, folha, RREO, RGF e DCA. O próximo fluxo é tornar as matrizes mensais
+de obrigações e folha tão navegáveis quanto a de receitas e despesas, com
+carregamento em tempo real e evidência contextual para cada lacuna.

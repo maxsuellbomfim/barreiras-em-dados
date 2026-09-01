@@ -2271,6 +2271,111 @@ footer {
   line-height: 1.5;
 }
 
+.finance-family-map {
+  margin: 0 0 3.5rem;
+}
+
+.finance-family-map-list {
+  display: grid;
+  gap: 0;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background: var(--surface);
+  list-style: none;
+}
+
+.finance-family-map-list > li {
+  padding: 1.15rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.finance-family-map-list > li:last-child {
+  border-bottom: 0;
+}
+
+.finance-family-map-list > li[data-state="partial"] {
+  box-shadow: inset 0.25rem 0 0 #c28b20;
+}
+
+.finance-family-map-list > li[data-state="unavailable"] {
+  box-shadow: inset 0.25rem 0 0 #8a93a3;
+}
+
+.finance-family-map-heading,
+.finance-family-map-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.finance-family-map-heading > div > span {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.finance-family-map-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.finance-family-map-heading > strong {
+  color: var(--ink);
+  font-size: 0.86rem;
+  text-align: right;
+}
+
+.finance-family-map-list > li > p,
+.finance-family-map-note {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.finance-family-map-list > li > p {
+  margin: 0.7rem 0;
+}
+
+.finance-family-map-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.finance-family-map-meta a {
+  color: var(--blue-dark);
+  font-weight: 750;
+}
+
+.finance-family-map-meta a:hover {
+  text-decoration: underline;
+}
+
+.finance-family-map-note {
+  margin: 0.9rem 0 0;
+  font-size: 0.88rem;
+}
+
+@media (max-width: 720px) {
+  .finance-family-map-heading,
+  .finance-family-map-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .finance-family-map-heading > strong {
+    text-align: left;
+  }
+}
+
 .finance-status-panel {
   margin: 0 0 3.5rem;
   padding: 1.35rem 1.5rem;
