@@ -56,6 +56,7 @@ import { getPublicSiconfiAnnualTotals } from "../../lib/siconfi-annual-totals";
 import { getPublicSiconfiMonthlyReconciliation } from "../../lib/siconfi-monthly-reconciliation";
 import { buildFinanceFamilyCoverage } from "../../lib/finance-family-coverage.mjs";
 import FinanceFamilyCoverageMap from "./finance-family-coverage-map";
+import FinanceObligationCoverageMatrix from "./finance-obligation-coverage-matrix";
 
 export const revalidate = 300;
 
@@ -937,6 +938,22 @@ export default async function FinancesPage() {
             </details>
           </section>
         ) : null}
+
+        <section
+          className="finance-coverage-section finance-obligation-matrix-section"
+          aria-labelledby="obligation-matrix-title"
+        >
+          <div className="section-heading compact">
+            <span className="eyebrow">Cobertura de restos a pagar</span>
+            <h2 id="obligation-matrix-title">O que foi encontrado em cada mês</h2>
+            <p>
+              Esta matriz informa se o balancete e a seção necessária foram
+              localizados e validados. Ela não é um gráfico do saldo da dívida e
+              nenhum documento ausente é transformado em R$ 0.
+            </p>
+          </div>
+          <FinanceObligationCoverageMatrix initialResult={obligationCoverageResult} />
+        </section>
 
         {publicObligations.length > 0 ? (
           <section

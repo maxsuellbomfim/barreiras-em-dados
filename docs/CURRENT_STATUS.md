@@ -19,7 +19,8 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 - receitas, despesas, fechamentos, obrigações e folha em agregados validados,
   com matriz pública mensal de cobertura de receitas e despesas desde 2021 e
   mapa de fontes que preserva as cadências mensal, bimestral, quadrimestral e
-  anual sem criar uma taxa global enganosa;
+  anual sem criar uma taxa global enganosa; restos a pagar também possuem
+  matriz mensal própria, carregada novamente em tempo real quando necessário;
 - licitações, processos, contratos, itens, fornecedores e recortes do PNCP;
 - leis e proposições da Câmara com autoria publicada e aliases revisados;
 - Executivo, vereadores, representantes estaduais e federais, candidaturas e
@@ -63,6 +64,7 @@ Diário, inteiro teor permanente, correções responsivas e página pública de
 estado — está implementado. A matriz mensal de receitas e despesas e o mapa das
 famílias financeiras também estão publicados, distinguindo cobertura
 classificada de documento apenas observado e preservando a periodicidade de
-obrigações, folha, RREO, RGF e DCA. O próximo fluxo é tornar as matrizes mensais
-de obrigações e folha tão navegáveis quanto a de receitas e despesas, com
-carregamento em tempo real e evidência contextual para cada lacuna.
+obrigações, folha, RREO, RGF e DCA. Restos a pagar agora têm matriz mensal
+navegável, atualização em tempo real e acesso contextual à fonte de cada estado.
+O próximo fluxo é aplicar o mesmo padrão à folha, sem misturar folha regular,
+13º, estagiários e terceirizados.
