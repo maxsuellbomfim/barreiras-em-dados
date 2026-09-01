@@ -177,7 +177,7 @@ class PostgresRevenuePublicationRepository:
                 """
                 with municipal_candidates as (
                   select distinct on (document.id)
-                    document.id::text,
+                    document.id,
                     document.sha256,
                     document.object_key,
                     document.byte_size,
@@ -202,7 +202,7 @@ class PostgresRevenuePublicationRepository:
                   order by document.id, record.created_at desc, record.id desc
                 ), tcm_ba_candidates as (
                   select distinct on (document.id)
-                    document.id::text,
+                    document.id,
                     document.sha256,
                     document.object_key,
                     document.byte_size,
