@@ -4389,6 +4389,19 @@ footer {
   text-align: right;
 }
 
+.finance-evidence-origin {
+  margin: 1rem 0 0;
+  color: #25334e;
+  font-size: 0.78rem;
+}
+
+.finance-evidence-source-note {
+  margin: 0.35rem 0 0;
+  color: #66738a;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
 .finance-evidence-actions {
   margin-top: 1rem;
   display: flex;

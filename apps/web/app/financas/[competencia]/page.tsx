@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import {
+  monthlyFinanceDocumentSourceCopy,
   monthlyFinanceStatusCopy,
   periodStartFromSlug,
   selectMonthlyExpenseReportId,
@@ -72,6 +73,7 @@ function RevenueEvidence({
   document,
   index,
 }: Readonly<{ document: MonthlyFinanceRevenueDocument; index: number }>) {
+  const source = monthlyFinanceDocumentSourceCopy(document);
   return (
     <article className="finance-evidence-card">
       <div>
@@ -82,9 +84,11 @@ function RevenueEvidence({
         <div><dt>Receita declarada</dt><dd>{formatBrlDecimal(document.reportAmount)}</dd></div>
         <div><dt>Linhas validadas</dt><dd>{document.lineCount.toLocaleString("pt-BR")}</dd></div>
       </dl>
+      <p className="finance-evidence-origin"><strong>Origem:</strong> {source.label}</p>
+      <p className="finance-evidence-source-note">{source.explanation}</p>
       <div className="finance-evidence-actions">
-        <a href={document.documentUrl} target="_blank" rel="noreferrer">Abrir PDF oficial</a>
-        <a href={document.sourceUrl} target="_blank" rel="noreferrer">Abrir resposta da fonte</a>
+        <a href={document.documentUrl} target="_blank" rel="noreferrer">{source.documentAction}</a>
+        <a href={document.sourceUrl} target="_blank" rel="noreferrer">{source.sourceAction}</a>
       </div>
       <details className="finance-hash-details">
         <summary>Conferir os hashes preservados</summary>
@@ -99,6 +103,7 @@ function ExpenseEvidence({
   document,
   index,
 }: Readonly<{ document: MonthlyFinanceExpenseDocument; index: number }>) {
+  const source = monthlyFinanceDocumentSourceCopy(document);
   return (
     <article className="finance-evidence-card">
       <div>
@@ -110,9 +115,11 @@ function ExpenseEvidence({
         <div><dt>Liquidado</dt><dd>{formatBrlDecimal(document.liquidatedAmount)}</dd></div>
         <div><dt>Pago</dt><dd>{formatBrlDecimal(document.paidAmount)}</dd></div>
       </dl>
+      <p className="finance-evidence-origin"><strong>Origem:</strong> {source.label}</p>
+      <p className="finance-evidence-source-note">{source.explanation}</p>
       <div className="finance-evidence-actions">
-        <a href={document.documentUrl} target="_blank" rel="noreferrer">Abrir PDF oficial</a>
-        <a href={document.sourceUrl} target="_blank" rel="noreferrer">Abrir resposta da fonte</a>
+        <a href={document.documentUrl} target="_blank" rel="noreferrer">{source.documentAction}</a>
+        <a href={document.sourceUrl} target="_blank" rel="noreferrer">{source.sourceAction}</a>
       </div>
       <details className="finance-hash-details">
         <summary>Conferir os hashes preservados</summary>
