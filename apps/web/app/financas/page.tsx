@@ -1310,6 +1310,11 @@ export default async function FinancesPage() {
                 calcular receitas, despesas ou saldo. As contas anuais comparáveis
                 são publicadas separadamente na DCA do Tesouro.
               </p>
+              <p>
+                <a href="/financas/base-legal">
+                  Pesquisar e ler o texto integral da base legal →
+                </a>
+              </p>
             </div>
             <details className="finance-details">
               <summary>
