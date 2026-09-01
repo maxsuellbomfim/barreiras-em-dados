@@ -79,5 +79,10 @@ de 2021 a 2025, com sete métricas validadas em cada exercício; 2026 aparece co
 exercício em andamento, não como ausência ou valor zero. A auditoria da série
 municipal `pdc-contas-anuais` comprovou que seus seis registros únicos são leis
 e fundamentos de controle, não demonstrativos anuais. A interface agora separa
-essa base legal da DCA. O próximo fluxo é preservar os quatro DOCX ainda ausentes
-e reconciliar apenas fontes que expressem o mesmo conceito e período.
+essa base legal da DCA. Quatro DOCX oficiais já estão preservados, tiveram o hash
+do arquivo conferido e o texto literal extraído de forma idempotente. A nova
+consulta pública pagina apenas esses textos verificados, carrega o inteiro teor
+somente no detalhe e mantém fonte oficial e hashes visíveis; os dois registros
+somente catalogados continuam identificados como tal, sem conteúdo inventado.
+O próximo fluxo é provar essa projeção em produção e retomar a reconciliação
+apenas entre fontes que expressem o mesmo conceito e período.
