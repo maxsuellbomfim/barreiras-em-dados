@@ -374,7 +374,7 @@ class PostgresExpensePublicationRepository:
                     and prepare.metadata ->> 'source_record_key'
                       = record.source_record_key
                     and record.record_type = 'tcm_ba_monthly_document'
-                    and record.payload ->> 'category' like 'PCMGE015%'
+                    and left(record.payload ->> 'category', 8) = 'PCMGE015'
                     and record.payload ->> 'unit'
                       = 'Prefeitura Municipal de BARREIRAS'
                     and record.payload ->> 'competence'
