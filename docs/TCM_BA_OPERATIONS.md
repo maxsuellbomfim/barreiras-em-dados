@@ -31,6 +31,16 @@ O processamento dirigido pelo mesmo SHA registrou 184 páginas, todas com
 texto embutido e nenhuma aguardando OCR. A competência continua `partial`, com
 1 de 1.824 documentos preservados; esta recuperação não declara o mês completo.
 
+O parser determinístico específico do SIGA também foi validado em memória
+sobre as 184 páginas desse PDF. Ele reconheceu 2.655 linhas analíticas e 25
+unidades orçamentárias e exigiu igualdade entre cada linha, os subtotais das
+unidades, o `Total do Poder` e os valores repetidos no resumo. O benchmark
+fechou sem conflito e confirmou, para abril de 2023, R$ 16.029.966,95
+empenhados no mês, R$ 62.639.688,25 liquidados e R$ 56.656.735,88 pagos. Esses
+valores ainda não são publicados por este estágio: a projeção financeira só
+pode avançar depois que a linhagem pública distinguir explicitamente o TCM-BA
+do documento municipal ausente.
+
 Quando `-CategoryCode` é usado, o wrapper exige exatamente um hash retornado
 pelo coletor e encaminha esse hash tanto ao processador de texto quanto ao
 inventário de família. Ele encerra o caminho dirigido antes dos processadores

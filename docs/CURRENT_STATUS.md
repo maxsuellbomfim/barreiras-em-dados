@@ -120,4 +120,8 @@ fila: a linhagem pelo hash provou que o demonstrativo TCM-BA antes disponível �
 de janeiro de 2021, e a coleta documental agora pode exigir simultaneamente a
 competência e o código oficial `PCMGE015`. O próximo passo operacional é
 preservar esse documento para abril de 2023 e só então comparar sua metodologia
-com o demonstrativo municipal ausente.
+com o demonstrativo municipal ausente. O documento exato já foi preservado e
+seu parser SIGA passou por todas as 184 páginas, 2.655 linhas e 25 unidades sem
+divergência contábil. A próxima entrega é registrar a linhagem TCM-BA como uma
+origem pública distinta e publicar o fechamento alternativo com essa ressalva,
+sem reclassificar o documento como se viesse do portal municipal.
