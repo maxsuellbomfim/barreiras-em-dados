@@ -97,6 +97,17 @@ R$ 38.079.191,26 pagos e estado `operational`. A diferença operacional de
 R$ 3.083.859,11 compara receita declarada e pagamento do mês; não representa
 superávit fiscal.
 
+Em `04/2021`, o `PCMGE016`, hash
+`a03473494c68539b9dcb3f4a5e937c8c87fb54d1a947b7198d58ccb341500b41`,
+passou por 12 páginas com texto embutido, 253 rubricas, classificação exata e
+publicação sem revisão. O `PCMGE015`, hash
+`940264e715a77bc79a8936edfe030d0b78c8bb4911c2e78b5e515b415bf8f4fe`,
+passou por 184 páginas com texto embutido e uma única linhagem oficial. O
+detalhe público fechou `operational`: R$ 44.375.565,85 de receita líquida,
+R$ 14.765.663,26 empenhados, R$ 36.366.146,44 liquidados e
+R$ 38.361.003,05 pagos. A diferença operacional de R$ 6.014.562,80 mantém a
+mesma ressalva metodológica e não é tratada como superávit fiscal.
+
 Para conferir idempotentemente apenas o relatório de janeiro pelo hash
 imutável:
 

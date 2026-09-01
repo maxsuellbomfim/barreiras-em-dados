@@ -151,3 +151,13 @@ R$ 37.659.408,60 liquidados e R$ 38.079.191,26 pagos. A RPC pública está
 `operational`, com diferença operacional de R$ 3.083.859,11, expressamente não
 tratada como superávit fiscal. A página pública foi conferida após a
 revalidação e contém os dois hashes oficiais.
+
+Abril de 2021 foi fechado em seguida. O `PCMGE016`, hash
+`a03473494c68539b9dcb3f4a5e937c8c87fb54d1a947b7198d58ccb341500b41`,
+publicou 253 rubricas e R$ 44.375.565,85 líquidos no mês. O `PCMGE015`, hash
+`940264e715a77bc79a8936edfe030d0b78c8bb4911c2e78b5e515b415bf8f4fe`,
+possui 184 páginas com texto embutido, uma única linhagem oficial e zero
+pendência de revisão. O fechamento público está `operational`, com
+R$ 14.765.663,26 empenhados, R$ 36.366.146,44 liquidados,
+R$ 38.361.003,05 pagos e diferença operacional de R$ 6.014.562,80. O RPC e a
+página pública contêm os dois hashes e as URLs oficiais.
