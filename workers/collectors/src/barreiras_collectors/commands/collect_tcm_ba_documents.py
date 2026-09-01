@@ -211,6 +211,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         remaining_documents=summary.remaining_documents,
         coverage_status=("complete" if summary.remaining_documents == 0 else "partial"),
         requested_category_code=category_code,
+        pdf_hashes=list(summary.pdf_hashes),
     )
     return 0
 

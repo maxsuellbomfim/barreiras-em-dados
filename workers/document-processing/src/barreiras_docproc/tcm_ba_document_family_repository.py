@@ -40,9 +40,18 @@ class TcmBaDocumentFamilyExtractionRepository:
         collection = PostgresCollectionRepository.from_dsn(database_url)
         return cls(collection.connection_factory)
 
-    def pending_documents(self, limit: int) -> tuple[TcmBaCatalogDocument, ...]:
+    def pending_documents(
+        self,
+        limit: int,
+        *,
+        artifact_sha256: str | None = None,
+    ) -> tuple[TcmBaCatalogDocument, ...]:
         if not 1 <= limit <= 50:
             raise ValueError("limit deve estar entre 1 e 50.")
+        if artifact_sha256 is not None and not re.fullmatch(
+            r"[0-9a-f]{64}", artifact_sha256
+        ):
+            raise ValueError("artifact_sha256 deve ser um sha256 hexadecimal.")
         connection = self.connection_factory()
         try:
             rows = connection.execute(
@@ -69,6 +78,7 @@ class TcmBaDocumentFamilyExtractionRepository:
                       'tcm-ba-monthly-document'
                     and pdf.content_type = 'application/pdf'
                     and pdf.http_status between 200 and 299
+                    and (%s::text is null or pdf.sha256 = %s)
                     and prepare.metadata ->> 'schema_name' =
                       'tcm-ba-document-download-prepare'
                     and record.record_type = 'tcm_ba_monthly_document'
@@ -94,7 +104,13 @@ class TcmBaDocumentFamilyExtractionRepository:
                 from preserved_documents
                 order by created_at, artifact_id
                 """,
-                (JOB_TYPE, EXTRACTOR_VERSION, limit),
+                (
+                    artifact_sha256,
+                    artifact_sha256,
+                    JOB_TYPE,
+                    EXTRACTOR_VERSION,
+                    limit,
+                ),
             ).fetchall()
             documents: list[TcmBaCatalogDocument] = []
             for row in rows:

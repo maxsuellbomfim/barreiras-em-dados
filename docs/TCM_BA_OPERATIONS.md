@@ -23,6 +23,27 @@ Em 01/09/2026, esse diagnóstico associou o hash
 exclusivamente à competência `01/2021`, categoria `PCMGE015`. Portanto, ele não
 fecha a lacuna municipal de abril de 2023.
 
+Na mesma data, a recuperação exata de `PCMGE015` em `04/2023` preservou o PDF
+`6670a953af416ee2d9028653ffe2b67f1c8e047cdc9d31b94fa13ed8e63620fe`.
+A auditoria física releu o PDF e o XML de preparação, verificou 993.957 bytes,
+dois hashes distintos, um vínculo exato com o catálogo e nenhuma falha aberta.
+O processamento dirigido pelo mesmo SHA registrou 184 páginas, todas com
+texto embutido e nenhuma aguardando OCR. A competência continua `partial`, com
+1 de 1.824 documentos preservados; esta recuperação não declara o mês completo.
+
+Quando `-CategoryCode` é usado, o wrapper exige exatamente um hash retornado
+pelo coletor e encaminha esse hash tanto ao processador de texto quanto ao
+inventário de família. Ele encerra o caminho dirigido antes dos processadores
+globais de contratos e empenhos. Para retomar apenas o texto de um PDF já
+preservado, sem nova coleta nem consumo de outra fila, use:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/run-tcm-ba-document-pilot.ps1 `
+  -DocumentTextOnly `
+  -ArtifactSha256 <sha256>
+```
+
 ## Escopo e limite
 
 O comando cataloga as prestações mensais e os documentos entregues pela

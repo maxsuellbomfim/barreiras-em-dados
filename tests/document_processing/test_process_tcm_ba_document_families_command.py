@@ -30,8 +30,9 @@ class FakeRepository:
         self.documents = tuple(documents)
         self.failures = []
 
-    def pending_documents(self, limit: int):
+    def pending_documents(self, limit: int, *, artifact_sha256=None):
         self.limit = limit
+        self.artifact_sha256 = artifact_sha256
         return self.documents
 
     def persist_failure(
@@ -110,6 +111,18 @@ class ProcessTcmBaDocumentFamiliesCommandTests(unittest.TestCase):
 
         self.assertEqual(summary.pending_found, 0)
         self.assertEqual(batch_exit_code(summary), 0)
+
+    def test_exact_recovery_forwards_the_requested_artifact_hash(self) -> None:
+        repository = FakeRepository((document("4", "PCMGE015 - Demonstrativo"),))
+
+        run_batch(
+            repository=repository,
+            service=FakeService(),
+            limit=1,
+            artifact_sha256="4" * 64,
+        )
+
+        self.assertEqual(repository.artifact_sha256, "4" * 64)
 
 
 if __name__ == "__main__":

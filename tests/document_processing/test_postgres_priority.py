@@ -100,5 +100,39 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
         self.assertIn("from raw.document_pages as page", query)
         self.assertIn("page.parser_version =", query)
         self.assertIn("order by artifact.created_at, artifact.id", query)
+
+    def test_tcm_ba_queue_can_target_one_exact_pdf_hash(self) -> None:
+        connection = RecordingConnection()
+        repository = PostgresExtractionRepository(lambda: connection)  # type: ignore[arg-type]
+        artifact_sha256 = "a" * 64
+
+        repository.pending_tcm_ba_pdf_artifacts(
+            1,
+            artifact_sha256=artifact_sha256,
+        )
+
+        query = connection.queries[0]
+        self.assertIn("artifact.sha256 = %s", query)
+        self.assertEqual(
+            connection.params[0],
+            (
+                artifact_sha256,
+                artifact_sha256,
+                connection.params[0][2],
+                1,
+            ),
+        )
+
+    def test_tcm_ba_queue_rejects_invalid_exact_hash_before_querying(self) -> None:
+        connection = RecordingConnection()
+        repository = PostgresExtractionRepository(lambda: connection)  # type: ignore[arg-type]
+
+        with self.assertRaisesRegex(ValueError, "artifact_sha256"):
+            repository.pending_tcm_ba_pdf_artifacts(
+                1,
+                artifact_sha256="invalido",
+            )
+
+        self.assertEqual(connection.queries, [])
 if __name__ == "__main__":
     unittest.main()

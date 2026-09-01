@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 from collections.abc import Sequence
 
 from barreiras_collectors.logging import log_event
@@ -25,6 +26,16 @@ def batch_exit_code(*, pending_found: int, failed: int) -> int:
     return 0 if pending_found > 0 and failed == 0 else 1
 
 
+def normalize_artifact_sha256(value: str) -> str | None:
+    """Normaliza o filtro opcional e recusa seleções imprecisas."""
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    if not re.fullmatch(r"[0-9a-f]{64}", normalized):
+        raise ValueError("O SHA-256 do artefato deve ter 64 caracteres hexadecimais.")
+    return normalized
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -33,9 +44,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     )
     parser.add_argument("--limit", type=int, default=5)
+    parser.add_argument("--artifact-sha256", default="")
     arguments = parser.parse_args(argv)
     if not 1 <= arguments.limit <= 50:
         parser.error("--limit deve estar entre 1 e 50.")
+    try:
+        artifact_sha256 = normalize_artifact_sha256(arguments.artifact_sha256)
+    except ValueError as error:
+        parser.error(str(error))
 
     collector_settings = CollectorSettings.from_env()
     persistence = PersistenceSettings.from_env()
@@ -93,12 +109,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         repository=repository,
     )
     logger = logging.getLogger(__name__)
-    pending = repository.pending_tcm_ba_pdf_artifacts(arguments.limit)
+    pending = repository.pending_tcm_ba_pdf_artifacts(
+        arguments.limit,
+        artifact_sha256=artifact_sha256,
+    )
     processed = 0
     failed = 0
     pages_total = 0
     pages_with_embedded_text = 0
     pages_awaiting_ocr = 0
+    processed_hashes: list[str] = []
     for artifact in pending:
         try:
             result = service.process(artifact)
@@ -145,6 +165,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             continue
 
         processed += 1
+        processed_hashes.append(artifact.sha256)
         pages_total += result.pages_total
         pages_with_embedded_text += result.pages_with_embedded_text
         pages_awaiting_ocr += result.pages_awaiting_ocr
@@ -169,6 +190,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         pages_total=pages_total,
         pages_with_embedded_text=pages_with_embedded_text,
         pages_awaiting_ocr=pages_awaiting_ocr,
+        requested_artifact_sha256=artifact_sha256,
+        processed_hashes=processed_hashes,
     )
     return batch_exit_code(pending_found=len(pending), failed=failed)
 

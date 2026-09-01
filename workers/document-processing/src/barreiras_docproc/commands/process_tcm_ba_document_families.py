@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
@@ -37,6 +38,8 @@ class PendingRepository(Protocol):
     def pending_documents(
         self,
         limit: int,
+        *,
+        artifact_sha256: str | None = None,
     ) -> tuple[TcmBaCatalogDocument, ...]: ...
 
     def persist_failure(
@@ -61,10 +64,14 @@ def run_batch(
     repository: PendingRepository,
     service: ProcessingService,
     limit: int,
+    artifact_sha256: str | None = None,
     logger: logging.Logger | None = None,
 ) -> TcmBaDocumentFamilyBatchSummary:
     log = logger or logging.getLogger(__name__)
-    pending = repository.pending_documents(limit)
+    pending = repository.pending_documents(
+        limit,
+        artifact_sha256=artifact_sha256,
+    )
     processed = 0
     failed = 0
     classified = 0
@@ -153,9 +160,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     )
     parser.add_argument("--limit", type=int, default=5)
+    parser.add_argument("--artifact-sha256", default="")
     arguments = parser.parse_args(argv)
     if not 1 <= arguments.limit <= 50:
         parser.error("--limit deve estar entre 1 e 50.")
+    artifact_sha256 = arguments.artifact_sha256.strip().lower() or None
+    if artifact_sha256 is not None and not re.fullmatch(
+        r"[0-9a-f]{64}", artifact_sha256
+    ):
+        parser.error("--artifact-sha256 deve ser um SHA-256 hexadecimal.")
 
     collector_settings = CollectorSettings.from_env()
     postgres = PostgresSettings.from_env()
@@ -171,6 +184,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         repository=repository,
         service=TcmBaDocumentFamilyService(repository=repository),
         limit=arguments.limit,
+        artifact_sha256=artifact_sha256,
     )
     return batch_exit_code(summary)
 

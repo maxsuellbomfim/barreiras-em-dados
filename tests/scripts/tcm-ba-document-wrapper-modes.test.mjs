@@ -25,6 +25,35 @@ test("consulta de linhagem exige hash e chama somente o relatório exato", () =>
   assert.match(wrapper, /TCM_BA_DOCUMENT_LINEAGE_ONLY/);
 });
 
+test("processamento local de texto pode atingir somente um SHA preservado", () => {
+  assert.match(wrapper, /\[switch\]\$DocumentTextOnly/);
+  assert.match(
+    wrapper,
+    /process_tcm_ba_documents --limit 1 --artifact-sha256 \$ArtifactSha256/,
+  );
+  assert.match(wrapper, /TCM_BA_DOCUMENT_TEXT_ONLY_APPROVED/);
+});
+
+test("coleta local dirigida encaminha código oficial somente com competência", () => {
+  assert.match(wrapper, /\[string\]\$CategoryCode = ""/);
+  assert.match(wrapper, /CategoryCode exige -Competence explícita/);
+  assert.match(wrapper, /\^PCMGE\\d\{3\}\$/);
+  assert.match(
+    wrapper,
+    /collect_tcm_ba_documents --competence \$Competence --max-documents \$MaxDocuments --category-code \$CategoryCode --requests-per-minute \$RequestsPerMinute/,
+  );
+  assert.match(wrapper, /\$targetArtifactSha256 = \$collectorEvent\.pdf_hashes\[0\]/);
+  assert.match(
+    wrapper,
+    /process_tcm_ba_documents --limit 1 --artifact-sha256 \$targetArtifactSha256/,
+  );
+  assert.match(
+    wrapper,
+    /process_tcm_ba_document_families --limit 1 --artifact-sha256 \$targetArtifactSha256/,
+  );
+  assert.match(wrapper, /TCM_BA_DOCUMENT_CATEGORY_RECOVERY_APPROVED/);
+});
+
 function runPowerShell(command) {
   const executable = process.platform === "win32" ? "powershell.exe" : "pwsh";
   return spawnSync(
