@@ -45,6 +45,15 @@ test("página explica ao cidadão como fonte, correção e ausência são tratad
   assert.match(page, /nunca significa arrecadação ou gasto zero/);
 });
 
+test("página financeira consulta a cobertura no tempo da requisição", () => {
+  assert.match(page, /import \{ connection \} from "next\/server"/);
+  const requestBoundary = page.indexOf("await connection()");
+  const coverageQuery = page.indexOf("getPublicFinanceCoverage()", requestBoundary);
+  assert.ok(requestBoundary > -1);
+  assert.ok(coverageQuery > requestBoundary);
+  assert.doesNotMatch(page, /dynamic\s*=\s*["']force-dynamic["']/);
+});
+
 test("lacunas de obrigações distinguem documento, seção ausente e fonte incompleta", () => {
   assert.match(obligationCoverageMigration, /document_not_confirmed/);
   assert.match(obligationCoverageMigration, /section_absent/);
