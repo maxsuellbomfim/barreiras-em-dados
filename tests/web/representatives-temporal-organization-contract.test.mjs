@@ -25,6 +25,9 @@ test("mandatos atuais aparecem antes do histórico eleitoral na ordem de leitura
   assert.match(page, /Mandatos municipais atuais/);
   assert.match(page, /Mandatos estaduais atuais/);
   assert.match(page, /Mandatos federais atuais/);
+  assert.match(page, /selectFederalRepresentativesForOverview/);
+  assert.match(page, /dez deputados federais atuais mais votados em Barreiras/);
+  assert.doesNotMatch(page, /\{result\.representatives\.map\(/);
 });
 
 test("histórico explicita cargo, pleito e resultado sem declarar mandato atual", () => {
