@@ -2,6 +2,8 @@ import type {
   PublicNonpayrollWorkforceCoverageRow,
 } from "../../lib/public-payroll.mjs";
 
+const NONPAYROLL_OVERVIEW_LIMIT = 12;
+
 function formatMonthTitle(value: string): string {
   const parsed = new Date(`${value}T12:00:00-03:00`);
   if (Number.isNaN(parsed.getTime())) return value;
@@ -37,9 +39,10 @@ export default function FinanceNonpayrollWorkforceCoverage({
   rows,
 }: Readonly<{ rows: readonly PublicNonpayrollWorkforceCoverageRow[] }>) {
   if (rows.length === 0) return null;
-  const documentedRows = rows.filter(
-    (row) => row.coverageStatus !== "not_listed",
-  );
+  const documentedRows = rows
+    .filter((row) => row.coverageStatus !== "not_listed")
+    .sort((left, right) => right.referenceMonth.localeCompare(left.referenceMonth));
+  const recentDocumentedRows = documentedRows.slice(0, NONPAYROLL_OVERVIEW_LIMIT);
   const notListedCount = rows.length - documentedRows.length;
 
   return (
@@ -47,8 +50,10 @@ export default function FinanceNonpayrollWorkforceCoverage({
       <summary>
         <span>Estagiários e terceirizados: acompanhamento separado</span>
         <small>
-          {documentedRows.length.toLocaleString("pt-BR")} registro
-          {documentedRows.length === 1 ? " documentado" : "s documentados"}
+          {recentDocumentedRows.length.toLocaleString("pt-BR")} registro
+          {recentDocumentedRows.length === 1 ? " recente" : "s recentes"} de{" "}
+          {documentedRows.length.toLocaleString("pt-BR")} documentado
+          {documentedRows.length === 1 ? "" : "s"}
         </small>
       </summary>
       <div className="finance-payroll-coverage-list">
@@ -58,7 +63,7 @@ export default function FinanceNonpayrollWorkforceCoverage({
           nenhum valor agregado é presumido. O portal só mostrará totais quando
           as colunas e o total declarado fecharem deterministicamente.
         </p>
-        {documentedRows.map((row) => (
+        {recentDocumentedRows.map((row) => (
           <article
             className="finance-payroll-coverage-card"
             key={`${row.referenceMonth}-${row.workforceCategory}`}
