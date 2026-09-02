@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 
 import {
-  getPublicExpenseLines,
   getPublicExpenseReports,
   type PublicExpenseReport,
 } from "../../lib/expenses";
@@ -52,7 +51,6 @@ import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
 import FinancePayrollCompensation from "./finance-payroll-compensation";
 import FinancePayrollSources from "./finance-payroll-sources";
 import FinancePayrollYears from "./finance-payroll-years";
-import { FinanceExpenseLineCard } from "./finance-expense-line-card";
 import { FinanceAnnualSummary } from "./finance-annual-summary";
 import { FinanceSiconfiAnnualTotals } from "./finance-siconfi-annual-totals";
 import { getPublicSiconfiAnnualTotals } from "../../lib/siconfi-annual-totals";
@@ -312,11 +310,6 @@ export default async function FinancesPage() {
     right.periodEnd.localeCompare(left.periodEnd),
   );
   const latestExpenseReport = sortedExpenseReports[0] ?? null;
-  const expenseLinesResult = latestExpenseReport
-    ? await getPublicExpenseLines(latestExpenseReport.expenseReportId, 25)
-    : { state: "unavailable" as const };
-  const expenseLines =
-    expenseLinesResult.state === "available" ? expenseLinesResult.lines : [];
   const revenues =
     revenuesResult.state === "available" ? revenuesResult.revenues : [];
   const documents = mergePublicFinanceDocumentResults(
@@ -927,28 +920,13 @@ export default async function FinancesPage() {
                 </article>
               ))}
             </div>
-            {expenseLines.length > 0 && latestExpenseReport ? (
-              <>
-                <details className="finance-details">
-                  <summary>
-                    Ver os 25 maiores pagamentos de {formatMonthTitle(latestExpenseReport.periodEnd)}
-                  </summary>
-                  <p className="finance-details-note">
-                    Linhas do relatório oficial de {formatPeriod(latestExpenseReport)},
-                    ordenadas pelo valor pago no período. Não são meses diferentes,
-                    nem um ranking de empresas ou uma acusação.
-                  </p>
-                  <div className="digest-grid">
-                  {expenseLines.map((line) => (
-                    <FinanceExpenseLineCard
-                      line={line}
-                      key={line.expenseLineId}
-                      showPeriod
-                    />
-                  ))}
-                  </div>
-                </details>
-              </>
+            {latestExpenseReport ? (
+              <a
+                className="finance-month-link"
+                href={monthlyFinanceHref(latestExpenseReport.periodStart)}
+              >
+                Abrir o mês e ver as 25 maiores linhas pagas →
+              </a>
             ) : null}
           </section>
         ) : null}

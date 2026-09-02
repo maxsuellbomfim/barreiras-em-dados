@@ -7,11 +7,9 @@ const page = await readFile(
   "utf8",
 );
 
-test("maiores pagamentos usam somente o relatório mensal em destaque", () => {
-  assert.match(
-    page,
-    /getPublicExpenseLines\(latestExpenseReport\.expenseReportId, 25\)/,
-  );
-  assert.doesNotMatch(page, /getPublicExpenseLines\(\)/);
-  assert.match(page, /Linhas do relatório oficial de/);
+test("visão geral direciona os maiores pagamentos ao detalhe mensal", () => {
+  assert.doesNotMatch(page, /getPublicExpenseLines/);
+  assert.doesNotMatch(page, /FinanceExpenseLineCard/);
+  assert.match(page, /monthlyFinanceHref\(latestExpenseReport\.periodStart\)/);
+  assert.match(page, /Abrir o mês e ver as 25 maiores linhas pagas/);
 });
