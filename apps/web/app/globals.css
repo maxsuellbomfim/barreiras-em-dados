@@ -7596,6 +7596,7 @@ footer {
   font-weight: 750;
 }
 
+.transfer-year-filter input[type="search"],
 .transfer-year-filter select,
 .transfer-year-filter button {
   min-height: 44px;
@@ -7603,6 +7604,7 @@ footer {
   font: inherit;
 }
 
+.transfer-year-filter input[type="search"],
 .transfer-year-filter select {
   width: 100%;
   padding: 0.65rem 0.75rem;
@@ -7631,6 +7633,13 @@ footer {
   grid-template-columns: minmax(13rem, 1fr) minmax(9rem, 0.45fr) auto auto;
 }
 
+.transfer-document-filters {
+  grid-template-columns:
+    minmax(15rem, 1.4fr) minmax(8rem, 0.45fr)
+    minmax(13rem, 1fr) minmax(9rem, 0.55fr) auto auto;
+}
+
+.transfer-document-filters > a,
 .transfer-execution-filters > a {
   min-height: 44px;
   padding: 0.65rem 0.9rem;
@@ -7644,11 +7653,13 @@ footer {
   text-decoration: none;
 }
 
+.transfer-document-filters > a:hover,
 .transfer-execution-filters > a:hover {
   border-color: rgba(49, 91, 199, 0.48);
   color: #23469f;
 }
 
+.transfer-document-filters > p,
 .transfer-execution-filters > p {
   grid-column: 1 / -1;
 }
@@ -8166,6 +8177,10 @@ footer {
     grid-template-columns: 1fr 1fr;
   }
 
+  .transfer-document-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .transfer-year-filter p {
     grid-column: 1 / -1;
   }
@@ -8193,6 +8208,10 @@ footer {
   }
 
   .transfer-execution-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .transfer-document-filters {
     grid-template-columns: 1fr;
   }
 

@@ -39,6 +39,7 @@ import {
 import {
   getPublicCguFederalAmendmentDocuments,
   type CguFederalAmendmentDocument,
+  type CguFederalAmendmentDocumentFilters,
   type CguFederalAmendmentDocumentsResult,
 } from "../../lib/cgu-federal-amendment-documents";
 import {
@@ -1189,9 +1190,76 @@ const CGU_DOCUMENT_STAGE_COPY: Readonly<Record<
   payment: "Pagamento",
 };
 
+type SearchParamValue = string | readonly string[] | undefined;
+type ResolvedCguDocumentFilters = CguFederalAmendmentDocumentFilters &
+  Readonly<{ page: number }>;
+
+function singleSearchParam(value: SearchParamValue): string | null {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return typeof candidate === "string" ? candidate.trim() : null;
+}
+
+function resolveCguDocumentFilters(params: Readonly<{
+  documento_pagina?: SearchParamValue;
+  documento_ano?: SearchParamValue;
+  documento_autor?: SearchParamValue;
+  documento_etapa?: SearchParamValue;
+  documento_q?: SearchParamValue;
+}>): ResolvedCguDocumentFilters {
+  const pageValue = Number(singleSearchParam(params.documento_pagina));
+  const yearValue = Number(singleSearchParam(params.documento_ano));
+  const authorValue = singleSearchParam(params.documento_autor);
+  const stageValue = singleSearchParam(params.documento_etapa);
+  const queryValue = singleSearchParam(params.documento_q);
+  return {
+    page: Number.isInteger(pageValue) && pageValue >= 1 && pageValue <= 201
+      ? pageValue
+      : 1,
+    archiveYear: Number.isInteger(yearValue) &&
+        yearValue >= 2021 && yearValue <= 2100
+      ? yearValue
+      : null,
+    authorKey: authorValue && authorValue.length <= 200 ? authorValue : null,
+    expenseStage: stageValue === "commitment" ||
+        stageValue === "liquidation" || stageValue === "payment"
+      ? stageValue
+      : null,
+    query: queryValue && queryValue.length <= 100 ? queryValue : null,
+  };
+}
+
+function cguDocumentPageHref(
+  filters: ResolvedCguDocumentFilters,
+  page: number,
+  preservedAuthor: string | null,
+  preservedYear: number | null,
+): string {
+  const query = new URLSearchParams({ origem: "federal-execucao" });
+  if (preservedAuthor) query.set("autor", preservedAuthor);
+  if (preservedYear) query.set("ano", String(preservedYear));
+  if (filters.archiveYear) {
+    query.set("documento_ano", String(filters.archiveYear));
+  }
+  if (filters.authorKey) query.set("documento_autor", filters.authorKey);
+  if (filters.expenseStage) {
+    query.set("documento_etapa", filters.expenseStage);
+  }
+  if (filters.query) query.set("documento_q", filters.query);
+  if (page > 1) query.set("documento_pagina", String(page));
+  return `/recursos?${query.toString()}#cgu-documents-title`;
+}
+
 function CguDocumentMovementPanel({
   result,
-}: Readonly<{ result: CguFederalAmendmentDocumentsResult }>) {
+  filters,
+  preservedAuthor,
+  preservedYear,
+}: Readonly<{
+  result: CguFederalAmendmentDocumentsResult;
+  filters: ResolvedCguDocumentFilters;
+  preservedAuthor: string | null;
+  preservedYear: number | null;
+}>) {
   if (result.state === "unavailable") {
     return (
       <aside className="transfer-reading-guide">
@@ -1203,9 +1271,19 @@ function CguDocumentMovementPanel({
       </aside>
     );
   }
-  const years = [...new Set(
-    result.documents.map((document) => document.archiveYear),
-  )].sort((left, right) => right - left);
+  const pageCount = Math.max(1, Math.ceil(result.totalCount / result.pageSize));
+  const clearHref = cguDocumentPageHref(
+    {
+      page: 1,
+      archiveYear: null,
+      authorKey: null,
+      expenseStage: null,
+      query: null,
+    },
+    1,
+    preservedAuthor,
+    preservedYear,
+  );
   return (
     <section className="transfer-document-movements" aria-labelledby="cgu-documents-title">
       <div className="transfer-section-heading">
@@ -1213,7 +1291,11 @@ function CguDocumentMovementPanel({
           <span className="eyebrow">Comprovantes da execução</span>
           <h2 id="cgu-documents-title">Movimentações por documento oficial</h2>
         </div>
-        <p>{result.documents.length.toLocaleString("pt-BR")} linha(s) em {yearList(years)}</p>
+        <p>
+          {result.documents.length.toLocaleString("pt-BR")} nesta página ·{" "}
+          {result.totalCount.toLocaleString("pt-BR")} no recorte ·{" "}
+          {result.catalogCount.toLocaleString("pt-BR")} no catálogo documental
+        </p>
       </div>
       <aside className="transfer-reading-guide">
         <strong>Como ler sem confundir os anos</strong>
@@ -1228,6 +1310,79 @@ function CguDocumentMovementPanel({
           quando e por qual documento o dinheiro avançou.
         </p>
       </aside>
+      <form
+        className="transfer-year-filter transfer-document-filters"
+        method="get"
+        aria-label="Filtrar documentos federais por ano, autoria, fase e texto"
+      >
+        <input type="hidden" name="origem" value="federal-execucao" />
+        {preservedAuthor ? (
+          <input type="hidden" name="autor" value={preservedAuthor} />
+        ) : null}
+        {preservedYear ? (
+          <input type="hidden" name="ano" value={preservedYear} />
+        ) : null}
+        <div>
+          <label htmlFor="cgu-document-query">Buscar nos documentos</label>
+          <input
+            defaultValue={filters.query ?? ""}
+            id="cgu-document-query"
+            maxLength={100}
+            name="documento_q"
+            placeholder="Autor, emenda, favorecido, órgão ou objeto"
+            type="search"
+          />
+        </div>
+        <div>
+          <label htmlFor="cgu-document-year">Ano do documento</label>
+          <select
+            defaultValue={filters.archiveYear?.toString() ?? ""}
+            id="cgu-document-year"
+            name="documento_ano"
+          >
+            <option value="">Todos os anos</option>
+            {result.availableYears.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="cgu-document-author">Autoria publicada</label>
+          <select
+            defaultValue={filters.authorKey ?? ""}
+            id="cgu-document-author"
+            name="documento_autor"
+          >
+            <option value="">Todos os autores</option>
+            {result.availableAuthors.map((author) => (
+              <option key={author.authorKey} value={author.authorKey}>
+                {author.authorName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="cgu-document-stage">Fase do documento</label>
+          <select
+            defaultValue={filters.expenseStage ?? ""}
+            id="cgu-document-stage"
+            name="documento_etapa"
+          >
+            <option value="">Todas as fases</option>
+            {result.availableStages.map((stage) => (
+              <option key={stage} value={stage}>
+                {CGU_DOCUMENT_STAGE_COPY[stage]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button type="submit">Aplicar filtros</button>
+        <a href={clearHref}>Limpar documentos</a>
+        <p>
+          Os filtros são aplicados no servidor sobre todo o acervo documental.
+          O ranking de autoria permanece calculado sobre a série completa.
+        </p>
+      </form>
       {result.ranking.length > 0 ? (
         <details className="transfer-methodology">
           <summary>Ver autoria por pagamentos documentados</summary>
@@ -1252,8 +1407,10 @@ function CguDocumentMovementPanel({
           </div>
         </details>
       ) : null}
-      <details className="transfer-methodology">
-        <summary>Conferir documentos, favorecidos e evidências</summary>
+      <section aria-labelledby="cgu-document-results-title">
+        <h3 id="cgu-document-results-title">
+          Documentos, favorecidos e evidências
+        </h3>
         {result.documents.length === 0 ? (
           <p className="transfer-empty">
             A fonte foi consultada, mas ainda não há documento territorializado
@@ -1311,7 +1468,28 @@ function CguDocumentMovementPanel({
             ))}
           </div>
         )}
-      </details>
+        {result.totalCount > result.pageSize ? (
+          <nav className="legislative-pagination" aria-label="Paginação dos documentos federais">
+            {result.page > 1 ? (
+              <a href={cguDocumentPageHref(
+                filters,
+                result.page - 1,
+                preservedAuthor,
+                preservedYear,
+              )}>← Mais recentes</a>
+            ) : <span />}
+            <span>Página {result.page} de {pageCount.toLocaleString("pt-BR")}</span>
+            {result.page < pageCount ? (
+              <a href={cguDocumentPageHref(
+                filters,
+                result.page + 1,
+                preservedAuthor,
+                preservedYear,
+              )}>Documentos anteriores →</a>
+            ) : <span />}
+          </nav>
+        ) : null}
+      </section>
     </section>
   );
 }
@@ -1319,12 +1497,14 @@ function CguDocumentMovementPanel({
 function CguFederalExecutionPanel({
   result,
   documentResult,
+  documentFilters,
   coverage,
   requestedAuthor,
   requestedYear,
 }: Readonly<{
   result: CguFederalAmendmentsResult;
   documentResult: CguFederalAmendmentDocumentsResult;
+  documentFilters: ResolvedCguDocumentFilters;
   coverage: readonly FederalTransferSourceCoverage[];
   requestedAuthor: string | readonly string[] | undefined;
   requestedYear: string | readonly string[] | undefined;
@@ -1460,7 +1640,12 @@ function CguFederalExecutionPanel({
       />
       <h3>Comissões e bancadas</h3>
       <CguRankingList rows={result.collectives} scopeLabel="coletiva" />
-      <CguDocumentMovementPanel result={documentResult} />
+      <CguDocumentMovementPanel
+        filters={documentFilters}
+        preservedAuthor={filters.authorKey}
+        preservedYear={filters.fiscalYear}
+        result={documentResult}
+      />
       {filteredAmendments.length > 0 ? (
         <details className="transfer-methodology">
           <summary>
@@ -2116,6 +2301,11 @@ type ParliamentaryResourcesPageProps = Readonly<{
   searchParams: Promise<{
     ano?: string | string[];
     autor?: string | string[];
+    documento_ano?: string | string[];
+    documento_autor?: string | string[];
+    documento_etapa?: string | string[];
+    documento_pagina?: string | string[];
+    documento_q?: string | string[];
     origem?: string | string[];
   }>;
 }>;
@@ -2125,6 +2315,7 @@ export default async function ParliamentaryResourcesPage({
 }: ParliamentaryResourcesPageProps) {
   const params = await searchParams;
   const sourceSelection = resolveTransferSourceSelection(params.origem);
+  const cguDocumentFilters = resolveCguDocumentFilters(params);
   const latestStateFiscalYear = Number(
     new Intl.DateTimeFormat("en-US", {
       year: "numeric",
@@ -2165,7 +2356,7 @@ export default async function ParliamentaryResourcesPage({
       ? getPublicCguFederalAmendments()
       : Promise.resolve({ state: "unavailable" as const }),
     sourceSelection.showCguExecution
-      ? getPublicCguFederalAmendmentDocuments()
+      ? getPublicCguFederalAmendmentDocuments(cguDocumentFilters)
       : Promise.resolve({ state: "unavailable" as const }),
     sourceSelection.showLegislatures
       ? getPublicCguFederalAmendmentLegislatureRankings()
@@ -2350,6 +2541,7 @@ export default async function ParliamentaryResourcesPage({
         ) : sourceSelection.showCguExecution ? (
           <CguFederalExecutionPanel
             coverage={federalSourceCoverage ?? []}
+            documentFilters={cguDocumentFilters}
             documentResult={cguFederalAmendmentDocumentsResult}
             requestedAuthor={params.autor}
             requestedYear={params.ano}
