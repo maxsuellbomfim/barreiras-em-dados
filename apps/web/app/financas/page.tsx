@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 
 import {
   getPublicExpenseLines,
@@ -261,6 +262,7 @@ function municipalFinanceDocumentCoverageResult(
 }
 
 export default async function FinancesPage() {
+  await connection();
   const [
     expensesResult,
     revenuesResult,
