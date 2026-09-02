@@ -38,7 +38,10 @@ import {
   legislatureRankingForRepresentative,
   type ParliamentaryRepresentativeLegislatureRanking,
 } from "../../lib/parliamentary-legislature-rankings.mjs";
-import { selectFederalRepresentativesForOverview } from
+import {
+  selectFederalRepresentativesForOverview,
+  selectStateRepresentativesForOverview,
+} from
   "../../lib/representative-overview.mjs";
 
 export const revalidate = 300;
@@ -386,11 +389,13 @@ function CouncillorCard({
 function StateRepresentativeCard({
   person,
   voteLinks,
+  rankingVote,
   legislatureContribution,
   stateLoaContributions,
 }: Readonly<{
   person: StateRepresentative;
   voteLinks: readonly RepresentativeVote[];
+  rankingVote: RepresentativeVote;
   legislatureContribution: ParliamentaryRepresentativeLegislatureRanking | null;
   stateLoaContributions: readonly StateLoaRepresentativeContribution[];
 }>) {
@@ -430,6 +435,12 @@ function StateRepresentativeCard({
           <span className="person-badge person-badge-active">mandato publicado pela ALBA</span>
         </div>
       </div>
+      <p className="person-link-note">
+        <strong>
+          {rankingVote.votesInBarreiras.toLocaleString("pt-BR")} votos em Barreiras
+        </strong>
+        {` · eleição ${rankingVote.electionYear} · ${rankingVote.turnNumber}º turno`}
+      </p>
       <RepresentativeTrajectory
         currentMandate={{
           office: "Deputado(a) estadual em exercício",
@@ -682,6 +693,13 @@ export default async function RepresentativesPage() {
     result.state === "available"
       ? selectFederalRepresentativesForOverview(
           result.representatives,
+          representativeVotes,
+        )
+      : [];
+  const stateOverviewRepresentatives =
+    stateResult.state === "available"
+      ? selectStateRepresentativesForOverview(
+          stateResult.representatives,
           representativeVotes,
         )
       : [];
@@ -942,7 +960,9 @@ export default async function RepresentativesPage() {
               Composição em exercício publicada pela ALBA. Quem disputou esse
               cargo em outro pleito aparece no histórico eleitoral abaixo; esta
               lista não atribui representação de Barreiras sem evidência
-              municipal específica.
+              municipal específica. Os cartões destacam os dez deputados
+              estaduais atuais mais votados em Barreiras no pleito estadual
+              recente com vínculo individual verificado.
             </p>
           </div>
           {stateResult.state === "unavailable" ? (
@@ -965,26 +985,41 @@ export default async function RepresentativesPage() {
                 </p>
               </div>
             </div>
+          ) : stateOverviewRepresentatives.length === 0 ? (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Recorte eleitoral dos mandatos estaduais em atualização</strong>
+                <p>
+                  A ALBA informa {stateResult.representatives.length.toLocaleString("pt-BR")} perfis
+                  atuais, mas nenhum vínculo individual com a votação estadual
+                  mais recente pôde ser confirmado nesta consulta. Isso não significa voto zero.
+                </p>
+                <a href="#vinculo">Consultar o estudo eleitoral completo →</a>
+              </div>
+            </div>
           ) : (
             <>
               <p className="acts-count" role="status">
                 {stateResult.representatives.length.toLocaleString("pt-BR")} perfis
-                atuais publicados pela ALBA
+                atuais publicados pela ALBA; {" "}
+                {stateOverviewRepresentatives.length.toLocaleString("pt-BR")} destacados
+                pelo vínculo eleitoral com Barreiras
               </p>
               <details className="representation-collapsible representation-directory-collapsible">
                 <summary>
                   <span>
-                    <strong>Ver perfis estaduais</strong>
+                    <strong>Ver os mais votados entre os mandatos atuais</strong>
                   </span>
                   <span className="representation-collapsible-meta">
-                    {stateResult.representatives.length.toLocaleString("pt-BR")} perfis · abrir
+                    {stateOverviewRepresentatives.length.toLocaleString("pt-BR")} perfis · abrir
                   </span>
                 </summary>
                 <div className="person-grid">
-                  {stateResult.representatives.map((person) => (
+                  {stateOverviewRepresentatives.map(({ representative: person, rankingVote }) => (
                     <StateRepresentativeCard
                       key={person.externalId}
                       person={person}
+                      rankingVote={rankingVote}
                       voteLinks={votesForRepresentative(
                         representativeVotes,
                         "state",
@@ -1005,6 +1040,11 @@ export default async function RepresentativesPage() {
                   ))}
                 </div>
               </details>
+              <p className="hero-note">
+                O recorte usa somente a votação individual para deputado estadual na
+                eleição mais recente disponível. Outros cargos, eleições e turnos não
+                são somados. O estudo abaixo preserva todas as candidaturas coletadas.
+              </p>
             </>
           )}
         </section>

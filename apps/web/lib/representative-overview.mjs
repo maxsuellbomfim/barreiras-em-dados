@@ -1,4 +1,4 @@
-const DEFAULT_FEDERAL_LIMIT = 10;
+const DEFAULT_OVERVIEW_LIMIT = 10;
 
 function normalizedOffice(value) {
   return typeof value === "string"
@@ -11,21 +11,23 @@ function normalizedOffice(value) {
     : "";
 }
 
-function isEligibleFederalVote(vote, currentIds) {
-  return vote?.sourceKind === "federal" &&
+function isEligibleVote(vote, currentIds, sourceKind, office) {
+  return vote?.sourceKind === sourceKind &&
     currentIds.has(vote.representativeExternalId) &&
     vote.voteScope === "person" &&
     vote.turnNumber === 1 &&
-    normalizedOffice(vote.office) === "deputado federal" &&
+    normalizedOffice(vote.office) === office &&
     Number.isSafeInteger(vote.electionYear) &&
     Number.isSafeInteger(vote.votesInBarreiras) &&
     vote.votesInBarreiras >= 0;
 }
 
-export function selectFederalRepresentativesForOverview(
+function selectRepresentativesForOverview(
   representatives,
   votes,
-  limit = DEFAULT_FEDERAL_LIMIT,
+  sourceKind,
+  office,
+  limit = DEFAULT_OVERVIEW_LIMIT,
 ) {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) {
     throw new TypeError("limit must be an integer between 1 and 50");
@@ -38,7 +40,7 @@ export function selectFederalRepresentativesForOverview(
   );
   const currentIds = new Set(currentById.keys());
   const eligibleVotes = votes.filter((vote) =>
-    isEligibleFederalVote(vote, currentIds),
+    isEligibleVote(vote, currentIds, sourceKind, office),
   );
   if (eligibleVotes.length === 0) return [];
 
@@ -69,4 +71,32 @@ export function selectFederalRepresentativesForOverview(
       left.representative.externalId.localeCompare(right.representative.externalId)
     )
     .slice(0, limit);
+}
+
+export function selectFederalRepresentativesForOverview(
+  representatives,
+  votes,
+  limit = DEFAULT_OVERVIEW_LIMIT,
+) {
+  return selectRepresentativesForOverview(
+    representatives,
+    votes,
+    "federal",
+    "deputado federal",
+    limit,
+  );
+}
+
+export function selectStateRepresentativesForOverview(
+  representatives,
+  votes,
+  limit = DEFAULT_OVERVIEW_LIMIT,
+) {
+  return selectRepresentativesForOverview(
+    representatives,
+    votes,
+    "state",
+    "deputado estadual",
+    limit,
+  );
 }

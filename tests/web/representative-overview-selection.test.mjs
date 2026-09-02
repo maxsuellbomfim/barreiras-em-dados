@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { selectFederalRepresentativesForOverview } from
+import {
+  selectFederalRepresentativesForOverview,
+  selectStateRepresentativesForOverview,
+} from
   "../../apps/web/lib/representative-overview.mjs";
 
 function profile(index) {
@@ -80,6 +83,43 @@ test("recorte falha fechado quando não há votação federal individual compat�
   const selected = selectFederalRepresentativesForOverview(
     [profile(1)],
     [vote(1, { office: "DEPUTADO ESTADUAL" })],
+  );
+
+  assert.deepEqual(selected, []);
+});
+
+test("recorte estadual seleciona os dez atuais mais votados sem misturar cargo", () => {
+  const profiles = Array.from({ length: 12 }, (_, index) => profile(index + 1));
+  const votes = profiles.map((_, index) => vote(index + 1, {
+    sourceKind: "state",
+    office: "DEPUTADO ESTADUAL",
+  }));
+  votes.push(vote(1, { votesInBarreiras: 99_999 }));
+
+  const selected = selectStateRepresentativesForOverview(profiles, votes);
+
+  assert.deepEqual(
+    selected.map(({ representative }) => representative.externalId),
+    [
+      "federal-12",
+      "federal-11",
+      "federal-10",
+      "federal-9",
+      "federal-8",
+      "federal-7",
+      "federal-6",
+      "federal-5",
+      "federal-4",
+      "federal-3",
+    ],
+  );
+  assert.equal(selected[0].rankingVote.votesInBarreiras, 1200);
+});
+
+test("recorte estadual falha fechado sem voto estadual individual do primeiro turno", () => {
+  const selected = selectStateRepresentativesForOverview(
+    [profile(1)],
+    [vote(1, { sourceKind: "state", office: "DEPUTADO ESTADUAL", turnNumber: 2 })],
   );
 
   assert.deepEqual(selected, []);
