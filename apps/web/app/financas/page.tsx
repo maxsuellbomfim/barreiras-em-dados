@@ -76,6 +76,8 @@ import {
 
 export const revalidate = 300;
 
+const FINANCE_OVERVIEW_LIMIT = 12;
+
 export const metadata: Metadata = {
   title: "Finanças públicas",
   description:
@@ -329,6 +331,7 @@ export default async function FinancesPage() {
   const monthlyClosures =
     monthlyResult.state === "available" ? monthlyResult.closures : [];
   const financeSignals = signalsResult.state === "available" ? signalsResult.signals : [];
+  const recentFinanceSignals = financeSignals.slice(0, FINANCE_OVERVIEW_LIMIT);
   const publicObligations =
     obligationsResult.state === "available"
       ? obligationsResult.obligations
@@ -361,7 +364,8 @@ export default async function FinancesPage() {
     )
       ? payrollCompensationResult.rows
       : [];
-  const previousPayrollMonths = payrollMonths.slice(1);
+  const previousPayrollMonths = payrollMonths.slice(1, FINANCE_OVERVIEW_LIMIT + 1);
+  const previousPayrollMonthCount = Math.max(0, payrollMonths.length - 1);
   const payrollYearSummaries = summarizePublicPayrollYears(payrollMonths);
   const payrollCoverageRows =
     payrollCoverageResult.state === "available"
@@ -398,9 +402,14 @@ export default async function FinancesPage() {
     (row) => row.coverageStatus === "source_conflict",
   ).length;
   const sortedRevenues = sortNewest(revenues, "revenueDate");
+  const recentRevenues = sortedRevenues.slice(0, FINANCE_OVERVIEW_LIMIT);
+  const recentExpenseReports = sortedExpenseReports.slice(0, FINANCE_OVERVIEW_LIMIT);
+  const recentPublicObligations = publicObligations.slice(0, FINANCE_OVERVIEW_LIMIT);
   const sortedDocuments = sortNewest(documents, "referenceDate");
   const fiscalDocuments = sortedDocuments.filter(isFiscalDocument);
+  const recentFiscalDocuments = fiscalDocuments.slice(0, FINANCE_OVERVIEW_LIMIT);
   const obligationDocuments = sortedDocuments.filter(isObligationDocument);
+  const recentObligationDocuments = obligationDocuments.slice(0, FINANCE_OVERVIEW_LIMIT);
   const municipalControlDocuments = sortedDocuments.filter(isMunicipalControlDocument);
   const operationalDocuments = sortedDocuments.filter(
     (document) =>
@@ -408,10 +417,11 @@ export default async function FinancesPage() {
       !isObligationDocument(document) &&
       !isMunicipalControlDocument(document),
   );
-  const recentOperationalDocuments = operationalDocuments.slice(0, 36);
+  const recentOperationalDocuments = operationalDocuments.slice(0, FINANCE_OVERVIEW_LIMIT);
   const sortedMonthlyClosures = [...monthlyClosures].sort((left, right) =>
     right.periodEnd.localeCompare(left.periodEnd),
   );
+  const recentMonthlyClosures = sortedMonthlyClosures.slice(0, FINANCE_OVERVIEW_LIMIT);
   const annualFinanceSummaries = summarizeAnnualFinances(sortedMonthlyClosures);
   const latestRevenue = sortedRevenues[0]?.revenueDate ?? null;
   const latestClosure = sortedMonthlyClosures[0] ?? null;
@@ -643,7 +653,10 @@ export default async function FinancesPage() {
               </article>
 
               <FinancePayrollYears summaries={payrollYearSummaries} />
-              <FinancePayrollHistory months={previousPayrollMonths} />
+              <FinancePayrollHistory
+                months={previousPayrollMonths}
+                totalMonths={previousPayrollMonthCount}
+              />
               <FinancePayrollCoverage rows={payrollCoverageRows} />
             </>
           ) : (
@@ -698,11 +711,12 @@ export default async function FinancesPage() {
               <p>
                 Cada cartão reúne a receita declarada e os pagamentos do mesmo mês.
                 O resultado é calculado por código e só aparece quando as fontes têm
-                cobertura comparável.
+                cobertura comparável. A visão geral mostra os 12 fechamentos mais
+                recentes; o calendário acima preserva toda a série.
               </p>
             </div>
             <div className="digest-grid">
-              {sortedMonthlyClosures.map((closure) => (
+              {recentMonthlyClosures.map((closure) => (
                 <article className="digest-card monthly-closure-card" key={closure.closureId}>
                   <div className="track-top">
                     <span>{closure.publicBodyName}</span>
@@ -769,6 +783,7 @@ export default async function FinancesPage() {
               <p>
                 São verificações automáticas de consistência e duplicidade nos documentos publicados.
                 Um sinal orienta a leitura e não prova irregularidade, fraude ou corrupção.
+                A visão geral mostra até 12 sinais recentes.
               </p>
             </div>
             {financeSignals.length === 0 ? (
@@ -781,7 +796,7 @@ export default async function FinancesPage() {
               </article>
             ) : null}
             <div className="digest-grid">
-              {financeSignals.map((signal) => (
+              {recentFinanceSignals.map((signal) => (
                 <article className="digest-card finance-signal-card" key={signal.findingId}>
                   <div className="track-top">
                     <span>{signal.publicBodyName}</span>
@@ -820,11 +835,13 @@ export default async function FinancesPage() {
               <h2 id="expense-title">Quanto saiu do caixa</h2>
               <p>
                 Este é o valor efetivamente pago pela Prefeitura no período do
-                relatório. Os meses mais recentes aparecem primeiro.
+                relatório. A visão geral mostra {recentExpenseReports.length.toLocaleString("pt-BR")} meses
+                recentes de um total de {sortedExpenseReports.length.toLocaleString("pt-BR")} relatórios;
+                o calendário acima mantém o acesso às demais competências.
               </p>
             </div>
             <div className="digest-grid">
-              {sortedExpenseReports.map((report) => (
+              {recentExpenseReports.map((report) => (
                 <article className="digest-card finance-negative-card" key={report.expenseReportId}>
                   <div className="track-top">
                     <span>{report.publicBodyName}</span>
@@ -943,8 +960,9 @@ export default async function FinancesPage() {
               <h2 id="revenue-title">Receitas da Prefeitura</h2>
               <p>
                 O último período disponível é {latestRevenue ? formatDate(latestRevenue) : "não informado"}.
-                Os lançamentos completos ficam recolhidos para não misturar meses
-                e códigos diferentes.
+                A visão geral mostra {recentRevenues.length.toLocaleString("pt-BR")} lançamentos recentes
+                de um total de {sortedRevenues.length.toLocaleString("pt-BR")}; os demais ficam no detalhe
+                mensal para não misturar competências e códigos diferentes.
               </p>
             </div>
             <div className="finance-reading" role="note">
@@ -963,7 +981,7 @@ export default async function FinancesPage() {
                 dos cartões para abrir o documento e a resposta original.
               </p>
               <div className="digest-grid">
-              {sortedRevenues.map((revenue) => (
+              {recentRevenues.map((revenue) => (
                   <article
                     className={`digest-card ${
                       revenue.collectionDirection !== "credit"
@@ -1112,12 +1130,11 @@ export default async function FinancesPage() {
             </div>
             <details className="finance-details finance-obligation-history">
               <summary>
-                Ver histórico mês a mês (
-                {publicObligations.length.toLocaleString("pt-BR")} competências
-                publicadas)
+                Ver histórico mês a mês: {recentPublicObligations.length.toLocaleString("pt-BR")} recentes de{" "}
+                {publicObligations.length.toLocaleString("pt-BR")} competências publicadas
               </summary>
               <div className="digest-grid">
-                {publicObligations.map((obligation: PublicObligation) => (
+                {recentPublicObligations.map((obligation: PublicObligation) => (
                   <article
                     className="digest-card finance-negative-card"
                     key={obligation.obligationId}
@@ -1293,10 +1310,11 @@ export default async function FinancesPage() {
           ) : (
             <details className="finance-details">
               <summary>
-                Ver {obligationDocuments.length.toLocaleString("pt-BR")} documentos-base
+                Ver {recentObligationDocuments.length.toLocaleString("pt-BR")} documentos-base recentes de{" "}
+                {obligationDocuments.length.toLocaleString("pt-BR")}
               </summary>
               <div className="digest-grid">
-                {obligationDocuments.map((document) => (
+                {recentObligationDocuments.map((document) => (
                   <article className="digest-card finance-debt-card" key={document.documentId}>
                     <div className="track-top">
                       <span>{financeResourceLabel(document.sourceResource)}</span>
@@ -1499,10 +1517,11 @@ export default async function FinancesPage() {
             </div>
             <details className="finance-details">
               <summary>
-                Ver {fiscalDocuments.length.toLocaleString("pt-BR")} demonstrativos fiscais
+                Ver {recentFiscalDocuments.length.toLocaleString("pt-BR")} demonstrativos fiscais recentes de{" "}
+                {fiscalDocuments.length.toLocaleString("pt-BR")}
               </summary>
               <div className="digest-grid">
-                {fiscalDocuments.map((document) => (
+                {recentFiscalDocuments.map((document) => (
                   <article className="digest-card" key={document.documentId}>
                     <div className="track-top">
                       <span>{financeResourceLabel(document.sourceResource)}</span>

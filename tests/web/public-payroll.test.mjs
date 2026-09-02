@@ -711,8 +711,18 @@ test("pagina mantém o mês mais recente em destaque e recolhe o histórico", as
   ]);
 
   assert.match(page, /getPublicPayrollMonths\(120\)/);
-  assert.match(page, /const previousPayrollMonths = payrollMonths\.slice\(1\)/);
-  assert.match(page, /<FinancePayrollHistory months=\{previousPayrollMonths\}/);
+  assert.match(
+    page,
+    /const previousPayrollMonths = payrollMonths\.slice\(1, FINANCE_OVERVIEW_LIMIT \+ 1\)/,
+  );
+  assert.match(
+    page,
+    /const previousPayrollMonthCount = Math\.max\(0, payrollMonths\.length - 1\)/,
+  );
+  assert.match(
+    page,
+    /<FinancePayrollHistory\s+months=\{previousPayrollMonths\}/,
+  );
   assert.match(history, /Ver meses anteriores da folha/);
   assert.match(history, /months\.map/);
   assert.match(history, /Conferir \{month\.documentCount/);
