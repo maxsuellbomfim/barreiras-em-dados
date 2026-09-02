@@ -2,6 +2,7 @@ import {
   parseCguFederalAmendmentDocumentRankingRows,
   parseCguFederalAmendmentDocumentStudyRows,
 } from "./cgu-federal-amendment-documents.mjs";
+import { fetchPublicRpcRows } from "./public-rpc.mjs";
 
 export type CguFederalAmendmentDocument = Readonly<{
   archiveYear: number;
@@ -85,8 +86,8 @@ async function callRpc(
   functionName: string,
   args: Record<string, unknown>,
 ): Promise<unknown> {
-  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {
-    method: "POST",
+  return fetchPublicRpcRows({
+    url: `${supabaseUrl}/rest/v1/rpc/${functionName}`,
     headers: {
       Accept: "application/json",
       "Accept-Profile": "api",
@@ -95,11 +96,7 @@ async function callRpc(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(args),
-    next: { revalidate: 300 },
-    signal: AbortSignal.timeout(5_000),
   });
-  if (!response.ok) return null;
-  return response.json();
 }
 
 export async function getPublicCguFederalAmendmentDocuments(
