@@ -256,14 +256,22 @@ class ScheduledWorkflowTests(unittest.TestCase):
         catalog_block = workflow[catalog:direct]
         direct_block = workflow[direct:ocr]
         self.assertIn("id: querido_diario", querido_diario_block)
-        self.assertIn("continue-on-error: true", querido_diario_block)
+        self.assertNotIn("continue-on-error:", querido_diario_block)
+        self.assertIn("api_exit_code=$?", querido_diario_block)
+        self.assertIn("availability=unavailable", querido_diario_block)
+        self.assertIn(
+            "::warning title=API complementar indisponível::",
+            querido_diario_block,
+        )
         self.assertIn("id: official_catalog", catalog_block)
         self.assertIn("continue-on-error: true", catalog_block)
         self.assertIn("id: direct_diary", direct_block)
         self.assertIn("continue-on-error: true", direct_block)
-        self.assertIn("steps.querido_diario.outcome == 'failure'", workflow)
+        self.assertIn(
+            "steps.querido_diario.outputs.availability == 'unavailable'", workflow
+        )
         mandatory_gate = workflow[failure_gate:]
-        self.assertNotIn("steps.querido_diario.outcome", mandatory_gate)
+        self.assertNotIn("steps.querido_diario", mandatory_gate)
         self.assertIn("steps.official_catalog.outcome == 'failure'", mandatory_gate)
         self.assertIn("steps.direct_diary.outcome == 'failure'", mandatory_gate)
 

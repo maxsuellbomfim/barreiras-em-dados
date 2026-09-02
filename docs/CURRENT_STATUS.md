@@ -46,6 +46,9 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
   com sucesso em 18/08/2026, mas o arquivo de 2024 marcou os 20 CPFs do recorte
   como não divulgáveis; o job só repete o download se aparecer uma candidatura
   aprovada ainda sem evidência, sem usar espelho não oficial;
+- a API complementar do Querido Diário permanece sujeita a timeout TLS; essa
+  indisponibilidade gera aviso e DLQ próprios, enquanto catálogo e PDFs oficiais
+  continuam obrigatórios e qualquer falha neles encerra a execução;
 - fatos literais aprovados podem ser automáticos, mas identidade ambígua,
   conflito entre fontes e interpretação reputacional exigem revisão;
 - o portal continua marcado como pré-lançamento até os gates operacionais e de
@@ -65,6 +68,17 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
    fonte, período, metodologia e documento.
 6. Prontidão: sete execuções agendadas consecutivas sem falha não tratada,
    sete dias sem HTTP 500 público e CI completo verde antes do lançamento.
+
+## Evidências operacionais recentes
+
+- Em 02/09/2026, a execução `33591332973` do Diário passou pelas duas fontes
+  oficiais e organizou três edições em 29 documentos integrais e 93 páginas,
+  com zero falha de segmentação. A fila otimizada não repetiu o timeout SQL das
+  duas execuções agendadas anteriores. A API complementar falhou no handshake
+  TLS e foi preservada separadamente, sem contaminar o resultado oficial.
+- Na execução `33590214819` da representação, os recortes privados de 2022 e
+  2024 reconheceram 20 pessoas já evidenciadas em cada eleição e encerraram sem
+  repetir o download bloqueado pelo CDN do TSE.
 
 ## Próximo fluxo vertical
 
