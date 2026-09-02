@@ -30,7 +30,7 @@ function cellLabel(status: FinanceCoverageMatrixStatus): string {
   if (status === "revenue_only") return "Receita";
   if (status === "expense_only") return "Despesa";
   if (status === "needs_review") return "Revisar";
-  if (status === "missing") return "Sem relatório";
+  if (status === "missing") return "Não localizado";
   if (status === "unclassified") return "Não classificado";
   return "Ainda não exigível";
 }
@@ -132,7 +132,7 @@ export default function FinanceCoverageMatrix({
     <div className="finance-coverage-matrix">
       <div className="finance-coverage-summary" aria-label="Resumo da cobertura financeira">
         <div><strong>{comparableMonths.toLocaleString("pt-BR")}</strong><span>meses comparáveis</span></div>
-        <div><strong>{missingMonths.toLocaleString("pt-BR")}</strong><span>meses sem relatório</span></div>
+        <div><strong>{missingMonths.toLocaleString("pt-BR")}</strong><span>meses não localizados</span></div>
         <div><strong>{rows.length.toLocaleString("pt-BR")}</strong><span>meses acompanhados</span></div>
       </div>
       <ul className="finance-coverage-legend" aria-label="Legenda da matriz">
@@ -173,6 +173,8 @@ export default function FinanceCoverageMatrix({
                         ? month.row
                           ? "A competência ainda está em andamento; a ausência de relatório validado não é tratada como atraso nem valor zero."
                           : "Competência futura, ainda fora do período acompanhado."
+                        : month.status === "missing" && month.row
+                          ? "Não foi localizado relatório validado nas fontes oficiais consultadas para esta competência; isso pode refletir atraso de publicação e não significa valor zero nem comprova descumprimento."
                         : month.row
                           ? `${month.row.coverageNote} Relatórios de receita: ${month.row.revenueReportCount}. Relatórios de despesa: ${month.row.expenseReportCount}.`
                           : "A resposta pública não trouxe uma classificação para esta competência.";
@@ -198,7 +200,9 @@ export default function FinanceCoverageMatrix({
       ))}
 
       <p className="finance-coverage-method">
-        “Sem relatório validado” é o resultado da busca mensal na projeção;
+        “Não localizado nas fontes oficiais” indica que a busca mensal não
+        encontrou relatório validado; pode refletir atraso de publicação e
+        não significa valor zero nem comprova descumprimento.{" "}
         “não classificado” indica que a competência não veio na resposta e
         precisa de diagnóstico. “Competência em andamento ou futura” não é
         contada como lacuna. Nenhum desses estados significa valor zero.{" "}
