@@ -289,3 +289,10 @@ em andamento. A interface agora converte somente a ausência da competência
 corrente ou futura em `not_due`; lacunas anteriores, relatórios parciais e
 registros em revisão continuam visíveis. Assim, falta de publicação não é
 antecipada antes do fim da competência nem convertida em valor zero.
+
+Em 02/09/2026, a série documental federal da CGU foi retirada do HTML integral
+da aba de execução. A API pública confirmou 232 movimentos entre 2021 e 2026 e
+agora entrega no máximo 25 por página, com busca e filtros de ano do documento,
+autoria e fase financeira calculados sobre todo o catálogo. O ranking permanece
+em consulta separada e nenhum total, estágio ou fonte foi combinado para obter
+essa redução de payload.

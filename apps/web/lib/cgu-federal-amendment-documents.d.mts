@@ -53,3 +53,22 @@ export function parseCguFederalAmendmentDocumentRows(
 export function parseCguFederalAmendmentDocumentRankingRows(
   rows: unknown,
 ): readonly CguFederalAmendmentDocumentRanking[] | null;
+
+export type CguFederalAmendmentDocumentStudy = Readonly<{
+  documents: readonly CguFederalAmendmentDocument[];
+  totalCount: number;
+  catalogCount: number;
+  availableYears: readonly number[];
+  availableAuthors: readonly Readonly<{
+    authorKey: string;
+    authorName: string;
+  }>[];
+  availableStages: readonly (
+    "commitment" | "liquidation" | "payment"
+  )[];
+  methodologyVersion: "cgu-federal-amendment-document-study/1.0.0";
+}>;
+
+export function parseCguFederalAmendmentDocumentStudyRows(
+  rows: unknown,
+): CguFederalAmendmentDocumentStudy | null;

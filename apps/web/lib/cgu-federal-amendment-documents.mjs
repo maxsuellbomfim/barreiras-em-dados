@@ -6,6 +6,8 @@ const EXPENSE_STAGES = new Set(["commitment", "liquidation", "payment"]);
 const DOCUMENT_METHODOLOGY = "cgu-federal-amendment-documents/1.0.0";
 const RANKING_METHODOLOGY =
   "cgu-federal-amendment-document-ranking/1.0.0";
+const STUDY_METHODOLOGY =
+  "cgu-federal-amendment-document-study/1.0.0";
 const AGGREGATION_POLICY = "single_document_source_no_cross_source_sum";
 
 function requiredText(value) {
@@ -152,4 +154,39 @@ export function parseCguFederalAmendmentDocumentRankingRows(rows) {
   if (!Array.isArray(rows)) return null;
   const parsed = rows.map((row, index) => parseRankingRow(row, index + 1));
   return parsed.some((row) => row === null) ? null : parsed;
+}
+
+export function parseCguFederalAmendmentDocumentStudyRows(rows) {
+  if (!Array.isArray(rows) || rows.length !== 1) return null;
+  const row = rows[0];
+  if (typeof row !== "object" || row === null) return null;
+  const documents = parseCguFederalAmendmentDocumentRows(row.items);
+  const totalCount = integer(row.total_count, 0);
+  const catalogCount = integer(row.catalog_count, 0);
+  if (
+    documents === null || totalCount === null || catalogCount === null ||
+    totalCount > catalogCount || documents.length > totalCount ||
+    row.methodology_version !== STUDY_METHODOLOGY ||
+    !Array.isArray(row.available_years) ||
+    !row.available_years.every((year) => integer(year, 2021) !== null) ||
+    !Array.isArray(row.available_stages) ||
+    !row.available_stages.every((stage) => EXPENSE_STAGES.has(stage)) ||
+    !Array.isArray(row.available_authors)
+  ) return null;
+  const availableAuthors = row.available_authors.map((author) => {
+    if (typeof author !== "object" || author === null) return null;
+    const authorKey = requiredText(author.author_key);
+    const authorName = requiredText(author.author_name);
+    return authorKey && authorName ? { authorKey, authorName } : null;
+  });
+  if (availableAuthors.some((author) => author === null)) return null;
+  return {
+    documents,
+    totalCount,
+    catalogCount,
+    availableYears: row.available_years,
+    availableAuthors,
+    availableStages: row.available_stages,
+    methodologyVersion: STUDY_METHODOLOGY,
+  };
 }

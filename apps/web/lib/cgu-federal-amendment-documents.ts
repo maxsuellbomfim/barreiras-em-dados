@@ -1,6 +1,6 @@
 import {
   parseCguFederalAmendmentDocumentRankingRows,
-  parseCguFederalAmendmentDocumentRows,
+  parseCguFederalAmendmentDocumentStudyRows,
 } from "./cgu-federal-amendment-documents.mjs";
 
 export type CguFederalAmendmentDocument = Readonly<{
@@ -56,8 +56,28 @@ export type CguFederalAmendmentDocumentsResult =
       state: "available";
       documents: readonly CguFederalAmendmentDocument[];
       ranking: readonly CguFederalAmendmentDocumentRanking[];
+      totalCount: number;
+      catalogCount: number;
+      availableYears: readonly number[];
+      availableAuthors: readonly Readonly<{
+        authorKey: string;
+        authorName: string;
+      }>[];
+      availableStages: readonly (
+        "commitment" | "liquidation" | "payment"
+      )[];
+      page: number;
+      pageSize: number;
     }>
   | Readonly<{ state: "unavailable" }>;
+
+export type CguFederalAmendmentDocumentFilters = Readonly<{
+  page?: number;
+  archiveYear?: number | null;
+  authorKey?: string | null;
+  expenseStage?: "commitment" | "liquidation" | "payment" | null;
+  query?: string | null;
+}>;
 
 async function callRpc(
   supabaseUrl: string,
@@ -82,7 +102,9 @@ async function callRpc(
   return response.json();
 }
 
-export async function getPublicCguFederalAmendmentDocuments(): Promise<
+export async function getPublicCguFederalAmendmentDocuments(
+  filters: CguFederalAmendmentDocumentFilters = {},
+): Promise<
   CguFederalAmendmentDocumentsResult
 > {
   const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
@@ -91,16 +113,23 @@ export async function getPublicCguFederalAmendmentDocuments(): Promise<
     !supabaseUrl?.startsWith("https://") ||
     !publishableKey?.startsWith("sb_publishable_")
   ) return { state: "unavailable" };
+  const page = Number.isInteger(filters.page) && (filters.page ?? 0) > 0
+    ? filters.page as number
+    : 1;
+  const pageSize = 25;
   try {
-    const [documentRows, rankingRows] = await Promise.all([
+    const [studyRows, rankingRows] = await Promise.all([
       callRpc(
         supabaseUrl,
         publishableKey,
-        "get_public_cgu_federal_amendment_documents",
+        "get_public_cgu_federal_amendment_document_study",
         {
-          archive_year_filter: null,
-          author_key_filter: null,
-          page_size: 500,
+          page_size: pageSize,
+          page_offset: (page - 1) * pageSize,
+          archive_year_filter: filters.archiveYear ?? null,
+          author_key_filter: filters.authorKey ?? null,
+          expense_stage_filter: filters.expenseStage ?? null,
+          query_filter: filters.query ?? null,
         },
       ),
       callRpc(
@@ -110,10 +139,16 @@ export async function getPublicCguFederalAmendmentDocuments(): Promise<
         { archive_year_filter: null, page_size: 50 },
       ),
     ]);
-    const documents = parseCguFederalAmendmentDocumentRows(documentRows);
+    const study = parseCguFederalAmendmentDocumentStudyRows(studyRows);
     const ranking = parseCguFederalAmendmentDocumentRankingRows(rankingRows);
-    if (documents === null || ranking === null) return { state: "unavailable" };
-    return { state: "available", documents, ranking };
+    if (study === null || ranking === null) return { state: "unavailable" };
+    return {
+      state: "available",
+      ...study,
+      ranking,
+      page,
+      pageSize,
+    };
   } catch {
     return { state: "unavailable" };
   }

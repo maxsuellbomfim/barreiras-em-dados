@@ -5,11 +5,19 @@ import test from "node:test";
 import {
   parseCguFederalAmendmentDocumentRankingRows,
   parseCguFederalAmendmentDocumentRows,
+  parseCguFederalAmendmentDocumentStudyRows,
 } from "../../apps/web/lib/cgu-federal-amendment-documents.mjs";
 
 const SHA = "a".repeat(64);
 const resourcesPage = readFileSync(
   new URL("../../apps/web/app/recursos/page.tsx", import.meta.url),
+  "utf8",
+);
+const documentsClient = readFileSync(
+  new URL(
+    "../../apps/web/lib/cgu-federal-amendment-documents.ts",
+    import.meta.url,
+  ),
   "utf8",
 );
 
@@ -112,9 +120,55 @@ test("ranking documental valida sequência e não mistura fontes", () => {
   );
 });
 
+test("estudo documental valida página, contagens e filtros disponíveis", () => {
+  const parsed = parseCguFederalAmendmentDocumentStudyRows([{
+    items: [documentRow()],
+    total_count: 1,
+    catalog_count: 3,
+    available_years: [2024, 2023],
+    available_authors: [{
+      author_key: "com. da saude",
+      author_name: "COM. DA SAUDE",
+    }],
+    available_stages: ["commitment", "liquidation", "payment"],
+    methodology_version: "cgu-federal-amendment-document-study/1.0.0",
+  }]);
+  assert.notEqual(parsed, null);
+  assert.equal(parsed.totalCount, 1);
+  assert.equal(parsed.catalogCount, 3);
+  assert.equal(parsed.documents[0].documentCode, "257001000012024OB018682");
+  assert.equal(
+    parseCguFederalAmendmentDocumentStudyRows([{
+      items: [],
+      total_count: 4,
+      catalog_count: 3,
+      available_years: [],
+      available_authors: [],
+      available_stages: [],
+      methodology_version: "cgu-federal-amendment-document-study/1.0.0",
+    }]),
+    null,
+  );
+});
+
 test("página explica a série documental e mantém detalhes recolhidos", () => {
   assert.match(resourcesPage, /Movimentações por documento oficial/);
   assert.match(resourcesPage, /ano do documento pode ser diferente do ano da emenda/);
   assert.match(resourcesPage, /Os valores desta série não são somados/);
-  assert.match(resourcesPage, /Conferir documentos, favorecidos e evidências/);
+  assert.match(resourcesPage, /Documentos, favorecidos e evidências/);
+  assert.match(
+    resourcesPage,
+    /Os filtros são aplicados no servidor sobre todo o acervo documental/,
+  );
+  assert.match(resourcesPage, /Página \{result\.page\} de/);
+});
+
+test("cliente solicita somente a página documental visível", () => {
+  assert.match(
+    documentsClient,
+    /get_public_cgu_federal_amendment_document_study/,
+  );
+  assert.match(documentsClient, /page_offset:\s*\(page - 1\) \* pageSize/);
+  assert.match(documentsClient, /const pageSize = 25/);
+  assert.doesNotMatch(documentsClient, /page_size:\s*500/);
 });
