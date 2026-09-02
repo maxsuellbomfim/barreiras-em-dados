@@ -2,7 +2,7 @@ import "server-only";
 
 import { getMunicipalCouncillors } from "./councillors";
 import { getPublicFinanceCoverage } from "./finance-coverage";
-import { getOfficialDiaryCatalog } from "./official-diary-catalog";
+import { getIntegralGazetteEditions } from "./integral-gazette-documents";
 import {
   buildOperationalHealth,
   type OperationalHealth,
@@ -10,7 +10,7 @@ import {
 
 export async function getOperationalHealthSnapshot(): Promise<OperationalHealth> {
   const [diary, finance, representatives] = await Promise.all([
-    getOfficialDiaryCatalog(),
+    getIntegralGazetteEditions({ pageSize: 1 }),
     getPublicFinanceCoverage(),
     getMunicipalCouncillors(),
   ]);
@@ -19,7 +19,7 @@ export async function getOperationalHealthSnapshot(): Promise<OperationalHealth>
     checkedAt: new Date().toISOString(),
     diary:
       diary.state === "available"
-        ? { state: "available", records: diary.entries.length }
+        ? { state: "available", records: diary.editions.length }
         : { state: "unavailable" },
     finance:
       finance.state === "available"
