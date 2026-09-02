@@ -1,6 +1,6 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **01/09/2026**. Este é o ponto de entrada operacional; o histórico
+Atualizado em **02/09/2026**. Este é o ponto de entrada operacional; o histórico
 de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
@@ -41,6 +41,11 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 - o formulário do e-TCM expirou em todas as tentativas feitas por runners
   hospedados; sua retomada mensal automática usa o executor Windows validado,
   enquanto o GitHub permanece apenas como replay manual e diagnóstico;
+- o CDN oficial do TSE passou a responder HTTP 403 a requisições automatizadas
+  em runners hospedados; os recortes privados de 2022 e 2024 foram importados
+  com sucesso em 18/08/2026, mas o arquivo de 2024 marcou os 20 CPFs do recorte
+  como não divulgáveis; o job só repete o download se aparecer uma candidatura
+  aprovada ainda sem evidência, sem usar espelho não oficial;
 - fatos literais aprovados podem ser automáticos, mas identidade ambígua,
   conflito entre fontes e interpretação reputacional exigem revisão;
 - o portal continua marcado como pré-lançamento até os gates operacionais e de
