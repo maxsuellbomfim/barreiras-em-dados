@@ -14,7 +14,11 @@ function formatMonthTitle(value: string): string {
 
 export default function FinancePayrollHistory({
   months,
-}: Readonly<{ months: readonly PublicPayrollMonth[] }>) {
+  totalMonths = months.length,
+}: Readonly<{
+  months: readonly PublicPayrollMonth[];
+  totalMonths?: number;
+}>) {
   if (months.length === 0) return null;
 
   return (
@@ -23,8 +27,9 @@ export default function FinancePayrollHistory({
         <span>Ver meses anteriores da folha</span>
         <small>
           {months.length.toLocaleString("pt-BR")} mês
-          {months.length === 1 ? "" : "es"} publicado
-          {months.length === 1 ? "" : "s"} antes do destaque
+          {months.length === 1 ? "" : "es"} recente
+          {months.length === 1 ? "" : "s"} de {totalMonths.toLocaleString("pt-BR")} publicado
+          {totalMonths === 1 ? "" : "s"} antes do destaque
         </small>
       </summary>
       <div className="finance-payroll-history-list">
