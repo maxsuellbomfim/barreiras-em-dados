@@ -22,6 +22,7 @@ const LEGEND_STATUSES: readonly FinanceCoverageMatrixStatus[] = [
   "needs_review",
   "missing",
   "unclassified",
+  "not_due",
 ];
 
 function cellLabel(status: FinanceCoverageMatrixStatus): string {
@@ -31,7 +32,18 @@ function cellLabel(status: FinanceCoverageMatrixStatus): string {
   if (status === "needs_review") return "Revisar";
   if (status === "missing") return "Sem relatório";
   if (status === "unclassified") return "Não classificado";
-  return "—";
+  return "Ainda não exigível";
+}
+
+function currentPeriodInBarreiras(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bahia",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  return `${year}-${month}`;
 }
 
 export default function FinanceCoverageMatrix({
@@ -87,7 +99,11 @@ export default function FinanceCoverageMatrix({
   }
 
   const rows = result.rows;
-  const matrix = buildFinanceCoverageMatrix(rows);
+  const matrix = buildFinanceCoverageMatrix(
+    rows,
+    2021,
+    currentPeriodInBarreiras(),
+  );
   if (!matrix || matrix.bodies.length === 0) {
     return (
       <div className="collection-unavailable" role="status">
@@ -102,8 +118,15 @@ export default function FinanceCoverageMatrix({
     );
   }
 
-  const comparableMonths = rows.filter((row) => row.coverageStatus === "complete").length;
-  const missingMonths = rows.filter((row) => row.coverageStatus === "missing").length;
+  const displayedMonths = matrix.bodies.flatMap((body) =>
+    body.years.flatMap((year) => year.months.filter((month) => month.row)),
+  );
+  const comparableMonths = displayedMonths.filter(
+    (month) => month.status === "complete",
+  ).length;
+  const missingMonths = displayedMonths.filter(
+    (month) => month.status === "missing",
+  ).length;
 
   return (
     <div className="finance-coverage-matrix">
@@ -146,10 +169,12 @@ export default function FinanceCoverageMatrix({
                     <th scope="row">{year.year}</th>
                     {year.months.map((month) => {
                       const statusLabel = financeCoverageStatusLabel(month.status);
-                      const evidence = month.row
-                        ? `${month.row.coverageNote} Relatórios de receita: ${month.row.revenueReportCount}. Relatórios de despesa: ${month.row.expenseReportCount}.`
-                        : month.status === "not_due"
-                          ? "Competência posterior ao último mês acompanhado pela projeção."
+                      const evidence = month.status === "not_due"
+                        ? month.row
+                          ? "A competência ainda está em andamento; a ausência de relatório validado não é tratada como atraso nem valor zero."
+                          : "Competência futura, ainda fora do período acompanhado."
+                        : month.row
+                          ? `${month.row.coverageNote} Relatórios de receita: ${month.row.revenueReportCount}. Relatórios de despesa: ${month.row.expenseReportCount}.`
                           : "A resposta pública não trouxe uma classificação para esta competência.";
                       const explanation = `${MONTHS[month.month - 1]} de ${year.year}: ${statusLabel}. ${evidence}`;
                       return (
@@ -175,7 +200,8 @@ export default function FinanceCoverageMatrix({
       <p className="finance-coverage-method">
         “Sem relatório validado” é o resultado da busca mensal na projeção;
         “não classificado” indica que a competência não veio na resposta e
-        precisa de diagnóstico. Nenhum dos dois estados significa valor zero.{" "}
+        precisa de diagnóstico. “Competência em andamento ou futura” não é
+        contada como lacuna. Nenhum desses estados significa valor zero.{" "}
         <a href="#document-title">Conferir os documentos publicados</a> ou{" "}
         <a
           href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
