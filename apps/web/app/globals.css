@@ -1324,16 +1324,23 @@ footer {
   .nav-shell {
     min-height: 3.45rem;
     padding: 0.42rem 0.48rem 0.42rem 0.75rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
     border-radius: 1rem;
   }
 
   /* Em telas estreitas a navegação vira uma fileira rolável em vez de
      desaparecer: todas as seções continuam alcançáveis de qualquer página. */
   .nav-links {
+    width: 100%;
+    margin-left: 0;
+    padding-top: 0.42rem;
     overflow-x: auto;
     scrollbar-width: none;
     flex-wrap: nowrap;
     gap: 0.9rem;
+    border-top: 1px solid rgba(24, 33, 52, 0.08);
     -webkit-overflow-scrolling: touch;
   }
 
