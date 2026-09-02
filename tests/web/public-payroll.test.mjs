@@ -751,7 +751,7 @@ test("pagina separa estagiários e terceirizados sem publicar valores pessoais",
   assert.match(coverage, /não entram no total da folha regular/);
   assert.match(coverage, /nenhum valor agregado é presumido/);
   assert.match(coverage, /<details/);
-  assert.match(coverage, /const NONPAYROLL_OVERVIEW_LIMIT = 12;/);
+  assert.match(coverage, /const NONPAYROLL_OVERVIEW_LIMIT = 6;/);
   assert.match(
     coverage,
     /const recentDocumentedRows = documentedRows\.slice\(0, NONPAYROLL_OVERVIEW_LIMIT\)/,

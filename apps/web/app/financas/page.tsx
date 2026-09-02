@@ -55,7 +55,7 @@ import FinanceFamilyCoverageMap from "./finance-family-coverage-map";
 
 export const revalidate = 300;
 
-const FINANCE_OVERVIEW_LIMIT = 12;
+const FINANCE_OVERVIEW_LIMIT = 6;
 
 export const metadata: Metadata = {
   title: "Finanças públicas",
@@ -655,7 +655,7 @@ export default async function FinancesPage() {
               <p>
                 Cada cartão reúne a receita declarada e os pagamentos do mesmo mês.
                 O resultado é calculado por código e só aparece quando as fontes têm
-                cobertura comparável. A visão geral mostra os 12 fechamentos mais
+                cobertura comparável. A visão geral mostra os seis fechamentos mais
                 recentes; a auditoria de cobertura preserva toda a série.
               </p>
             </div>
@@ -727,7 +727,7 @@ export default async function FinancesPage() {
               <p>
                 São verificações automáticas de consistência e duplicidade nos documentos publicados.
                 Um sinal orienta a leitura e não prova irregularidade, fraude ou corrupção.
-                A visão geral mostra até 12 sinais recentes.
+                A visão geral mostra até seis sinais recentes.
               </p>
             </div>
             {financeSignals.length === 0 ? (
