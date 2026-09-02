@@ -27,7 +27,7 @@ export function financeCoverageStatusLabel(status) {
   if (status === "revenue_only") return "Só receita";
   if (status === "expense_only") return "Só despesa";
   if (status === "needs_review") return "Revisão necessária";
-  if (status === "missing") return "Sem relatório validado";
+  if (status === "missing") return "Não localizado nas fontes oficiais";
   if (status === "unclassified") return "Não classificado";
   return "Competência em andamento ou futura";
 }

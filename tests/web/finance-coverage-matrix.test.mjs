@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -98,11 +99,23 @@ test("rótulos explicam todos os estados sem depender apenas de cor", () => {
       "Só receita",
       "Só despesa",
       "Revisão necessária",
-      "Sem relatório validado",
+      "Não localizado nas fontes oficiais",
       "Não classificado",
       "Competência em andamento ou futura",
     ],
   );
+});
+
+test("matriz pública explica documento não localizado sem sugerir valor zero", () => {
+  const source = readFileSync(
+    new URL("../../apps/web/app/financas/finance-coverage-matrix.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /meses não localizados/u);
+  assert.match(source, /“Não localizado nas fontes oficiais”/u);
+  assert.match(source, /pode refletir atraso de publicação/u);
+  assert.match(source, /não significa valor zero nem comprova descumprimento/u);
 });
 
 test("payload público só é aceito quando todas as competências respeitam o contrato", () => {
