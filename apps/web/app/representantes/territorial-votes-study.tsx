@@ -1,41 +1,18 @@
-"use client";
-
-import { useMemo, useState } from "react";
-
 import {
   classifyElectionOutcome,
   electionCycleLabel,
   electionPeriodLabel,
-  latestElectionYear,
   outcomeLabel,
 } from "../../lib/representative-election-context.mjs";
-import type { ElectionOutcome } from "../../lib/representative-election-context.mjs";
-import type { TseVote } from "../../lib/tse-votes";
-
-const officeOrder = [
-  "Prefeito",
-  "Vereador",
-  "Governador",
-  "Senador",
-  "Deputado Estadual",
-  "Deputado Federal",
-];
-
-function formatNumber(value: number): string {
-  return value.toLocaleString("pt-BR");
-}
-
-function officeSortIndex(office: string): number {
-  const index = officeOrder.indexOf(office);
-  return index === -1 ? officeOrder.length : index;
-}
-
-function displayName(vote: TseVote): string {
-  return vote.ballotName ?? vote.displayName ?? "Candidatura sem nome informado";
-}
+import type {
+  TseVote,
+  TseVoteOutcome,
+  TseVoteStudy,
+  TseVoteStudyFilters,
+} from "../../lib/tse-votes";
 
 const outcomeOptions: readonly Readonly<{
-  value: ElectionOutcome | "todos";
+  value: TseVoteOutcome | "todos";
   label: string;
 }>[] = [
   { value: "todos", label: "Todas as situações" },
@@ -46,82 +23,57 @@ const outcomeOptions: readonly Readonly<{
   { value: "unknown", label: "Situação não informada" },
 ];
 
+function formatNumber(value: number): string {
+  return value.toLocaleString("pt-BR");
+}
+
+function displayName(vote: TseVote): string {
+  return vote.ballotName ?? vote.displayName ?? "Candidatura sem nome informado";
+}
+
+function studyHref(
+  filters: TseVoteStudyFilters,
+  page: number,
+): string {
+  const params = new URLSearchParams();
+  if (filters.allYears) params.set("ano", "todos");
+  else if (filters.electionYear !== null) {
+    params.set("ano", String(filters.electionYear));
+  }
+  if (filters.office) params.set("cargo", filters.office);
+  if (filters.turn !== null) params.set("turno", String(filters.turn));
+  if (filters.outcome) params.set("situacao", filters.outcome);
+  if (filters.query) params.set("q", filters.query);
+  if (page > 1) params.set("pagina", String(page));
+  const query = params.toString();
+  return `/representantes${query ? `?${query}` : ""}#vinculo`;
+}
+
 export default function TerritorialVotesStudy({
-  votes,
-}: Readonly<{ votes: readonly TseVote[] }>) {
-  const years = useMemo(
-    () => [...new Set(votes.map((vote) => vote.electionYear))].sort((a, b) => b - a),
-    [votes],
-  );
-  const offices = useMemo(
-    () =>
-      [...new Set(votes.map((vote) => vote.office ?? "Cargo não informado"))].sort(
-        (left, right) => officeSortIndex(left) - officeSortIndex(right) || left.localeCompare(right),
-      ),
-    [votes],
-  );
-  const [yearFilter, setYearFilter] = useState(() =>
-    latestElectionYear(votes.map((vote) => vote.electionYear)),
-  );
-  const [officeFilter, setOfficeFilter] = useState("todos");
-  const [turnFilter, setTurnFilter] = useState("todos");
-  const [outcomeFilter, setOutcomeFilter] = useState<ElectionOutcome | "todos">("todos");
-  const [search, setSearch] = useState("");
-  const turns = useMemo(
-    () => [...new Set(votes.map((vote) => vote.turnNumber))].sort((left, right) => left - right),
-    [votes],
-  );
-
-  const filteredVotes = useMemo(() => {
-    const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
-    return votes.filter((vote) => {
-      const matchesYear = yearFilter === "todos" || vote.electionYear === Number(yearFilter);
-      const office = vote.office ?? "Cargo não informado";
-      const matchesOffice = officeFilter === "todos" || office === officeFilter;
-      const matchesTurn = turnFilter === "todos" || vote.turnNumber === Number(turnFilter);
-      const matchesOutcome =
-        outcomeFilter === "todos" || classifyElectionOutcome(vote.situation) === outcomeFilter;
-      const matchesSearch =
-        normalizedSearch.length === 0 ||
-        [displayName(vote), vote.party, vote.candidateNumber, vote.candidateId]
-          .filter(Boolean)
-          .some((value) => value!.toLocaleLowerCase("pt-BR").includes(normalizedSearch));
-      return matchesYear && matchesOffice && matchesTurn && matchesOutcome && matchesSearch;
-    });
-  }, [officeFilter, outcomeFilter, search, turnFilter, votes, yearFilter]);
-
-  const summary = useMemo(() => {
-    const groups = new Map<string, { year: number; office: string; turn: number; candidates: number; votes: number }>();
-    for (const vote of filteredVotes) {
-      const office = vote.office ?? "Cargo não informado";
-      const key = `${vote.electionYear}-${office}-${vote.turnNumber}`;
-      const current = groups.get(key) ?? { year: vote.electionYear, office, turn: vote.turnNumber, candidates: 0, votes: 0 };
-      current.candidates += 1;
-      current.votes += vote.votesInBarreiras;
-      groups.set(key, current);
-    }
-    return [...groups.values()].sort(
-      (left, right) => right.year - left.year || officeSortIndex(left.office) - officeSortIndex(right.office) || left.turn - right.turn,
-    );
-  }, [filteredVotes]);
-
-  const totalVotes = useMemo(() => {
-    if (turnFilter === "todos") return null;
-    return filteredVotes.reduce((total, vote) => total + vote.votesInBarreiras, 0);
-  }, [filteredVotes, turnFilter]);
-  const electedCount = useMemo(
-    () => filteredVotes.filter((vote) => classifyElectionOutcome(vote.situation) === "elected").length,
-    [filteredVotes],
-  );
-  const topVotes = useMemo(
-    () =>
-      [...filteredVotes].sort(
-        (left, right) =>
-          right.votesInBarreiras - left.votesInBarreiras || displayName(left).localeCompare(displayName(right)),
-      ),
-    [filteredVotes],
-  );
-  const maxGroupVotes = Math.max(...summary.map((group) => group.votes), 1);
+  study,
+  filters,
+}: Readonly<{
+  study: TseVoteStudy;
+  filters: TseVoteStudyFilters;
+}>) {
+  const {
+    votes,
+    totalCount,
+    electedCount,
+    votesTotal,
+    groups,
+    availableYears,
+    availableOffices,
+    availableTurns,
+    effectiveYear,
+    page,
+    pageSize,
+  } = study;
+  const selectedYear = filters.allYears
+    ? "todos"
+    : String(filters.electionYear ?? effectiveYear ?? "todos");
+  const maxGroupVotes = Math.max(...groups.map((group) => group.votes), 1);
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
     <div className="territorial-study">
@@ -136,7 +88,12 @@ export default function TerritorialVotesStudy({
             pleitos diferentes; isso não informa, sozinho, qual cargo ocupa hoje.
           </p>
         </div>
-        <a className="territorial-study-source" href="https://dadosabertos.tse.jus.br/" target="_blank" rel="noreferrer">
+        <a
+          className="territorial-study-source"
+          href="https://dadosabertos.tse.jus.br/"
+          target="_blank"
+          rel="noreferrer"
+        >
           Fonte oficial: TSE ↗
         </a>
       </div>
@@ -145,74 +102,143 @@ export default function TerritorialVotesStudy({
         <strong>Candidatura não é mandato atual</strong>
         <p>
           Os mandatos atuais confirmados pela Prefeitura, Câmara Municipal,
-          ALBA e Câmara dos Deputados ficam nas listas acima. Aqui, &ldquo;eleito&rdquo;,
-          &ldquo;suplente&rdquo; ou &ldquo;não eleito&rdquo; descreve apenas o resultado daquela eleição.
+          ALBA e Câmara dos Deputados ficam nas listas acima. Aqui,
+          &ldquo;eleito&rdquo;, &ldquo;suplente&rdquo; ou &ldquo;não
+          eleito&rdquo; descreve apenas o resultado daquela eleição.
         </p>
       </div>
 
-      <div className="territorial-filters" aria-label="Filtros eleitorais">
+      <form
+        className="territorial-filters"
+        aria-label="Filtros eleitorais"
+        action="/representantes#vinculo"
+        method="get"
+      >
         <label>
           <span>Ano da eleição</span>
-          <select value={yearFilter} onChange={(event) => setYearFilter(event.target.value)}>
+          <select name="ano" defaultValue={selectedYear}>
             <option value="todos">Todos os anos</option>
-            {years.map((year) => <option key={year} value={year}>{year}</option>)}
+            {availableYears.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
           </select>
         </label>
         <label>
           <span>Cargo</span>
-          <select value={officeFilter} onChange={(event) => setOfficeFilter(event.target.value)}>
+          <select name="cargo" defaultValue={filters.office ?? "todos"}>
             <option value="todos">Todos os cargos</option>
-            {offices.map((office) => <option key={office} value={office}>{office}</option>)}
+            {availableOffices.map((office) => (
+              <option key={office} value={office}>{office}</option>
+            ))}
           </select>
         </label>
         <label>
           <span>Turno</span>
-          <select value={turnFilter} onChange={(event) => setTurnFilter(event.target.value)}>
+          <select
+            name="turno"
+            defaultValue={filters.turn === null ? "todos" : String(filters.turn)}
+          >
             <option value="todos">Todos (separados)</option>
-            {turns.map((turn) => <option key={turn} value={turn}>{turn}º turno</option>)}
+            {availableTurns.map((turn) => (
+              <option key={turn} value={turn}>{turn}º turno</option>
+            ))}
           </select>
         </label>
         <label>
           <span>Situação naquele pleito</span>
-          <select
-            value={outcomeFilter}
-            onChange={(event) => setOutcomeFilter(event.target.value as ElectionOutcome | "todos")}
-          >
+          <select name="situacao" defaultValue={filters.outcome ?? "todos"}>
             {outcomeOptions.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
             ))}
           </select>
         </label>
         <label className="territorial-search">
           <span>Pesquisar candidatura</span>
-          <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="nome, partido ou número" />
+          <input
+            type="search"
+            name="q"
+            maxLength={100}
+            defaultValue={filters.query ?? ""}
+            placeholder="nome, partido ou número"
+          />
         </label>
+        <button type="submit" className="filter-clear">Aplicar filtros</button>
+        <a className="filter-clear" href="/representantes#vinculo">
+          Limpar filtros
+        </a>
+      </form>
+
+      <div className="acts-filter-summary" aria-live="polite">
+        <strong>
+          {formatNumber(votes.length)} nesta página · {formatNumber(totalCount)} no recorte filtrado
+        </strong>
+        <span>
+          Os filtros são aplicados no servidor sobre todo o acervo. A página
+          mostra até {pageSize} registros por vez.
+        </span>
       </div>
 
       <div className="territorial-kpis" aria-label="Resumo filtrado">
-        <div><strong>{formatNumber(filteredVotes.length)}</strong><span>candidaturas no recorte</span></div>
-        <div><strong>{formatNumber(electedCount)}</strong><span>eleitos naquele pleito</span></div>
-        <div><strong>{totalVotes === null ? "—" : formatNumber(totalVotes)}</strong><span>{totalVotes === null ? "selecione um turno para somar votos" : "votos no turno selecionado"}</span></div>
+        <div>
+          <strong>{formatNumber(totalCount)}</strong>
+          <span>candidaturas no recorte</span>
+        </div>
+        <div>
+          <strong>{formatNumber(electedCount)}</strong>
+          <span>eleitos naquele pleito</span>
+        </div>
+        <div>
+          <strong>{votesTotal === null ? "—" : formatNumber(votesTotal)}</strong>
+          <span>
+            {votesTotal === null
+              ? "selecione um turno para somar votos"
+              : "votos no turno selecionado"}
+          </span>
+        </div>
       </div>
 
-      {filteredVotes.length === 0 ? (
+      {totalCount === 0 ? (
         <div className="collection-unavailable" role="status">
           <strong>Nenhum registro encontrado</strong>
-          <p>Altere o ano, o cargo ou o termo de pesquisa.</p>
+          <p>Altere o ano, o cargo, a situação ou o termo de pesquisa.</p>
         </div>
       ) : (
         <>
           <section className="territorial-chart" aria-labelledby="territorial-chart-title">
             <div className="territorial-section-heading">
-              <div><span className="eyebrow">Leitura rápida</span><h3 id="territorial-chart-title">Votos por eleição e cargo</h3></div>
-              <span className="territorial-muted">Cálculo determinístico sobre o TSE</span>
+              <div>
+                <span className="eyebrow">Leitura rápida</span>
+                <h3 id="territorial-chart-title">Votos por eleição e cargo</h3>
+              </div>
+              <span className="territorial-muted">
+                Cálculo determinístico sobre todo o recorte do TSE
+              </span>
             </div>
             <div className="territorial-bars">
-              {summary.map((group) => (
-                <div className="territorial-bar-row" key={`${group.year}-${group.office}-${group.turn}`}>
-                  <div className="territorial-bar-label"><strong>{group.office} · {group.turn}º turno</strong><span>{group.year} · {formatNumber(group.candidates)} candidaturas</span></div>
-                  <div className="territorial-bar-track" aria-label={`${formatNumber(group.votes)} votos`}><span style={{ width: `${Math.max(3, (group.votes / maxGroupVotes) * 100)}%` }} /></div>
-                  <strong className="territorial-bar-value">{formatNumber(group.votes)}</strong>
+              {groups.map((group) => (
+                <div
+                  className="territorial-bar-row"
+                  key={`${group.year}-${group.office}-${group.turn}`}
+                >
+                  <div className="territorial-bar-label">
+                    <strong>{group.office} · {group.turn}º turno</strong>
+                    <span>{group.year} · {formatNumber(group.candidates)} candidaturas</span>
+                  </div>
+                  <div
+                    className="territorial-bar-track"
+                    aria-label={`${formatNumber(group.votes)} votos`}
+                  >
+                    <span
+                      style={{
+                        width: `${Math.max(3, (group.votes / maxGroupVotes) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <strong className="territorial-bar-value">
+                    {formatNumber(group.votes)}
+                  </strong>
                 </div>
               ))}
             </div>
@@ -220,8 +246,13 @@ export default function TerritorialVotesStudy({
 
           <section className="territorial-results" aria-labelledby="territorial-results-title">
             <div className="territorial-section-heading">
-              <div><span className="eyebrow">Explorar registros</span><h3 id="territorial-results-title">Candidaturas mais votadas no recorte</h3></div>
-              <span className="territorial-muted">{formatNumber(filteredVotes.length)} encontradas</span>
+              <div>
+                <span className="eyebrow">Explorar registros</span>
+                <h3 id="territorial-results-title">Candidaturas mais votadas no recorte</h3>
+              </div>
+              <span className="territorial-muted">
+                {formatNumber(totalCount)} encontradas
+              </span>
             </div>
             <div
               className="territorial-table-wrap"
@@ -230,27 +261,73 @@ export default function TerritorialVotesStudy({
               tabIndex={0}
             >
               <table className="territorial-table">
-                <caption className="sr-only">Candidaturas filtradas por votação em Barreiras</caption>
-                <thead><tr><th scope="col">Candidatura</th><th scope="col">Cargo disputado / eleição</th><th scope="col">Situação naquele pleito</th><th scope="col">Partido</th><th scope="col">Votos</th></tr></thead>
+                <caption className="sr-only">
+                  Candidaturas filtradas por votação em Barreiras
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Candidatura</th>
+                    <th scope="col">Cargo disputado / eleição</th>
+                    <th scope="col">Situação naquele pleito</th>
+                    <th scope="col">Partido</th>
+                    <th scope="col">Votos</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {topVotes.slice(0, 50).map((vote) => {
+                  {votes.map((vote) => {
                     const outcome = classifyElectionOutcome(vote.situation);
                     const office = vote.office ?? "Cargo não informado";
                     return (
                       <tr key={`${vote.electionYear}-${vote.candidateId}-${vote.turnNumber}`}>
-                        <th scope="row">{displayName(vote)}<small>{vote.candidateNumber ? `nº ${vote.candidateNumber}` : "número não informado"}</small></th>
-                        <td>{office}<small>{electionCycleLabel(vote.electionYear, office)} · {electionPeriodLabel(vote.electionYear, office)} · {vote.turnNumber}º turno</small></td>
-                        <td><span className={`territorial-outcome territorial-outcome-${outcome}`}>{outcomeLabel(outcome)}</span><small>Fonte: {vote.situation ?? "não informado"}</small></td>
+                        <th scope="row">
+                          {displayName(vote)}
+                          <small>
+                            {vote.candidateNumber
+                              ? `nº ${vote.candidateNumber}`
+                              : "número não informado"}
+                          </small>
+                        </th>
+                        <td>
+                          {office}
+                          <small>
+                            {electionCycleLabel(vote.electionYear, office)} · {" "}
+                            {electionPeriodLabel(vote.electionYear, office)} · {" "}
+                            {vote.turnNumber}º turno
+                          </small>
+                        </td>
+                        <td>
+                          <span className={`territorial-outcome territorial-outcome-${outcome}`}>
+                            {outcomeLabel(outcome)}
+                          </span>
+                          <small>Fonte: {vote.situation ?? "não informado"}</small>
+                        </td>
                         <td>{vote.party ?? "não informado"}</td>
-                        <td className="territorial-table-number">{formatNumber(vote.votesInBarreiras)}</td>
+                        <td className="territorial-table-number">
+                          {formatNumber(vote.votesInBarreiras)}
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-            {topVotes.length > 50 ? <p className="territorial-muted territorial-results-note">Mostrando as 50 maiores votações. Use os filtros e a busca para estudar os outros {formatNumber(topVotes.length)} registros.</p> : null}
           </section>
+
+          {pageCount > 1 ? (
+            <nav className="legislative-pagination" aria-label="Paginação eleitoral">
+              {page > 1 ? (
+                <a className="filter-clear" href={studyHref(filters, page - 1)}>
+                  ← Votações anteriores
+                </a>
+              ) : <span />}
+              <span>Página {page} de {formatNumber(pageCount)}</span>
+              {page < pageCount ? (
+                <a className="filter-clear" href={studyHref(filters, page + 1)}>
+                  Mais candidaturas →
+                </a>
+              ) : <span />}
+            </nav>
+          ) : null}
         </>
       )}
 

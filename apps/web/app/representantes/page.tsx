@@ -12,7 +12,11 @@ import {
   getStateRepresentatives,
   type StateRepresentative,
 } from "../../lib/state-representatives";
-import { getTseBarreirasVotes, type TseVote } from "../../lib/tse-votes";
+import {
+  getTseBarreirasVotesStudy,
+  type TseVoteOutcome,
+  type TseVoteStudyFilters,
+} from "../../lib/tse-votes";
 import {
   getRepresentativeVotes,
   votesForRepresentative,
@@ -67,6 +71,49 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
 
 function countLabel(count: number | null): string {
   return count === null ? "—" : count.toLocaleString("pt-BR");
+}
+
+function searchValue(value: string | string[] | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().slice(0, 100);
+  return normalized || null;
+}
+
+function pageNumber(value: string | string[] | undefined): number {
+  const parsed = typeof value === "string" ? Number(value) : 1;
+  return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 1000
+    ? parsed
+    : 1;
+}
+
+function voteStudyFilters(
+  params: Readonly<Record<string, string | string[] | undefined>>,
+): TseVoteStudyFilters {
+  const rawYear = searchValue(params.ano);
+  const parsedYear = rawYear === null ? Number.NaN : Number(rawYear);
+  const electionYear = Number.isSafeInteger(parsedYear) &&
+    parsedYear >= 1900 && parsedYear <= 2100
+    ? parsedYear
+    : null;
+  const rawTurn = searchValue(params.turno);
+  const parsedTurn = rawTurn === null ? Number.NaN : Number(rawTurn);
+  const turn = Number.isSafeInteger(parsedTurn) && parsedTurn >= 1 && parsedTurn <= 3
+    ? parsedTurn
+    : null;
+  const rawOutcome = searchValue(params.situacao);
+  const outcome = ["elected", "alternate", "not_elected", "other", "unknown"]
+    .includes(rawOutcome ?? "")
+    ? rawOutcome as TseVoteOutcome
+    : null;
+  const office = searchValue(params.cargo);
+  return {
+    electionYear,
+    allYears: rawYear === "todos",
+    office: office === "todos" ? null : office,
+    turn,
+    outcome,
+    query: searchValue(params.q),
+  };
 }
 
 function CurrentLegislatureContributionSummary({
@@ -612,50 +659,14 @@ function ExecutiveProfileCard({
   );
 }
 
-function CandidateVoteCard({ vote }: Readonly<{ vote: TseVote }>) {
-  return (
-    <article className="person-card" aria-label="Candidatura com votação em Barreiras">
-      <div className="person-head">
-        <span className="person-photo person-photo-empty" aria-hidden="true" />
-        <div>
-          <h2>{vote.ballotName ?? vote.displayName ?? "Candidatura identificada pelo TSE"}</h2>
-          <p className="person-role">
-            {vote.office ?? "Cargo não informado"} · eleição {vote.electionYear} · {vote.turnNumber}º turno
-          </p>
-          {vote.party ? <span className="person-badge">{vote.party}</span> : null}
-        </div>
-      </div>
-      <dl className="person-facts">
-        <div>
-          <dt>Votos em Barreiras</dt>
-          <dd>{vote.votesInBarreiras.toLocaleString("pt-BR")}</dd>
-        </div>
-        <div>
-          <dt>Zonas somadas</dt>
-          <dd>{vote.zones.toLocaleString("pt-BR")}</dd>
-        </div>
-        <div>
-          <dt>Situação no TSE</dt>
-          <dd>{vote.situation ?? "não informado"}</dd>
-        </div>
-        <div>
-          <dt>Número de urna</dt>
-          <dd>{vote.candidateNumber ?? "não informado"}</dd>
-        </div>
-      </dl>
-      <p className="person-link-note">
-        Este é um registro de votação municipal por candidatura. Não representa
-        avaliação de mandato, patrimônio ou atuação posterior.
-      </p>
-      <p className="act-evidence">
-        Fonte: dados eleitorais do TSE · coletado em{" "}
-        {dateFormatter.format(new Date(vote.collectedAt))}
-      </p>
-    </article>
-  );
-}
-
-export default async function RepresentativesPage() {
+export default async function RepresentativesPage({
+  searchParams,
+}: Readonly<{
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}>) {
+  const params = await searchParams;
+  const votePage = pageNumber(params.pagina);
+  const voteFilters = voteStudyFilters(params);
   const [
     result,
     councillorsResult,
@@ -669,13 +680,12 @@ export default async function RepresentativesPage() {
     getFederalRepresentatives(),
     getMunicipalCouncillors(),
     getStateRepresentatives(),
-    getTseBarreirasVotes(),
+    getTseBarreirasVotesStudy(votePage, 50, voteFilters),
     getExecutiveProfiles(),
     getRepresentativeVotes(),
     getPublicStateLoaRepresentativeContributions(),
     getPublicParliamentaryLegislatureRankings(),
   ]);
-  const legacyVotes = votesResult.state === "available" ? votesResult.votes : [];
   const representativeVotes =
     representativeVotesResult.state === "available"
       ? representativeVotesResult.votes
@@ -794,7 +804,7 @@ export default async function RepresentativesPage() {
             <span>mandatos federais atuais</span>
           </div>
           <div>
-            <strong>{countLabel(votesResult.state === "available" ? votesResult.votes.length : null)}</strong>
+            <strong>{countLabel(votesResult.state === "available" ? votesResult.study.catalogCount : null)}</strong>
             <span>candidaturas históricas</span>
           </div>
         </div>
@@ -1147,7 +1157,10 @@ export default async function RepresentativesPage() {
 
         <section id="vinculo" className="representation-block representation-block-candidates" aria-labelledby="candidates-title">
           {votesResult.state === "available" ? (
-            <TerritorialVotesStudy votes={votesResult.votes} />
+            <TerritorialVotesStudy
+              study={votesResult.study}
+              filters={voteFilters}
+            />
           ) : (
             <div className="collection-unavailable" role="status">
               <div>
@@ -1160,64 +1173,6 @@ export default async function RepresentativesPage() {
             </div>
           )}
         </section>
-
-        {votesResult.state === "available" && false ? <details id="candidaturas" className="representation-collapsible">
-          <summary>
-            <span>
-              <span className="eyebrow">Histórico eleitoral</span>
-              <strong>Candidaturas e estudos</strong>
-            </span>
-            <span className="representation-collapsible-meta">
-              {countLabel(legacyVotes.length)} registros · abrir
-            </span>
-          </summary>
-        <section className="representation-block representation-block-candidates" aria-labelledby="candidates-title">
-          <div className="section-heading">
-            <span className="eyebrow">Eleições e vínculo municipal</span>
-            <h2 id="candidates-title">Candidaturas com votação em Barreiras</h2>
-            <p>
-              Resultado nominal agregado pelo código da candidatura, conforme o
-              TSE. A lista não é o cadastro completo de candidatos e não avalia
-              pessoas ou mandatos.
-            </p>
-          </div>
-          {votesResult.state === "unavailable" ? (
-            <div className="collection-unavailable" role="status">
-              <div>
-                <strong>Dados eleitorais temporariamente indisponíveis</strong>
-                <p>
-                  Isso representa falha de consulta ou ausência de coleta
-                  válida, não ausência de candidaturas.
-                </p>
-                <a href="https://divulgacandcontas.tse.jus.br/" target="_blank" rel="noreferrer">
-                  Consultar DivulgaCandContas/TSE →
-                </a>
-              </div>
-            </div>
-          ) : legacyVotes.length === 0 ? (
-            <div className="collection-unavailable" role="status">
-              <div>
-                <strong>Votação municipal ainda não coletada</strong>
-                <p>
-                  A coleta do TSE aparecerá aqui depois da primeira execução
-                  válida para um pleito.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <p className="acts-count" role="status">
-                {legacyVotes.length.toLocaleString("pt-BR")} registros de votação municipal
-              </p>
-              <div className="person-grid">
-                {legacyVotes.map((vote) => (
-                  <CandidateVoteCard key={`${vote.electionYear}-${vote.candidateId}-${vote.turnNumber}`} vote={vote} />
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-        </details> : null}
 
         <p className="hero-note">
           Metodologia: identidade unificada apenas por identificador oficial

@@ -38,6 +38,7 @@ test("histórico explicita cargo, pleito e resultado sem declarar mandato atual"
   assert.match(study, /Cargo disputado \/ eleição/);
   assert.match(study, /Situação naquele pleito/);
   assert.match(study, /classifyElectionOutcome\(vote\.situation\)/);
-  assert.match(study, /latestElectionYear/);
+  assert.match(study, /effectiveYear/);
+  assert.match(study, /filtros são aplicados no servidor/i);
   assert.match(study, /identificadores oficiais/);
 });
