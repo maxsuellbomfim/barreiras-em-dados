@@ -16,6 +16,10 @@ export type OperationalHealth = Readonly<{
   httpStatus: 200 | 503;
 }>;
 
+export function combineRepresentationHealthProbes(
+  probes: readonly OperationalProbe[],
+): OperationalProbe;
+
 export function buildOperationalHealth(input: Readonly<{
   checkedAt: string;
   diary: OperationalProbe;

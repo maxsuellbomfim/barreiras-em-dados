@@ -2,7 +2,42 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { buildOperationalHealth } from "./operational-health.mjs";
+import {
+  buildOperationalHealth,
+  combineRepresentationHealthProbes,
+} from "./operational-health.mjs";
+
+test("representação só fica disponível quando as quatro fontes respondem", () => {
+  assert.deepEqual(
+    combineRepresentationHealthProbes([
+      { state: "available", records: 19 },
+      { state: "available", records: 15 },
+      { state: "available", records: 63 },
+      { state: "available", records: 39 },
+    ]),
+    { state: "available", records: 136 },
+  );
+
+  assert.deepEqual(
+    combineRepresentationHealthProbes([
+      { state: "available", records: 19 },
+      { state: "unavailable" },
+      { state: "available", records: 63 },
+      { state: "available", records: 39 },
+    ]),
+    { state: "unavailable" },
+  );
+
+  assert.deepEqual(
+    combineRepresentationHealthProbes([
+      { state: "available", records: 19 },
+      { state: "available", records: 15 },
+      { state: "available", records: 0 },
+      { state: "available", records: 39 },
+    ]),
+    { state: "unavailable" },
+  );
+});
 
 test("saúde pública fica ok somente quando os três domínios respondem com dados", () => {
   const result = buildOperationalHealth({
@@ -64,4 +99,8 @@ test("rota de saúde é dinâmica e reutiliza a fotografia dos domínios reais",
   assert.doesNotMatch(snapshot, /getOfficialDiaryCatalog/);
   assert.match(snapshot, /getPublicFinanceCoverage/);
   assert.match(snapshot, /getMunicipalCouncillors/);
+  assert.match(snapshot, /getExecutiveProfiles/);
+  assert.match(snapshot, /getStateRepresentatives/);
+  assert.match(snapshot, /getFederalRepresentatives/);
+  assert.match(snapshot, /combineRepresentationHealthProbes/);
 });
