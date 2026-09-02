@@ -19,6 +19,26 @@ function checkFor(key, label, probe) {
   };
 }
 
+export function combineRepresentationHealthProbes(probes) {
+  if (
+    !Array.isArray(probes) ||
+    probes.length !== 4 ||
+    probes.some(
+      (probe) =>
+        probe?.state !== "available" ||
+        !Number.isSafeInteger(probe.records) ||
+        probe.records <= 0,
+    )
+  ) {
+    return { state: "unavailable" };
+  }
+
+  return {
+    state: "available",
+    records: probes.reduce((total, probe) => total + probe.records, 0),
+  };
+}
+
 export function buildOperationalHealth({
   checkedAt,
   diary,
