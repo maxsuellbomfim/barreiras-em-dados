@@ -57,6 +57,20 @@ test("matriz não transforma competência ausente da resposta em mês sem relat�
   assert.equal(result.bodies[0].years[0].months[4].status, "not_due");
 });
 
+test("competência corrente sem relatório fica em andamento sem ocultar lacuna anterior", () => {
+  const result = buildFinanceCoverageMatrix([
+    coverageRow({ month: "2026-08", status: "missing" }),
+    coverageRow({ month: "2026-09", status: "missing" }),
+  ], 2021, "2026-09");
+
+  assert.ok(result);
+  const currentYear = result.bodies[0].years[0];
+  assert.equal(currentYear.year, 2026);
+  assert.equal(currentYear.months[7].status, "missing");
+  assert.equal(currentYear.months[8].status, "not_due");
+  assert.equal(currentYear.months[8].row?.periodStart, "2026-09-01");
+});
+
 test("matriz mantém órgãos separados e fecha quando uma competência está duplicada", () => {
   const prefeitura = coverageRow({ month: "2021-01", status: "complete", revenue: 1, expense: 1 });
   const autarquia = coverageRow({
@@ -86,7 +100,7 @@ test("rótulos explicam todos os estados sem depender apenas de cor", () => {
       "Revisão necessária",
       "Sem relatório validado",
       "Não classificado",
-      "Fora do período acompanhado",
+      "Competência em andamento ou futura",
     ],
   );
 });

@@ -251,3 +251,13 @@ falho. As doze rotas `/financas/2021-MM` responderam HTTP 200 e identificaram a
 competência solicitada. Esses snapshots mensais não foram somados como total
 anual, pois representam estágios e conceitos cuja agregação exige metodologia
 própria.
+
+Após a mesclagem desse fechamento, a API pública foi consultada novamente em
+01/09/2026. A matriz confirmou 60 de 60 competências `complete` entre janeiro
+de 2021 e dezembro de 2025, sempre com um relatório de receita e um de despesa.
+Em 2026, sete competências estavam completas. Agosto permanecia sem relatório
+validado e setembro aparecia da mesma forma, embora a competência ainda estivesse
+em andamento. A interface agora converte somente a ausência da competência
+corrente ou futura em `not_due`; lacunas anteriores, relatórios parciais e
+registros em revisão continuam visíveis. Assim, falta de publicação não é
+antecipada antes do fim da competência nem convertida em valor zero.

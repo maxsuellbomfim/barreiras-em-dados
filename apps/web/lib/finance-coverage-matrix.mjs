@@ -7,6 +7,7 @@ const COVERAGE_STATUSES = new Set([
 ]);
 
 const PERIOD_START = /^(\d{4})-(\d{2})-01$/;
+const PERIOD_KEY = /^(\d{4})-(\d{2})$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const COVERAGE_ROW_KEYS = new Set([
   "coverageId",
@@ -28,7 +29,7 @@ export function financeCoverageStatusLabel(status) {
   if (status === "needs_review") return "Revisão necessária";
   if (status === "missing") return "Sem relatório validado";
   if (status === "unclassified") return "Não classificado";
-  return "Fora do período acompanhado";
+  return "Competência em andamento ou futura";
 }
 
 function parsePeriod(row, startYear) {
@@ -91,8 +92,13 @@ export function parseFinanceCoverageApiPayload(payload) {
   return { state: "available", rows: payload.rows };
 }
 
-export function buildFinanceCoverageMatrix(rows, startYear = 2021) {
+export function buildFinanceCoverageMatrix(
+  rows,
+  startYear = 2021,
+  currentPeriod = null,
+) {
   if (!Number.isInteger(startYear) || startYear < 1900 || startYear > 2200) return null;
+  if (currentPeriod !== null && !PERIOD_KEY.test(currentPeriod)) return null;
   if (rows.length === 0) return { latestPeriod: null, bodies: [] };
 
   const byBody = new Map();
@@ -124,9 +130,15 @@ export function buildFinanceCoverageMatrix(rows, startYear = 2021) {
             const afterLatest = year === latestYear && month > latestMonth;
             const key = `${year}-${String(month).padStart(2, "0")}`;
             const row = bodyRows.get(key) ?? null;
+            const currentOrFutureWithoutReports =
+              currentPeriod !== null &&
+              key >= currentPeriod &&
+              row?.coverageStatus === "missing";
             return {
               month,
-              status: afterLatest ? "not_due" : row?.coverageStatus ?? "unclassified",
+              status: afterLatest || currentOrFutureWithoutReports
+                ? "not_due"
+                : row?.coverageStatus ?? "unclassified",
               row,
             };
           }),

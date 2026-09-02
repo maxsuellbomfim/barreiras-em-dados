@@ -30,6 +30,7 @@ export function financeCoverageStatusLabel(
 export function buildFinanceCoverageMatrix(
   rows: readonly PublicFinanceCoverageRow[],
   startYear?: number,
+  currentPeriod?: string | null,
 ): FinanceCoverageMatrix | null;
 
 export function parseFinanceCoverageApiPayload(
