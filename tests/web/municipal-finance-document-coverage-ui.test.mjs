@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const page = await readFile(
-  new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
+const coveragePage = await readFile(
+  new URL("../../apps/web/app/financas/cobertura/page.tsx", import.meta.url),
   "utf8",
 );
 const component = await readFile(
@@ -20,17 +20,24 @@ const route = await readFile(
   ),
   "utf8",
 );
+const loader = await readFile(
+  new URL(
+    "../../apps/web/lib/finance-document-coverage-results.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const styles = await readFile(
   new URL("../../apps/web/app/globals.css", import.meta.url),
   "utf8",
 );
 
 test("página consulta as três famílias separadamente e publica a matriz mensal", () => {
-  assert.match(page, /getPublicFinanceDocuments\("balancetes"\)/);
-  assert.match(page, /getPublicFinanceDocuments\("pdc-resumo-execucao-da-receita"\)/);
-  assert.match(page, /getPublicFinanceDocuments\("pdc-resumo-execucao-da-despesa"\)/);
-  assert.match(page, /<FinanceMunicipalDocumentCoverage initialResult=\{municipalDocumentCoverage\} \/>/);
-  assert.match(page, /Balancete, receita e despesa por competência/);
+  assert.match(loader, /getPublicFinanceDocuments\("balancetes"\)/);
+  assert.match(loader, /getPublicFinanceDocuments\("pdc-resumo-execucao-da-receita"\)/);
+  assert.match(loader, /getPublicFinanceDocuments\("pdc-resumo-execucao-da-despesa"\)/);
+  assert.match(coveragePage, /<FinanceMunicipalDocumentCoverage initialResult=\{municipalDocumentCoverage\} \/>/);
+  assert.match(coveragePage, /Balancete, receita e despesa por competência/);
 });
 
 test("matriz explica ausência, versões e preservação sem chamar lacuna de zero", () => {
@@ -42,10 +49,8 @@ test("matriz explica ausência, versões e preservação sem chamar lacuna de ze
 });
 
 test("rota de recuperação exige sucesso das três consultas antes de classificar lacunas", () => {
-  assert.match(route, /getPublicFinanceDocuments\("balancetes"\)/);
-  assert.match(route, /getPublicFinanceDocuments\("pdc-resumo-execucao-da-receita"\)/);
-  assert.match(route, /getPublicFinanceDocuments\("pdc-resumo-execucao-da-despesa"\)/);
-  assert.match(route, /results\.some\(\(result\) => result\.state !== "available"\)/);
+  assert.match(route, /getPublicMunicipalFinanceDocumentCoverageResult\(\)/);
+  assert.match(loader, /results\.some\(\(result\) => result\.state !== "available"\)/);
   assert.match(route, /status: result\.state === "available" \? 200 : 503/);
 });
 

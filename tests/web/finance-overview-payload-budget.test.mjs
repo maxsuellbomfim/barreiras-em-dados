@@ -7,7 +7,7 @@ const page = await readFile(
   "utf8",
 );
 
-test("visão geral limita listas extensas sem reduzir contagens e matrizes", () => {
+test("visão geral limita listas extensas sem reduzir contagens nem acesso à cobertura", () => {
   assert.match(page, /const FINANCE_OVERVIEW_LIMIT = 12;/);
   assert.match(
     page,
@@ -44,11 +44,9 @@ test("visão geral limita listas extensas sem reduzir contagens e matrizes", () 
     assert.doesNotMatch(page, new RegExp(`\\{${fullList}\\.map\\(`));
   }
 
-  assert.match(page, /FinanceCoverageMatrix initialResult=\{coverageResult\}/);
-  assert.match(
-    page,
-    /FinancePayrollCoverageMatrix initialResult=\{payrollCoverageResult\}/,
-  );
+  assert.match(page, /href="\/financas\/cobertura"/);
+  assert.doesNotMatch(page, /<FinanceCoverageMatrix\b/);
+  assert.doesNotMatch(page, /<FinancePayrollCoverageMatrix\b/);
   assert.match(page, /de um total de \{sortedExpenseReports\.length/);
   assert.match(page, /de um total de \{sortedRevenues\.length/);
   assert.match(page, /recentPublicObligations\.length\.toLocaleString/);

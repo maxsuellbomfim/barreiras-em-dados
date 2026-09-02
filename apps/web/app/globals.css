@@ -4905,7 +4905,8 @@ footer {
   line-height: 1.55;
 }
 
-.representation-jump-nav {
+.representation-jump-nav,
+.finance-coverage-jump-nav {
   position: sticky;
   z-index: 4;
   top: 0.8rem;
@@ -4922,11 +4923,13 @@ footer {
   scrollbar-width: none;
 }
 
-.representation-jump-nav::-webkit-scrollbar {
+.representation-jump-nav::-webkit-scrollbar,
+.finance-coverage-jump-nav::-webkit-scrollbar {
   display: none;
 }
 
-.representation-jump-nav a {
+.representation-jump-nav a,
+.finance-coverage-jump-nav a {
   flex: 0 0 auto;
   padding: 0.5rem 0.75rem;
   border-radius: 999px;
@@ -4938,7 +4941,9 @@ footer {
 }
 
 .representation-jump-nav a:hover,
-.representation-jump-nav a:focus-visible {
+.representation-jump-nav a:focus-visible,
+.finance-coverage-jump-nav a:hover,
+.finance-coverage-jump-nav a:focus-visible {
   background: #eef3fb;
   color: var(--blue-dark);
 }
