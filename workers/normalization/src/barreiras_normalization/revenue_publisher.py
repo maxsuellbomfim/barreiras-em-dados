@@ -16,7 +16,7 @@ from .revenue_publication import (
 )
 from .tcm_ba_revenue_pdf import parse_tcm_ba_revenue_pdf_text
 
-TCM_BA_REVENUE_METHODOLOGY_VERSION = "tcm-ba-analytical-revenue/1.1.0"
+TCM_BA_REVENUE_METHODOLOGY_VERSION = "tcm-ba-analytical-revenue/1.2.0"
 
 
 class ArtifactMismatchError(RuntimeError):

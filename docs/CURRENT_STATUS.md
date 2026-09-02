@@ -215,3 +215,39 @@ mostra R$ 15.701.545,06 empenhados, R$ 46.068.615,27 liquidados e
 R$ 49.096.461,68 pagos. A diferença operacional de -R$ 4.332.727,93 não recebe
 interpretação fiscal. O RPC respondeu em 2,96 s e a página pública exibiu os
 dois hashes e o estado operacional.
+
+O quarto trimestre completou a cobertura financeira mensal de 2021. Em outubro,
+os hashes oficiais de receita e despesa são, respectivamente,
+`e26c1bac553193c5094d2dd6ae532c744ee43bc58342e4369b313e01e479e0b8` e
+`40e32b553abfcba6758caeb2cc2a8923adb700548b1b3047bb5b7c16fba4ed79`.
+O detalhe publicou 257 rubricas, R$ 60.168.967,09 de receita líquida,
+R$ 31.445.477,25 empenhados, R$ 49.132.763,62 liquidados e
+R$ 49.397.681,61 pagos. Em novembro, o catálogo foi fechado como `complete`
+com 1.941 documentos. Os hashes
+`343271fcf5816997494a9764a501a8b46cb231673ba89325965d19b4b37afb03` e
+`7ca53ea083ff9bec242758c898e0c1adddc23027772b744086ccf20ae1cef29c`
+publicaram R$ 49.571.690,49 de receita líquida, R$ 17.452.174,63 empenhados,
+R$ 50.943.193,81 liquidados e R$ 48.221.282,65 pagos. Em dezembro, os hashes
+`9b5e6b498f2f192b532ae9b7658b49d970e1b44367a9dbadaf230334a0ac044e` e
+`938b9f3ebd98cebf985035de3efcf95eebdf31bf4fd38ade55b228efcfe43cb4`
+publicaram R$ 75.029.545,36 de receita líquida, R$ 42.384.090,96 empenhados,
+R$ 88.780.398,98 liquidados e R$ 81.717.613,72 pagos. Os três meses estão
+`operational`, com um documento de cada tipo e páginas públicas em HTTP 200.
+
+Novembro comprovou outra variação oficial do SIGA: as categorias de primeiro
+nível podem possuir simultaneamente saldo `a maior` e saldo `a menor`, enquanto
+o total geral apresenta apenas o saldo líquido consolidado. A metodologia
+`tcm-ba-analytical-revenue/1.2.0` preserva a igualdade exata das quatro colunas
+financeiras básicas, valida cada saldo individual e exige que `a maior - a menor`
+seja idêntico entre categorias e total. Não há compensação silenciosa de
+receita ou anulação. O replay exato de texto por SHA também passou a reler e
+revalidar um PDF já processado sem duplicar o job.
+
+A auditoria transversal de 2021 retornou `PASS` em 12 de 12 competências. Cada
+mês tem exatamente um relatório e um documento oficial de receita e despesa,
+valores não nulos e estado `operational`. Os 24 artefatos possuem 24 hashes
+distintos, tamanho positivo, HTTP 2xx, MIME PDF e zero job financeiro aberto ou
+falho. As doze rotas `/financas/2021-MM` responderam HTTP 200 e identificaram a
+competência solicitada. Esses snapshots mensais não foram somados como total
+anual, pois representam estágios e conceitos cuja agregação exige metodologia
+própria.

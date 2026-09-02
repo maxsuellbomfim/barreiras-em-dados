@@ -257,7 +257,17 @@ def parse_tcm_ba_revenue_pdf_text(text: str) -> RevenuePdfReport:
         sum((row.values[index] for row in top_level), start=Decimal("0"))
         for index in range(7)
     )
-    if top_sums[:6] != total:
+    total_more, total_less = total[4], total[5]
+    total_balance_is_invalid = (
+        total_more < 0
+        or total_less < 0
+        or (total_more > 0 and total_less > 0)
+    )
+    if (
+        top_sums[:4] != total[:4]
+        or total_balance_is_invalid
+        or top_sums[4] - top_sums[5] != total_more - total_less
+    ):
         raise TcmBaRevenueContractError(
             "total geral diverge das categorias de primeiro nível"
         )

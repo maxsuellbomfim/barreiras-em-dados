@@ -148,16 +148,20 @@ class PostgresExtractionRepository:
                   and artifact.content_type = 'application/pdf'
                   and artifact.http_status between 200 and 299
                   and (%s::text is null or artifact.sha256 = %s)
-                  and not exists (
-                    select 1
-                    from raw.document_pages as page
-                    where page.raw_artifact_id = artifact.id
-                      and page.parser_version = %s
+                  and (
+                    %s::text is not null
+                    or not exists (
+                      select 1
+                      from raw.document_pages as page
+                      where page.raw_artifact_id = artifact.id
+                        and page.parser_version = %s
+                    )
                   )
                 order by artifact.created_at, artifact.id
                 limit %s
                 """,
                 (
+                    artifact_sha256,
                     artifact_sha256,
                     artifact_sha256,
                     PDF_PARSER_VERSION,

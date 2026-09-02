@@ -113,12 +113,17 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
 
         query = connection.queries[0]
         self.assertIn("artifact.sha256 = %s", query)
+        self.assertIn(
+            "%s::text is not null or not exists",
+            query,
+        )
         self.assertEqual(
             connection.params[0],
             (
                 artifact_sha256,
                 artifact_sha256,
-                connection.params[0][2],
+                artifact_sha256,
+                connection.params[0][3],
                 1,
             ),
         )
