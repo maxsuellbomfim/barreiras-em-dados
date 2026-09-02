@@ -2315,6 +2315,13 @@ export default async function ParliamentaryResourcesPage({
 }: ParliamentaryResourcesPageProps) {
   const params = await searchParams;
   const sourceSelection = resolveTransferSourceSelection(params.origem);
+  const parliamentaryTransferQueryScope = sourceSelection.showCurrentFederal
+    ? "current" as const
+    : sourceSelection.showHistoricalFederal
+    ? "historical" as const
+    : sourceSelection.showState
+    ? "state" as const
+    : "none" as const;
   const cguDocumentFilters = resolveCguDocumentFilters(params);
   const latestStateFiscalYear = Number(
     new Intl.DateTimeFormat("en-US", {
@@ -2342,6 +2349,7 @@ export default async function ParliamentaryResourcesPage({
   ] = await Promise.all([
     getPublicParliamentaryTransfers({
       stateFiscalYear: selectedStateFiscalYear,
+      queryScope: parliamentaryTransferQueryScope,
     }),
     sourceSelection.showLegislatures
       ? getPublicParliamentaryLegislatureRankings()

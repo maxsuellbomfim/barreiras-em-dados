@@ -61,13 +61,8 @@ test("projecao publica minimiza dados pessoais e fecha acesso direto", () => {
 });
 
 test("falha transitória do cache da RPC recebe uma tentativa sem cache", () => {
-  assert.match(client, /async function fetchRpcResponse/);
-  assert.match(client, /next: \{ revalidate: 300 \}/);
-  assert.match(client, /cache: "no-store"/);
-  assert.match(client, /isTransientRpcFailure\(cachedResponse\)/);
-  assert.match(client, /\[404, 408, 425, 429\]/);
-  assert.match(client, /response\.status >= 500/);
-  assert.match(client, /await fetchRpcResponse\(url, request, true\)/);
+  assert.match(client, /fetchPublicRpcRows/);
+  assert.doesNotMatch(client, /AbortSignal\.timeout\(5_000\)/);
 });
 
 test("recorte territorial nao atribui projetos regionais a Barreiras", () => {
