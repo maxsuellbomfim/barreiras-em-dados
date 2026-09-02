@@ -45,8 +45,12 @@ test("visão geral limita listas extensas sem reduzir contagens nem acesso à co
   }
 
   assert.match(page, /href="\/financas\/cobertura"/);
+  assert.match(page, /href="\/financas\/cobertura#payroll-matrix-title"/);
+  assert.match(page, /href="\/financas\/cobertura#obligation-matrix-title"/);
   assert.doesNotMatch(page, /<FinanceCoverageMatrix\b/);
   assert.doesNotMatch(page, /<FinancePayrollCoverageMatrix\b/);
+  assert.doesNotMatch(page, /<FinancePayrollCoverage\b/);
+  assert.doesNotMatch(page, /obligationCoverageGaps\.map/);
   assert.match(page, /de um total de \{sortedExpenseReports\.length/);
   assert.match(page, /de um total de \{sortedRevenues\.length/);
   assert.match(page, /recentPublicObligations\.length\.toLocaleString/);
