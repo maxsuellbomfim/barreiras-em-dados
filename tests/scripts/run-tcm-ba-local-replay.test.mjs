@@ -36,6 +36,13 @@ test("replay exige intervalo mensal e pode validar a contagem piloto", () => {
   assert.match(script, /TCM_BA_REPLAY_APROVADO/);
 });
 
+test("execução automática local retoma o mês fechado e aceita apenas estado terminal seguro", () => {
+  assert.match(script, /\[switch\]\$AutomaticClosedMonth/);
+  assert.match(script, /--automatic-closed-month/);
+  assert.match(script, /Assert-TcmBaAutomaticCatalogOutcome/);
+  assert.match(script, /TCM_BA_AUTOMATIC_CHECK_COMPLETED/);
+});
+
 const helper = path.resolve(
   fileURLToPath(
     new URL("../../scripts/lib/tcm-ba-replay-validation.ps1", import.meta.url),
@@ -126,6 +133,87 @@ test("validação rejeita duplicidade, cobertura incompleta e contagem divergent
   assertRejected([complete, complete], 0, /exatamente um evento/);
   assertRejected([{ ...complete, coverage_status: "partial" }], 0, /coverage_status complete/);
   assertRejected([complete], 4, /contagem esperada/);
+});
+
+function assertAutomaticApproved(events) {
+  const payload = JSON.stringify(events).replaceAll("'", "''");
+  const result = runPowerShell(
+    validationCommand(
+      `$events = ConvertFrom-Json '${payload}'; ` +
+        "Assert-TcmBaAutomaticCatalogOutcome -Events @($events)",
+    ),
+  );
+  assert.equal(result.status, 0, result.stdout + "\n" + result.stderr);
+}
+
+function assertAutomaticRejected(events, expectedMessage) {
+  const payload = JSON.stringify(events).replaceAll("'", "''");
+  const result = runPowerShell(
+    validationCommand(
+      `$events = ConvertFrom-Json '${payload}'; ` +
+        "Assert-TcmBaAutomaticCatalogOutcome -Events @($events)",
+    ),
+  );
+  const output = result.stdout + "\n" + result.stderr;
+  assert.notEqual(result.status, 0, output);
+  assert.match(output, expectedMessage);
+}
+
+test("gate automático aceita mês completo, bloqueado na fonte ou já concluído", () => {
+  assertAutomaticApproved([
+    {
+      event: "collector_tcm_ba_month_completed",
+      competence: "08/2026",
+      coverage_status: "complete",
+      documents: 3,
+    },
+  ]);
+  assertAutomaticApproved([
+    {
+      event: "collector_tcm_ba_month_completed",
+      competence: "08/2026",
+      coverage_status: "blocked",
+      documents: 0,
+    },
+  ]);
+  assertAutomaticApproved([
+    {
+      event: "collector_tcm_ba_month_skipped",
+      competence: "08/2026",
+      reason: "partition_already_complete",
+    },
+  ]);
+});
+
+test("gate automático rejeita vazio, duplicidade e skip sem prova de conclusão", () => {
+  assertAutomaticRejected(
+    [
+      {
+        event: "collector_tcm_ba_month_completed",
+        competence: "08/2026",
+        coverage_status: "empty",
+        documents: 0,
+      },
+    ],
+    /estado terminal seguro/,
+  );
+  const complete = {
+    event: "collector_tcm_ba_month_completed",
+    competence: "08/2026",
+    coverage_status: "complete",
+    documents: 3,
+  };
+  assertAutomaticRejected([complete, complete], /exatamente um evento terminal/);
+  assertAutomaticRejected(
+    [
+      {
+        event: "collector_tcm_ba_month_skipped",
+        competence: "08/2026",
+        reason: "unknown",
+      },
+    ],
+    /partição já completa/,
+  );
 });
 
 test("limite local aceita 30, usa 30 por padrão e rejeita fora de 1..30", () => {

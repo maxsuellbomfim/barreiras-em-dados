@@ -3,7 +3,8 @@ param(
     [string]$MonthTo = "2023-04",
     [int]$ExpectedDocuments = 1824,
     [object]$RequestsPerMinute = 30,
-    [string]$PythonPath = ""
+    [string]$PythonPath = "",
+    [switch]$AutomaticClosedMonth
 )
 
 $ErrorActionPreference = "Stop"
@@ -79,14 +80,51 @@ function Read-CompletedEvents {
     return $events
 }
 
-if (
-    $MonthFrom -notmatch '^\d{4}-(0[1-9]|1[0-2])$' -or
-    $MonthTo -notmatch '^\d{4}-(0[1-9]|1[0-2])$'
-) {
-    throw "As competências devem usar o formato AAAA-MM."
+function Read-AutomaticEvents {
+    param([object[]]$Output)
+
+    $events = @()
+    foreach ($line in $Output) {
+        $text = $line.ToString().Trim()
+        if (-not $text.StartsWith("{")) {
+            continue
+        }
+        try {
+            $event = $text | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($event.event -in @(
+            "collector_tcm_ba_month_completed",
+            "collector_tcm_ba_month_skipped"
+        )) {
+            $events += $event
+        }
+    }
+    if ($events.Count -eq 0) {
+        throw "O coletor automático não produziu um evento terminal."
+    }
+    return $events
 }
-if ($ExpectedDocuments -gt 0 -and $MonthFrom -ne $MonthTo) {
-    throw "ExpectedDocuments só pode ser usado com uma competência exata."
+
+if ($AutomaticClosedMonth) {
+    foreach ($parameterName in @("MonthFrom", "MonthTo", "ExpectedDocuments")) {
+        if ($PSBoundParameters.ContainsKey($parameterName)) {
+            throw "AutomaticClosedMonth não aceita $parameterName explícito."
+        }
+    }
+}
+else {
+    if (
+        $MonthFrom -notmatch '^\d{4}-(0[1-9]|1[0-2])$' -or
+        $MonthTo -notmatch '^\d{4}-(0[1-9]|1[0-2])$'
+    ) {
+        throw "As competências devem usar o formato AAAA-MM."
+    }
+    if ($ExpectedDocuments -gt 0 -and $MonthFrom -ne $MonthTo) {
+        throw "ExpectedDocuments só pode ser usado com uma competência exata."
+    }
 }
 
 Write-Host "Replay local seguro do catálogo mensal do TCM-BA" -ForegroundColor Green
@@ -173,13 +211,23 @@ try {
         $previousErrorActionPreference = $ErrorActionPreference
         try {
             $ErrorActionPreference = "Continue"
-            $output = @(
-                & $python -B -m `
-                    barreiras_collectors.commands.collect_tcm_ba_monthly_catalog `
-                    --month-from $MonthFrom `
-                    --month-to $MonthTo `
-                    --requests-per-minute $RequestsPerMinute 2>&1
-            )
+            if ($AutomaticClosedMonth) {
+                $output = @(
+                    & $python -B -m `
+                        barreiras_collectors.commands.collect_tcm_ba_monthly_catalog `
+                        --automatic-closed-month `
+                        --requests-per-minute $RequestsPerMinute 2>&1
+                )
+            }
+            else {
+                $output = @(
+                    & $python -B -m `
+                        barreiras_collectors.commands.collect_tcm_ba_monthly_catalog `
+                        --month-from $MonthFrom `
+                        --month-to $MonthTo `
+                        --requests-per-minute $RequestsPerMinute 2>&1
+                )
+            }
             $nativeExitCode = $LASTEXITCODE
         }
         finally {
@@ -193,11 +241,18 @@ try {
     if ($nativeExitCode -ne 0) {
         throw "O coletor terminou com código $nativeExitCode."
     }
-    $events = @(Read-CompletedEvents -Output $output)
-    $null = Assert-TcmBaReplayApproval `
-        -Events $events `
-        -ExpectedDocuments $ExpectedDocuments
-    Write-Host "TCM_BA_REPLAY_APROVADO" -ForegroundColor Green
+    if ($AutomaticClosedMonth) {
+        $events = @(Read-AutomaticEvents -Output $output)
+        $null = Assert-TcmBaAutomaticCatalogOutcome -Events $events
+        Write-Host "TCM_BA_AUTOMATIC_CHECK_COMPLETED" -ForegroundColor Green
+    }
+    else {
+        $events = @(Read-CompletedEvents -Output $output)
+        $null = Assert-TcmBaReplayApproval `
+            -Events $events `
+            -ExpectedDocuments $ExpectedDocuments
+        Write-Host "TCM_BA_REPLAY_APROVADO" -ForegroundColor Green
+    }
 }
 finally {
     foreach ($name in @(

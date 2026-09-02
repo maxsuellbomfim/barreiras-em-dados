@@ -38,6 +38,9 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
   ligação única com as autorizações territoriais;
 - o catálogo mensal do TCM-BA é uma fonte privada em validação e não autoriza,
   sozinho, publicar valores financeiros;
+- o formulário do e-TCM expirou em todas as tentativas feitas por runners
+  hospedados; sua retomada mensal automática usa o executor Windows validado,
+  enquanto o GitHub permanece apenas como replay manual e diagnóstico;
 - fatos literais aprovados podem ser automáticos, mas identidade ambígua,
   conflito entre fontes e interpretação reputacional exigem revisão;
 - o portal continua marcado como pré-lançamento até os gates operacionais e de

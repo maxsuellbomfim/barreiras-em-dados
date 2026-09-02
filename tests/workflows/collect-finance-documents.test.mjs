@@ -379,7 +379,7 @@ test("arquivo histórico de propostas exige opt-in e recorta Barreiras desde 202
   );
 });
 
-test("catálogo mensal do TCM-BA retoma o último mês fechado e preserva replay manual", () => {
+test("catálogo mensal do TCM-BA permanece manual no runner hospedado", () => {
   const tcmJob = workflow.slice(
     workflow.indexOf("  tcm_ba_monthly:"),
     workflow.indexOf("  bahia_state_amendments:"),
@@ -389,15 +389,15 @@ test("catálogo mensal do TCM-BA retoma o último mês fechado e preserva replay
   assert.match(workflow, /include_tcm_ba_monthly:/);
   assert.match(workflow, /tcm_month_from:/);
   assert.match(workflow, /tcm_month_to:/);
-  assert.match(tcmJob, /github\.event_name == 'schedule'/);
   assert.match(tcmJob, /github\.event_name == 'workflow_dispatch'/);
+  assert.doesNotMatch(tcmJob, /github\.event_name == 'schedule'/);
   assert.match(
     tcmJob,
     /barreiras_collectors\.commands\.collect_tcm_ba_monthly_catalog/,
   );
   assert.match(tcmJob, /--month-from "\$\{\{ inputs\.tcm_month_from \}\}"/);
   assert.match(tcmJob, /--month-to "\$\{\{ inputs\.tcm_month_to \}\}"/);
-  assert.match(tcmJob, /--automatic-closed-month/);
+  assert.doesNotMatch(tcmJob, /--automatic-closed-month/);
   assert.match(tcmJob, /--requests-per-minute "30"/);
   assert.doesNotMatch(tcmJob, /secrets\.(tcm_month_from|tcm_month_to)/i);
 });
