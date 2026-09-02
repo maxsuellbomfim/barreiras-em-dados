@@ -1,3 +1,5 @@
+import { fetchPublicRpcRows } from "./public-rpc.mjs";
+
 export type FederalRepresentative = Readonly<{
   externalId: string;
   displayName: string;
@@ -84,27 +86,18 @@ export async function getFederalRepresentatives(): Promise<RepresentativesResult
   }
 
   try {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_federal_representatives`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Accept-Profile": "api",
-          apikey: publishableKey,
-          "Content-Profile": "api",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ page_size: 100 }),
-        next: { revalidate: 300 },
-        signal: AbortSignal.timeout(5_000),
+    const payload = await fetchPublicRpcRows({
+      url: `${supabaseUrl}/rest/v1/rpc/get_federal_representatives`,
+      headers: {
+        Accept: "application/json",
+        "Accept-Profile": "api",
+        apikey: publishableKey,
+        "Content-Profile": "api",
+        "Content-Type": "application/json",
       },
-    );
-    if (!response.ok) {
-      return { state: "unavailable" };
-    }
-    const payload = await response.json();
-    if (!Array.isArray(payload)) {
+      body: JSON.stringify({ page_size: 100 }),
+    });
+    if (payload === null) {
       return { state: "unavailable" };
     }
     const representatives: FederalRepresentative[] = [];
