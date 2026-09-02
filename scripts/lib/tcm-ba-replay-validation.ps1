@@ -120,6 +120,52 @@ function Assert-TcmBaReplayApproval {
 
     return $true
 }
+
+function Assert-TcmBaAutomaticCatalogOutcome {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object[]]$Events
+    )
+
+    $terminalEvents = @(
+        $Events | Where-Object {
+            $_.event -in @(
+                "collector_tcm_ba_month_completed",
+                "collector_tcm_ba_month_skipped"
+            )
+        }
+    )
+    if ($terminalEvents.Count -ne 1) {
+        throw "A verificação automática exige exatamente um evento terminal."
+    }
+
+    $event = $terminalEvents[0]
+    if ($event.competence -notmatch '^(0[1-9]|1[0-2])/\d{4}$') {
+        throw "A competência automática deve usar o formato MM/AAAA."
+    }
+    if ($event.event -eq "collector_tcm_ba_month_skipped") {
+        if ($event.reason -ne "partition_already_complete") {
+            throw "O skip automático exige prova de partição já completa."
+        }
+        return $true
+    }
+
+    $documents = ConvertTo-TcmBaNonNegativeInteger `
+        -Value $event.documents -FieldName "documents"
+    $isComplete = (
+        $event.coverage_status -eq "complete" -and
+        $documents -gt 0
+    )
+    $isBlocked = (
+        $event.coverage_status -eq "blocked" -and
+        $documents -eq 0
+    )
+    if (-not ($isComplete -or $isBlocked)) {
+        throw "O catálogo automático não atingiu um estado terminal seguro."
+    }
+    return $true
+}
 function ConvertTo-TcmBaNonNegativeInteger {
     [CmdletBinding()]
     param(

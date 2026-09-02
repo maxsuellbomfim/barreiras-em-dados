@@ -430,17 +430,12 @@ jobs:
       - siconfi_dca
     if: >-
       always() &&
+      github.event_name == 'workflow_dispatch' &&
       (
-        github.event_name == 'schedule' ||
+        inputs.resource == 'tcm-ba-only' ||
         (
-          github.event_name == 'workflow_dispatch' &&
-          (
-            inputs.resource == 'tcm-ba-only' ||
-            (
-              inputs.resource == 'all' &&
-              inputs.include_tcm_ba_monthly == true
-            )
-          )
+          inputs.resource == 'all' &&
+          inputs.include_tcm_ba_monthly == true
         )
       )
     runs-on: ubuntu-latest
@@ -476,21 +471,12 @@ jobs:
           | sha256sum --check --strict
 
       - name: Preservar competências mensais do e-TCM
-        shell: bash
-        run: |
-          args=()
-          if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            args+=(--automatic-closed-month)
-          else
-            args+=(
-              --month-from "${{ inputs.tcm_month_from }}"
-              --month-to "${{ inputs.tcm_month_to }}"
-            )
-          fi
-          python -B -m \
-            barreiras_collectors.commands.collect_tcm_ba_monthly_catalog \
-            "${args[@]}" \
-            --requests-per-minute "30"
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.collect_tcm_ba_monthly_catalog
+          --month-from "${{ inputs.tcm_month_from }}"
+          --month-to "${{ inputs.tcm_month_to }}"
+          --requests-per-minute "30"
 
   bahia_state_amendments:
     name: Preservar emendas estaduais da Bahia

@@ -342,6 +342,19 @@ de continuar, ele exige que prestação, total e primeira página permaneçam
 idênticos. Erros HTTP, de transporte, banco, Storage ou persistência não entram
 nesse retry.
 
+O runner hospedado do GitHub também não alcança de forma confiável o formulário
+inicial do e-TCM. O replay no workflow financeiro permanece manual e diagnóstico;
+a retomada automática do último mês fechado roda no Windows validado, com o
+mesmo cofre DPAPI e o limite de 30 requisições por minuto:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-tcm-ba-monthly-schedule.ps1 -DailyAt 06:17 -StartNow
+
+A tarefa `Barreiras360-TCMBA-MonthlyCatalog` verifica a competência anterior
+uma vez por dia. Partição completa é ignorada de modo idempotente; competência
+ainda não publicada fica `blocked`, sem virar zero ou cobertura completa;
+timeout, falha de transporte ou persistência continuam encerrando a tarefa com
+erro.
+
 ## Piloto comprovado
 
 Para `2021-01`, o replay controlado fechou como `complete`: 1.441 documentos
@@ -1027,7 +1040,9 @@ O runner hospedado do GitHub não alcançou o e-TCM em 28/08/2026: quatro
 tentativas de abertura HTTPS expiraram antes da primeira resposta. Por isso, o
 workflow `collect-tcm-ba-documents.yml` permanece manual para diagnóstico e não
 é tratado como mecanismo de cobertura. A drenagem automática usa uma tarefa do
-Windows, no mesmo ambiente em que os lotes reais foram validados.
+Windows, no mesmo ambiente em que os lotes reais foram validados. O mesmo limite
+foi novamente observado no catálogo mensal em 02/09/2026; sua retomada também
+permanece no executor local.
 
 A tarefa `Barreiras360-TCMBA-Documents` executa no máximo um lote a cada 15
 minutos, com até cinco documentos e limite fixo de 30 requisições por minuto.
