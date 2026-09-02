@@ -9,7 +9,6 @@ import {
   financeResourceLabel,
   getPublicFinanceDocuments,
   mergePublicFinanceDocumentResults,
-  type FinanceDocumentsResult,
 } from "../../lib/finance-documents";
 import {
   formatBrlDecimal,
@@ -44,7 +43,6 @@ import {
   type PublicPayrollMonth,
 } from "../../lib/public-payroll.mjs";
 import FinanceNonpayrollWorkforceCoverage from "./finance-nonpayroll-workforce-coverage";
-import FinanceCoverageMatrix from "./finance-coverage-matrix";
 import FinancePayrollCoverage from "./finance-payroll-coverage";
 import FinancePayrollHistory from "./finance-payroll-history";
 import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
@@ -57,20 +55,6 @@ import { getPublicSiconfiAnnualTotals } from "../../lib/siconfi-annual-totals";
 import { getPublicSiconfiMonthlyReconciliation } from "../../lib/siconfi-monthly-reconciliation";
 import { buildFinanceFamilyCoverage } from "../../lib/finance-family-coverage.mjs";
 import FinanceFamilyCoverageMap from "./finance-family-coverage-map";
-import FinanceObligationCoverageMatrix from "./finance-obligation-coverage-matrix";
-import FinancePayrollCoverageMatrix from "./finance-payroll-coverage-matrix";
-import FinanceFiscalReportCoverageMatrix from "./finance-fiscal-report-coverage-matrix";
-import FinanceMunicipalDocumentCoverage from "./finance-municipal-document-coverage";
-import {
-  toFiscalCoverageEntry,
-  type FiscalReportCoverageEntry,
-  type FiscalReportCoverageResult,
-} from "../../lib/fiscal-report-coverage-matrix.mjs";
-import {
-  toMunicipalFinanceDocumentCoverageEntry,
-  type MunicipalFinanceDocumentCoverageEntry,
-  type MunicipalFinanceDocumentCoverageResult,
-} from "../../lib/municipal-finance-document-coverage.mjs";
 
 export const revalidate = 300;
 
@@ -223,42 +207,6 @@ function signalSeverityLabel(severity: PublicFinanceSignal["severity"]): string 
 
 function formatAmount(value: string | null, unavailable = "não disponível"): string {
   return value === null ? unavailable : formatBrlDecimal(value);
-}
-
-function fiscalCoverageResult(
-  rreo: FinanceDocumentsResult,
-  rgf: FinanceDocumentsResult,
-): FiscalReportCoverageResult {
-  if (rreo.state !== "available" || rgf.state !== "available") {
-    return { state: "unavailable" };
-  }
-  const entries: FiscalReportCoverageEntry[] = [];
-  for (const document of [...rreo.documents, ...rgf.documents]) {
-    if (document.fiscalYear !== null && document.fiscalYear < 2021) continue;
-    const entry = toFiscalCoverageEntry(document);
-    if (!entry) return { state: "unavailable" };
-    entries.push(entry);
-  }
-  return { state: "available", entries };
-}
-
-function municipalFinanceDocumentCoverageResult(
-  results: readonly FinanceDocumentsResult[],
-): MunicipalFinanceDocumentCoverageResult {
-  if (results.some((result) => result.state !== "available")) {
-    return { state: "unavailable" };
-  }
-  const entries: MunicipalFinanceDocumentCoverageEntry[] = [];
-  for (const result of results) {
-    if (result.state !== "available") return { state: "unavailable" };
-    for (const document of result.documents) {
-      if (document.fiscalYear !== null && document.fiscalYear < 2021) continue;
-      const entry = toMunicipalFinanceDocumentCoverageEntry(document);
-      if (!entry) return { state: "unavailable" };
-      entries.push(entry);
-    }
-  }
-  return { state: "available", entries };
 }
 
 export default async function FinancesPage() {
@@ -425,13 +373,6 @@ export default async function FinancesPage() {
     fiscalDocuments,
     siconfiYears: siconfiAnnualYears,
   });
-  const fiscalCoverage = fiscalCoverageResult(rreoDocumentsResult, rgfDocumentsResult);
-  const municipalDocumentCoverage = municipalFinanceDocumentCoverageResult([
-    balanceteDocumentsResult,
-    revenueDocumentsResult,
-    expenseDocumentsResult,
-  ]);
-
   return (
     <main>
       <header className="site-header">
@@ -504,6 +445,21 @@ export default async function FinancesPage() {
         </section>
 
         <FinanceFamilyCoverageMap families={financeFamilies} />
+
+        <section className="finance-status-panel" aria-labelledby="finance-coverage-hub-title">
+          <div>
+            <span className="eyebrow">Cobertura completa</span>
+            <h2 id="finance-coverage-hub-title">Confira cada período e cada documento</h2>
+            <p>
+              A auditoria separa receitas e despesas, folha, restos a pagar,
+              documentos mensais, RREO e RGF. Os calendários mostram desde 2021 o
+              que foi preservado, o que está em validação e o que não foi localizado.
+            </p>
+          </div>
+          <a className="finance-month-link" href="/financas/cobertura">
+            Abrir cobertura completa por período →
+          </a>
+        </section>
 
         <FinanceSiconfiAnnualTotals
           years={siconfiAnnualYears}
@@ -668,32 +624,6 @@ export default async function FinancesPage() {
           />
         </section>
 
-        <section className="finance-coverage-section" aria-labelledby="payroll-matrix-title">
-          <div className="section-heading compact">
-            <span className="eyebrow">Cobertura da folha</span>
-            <h2 id="payroll-matrix-title">Quais competências da folha estão publicadas</h2>
-            <p>
-              O calendário separa mês publicado, documento não localizado,
-              processamento pendente e conflito entre ciclos. Nenhum desses
-              estados autoriza presumir gasto zero.
-            </p>
-          </div>
-          <FinancePayrollCoverageMatrix initialResult={payrollCoverageResult} />
-        </section>
-
-        <section className="finance-coverage-section" aria-labelledby="finance-coverage-title">
-          <div className="section-heading compact">
-            <span className="eyebrow">Cobertura da série</span>
-            <h2 id="finance-coverage-title">Quais meses podem ser comparados</h2>
-            <p>
-              A matriz mostra, mês a mês desde 2021, se há relatórios validados de
-              receita e despesa. Lacuna de documento e competência não classificada
-              são estados diferentes — nenhum deles significa arrecadação ou gasto zero.
-            </p>
-          </div>
-          <FinanceCoverageMatrix initialResult={coverageResult} />
-        </section>
-
         <FinanceAnnualSummary summaries={annualFinanceSummaries} />
 
         {monthlyClosures.length > 0 ? (
@@ -705,7 +635,7 @@ export default async function FinancesPage() {
                 Cada cartão reúne a receita declarada e os pagamentos do mesmo mês.
                 O resultado é calculado por código e só aparece quando as fontes têm
                 cobertura comparável. A visão geral mostra os 12 fechamentos mais
-                recentes; o calendário acima preserva toda a série.
+                recentes; a auditoria de cobertura preserva toda a série.
               </p>
             </div>
             <div className="digest-grid">
@@ -1031,22 +961,6 @@ export default async function FinancesPage() {
             </details>
           </section>
         ) : null}
-
-        <section
-          className="finance-coverage-section finance-obligation-matrix-section"
-          aria-labelledby="obligation-matrix-title"
-        >
-          <div className="section-heading compact">
-            <span className="eyebrow">Cobertura de restos a pagar</span>
-            <h2 id="obligation-matrix-title">O que foi encontrado em cada mês</h2>
-            <p>
-              Esta matriz informa se o balancete e a seção necessária foram
-              localizados e validados. Ela não é um gráfico do saldo da dívida e
-              nenhum documento ausente é transformado em R$ 0.
-            </p>
-          </div>
-          <FinanceObligationCoverageMatrix initialResult={obligationCoverageResult} />
-        </section>
 
         {publicObligations.length > 0 ? (
           <section
@@ -1383,26 +1297,13 @@ export default async function FinancesPage() {
           </section>
         ) : null}
 
-        <section className="finance-coverage-section" aria-labelledby="municipal-document-coverage-title">
-          <div className="section-heading compact">
-            <span className="eyebrow">Cobertura dos documentos mensais</span>
-            <h2 id="municipal-document-coverage-title">Balancete, receita e despesa por competência</h2>
-            <p>
-              Compare as três famílias sem misturar seus valores. PDF preservado,
-              registro apenas catalogado, versões da mesma competência, prazo aberto e
-              documento não localizado são estados diferentes.
-            </p>
-          </div>
-          <FinanceMunicipalDocumentCoverage initialResult={municipalDocumentCoverage} />
-        </section>
-
         <section aria-labelledby="document-title" className="finance-documents">
           <div className="section-heading compact">
             <span className="eyebrow">Documentos oficiais</span>
             <h2 id="document-title">O que a Prefeitura publicou</h2>
             <p>
               {operationalDocuments.length > 0
-                ? `${operationalDocuments.length.toLocaleString("pt-BR")} documentos no catálogo. A lista abaixo mostra os ${recentOperationalDocuments.length.toLocaleString("pt-BR")} mais recentes; o calendário acima dá acesso por competência.`
+                ? `${operationalDocuments.length.toLocaleString("pt-BR")} documentos no catálogo. A lista abaixo mostra os ${recentOperationalDocuments.length.toLocaleString("pt-BR")} mais recentes; a auditoria de cobertura dá acesso por competência.`
                 : "Ainda não há documentos mensais de execução ou arrecadação disponíveis."}
             </p>
           </div>
@@ -1466,19 +1367,6 @@ export default async function FinancesPage() {
               </div>
             </details>
           )}
-        </section>
-
-        <section className="finance-coverage-section" aria-labelledby="fiscal-report-coverage-title">
-          <div className="section-heading compact">
-            <span className="eyebrow">Calendário fiscal</span>
-            <h2 id="fiscal-report-coverage-title">Quais RREO e RGF foram localizados</h2>
-            <p>
-              Cada família conserva sua periodicidade: seis RREO bimestrais e
-              três RGF quadrimestrais por exercício. Documento catalogado sem PDF,
-              prazo futuro e período vencido não localizado são estados diferentes.
-            </p>
-          </div>
-          <FinanceFiscalReportCoverageMatrix initialResult={fiscalCoverage} />
         </section>
 
         {fiscalDocuments.length > 0 ? (
