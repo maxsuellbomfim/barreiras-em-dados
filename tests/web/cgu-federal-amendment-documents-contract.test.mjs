@@ -166,9 +166,14 @@ test("página explica a série documental e mantém detalhes recolhidos", () => 
 test("cliente solicita somente a página documental visível", () => {
   assert.match(
     documentsClient,
+    /import\s*\{\s*fetchPublicRpcRows\s*\}\s*from\s*["']\.\/public-rpc\.mjs["']/,
+  );
+  assert.match(
+    documentsClient,
     /get_public_cgu_federal_amendment_document_study/,
   );
   assert.match(documentsClient, /page_offset:\s*\(page - 1\) \* pageSize/);
   assert.match(documentsClient, /const pageSize = 25/);
   assert.doesNotMatch(documentsClient, /page_size:\s*500/);
+  assert.doesNotMatch(documentsClient, /AbortSignal\.timeout\(5_000\)/);
 });
