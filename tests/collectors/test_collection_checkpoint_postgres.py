@@ -218,6 +218,22 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
             )
         )
 
+    def test_tcm_catalog_is_complete_only_with_positive_succeeded_partition(
+        self,
+    ) -> None:
+        connection = CheckpointConnection({"is_complete": True})
+        repository = PostgresCollectionRepository(lambda: connection)
+        self.assertTrue(
+            repository.tcm_ba_monthly_catalog_complete(competence="08/2026")
+        )
+        query, params = connection.calls[0]
+        normalized = " ".join(query.lower().split())
+        self.assertIn("partition.status = 'complete'", normalized)
+        self.assertIn("partition.observed_records > 0", normalized)
+        self.assertIn("run.status = 'succeeded'", normalized)
+        self.assertEqual(params, ("competence:2026-08",))
+        self.assertTrue(connection.closed)
+
     def test_pncp_item_backlog_applies_checkpoint_offset(self) -> None:
         connection = CheckpointConnection(None)
         connection.row = None
