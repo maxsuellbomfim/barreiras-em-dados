@@ -167,6 +167,41 @@ class PostgresCollectionRepository:
         finally:
             connection.close()
 
+    def tcm_ba_monthly_catalog_complete(self, *, competence: str) -> bool:
+        """Evita repetir um catálogo mensal já fechado com evidência positiva."""
+        if re.fullmatch(r"(?:0[1-9]|1[0-2])/\d{4}", competence) is None:
+            raise ValueError("competence deve usar MM/AAAA.")
+        month, year = (int(part) for part in competence.split("/"))
+        partition_key = f"competence:{year:04d}-{month:02d}"
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select exists (
+                  select 1
+                  from source.collection_partitions as partition
+                  join source.source_endpoints as endpoint
+                    on endpoint.id = partition.source_endpoint_id
+                  join source.data_sources as source
+                    on source.id = endpoint.data_source_id
+                  join source.collection_runs as run
+                    on run.id = partition.collection_run_id
+                  where source.slug = 'tcm-ba'
+                    and endpoint.slug = 'prestacoes-contas-mensais'
+                    and partition.partition_key = %s
+                    and partition.status = 'complete'
+                    and partition.completed_at is not null
+                    and partition.observed_records > 0
+                    and run.status = 'succeeded'
+                    and run.metrics ->> 'collection_outcome' = 'complete'
+                ) as is_complete
+                """,
+                (partition_key,),
+            ).fetchone()
+            return bool(row and row.get("is_complete") is True)
+        finally:
+            connection.close()
+
     def tcm_ba_document_references(
         self,
         *,

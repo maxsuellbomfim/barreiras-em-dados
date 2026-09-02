@@ -67,6 +67,8 @@ def fetch_tcm_ba_monthly_catalog_with_contract_retry(
         try:
             return client.fetch_monthly_catalog(year=year, month=month)
         except TcmBaContractError as error:
+            if _unpublished_competence(error) is not None:
+                raise
             if attempt == 2:
                 raise
             log_event(
@@ -105,13 +107,45 @@ def month_range(
     return tuple(months)
 
 
+def previous_closed_month(collected_on: date) -> tuple[int, int]:
+    if collected_on.month == 1:
+        return collected_on.year - 1, 12
+    return collected_on.year, collected_on.month - 1
+
+
+def _unpublished_competence(error: TcmBaContractError) -> str | None:
+    match = re.fullmatch(
+        r"Opção '((?:0[1-9]|1[0-2])/\d{4})' ausente no campo "
+        r"consultaPublicaTabPanel:consultaPublicaPCSearchForm:"
+        r"competenciaPCMes_input\.",
+        str(error),
+    )
+    return match.group(1) if match else None
+
+
 def execute_controlled_tcm_month(
     *,
     control: CollectionControl,
     operation: Callable[[], TcmBaMonthlyCollectionSummary],
-) -> TcmBaMonthlyCollectionSummary:
+) -> TcmBaMonthlyCollectionSummary | None:
     with control:
-        summary = operation()
+        try:
+            summary = operation()
+        except TcmBaContractError as error:
+            competence = _unpublished_competence(error)
+            if competence is None:
+                raise
+            control.complete(
+                outcome=CollectionOutcome.BLOCKED,
+                observed_records=0,
+                checkpoint={"competence": competence},
+                metrics={"documents_catalogued": 0, "artifacts_preserved": 0},
+                block_reason=(
+                    "O e-TCM ainda não disponibilizou a competência mensal "
+                    "no catálogo público."
+                ),
+            )
+            return None
         if summary.artifacts < 1 or summary.documents < 0:
             raise RuntimeError("A captura mensal do TCM-BA está incompleta.")
         competence = f"{summary.month:02d}/{summary.year}"
@@ -169,6 +203,20 @@ def execute_tcm_monthly_backfill(
                 error_type=type(error).__name__,
             )
             continue
+        if summary is None:
+            log_event(
+                logger,
+                logging.INFO,
+                "collector_tcm_ba_month_completed",
+                source=SOURCE_CODE,
+                competence=f"{month:02d}/{year}",
+                coverage_status="blocked",
+                documents=0,
+                artifacts=0,
+                inserted_records=0,
+                existing_records=0,
+            )
+            continue
         completed.append(summary)
         log_event(
             logger,
@@ -200,18 +248,32 @@ def main(argv: Sequence[str] | None = None) -> int:
             "não extrai valores financeiros nesta etapa."
         )
     )
-    parser.add_argument("--month-from", required=True, help="Competência YYYY-MM")
-    parser.add_argument("--month-to", required=True, help="Competência YYYY-MM")
+    parser.add_argument("--month-from", help="Competência YYYY-MM")
+    parser.add_argument("--month-to", help="Competência YYYY-MM")
+    parser.add_argument(
+        "--automatic-closed-month",
+        action="store_true",
+        help="Retoma somente a última competência mensal já encerrada.",
+    )
     parser.add_argument("--requests-per-minute", type=int, default=30)
     args = parser.parse_args(argv)
-    try:
-        months = month_range(
-            args.month_from,
-            args.month_to,
-            collected_on=collected_on,
-        )
-    except ValueError as error:
-        parser.error(str(error))
+    if args.automatic_closed_month:
+        if args.month_from is not None or args.month_to is not None:
+            parser.error(
+                "--automatic-closed-month não aceita intervalo mensal explícito."
+            )
+        months = (previous_closed_month(collected_on),)
+    else:
+        if args.month_from is None or args.month_to is None:
+            parser.error("--month-from e --month-to são obrigatórios no modo manual.")
+        try:
+            months = month_range(
+                args.month_from,
+                args.month_to,
+                collected_on=collected_on,
+            )
+        except ValueError as error:
+            parser.error(str(error))
     if not 1 <= args.requests_per_minute <= 30:
         parser.error("--requests-per-minute deve estar entre 1 e 30.")
 
@@ -232,6 +294,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     repository = PostgresCollectionRepository.from_dsn(
         persistence_settings.database_url
     )
+    if args.automatic_closed_month:
+        year, month = months[0]
+        if repository.tcm_ba_monthly_catalog_complete(
+            competence=f"{month:02d}/{year}"
+        ):
+            log_event(
+                logging.getLogger(__name__),
+                logging.INFO,
+                "collector_tcm_ba_month_skipped",
+                source=SOURCE_CODE,
+                competence=f"{month:02d}/{year}",
+                reason="partition_already_complete",
+            )
+            return 0
     object_store = build_authenticated_object_store(persistence_settings)
     service = TcmBaCatalogPersistenceService(
         object_store=object_store,

@@ -14,6 +14,7 @@ from barreiras_collectors.commands.collect_tcm_ba_monthly_catalog import (
     fetch_tcm_ba_monthly_catalog_with_contract_retry,
     main,
     month_range,
+    previous_closed_month,
 )
 from barreiras_collectors.connectors.tcm_ba import TcmBaContractError, TcmBaError
 
@@ -46,6 +47,34 @@ def summary(*, year: int, month: int, documents: int = 1824):
 
 
 class TcmBaMonthlyCatalogCommandTests(unittest.TestCase):
+    def test_automatic_mode_targets_only_the_last_closed_month(self) -> None:
+        self.assertEqual(previous_closed_month(date(2026, 9, 2)), (2026, 8))
+        self.assertEqual(previous_closed_month(date(2026, 1, 1)), (2025, 12))
+
+    def test_unpublished_month_is_recorded_as_blocked_without_false_empty(self) -> None:
+        control = FakeControl()
+
+        def unavailable_operation():
+            raise TcmBaContractError(
+                "Opção '08/2026' ausente no campo "
+                "consultaPublicaTabPanel:consultaPublicaPCSearchForm:"
+                "competenciaPCMes_input."
+            )
+
+        try:
+            result = execute_controlled_tcm_month(
+                control=control,
+                operation=unavailable_operation,
+            )
+        except TcmBaContractError as error:
+            self.fail(f"competência não publicada escapou como falha: {error}")
+
+        self.assertIsNone(result)
+        completion = control.completions[0]
+        self.assertEqual(completion["outcome"], CollectionOutcome.BLOCKED)
+        self.assertEqual(completion["observed_records"], 0)
+        self.assertIn("não disponibilizou", completion["block_reason"])
+
     def test_retries_one_contract_failure_with_fresh_client_and_sanitized_warning(
         self,
     ) -> None:
@@ -116,6 +145,34 @@ class TcmBaMonthlyCatalogCommandTests(unittest.TestCase):
 
         self.assertEqual(len(clients), 2)
         self.assertIs(clients[0][2], clients[1][2])
+
+    def test_does_not_retry_valid_selector_without_requested_month(self) -> None:
+        clients = []
+
+        class FakeClient:
+            def __init__(self, *, requests_per_minute, rate_limiter):
+                clients.append((requests_per_minute, rate_limiter))
+
+            def fetch_monthly_catalog(self, *, year, month):
+                raise TcmBaContractError(
+                    "Opção '08/2026' ausente no campo "
+                    "consultaPublicaTabPanel:consultaPublicaPCSearchForm:"
+                    "competenciaPCMes_input."
+                )
+
+        with patch(
+            "barreiras_collectors.commands.collect_tcm_ba_monthly_catalog.TcmBaPublicAccountsClient",
+            FakeClient,
+        ):
+            with self.assertRaises(TcmBaContractError):
+                fetch_tcm_ba_monthly_catalog_with_contract_retry(
+                    year=2026,
+                    month=8,
+                    requests_per_minute=30,
+                    logger=logging.getLogger("tcm-ba-month-not-published"),
+                )
+
+        self.assertEqual(len(clients), 1)
 
     def test_does_not_retry_non_contract_tcm_error(self) -> None:
         clients = []
