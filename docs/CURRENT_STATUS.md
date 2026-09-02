@@ -295,4 +295,8 @@ da aba de execução. A API pública confirmou 232 movimentos entre 2021 e 2026 
 agora entrega no máximo 25 por página, com busca e filtros de ano do documento,
 autoria e fase financeira calculados sobre todo o catálogo. O ranking permanece
 em consulta separada e nenhum total, estágio ou fonte foi combinado para obter
-essa redução de payload.
+essa redução de payload. O carregador comum de Recursos também passou a respeitar
+a aba escolhida: execução da CGU e comparação por legislatura não disparam a
+carga legada das demais fontes; federal atual, arquivo histórico e Bahia consultam
+somente suas próprias famílias. Uma falha de uma origem deixa de atrasar ou
+ocultar outra origem que esteja saudável.

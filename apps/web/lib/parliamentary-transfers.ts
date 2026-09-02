@@ -2,6 +2,9 @@ import {
   buildCurrentTransferRankingRequest,
   buildCurrentTransfersRequest,
 } from "./parliamentary-transfer-year-filter.mjs";
+import { buildParliamentaryTransferQueryPlan } from
+  "./parliamentary-transfer-query-plan.mjs";
+import { fetchPublicRpcRows } from "./public-rpc.mjs";
 import {
   parseStateLoaExecutionRows,
   parseStateLoaExecutionSummary,
@@ -1029,29 +1032,6 @@ function parseReconciliationSummary(
   };
 }
 
-type RpcRequest = Readonly<{
-  headers: Readonly<Record<string, string>>;
-  body: string;
-}>;
-
-async function fetchRpcResponse(
-  url: string,
-  request: RpcRequest,
-  bypassCache = false,
-): Promise<Response> {
-  return fetch(url, {
-    method: "POST",
-    headers: request.headers,
-    body: request.body,
-    ...(bypassCache ? { cache: "no-store" as const } : { next: { revalidate: 300 } }),
-    signal: AbortSignal.timeout(5_000),
-  });
-}
-
-function isTransientRpcFailure(response: Response): boolean {
-  return [404, 408, 425, 429].includes(response.status) || response.status >= 500;
-}
-
 async function callRpc(
   name: string,
   body: Record<string, unknown>,
@@ -1061,8 +1041,8 @@ async function callRpc(
   if (!supabaseUrl?.startsWith("https://") || !publishableKey?.startsWith("sb_publishable_")) {
     return null;
   }
-  const url = `${supabaseUrl}/rest/v1/rpc/${name}`;
-  const request: RpcRequest = {
+  return fetchPublicRpcRows({
+    url: `${supabaseUrl}/rest/v1/rpc/${name}`,
     headers: {
       Accept: "application/json",
       "Accept-Profile": "api",
@@ -1071,22 +1051,19 @@ async function callRpc(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  };
-  const cachedResponse = await fetchRpcResponse(url, request);
-  const response = !cachedResponse.ok && isTransientRpcFailure(cachedResponse)
-    ? await fetchRpcResponse(url, request, true)
-    : cachedResponse;
-  if (!response.ok) return null;
-  const payload: unknown = await response.json();
-  return Array.isArray(payload) ? payload : null;
+  });
 }
 
 export async function getPublicParliamentaryTransfers({
   stateFiscalYear,
+  queryScope,
 }: Readonly<{
   stateFiscalYear: number;
+  queryScope: "current" | "historical" | "state" | "none";
 }>): Promise<ParliamentaryTransfersResult> {
   try {
+    const plan = buildParliamentaryTransferQueryPlan(queryScope);
+    const skipped: Promise<unknown[] | null> = Promise.resolve(null);
     const [
       peopleRows,
       collectiveRows,
@@ -1106,84 +1083,95 @@ export async function getPublicParliamentaryTransfers({
       reconciledCollectiveRows,
       reconciliationSummaryRows,
     ] = await Promise.all([
-      callRpc("get_public_parliamentary_transfer_ranking", {
-        author_scope: "person",
-        fiscal_year_filter: null,
-        page_size: 50,
-      }),
-      callRpc("get_public_parliamentary_transfer_ranking", {
-        author_scope: "collective",
-        fiscal_year_filter: null,
-        page_size: 50,
-      }),
-      callRpc("get_public_parliamentary_transfers", {
-        fiscal_year_filter: null,
-        author_kind_filter: null,
-        page_size: 200,
-      }),
-      callRpc("get_public_parliamentary_transfer_coverage", {
+      skipped,
+      skipped,
+      skipped,
+      plan.current ? callRpc("get_public_parliamentary_transfer_coverage", {
         fiscal_year_from: 2021,
-      }),
-      callRpc("get_public_federal_transfer_proposals", {
+      }) : skipped,
+      plan.historical ? callRpc("get_public_federal_transfer_proposals", {
         fiscal_year_filter: null,
         proposal_status_filter: null,
         page_size: 200,
-      }),
-      callRpc("get_public_historical_parliamentary_amendments", {
+      }) : skipped,
+      plan.historical ? callRpc("get_public_historical_parliamentary_amendments", {
         fiscal_year_filter: null,
         author_kind_filter: null,
         page_size: 200,
-      }),
-      callRpc("get_public_historical_parliamentary_amendment_ranking", {
+      }) : skipped,
+      plan.historical ? callRpc("get_public_historical_parliamentary_amendment_ranking", {
         author_scope: "person",
         fiscal_year_filter: null,
         page_size: 50,
-      }),
-      callRpc("get_public_historical_parliamentary_amendment_ranking", {
+      }) : skipped,
+      plan.historical ? callRpc("get_public_historical_parliamentary_amendment_ranking", {
         author_scope: "collective",
         fiscal_year_filter: null,
         page_size: 50,
-      }),
-      callRpc("get_public_bahia_state_loa_amendments", {
+      }) : skipped,
+      plan.state ? callRpc("get_public_bahia_state_loa_amendments", {
         fiscal_year_filter: stateFiscalYear,
         author_key_filter: null,
         page_size: 200,
-      }),
-      callRpc("get_public_bahia_state_loa_amendment_ranking", {
+      }) : skipped,
+      plan.state ? callRpc("get_public_bahia_state_loa_amendment_ranking", {
         fiscal_year_filter: stateFiscalYear,
         page_size: 50,
-      }),
-      callRpc("get_public_bahia_state_loa_execution", {
+      }) : skipped,
+      plan.state ? callRpc("get_public_bahia_state_loa_execution", {
         fiscal_year_filter: stateFiscalYear,
         author_key_filter: null,
         page_size: 200,
-      }),
-      callRpc("get_public_bahia_state_loa_execution_summary", {
+      }) : skipped,
+      plan.state ? callRpc("get_public_bahia_state_loa_execution_summary", {
         fiscal_year_filter: stateFiscalYear,
-      }),
-      callRpc("get_public_federal_transfer_scope_summary", {}),
-      callRpc("get_public_reconciled_parliamentary_transfers", {
+      }) : skipped,
+      plan.historical
+        ? callRpc("get_public_federal_transfer_scope_summary", {})
+        : skipped,
+      plan.historical ? callRpc("get_public_reconciled_parliamentary_transfers", {
         fiscal_year_filter: null,
         author_kind_filter: null,
         page_size: 200,
-      }),
-      callRpc("get_public_reconciled_parliamentary_transfer_ranking", {
+      }) : skipped,
+      plan.historical ? callRpc("get_public_reconciled_parliamentary_transfer_ranking", {
         author_scope: "person",
         fiscal_year_filter: null,
         page_size: 50,
-      }),
-      callRpc("get_public_reconciled_parliamentary_transfer_ranking", {
+      }) : skipped,
+      plan.historical ? callRpc("get_public_reconciled_parliamentary_transfer_ranking", {
         author_scope: "collective",
         fiscal_year_filter: null,
         page_size: 50,
-      }),
-      callRpc("get_public_parliamentary_transfer_reconciliation_summary", {}),
+      }) : skipped,
+      plan.historical
+        ? callRpc("get_public_parliamentary_transfer_reconciliation_summary", {})
+        : skipped,
     ]);
-    if (!peopleRows || !collectiveRows || !transferRows) return { state: "unavailable" };
+    if (
+      queryScope === "none" ||
+      (plan.current && coverageRows === null) ||
+      (plan.historical && [
+        historicalProposalRows,
+        historicalAmendmentRows,
+        historicalPeopleRows,
+        historicalCollectiveRows,
+        scopeSummaryRows,
+        reconciledPeopleRows,
+        reconciledCollectiveRows,
+        reconciliationSummaryRows,
+      ].every((rows) => rows === null)) ||
+      (plan.state && [
+        stateLoaAmendmentRows,
+        stateLoaRankingRows,
+        stateLoaExecutionRows,
+        stateLoaExecutionSummaryRows,
+      ].every((rows) => rows === null))
+    ) return { state: "unavailable" };
 
-    const people = parseRankingRows(peopleRows);
-    const collectives = parseRankingRows(collectiveRows);
-    const transfers = transferRows.flatMap((row) => {
+    const people = peopleRows === null ? [] : parseRankingRows(peopleRows);
+    const collectives = collectiveRows === null ? [] : parseRankingRows(collectiveRows);
+    const transfers = (transferRows ?? []).flatMap((row) => {
       if (typeof row !== "object" || row === null) return [];
       const parsed = parseTransfer(row as Record<string, unknown>);
       return parsed ? [parsed] : [];
