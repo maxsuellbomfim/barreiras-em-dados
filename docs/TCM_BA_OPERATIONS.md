@@ -170,6 +170,55 @@ R$ 49.096.461,68 pagos. A diferença operacional de -R$ 4.332.727,93 não recebe
 interpretação fiscal. O RPC respondeu em 2,96 s e o HTML continha os dois
 hashes.
 
+Em `10/2021`, o `PCMGE016`, hash
+`e26c1bac553193c5094d2dd6ae532c744ee43bc58342e4369b313e01e479e0b8`,
+passou por 12 páginas com texto embutido e publicou 257 rubricas. O `PCMGE015`,
+hash `40e32b553abfcba6758caeb2cc2a8923adb700548b1b3047bb5b7c16fba4ed79`,
+passou por 195 páginas e possui uma única linhagem oficial. O detalhe fechou
+`operational`: R$ 60.168.967,09 de receita líquida, R$ 31.445.477,25
+empenhados, R$ 49.132.763,62 liquidados e R$ 49.397.681,61 pagos. A diferença
+operacional de R$ 10.771.285,48 não é tratada como superávit fiscal.
+
+O catálogo de `11/2021` fechou `complete` com 1.941 documentos, 238 artefatos
+de observação e 1.942 registros estruturados. O `PCMGE016`, hash
+`343271fcf5816997494a9764a501a8b46cb231673ba89325965d19b4b37afb03`,
+tem 12 páginas e publicou 257 rubricas. O `PCMGE015`, hash
+`7ca53ea083ff9bec242758c898e0c1adddc23027772b744086ccf20ae1cef29c`,
+tem 194 páginas e uma única linhagem. O detalhe fechou `operational` com
+R$ 49.571.690,49 de receita líquida, R$ 17.452.174,63 empenhados,
+R$ 50.943.193,81 liquidados e R$ 48.221.282,65 pagos.
+
+Esse demonstrativo de receita apresenta R$ 40.498.625,02 de saldo `a maior` em
+Receitas Correntes e R$ 23.373.185,22 de saldo `a menor` em Receitas de Capital.
+O total oficial consolida a diferença em R$ 17.125.439,80. A metodologia
+`tcm-ba-analytical-revenue/1.2.0` passou a exigir igualdade exata de previsão,
+arrecadação, anulação e acumulado, além da igualdade algébrica entre os saldos
+das categorias e o saldo total. Valor negativo, duas colunas totais positivas
+ou divergência de um centavo continuam bloqueando a publicação.
+
+Em `12/2021`, o catálogo preexistente estava `complete` com 3.677 documentos.
+O `PCMGE016`, hash
+`9b5e6b498f2f192b532ae9b7658b49d970e1b44367a9dbadaf230334a0ac044e`,
+tem 12 páginas e publicou 257 rubricas. O `PCMGE015`, hash
+`938b9f3ebd98cebf985035de3efcf95eebdf31bf4fd38ade55b228efcfe43cb4`,
+tem 188 páginas e uma única linhagem. O detalhe fechou `operational` com
+R$ 75.029.545,36 de receita líquida, R$ 42.384.090,96 empenhados,
+R$ 88.780.398,98 liquidados e R$ 81.717.613,72 pagos. A diferença operacional
+de -R$ 6.688.068,36 não recebe interpretação fiscal.
+
+O gate anual somente leitura de 01/09/2026 consultou separadamente as doze
+competências de 2021. Todas retornaram `operational`, um relatório e um
+documento de cada tipo, receita com rubricas e valores financeiros não nulos.
+Os 24 PDFs têm 24 hashes distintos, tamanho positivo, HTTP 2xx, MIME correto e
+zero job de publicação aberto ou falho. As doze páginas públicas responderam
+HTTP 200. O gate não soma os snapshots mensais como exercício anual.
+
+O modo `-DocumentTextOnly -ArtifactSha256 <sha256>` agora é deliberadamente
+idempotente: um SHA explícito relê os bytes privados, recomputa o hash e deriva
+as páginas mesmo quando a versão atual já está persistida. A persistência
+reconhece o job existente (`job_created=false`) e não duplica páginas. Sem SHA
+explícito, a fila automática continua selecionando somente PDFs pendentes.
+
 Para conferir idempotentemente apenas o relatório de janeiro pelo hash
 imutável:
 

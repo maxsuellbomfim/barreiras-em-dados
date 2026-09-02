@@ -265,7 +265,7 @@ class RevenuePublisherTests(unittest.TestCase):
         batch = repository.inserted_batches[0][1]
         self.assertEqual(
             batch.methodology_version,
-            "tcm-ba-analytical-revenue/1.1.0",
+            "tcm-ba-analytical-revenue/1.2.0",
         )
         self.assertEqual(batch.total_period_amount, Decimal("45849799.31"))
 

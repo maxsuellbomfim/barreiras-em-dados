@@ -66,6 +66,40 @@ class TcmBaRevenuePdfTests(unittest.TestCase):
         with self.assertRaisesRegex(TcmBaRevenueContractError, "total geral"):
             parse_tcm_ba_revenue_pdf_text(text)
 
+    def test_accepts_total_with_net_consolidated_balance(self) -> None:
+        text = FIXTURE.read_text(encoding="utf-8")
+        text = text.replace(
+            "470.041.355,00 46.633.582,13 -783.782,82 105.702.216,44 "
+            "0,00 365.122.921,38Receitas Correntes\n-783.782,82",
+            "470.041.355,00 49.512.406,29 -154.454,96 511.691.853,00 "
+            "40.498.625,02 0,00Receitas Correntes\n-1.151.872,98",
+        )
+        text = text.replace(
+            "44.676.177,00 0,00 0,00 6.015.185,29 "
+            "0,00 38.660.991,71Receitas de\nCapital\n0,00",
+            "44.676.177,00 272.812,49 -59.073,33 21.362.065,11 "
+            "0,00 23.373.185,22Receitas de\nCapital\n-59.073,33",
+        )
+        text = text.replace(
+            "514.717.532,00 46.633.582,13 -783.782,82 111.717.401,73 "
+            "0,00 403.783.913,09TOTAL",
+            "514.717.532,00 49.785.218,78 -213.528,29 533.053.918,11 "
+            "17.125.439,80 0,00TOTAL",
+        ).replace(
+            "Totais: 46.633.582,13 111.717.401,73",
+            "Totais: 49.785.218,78 533.053.918,11",
+        )
+
+        report = parse_tcm_ba_revenue_pdf_text(text)
+
+        self.assertEqual(report.total_difference_more, Decimal("17125439.80"))
+        self.assertEqual(report.total_difference_less, Decimal("0.00"))
+        self.assertEqual(report.total_period_amount, Decimal("49571690.49"))
+        self.assertEqual(
+            report.total_accumulated_amount,
+            Decimal("531842971.80"),
+        )
+
     def test_rejects_positive_annulment_in_signed_tcm_layout(self) -> None:
         text = FIXTURE.read_text(encoding="utf-8").replace(
             "470.041.355,00 46.633.582,13 -783.782,82 105.702.216,44 "
