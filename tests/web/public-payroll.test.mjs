@@ -761,25 +761,15 @@ test("pagina separa estagiários e terceirizados sem publicar valores pessoais",
   assert.match(coverage, /\{documentedRows\.length\.toLocaleString/);
 });
 
-test("pagina explica competências da folha sem total em uma sanfona", async () => {
-  const [page, coverage] = await Promise.all([
-    readFile(
-      new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
-      "utf8",
-    ),
-    readFile(
-      new URL(
-        "../../apps/web/app/financas/finance-payroll-coverage.tsx",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  ]);
+test("pagina encaminha competências da folha sem total para a cobertura completa", async () => {
+  const page = await readFile(
+    new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
+    "utf8",
+  );
 
   assert.match(page, /getPublicPayrollCoverage\(120\)/);
-  assert.match(page, /FinancePayrollCoverage/);
-  assert.match(coverage, /competências sem total publicado/);
-  assert.match(coverage, /Isso não significa gasto zero/);
-  assert.match(coverage, /ciclos da folha/);
-  assert.match(coverage, /<details/);
+  assert.doesNotMatch(page, /<FinancePayrollCoverage\b/);
+  assert.match(page, /payrollCoverageGapCount/);
+  assert.match(page, /Isso não significa gasto zero/);
+  assert.match(page, /href="\/financas\/cobertura#payroll-matrix-title"/);
 });

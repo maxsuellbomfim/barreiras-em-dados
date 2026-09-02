@@ -25,11 +25,9 @@ import ShareLink from "../share-link";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
 import { getPublicFinanceCoverage } from "../../lib/finance-coverage";
 import {
-  describePublicObligationCoverage,
   getPublicObligationCoverage,
   getPublicObligations,
   type PublicObligation,
-  type PublicObligationCoverageRow,
 } from "../../lib/public-obligations.mjs";
 import {
   getPublicNonpayrollWorkforceCoverage,
@@ -43,7 +41,6 @@ import {
   type PublicPayrollMonth,
 } from "../../lib/public-payroll.mjs";
 import FinanceNonpayrollWorkforceCoverage from "./finance-nonpayroll-workforce-coverage";
-import FinancePayrollCoverage from "./finance-payroll-coverage";
 import FinancePayrollHistory from "./finance-payroll-history";
 import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
 import FinancePayrollCompensation from "./finance-payroll-compensation";
@@ -316,6 +313,9 @@ export default async function FinancesPage() {
     nonpayrollWorkforceCoverageResult.state === "available"
       ? nonpayrollWorkforceCoverageResult.rows
       : [];
+  const payrollCoverageGapCount = payrollCoverageRows.filter(
+    (row) => row.coverageStatus !== "published",
+  ).length;
   const siconfiAnnualYears =
     siconfiAnnualResult.state === "available"
       ? siconfiAnnualResult.years
@@ -324,9 +324,9 @@ export default async function FinancesPage() {
     siconfiReconciliationResult.state === "available"
       ? siconfiReconciliationResult.years
       : [];
-  const obligationCoverageGaps = publicObligationCoverage.filter(
+  const obligationCoverageGapCount = publicObligationCoverage.filter(
     (row) => row.coverageStatus !== "published",
-  );
+  ).length;
   const latestPublicObligation = publicObligations[0] ?? null;
   const publishedObligationMonths =
     publicObligationCoverage.length > 0
@@ -606,7 +606,28 @@ export default async function FinancesPage() {
                 months={previousPayrollMonths}
                 totalMonths={previousPayrollMonthCount}
               />
-              <FinancePayrollCoverage rows={payrollCoverageRows} />
+              {payrollCoverageGapCount > 0 ? (
+                <aside
+                  className="finance-status-panel"
+                  aria-label="Cobertura incompleta da folha"
+                >
+                  <div>
+                    <strong>
+                      {payrollCoverageGapCount.toLocaleString("pt-BR")} competências sem total publicado
+                    </strong>
+                    <p>
+                      Isso não significa gasto zero. O calendário explica, mês a mês,
+                      se o documento não foi localizado, está em validação ou possui conflito.
+                    </p>
+                  </div>
+                  <a
+                    className="finance-month-link"
+                    href="/financas/cobertura#payroll-matrix-title"
+                  >
+                    Conferir cobertura da folha →
+                  </a>
+                </aside>
+              ) : null}
             </>
           ) : (
             <div className="collection-unavailable" role="status">
@@ -1097,77 +1118,29 @@ export default async function FinancesPage() {
           </section>
         ) : null}
 
-        {obligationCoverageGaps.length > 0 ? (
-          <section
-            aria-labelledby="obligation-coverage-title"
-            className="finance-documents finance-obligation-documents"
+        {obligationCoverageGapCount > 0 ? (
+          <aside
+            className="finance-status-panel"
+            aria-label="Cobertura incompleta de restos a pagar"
           >
-            <div className="section-heading compact">
+            <div>
               <span className="eyebrow">Cobertura e lacunas</span>
-              <h2 id="obligation-coverage-title">Onde ainda não foi possível publicar um valor</h2>
+              <strong>
+                {obligationCoverageGapCount.toLocaleString("pt-BR")} competências sem valor publicado
+              </strong>
               <p>
-                Cada lacuna é identificada pelo motivo. Documento ausente, seção
-                ausente, seção incompleta e divergência entre documentos oficiais não
-                são tratados como R$ 0. Uma divergência também não é prova de
-                irregularidade: ela permanece aberta até a reconciliação das fontes.
+                Documento ausente, seção incompleta e divergência entre fontes não
+                são tratados como R$ 0 nem como prova de irregularidade. O calendário
+                informa o motivo de cada lacuna.
               </p>
             </div>
-            <details className="finance-details">
-              <summary>
-                Ver {obligationCoverageGaps.length.toLocaleString("pt-BR")} competências sem valor publicado
-              </summary>
-              <div className="digest-grid">
-                {obligationCoverageGaps.map((row: PublicObligationCoverageRow) => {
-                  const copy = describePublicObligationCoverage(row, formatBrlDecimal);
-                  return (
-                    <article
-                      className={`digest-card finance-debt-card${
-                        row.coverageStatus === "source_conflict"
-                          ? " finance-conflict-card"
-                          : ""
-                      }`}
-                      key={row.coverageId}
-                    >
-                      <div className="track-top">
-                        <span>Cobertura documental</span>
-                        <span className="track-status">
-                          {formatMonthTitle(row.periodStart)}
-                        </span>
-                      </div>
-                      <h3 className="procurement-object">{copy.title}</h3>
-                      <div className="finance-reading finance-reading-card">
-                        <strong>O que isso significa</strong>
-                        <p>{copy.explanation}</p>
-                      </div>
-                      <p className="act-evidence">
-                        {row.sourceUrl ? (
-                          <>
-                            <a href={row.sourceUrl} target="_blank" rel="noreferrer">
-                              Abrir documento oficial →
-                            </a>{" "}
-                          </>
-                        ) : (
-                          <a
-                            href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Consultar o portal oficial →
-                          </a>
-                        )}
-                        {row.documentArtifactSha256
-                          ? ` · documento preservado · hash ${row.documentArtifactSha256.slice(0, 12)}…`
-                          : ""}
-                        {row.checkedAt
-                          ? ` · verificado em ${formatCollectedAt(row.checkedAt)}`
-                          : ""}
-                      </p>
-                    </article>
-                  );
-                })}
-              </div>
-            </details>
-          </section>
+            <a
+              className="finance-month-link"
+              href="/financas/cobertura#obligation-matrix-title"
+            >
+              Conferir cobertura de restos a pagar →
+            </a>
+          </aside>
         ) : null}
 
         <section aria-labelledby="obligation-document-title" className="finance-documents finance-obligation-documents">
