@@ -38,6 +38,8 @@ import {
   legislatureRankingForRepresentative,
   type ParliamentaryRepresentativeLegislatureRanking,
 } from "../../lib/parliamentary-legislature-rankings.mjs";
+import { selectFederalRepresentativesForOverview } from
+  "../../lib/representative-overview.mjs";
 
 export const revalidate = 300;
 
@@ -202,11 +204,13 @@ function StateLoaContributionTimeline({
 function RepresentativeCard({
   person,
   voteLinks,
+  rankingVote,
   legislatureContribution,
   stateLoaContributions,
 }: Readonly<{
   person: FederalRepresentative;
   voteLinks: readonly RepresentativeVote[];
+  rankingVote: RepresentativeVote;
   legislatureContribution: ParliamentaryRepresentativeLegislatureRanking | null;
   stateLoaContributions: readonly StateLoaRepresentativeContribution[];
 }>) {
@@ -253,6 +257,13 @@ function RepresentativeCard({
           ) : null}
         </div>
       </div>
+
+      <p className="person-link-note">
+        <strong>
+          {rankingVote.votesInBarreiras.toLocaleString("pt-BR")} votos em Barreiras
+        </strong>
+        {` · eleição ${rankingVote.electionYear} · ${rankingVote.turnNumber}º turno`}
+      </p>
 
       <dl className="person-facts">
         {person.civilName && person.civilName !== person.displayName ? (
@@ -667,6 +678,13 @@ export default async function RepresentativesPage() {
       ? legislatureRankingsResult.groups
       : null;
   const currentDate = new Date().toISOString().slice(0, 10);
+  const federalOverviewRepresentatives =
+    result.state === "available"
+      ? selectFederalRepresentativesForOverview(
+          result.representatives,
+          representativeVotes,
+        )
+      : [];
 
   return (
     <main>
@@ -999,6 +1017,8 @@ export default async function RepresentativesPage() {
               Pessoas em exercício pela Bahia na 57ª legislatura, conforme a
               API oficial da Câmara dos Deputados. Candidaturas anteriores ou a
               outros cargos ficam no histórico eleitoral, sem alterar esta lista.
+              Os cartões destacam os dez deputados federais atuais mais votados em Barreiras
+              no pleito federal recente com vínculo individual verificado.
             </p>
           </div>
           {result.state === "unavailable" ? (
@@ -1021,26 +1041,41 @@ export default async function RepresentativesPage() {
                 </p>
               </div>
             </div>
+          ) : federalOverviewRepresentatives.length === 0 ? (
+            <div className="collection-unavailable" role="status">
+              <div>
+                <strong>Recorte eleitoral dos mandatos atuais em atualização</strong>
+                <p>
+                  A Câmara informa {result.representatives.length.toLocaleString("pt-BR")} perfis
+                  em exercício, mas nenhum vínculo individual com a votação federal
+                  mais recente pôde ser confirmado nesta consulta. Isso não significa voto zero.
+                </p>
+                <a href="#vinculo">Consultar o estudo eleitoral completo →</a>
+              </div>
+            </div>
           ) : (
             <>
               <p className="acts-count" role="status">
                 {result.representatives.length.toLocaleString("pt-BR")}{" "}
-                perfis em exercício publicados pela Câmara dos Deputados
+                perfis em exercício publicados pela Câmara dos Deputados; {" "}
+                {federalOverviewRepresentatives.length.toLocaleString("pt-BR")} destacados
+                pelo vínculo eleitoral com Barreiras
               </p>
               <details className="representation-collapsible representation-directory-collapsible">
                 <summary>
                   <span>
-                    <strong>Ver perfis federais</strong>
+                    <strong>Ver os mais votados entre os mandatos atuais</strong>
                   </span>
                   <span className="representation-collapsible-meta">
-                    {result.representatives.length.toLocaleString("pt-BR")} perfis · abrir
+                    {federalOverviewRepresentatives.length.toLocaleString("pt-BR")} perfis · abrir
                   </span>
                 </summary>
                 <div className="person-grid">
-                  {result.representatives.map((person) => (
+                  {federalOverviewRepresentatives.map(({ representative: person, rankingVote }) => (
                     <RepresentativeCard
                       key={person.externalId}
                       person={person}
+                      rankingVote={rankingVote}
                       voteLinks={votesForRepresentative(
                         representativeVotes,
                         "federal",
@@ -1061,6 +1096,11 @@ export default async function RepresentativesPage() {
                   ))}
                 </div>
               </details>
+              <p className="hero-note">
+                O recorte usa somente a votação individual para deputado federal na
+                eleição mais recente disponível. Outros cargos, eleições e turnos não
+                são somados. O estudo abaixo preserva todas as candidaturas coletadas.
+              </p>
             </>
           )}
         </section>
