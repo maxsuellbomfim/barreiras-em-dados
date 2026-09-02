@@ -33,12 +33,34 @@ quantidades inseridas, replays idempotentes e conflitos.
 
 Após aplicar a migration e configurar os segredos, execute **Coletar
 representação política**. O job **Registrar identidades privadas oficiais** deve
-produzir uma linha JSON por ano com `selected`, `inserted`, `unchanged`,
-`conflicted` e `unavailable`.
+produzir uma linha JSON por ano. Quando existe trabalho novo, ela contém
+`selected`, `inserted`, `unchanged`, `conflicted` e `unavailable`. Quando todas
+as candidaturas elegíveis já possuem uma linha oficial cifrada, o evento
+`private_identity_import_skipped` confirma `evidence_coverage_complete=true`
+sem confundir evidência integral com disponibilidade do CPF e sem baixar
+novamente o ZIP.
+
+O CDN oficial do TSE pode bloquear ambientes automatizados com HTTP 403. A
+cobertura privada de 2022 e 2024 foi importada com sucesso em 18/08/2026. Por
+isso, a execução agendada consulta primeiro
+`private.person_identifier_sources`: somente uma candidatura aprovada ainda sem
+evidência dispara novo download. O bloqueio continua sendo falha real quando há
+trabalho pendente; não há fallback para espelho não oficial. Uma revalidação
+deliberada pode usar `--refresh` e deve ser feita apenas quando o arquivo oficial
+estiver acessível.
+
+A prova operacional de 18/08 registrou 20 alvos cobertos em cada ano. Em 2022,
+os 20 identificadores já estavam gravados de forma idempotente. Em 2024, as 20
+linhas oficiais informaram o valor reservado de não divulgação; elas foram
+preservadas cifradas como lacunas oficiais. Esse estado significa "fonte
+consultada e identificador não divulgado", nunca "período não coletado" e nunca
+autoriza completar CPF por nome ou por base não oficial.
 
 Critérios:
 
-- reexecução do mesmo cadastro retorna somente `unchanged`;
+- reexecução agendada de um recorte coberto retorna
+  `private_identity_import_skipped`; reexecução deliberada com `--refresh`
+  retorna somente `unchanged` quando a fonte não mudou;
 - candidatura aprovada ausente no arquivo do TSE aborta o ano antes da primeira
   gravação;
 - CPF divergente gera conflito privado e nunca fusão automática;

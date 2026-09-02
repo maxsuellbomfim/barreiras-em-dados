@@ -56,6 +56,19 @@ class IdentityImportService:
 
     def import_package(self, *, year: int, package: bytes) -> IdentityImportSummary:
         targets = self.repository.eligible_targets(year)
+        return self.import_package_for_targets(
+            year=year,
+            package=package,
+            targets=targets,
+        )
+
+    def import_package_for_targets(
+        self,
+        *,
+        year: int,
+        package: bytes,
+        targets: tuple[IdentityTarget, ...],
+    ) -> IdentityImportSummary:
         if not targets:
             raise IdentityImportError(
                 f"O recorte de {year} não contém nenhuma identidade aprovada."

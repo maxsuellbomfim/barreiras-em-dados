@@ -57,6 +57,25 @@ class FakeConnection:
 
 
 class IdentityRepositoryTests(unittest.TestCase):
+    def test_lists_candidate_ids_with_private_official_evidence(self) -> None:
+        connection = FakeConnection(
+            [
+                {"source_record_key": "candidate:2024:123"},
+                {"source_record_key": "candidate:2024:456"},
+            ]
+        )
+        repository = IdentityRepository(lambda: connection)
+
+        candidate_ids = repository.evidenced_candidate_ids(2024)
+
+        query, params = connection.queries[0]
+        normalized_query = " ".join(query.split()).lower()
+        self.assertIn("private.person_identifier_sources", normalized_query)
+        self.assertIn("source_name = 'tse_candidate_registry'", normalized_query)
+        self.assertEqual(params, (2024, "candidate:2024:%"))
+        self.assertEqual(candidate_ids, frozenset({"123", "456"}))
+        self.assertTrue(connection.closed)
+
     def test_scope_excludes_ticket_and_limits_state_and_federal_to_top_ten(
         self,
     ) -> None:

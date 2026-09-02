@@ -174,6 +174,31 @@ class IdentityRepository:
         finally:
             connection.close()
 
+    def evidenced_candidate_ids(self, election_year: int) -> frozenset[str]:
+        if not 1994 <= election_year <= 2100:
+            raise ValueError("Ano eleitoral fora do intervalo permitido.")
+        prefix = f"candidate:{election_year}:"
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select distinct source_record_key
+                from private.person_identifier_sources
+                where source_name = 'tse_candidate_registry'
+                  and election_year = %s
+                  and source_record_key like %s
+                """,
+                (election_year, f"{prefix}%"),
+            ).fetchall()
+            return frozenset(
+                key.removeprefix(prefix)
+                for row in rows
+                if (key := str(row["source_record_key"])).startswith(prefix)
+                and key.removeprefix(prefix)
+            )
+        finally:
+            connection.close()
+
     def register(self, registration: IdentityRegistration) -> str:
         target = registration.target
         identifier = registration.protected_identifier
