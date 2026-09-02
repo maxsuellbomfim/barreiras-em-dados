@@ -24,6 +24,13 @@ const progressMigration = await readFile(
   ),
   "utf8",
 );
+const blockReasonMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260902052000_admin_collection_block_reason.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("saúde das fontes é uma projeção sanitizada e restrita a revisores", () => {
   assert.match(migration, /create function api\.get_collection_health\(/);
@@ -81,4 +88,19 @@ test("painel expõe somente contadores sanitizados do trabalho retomável", () =
   assert.match(page, /get_collection_health_v4/);
   assert.match(page, /error\?\.code === "PGRST202"/);
   assert.match(page, /get_collection_health_v3/);
+});
+
+test("painel explica por que a partição mais recente foi bloqueada", () => {
+  assert.match(blockReasonMigration, /create function api\.get_collection_health_v5\(/);
+  assert.match(blockReasonMigration, /latest_block_reason text/);
+  assert.match(blockReasonMigration, /partition\.block_reason/);
+  assert.match(blockReasonMigration, /collection-health\/1\.5\.0/);
+  assert.match(
+    blockReasonMigration,
+    /grant execute on function api\.get_collection_health_v5\(integer\)\s+to authenticated/,
+  );
+  assert.match(page, /get_collection_health_v5/);
+  assert.match(page, /get_collection_health_v4/);
+  assert.match(component, /latest_block_reason/);
+  assert.match(component, /Motivo do bloqueio/);
 });

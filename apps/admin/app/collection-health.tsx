@@ -74,6 +74,7 @@ export type CollectionHealthItem = Readonly<{
   latest_work_total: number | null;
   latest_work_remaining: number | null;
   latest_batch_processed: number | null;
+  latest_block_reason: string | null;
 }>;
 
 export type CollectionHealthState =
@@ -385,6 +386,16 @@ function CollectionHealthCard({
       <p className="source-health-policy-note">
         {item.freshness_policy_note}
       </p>
+      {item.latest_partition_status === "blocked" &&
+      item.latest_block_reason ? (
+        <section
+          className="source-health-failure"
+          aria-label="Motivo do bloqueio"
+        >
+          <h4>Motivo do bloqueio</h4>
+          <p>{item.latest_block_reason}</p>
+        </section>
+      ) : null}
       {backfill ? (
         <section
           className="source-health-backfill"

@@ -71,6 +71,12 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 ## Evidências operacionais recentes
 
+- Em 02/09/2026, a tarefa local `Barreiras360-TCMBA-MonthlyCatalog` foi
+  instalada para execução diária às 06:17, sem sobreposição e com limite de 30
+  requisições por minuto. A primeira verificação autenticada classificou
+  agosto de 2026 como `blocked`: o e-TCM ainda não publicou a competência no
+  seletor público. Nenhum documento ou valor zero foi fabricado, e a tarefa
+  repetirá a consulta diariamente.
 - Em 02/09/2026, a execução `33591332973` do Diário passou pelas duas fontes
   oficiais e organizou três edições em 29 documentos integrais e 93 páginas,
   com zero falha de segmentação. A fila otimizada não repetiu o timeout SQL das

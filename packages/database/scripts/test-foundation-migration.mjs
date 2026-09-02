@@ -630,6 +630,10 @@ try {
     database.query("select * from api.get_collection_health_v4(200)"),
     /acesso restrito a revisores ativos/,
   );
+  await assert.rejects(
+    database.query("select * from api.get_collection_health_v5(200)"),
+    /acesso restrito a revisores ativos/,
+  );
 
   await database.exec(`
     insert into audit.reviewer_identities (
@@ -852,6 +856,10 @@ try {
     database.query("select * from api.get_collection_health_v4(200)"),
     /permission denied/,
   );
+  await assert.rejects(
+    database.query("select * from api.get_collection_health_v5(200)"),
+    /permission denied/,
+  );
   await database.exec("reset role;");
 
   await database.exec("set role authenticated;");
@@ -947,6 +955,32 @@ try {
       latest_work_remaining: 402,
       latest_batch_processed: 100,
       methodology_version: "collection-health/1.4.0",
+    },
+  ]);
+  await database.exec(`
+    update source.collection_partitions
+    set status = 'blocked',
+        observed_records = 0,
+        completed_at = null,
+        block_reason = 'A competência ainda não foi publicada pela fonte.'
+    where source_endpoint_id = '00000000-0000-4000-8000-000000000417'
+      and partition_key = 'freshness-current';
+  `);
+  await database.exec("set role authenticated;");
+  const collectionBlockReason = await database.query(`
+    select
+      latest_partition_status,
+      latest_block_reason,
+      methodology_version
+    from api.get_collection_health_v5(200)
+    where endpoint_slug = 'freshness-current-test'
+  `);
+  await database.exec("reset role;");
+  assert.deepEqual(collectionBlockReason.rows, [
+    {
+      latest_partition_status: "blocked",
+      latest_block_reason: "A competência ainda não foi publicada pela fonte.",
+      methodology_version: "collection-health/1.5.0",
     },
   ]);
   await database.exec(`
