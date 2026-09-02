@@ -2,7 +2,7 @@ import type {
   PublicNonpayrollWorkforceCoverageRow,
 } from "../../lib/public-payroll.mjs";
 
-const NONPAYROLL_OVERVIEW_LIMIT = 12;
+const NONPAYROLL_OVERVIEW_LIMIT = 6;
 
 function formatMonthTitle(value: string): string {
   const parsed = new Date(`${value}T12:00:00-03:00`);

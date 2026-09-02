@@ -8,7 +8,7 @@ const page = await readFile(
 );
 
 test("visão geral limita listas extensas sem reduzir contagens nem acesso à cobertura", () => {
-  assert.match(page, /const FINANCE_OVERVIEW_LIMIT = 12;/);
+  assert.match(page, /const FINANCE_OVERVIEW_LIMIT = 6;/);
   assert.match(
     page,
     /const recentExpenseReports = sortedExpenseReports\.slice\(0, FINANCE_OVERVIEW_LIMIT\);/,
