@@ -23,11 +23,16 @@ test("coleta diária organiza o integral sem depender de IA", () => {
   assert.doesNotMatch(segmentBlock, /GROQ_API_KEY|OPENROUTER_API_KEY|GEMINI_API_KEY|NVIDIA_API_KEY/);
 });
 
-test("falha da API complementar vai para a DLQ e apenas fontes oficiais bloqueiam", () => {
-  assert.match(
-    collectWorkflow,
-    /name: Coletar e preservar[\s\S]*?id: querido_diario[\s\S]*?continue-on-error: true/,
+test("falha complementar vira aviso com DLQ e apenas fontes oficiais bloqueiam", () => {
+  const supplementalStart = collectWorkflow.indexOf("name: Coletar e preservar");
+  const catalogStart = collectWorkflow.indexOf(
+    "name: Preservar catálogo oficial do Diário",
   );
+  const supplementalBlock = collectWorkflow.slice(supplementalStart, catalogStart);
+  assert.doesNotMatch(supplementalBlock, /continue-on-error:/);
+  assert.match(supplementalBlock, /api_exit_code=\$\?/);
+  assert.match(supplementalBlock, /availability=unavailable/);
+  assert.match(supplementalBlock, /::warning title=API complementar indisponível::/);
   assert.match(
     collectWorkflow,
     /name: Coletar edições diretas do Diário[\s\S]*?id: direct_diary[\s\S]*?continue-on-error: true/,
@@ -37,10 +42,13 @@ test("falha da API complementar vai para a DLQ e apenas fontes oficiais bloqueia
   const mandatoryEnd = collectWorkflow.indexOf("name: Registrar falha sanitizada", mandatoryStart);
   const dlqBlock = collectWorkflow.slice(dlqStart, mandatoryStart);
   const mandatoryBlock = collectWorkflow.slice(mandatoryStart, mandatoryEnd);
-  assert.match(dlqBlock, /steps\.querido_diario\.outcome == 'failure'/);
+  assert.match(
+    dlqBlock,
+    /steps\.querido_diario\.outputs\.availability == 'unavailable'/,
+  );
   assert.match(mandatoryBlock, /steps\.official_catalog\.outcome == 'failure'/);
   assert.match(mandatoryBlock, /steps\.direct_diary\.outcome == 'failure'/);
-  assert.doesNotMatch(mandatoryBlock, /steps\.querido_diario\.outcome/);
+  assert.doesNotMatch(mandatoryBlock, /steps\.querido_diario/);
 });
 
 test("backfill preserva o bruto e retoma por limites independentes", () => {

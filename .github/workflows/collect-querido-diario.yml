@@ -113,18 +113,27 @@ jobs:
       - name: Coletar e preservar
         id: querido_diario
         # A API complementar pode ficar indisponível sem bloquear as fontes
-        # oficiais. A falha permanece visível na DLQ, mas não trava o backfill.
-        continue-on-error: true
+        # oficiais. A falha permanece como aviso e na DLQ, sem produzir um X
+        # que pareça uma falha da coleta oficial.
         if: steps.window.outputs.skip != 'true'
         env:
           COLLECTION_SINCE: ${{ steps.window.outputs.since }}
           COLLECTION_UNTIL: ${{ steps.window.outputs.until }}
-        run: >-
-          python -B -m
-          barreiras_collectors.commands.collect_querido_diario
-          --since "${COLLECTION_SINCE}"
-          --until "${COLLECTION_UNTIL}"
-          --page-size 100
+        run: |
+          set +e
+          python -B -m \
+            barreiras_collectors.commands.collect_querido_diario \
+            --since "${COLLECTION_SINCE}" \
+            --until "${COLLECTION_UNTIL}" \
+            --page-size 100
+          api_exit_code=$?
+          set -e
+          if [ "${api_exit_code}" -eq 0 ]; then
+            echo "availability=available" >> "${GITHUB_OUTPUT}"
+          else
+            echo "availability=unavailable" >> "${GITHUB_OUTPUT}"
+            echo "::warning title=API complementar indisponível::O Querido Diário falhou com código ${api_exit_code}; as fontes oficiais continuam e a ocorrência será preservada na DLQ."
+          fi
 
       - name: Preservar catálogo oficial do Diário
         id: official_catalog
@@ -234,7 +243,7 @@ jobs:
       - name: Registrar indisponibilidade da API complementar
         if: >-
           always() &&
-          steps.querido_diario.outcome == 'failure'
+          steps.querido_diario.outputs.availability == 'unavailable'
         env:
           COLLECTION_SINCE: ${{ steps.window.outputs.since }}
           COLLECTION_UNTIL: ${{ steps.window.outputs.until }}
@@ -246,7 +255,7 @@ jobs:
       - name: Preservar DLQ da API complementar
         if: >-
           always() &&
-          steps.querido_diario.outcome == 'failure'
+          steps.querido_diario.outputs.availability == 'unavailable'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: querido-diario-api-dlq-${{ github.run_id }}-${{ github.run_attempt }}
