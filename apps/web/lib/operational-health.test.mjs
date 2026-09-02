@@ -59,7 +59,9 @@ test("rota de saúde é dinâmica e reutiliza a fotografia dos domínios reais",
   assert.match(source, /dynamic\s*=\s*["']force-dynamic["']/);
   assert.match(source, /getOperationalHealthSnapshot/);
   assert.doesNotMatch(source, /status:\s*["']ok["']/);
-  assert.match(snapshot, /getOfficialDiaryCatalog/);
+  assert.match(snapshot, /getIntegralGazetteEditions/);
+  assert.match(snapshot, /getIntegralGazetteEditions\(\{ pageSize: 1 \}\)/);
+  assert.doesNotMatch(snapshot, /getOfficialDiaryCatalog/);
   assert.match(snapshot, /getPublicFinanceCoverage/);
   assert.match(snapshot, /getMunicipalCouncillors/);
 });
