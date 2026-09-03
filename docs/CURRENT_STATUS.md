@@ -328,3 +328,13 @@ somando R$ 850.600,00 autorizados, dividem cinco chaves com outros municípios e
 continuam bloqueadas. Três emendas para o Ministério Público, somando
 R$ 700.000,00 autorizados, não aparecem no retrato de execução consultado; a
 interface registra ausência na fonte, nunca valor zero.
+
+Ainda em 03/09/2026, a validação pública dessa entrega revelou timeout nas
+consultas estaduais: a view da LOA aceitava duas versões do extrator, mas os
+índices existentes cobriam cada versão separadamente, levando o PostgreSQL a
+varrer aproximadamente 55 mil resultados JSON por requisição. Um índice parcial
+combinado e outro para os pagamentos estaduais especiais reduziram, na medição
+viva, o estudo da LOA de cerca de 2,4 s para 190 ms, o ranking da LOA de 3,6 s
+para 246 ms e os pagamentos especiais de 2,1 s para 127 ms. A página pública
+voltou a responder sem o aviso de indisponibilidade e passou a exibir os quatro
+grupos de execução, sem alterar contratos nem valores de origem.
