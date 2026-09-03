@@ -137,7 +137,8 @@ class BahiaSpecialTransferRepository:
                 if job is None:
                     connection.execute(
                         """
-                        select territory.refresh_bahia_special_transfer_payment_snapshot()
+                        select
+                          territory.refresh_bahia_special_transfer_payment_snapshot()
                         """
                     )
                     return SpecialTransferPersistResult(False, 0)
