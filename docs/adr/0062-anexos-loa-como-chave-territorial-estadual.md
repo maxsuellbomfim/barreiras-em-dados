@@ -92,3 +92,16 @@ novo anexo pendente, para incorporar um retrato de execução mais recente. As
 APIs leem exclusivamente esse snapshot indexado. A role pública não pode ler a
 tabela nem executar a rotina de atualização; somente o worker recebe esse
 privilégio. Cada refresh registra contagem e versão metodológica na auditoria.
+
+## Adendo de 03/09/2026 - execução agregada de grupos exclusivamente territoriais
+
+Uma chave repetida no anexo continua impedindo atribuir execução a uma emenda
+individual. Entretanto, quando todas as ocorrências estaduais dessa chave são
+emendas destinadas a Barreiras e existe exatamente uma linha de execução, o
+valor da execução pode ser publicado para o grupo completo.
+
+A projeção de grupo mantém a lista de números das emendas e a soma autorizada
+separadas da dotação, do empenho, da liquidação e do pagamento agregados pela
+fonte estadual. Nenhum desses estágios é repartido entre as emendas, incorporado
+ao ranking individual ou somado aos pares já conciliados. Chaves que também
+incluam outro município permanecem bloqueadas por inteiro.

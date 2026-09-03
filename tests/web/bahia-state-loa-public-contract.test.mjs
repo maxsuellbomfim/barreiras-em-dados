@@ -27,6 +27,13 @@ const historicalExecutionMigration = await readFile(
   ),
   "utf8",
 );
+const groupExecutionMigration = await readFile(
+  new URL(
+    "../../supabase/migrations/20260903123403_publish_state_loa_execution_groups.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const page = await readFile(
   new URL("../../apps/web/app/recursos/page.tsx", import.meta.url),
   "utf8",
@@ -89,6 +96,23 @@ test("execucao estadual publica somente ligacoes unicas e explica a cobertura", 
   assert.match(page, /universo compar.vel aos est.gios abaixo/iu);
   assert.match(page, /n.o devem ser comparados diretamente/iu);
   assert.doesNotMatch(page, /ranking de pagamento/iu);
+});
+
+test("execucao agregada só sai quando toda a chave estadual pertence a Barreiras", () => {
+  assert.match(groupExecutionMigration, /refresh_bahia_state_loa_execution_group_snapshot/);
+  assert.match(
+    groupExecutionMigration,
+    /count\(\*\)[^;]+max\(reconciliation\.loa_scope_occurrences\)/s,
+  );
+  assert.match(groupExecutionMigration, /execution_occurrences\) = 1/);
+  assert.match(groupExecutionMigration, /blocked_non_unique_loa_key/);
+  assert.match(groupExecutionMigration, /get_public_bahia_state_loa_execution_groups/);
+  assert.match(groupExecutionMigration, /revoke all[^;]+from public/s);
+  assert.doesNotMatch(groupExecutionMigration, /grant select[^;]+raw\.extraction_results/);
+  assert.match(client, /parseStateLoaExecutionGroups/);
+  assert.match(client, /get_public_bahia_state_loa_execution_groups/);
+  assert.match(page, /Execução disponível apenas para o grupo/);
+  assert.match(page, /não\s+podem ser repartidos entre as emendas/);
 });
 
 test("emendas historicas recebem diagnostico explicito sem fabricar execucao", () => {

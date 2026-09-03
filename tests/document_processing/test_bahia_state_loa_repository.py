@@ -65,6 +65,8 @@ class RecordingConnection:
             return Cursor(row=self.existing_page_row)
         if "insert into raw.extraction_jobs" in normalized:
             return Cursor(row=self.job_row)
+        if "refresh_bahia_state_loa_execution_group_snapshot" in normalized:
+            return Cursor(row={"refreshed_rows": 4})
         if "refresh_bahia_state_loa_execution_reconciliation_snapshot" in normalized:
             return Cursor(row={"refreshed_rows": 5})
         return Cursor()
@@ -268,6 +270,12 @@ class BahiaStateLoaRepositoryTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "refresh_bahia_state_loa_execution_reconciliation_snapshot" in query
+                for query in queries
+            )
+        )
+        self.assertTrue(
+            any(
+                "refresh_bahia_state_loa_execution_group_snapshot" in query
                 for query in queries
             )
         )

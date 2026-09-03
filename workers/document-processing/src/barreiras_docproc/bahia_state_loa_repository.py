@@ -332,6 +332,17 @@ class BahiaStateLoaExtractionRepository:
                     raise LoaProcessingError(
                         "A atualizacao da projecao estadual nao retornou contagem."
                     )
+                group_row = connection.execute(
+                    """
+                    select
+                      territory.refresh_bahia_state_loa_execution_group_snapshot()
+                        as refreshed_rows
+                    """
+                ).fetchone()
+                if group_row is None:
+                    raise LoaProcessingError(
+                        "A atualizacao dos grupos estaduais nao retornou contagem."
+                    )
                 return int(row["refreshed_rows"])
         finally:
             connection.close()
