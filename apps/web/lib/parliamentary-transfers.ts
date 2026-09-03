@@ -11,7 +11,11 @@ import {
   type StateLoaExecutionRecord,
   type StateLoaExecutionSummary,
 } from "./state-loa-execution.mjs";
-import { parseStateLoaStudyRows } from "./state-loa-study.mjs";
+import {
+  parseStateLoaStudyRows,
+  type StateLoaStudyAuthor,
+  type StateLoaStudyFilters,
+} from "./state-loa-study.mjs";
 import {
   parseStateLoaRepresentativeContributions,
   type StateLoaRepresentativeContribution,
@@ -309,6 +313,9 @@ export type ParliamentaryTransfersResult =
       stateLoaExecution: readonly StateLoaExecutionRecord[] | null;
       stateLoaExecutionSummary: StateLoaExecutionSummary | null;
       stateLoaTotalCount: number;
+      stateLoaCatalogCount: number;
+      stateLoaAvailableAuthors: readonly StateLoaStudyAuthor[];
+      stateLoaFilters: StateLoaStudyFilters;
       stateLoaPage: number;
       stateLoaPageSize: number;
       scopeSummary: FederalTransferScopeSummary | null;
@@ -1060,18 +1067,18 @@ async function callRpc(
 
 export async function getPublicParliamentaryTransfers({
   stateFiscalYear,
-  stateLoaPage,
+  stateLoaFilters,
   queryScope,
 }: Readonly<{
   stateFiscalYear: number;
-  stateLoaPage: number;
+  stateLoaFilters: StateLoaStudyFilters;
   queryScope: "current" | "historical" | "state" | "none";
 }>): Promise<ParliamentaryTransfersResult> {
   try {
     const plan = buildParliamentaryTransferQueryPlan(queryScope);
     const stateLoaPageSize = 12;
-    const resolvedStateLoaPage = Number.isSafeInteger(stateLoaPage) && stateLoaPage > 0
-      ? stateLoaPage
+    const resolvedStateLoaPage = Number.isSafeInteger(stateLoaFilters.page) && stateLoaFilters.page > 0
+      ? stateLoaFilters.page
       : 1;
     const skipped: Promise<unknown[] | null> = Promise.resolve(null);
     const [
@@ -1118,10 +1125,13 @@ export async function getPublicParliamentaryTransfers({
         fiscal_year_filter: null,
         page_size: 50,
       }) : skipped,
-      plan.state ? callRpc("get_public_bahia_state_loa_study", {
+      plan.state ? callRpc("get_public_bahia_state_loa_study_filtered", {
         fiscal_year_filter: stateFiscalYear,
         page_size: stateLoaPageSize,
         page_offset: (resolvedStateLoaPage - 1) * stateLoaPageSize,
+        author_key_filter: stateLoaFilters.authorKey,
+        execution_status_filter: stateLoaFilters.executionStatus,
+        query_filter: stateLoaFilters.query,
       }) : skipped,
       plan.state ? callRpc("get_public_bahia_state_loa_amendment_ranking", {
         fiscal_year_filter: stateFiscalYear,
@@ -1256,6 +1266,12 @@ export async function getPublicParliamentaryTransfers({
       stateLoaExecution,
       stateLoaExecutionSummary,
       stateLoaTotalCount: stateLoaStudy?.totalCount ?? 0,
+      stateLoaCatalogCount: stateLoaStudy?.catalogCount ?? 0,
+      stateLoaAvailableAuthors: stateLoaStudy?.availableAuthors ?? [],
+      stateLoaFilters: {
+        ...stateLoaFilters,
+        page: resolvedStateLoaPage,
+      },
       stateLoaPage: resolvedStateLoaPage,
       stateLoaPageSize,
       scopeSummary,

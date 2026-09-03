@@ -30,8 +30,10 @@ import {
   stateLoaYears,
 } from "../../lib/state-loa-year-filter.mjs";
 import {
-  resolveStateLoaStudyPage,
+  resolveStateLoaStudyFilters,
   stateLoaStudyPageHref,
+  type StateLoaStudyAuthor,
+  type StateLoaStudyFilters,
 } from "../../lib/state-loa-study.mjs";
 import {
   getPublicCguFederalAmendments,
@@ -914,6 +916,9 @@ function StateLoaPanel({
   execution,
   executionSummary,
   totalCount,
+  catalogCount,
+  availableAuthors,
+  filters,
   page,
   pageSize,
   selectedFiscalYear,
@@ -926,6 +931,9 @@ function StateLoaPanel({
   execution: readonly StateLoaExecutionRecord[] | null;
   executionSummary: StateLoaExecutionSummary | null;
   totalCount: number;
+  catalogCount: number;
+  availableAuthors: readonly StateLoaStudyAuthor[];
+  filters: StateLoaStudyFilters;
   page: number;
   pageSize: number;
   selectedFiscalYear: number;
@@ -937,6 +945,10 @@ function StateLoaPanel({
     (execution ?? []).map((row) => [row.loaEvidenceSha256, row]),
   );
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
+  const hasFilters = Boolean(
+    filters.authorKey || filters.executionStatus || filters.query,
+  );
+  const clearFiltersHref = stateLoaStudyPageHref(selectedFiscalYear, 1);
   return (
     <section className="transfer-ranking" aria-labelledby="state-loa-title">
       <div className="transfer-section-heading">
@@ -970,6 +982,64 @@ function StateLoaPanel({
         <p>
           Resumo de {selectedFiscalYear}: ranking, emendas e situação da execução
           usam o mesmo exercício, sem somar anos diferentes.
+        </p>
+      </form>
+      <form
+        className="transfer-year-filter transfer-document-filters"
+        method="get"
+        aria-label="Pesquisar emendas estaduais"
+      >
+        <input type="hidden" name="origem" value="estadual" />
+        <input type="hidden" name="ano" value={selectedFiscalYear} />
+        <div>
+          <label htmlFor="state-loa-query">Parlamentar, número ou objeto</label>
+          <input
+            id="state-loa-query"
+            name="estadual_q"
+            type="search"
+            defaultValue={filters.query ?? ""}
+            maxLength={100}
+            placeholder="Ex.: ônibus escolar ou 5724"
+          />
+        </div>
+        <div>
+          <label htmlFor="state-loa-author">Parlamentar</label>
+          <select
+            id="state-loa-author"
+            name="estadual_autor"
+            defaultValue={filters.authorKey ?? ""}
+          >
+            <option value="">Todos os parlamentares</option>
+            {availableAuthors.map((author) => (
+              <option value={author.authorKey} key={author.authorKey}>
+                {author.authorName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="state-loa-status">Situação da execução</label>
+          <select
+            id="state-loa-status"
+            name="estadual_situacao"
+            defaultValue={filters.executionStatus ?? ""}
+          >
+            <option value="">Todas as situações</option>
+            <option value="execution_confirmed">Execução encontrada</option>
+            <option value="ambiguous_official_key">Ligação ambígua</option>
+            <option value="not_found_in_execution_source">Não encontrada na execução</option>
+            <option value="official_link_key_unavailable">Fonte sem chave de cruzamento</option>
+            <option value="scope_not_available">Cruzamento indisponível</option>
+          </select>
+        </div>
+        <button type="submit">Pesquisar emendas</button>
+        {hasFilters ? (
+          <a className="filter-clear" href={clearFiltersHref}>Limpar filtros</a>
+        ) : null}
+        <p>
+          {totalCount.toLocaleString("pt-BR")} de {catalogCount.toLocaleString("pt-BR")} emenda(s)
+          correspondem a este recorte. O ranking e os totais acima continuam mostrando
+          o exercício completo.
         </p>
       </form>
       <aside className="transfer-reading-guide">
@@ -1033,7 +1103,7 @@ function StateLoaPanel({
         <details
           className="transfer-methodology"
           id="emendas-estaduais"
-          open={page > 1}
+          open={page > 1 || hasFilters}
         >
           <summary>
             Conferir emendas, objetos e fontes · {amendments.length.toLocaleString("pt-BR")} nesta página de {totalCount.toLocaleString("pt-BR")}
@@ -1050,19 +1120,24 @@ function StateLoaPanel({
           {totalCount > pageSize ? (
             <nav className="legislative-pagination" aria-label="Paginação das emendas estaduais">
               {page > 1 ? (
-                <a href={stateLoaStudyPageHref(selectedFiscalYear, page - 1)}>
+                <a href={stateLoaStudyPageHref(selectedFiscalYear, page - 1, filters)}>
                   ← Emendas anteriores
                 </a>
               ) : <span />}
               <span>Página {page} de {pageCount.toLocaleString("pt-BR")}</span>
               {page < pageCount ? (
-                <a href={stateLoaStudyPageHref(selectedFiscalYear, page + 1)}>
+                <a href={stateLoaStudyPageHref(selectedFiscalYear, page + 1, filters)}>
                   Próximas emendas →
                 </a>
               ) : <span />}
             </nav>
           ) : null}
         </details>
+      ) : hasFilters ? (
+        <p className="transfer-empty" id="emendas-estaduais">
+          Nenhuma emenda corresponde aos filtros informados. Isso não significa que
+          o exercício não tenha emendas; limpe os filtros para consultar o acervo anual.
+        </p>
       ) : null}
     </section>
   );
@@ -2337,6 +2412,9 @@ type ParliamentaryResourcesPageProps = Readonly<{
     documento_pagina?: string | string[];
     documento_q?: string | string[];
     estadual_pagina?: string | string[];
+    estadual_autor?: string | string[];
+    estadual_situacao?: string | string[];
+    estadual_q?: string | string[];
     origem?: string | string[];
   }>;
 }>;
@@ -2365,9 +2443,12 @@ export default async function ParliamentaryResourcesPage({
     sourceSelection.showState ? params.ano : undefined,
     latestStateFiscalYear,
   ) ?? latestStateFiscalYear;
-  const selectedStateLoaPage = resolveStateLoaStudyPage(
-    sourceSelection.showState ? params.estadual_pagina : undefined,
-  );
+  const stateLoaFilters = resolveStateLoaStudyFilters({
+    estadual_pagina: sourceSelection.showState ? params.estadual_pagina : undefined,
+    estadual_autor: sourceSelection.showState ? params.estadual_autor : undefined,
+    estadual_situacao: sourceSelection.showState ? params.estadual_situacao : undefined,
+    estadual_q: sourceSelection.showState ? params.estadual_q : undefined,
+  });
   const [
     result,
     legislatureRankingsResult,
@@ -2383,7 +2464,7 @@ export default async function ParliamentaryResourcesPage({
   ] = await Promise.all([
     getPublicParliamentaryTransfers({
       stateFiscalYear: selectedStateFiscalYear,
-      stateLoaPage: selectedStateLoaPage,
+      stateLoaFilters,
       queryScope: parliamentaryTransferQueryScope,
     }),
     sourceSelection.showLegislatures
@@ -2610,6 +2691,9 @@ export default async function ParliamentaryResourcesPage({
                 execution={result.stateLoaExecution}
                 executionSummary={result.stateLoaExecutionSummary}
                 totalCount={result.stateLoaTotalCount}
+                catalogCount={result.stateLoaCatalogCount}
+                availableAuthors={result.stateLoaAvailableAuthors}
+                filters={result.stateLoaFilters}
                 page={result.stateLoaPage}
                 pageSize={result.stateLoaPageSize}
                 selectedFiscalYear={selectedStateFiscalYear}
