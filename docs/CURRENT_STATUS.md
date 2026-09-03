@@ -318,3 +318,13 @@ autorizações com execução confirmada; `Marcone Amaral` mais `ônibus escolar
 retornou somente a emenda 5724. A interface distingue a quantidade filtrada do
 acervo anual, e os filtros não alteram o ranking nem os totais financeiros do
 ano.
+
+Também em 03/09/2026, a auditoria das 24 autorizações de 2026 sem ligação
+individual separou três situações. Quatorze emendas, somando R$ 750.200,00
+autorizados, formam quatro chaves cujas ocorrências estaduais pertencem
+integralmente a Barreiras; a execução pode ser mostrada somente para cada grupo,
+sem rateio por emenda e sem entrar no ranking individual. Outras sete emendas,
+somando R$ 850.600,00 autorizados, dividem cinco chaves com outros municípios e
+continuam bloqueadas. Três emendas para o Ministério Público, somando
+R$ 700.000,00 autorizados, não aparecem no retrato de execução consultado; a
+interface registra ausência na fonte, nunca valor zero.

@@ -18,6 +18,7 @@ import {
   type ParliamentaryTransferRankingsResult,
   type ReconciledParliamentaryTransferRanking,
   type StateLoaExecutionRecord,
+  type StateLoaExecutionGroup,
   type StateLoaExecutionSummary,
 } from "../../lib/parliamentary-transfers";
 import { buildCurrentTransferCitizenSummary } from "../../lib/parliamentary-transfer-citizen-summary.mjs";
@@ -827,6 +828,118 @@ function StateLoaExecutionSummaryPanel({
   );
 }
 
+function StateLoaExecutionGroupPanel({
+  groups,
+}: Readonly<{ groups: readonly StateLoaExecutionGroup[] | null }>) {
+  if (groups === null) {
+    return (
+      <p className="transfer-empty">
+        O detalhamento de execuções agregadas está temporariamente indisponível.
+        Os valores das emendas individuais continuam sem atribuição automática.
+      </p>
+    );
+  }
+  if (groups.length === 0) return null;
+
+  return (
+    <section aria-labelledby="state-loa-group-execution-title">
+      <div className="transfer-section-heading">
+        <div>
+          <span className="eyebrow">Leitura complementar da execução</span>
+          <h3 id="state-loa-group-execution-title">
+            Execução disponível apenas para o grupo
+          </h3>
+        </div>
+      </div>
+      <aside className="transfer-reading-guide">
+        <strong>Por que estes valores aparecem separados?</strong>
+        <p>
+          Em cada grupo abaixo, todas as linhas da chave oficial da LOA são
+          destinadas a Barreiras. A fonte estadual publicou uma única execução
+          para o conjunto: os valores podem ser atribuídos ao grupo, mas não
+          podem ser repartidos entre as emendas. Por isso, eles não entram nos
+          valores individuais nem no ranking de execução.
+        </p>
+      </aside>
+      <div className="transfer-card-list">
+        {groups.map((group) => (
+          <article
+            className="transfer-card"
+            key={`${group.fiscalYear}:${group.authorExternalCode}:${group.agencyCode}:${group.budgetUnitCode}:${group.actionCode}`}
+          >
+            <div className="transfer-card-heading">
+              <div>
+                <span className="transfer-card-kind">
+                  LOA da Bahia · {group.fiscalYear} · execução agregada
+                </span>
+                <h3>{group.authorName}</h3>
+                <p>
+                  Emendas {group.amendmentNumbers.join(", ")} · ação {group.actionCode}
+                </p>
+              </div>
+              <span className="transfer-status">
+                grupo de {group.amendmentCount.toLocaleString("pt-BR")} emendas
+              </span>
+            </div>
+            <dl className="transfer-stage-grid">
+              <div>
+                <dt>Autorizado nas emendas do grupo</dt>
+                <dd>{formatBrlDecimal(group.authorizedTotal)}</dd>
+                <span>Soma das autorizações destinadas a Barreiras.</span>
+              </div>
+              <div>
+                <dt>Dotação inicial da chave estadual</dt>
+                <dd>{formatBrlDecimal(group.initialBudgetAmount)}</dd>
+                <span>Valor agregado publicado na fonte de execução.</span>
+              </div>
+              <div>
+                <dt>Dotação atual da chave estadual</dt>
+                <dd>{formatBrlDecimal(group.currentBudgetAmount)}</dd>
+                <span>Pode mudar após alterações orçamentárias.</span>
+              </div>
+              <div>
+                <dt>Empenhado no grupo</dt>
+                <dd>{formatBrlDecimal(group.committedAmount)}</dd>
+                <span>Não permite identificar quanto pertence a cada emenda.</span>
+              </div>
+              <div>
+                <dt>Liquidado no grupo</dt>
+                <dd>{formatBrlDecimal(group.liquidatedAmount)}</dd>
+                <span>Valor agregado reconhecido pela fonte estadual.</span>
+              </div>
+              <div data-tone="paid">
+                <dt>Pago no grupo</dt>
+                <dd>{formatBrlDecimal(group.paidAmount)}</dd>
+                <span>Valor agregado, sem rateio por emenda.</span>
+              </div>
+            </dl>
+            <p className="transfer-card-note">
+              Chave oficial: órgão {group.agencyCode}, unidade {group.budgetUnitCode},
+              ação {group.actionCode}. Código da execução: {group.executionCode}.
+            </p>
+            <details className="transfer-details">
+              <summary>Conferir integridade e fonte da execução do grupo</summary>
+              <p>
+                Coletada em {dateTimeFormatter.format(new Date(group.executionSourceCollectedAt))}.<br />
+                Hash do arquivo: <code>{group.executionSourceArtifactSha256}</code><br />
+                Hash da evidência: <code>{group.executionEvidenceSha256}</code>
+              </p>
+              <a
+                className="transfer-source-link"
+                href={group.executionSourceUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Abrir fonte oficial da execução →
+              </a>
+            </details>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function StateLoaAmendmentCard({
   amendment,
   execution,
@@ -915,6 +1028,7 @@ function StateLoaPanel({
   amendments,
   execution,
   executionSummary,
+  executionGroups,
   totalCount,
   catalogCount,
   availableAuthors,
@@ -930,6 +1044,7 @@ function StateLoaPanel({
   amendments: readonly BahiaStateLoaAmendment[] | null;
   execution: readonly StateLoaExecutionRecord[] | null;
   executionSummary: StateLoaExecutionSummary | null;
+  executionGroups: readonly StateLoaExecutionGroup[] | null;
   totalCount: number;
   catalogCount: number;
   availableAuthors: readonly StateLoaStudyAuthor[];
@@ -1093,6 +1208,7 @@ function StateLoaPanel({
       <BahiaStateExecutionCoveragePanel rows={executionArchiveCoverage} />
       <StateAmendmentSourceCoveragePanel rows={coverage} />
       <StateLoaExecutionSummaryPanel summary={executionSummary} />
+      <StateLoaExecutionGroupPanel groups={executionGroups} />
       {ranking === null ? (
         <p className="transfer-empty">
           A projeção estadual ainda não está disponível no banco público. Isso não
@@ -2690,6 +2806,7 @@ export default async function ParliamentaryResourcesPage({
                 ranking={result.stateLoaRanking}
                 execution={result.stateLoaExecution}
                 executionSummary={result.stateLoaExecutionSummary}
+                executionGroups={result.stateLoaExecutionGroups}
                 totalCount={result.stateLoaTotalCount}
                 catalogCount={result.stateLoaCatalogCount}
                 availableAuthors={result.stateLoaAvailableAuthors}
