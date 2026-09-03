@@ -37,6 +37,7 @@ on:
           - "transferegov-only"
           - "siconfi-only"
           - "bahia-state-only"
+          - "bahia-special-only"
           - "tcm-ba-only"
           - "balancetes"
           - "pdc-contas-anuais"
@@ -129,6 +130,7 @@ jobs:
         inputs.resource != 'transferegov-only' &&
         inputs.resource != 'siconfi-only' &&
         inputs.resource != 'bahia-state-only' &&
+        inputs.resource != 'bahia-special-only' &&
         inputs.resource != 'tcm-ba-only'
       )
     name: Preservar catálogo municipal (${{ matrix.resource }})
@@ -283,6 +285,7 @@ jobs:
     if: >-
       always() &&
       inputs.resource != 'bahia-state-only' &&
+      inputs.resource != 'bahia-special-only' &&
       inputs.resource != 'siconfi-only' &&
       inputs.resource != 'tcm-ba-only' &&
       (
@@ -495,6 +498,7 @@ jobs:
         (
           inputs.resource != 'transferegov-only' &&
           inputs.resource != 'siconfi-only' &&
+          inputs.resource != 'bahia-special-only' &&
           (
             github.event_name == 'schedule' ||
             (
@@ -562,6 +566,7 @@ jobs:
     if: >-
       always() &&
       (
+        inputs.resource == 'bahia-special-only' ||
         inputs.resource == 'bahia-state-only' ||
         (
           inputs.resource != 'transferegov-only' &&
@@ -638,6 +643,7 @@ jobs:
         (
           inputs.resource != 'transferegov-only' &&
           inputs.resource != 'siconfi-only' &&
+          inputs.resource != 'bahia-special-only' &&
           (
             github.event_name == 'schedule' ||
             (
