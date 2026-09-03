@@ -309,3 +309,12 @@ completo e em consultas separadas. A conferência viva de 2026 encontrou 34
 autorizações, distribuídas em páginas de 12, 12 e 10 registros, sempre com a
 mesma quantidade de linhas correspondentes da execução. Autorização,
 empenho, liquidação e pagamento continuam sem soma entre estágios.
+
+Em 03/09/2026, o estudo estadual recebeu busca textual e filtros server-side por
+parlamentar e situação da execução. A busca ignora caixa e acentos e exige que
+todos os termos estejam presentes, mesmo quando há palavras intermediárias. A
+conferência viva de 2026 manteve 34 autorizações no catálogo, sete autores e dez
+autorizações com execução confirmada; `Marcone Amaral` mais `ônibus escolar`
+retornou somente a emenda 5724. A interface distingue a quantidade filtrada do
+acervo anual, e os filtros não alteram o ranking nem os totais financeiros do
+ano.

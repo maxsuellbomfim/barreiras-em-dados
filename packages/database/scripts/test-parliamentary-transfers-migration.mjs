@@ -83,6 +83,16 @@ try {
       "api.get_public_bahia_state_loa_study(smallint,integer,integer)",
   }]);
 
+  const filteredStateLoaStudyContract = await database.query(`
+    select to_regprocedure(
+      'api.get_public_bahia_state_loa_study_filtered(smallint,integer,integer,text,text,text)'
+    )::text as state_loa_study_filtered_rpc
+  `);
+  assert.deepEqual(filteredStateLoaStudyContract.rows, [{
+    state_loa_study_filtered_rpc:
+      "api.get_public_bahia_state_loa_study_filtered(smallint,integer,integer,text,text,text)",
+  }]);
+
   const contracts = await database.query(`
     select
       to_regclass('territory.parliamentary_transfers')::text as transfer_projection,
@@ -1396,6 +1406,51 @@ try {
     first_amendment: "103",
     second_amendment: "102",
     methodology_version: "bahia-state-loa-study/1.0.0",
+  }]);
+
+  const filteredStateLoaStudy = await database.query(`
+    select
+      total_count,
+      catalog_count,
+      jsonb_array_length(amendment_items) as amendment_count,
+      amendment_items -> 0 ->> 'amendment_number' as amendment_number,
+      execution_items -> 0 ->> 'execution_status' as execution_status,
+      available_authors,
+      methodology_version
+    from api.get_public_bahia_state_loa_study_filtered(
+      2026::smallint,
+      12,
+      0,
+      'antonio henrique junior',
+      'execution_confirmed',
+      'educacao barreiras'
+    )
+  `);
+  assert.deepEqual(filteredStateLoaStudy.rows, [{
+    total_count: 1,
+    catalog_count: 3,
+    amendment_count: 1,
+    amendment_number: "102",
+    execution_status: "execution_confirmed",
+    available_authors: [
+      { author_key: "antonio henrique junior", author_name: "Antonio Henrique Júnior" },
+      { author_key: "diego castro", author_name: "Diego Castro" },
+      { author_key: "marcone amaral", author_name: "Marcone Amaral" },
+    ],
+    methodology_version: "bahia-state-loa-study/1.1.0",
+  }]);
+
+  const emptyFilteredStateLoaStudy = await database.query(`
+    select total_count, catalog_count,
+      jsonb_array_length(amendment_items) as amendment_count
+    from api.get_public_bahia_state_loa_study_filtered(
+      2026::smallint, 12, 0, null, null, 'objeto inexistente'
+    )
+  `);
+  assert.deepEqual(emptyFilteredStateLoaStudy.rows, [{
+    total_count: 0,
+    catalog_count: 3,
+    amendment_count: 0,
   }]);
 
   const historicalStateExecution = await database.query(`

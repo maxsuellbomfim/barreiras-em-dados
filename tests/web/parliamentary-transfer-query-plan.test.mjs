@@ -63,7 +63,7 @@ test("a página encaminha o escopo e o cliente condiciona cada família de RPC",
   );
   assert.match(
     client,
-    /plan\.state\s*\?\s*callRpc\("get_public_bahia_state_loa_study"/,
+    /plan\.state\s*\?\s*callRpc\("get_public_bahia_state_loa_study_filtered"/,
   );
   assert.match(client, /fetchPublicRpcRows/);
 });
