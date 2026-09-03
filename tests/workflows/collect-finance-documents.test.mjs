@@ -300,6 +300,14 @@ test("modo somente transferencias especiais nao abre as demais fontes", () => {
     workflow.indexOf("  transferegov:"),
     workflow.indexOf("  siconfi_dca:"),
   );
+  const siconfiJob = workflow.slice(
+    workflow.indexOf("  siconfi_dca:"),
+    workflow.indexOf("  tcm_ba_monthly:"),
+  );
+  const tcmJob = workflow.slice(
+    workflow.indexOf("  tcm_ba_monthly:"),
+    workflow.indexOf("  bahia_state_amendments:"),
+  );
   const stateExecutionJob = workflow.slice(
     workflow.indexOf("  bahia_state_amendments:"),
     workflow.indexOf("  bahia_special_transfers:"),
@@ -315,10 +323,18 @@ test("modo somente transferencias especiais nao abre as demais fontes", () => {
   assert.match(workflow, /- "bahia-special-only"/);
   assert.match(collectJob, /inputs\.resource != 'bahia-special-only'/);
   assert.match(transferegovJob, /inputs\.resource != 'bahia-special-only'/);
+  assert.match(
+    siconfiJob,
+    /github\.event_name == 'schedule'[\s\S]*inputs\.resource == 'siconfi-only'[\s\S]*inputs\.resource == 'all'/,
+  );
+  assert.match(
+    tcmJob,
+    /github\.event_name == 'workflow_dispatch'[\s\S]*inputs\.resource == 'tcm-ba-only'[\s\S]*inputs\.resource == 'all'/,
+  );
   assert.match(stateExecutionJob, /inputs\.resource != 'bahia-special-only'/);
   assert.match(
     specialTransfersJob,
-    /inputs\.resource == 'bahia-special-only'/,
+    /always\(\) &&[\s\S]*inputs\.resource == 'bahia-special-only'/,
   );
   assert.match(stateLoaJob, /inputs\.resource != 'bahia-special-only'/);
 });
