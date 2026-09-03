@@ -350,6 +350,22 @@ Nas medições SQL individuais, o estudo de 2026 caiu de cerca de 190 ms para
 22,6 ms e o ranking de 246 ms para 34 ms; esses tempos não representam a
 latência total da página. O catálogo de 2026 mantém 34 autorizações, sete autores
 e a emenda 5724 de Marcone Amaral com R$ 1.548.747,00 **autorizados**, sem
-reclassificação como pagamento. O próximo fluxo menor é retirar também a
-releitura do JSON bruto dos pagamentos estaduais especiais, com conferência de
-integridade equivalente e sem misturá-los à LOA.
+reclassificação como pagamento.
+
+Os pagamentos estaduais especiais também passaram a usar snapshot privado e
+indexado, atualizado na mesma transação da extração, inclusive nos replays
+idempotentes. A migração `20260903170000` foi aplicada em 03/09/2026 após testes
+e duas revisões independentes. A conferência viva manteve três pagamentos e
+SHA-256 integral idêntico entre fonte canônica, snapshot e view estável; o
+payload público e a cobertura anual também mantiveram os hashes anteriores.
+O ranking conserva os três pagamentos de 2022 relacionados a duas emendas de
+Tito, somando R$ 756.904,75 **pagos pelo Estado da Bahia**, cujo objeto menciona
+Barreiras. Isso não comprova recebimento pela Prefeitura nem entrega de obras,
+e não é somado à LOA, à CGU ou ao Transferegov. Autoria e vínculos federais
+continuam consultados dinamicamente. Nas medições SQL individuais, a consulta
+de pagamentos passou de 41,9 ms para 12 ms e o ranking de 16,7 ms para 1,5 ms;
+esses tempos não medem a página inteira. A página de Recursos respondeu HTTP
+200 com os valores e a seção próprios preservados.
+O próximo fluxo menor é verificar a atualização automática dessa projeção na
+próxima extração programada e conferir as consultas restantes de cobertura
+estadual, preservando a separação entre fonte ausente e valor zero.
