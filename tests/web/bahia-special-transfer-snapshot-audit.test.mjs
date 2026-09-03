@@ -35,6 +35,11 @@ test("auditoria separa fatos publicos da linhagem renovada a cada coleta", () =>
   );
   assert.match(
     migration,
+    /'content_sha256', snapshot_lineage_manifest/,
+    "o campo legado deve continuar representando o hash integral",
+  );
+  assert.match(
+    migration,
     /'semantic_hash_excludes',[\s\S]+'extraction_result_id'[\s\S]+'result_created_at'/,
   );
 });
