@@ -60,7 +60,24 @@ try {
   const stopListening = await database.listen("pgrst", (payload) => {
     postgrestNotifications.push(payload);
   });
-  for (const migration of laterMigrations) await database.exec(migration);
+  let specialTransferStableViewBefore;
+  for (const [index, migration] of laterMigrations.entries()) {
+    if (
+      migrationNames[rankingMigrationIndex + 1 + index] ===
+      "20260903170000_materialize_bahia_special_transfer_payments.sql"
+    ) {
+      specialTransferStableViewBefore = await database.query(`
+        select c.oid::integer as view_oid
+        from pg_class as c
+        join pg_namespace as n on n.oid = c.relnamespace
+        where n.nspname = 'territory'
+          and c.relname = 'latest_bahia_special_transfer_payment_candidates'
+          and c.relkind = 'v'
+      `);
+      assert.equal(specialTransferStableViewBefore.rows.length, 1);
+    }
+    await database.exec(migration);
+  }
   await new Promise((resolve) => setImmediate(resolve));
   await stopListening();
   assert.ok(
@@ -72,6 +89,20 @@ try {
     select to_regnamespace('territory')::text as territory_schema
   `);
   assert.deepEqual(territorySchema.rows, [{ territory_schema: "territory" }]);
+
+  const specialTransferStableViewAfter = await database.query(`
+    select c.oid::integer as view_oid
+    from pg_class as c
+    join pg_namespace as n on n.oid = c.relnamespace
+    where n.nspname = 'territory'
+      and c.relname = 'latest_bahia_special_transfer_payment_candidates'
+      and c.relkind = 'v'
+  `);
+  assert.deepEqual(
+    specialTransferStableViewAfter.rows,
+    specialTransferStableViewBefore.rows,
+    "a view estável deve preservar o OID ao apontar para o snapshot",
+  );
 
   const stateLoaStudyContract = await database.query(`
     select to_regprocedure(
@@ -2947,6 +2978,69 @@ try {
     );
   `);
 
+  await database.exec("set role collector_worker");
+  const initialSpecialTransferRefresh = await database.query(`
+    select territory.refresh_bahia_special_transfer_payment_snapshot()
+      as refreshed_rows
+  `);
+  assert.deepEqual(initialSpecialTransferRefresh.rows, [{ refreshed_rows: 3 }]);
+  await database.exec("reset role");
+
+  const specialTransferSnapshotParity = await database.query(`
+    with live as (
+      select * from territory.latest_bahia_special_transfer_payment_candidates_live
+    ), snapshot as (
+      select * from territory.bahia_special_transfer_payment_snapshot
+    ), stable as (
+      select * from territory.latest_bahia_special_transfer_payment_candidates
+    )
+    select
+      (select count(*)::integer from live) as live_count,
+      (select count(*)::integer from snapshot) as snapshot_count,
+      (select count(*)::integer from stable) as stable_count,
+      (select count(*)::integer from (
+        (select * from live except select * from snapshot)
+        union all
+        (select * from snapshot except select * from live)
+      ) as differences) as difference_count
+  `);
+  assert.deepEqual(specialTransferSnapshotParity.rows, [{
+    live_count: 3,
+    snapshot_count: 3,
+    stable_count: 3,
+    difference_count: 0,
+  }]);
+
+  const specialTransferSnapshotPrivileges = await database.query(`
+    select
+      has_table_privilege(
+        'anon',
+        'territory.bahia_special_transfer_payment_snapshot',
+        'SELECT'
+      ) as anon_snapshot_select,
+      has_table_privilege(
+        'collector_worker',
+        'territory.bahia_special_transfer_payment_snapshot',
+        'SELECT'
+      ) as worker_snapshot_select,
+      has_function_privilege(
+        'anon',
+        'territory.refresh_bahia_special_transfer_payment_snapshot()',
+        'EXECUTE'
+      ) as anon_refresh,
+      has_function_privilege(
+        'collector_worker',
+        'territory.refresh_bahia_special_transfer_payment_snapshot()',
+        'EXECUTE'
+      ) as worker_refresh
+  `);
+  assert.deepEqual(specialTransferSnapshotPrivileges.rows, [{
+    anon_snapshot_select: false,
+    worker_snapshot_select: false,
+    anon_refresh: false,
+    worker_refresh: true,
+  }]);
+
   const specialTransferPayments = await database.query(`
     select amendment_number, official_author_name,
       representative_external_id, payment_date, payment_amount,
@@ -3026,6 +3120,122 @@ try {
   assert.equal(JSON.stringify(specialTransferPayments.rows).includes("cpf"), false);
   assert.equal(JSON.stringify(specialTransferPayments.rows).includes("cnpj"), false);
   assert.equal(JSON.stringify(specialTransferPayments.rows).includes("creditor"), false);
+
+  await database.exec(`
+    insert into raw.extraction_jobs (
+      id, raw_artifact_id, job_type, idempotency_key, status, attempt_count
+    ) values (
+      '00000000-0000-0000-0000-000000009514',
+      '00000000-0000-0000-0000-000000009502',
+      'bahia_special_transfer_payment_extraction',
+      'bahia-special-transfer-fixture-job-refresh', 'succeeded', 1
+    );
+    insert into raw.extraction_results (
+      id, extraction_job_id, candidate_type, extractor_version,
+      validator_version, result_payload, validation_status
+    )
+    select
+      '00000000-0000-0000-0000-000000009515',
+      '00000000-0000-0000-0000-000000009514',
+      candidate_type, extractor_version, validator_version,
+      jsonb_set(result_payload, '{payment_amount}', '86763.51'::jsonb),
+      validation_status
+    from raw.extraction_results
+    where id = '00000000-0000-0000-0000-000000009512';
+  `);
+  await database.exec("set role collector_worker");
+  await database.query(
+    "select territory.refresh_bahia_special_transfer_payment_snapshot()",
+  );
+  await database.exec("reset role");
+  const refreshedSpecialTransferPayment = await database.query(`
+    select payment_amount
+    from territory.bahia_special_transfer_payment_snapshot
+    where payment_id = '123456789012345680'
+  `);
+  assert.deepEqual(refreshedSpecialTransferPayment.rows, [{
+    payment_amount: "86763.51",
+  }]);
+
+  const specialTransferSnapshotBeforeCorruption = await database.query(`
+    select *
+    from territory.bahia_special_transfer_payment_snapshot
+    order by payment_id
+  `);
+  await database.exec(`
+    create function territory.test_corrupt_special_transfer_snapshot()
+    returns trigger language plpgsql
+    as $$
+    begin
+      if new.payment_id = '123456789012345678' then
+        new.payment_amount := new.payment_amount + 1;
+      end if;
+      return new;
+    end;
+    $$;
+    create trigger test_corrupt_special_transfer_snapshot
+      before insert on territory.bahia_special_transfer_payment_snapshot
+      for each row execute function
+        territory.test_corrupt_special_transfer_snapshot();
+  `);
+  await database.exec("set role collector_worker");
+  await assert.rejects(
+    database.query(
+      "select territory.refresh_bahia_special_transfer_payment_snapshot()",
+    ),
+    /divergiu da fonte canonica/,
+  );
+  await database.exec("reset role");
+  const snapshotAfterSameCountCorruption = await database.query(`
+    select *
+    from territory.bahia_special_transfer_payment_snapshot
+    order by payment_id
+  `);
+  assert.deepEqual(
+    snapshotAfterSameCountCorruption.rows,
+    specialTransferSnapshotBeforeCorruption.rows,
+  );
+  await database.exec(`
+    drop trigger test_corrupt_special_transfer_snapshot
+      on territory.bahia_special_transfer_payment_snapshot;
+    drop function territory.test_corrupt_special_transfer_snapshot();
+    create function territory.test_drop_special_transfer_snapshot()
+    returns trigger language plpgsql
+    as $$
+    begin
+      if new.payment_id = '123456789012345678' then
+        return null;
+      end if;
+      return new;
+    end;
+    $$;
+    create trigger test_drop_special_transfer_snapshot
+      before insert on territory.bahia_special_transfer_payment_snapshot
+      for each row execute function
+        territory.test_drop_special_transfer_snapshot();
+  `);
+  await database.exec("set role collector_worker");
+  await assert.rejects(
+    database.query(
+      "select territory.refresh_bahia_special_transfer_payment_snapshot()",
+    ),
+    /divergiu da fonte canonica/,
+  );
+  await database.exec("reset role");
+  const snapshotAfterLostRow = await database.query(`
+    select *
+    from territory.bahia_special_transfer_payment_snapshot
+    order by payment_id
+  `);
+  assert.deepEqual(
+    snapshotAfterLostRow.rows,
+    specialTransferSnapshotBeforeCorruption.rows,
+  );
+  await database.exec(`
+    drop trigger test_drop_special_transfer_snapshot
+      on territory.bahia_special_transfer_payment_snapshot;
+    drop function territory.test_drop_special_transfer_snapshot();
+  `);
 
   await database.exec(`
     insert into source.collection_runs (
