@@ -45,3 +45,25 @@ pnpm.cmd run supabase db push --dry-run
 O dry-run deve listar apenas migrations locais pendentes, sem a mensagem
 `LegacyDbPushMissingRemoteError`. A aplicação real continua dependendo de revisão
 do PR e de backup/verificação do ambiente.
+
+## Reconciliação de 03/09/2026
+
+Seis migrations aplicadas pelo ambiente remoto receberam versões diferentes das
+criadas inicialmente no checkout. A comparação SQL mostrou conteúdo funcional
+idêntico; o histórico remoto acrescentava somente uma instrução vazia (`;`) ao
+final de cada arquivo. Para tornar o diretório ativo novamente compatível com a
+tabela de histórico do Supabase:
+
+- `20260902213010` foi substituída pela versão aplicada `20260902213713`;
+- `20260902220000` foi substituída pela versão aplicada `20260902220621`;
+- `20260902225721` foi substituída pela versão aplicada `20260902230614`;
+- `20260902233000` foi substituída pela versão aplicada `20260903013926`;
+- `20260903023000` foi substituída pela versão aplicada `20260903020620`;
+- `20260903030000` foi substituída pela versão aplicada `20260903021021`.
+
+As versões locais antigas permanecem preservadas em
+`docs/operations/supabase-migrations-legacy/2026-09-03/`. Os arquivos canônicos
+mantêm o SQL legível já revisado, sem a instrução vazia acrescentada pelo executor.
+O teste `supabase-migration-history-reconciliation.test.mjs` exige que cada versão
+remota esteja ativa, que a antiga esteja apenas no arquivo legado e que ambas
+tenham exatamente o mesmo conteúdo SQL.

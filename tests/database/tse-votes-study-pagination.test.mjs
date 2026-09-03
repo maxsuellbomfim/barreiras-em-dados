@@ -5,7 +5,7 @@ import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 
 const migrationUrl = new URL(
-  "../../supabase/migrations/20260902220000_tse_votes_server_pagination.sql",
+  "../../supabase/migrations/20260902220621_tse_votes_server_pagination.sql",
   import.meta.url,
 );
 
