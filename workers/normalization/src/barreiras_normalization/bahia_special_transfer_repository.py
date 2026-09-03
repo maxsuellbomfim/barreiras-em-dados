@@ -135,6 +135,11 @@ class BahiaSpecialTransferRepository:
                     ),
                 ).fetchone()
                 if job is None:
+                    connection.execute(
+                        """
+                        select territory.refresh_bahia_special_transfer_payment_snapshot()
+                        """
+                    )
                     return SpecialTransferPersistResult(False, 0)
 
                 summary_payload = canonical_json(
@@ -265,6 +270,11 @@ class BahiaSpecialTransferRepository:
                             payloads,
                         ),
                     )
+                connection.execute(
+                    """
+                    select territory.refresh_bahia_special_transfer_payment_snapshot()
+                    """
+                )
             return SpecialTransferPersistResult(True, len(batch.candidates))
         finally:
             connection.close()

@@ -40,10 +40,16 @@ class _Cursor:
 
 
 class _Transaction:
+    def __init__(self, connection) -> None:
+        self.connection = connection
+
     def __enter__(self):
+        self.connection.transaction_entered = True
         return self
 
-    def __exit__(self, *_args):
+    def __exit__(self, exc_type, *_args):
+        self.connection.transaction_exited = True
+        self.connection.transaction_rolled_back = exc_type is not None
         return False
 
 
@@ -52,6 +58,11 @@ class _Connection:
         self.queries: list[tuple[str, object]] = []
         self.pending_rows = []
         self.job_row = {"id": "00000000-0000-0000-0000-000000002003"}
+        self.refresh_error = None
+        self.transaction_entered = False
+        self.transaction_exited = False
+        self.transaction_rolled_back = False
+        self.closed = False
 
     def execute(self, query, params=None):
         normalized = " ".join(query.split())
@@ -60,13 +71,17 @@ class _Connection:
             return _Cursor(rows=self.pending_rows)
         if "insert into raw.extraction_jobs" in normalized:
             return _Cursor(row=self.job_row)
+        if "refresh_bahia_special_transfer_payment_snapshot" in normalized:
+            if self.refresh_error is not None:
+                raise self.refresh_error
+            return _Cursor(row={"refreshed_rows": 1})
         return _Cursor()
 
     def transaction(self):
-        return _Transaction()
+        return _Transaction(self)
 
     def close(self):
-        return None
+        self.closed = True
 
 
 def _batch() -> SpecialTransferExtractionBatch:
@@ -220,6 +235,74 @@ class BahiaSpecialTransferRepositoryTests(unittest.TestCase):
                 for query, _ in connection.queries
             )
         )
+        self.assertTrue(
+            any(
+                "refresh_bahia_special_transfer_payment_snapshot" in query
+                for query, _ in connection.queries
+            )
+        )
+
+    def test_refreshes_snapshot_after_candidate_insert_inside_transaction(self) -> None:
+        connection = _Connection()
+        repository = self._repository(connection)
+
+        repository.persist_extraction(_batch())
+
+        candidate_index = next(
+            index
+            for index, (query, _) in enumerate(connection.queries)
+            if "insert into raw.extraction_results" in query
+            and "bahia_special_transfer_payment_candidate" in str(
+                connection.queries[index][1]
+            )
+        )
+        refresh_index = next(
+            index
+            for index, (query, _) in enumerate(connection.queries)
+            if "refresh_bahia_special_transfer_payment_snapshot" in query
+        )
+        self.assertGreater(refresh_index, candidate_index)
+        self.assertTrue(connection.transaction_entered)
+        self.assertTrue(connection.transaction_exited)
+        self.assertFalse(connection.transaction_rolled_back)
+
+    def test_zero_candidates_refreshes_snapshot_inside_transaction(self) -> None:
+        connection = _Connection()
+        repository = self._repository(connection)
+        batch = _batch()
+        empty = SpecialTransferExtractionBatch(
+            artifact=batch.artifact,
+            candidates=(),
+            annual_coverage=batch.annual_coverage,
+            job_type=batch.job_type,
+            idempotency_key=batch.idempotency_key,
+            extractor_version=batch.extractor_version,
+            validator_version=batch.validator_version,
+        )
+
+        repository.persist_extraction(empty)
+
+        self.assertTrue(
+            any(
+                "refresh_bahia_special_transfer_payment_snapshot" in query
+                for query, _ in connection.queries
+            )
+        )
+        self.assertTrue(connection.transaction_entered)
+        self.assertTrue(connection.transaction_exited)
+
+    def test_refresh_failure_propagates_and_rolls_back_transaction(self) -> None:
+        connection = _Connection()
+        connection.refresh_error = RuntimeError("snapshot refresh failed")
+        repository = self._repository(connection)
+
+        with self.assertRaisesRegex(RuntimeError, "snapshot refresh failed"):
+            repository.persist_extraction(_batch())
+
+        self.assertTrue(connection.transaction_entered)
+        self.assertTrue(connection.transaction_exited)
+        self.assertTrue(connection.transaction_rolled_back)
+        self.assertTrue(connection.closed)
 
     def test_zero_candidates_records_versioned_scope_summary(self) -> None:
         connection = _Connection()
