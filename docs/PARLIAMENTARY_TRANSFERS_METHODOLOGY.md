@@ -431,6 +431,15 @@ O documento de descoberta e os contratos do conector registram as contagens,
 o CSV malformado da fonte e o gate de publicação em
 `docs/reviews/BAHIA_SPECIAL_TRANSFERS_SOURCE_DISCOVERY.md`.
 
+A leitura dos candidatos minimizados passa por um snapshot privado, sem
+reprocessar o JSON bruto em cada requisição pública. O worker o atualiza na
+mesma transação que registra a extração, inclusive ao reconhecer um job já
+processado. Contagem e SHA-256 de todas as colunas devem coincidir com a fonte
+canônica; divergência reverte a atualização e preserva a última cópia íntegra.
+O snapshot não congela a autoria aprovada nem a ligação com a CGU: essas duas
+relações continuam dinâmicas. Essa otimização não modifica os valores, a
+cobertura anual, os critérios territoriais ou os limites de interpretação acima.
+
 ### Linha do tempo nos perfis dos representantes
 
 Os perfis oficiais ligados por crosswalk aprovado recebem uma linha do tempo
