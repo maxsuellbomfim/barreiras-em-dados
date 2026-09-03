@@ -291,6 +291,38 @@ test("modo somente Bahia executa as duas trilhas estaduais sem abrir jobs alheio
   assert.match(stateLoaJob, /inputs\.resource == 'bahia-state-only'/);
 });
 
+test("modo somente transferencias especiais nao abre as demais fontes", () => {
+  const collectJob = workflow.slice(
+    workflow.indexOf("  collect:"),
+    workflow.indexOf("  transferegov:"),
+  );
+  const transferegovJob = workflow.slice(
+    workflow.indexOf("  transferegov:"),
+    workflow.indexOf("  siconfi_dca:"),
+  );
+  const stateExecutionJob = workflow.slice(
+    workflow.indexOf("  bahia_state_amendments:"),
+    workflow.indexOf("  bahia_special_transfers:"),
+  );
+  const specialTransfersJob = workflow.slice(
+    workflow.indexOf("  bahia_special_transfers:"),
+    workflow.indexOf("  bahia_state_loa_amendments:"),
+  );
+  const stateLoaJob = workflow.slice(
+    workflow.indexOf("  bahia_state_loa_amendments:"),
+  );
+
+  assert.match(workflow, /- "bahia-special-only"/);
+  assert.match(collectJob, /inputs\.resource != 'bahia-special-only'/);
+  assert.match(transferegovJob, /inputs\.resource != 'bahia-special-only'/);
+  assert.match(stateExecutionJob, /inputs\.resource != 'bahia-special-only'/);
+  assert.match(
+    specialTransfersJob,
+    /inputs\.resource == 'bahia-special-only'/,
+  );
+  assert.match(stateLoaJob, /inputs\.resource != 'bahia-special-only'/);
+});
+
 test("execucao municipal direcionada nao dispara coletores complementares por padrao", () => {
   const transferegovJob = workflow.slice(
     workflow.indexOf("  transferegov:"),
