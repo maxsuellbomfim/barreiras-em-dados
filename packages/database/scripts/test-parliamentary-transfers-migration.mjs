@@ -1207,6 +1207,54 @@ try {
       );
   `);
 
+  // Production persistence refreshes the public snapshots only after the raw
+  // extraction transaction is complete. Mirror that boundary here: migrations
+  // run before these fixtures, so their initial seed is intentionally empty.
+  const initialStateExecutionSnapshot = await database.query(`
+    select territory.refresh_bahia_state_loa_execution_reconciliation_snapshot()
+      as refreshed_rows
+  `);
+  assert.deepEqual(initialStateExecutionSnapshot.rows, [{ refreshed_rows: 5 }]);
+
+  const snapshotBeforeCorruption = await database.query(`
+    select * from territory.bahia_state_loa_amendment_snapshot
+    order by origin_extraction_result_id
+  `);
+  assert.equal(snapshotBeforeCorruption.rows.length, 5);
+  // A same-count corruption must fail just like a missing row. The failed
+  // refresh must roll back its delete/insert and leave the last good copy intact.
+  for (const triggerBody of [
+    "new.authorized_amount := new.authorized_amount + 1; return new;",
+    "return null;",
+  ]) {
+    await database.exec(`
+      create function territory.test_corrupt_state_loa_snapshot()
+      returns trigger language plpgsql as $$ begin ${triggerBody} end; $$;
+      create trigger test_corrupt_state_loa_snapshot
+        before insert on territory.bahia_state_loa_amendment_snapshot
+        for each row execute function territory.test_corrupt_state_loa_snapshot();
+    `);
+    try {
+      await assert.rejects(
+        database.query(`
+          select territory.refresh_bahia_state_loa_amendment_snapshot()
+        `),
+        /Snapshot da LOA estadual divergiu da fonte canonica/,
+      );
+      const snapshotAfterFailure = await database.query(`
+        select * from territory.bahia_state_loa_amendment_snapshot
+        order by origin_extraction_result_id
+      `);
+      assert.deepEqual(snapshotAfterFailure.rows, snapshotBeforeCorruption.rows);
+    } finally {
+      await database.exec(`
+        drop trigger test_corrupt_state_loa_snapshot
+          on territory.bahia_state_loa_amendment_snapshot;
+        drop function territory.test_corrupt_state_loa_snapshot();
+      `);
+    }
+  }
+
   const stateExecutionCoverage = await database.query(`
     select fiscal_year, source_aggregate_count, source_author_count,
       territorial_key_status, source_snapshot_status, methodology_version

@@ -1,6 +1,6 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **02/09/2026**. Este é o ponto de entrada operacional; o histórico
+Atualizado em **03/09/2026**. Este é o ponto de entrada operacional; o histórico
 de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
@@ -338,3 +338,18 @@ viva, o estudo da LOA de cerca de 2,4 s para 190 ms, o ranking da LOA de 3,6 s
 para 246 ms e os pagamentos especiais de 2,1 s para 127 ms. A página pública
 voltou a responder sem o aviso de indisponibilidade e passou a exibir os quatro
 grupos de execução, sem alterar contratos nem valores de origem.
+
+A fonte normalizada da LOA estadual agora também possui snapshot privado e
+indexado, atualizado pelo mesmo worker antes da reconciliação. Em 03/09/2026,
+a fonte canônica, o snapshot e a projeção estável apresentaram os mesmos 70
+registros e o mesmo SHA-256 do conteúdo integral ordenado; a reconciliação
+manteve 70 linhas e quatro grupos. Cada atualização confere contagem e hash e
+aborta com rollback se houver divergência. Os testes também simulam perda de
+linha e alteração de valor, preservando a última versão íntegra nesses casos.
+Nas medições SQL individuais, o estudo de 2026 caiu de cerca de 190 ms para
+22,6 ms e o ranking de 246 ms para 34 ms; esses tempos não representam a
+latência total da página. O catálogo de 2026 mantém 34 autorizações, sete autores
+e a emenda 5724 de Marcone Amaral com R$ 1.548.747,00 **autorizados**, sem
+reclassificação como pagamento. O próximo fluxo menor é retirar também a
+releitura do JSON bruto dos pagamentos estaduais especiais, com conferência de
+integridade equivalente e sem misturá-los à LOA.

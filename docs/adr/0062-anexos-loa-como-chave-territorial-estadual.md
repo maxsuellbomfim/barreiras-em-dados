@@ -105,3 +105,25 @@ separadas da dotação, do empenho, da liquidação e do pagamento agregados pel
 fonte estadual. Nenhum desses estágios é repartido entre as emendas, incorporado
 ao ranking individual ou somado aos pares já conciliados. Chaves que também
 incluam outro município permanecem bloqueadas por inteiro.
+
+## Adendo de 03/09/2026 - fonte normalizada para as leituras públicas
+
+Além da reconciliação, a própria fonte territorial da LOA passa a ser
+materializada em tabela privada, indexada e sem acesso direto por `anon` ou
+`authenticated`. A view canônica foi renomeada, preservando sua identidade no
+PostgreSQL e as dependências da reconciliação privada. O nome estável usado
+pelas RPCs públicas agora lê somente o snapshot, sem reprocessar JSON bruto por
+requisição.
+
+O refresh existente da reconciliação atualiza primeiro essa fonte na mesma
+transação. Contagem e SHA-256 de todas as colunas, ordenadas pelo identificador
+da extração, precisam coincidir entre origem e cópia; qualquer divergência
+aborta a operação e mantém o estado anterior. A auditoria registra contagem,
+hash e versão metodológica. O worker mantém seu privilégio de atualização, sem
+ampliar acesso público ao schema privado.
+
+A conferência de produção encontrou 70 linhas idênticas na origem, na tabela e
+na view estável, 70 linhas reconciliadas e quatro grupos. Os contratos públicos,
+as fontes e os estágios financeiros permanecem inalterados. Transferências
+especiais estaduais continuam em fluxo separado e não foram materializadas por
+esta decisão.
