@@ -30,6 +30,10 @@ import {
   stateLoaYears,
 } from "../../lib/state-loa-year-filter.mjs";
 import {
+  resolveStateLoaStudyPage,
+  stateLoaStudyPageHref,
+} from "../../lib/state-loa-study.mjs";
+import {
   getPublicCguFederalAmendments,
   getPublicCguFederalAmendmentLegislatureRankings,
   type CguFederalAmendment,
@@ -909,6 +913,9 @@ function StateLoaPanel({
   amendments,
   execution,
   executionSummary,
+  totalCount,
+  page,
+  pageSize,
   selectedFiscalYear,
   availableFiscalYears,
   coverage,
@@ -918,6 +925,9 @@ function StateLoaPanel({
   amendments: readonly BahiaStateLoaAmendment[] | null;
   execution: readonly StateLoaExecutionRecord[] | null;
   executionSummary: StateLoaExecutionSummary | null;
+  totalCount: number;
+  page: number;
+  pageSize: number;
   selectedFiscalYear: number;
   availableFiscalYears: readonly number[];
   coverage: readonly StateAmendmentSourceCoverage[] | null;
@@ -926,6 +936,7 @@ function StateLoaPanel({
   const executionByEvidence = new Map(
     (execution ?? []).map((row) => [row.loaEvidenceSha256, row]),
   );
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
   return (
     <section className="transfer-ranking" aria-labelledby="state-loa-title">
       <div className="transfer-section-heading">
@@ -1019,9 +1030,13 @@ function StateLoaPanel({
         </p>
       ) : <StateLoaRankingTable rows={ranking} />}
       {amendments && amendments.length > 0 ? (
-        <details className="transfer-methodology">
+        <details
+          className="transfer-methodology"
+          id="emendas-estaduais"
+          open={page > 1}
+        >
           <summary>
-            Conferir as {amendments.length.toLocaleString("pt-BR")} emendas, objetos e fontes
+            Conferir emendas, objetos e fontes · {amendments.length.toLocaleString("pt-BR")} nesta página de {totalCount.toLocaleString("pt-BR")}
           </summary>
           <div className="transfer-card-list">
             {amendments.map((amendment) => (
@@ -1032,6 +1047,21 @@ function StateLoaPanel({
               />
             ))}
           </div>
+          {totalCount > pageSize ? (
+            <nav className="legislative-pagination" aria-label="Paginação das emendas estaduais">
+              {page > 1 ? (
+                <a href={stateLoaStudyPageHref(selectedFiscalYear, page - 1)}>
+                  ← Emendas anteriores
+                </a>
+              ) : <span />}
+              <span>Página {page} de {pageCount.toLocaleString("pt-BR")}</span>
+              {page < pageCount ? (
+                <a href={stateLoaStudyPageHref(selectedFiscalYear, page + 1)}>
+                  Próximas emendas →
+                </a>
+              ) : <span />}
+            </nav>
+          ) : null}
         </details>
       ) : null}
     </section>
@@ -2306,6 +2336,7 @@ type ParliamentaryResourcesPageProps = Readonly<{
     documento_etapa?: string | string[];
     documento_pagina?: string | string[];
     documento_q?: string | string[];
+    estadual_pagina?: string | string[];
     origem?: string | string[];
   }>;
 }>;
@@ -2334,6 +2365,9 @@ export default async function ParliamentaryResourcesPage({
     sourceSelection.showState ? params.ano : undefined,
     latestStateFiscalYear,
   ) ?? latestStateFiscalYear;
+  const selectedStateLoaPage = resolveStateLoaStudyPage(
+    sourceSelection.showState ? params.estadual_pagina : undefined,
+  );
   const [
     result,
     legislatureRankingsResult,
@@ -2349,6 +2383,7 @@ export default async function ParliamentaryResourcesPage({
   ] = await Promise.all([
     getPublicParliamentaryTransfers({
       stateFiscalYear: selectedStateFiscalYear,
+      stateLoaPage: selectedStateLoaPage,
       queryScope: parliamentaryTransferQueryScope,
     }),
     sourceSelection.showLegislatures
@@ -2574,6 +2609,9 @@ export default async function ParliamentaryResourcesPage({
                 ranking={result.stateLoaRanking}
                 execution={result.stateLoaExecution}
                 executionSummary={result.stateLoaExecutionSummary}
+                totalCount={result.stateLoaTotalCount}
+                page={result.stateLoaPage}
+                pageSize={result.stateLoaPageSize}
                 selectedFiscalYear={selectedStateFiscalYear}
                 availableFiscalYears={availableStateFiscalYears}
                 coverage={stateSourceCoverage}

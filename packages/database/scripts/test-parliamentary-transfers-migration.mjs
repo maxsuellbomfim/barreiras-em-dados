@@ -73,6 +73,16 @@ try {
   `);
   assert.deepEqual(territorySchema.rows, [{ territory_schema: "territory" }]);
 
+  const stateLoaStudyContract = await database.query(`
+    select to_regprocedure(
+      'api.get_public_bahia_state_loa_study(smallint,integer,integer)'
+    )::text as state_loa_study_rpc
+  `);
+  assert.deepEqual(stateLoaStudyContract.rows, [{
+    state_loa_study_rpc:
+      "api.get_public_bahia_state_loa_study(smallint,integer,integer)",
+  }]);
+
   const contracts = await database.query(`
     select
       to_regclass('territory.parliamentary_transfers')::text as transfer_projection,
@@ -1368,6 +1378,25 @@ try {
       methodology_version: "bahia-state-loa-public-execution/1.1.0",
     },
   ]);
+
+  const stateLoaStudyPage = await database.query(`
+    select
+      total_count,
+      jsonb_array_length(amendment_items) as amendment_count,
+      jsonb_array_length(execution_items) as execution_count,
+      amendment_items -> 0 ->> 'amendment_number' as first_amendment,
+      amendment_items -> 1 ->> 'amendment_number' as second_amendment,
+      methodology_version
+    from api.get_public_bahia_state_loa_study(2026::smallint, 2, 1)
+  `);
+  assert.deepEqual(stateLoaStudyPage.rows, [{
+    total_count: 3,
+    amendment_count: 2,
+    execution_count: 2,
+    first_amendment: "103",
+    second_amendment: "102",
+    methodology_version: "bahia-state-loa-study/1.0.0",
+  }]);
 
   const historicalStateExecution = await database.query(`
     select amendment_number, execution_status, committed_amount,
@@ -3211,6 +3240,12 @@ try {
       "select * from api.get_public_bahia_state_loa_execution(2026::smallint, null, 201)",
     ),
     /limite da execucao estadual da LOA invalido/,
+  );
+  await assert.rejects(
+    database.query(
+      "select * from api.get_public_bahia_state_loa_study(2026::smallint, 26, 0)",
+    ),
+    /page_size do estudo estadual deve estar entre 1 e 25/,
   );
   await assert.rejects(
     database.query(
