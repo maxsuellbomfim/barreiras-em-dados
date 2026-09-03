@@ -11,6 +11,7 @@ import {
   type StateLoaExecutionRecord,
   type StateLoaExecutionSummary,
 } from "./state-loa-execution.mjs";
+import { parseStateLoaStudyRows } from "./state-loa-study.mjs";
 import {
   parseStateLoaRepresentativeContributions,
   type StateLoaRepresentativeContribution,
@@ -307,6 +308,9 @@ export type ParliamentaryTransfersResult =
       stateLoaRanking: readonly BahiaStateLoaAmendmentRanking[] | null;
       stateLoaExecution: readonly StateLoaExecutionRecord[] | null;
       stateLoaExecutionSummary: StateLoaExecutionSummary | null;
+      stateLoaTotalCount: number;
+      stateLoaPage: number;
+      stateLoaPageSize: number;
       scopeSummary: FederalTransferScopeSummary | null;
       reconciledTransfers: readonly ReconciledParliamentaryTransfer[] | null;
       reconciledPeople: readonly ReconciledParliamentaryTransferRanking[] | null;
@@ -1056,13 +1060,19 @@ async function callRpc(
 
 export async function getPublicParliamentaryTransfers({
   stateFiscalYear,
+  stateLoaPage,
   queryScope,
 }: Readonly<{
   stateFiscalYear: number;
+  stateLoaPage: number;
   queryScope: "current" | "historical" | "state" | "none";
 }>): Promise<ParliamentaryTransfersResult> {
   try {
     const plan = buildParliamentaryTransferQueryPlan(queryScope);
+    const stateLoaPageSize = 12;
+    const resolvedStateLoaPage = Number.isSafeInteger(stateLoaPage) && stateLoaPage > 0
+      ? stateLoaPage
+      : 1;
     const skipped: Promise<unknown[] | null> = Promise.resolve(null);
     const [
       peopleRows,
@@ -1073,9 +1083,8 @@ export async function getPublicParliamentaryTransfers({
       historicalAmendmentRows,
       historicalPeopleRows,
       historicalCollectiveRows,
-      stateLoaAmendmentRows,
+      stateLoaStudyRows,
       stateLoaRankingRows,
-      stateLoaExecutionRows,
       stateLoaExecutionSummaryRows,
       scopeSummaryRows,
       reconciledTransferRows,
@@ -1109,19 +1118,14 @@ export async function getPublicParliamentaryTransfers({
         fiscal_year_filter: null,
         page_size: 50,
       }) : skipped,
-      plan.state ? callRpc("get_public_bahia_state_loa_amendments", {
+      plan.state ? callRpc("get_public_bahia_state_loa_study", {
         fiscal_year_filter: stateFiscalYear,
-        author_key_filter: null,
-        page_size: 200,
+        page_size: stateLoaPageSize,
+        page_offset: (resolvedStateLoaPage - 1) * stateLoaPageSize,
       }) : skipped,
       plan.state ? callRpc("get_public_bahia_state_loa_amendment_ranking", {
         fiscal_year_filter: stateFiscalYear,
         page_size: 50,
-      }) : skipped,
-      plan.state ? callRpc("get_public_bahia_state_loa_execution", {
-        fiscal_year_filter: stateFiscalYear,
-        author_key_filter: null,
-        page_size: 200,
       }) : skipped,
       plan.state ? callRpc("get_public_bahia_state_loa_execution_summary", {
         fiscal_year_filter: stateFiscalYear,
@@ -1162,9 +1166,8 @@ export async function getPublicParliamentaryTransfers({
         reconciliationSummaryRows,
       ].every((rows) => rows === null)) ||
       (plan.state && [
-        stateLoaAmendmentRows,
+        stateLoaStudyRows,
         stateLoaRankingRows,
-        stateLoaExecutionRows,
         stateLoaExecutionSummaryRows,
       ].every((rows) => rows === null))
     ) return { state: "unavailable" };
@@ -1189,21 +1192,31 @@ export async function getPublicParliamentaryTransfers({
     const historicalCollectives = historicalCollectiveRows === null
       ? null
       : parseHistoricalRankingRows(historicalCollectiveRows);
-    const stateLoaAmendments = stateLoaAmendmentRows === null
+    const stateLoaStudy = stateLoaStudyRows === null
+      ? null
+      : parseStateLoaStudyRows(stateLoaStudyRows);
+    const stateLoaAmendments = stateLoaStudy === null
       ? null
       : parseBahiaStateLoaRows(
-          stateLoaAmendmentRows,
+          [...stateLoaStudy.amendmentRows],
           parseBahiaStateLoaAmendment,
         );
     const stateLoaRanking = stateLoaRankingRows === null
       ? null
       : parseBahiaStateLoaRows(stateLoaRankingRows, parseBahiaStateLoaRanking);
-    const stateLoaExecution = stateLoaExecutionRows === null
+    const stateLoaExecution = stateLoaStudy === null
       ? null
-      : parseStateLoaExecutionRows(stateLoaExecutionRows);
+      : parseStateLoaExecutionRows([...stateLoaStudy.executionRows]);
     const stateLoaExecutionSummary = stateLoaExecutionSummaryRows === null
       ? null
       : parseStateLoaExecutionSummary(stateLoaExecutionSummaryRows);
+    if (
+      plan.state && (
+        stateLoaStudy === null ||
+        stateLoaAmendments === null ||
+        stateLoaExecution === null
+      )
+    ) return { state: "unavailable" };
     const scopeSummary = scopeSummaryRows === null
       ? null
       : parseScopeSummary(scopeSummaryRows);
@@ -1242,6 +1255,9 @@ export async function getPublicParliamentaryTransfers({
       stateLoaRanking,
       stateLoaExecution,
       stateLoaExecutionSummary,
+      stateLoaTotalCount: stateLoaStudy?.totalCount ?? 0,
+      stateLoaPage: resolvedStateLoaPage,
+      stateLoaPageSize,
       scopeSummary,
       reconciledTransfers: reconciledTransfers?.some((row) => row === null)
         ? null

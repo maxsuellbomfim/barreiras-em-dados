@@ -300,3 +300,12 @@ a aba escolhida: execução da CGU e comparação por legislatura não disparam 
 carga legada das demais fontes; federal atual, arquivo histórico e Bahia consultam
 somente suas próprias famílias. Uma falha de uma origem deixa de atrasar ou
 ocultar outra origem que esteja saudável.
+
+Na mesma data, o detalhamento estadual deixou de carregar até 200 autorizações
+e outras 200 linhas de execução em toda abertura. Uma RPC única passou a
+entregar somente 12 autorizações visíveis e as ligações de execução que
+pertencem a elas, enquanto ranking e resumo continuam calculados no universo
+completo e em consultas separadas. A conferência viva de 2026 encontrou 34
+autorizações, distribuídas em páginas de 12, 12 e 10 registros, sempre com a
+mesma quantidade de linhas correspondentes da execução. Autorização,
+empenho, liquidação e pagamento continuam sem soma entre estágios.

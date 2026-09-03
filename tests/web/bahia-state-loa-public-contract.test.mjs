@@ -54,7 +54,7 @@ test("RPCs publicas ocultam tabelas brutas e limitam parametros", () => {
 });
 
 test("site separa autorizacao orcamentaria estadual de pagamento e execucao", () => {
-  assert.match(client, /get_public_bahia_state_loa_amendments/);
+  assert.match(client, /get_public_bahia_state_loa_study/);
   assert.match(client, /get_public_bahia_state_loa_amendment_ranking/);
   assert.match(client, /financialStage: "authorized"/);
   assert.match(page, /Emendas estaduais autorizadas na LOA/);
@@ -83,7 +83,7 @@ test("execucao estadual publica somente ligacoes unicas e explica a cobertura", 
   assert.match(executionMigration, /ambiguous_official_key/);
   assert.match(executionMigration, /security definer/);
   assert.match(executionMigration, /revoke all[^;]+from public/s);
-  assert.match(client, /get_public_bahia_state_loa_execution/);
+  assert.match(client, /parseStateLoaExecutionRows/);
   assert.match(client, /get_public_bahia_state_loa_execution_summary/);
   assert.match(page, /O que aconteceu com as/);
   assert.match(page, /universo compar.vel aos est.gios abaixo/iu);
@@ -100,7 +100,7 @@ test("emendas historicas recebem diagnostico explicito sem fabricar execucao", (
   );
   assert.match(
     client,
-    /get_public_bahia_state_loa_execution[\s\S]+fiscal_year_filter: null/,
+    /get_public_bahia_state_loa_study[\s\S]+fiscal_year_filter: stateFiscalYear/,
   );
   assert.match(page, /identificadores necess.rios/iu);
 });
@@ -123,16 +123,13 @@ test("filtro anual estadual mantém ranking, emendas e execução no mesmo perí
   assert.doesNotMatch(client, /stateFiscalYear\s*=\s*2026/);
   assert.match(
     client,
-    /get_public_bahia_state_loa_amendments[\s\S]+fiscal_year_filter:\s*stateFiscalYear/,
+    /get_public_bahia_state_loa_study[\s\S]+fiscal_year_filter:\s*stateFiscalYear/,
   );
   assert.match(
     client,
     /get_public_bahia_state_loa_amendment_ranking[\s\S]+fiscal_year_filter:\s*stateFiscalYear/,
   );
-  assert.match(
-    client,
-    /get_public_bahia_state_loa_execution[\s\S]+fiscal_year_filter:\s*stateFiscalYear/,
-  );
+  assert.match(client, /parseStateLoaExecutionRows\(\[\.\.\.stateLoaStudy\.executionRows\]\)/);
   assert.match(
     page,
     /aria-label="Filtrar emendas estaduais por ano"/,
