@@ -356,8 +356,14 @@ Os pagamentos estaduais especiais também passaram a usar snapshot privado e
 indexado, atualizado na mesma transação da extração, inclusive nos replays
 idempotentes. A migração `20260903170000` foi aplicada em 03/09/2026 após testes
 e duas revisões independentes. A conferência viva manteve três pagamentos e
-SHA-256 integral idêntico entre fonte canônica, snapshot e view estável; o
-payload público e a cobertura anual também mantiveram os hashes anteriores.
+SHA-256 integral idêntico entre fonte canônica, snapshot e view estável.
+Um replay isolado posterior preservou um novo ZIP oficial, mas manteve os mesmos
+três candidatos e o mesmo SHA-256 semântico
+`8170ec6f3937fe6b24c6ca9936209e6525d3b98c4710139998358509e96636ae`.
+Nos três pagamentos, somente o hash do arquivo-fonte e a data da coleta
+mudaram. A migração `20260903233000` separa esses dois sinais no evento de
+auditoria: o hash semântico identifica mudança nos fatos, enquanto o hash de
+linhagem comprova a cópia exata de cada nova preservação.
 O ranking conserva os três pagamentos de 2022 relacionados a duas emendas de
 Tito, somando R$ 756.904,75 **pagos pelo Estado da Bahia**, cujo objeto menciona
 Barreiras. Isso não comprova recebimento pela Prefeitura nem entrega de obras,

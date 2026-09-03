@@ -440,6 +440,14 @@ O snapshot não congela a autoria aprovada nem a ligação com a CGU: essas duas
 relações continuam dinâmicas. Essa otimização não modifica os valores, a
 cobertura anual, os critérios territoriais ou os limites de interpretação acima.
 
+O evento de atualização registra dois hashes complementares. O hash de
+linhagem inclui todas as colunas e muda quando um novo arquivo oficial é
+preservado. O hash semântico exclui apenas os identificadores da extração, o
+hash do arquivo-fonte e os horários técnicos; ele continua incluindo valores,
+datas de pagamento, autoria, objeto, situação, URLs e hashes das evidências.
+Assim, nova coleta da mesma informação não é confundida com alteração dos
+fatos publicados, sem perder a cadeia de custódia do arquivo mais recente.
+
 ### Linha do tempo nos perfis dos representantes
 
 Os perfis oficiais ligados por crosswalk aprovado recebem uma linha do tempo

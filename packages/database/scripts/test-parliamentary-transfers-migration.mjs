@@ -2986,6 +2986,110 @@ try {
   assert.deepEqual(initialSpecialTransferRefresh.rows, [{ refreshed_rows: 3 }]);
   await database.exec("reset role");
 
+  const initialSpecialTransferSnapshotAudit = await database.query(`
+    select after_state, metadata
+    from audit.audit_events
+    where action = 'source_snapshot.refreshed'
+      and target_type = 'territory.bahia_special_transfer_payment_snapshot'
+    order by occurred_at desc, id desc
+    limit 1
+  `);
+  const initialSnapshotState =
+    initialSpecialTransferSnapshotAudit.rows[0].after_state;
+  assert.match(initialSnapshotState.semantic_content_sha256, /^[0-9a-f]{64}$/);
+  assert.match(initialSnapshotState.lineage_content_sha256, /^[0-9a-f]{64}$/);
+  assert.equal(
+    initialSnapshotState.content_sha256,
+    initialSnapshotState.lineage_content_sha256,
+  );
+
+  await database.exec(`
+    insert into raw.raw_artifacts (
+      id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+      source_url, retrieved_at, byte_size, sha256, object_key,
+      collector_version, content_type
+    )
+    select
+      '00000000-0000-0000-0000-000000009516',
+      collection_run_id, source_endpoint_id,
+      'bahia-special-transfer-fixture-artifact-refreshed', artifact_kind,
+      source_url, '2026-08-22 05:00:00+00', byte_size, '${"96".repeat(32)}',
+      'bahia/transferencias-especiais/fixture-refreshed.zip',
+      collector_version, content_type
+    from raw.raw_artifacts
+    where id = '00000000-0000-0000-0000-000000009502';
+
+    insert into raw.extraction_jobs (
+      id, raw_artifact_id, job_type, idempotency_key, status, attempt_count
+    ) values (
+      '00000000-0000-0000-0000-000000009517',
+      '00000000-0000-0000-0000-000000009516',
+      'bahia_special_transfer_payment_extraction',
+      'bahia-special-transfer-fixture-job-refreshed', 'succeeded', 1
+    );
+
+    insert into raw.extraction_results (
+      id, extraction_job_id, candidate_type, extractor_version,
+      validator_version, result_payload, validation_status
+    )
+    select
+      case id
+        when '00000000-0000-0000-0000-000000009510'
+          then '00000000-0000-0000-0000-000000009520'::uuid
+        when '00000000-0000-0000-0000-000000009511'
+          then '00000000-0000-0000-0000-000000009521'::uuid
+        else '00000000-0000-0000-0000-000000009522'::uuid
+      end,
+      '00000000-0000-0000-0000-000000009517',
+      candidate_type, extractor_version, validator_version,
+      jsonb_set(
+        jsonb_set(
+          result_payload,
+          '{source_artifact_sha256}',
+          to_jsonb('${"96".repeat(32)}'::text)
+        ),
+        '{source_collected_at}',
+        to_jsonb('2026-08-22T05:00:00+00:00'::text)
+      ),
+      validation_status
+    from raw.extraction_results
+    where id in (
+      '00000000-0000-0000-0000-000000009510',
+      '00000000-0000-0000-0000-000000009511',
+      '00000000-0000-0000-0000-000000009512'
+    );
+  `);
+  await database.exec("set role collector_worker");
+  await database.query(
+    "select territory.refresh_bahia_special_transfer_payment_snapshot()",
+  );
+  await database.exec("reset role");
+
+  const refreshedSpecialTransferSnapshotAudit = await database.query(`
+    select after_state
+    from audit.audit_events
+    where action = 'source_snapshot.refreshed'
+      and target_type = 'territory.bahia_special_transfer_payment_snapshot'
+    order by occurred_at desc, id desc
+    limit 1
+  `);
+  const refreshedSnapshotState =
+    refreshedSpecialTransferSnapshotAudit.rows[0].after_state;
+  assert.equal(
+    refreshedSnapshotState.semantic_content_sha256,
+    initialSnapshotState.semantic_content_sha256,
+    "nova preservacao sem mudanca factual deve manter o hash semantico",
+  );
+  assert.notEqual(
+    refreshedSnapshotState.lineage_content_sha256,
+    initialSnapshotState.lineage_content_sha256,
+    "a nova cadeia de custodia deve renovar o hash integral",
+  );
+  assert.equal(
+    refreshedSnapshotState.content_sha256,
+    refreshedSnapshotState.lineage_content_sha256,
+  );
+
   const specialTransferSnapshotParity = await database.query(`
     with live as (
       select * from territory.latest_bahia_special_transfer_payment_candidates_live
@@ -3138,7 +3242,11 @@ try {
       '00000000-0000-0000-0000-000000009515',
       '00000000-0000-0000-0000-000000009514',
       candidate_type, extractor_version, validator_version,
-      jsonb_set(result_payload, '{payment_amount}', '86763.51'::jsonb),
+      jsonb_set(
+        jsonb_set(result_payload, '{payment_amount}', '86763.51'::jsonb),
+        '{source_collected_at}',
+        to_jsonb('2026-08-23T05:00:00+00:00'::text)
+      ),
       validation_status
     from raw.extraction_results
     where id = '00000000-0000-0000-0000-000000009512';
