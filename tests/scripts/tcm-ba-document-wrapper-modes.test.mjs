@@ -40,7 +40,16 @@ test("coleta local dirigida encaminha código oficial somente com competência",
   assert.match(wrapper, /\^PCMGE\\d\{3\}\$/);
   assert.match(
     wrapper,
-    /collect_tcm_ba_documents --competence \$Competence --max-documents \$MaxDocuments --category-code \$CategoryCode --requests-per-minute \$RequestsPerMinute/,
+    /\$collectorArguments = @\([\s\S]*"--competence"[\s\S]*"--requests-per-minute"/,
+  );
+  assert.match(
+    wrapper,
+    /if \(-not \[string\]::IsNullOrWhiteSpace\(\$CategoryCode\)\) \{[\s\S]*\$collectorArguments \+= @\("--category-code", \$CategoryCode\)/,
+  );
+  assert.match(wrapper, /& \$python @collectorArguments/);
+  assert.doesNotMatch(
+    wrapper,
+    /collect_tcm_ba_documents[^\n]*--category-code \$CategoryCode/,
   );
   assert.match(wrapper, /\$targetArtifactSha256 = \$collectorEvent\.pdf_hashes\[0\]/);
   assert.match(

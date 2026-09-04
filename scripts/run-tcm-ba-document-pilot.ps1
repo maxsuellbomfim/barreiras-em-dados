@@ -1082,8 +1082,22 @@ try {
         $previousErrorActionPreference = $ErrorActionPreference
         try {
             $ErrorActionPreference = "Continue"
+            $collectorArguments = @(
+                "-B"
+                "-m"
+                "barreiras_collectors.commands.collect_tcm_ba_documents"
+                "--competence"
+                $Competence
+                "--max-documents"
+                $MaxDocuments
+                "--requests-per-minute"
+                $RequestsPerMinute
+            )
+            if (-not [string]::IsNullOrWhiteSpace($CategoryCode)) {
+                $collectorArguments += @("--category-code", $CategoryCode)
+            }
             $output = @(
-                & $python -B -m barreiras_collectors.commands.collect_tcm_ba_documents --competence $Competence --max-documents $MaxDocuments --category-code $CategoryCode --requests-per-minute $RequestsPerMinute 2>&1
+                & $python @collectorArguments 2>&1
             )
             $nativeExitCode = $LASTEXITCODE
         }
