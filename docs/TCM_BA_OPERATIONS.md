@@ -357,6 +357,15 @@ erro.
 
 ## Piloto comprovado
 
+O estado `complete` descrito abaixo comprova o catálogo mensal, na partição
+`competence:AAAA-MM`. A preservação física dos PDFs usa outra partição,
+`documents:AAAA-MM`, e permanece `partial` enquanto houver documentos
+pendentes. Em 04/09/2026, `documents:2021-02` registrava 287 dos 1.505 PDFs
+preservados; a tarefa `Barreiras360-TCMBA-Documents` continuava a retomada em
+lotes de até dez. O painel administrativo lê apenas total, preservados,
+restantes e tamanho do último lote; hashes, cursores, checkpoints e métricas
+brutas não saem do domínio privado.
+
 Para `2021-01`, o replay controlado fechou como `complete`: 1.441 documentos
 distintos, 189 observações brutas e 1.442 registros estruturados, incluindo uma
 submissão mensal. O gate relacional confirmou manifesto, chaves, MIME, runs,

@@ -74,6 +74,7 @@ export type CollectionHealthItem = Readonly<{
   latest_work_total: number | null;
   latest_work_remaining: number | null;
   latest_batch_processed: number | null;
+  latest_work_unit: "document" | null;
   latest_block_reason: string | null;
 }>;
 
@@ -365,11 +366,14 @@ function CollectionHealthCard({
           aria-label="Progresso do ciclo de coleta"
         >
           <div className="source-health-backfill-heading">
-            <h4>Progresso do ciclo</h4>
+            <h4>{workProgress.heading ?? "Progresso do ciclo"}</h4>
             <strong>{workProgress.completed}</strong>
           </div>
           <progress
-            aria-label="Percentual de itens concluídos no ciclo"
+            aria-label={`Percentual do ${
+              workProgress.heading?.toLocaleLowerCase("pt-BR") ??
+              "progresso do ciclo"
+            }`}
             max={100}
             value={workProgress.percent}
           />
@@ -377,9 +381,9 @@ function CollectionHealthCard({
             {workProgress.remaining} · {workProgress.latestBatch}
           </p>
           <p>
-            O número representa itens já consultados neste ciclo. Cobertura
-            parcial não significa falha: a próxima execução retoma do ponto
-            preservado até concluir todo o universo.
+            {item.latest_work_unit === "document"
+              ? "O número representa PDFs oficiais preservados neste mês. Cobertura parcial não significa falha: a próxima execução retoma dos documentos restantes até completar o catálogo."
+              : "O número representa itens já consultados neste ciclo. Cobertura parcial não significa falha: a próxima execução retoma do ponto preservado até concluir todo o universo."}
           </p>
         </section>
       ) : null}

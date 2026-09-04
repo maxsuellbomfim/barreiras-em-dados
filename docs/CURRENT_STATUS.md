@@ -75,6 +75,12 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 ## Evidências operacionais recentes
 
+- Em 04/09/2026, a drenagem física dos PDFs mensais do TCM-BA avançou de 96
+  para 287 documentos preservados em `02/2021`, de um catálogo oficial com
+  1.505 itens. A tarefa Windows permaneceu habilitada, serial, limitada a dez
+  PDFs por rodada e 30 requisições por minuto. O painel administrativo passou
+  a projetar esses contadores como progresso documental sanitizado; catálogo
+  completo e download físico parcial continuam estados distintos.
 - Em 04/09/2026, a recuperação privada dos candidatos de empenho do TCM-BA
   eliminou a fila histórica: 1.360 de 1.360 PDFs elegíveis foram processados,
   sem ausência, duplicidade, payload inválido ou falha aberta. Dos 242

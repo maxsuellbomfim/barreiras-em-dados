@@ -20,6 +20,25 @@ test("traduz progresso retomável sem expor o cursor da partição", () => {
   );
 });
 
+test("explica a preservação documental do TCM-BA em linguagem específica", () => {
+  assert.deepEqual(
+    formatCollectionWorkProgress({
+      latest_work_completed: 287,
+      latest_work_total: 1505,
+      latest_work_remaining: 1218,
+      latest_batch_processed: 10,
+      latest_work_unit: "document",
+    }),
+    {
+      heading: "Progresso documental",
+      completed: "287 de 1.505 documentos preservados",
+      remaining: "1.218 documentos ainda aguardam preservação",
+      latestBatch: "Último lote: 10 documentos",
+      percent: 19.07,
+    },
+  );
+});
+
 test("falha fechado diante de progresso ausente ou incoerente", () => {
   assert.equal(
     formatCollectionWorkProgress({

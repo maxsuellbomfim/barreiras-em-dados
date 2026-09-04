@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
 const migration = await readFile(
@@ -103,4 +103,37 @@ test("painel explica por que a partição mais recente foi bloqueada", () => {
   assert.match(page, /get_collection_health_v4/);
   assert.match(component, /latest_block_reason/);
   assert.match(component, /Motivo do bloqueio/);
+});
+
+test("painel recebe progresso documental sanitizado do TCM-BA", async () => {
+  const migrationsDirectory = new URL("../../supabase/migrations/", import.meta.url);
+  const migrationName = (await readdir(migrationsDirectory)).find((name) =>
+    name.endsWith("_admin_tcm_document_progress.sql"),
+  );
+  assert.ok(migrationName, "a migration de progresso documental deve existir");
+  const documentProgressMigration = await readFile(
+    new URL(migrationName, migrationsDirectory),
+    "utf8",
+  );
+
+  assert.match(
+    documentProgressMigration,
+    /create function api\.get_collection_health_v6\(/,
+  );
+  assert.match(documentProgressMigration, /latest_work_unit text/);
+  assert.match(documentProgressMigration, /'expected_documents'/);
+  assert.match(documentProgressMigration, /'preserved_documents'/);
+  assert.match(documentProgressMigration, /'remaining_documents'/);
+  assert.match(documentProgressMigration, /'documents_downloaded'/);
+  assert.match(documentProgressMigration, /partition\.partition_key ~ '\^documents:/);
+  assert.match(documentProgressMigration, /parsed\.completed \+ parsed\.remaining = parsed\.total/);
+  assert.match(documentProgressMigration, /'collection-health\/1\.6\.0'/);
+  assert.match(
+    documentProgressMigration,
+    /revoke all on function api\.get_collection_health_v6\(integer\)\s+from public, anon/,
+  );
+  assert.match(page, /get_collection_health_v6/);
+  assert.match(page, /get_collection_health_v5/);
+  assert.match(component, /latest_work_unit/);
+  assert.match(component, /workProgress\.heading/);
 });
