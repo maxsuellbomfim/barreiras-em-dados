@@ -363,8 +363,18 @@ test("wrapper documental limita lote, RPM e não expõe credenciais", () => {
   assert.match(documentScript, /\[ValidateRange\(1, 5\)\]/);
   assert.match(documentScript, /Assert-TcmBaRequestsPerMinute/);
   assert.match(documentScript, /collect_tcm_ba_documents/);
-  assert.match(documentScript, /--max-documents \$MaxDocuments/);
-  assert.match(documentScript, /--requests-per-minute \$RequestsPerMinute/);
+  assert.match(
+    documentScript,
+    /"--max-documents"\s+\$MaxDocuments/,
+  );
+  assert.match(
+    documentScript,
+    /"--requests-per-minute"\s+\$RequestsPerMinute/,
+  );
+  assert.match(
+    documentScript,
+    /if \(-not \[string\]::IsNullOrWhiteSpace\(\$CategoryCode\)\)/,
+  );
   assert.match(documentScript, /Assert-TcmBaDocumentBatchApproval/);
   assert.match(documentScript, /TCM_BA_DOCUMENT_PILOT_APPROVED/);
   assert.match(documentScript, /collector-credential-store\.ps1/);
