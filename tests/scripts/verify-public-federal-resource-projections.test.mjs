@@ -199,7 +199,7 @@ const currentSnapshots = [
     snapshot_fingerprint: snapshot2022Hash,
     last_attempted_at: collectedAt,
     source_url: "https://api-publica.transferegov.gestao.gov.br/parcerias/proposta",
-    methodology_version: "transferegov-current-snapshot/1.0.0",
+    methodology_version: "transferegov-current-snapshot/1.1.0",
   },
   {
     fiscal_year: 2023,
@@ -208,7 +208,7 @@ const currentSnapshots = [
     snapshot_fingerprint: snapshot2023Hash,
     last_attempted_at: collectedAt,
     source_url: "https://api-publica.transferegov.gestao.gov.br/parcerias/proposta",
-    methodology_version: "transferegov-current-snapshot/1.0.0",
+    methodology_version: "transferegov-current-snapshot/1.1.0",
   },
 ];
 

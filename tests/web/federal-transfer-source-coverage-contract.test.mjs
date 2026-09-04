@@ -35,6 +35,13 @@ const currentSnapshotEvidence = readFileSync(
   ),
   "utf8",
 );
+const activeSnapshotMembership = readFileSync(
+  new URL(
+    "../../supabase/migrations/20260904032851_transferegov_active_snapshot_membership.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const methodology = readFileSync(
   new URL("../../docs/PARLIAMENTARY_TRANSFERS_METHODOLOGY.md", import.meta.url),
   "utf8",
@@ -174,6 +181,33 @@ test("snapshot atual expõe somente contagem e impressão sanitizada", () => {
   assert.doesNotMatch(
     currentSnapshotEvidence.match(/returns table \([\s\S]*?\n\)/)?.[0] ?? "",
     /payload|source_record_key|collection_run_id/,
+  );
+});
+
+test("snapshot ativo preserva histórico sem publicar linhas retiradas", () => {
+  assert.match(activeSnapshotMembership, /source\.transferegov_snapshot_manifests/);
+  assert.match(activeSnapshotMembership, /source\.transferegov_snapshot_records/);
+  assert.match(activeSnapshotMembership, /enable row level security/);
+  assert.match(activeSnapshotMembership, /source\.stage_transferegov_snapshot/);
+  assert.match(
+    activeSnapshotMembership,
+    /p_records is null\s+or jsonb_typeof\(p_records\) <> 'array'/,
+  );
+  assert.match(
+    activeSnapshotMembership,
+    /p_snapshot_fingerprint is null\s+or p_snapshot_fingerprint !~ '\^\[0-9a-f\]\{64\}\$'/,
+  );
+  assert.match(activeSnapshotMembership, /grant execute[\s\S]+collector_worker/);
+  assert.match(activeSnapshotMembership, /revoke all[\s\S]+anon, authenticated/);
+  assert.match(
+    activeSnapshotMembership,
+    /create or replace view territory\.latest_transferegov_records/,
+  );
+  assert.doesNotMatch(
+    activeSnapshotMembership.match(
+      /create or replace view territory\.latest_transferegov_records[\s\S]*?;/,
+    )?.[0] ?? "",
+    /distinct on/i,
   );
 });
 

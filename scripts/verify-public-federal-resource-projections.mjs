@@ -387,7 +387,7 @@ export function parseCurrentTransferegovSnapshotRows(rows) {
         !requiredText(row.last_attempted_at) ||
         Number.isNaN(Date.parse(row.last_attempted_at)) ||
         !requiredText(row.source_url)?.startsWith("https://") ||
-        row.methodology_version !== "transferegov-current-snapshot/1.0.0" ||
+        row.methodology_version !== "transferegov-current-snapshot/1.1.0" ||
         seen.has(row.fiscal_year)) {
       return null;
     }

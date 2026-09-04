@@ -31,6 +31,7 @@ from ..connectors.transferegov import (
     fetch_resource_distributions_page,
 )
 from ..logging import log_event
+from ..persistence.models import RawRecordEvidence
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import (
     TRANSFEREGOV_COLLECTOR_VERSION,
@@ -62,6 +63,7 @@ class TransferegovCollectionSummary:
     existing_records: int
     manifest_records: int
     snapshot_fingerprint: str
+    snapshot_records: tuple[RawRecordEvidence, ...]
     commitment_records: int = 0
     payable_document_records: int = 0
     payment_order_records: int = 0
@@ -76,6 +78,22 @@ class TransferegovCollectionSummary:
             )
         if re.fullmatch(r"[0-9a-f]{64}", self.snapshot_fingerprint) is None:
             raise ValueError("A impressão do snapshot deve ser SHA-256 hexadecimal.")
+        expected_fingerprint = build_transferegov_snapshot_fingerprint(
+            tuple(
+                (
+                    evidence.record_type,
+                    evidence.source_record_key,
+                    evidence.payload_sha256,
+                )
+                for evidence in self.snapshot_records
+            )
+        )
+        if len(self.snapshot_records) != self.manifest_records:
+            raise ValueError(
+                "A evidência do snapshot diverge da contagem do manifesto."
+            )
+        if expected_fingerprint != self.snapshot_fingerprint:
+            raise ValueError("A evidência do snapshot diverge da impressão declarada.")
 
     @property
     def observed_records(self) -> int:
@@ -118,6 +136,7 @@ def execute_controlled_transferegov(
     related_controls: Mapping[str, CollectionControl] | None = None,
     fiscal_year: int,
     operation: Callable[[], TransferegovCollectionSummary],
+    snapshot_stager: Callable[[str, int, Sequence[RawRecordEvidence], str], object],
 ) -> TransferegovCollectionSummary:
     """Registra a tentativa antes de autenticar ou consultar a fonte."""
     with ExitStack() as stack:
@@ -127,6 +146,12 @@ def execute_controlled_transferegov(
             for endpoint_code, related_control in (related_controls or {}).items()
         }
         summary = operation()
+        snapshot_stager(
+            control.run_id,
+            fiscal_year,
+            summary.snapshot_records,
+            summary.snapshot_fingerprint,
+        )
         for endpoint_code, related_control in active_related_controls.items():
             observed_records = summary.records_for_endpoint(endpoint_code)
             related_control.complete(
@@ -201,10 +226,9 @@ def execute_yearly_backfill(
     *,
     fiscal_years: Sequence[int],
     control_factory: Callable[[int], CollectionControl],
-    operation_factory: Callable[
-        [int], Callable[[], TransferegovCollectionSummary]
-    ],
+    operation_factory: Callable[[int], Callable[[], TransferegovCollectionSummary]],
     logger: logging.Logger,
+    snapshot_stager: Callable[[str, int, Sequence[RawRecordEvidence], str], object],
     related_control_factory: (
         Callable[[int], Mapping[str, CollectionControl]] | None
     ) = None,
@@ -223,6 +247,7 @@ def execute_yearly_backfill(
                 ),
                 fiscal_year=fiscal_year,
                 operation=operation_factory(fiscal_year),
+                snapshot_stager=snapshot_stager,
             )
         except Exception as error:
             failures.append((fiscal_year, error))
@@ -376,9 +401,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ) -> Callable[[], TransferegovCollectionSummary]:
         def operation() -> TransferegovCollectionSummary:
             service = TransferegovPersistenceService(
-                object_store=build_authenticated_object_store(
-                    persistence_settings
-                ),
+                object_store=build_authenticated_object_store(persistence_settings),
                 repository=repository,
             )
             return _collect_snapshot(
@@ -417,6 +440,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         operation_factory=operation_factory,
         logger=logger,
         related_control_factory=related_control_factory,
+        snapshot_stager=repository.stage_transferegov_snapshot,
     )
     return 0
 
@@ -435,7 +459,7 @@ def _collect_snapshot(
     commitment_records = payable_document_records = 0
     payment_order_records = bank_order_records = 0
     preserved_pages = inserted_records = existing_records = 0
-    record_evidence: list[tuple[str, str, str]] = []
+    record_evidence: list[RawRecordEvidence] = []
     proposal_ids: set[int] = set()
     partnership_ids: set[int] = set()
     document_ids: set[int] = set()
@@ -446,14 +470,7 @@ def _collect_snapshot(
         preserved_pages += 1
         inserted_records += result.inserted_records
         existing_records += result.existing_records
-        record_evidence.extend(
-            (
-                evidence.record_type,
-                evidence.source_record_key,
-                evidence.payload_sha256,
-            )
-            for evidence in result.record_evidence
-        )
+        record_evidence.extend(result.record_evidence)
         log_event(
             logger,
             logging.INFO,
@@ -538,15 +555,13 @@ def _collect_snapshot(
     financial_page_size = min(page_size, MAX_FINANCIAL_PAGE_SIZE)
     for partnership_id in sorted(validated_partnership_ids):
         commitment_pages = _fetch_all_pages(
-            fetch=lambda number, partnership_id=partnership_id: (
-                fetch_commitments_page(
-                    partnership_id=partnership_id,
-                    validated_partnership_ids=validated_partnership_ids,
-                    page=number,
-                    page_size=financial_page_size,
-                    circuit_breaker=breaker,
-                    logger=logger,
-                )
+            fetch=lambda number, partnership_id=partnership_id: fetch_commitments_page(
+                partnership_id=partnership_id,
+                validated_partnership_ids=validated_partnership_ids,
+                page=number,
+                page_size=financial_page_size,
+                circuit_breaker=breaker,
+                logger=logger,
             ),
             max_pages=max_pages,
             resource=f"empenhos:{partnership_id}",
@@ -583,15 +598,13 @@ def _collect_snapshot(
     validated_document_ids = frozenset(document_ids)
     for document_id in sorted(validated_document_ids):
         order_pages = _fetch_all_pages(
-            fetch=lambda number, document_id=document_id: (
-                fetch_payment_orders_page(
-                    document_id=document_id,
-                    validated_document_ids=validated_document_ids,
-                    page=number,
-                    page_size=financial_page_size,
-                    circuit_breaker=breaker,
-                    logger=logger,
-                )
+            fetch=lambda number, document_id=document_id: fetch_payment_orders_page(
+                document_id=document_id,
+                validated_document_ids=validated_document_ids,
+                page=number,
+                page_size=financial_page_size,
+                circuit_breaker=breaker,
+                logger=logger,
             ),
             max_pages=max_pages,
             resource=f"ordens-pagamento:{document_id}",
@@ -626,8 +639,16 @@ def _collect_snapshot(
         existing_records=existing_records,
         manifest_records=manifest_records,
         snapshot_fingerprint=build_transferegov_snapshot_fingerprint(
-            record_evidence
+            tuple(
+                (
+                    evidence.record_type,
+                    evidence.source_record_key,
+                    evidence.payload_sha256,
+                )
+                for evidence in record_evidence
+            )
         ),
+        snapshot_records=tuple(record_evidence),
         commitment_records=commitment_records,
         payable_document_records=payable_document_records,
         payment_order_records=payment_order_records,

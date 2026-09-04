@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, timedelta
 from typing import Any, Protocol
 
@@ -18,6 +18,7 @@ from .models import (
     OfficialDocumentSearchBatch,
     PersistenceBatch,
     PersistenceContractError,
+    RawRecordEvidence,
     RepositoryDirectEditionResult,
     RepositoryDocumentResult,
     RepositoryPersistResult,
@@ -137,6 +138,57 @@ class PostgresCollectionRepository:
     def __init__(self, connection_factory: Callable[[], DatabaseConnection]) -> None:
         self.connection_factory = connection_factory
 
+    def stage_transferegov_snapshot(
+        self,
+        run_id: str,
+        fiscal_year: int,
+        records: Sequence[RawRecordEvidence],
+        snapshot_fingerprint: str,
+    ) -> str:
+        """Registra a composição exata antes de concluir a coleta anual."""
+        if isinstance(fiscal_year, bool) or not isinstance(fiscal_year, int):
+            raise ValueError("fiscal_year deve ser inteiro.")
+        if not re.fullmatch(r"[0-9a-f]{64}", snapshot_fingerprint):
+            raise ValueError("snapshot_fingerprint deve ser SHA-256 hexadecimal.")
+        serialized_records = self._json(
+            [
+                {
+                    "record_type": evidence.record_type,
+                    "source_record_key": evidence.source_record_key,
+                    "payload_sha256": evidence.payload_sha256,
+                }
+                for evidence in records
+            ]
+        )
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                row = connection.execute(
+                    """
+                    select source.stage_transferegov_snapshot(
+                      %s::uuid,
+                      %s::smallint,
+                      %s::jsonb,
+                      %s
+                    )::text as snapshot_id
+                    """,
+                    (
+                        run_id,
+                        fiscal_year,
+                        serialized_records,
+                        snapshot_fingerprint,
+                    ),
+                ).fetchone()
+                if row is None or not row.get("snapshot_id"):
+                    raise PersistenceContractError(
+                        "O banco não confirmou o snapshot anual do Transferegov."
+                    )
+                return str(row["snapshot_id"])
+        finally:
+            connection.close()
+
     def collection_partition_checkpoint(
         self,
         *,
@@ -214,9 +266,7 @@ class PostgresCollectionRepository:
             raise ValueError("competence deve usar MM/AAAA.")
         if limit < 1 or limit > 5:
             raise ValueError("limit deve estar entre 1 e 5.")
-        if category_code is not None and not re.fullmatch(
-            r"PCMGE\d{3}", category_code
-        ):
+        if category_code is not None and not re.fullmatch(r"PCMGE\d{3}", category_code):
             raise ValueError("category_code deve usar PCMGE seguido de três dígitos.")
         month, year = (int(part) for part in competence.split("/"))
         partition_key = f"competence:{year:04d}-{month:02d}"

@@ -62,7 +62,71 @@ try {
     postgrestNotifications.push(payload);
   });
   let specialTransferStableViewBefore;
+  let seededCurrentSnapshot;
   for (const [index, migration] of laterMigrations.entries()) {
+    if (
+      migrationNames[rankingMigrationIndex + 1 + index] ===
+      "20260904032851_transferegov_active_snapshot_membership.sql"
+    ) {
+      await database.exec(`
+        insert into source.collection_runs (
+          id, source_endpoint_id, idempotency_key, collector_version, status
+        ) values (
+          '00000000-0000-0000-0000-000000008901',
+          (select endpoint.id
+           from source.source_endpoints endpoint
+           join source.data_sources source on source.id = endpoint.data_source_id
+           where source.slug = 'transferegov-parcerias'
+             and endpoint.slug = 'propostas-barreiras'),
+          'transferegov-pre-migration-seed-run', 'test/1', 'succeeded'
+        );
+        insert into source.collection_partitions (
+          source_endpoint_id, partition_key, period_start, period_end, status,
+          observed_records, collection_run_id, checkpoint, last_attempted_at,
+          completed_at
+        ) values (
+          (select endpoint.id
+           from source.source_endpoints endpoint
+           join source.data_sources source on source.id = endpoint.data_source_id
+           where source.slug = 'transferegov-parcerias'
+             and endpoint.slug = 'propostas-barreiras'),
+          'fiscal-year:2024', '2024-01-01', '2024-12-31', 'complete', 1,
+          '00000000-0000-0000-0000-000000008901',
+          '{"fiscal_year":2024,"proposal_records":1}',
+          '2026-08-12 16:00:00+00', '2026-08-12 16:00:01+00'
+        );
+        insert into raw.raw_artifacts (
+          id, collection_run_id, source_endpoint_id, idempotency_key,
+          artifact_kind, source_url, retrieved_at, http_status, content_type,
+          byte_size, sha256, object_key, collector_version, parser_version
+        ) values (
+          '00000000-0000-0000-0000-000000008902',
+          '00000000-0000-0000-0000-000000008901',
+          (select endpoint.id
+           from source.source_endpoints endpoint
+           join source.data_sources source on source.id = endpoint.data_source_id
+           where source.slug = 'transferegov-parcerias'
+             and endpoint.slug = 'propostas-barreiras'),
+          'transferegov-pre-migration-seed-artifact', 'http_response',
+          'https://api-publica.transferegov.gestao.gov.br/parcerias/proposta',
+          '2026-08-12 16:00:00+00', 200, 'application/json', 1,
+          '${"8".repeat(64)}', 'fixtures/transferegov-pre-migration.json',
+          'test/1', 'test/1'
+        );
+        insert into raw.raw_records (
+          id, raw_artifact_id, source_record_key, record_type, record_index,
+          payload, payload_sha256, parser_version, idempotency_key, collected_at
+        ) values (
+          '00000000-0000-0000-0000-000000008903',
+          '00000000-0000-0000-0000-000000008902',
+          'transferegov:proposta:seed-2024', 'transferegov_proposta', 0,
+          '{"id_proposta":"8903","ano_proposta":2024}',
+          '${"9".repeat(64)}', 'test/1',
+          'transferegov-pre-migration-seed-record',
+          '2026-08-12 16:00:00+00'
+        );
+      `);
+    }
     if (
       migrationNames[rankingMigrationIndex + 1 + index] ===
       "20260903170000_materialize_bahia_special_transfer_payments.sql"
@@ -78,6 +142,35 @@ try {
       assert.equal(specialTransferStableViewBefore.rows.length, 1);
     }
     await database.exec(migration);
+    if (
+      migrationNames[rankingMigrationIndex + 1 + index] ===
+      "20260904032851_transferegov_active_snapshot_membership.sql"
+    ) {
+      seededCurrentSnapshot = await database.query(`
+        select manifest.status, manifest.record_count,
+          manifest.snapshot_fingerprint,
+          member.raw_record_id::text as raw_record_id
+        from source.transferegov_snapshot_manifests as manifest
+        join source.transferegov_snapshot_records as member
+          on member.snapshot_id = manifest.id
+        where manifest.collection_run_id =
+          '00000000-0000-0000-0000-000000008901'
+      `);
+      await database.exec(`
+        delete from source.transferegov_snapshot_records
+        where snapshot_id in (
+          select id from source.transferegov_snapshot_manifests
+          where collection_run_id =
+            '00000000-0000-0000-0000-000000008901'
+        );
+        delete from source.transferegov_snapshot_manifests
+        where collection_run_id =
+          '00000000-0000-0000-0000-000000008901';
+        delete from source.collection_partitions
+        where collection_run_id =
+          '00000000-0000-0000-0000-000000008901';
+      `);
+    }
   }
   await new Promise((resolve) => setImmediate(resolve));
   await stopListening();
@@ -85,6 +178,16 @@ try {
     postgrestNotifications.includes("reload schema"),
     "migrations posteriores ao ranking devem recarregar o schema do PostgREST",
   );
+
+  assert.deepEqual(seededCurrentSnapshot?.rows, [{
+    status: "active",
+    record_count: 1,
+    snapshot_fingerprint: createHash("sha256").update(
+      `transferegov_proposta\x1ftransferegov:proposta:seed-2024\x1f${"9".repeat(64)}`,
+      "utf8",
+    ).digest("hex"),
+    raw_record_id: "00000000-0000-0000-0000-000000008903",
+  }]);
 
   const territorySchema = await database.query(`
     select to_regnamespace('territory')::text as territory_schema
@@ -356,6 +459,61 @@ try {
     anon_state_loa_execution_snapshot_refresh: false,
     worker_state_loa_execution_snapshot_refresh: true,
   }]);
+
+  const currentSnapshotContracts = await database.query(`
+    select
+      to_regclass('source.transferegov_snapshot_manifests')::text
+        as manifest_table,
+      to_regclass('source.transferegov_snapshot_records')::text
+        as membership_table,
+      to_regprocedure(
+        'source.stage_transferegov_snapshot(uuid,smallint,jsonb,text)'
+      )::text as stage_rpc,
+      has_function_privilege(
+        'collector_worker',
+        'source.stage_transferegov_snapshot(uuid,smallint,jsonb,text)',
+        'EXECUTE'
+      ) as worker_stage_execute,
+      has_function_privilege(
+        'anon',
+        'source.stage_transferegov_snapshot(uuid,smallint,jsonb,text)',
+        'EXECUTE'
+      ) as anon_stage_execute,
+      (select relrowsecurity
+       from pg_class
+       where oid = 'source.transferegov_snapshot_manifests'::regclass)
+        as manifest_rls,
+      (select relrowsecurity
+       from pg_class
+       where oid = 'source.transferegov_snapshot_records'::regclass)
+        as membership_rls
+  `);
+  assert.deepEqual(currentSnapshotContracts.rows, [{
+    manifest_table: "source.transferegov_snapshot_manifests",
+    membership_table: "source.transferegov_snapshot_records",
+    stage_rpc:
+      "source.stage_transferegov_snapshot(uuid,smallint,jsonb,text)",
+    worker_stage_execute: true,
+    anon_stage_execute: false,
+    manifest_rls: true,
+    membership_rls: true,
+  }]);
+
+  const activeRecordDefinition = await database.query(`
+    select pg_get_viewdef(
+      'territory.latest_transferegov_records'::regclass,
+      true
+    ) as definition
+  `);
+  assert.match(
+    activeRecordDefinition.rows[0].definition,
+    /source\.transferegov_snapshot_records/,
+  );
+  assert.match(
+    activeRecordDefinition.rows[0].definition,
+    /source\.transferegov_snapshot_manifests/,
+  );
+  assert.doesNotMatch(activeRecordDefinition.rows[0].definition, /distinct on/i);
 
   const stateExecutionCoverageContracts = await database.query(`
     select
@@ -824,23 +982,59 @@ try {
         '{"id_distribuicao_recurso_proposta":50000,"id_proposta":40000,"in_tipo_distribuicao":"Emenda","in_tipo_emenda_parlamentar_proposta":"Individual","nm_parlamentar_proposta":"Ricardo Maia","nr_emenda_proposta":"2025.4460.0099","valor_emenda":100000}',
         '${"6".repeat(64)}', 'test/1', 'parliamentary-record-0011',
         '2026-08-12 18:00:00+00'
+      ),
+      (
+        '00000000-0000-0000-0000-000000009021',
+        '00000000-0000-0000-0000-000000009002',
+        'transferegov:distribuicao:59999',
+        'transferegov_distribuicao_recurso', 11,
+        '{"id_distribuicao_recurso_proposta":59999,"id_proposta":40000,"in_tipo_distribuicao":"Emenda","in_tipo_emenda_parlamentar_proposta":"Individual","nm_parlamentar_proposta":"REGISTRO RETIRADO","nr_emenda_proposta":"2025.0000.0000","valor_emenda":12345}',
+        '${"7".repeat(64)}', 'test/1', 'parliamentary-record-stale',
+        '2026-08-12 17:59:00+00'
       );
   `);
 
+  const currentSnapshotRecords = [
+    ["transferegov_distribuicao_recurso", "transferegov:distribuicao:14886", "c".repeat(64)],
+    ["transferegov_distribuicao_recurso", "transferegov:distribuicao:43389", "f".repeat(64)],
+    ["transferegov_distribuicao_recurso", "transferegov:distribuicao:50000", "6".repeat(64)],
+    ["transferegov_documento_habil", "transferegov:documento-habil:5941", "3".repeat(64)],
+    ["transferegov_empenho", "transferegov:empenho:11245", "2".repeat(64)],
+    ["transferegov_ordem_pagamento", "transferegov:ordem-pagamento:5932", "4".repeat(64)],
+    ["transferegov_parceria", "transferegov:parceria:30785", "1".repeat(64)],
+    ["transferegov_proposta", "transferegov:proposta:30854", "d".repeat(64)],
+    ["transferegov_proposta", "transferegov:proposta:40000", "5".repeat(64)],
+    ["transferegov_proposta", "transferegov:proposta:9274", "b".repeat(64)],
+  ].map(([record_type, source_record_key, payload_sha256]) => ({
+    record_type,
+    source_record_key,
+    payload_sha256,
+  }));
   const expectedCurrentSnapshotFingerprint = createHash("sha256")
-    .update([
-      `transferegov_distribuicao_recurso\x1ftransferegov:distribuicao:14886\x1f${"c".repeat(64)}`,
-      `transferegov_distribuicao_recurso\x1ftransferegov:distribuicao:43389\x1f${"f".repeat(64)}`,
-      `transferegov_distribuicao_recurso\x1ftransferegov:distribuicao:50000\x1f${"6".repeat(64)}`,
-      `transferegov_documento_habil\x1ftransferegov:documento-habil:5941\x1f${"3".repeat(64)}`,
-      `transferegov_empenho\x1ftransferegov:empenho:11245\x1f${"2".repeat(64)}`,
-      `transferegov_ordem_pagamento\x1ftransferegov:ordem-pagamento:5932\x1f${"4".repeat(64)}`,
-      `transferegov_parceria\x1ftransferegov:parceria:30785\x1f${"1".repeat(64)}`,
-      `transferegov_proposta\x1ftransferegov:proposta:30854\x1f${"d".repeat(64)}`,
-      `transferegov_proposta\x1ftransferegov:proposta:40000\x1f${"5".repeat(64)}`,
-      `transferegov_proposta\x1ftransferegov:proposta:9274\x1f${"b".repeat(64)}`,
-    ].sort().join("\n"), "utf8")
+    .update(currentSnapshotRecords.map((record) =>
+      `${record.record_type}\x1f${record.source_record_key}\x1f${record.payload_sha256}`
+    ).sort().join("\n"), "utf8")
     .digest("hex");
+  await database.exec(`
+    select source.stage_transferegov_snapshot(
+      '00000000-0000-0000-0000-000000009001'::uuid,
+      2021::smallint,
+      '[]'::jsonb,
+      '${createHash("sha256").update("").digest("hex")}'
+    );
+    select source.stage_transferegov_snapshot(
+      '00000000-0000-0000-0000-000000009001'::uuid,
+      2022::smallint,
+      '[]'::jsonb,
+      '${createHash("sha256").update("").digest("hex")}'
+    );
+    select source.stage_transferegov_snapshot(
+      '00000000-0000-0000-0000-000000009001'::uuid,
+      2025::smallint,
+      '${JSON.stringify(currentSnapshotRecords)}'::jsonb,
+      '${expectedCurrentSnapshotFingerprint}'
+    );
+  `);
   const currentSnapshotEvidence = await database.query(`
     select fiscal_year, coverage_status, record_count, snapshot_fingerprint,
            methodology_version
@@ -855,7 +1049,7 @@ try {
       record_count: 0,
       snapshot_fingerprint:
         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      methodology_version: "transferegov-current-snapshot/1.0.0",
+      methodology_version: "transferegov-current-snapshot/1.1.0",
     },
     {
       fiscal_year: 2022,
@@ -863,14 +1057,14 @@ try {
       record_count: 0,
       snapshot_fingerprint:
         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      methodology_version: "transferegov-current-snapshot/1.0.0",
+      methodology_version: "transferegov-current-snapshot/1.1.0",
     },
     {
       fiscal_year: 2025,
       coverage_status: "complete",
       record_count: 10,
       snapshot_fingerprint: expectedCurrentSnapshotFingerprint,
-      methodology_version: "transferegov-current-snapshot/1.0.0",
+      methodology_version: "transferegov-current-snapshot/1.1.0",
     },
   ]);
 
@@ -2438,6 +2632,11 @@ try {
       methodology_version: "parliamentary-transfers/1.0.0",
     },
   ]);
+  assert.equal(
+    JSON.stringify(transfers.rows).includes("REGISTRO RETIRADO"),
+    false,
+    "um registro bruto ausente do snapshot ativo não pode continuar publicado",
+  );
   assert.deepEqual(coverage.rows, [
     {
       fiscal_year: 2021,
@@ -3612,6 +3811,94 @@ try {
         "cgu-federal-amendment-legislature-ranking/2.0.0",
     },
   ]);
+
+  const reducedSnapshotRecords = [currentSnapshotRecords.find(
+    (record) => record.source_record_key === "transferegov:proposta:40000",
+  )];
+  const reducedSnapshotFingerprint = createHash("sha256")
+    .update(reducedSnapshotRecords.map((record) =>
+      `${record.record_type}\x1f${record.source_record_key}\x1f${record.payload_sha256}`
+    ).join("\n"), "utf8")
+    .digest("hex");
+  await database.exec(`
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000009003',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'transferegov-parcerias'
+         and endpoint.slug = 'propostas-barreiras'),
+      'transferegov-snapshot-failed-fixture', 'test/1', 'running'
+    );
+    select source.stage_transferegov_snapshot(
+      '00000000-0000-0000-0000-000000009003'::uuid,
+      2025::smallint,
+      '${JSON.stringify(reducedSnapshotRecords)}'::jsonb,
+      '${reducedSnapshotFingerprint}'
+    );
+  `);
+  let snapshotTransitions = await database.query(`
+    select status, count(*)::integer as snapshots
+    from source.transferegov_snapshot_manifests
+    where fiscal_year = 2025
+    group by status
+    order by status
+  `);
+  assert.deepEqual(snapshotTransitions.rows, [
+    { status: "active", snapshots: 1 },
+    { status: "pending", snapshots: 1 },
+  ]);
+  assert.equal(
+    (await database.query(
+      "select count(*)::integer as records from territory.latest_transferegov_records",
+    )).rows[0].records,
+    10,
+  );
+  await database.exec(`
+    update source.collection_runs
+    set status = 'failed'
+    where id = '00000000-0000-0000-0000-000000009003';
+    insert into source.collection_runs (
+      id, source_endpoint_id, idempotency_key, collector_version, status
+    ) values (
+      '00000000-0000-0000-0000-000000009004',
+      (select endpoint.id
+       from source.source_endpoints endpoint
+       join source.data_sources source on source.id = endpoint.data_source_id
+       where source.slug = 'transferegov-parcerias'
+         and endpoint.slug = 'propostas-barreiras'),
+      'transferegov-snapshot-success-fixture', 'test/1', 'running'
+    );
+    select source.stage_transferegov_snapshot(
+      '00000000-0000-0000-0000-000000009004'::uuid,
+      2025::smallint,
+      '${JSON.stringify(reducedSnapshotRecords)}'::jsonb,
+      '${reducedSnapshotFingerprint}'
+    );
+    update source.collection_runs
+    set status = 'succeeded'
+    where id = '00000000-0000-0000-0000-000000009004';
+  `);
+  snapshotTransitions = await database.query(`
+    select status, count(*)::integer as snapshots
+    from source.transferegov_snapshot_manifests
+    where fiscal_year = 2025
+    group by status
+    order by status
+  `);
+  assert.deepEqual(snapshotTransitions.rows, [
+    { status: "abandoned", snapshots: 1 },
+    { status: "active", snapshots: 1 },
+    { status: "superseded", snapshots: 1 },
+  ]);
+  assert.equal(
+    (await database.query(
+      "select count(*)::integer as records from territory.latest_transferegov_records",
+    )).rows[0].records,
+    1,
+  );
 
   await database.exec("set role anon");
   const anonCguDocumentLegislatureRanking = await database.query(`

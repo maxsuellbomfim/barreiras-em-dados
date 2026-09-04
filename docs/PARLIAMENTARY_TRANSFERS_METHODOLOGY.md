@@ -106,6 +106,27 @@ confirmava Barreiras como destino. A ausência de
 correspondência entre séries é registrada como diferença de cobertura, não como
 erro nem prova de ausência de recurso.
 
+### Versionamento do retrato atual do Transferegov
+
+A API atual pode retirar ou corrigir uma linha entre duas coletas. O acervo
+bruto do Barreiras 360 permanece append-only, mas a projeção pública deixou de
+interpretar como atual toda chave que apareceu alguma vez. Cada exercício passa
+a ter um manifesto privado com a composição exata do snapshot: tipo do registro,
+chave oficial e SHA-256 do payload normalizado.
+
+O manifesto é preparado antes de a execução principal terminar. Enquanto a
+coleta está em andamento, ele permanece `pending` e não altera o site. Uma
+falha o marca como `abandoned`; o último retrato íntegro continua publicado. O
+sucesso promove o novo manifesto a `active` e o anterior a `superseded` na
+mesma transação. Assim, uma linha retirada da fonte deixa de aparecer na visão
+atual sem apagar a evidência histórica de que ela já foi observada.
+
+A versão `transferegov-current-snapshot/1.1.0` publica somente ano, estado de
+cobertura, contagem, impressão SHA-256, data e URL oficial. Payloads, chaves
+individuais e IDs de execução permanecem privados. A migração inicial semeia os
+retratos já classificados antes de substituir a view, evitando uma janela vazia
+entre o deploy e a coleta seguinte.
+
 ## Cobertura histórica federal
 
 O arquivo nacional `siconv_proposta.zip` é preservado integralmente em área

@@ -50,8 +50,9 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
   indisponibilidade gera aviso e DLQ próprios, enquanto catálogo e PDFs oficiais
   continuam obrigatórios e qualquer falha neles encerra a execução;
 - o Transferegov atual reconcilia contagem, contrato e a impressão SHA-256 do
-  conjunto normalizado com a projeção pública; a prova identifica divergência
-  do snapshot anual, mas não expõe payloads nem chaves individuais;
+  conjunto normalizado com a projeção pública; cada exercício possui membership
+  versionado, de modo que uma linha retirada da fonte sai da visão atual sem
+  apagar o histórico bruto; a prova não expõe payloads nem chaves individuais;
 - fatos literais aprovados podem ser automáticos, mas identidade ambígua,
   conflito entre fontes e interpretação reputacional exigem revisão;
 - o portal continua marcado como pré-lançamento até os gates operacionais e de
@@ -102,6 +103,11 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
   projeção, uma linha nova omitida ou um payload divergente bloqueia a
   publicação, mesmo quando os totais públicos coincidem. A RPC de evidência
   expõe somente ano, estado, contagem, hash, data, fonte e metodologia.
+- Em 04/09/2026, a projeção atual do Transferegov recebeu manifestos privados
+  versionados. Um retrato em andamento não altera o portal; se a execução
+  falhar, ele é abandonado, e, se concluir, substitui atomicamente o anterior.
+  A migração preserva o estado público existente antes de trocar a view e não
+  exclui qualquer registro bruto.
 
 ## Próximo fluxo vertical
 
