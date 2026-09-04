@@ -239,6 +239,26 @@ test("CGU federal completa emendas de Barreiras sem chave privada", () => {
   );
 });
 
+test("fontes federais falham se a coleta nao chegar as projecoes publicas", () => {
+  const transferegovJob = workflow.slice(
+    workflow.indexOf("  transferegov:"),
+    workflow.indexOf("  siconfi_dca:"),
+  );
+
+  assert.match(
+    transferegovJob,
+    /actions\/setup-node@a0853c24544627f65ddf259abe73b1d18a591444/,
+  );
+  assert.match(transferegovJob, /node-version: 22\.x/);
+  assert.match(transferegovJob, /set -o pipefail/);
+  assert.match(transferegovJob, /federal-collector\.log/);
+  assert.match(transferegovJob, /federal-not-before\.txt/);
+  assert.match(
+    transferegovJob,
+    /verify-public-federal-resource-projections\.mjs[\s\S]*--collector-log[\s\S]*--not-before-file/,
+  );
+});
+
 test("modo somente Transferegov nao abre coletores independentes", () => {
   const collectJob = workflow.slice(
     workflow.indexOf("  collect:"),
@@ -260,6 +280,14 @@ test("modo somente Transferegov nao abre coletores independentes", () => {
   assert.match(
     transferegovJob,
     /inputs\.resource == 'transferegov-only'/,
+  );
+  const historicalCatalogStep = transferegovJob.slice(
+    transferegovJob.indexOf("- name: Preservar catálogo histórico do Transferegov"),
+    transferegovJob.indexOf("- name: Preservar propostas históricas de Barreiras"),
+  );
+  assert.match(
+    historicalCatalogStep,
+    /if: >-[\s\S]*inputs\.resource != 'transferegov-only'[\s\S]*inputs\.include_transferegov_historical_proposals == true[\s\S]*inputs\.include_transferegov_historical_amendments == true/,
   );
   assert.match(
     stateJobs,
