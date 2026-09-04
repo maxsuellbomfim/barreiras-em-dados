@@ -533,6 +533,11 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Preparar Node para o gate público
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22.x
+
       - name: Instalar dependências fixadas
         run: python -m pip install --disable-pip-version-check ".[postgres,storage]"
 
@@ -547,15 +552,24 @@ jobs:
           | sha256sum --check --strict
 
       - name: Preservar catálogo e ZIP estaduais
-        run: >-
-          python -B -m
-          barreiras_collectors.commands.collect_bahia_state_amendments
+        shell: bash
+        run: |
+          set -o pipefail
+          python -B -m \
+            barreiras_collectors.commands.collect_bahia_state_amendments \
+            2>&1 | tee "$RUNNER_TEMP/bahia-state-collector.jsonl"
 
       - name: Normalizar execução estadual agregada
         run: >-
           python -B -m
           barreiras_normalization.commands.process_bahia_state_execution
           --limit "1"
+
+      - name: Confirmar publicação da cobertura estadual
+        run: >-
+          node scripts/verify-public-state-resource-projections.mjs
+          --scope state-execution
+          --collector-log "$RUNNER_TEMP/bahia-state-collector.jsonl"
 
   bahia_special_transfers:
     name: Preservar transferências especiais da Bahia
@@ -605,6 +619,11 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Preparar Node para o gate público
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22.x
+
       - name: Instalar dependências fixadas
         run: python -m pip install --disable-pip-version-check ".[postgres,storage]"
 
@@ -619,15 +638,24 @@ jobs:
           | sha256sum --check --strict
 
       - name: Preservar catálogo e ZIP de Transferências Especiais
-        run: >-
-          python -B -m
-          barreiras_collectors.commands.collect_bahia_special_transfers
+        shell: bash
+        run: |
+          set -o pipefail
+          python -B -m \
+            barreiras_collectors.commands.collect_bahia_special_transfers \
+            2>&1 | tee "$RUNNER_TEMP/bahia-special-collector.jsonl"
 
       - name: Normalizar pagamentos que mencionam Barreiras
         run: >-
           python -B -m
           barreiras_normalization.commands.process_bahia_special_transfers
           --limit "1"
+
+      - name: Reconciliar cobertura, pagamentos e ranking públicos
+        run: >-
+          node scripts/verify-public-state-resource-projections.mjs
+          --scope special-transfers
+          --collector-log "$RUNNER_TEMP/bahia-special-collector.jsonl"
 
   bahia_state_loa_amendments:
     name: Preservar anexos territoriais da LOA da Bahia
@@ -677,6 +705,11 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Preparar Node para o gate público
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22.x
+
       - name: Instalar dependências fixadas
         run: python -m pip install --disable-pip-version-check ".[postgres,storage,pdf]"
 
@@ -686,14 +719,26 @@ jobs:
           | sha256sum --check --strict
 
       - name: Preservar anexos da LOA por município e autor
-        run: >-
-          python -B -m
-          barreiras_collectors.commands.collect_bahia_state_loa_amendments
-          --year-from "2021"
-          --year-to "2026"
+        shell: bash
+        run: |
+          set -o pipefail
+          date -u +"%Y-%m-%dT%H:%M:%SZ" \
+            > "$RUNNER_TEMP/bahia-loa-started-at.txt"
+          python -B -m \
+            barreiras_collectors.commands.collect_bahia_state_loa_amendments \
+            --year-from "2021" \
+            --year-to "2026" \
+            2>&1 | tee "$RUNNER_TEMP/bahia-loa-collector.jsonl"
 
       - name: Extrair valores autorizados destinados a Barreiras
         run: >-
           python -B -m
           barreiras_docproc.commands.process_bahia_state_loa
           --limit "10"
+
+      - name: Reconciliar cobertura pública da LOA e da execução
+        run: >-
+          node scripts/verify-public-state-resource-projections.mjs
+          --scope loa
+          --collector-log "$RUNNER_TEMP/bahia-loa-collector.jsonl"
+          --not-before-file "$RUNNER_TEMP/bahia-loa-started-at.txt"

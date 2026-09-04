@@ -66,8 +66,11 @@ class BahiaStateExecutionRepository:
                     where job.raw_artifact_id = artifact.id
                       and job.job_type = %s
                       and job.status = 'succeeded'
+                      and result.candidate_type =
+                        'bahia_state_execution_aggregate'
                       and result.extractor_version = %s
                       and result.validator_version = %s
+                      and result.validation_status = 'valid'
                   )
                   and not exists (
                     select 1
