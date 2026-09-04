@@ -1248,10 +1248,12 @@ try {
     Invoke-TcmBaContractDocumentCoverage -Python $python -ProjectRoot $projectRoot
     Invoke-TcmBaContractFieldProcessing -Python $python -ProjectRoot $projectRoot -Limit $MaxDocuments
     Invoke-TcmBaContractFieldCoverage -Python $python -ProjectRoot $projectRoot
+    $commitmentCatchUpLimit = Get-TcmBaCommitmentCatchUpLimit `
+        -MaxDocuments $MaxDocuments
     Invoke-TcmBaCommitmentCandidateProcessing `
         -Python $python `
         -ProjectRoot $projectRoot `
-        -Limit $MaxDocuments
+        -Limit $commitmentCatchUpLimit
     Invoke-TcmBaCommitmentCandidateCoverage `
         -Python $python `
         -ProjectRoot $projectRoot

@@ -55,6 +55,16 @@ function Get-TcmBaDocumentFamilyCatchUpLimit {
     return [Math]::Min(50, 2 * $MaxDocuments)
 }
 
+function Get-TcmBaCommitmentCatchUpLimit {
+    [CmdletBinding()]
+    param(
+        [ValidateRange(1, 5)]
+        [int]$MaxDocuments
+    )
+
+    return [Math]::Min(50, 10 * $MaxDocuments)
+}
+
 function Assert-TcmBaReplayApproval {
     [CmdletBinding()]
     param(
