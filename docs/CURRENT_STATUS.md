@@ -75,6 +75,13 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 ## Evidências operacionais recentes
 
+- Em 04/09/2026, a recuperação privada dos candidatos de empenho do TCM-BA
+  eliminou a fila histórica: 1.360 de 1.360 PDFs elegíveis foram processados,
+  sem ausência, duplicidade, payload inválido ou falha aberta. Dos 242
+  candidatos, 14 possuem os quatro campos estritos e 228 permanecem privados
+  por informação ausente ou ambígua. O agendamento documental conserva 30
+  requisições por minuto, processamento serial e auditoria física, mas passa a
+  aceitar até dez documentos por rodada para acelerar a cobertura desde 2021.
 - Em 02/09/2026, a tarefa local `Barreiras360-TCMBA-MonthlyCatalog` foi
   instalada para execução diária às 06:17, sem sobreposição e com limite de 30
   requisições por minuto. A primeira verificação autenticada classificou

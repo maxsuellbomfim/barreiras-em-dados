@@ -360,7 +360,7 @@ function assertDocumentRejected(events, expectedMessage, maxDocuments = 5) {
 }
 
 test("wrapper documental limita lote, RPM e não expõe credenciais", () => {
-  assert.match(documentScript, /\[ValidateRange\(1, 5\)\]/);
+  assert.match(documentScript, /\[ValidateRange\(1, 10\)\]/);
   assert.match(documentScript, /Assert-TcmBaRequestsPerMinute/);
   assert.match(documentScript, /collect_tcm_ba_documents/);
   assert.match(
@@ -409,6 +409,19 @@ test("gate documental aprova lote que fecha integralmente a competência", () =>
       coverage_status: "complete",
     }),
   ]);
+});
+
+test("gate documental aceita lote operacional de dez sem ampliar RPM", () => {
+  assertDocumentApproved(
+    [
+      documentEvent({
+        downloaded_documents: 10,
+        preserved_documents: 11,
+        remaining_documents: 1430,
+      }),
+    ],
+    10,
+  );
 });
 
 test("gate documental rejeita execução vazia, duplicada ou acima do limite", () => {

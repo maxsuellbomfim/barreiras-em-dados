@@ -1,7 +1,7 @@
 param(
     [string]$Competence = "01/2021",
     [string]$CategoryCode = "",
-    [ValidateRange(1, 5)]
+    [ValidateRange(1, 10)]
     [int]$MaxDocuments = 1,
     [switch]$AutoCompetence,
     [switch]$PlanOnly,
