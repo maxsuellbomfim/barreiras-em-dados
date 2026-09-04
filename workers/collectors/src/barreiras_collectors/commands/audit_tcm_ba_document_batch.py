@@ -14,6 +14,7 @@ from ..logging import log_event
 from ..persistence.models import TcmBaDocumentAuditSnapshot
 from ..persistence.postgres import PostgresCollectionRepository
 from ..settings import CollectorSettings, PersistenceSettings
+from ..tcm_ba_limits import MAX_TCM_BA_DOCUMENTS_PER_BATCH
 from .pncp_runtime import build_authenticated_object_store
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -95,8 +96,11 @@ def audit_tcm_ba_document_batch(
     )
     if expected <= 0:
         raise TcmBaDocumentAuditError("expected_documents deve ser maior que zero.")
-    if not 1 <= downloaded <= 5:
-        raise TcmBaDocumentAuditError("O lote auditado deve conter entre 1 e 5 PDFs.")
+    if not 1 <= downloaded <= MAX_TCM_BA_DOCUMENTS_PER_BATCH:
+        raise TcmBaDocumentAuditError(
+            "O lote auditado deve conter entre 1 e "
+            f"{MAX_TCM_BA_DOCUMENTS_PER_BATCH} PDFs."
+        )
     if preserved != snapshot.observed_records or preserved != preserved_after:
         raise TcmBaDocumentAuditError("A cobertura observada diverge dos preservados.")
     if preserved_before + downloaded != preserved:
