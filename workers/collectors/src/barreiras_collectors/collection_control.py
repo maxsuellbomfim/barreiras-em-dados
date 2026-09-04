@@ -42,6 +42,7 @@ _SECRET_ASSIGNMENT = re.compile(
     r"(?i)(authorization|api[_-]?key|password|secret|token)=([^&\s]+)"
 )
 _BEARER_TOKEN = re.compile(r"(?i)bearer\s+[a-z0-9._~+/=-]+")
+_EXECUTION_ORIGINS = frozenset({"manual", "github_actions", "windows_scheduler"})
 
 
 def build_execution_idempotency_key(
@@ -93,6 +94,7 @@ class CollectionControl:
     partition_key: str
     period_start: date
     period_end: date
+    execution_origin: str = "manual"
     parser_version: str = "not-applicable"
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
     _run_id: str | None = field(init=False, default=None)
@@ -103,6 +105,8 @@ class CollectionControl:
             raise ValueError("period_start não pode ser posterior a period_end")
         if len(self.idempotency_key) < 16:
             raise ValueError("idempotency_key deve ter pelo menos 16 caracteres")
+        if self.execution_origin not in _EXECUTION_ORIGINS:
+            raise ValueError("execution_origin não reconhecida")
 
     def __enter__(self) -> CollectionControl:
         started_at = self.clock()
@@ -114,6 +118,7 @@ class CollectionControl:
             parser_version=self.parser_version,
             period_start=self.period_start,
             period_end=self.period_end,
+            execution_origin=self.execution_origin,
             started_at=started_at,
         )
         return self

@@ -15,6 +15,18 @@ const validationHelperPath = path.resolve(
 );
 const wrapper = readFileSync(wrapperPath, "utf8");
 
+test("wrapper declara origem controlada e a encaminha ao coletor", () => {
+  assert.match(
+    wrapper,
+    /\[ValidateSet\("manual", "github_actions", "windows_scheduler"\)\]/,
+  );
+  assert.match(wrapper, /\[string\]\$ExecutionOrigin = "manual"/);
+  assert.match(
+    wrapper,
+    /"--execution-origin"\s+\$ExecutionOrigin/,
+  );
+});
+
 test("consulta de linhagem exige hash e chama somente o relatório exato", () => {
   assert.match(wrapper, /\[switch\]\$DocumentLineageOnly/);
   assert.match(wrapper, /\[string\]\$ArtifactSha256/);

@@ -2,6 +2,7 @@
 
 import { formatBackfillProgress } from "./collection-backfill.mjs";
 import { formatCollectionWorkProgress } from "./collection-work-progress.mjs";
+import { formatScheduledRunStreak } from "./collection-scheduled-streak.mjs";
 import {
   formatFreshnessPolicy,
   formatFreshnessStatus,
@@ -76,6 +77,9 @@ export type CollectionHealthItem = Readonly<{
   latest_batch_processed: number | null;
   latest_work_unit: "document" | null;
   latest_block_reason: string | null;
+  scheduled_success_streak: number | null;
+  scheduled_runs_observed: number | null;
+  latest_scheduled_run_at: string | null;
 }>;
 
 export type CollectionHealthState =
@@ -281,6 +285,10 @@ function CollectionHealthCard({
   const tone = healthTone(item);
   const backfill = formatBackfillProgress(item);
   const workProgress = formatCollectionWorkProgress(item);
+  const scheduledStreak =
+    item.latest_work_unit === "document"
+      ? formatScheduledRunStreak(item)
+      : null;
   return (
     <article className="source-health-card">
       <div className="card-top">
@@ -385,6 +393,30 @@ function CollectionHealthCard({
               ? "O número representa PDFs oficiais preservados neste mês. Cobertura parcial não significa falha: a próxima execução retoma dos documentos restantes até completar o catálogo."
               : "O número representa itens já consultados neste ciclo. Cobertura parcial não significa falha: a próxima execução retoma do ponto preservado até concluir todo o universo."}
           </p>
+        </section>
+      ) : null}
+      {scheduledStreak ? (
+        <section
+          className="source-health-backfill"
+          aria-label="Execuções agendadas verificáveis"
+        >
+          <div className="source-health-backfill-heading">
+            <h4>Execuções agendadas verificáveis</h4>
+            <strong>{scheduledStreak.progress}</strong>
+          </div>
+          <progress
+            aria-label="Percentual do gate de sete execuções agendadas"
+            max={100}
+            value={scheduledStreak.percent}
+          />
+          <p>{scheduledStreak.note}</p>
+          {item.latest_scheduled_run_at ? (
+            <p className="meta">
+              Última execução identificada: {new Date(
+                item.latest_scheduled_run_at,
+              ).toLocaleString("pt-BR")}
+            </p>
+          ) : null}
         </section>
       ) : null}
       <p className="source-health-policy-note">

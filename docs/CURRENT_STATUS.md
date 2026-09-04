@@ -75,6 +75,12 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 ## Evidências operacionais recentes
 
+- Em 04/09/2026, começou a medição prospectiva do gate de sete execuções
+  agendadas do dreno documental do TCM-BA. Cada execução passa a registrar no
+  início se veio do Agendador do Windows, do GitHub Actions ou de operação
+  manual, inclusive quando falha. O painel só conta lotes identificados como
+  Windows Scheduler que baixem de um a dez PDFs e recomponham exatamente os
+  contadores do catálogo. O histórico anterior não recebe origem presumida.
 - Em 04/09/2026, a drenagem física dos PDFs mensais do TCM-BA avançou de 96
   para 287 documentos preservados em `02/2021`, de um catálogo oficial com
   1.505 itens. A tarefa Windows permaneceu habilitada, serial, limitada a dez

@@ -18,6 +18,8 @@ param(
     [switch]$CommitmentCreditorBenchmarkOnly,
     [switch]$CommitmentIssueDateBenchmarkOnly,
     [object]$RequestsPerMinute = 30,
+    [ValidateSet("manual", "github_actions", "windows_scheduler")]
+    [string]$ExecutionOrigin = "manual",
     [string]$PythonPath = ""
 )
 $ErrorActionPreference = "Stop"
@@ -1092,6 +1094,8 @@ try {
                 $MaxDocuments
                 "--requests-per-minute"
                 $RequestsPerMinute
+                "--execution-origin"
+                $ExecutionOrigin
             )
             if (-not [string]::IsNullOrWhiteSpace($CategoryCode)) {
                 $collectorArguments += @("--category-code", $CategoryCode)

@@ -144,6 +144,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--max-documents", type=int, default=1)
     parser.add_argument("--requests-per-minute", type=int, default=30)
     parser.add_argument("--category-code", default="")
+    parser.add_argument(
+        "--execution-origin",
+        choices=("manual", "github_actions", "windows_scheduler"),
+        default="manual",
+    )
     args = parser.parse_args(argv)
     try:
         month, year = _parse_competence(args.competence)
@@ -196,6 +201,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         partition_key=f"documents:{year:04d}-{month:02d}",
         period_start=period_start,
         period_end=period_end,
+        execution_origin=args.execution_origin,
     )
     summary = execute_tcm_ba_document_batch(
         competence=args.competence,

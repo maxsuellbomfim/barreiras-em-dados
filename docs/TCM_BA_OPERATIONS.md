@@ -1063,6 +1063,14 @@ instalar ou atualizar:
 
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-tcm-ba-document-schedule.ps1 -IntervalMinutes 15 -StartNow
 
+O instalador identifica essas rodadas como `windows_scheduler` no registro
+inicial de `source.collection_runs`. O GitHub Actions usa `github_actions` e o
+wrapper interativo usa `manual`; nenhuma execução antiga recebe origem por
+inferência. A saúde administrativa considera consecutivo apenas o lote
+agendado que termina sem falha, preserva de um a dez PDFs e recompõe exatamente
+os contadores anterior, posterior, restante e esperado. A primeira execução
+inválida entre as sete mais recentes zera ou interrompe a sequência.
+
 No agendamento local, um planejador somente leitura escolhe a competência cronológica
 mais antiga, a partir de 2021, que possua catálogo mensal completo e cobertura
 documental ainda incompleta. Uma competência sem catálogo completo não é

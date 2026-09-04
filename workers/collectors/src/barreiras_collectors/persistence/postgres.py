@@ -944,6 +944,7 @@ class PostgresCollectionRepository:
         parser_version: str,
         period_start: date,
         period_end: date,
+        execution_origin: str,
         started_at: datetime,
     ) -> str:
         connection = self.connection_factory()
@@ -962,7 +963,7 @@ class PostgresCollectionRepository:
                     ) values (
                       %s::uuid, %s, %s, %s, %s::date, %s::date,
                       'running', 1, %s::timestamptz, %s::timestamptz,
-                      '{"control_plane":true}'::jsonb
+                      %s::jsonb
                     )
                     on conflict (idempotency_key) do nothing
                     returning id::text as id
@@ -976,6 +977,12 @@ class PostgresCollectionRepository:
                         period_end,
                         started_at,
                         started_at,
+                        self._json(
+                            {
+                                "control_plane": True,
+                                "execution_origin": execution_origin,
+                            }
+                        ),
                     ),
                 ).fetchone()
                 if row is not None:

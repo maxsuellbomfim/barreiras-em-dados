@@ -28,6 +28,7 @@ $arguments = @(
     "-AutoCompetence"
     "-MaxDocuments 10"
     "-RequestsPerMinute 30"
+    "-ExecutionOrigin windows_scheduler"
 ) -join " "
 $action = New-ScheduledTaskAction `
     -Execute $powerShellPath `

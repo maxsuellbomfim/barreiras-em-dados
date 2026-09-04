@@ -79,6 +79,44 @@ class CollectionControlTests(unittest.TestCase):
             ],
         )
 
+    def test_execution_origin_is_recorded_when_run_starts(self) -> None:
+        control = CollectionControl(
+            repository=self.repository,
+            source_code="tcm-ba",
+            endpoint_code="prestacoes-contas-mensais",
+            idempotency_key="tcm-documents:test:scheduled",
+            collector_version="test/1.0",
+            partition_key="documents:2021-02",
+            period_start=date(2021, 2, 1),
+            period_end=date(2021, 2, 28),
+            execution_origin="windows_scheduler",
+            clock=lambda: self.now,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "sem declarar cobertura"):
+            with control:
+                pass
+
+        self.assertEqual(
+            self.repository.started[0]["execution_origin"],
+            "windows_scheduler",
+        )
+
+    def test_unknown_execution_origin_is_rejected_before_run(self) -> None:
+        with self.assertRaisesRegex(ValueError, "execution_origin"):
+            CollectionControl(
+                repository=self.repository,
+                source_code="tcm-ba",
+                endpoint_code="prestacoes-contas-mensais",
+                idempotency_key="tcm-documents:test:unknown-origin",
+                collector_version="test/1.0",
+                partition_key="documents:2021-02",
+                period_start=date(2021, 2, 1),
+                period_end=date(2021, 2, 28),
+                execution_origin="untrusted_runner",
+                clock=lambda: self.now,
+            )
+
     def test_run_id_is_unavailable_before_start(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "ainda não foi iniciada"):
             _ = self.make_control().run_id
