@@ -170,3 +170,35 @@ test("painel mede somente lotes agendados documentalmente íntegros", async () =
   assert.match(component, /scheduled_success_streak/);
   assert.match(component, /Execuções agendadas verificáveis/);
 });
+
+test("painel mede sete dias de sondagens públicas sem confundir amostra com tráfego", async () => {
+  const migrationsDirectory = new URL("../../supabase/migrations/", import.meta.url);
+  const migrationName = (await readdir(migrationsDirectory)).find((name) =>
+    name.endsWith("_admin_public_availability_slo.sql"),
+  );
+  assert.ok(migrationName, "a migration do SLO público deve existir");
+  const availabilityMigration = await readFile(
+    new URL(migrationName, migrationsDirectory),
+    "utf8",
+  );
+
+  assert.match(availabilityMigration, /create function api\.get_collection_health_v8\(/);
+  assert.match(availabilityMigration, /availability_success_streak_days integer/);
+  assert.match(availabilityMigration, /availability_daily_history jsonb/);
+  assert.match(availabilityMigration, /execution_origin' = 'github_actions'/);
+  assert.match(availabilityMigration, /workflow_event' = 'schedule'/);
+  assert.match(availabilityMigration, /http_5xx_count/);
+  assert.match(availabilityMigration, /transport_failures/);
+  assert.match(availabilityMigration, /contract_failures/);
+  assert.match(availabilityMigration, /runs_observed >= 20/);
+  assert.match(availabilityMigration, /collection-health\/1\.8\.0/);
+  assert.match(
+    availabilityMigration,
+    /revoke all on function api\.get_collection_health_v8\(integer, date\)\s+from public, anon/,
+  );
+  assert.match(page, /get_collection_health_v8/);
+  assert.match(page, /get_collection_health_v7/);
+  assert.match(component, /formatPublicAvailabilitySlo/);
+  assert.match(component, /Disponibilidade pública observada/);
+  assert.match(component, /availability\.limitation/);
+});

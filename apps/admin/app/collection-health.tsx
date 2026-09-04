@@ -3,6 +3,7 @@
 import { formatBackfillProgress } from "./collection-backfill.mjs";
 import { formatCollectionWorkProgress } from "./collection-work-progress.mjs";
 import { formatScheduledRunStreak } from "./collection-scheduled-streak.mjs";
+import { formatPublicAvailabilitySlo } from "./public-availability-slo.mjs";
 import {
   formatFreshnessPolicy,
   formatFreshnessStatus,
@@ -80,6 +81,11 @@ export type CollectionHealthItem = Readonly<{
   scheduled_success_streak: number | null;
   scheduled_runs_observed: number | null;
   latest_scheduled_run_at: string | null;
+  availability_success_streak_days: number | null;
+  availability_days_observed: number | null;
+  availability_latest_probe_at: string | null;
+  availability_expected_runs_per_day: number | null;
+  availability_daily_history: unknown;
 }>;
 
 export type CollectionHealthState =
@@ -289,6 +295,7 @@ function CollectionHealthCard({
     item.latest_work_unit === "document"
       ? formatScheduledRunStreak(item)
       : null;
+  const availability = formatPublicAvailabilitySlo(item);
   return (
     <article className="source-health-card">
       <div className="card-top">
@@ -417,6 +424,49 @@ function CollectionHealthCard({
               ).toLocaleString("pt-BR")}
             </p>
           ) : null}
+        </section>
+      ) : null}
+      {availability ? (
+        <section
+          className="source-health-backfill"
+          aria-label="Disponibilidade pública observada"
+        >
+          <div className="source-health-backfill-heading">
+            <h4>Disponibilidade pública observada</h4>
+            <strong>{availability.progress}</strong>
+          </div>
+          <progress
+            aria-label="Percentual do gate de sete dias de sondagens públicas"
+            max={100}
+            value={availability.percent}
+          />
+          <p>{availability.note}</p>
+          <p>{availability.limitation}</p>
+          {item.availability_latest_probe_at ? (
+            <p className="meta">
+              Última sondagem registrada: {new Date(
+                item.availability_latest_probe_at,
+              ).toLocaleString("pt-BR")}
+            </p>
+          ) : null}
+          <ul
+            className="source-health-slo-history"
+            aria-label="Últimos sete dias encerrados"
+          >
+            {availability.history.map((day) => (
+              <li key={day.day}>
+                <time dateTime={day.day}>
+                  {new Date(
+                    `${day.day}T12:00:00-03:00`,
+                  ).toLocaleDateString("pt-BR")}
+                </time>
+                <span className={`badge source-health-${day.tone}`}>
+                  {day.label}
+                </span>
+                <span>{day.detail}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
       <p className="source-health-policy-note">
