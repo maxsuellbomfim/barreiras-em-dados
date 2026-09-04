@@ -143,6 +143,50 @@ class CollectTcmBaDocumentsTests(unittest.TestCase):
         self.assertEqual(repository.completed[0]["outcome"], "complete")
         self.assertEqual(repository.completed[0]["observed_records"], 3)
 
+    def test_operational_batch_accepts_ten_documents(self) -> None:
+        selection = TcmBaDocumentSelection(
+            competence="04/2023",
+            expected_total_documents=10,
+            preserved_documents=0,
+            pending_documents=10,
+            references=tuple(reference(position) for position in range(1, 11)),
+        )
+        repository = FakeRepository(selection)
+
+        summary = execute_tcm_ba_document_batch(
+            competence="04/2023",
+            max_documents=10,
+            repository=repository,
+            service=FakeService(),
+            client=FakeClient(),
+            control=control(repository),
+        )
+
+        self.assertEqual(summary.downloaded_documents, 10)
+        self.assertEqual(summary.preserved_after, 10)
+        self.assertEqual(summary.remaining_documents, 0)
+        self.assertEqual(repository.completed[0]["outcome"], "complete")
+
+    def test_operational_batch_rejects_more_than_ten_documents(self) -> None:
+        selection = TcmBaDocumentSelection(
+            competence="04/2023",
+            expected_total_documents=3,
+            preserved_documents=3,
+            pending_documents=0,
+            references=(),
+        )
+        repository = FakeRepository(selection)
+
+        with self.assertRaisesRegex(ValueError, "entre 1 e 10"):
+            execute_tcm_ba_document_batch(
+                competence="04/2023",
+                max_documents=11,
+                repository=repository,
+                service=FakeService(),
+                client=FakeClient(),
+                control=control(repository),
+            )
+
     def test_already_complete_month_makes_no_http_request(self) -> None:
         selection = TcmBaDocumentSelection(
             competence="04/2023",

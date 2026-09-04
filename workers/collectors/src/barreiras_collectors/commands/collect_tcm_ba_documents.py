@@ -30,6 +30,8 @@ from ..persistence.tcm_ba import (
 from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import build_authenticated_object_store
 
+MAX_DOCUMENTS_PER_BATCH = 10
+
 
 @dataclass(frozen=True)
 class TcmBaDocumentBatchSummary:
@@ -54,8 +56,10 @@ def execute_tcm_ba_document_batch(
 ) -> TcmBaDocumentBatchSummary:
     """Executa um lote e só fecha o mês quando todos os PDFs foram preservados."""
     month, year = _parse_competence(competence)
-    if not 1 <= max_documents <= 5:
-        raise ValueError("max_documents deve estar entre 1 e 5.")
+    if not 1 <= max_documents <= MAX_DOCUMENTS_PER_BATCH:
+        raise ValueError(
+            f"max_documents deve estar entre 1 e {MAX_DOCUMENTS_PER_BATCH}."
+        )
 
     with control:
         selection = repository.tcm_ba_document_references(
@@ -133,7 +137,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Preserva PDFs exatos de um catálogo mensal TCM-BA já completo. "
-            "O lote é limitado a cinco documentos."
+            "O lote é limitado a dez documentos."
         )
     )
     parser.add_argument("--competence", required=True, help="Competência MM/AAAA")
@@ -145,8 +149,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         month, year = _parse_competence(args.competence)
     except ValueError as error:
         parser.error(str(error))
-    if not 1 <= args.max_documents <= 5:
-        parser.error("--max-documents deve estar entre 1 e 5.")
+    if not 1 <= args.max_documents <= MAX_DOCUMENTS_PER_BATCH:
+        parser.error(
+            f"--max-documents deve estar entre 1 e {MAX_DOCUMENTS_PER_BATCH}."
+        )
     if not 1 <= args.requests_per_minute <= 30:
         parser.error("--requests-per-minute deve estar entre 1 e 30.")
     category_code = args.category_code.strip().upper() or None
