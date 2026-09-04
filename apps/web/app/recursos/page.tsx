@@ -156,6 +156,50 @@ function coverageDescription(row: ParliamentaryTransferCoverage): string {
   return "Ano ainda não classificado.";
 }
 
+function CurrentFederalFreshness({
+  coverage,
+}: Readonly<{ coverage: ParliamentaryTransferCoverage | null }>) {
+  if (coverage === null) {
+    return (
+      <p className="transfer-current-freshness" data-status="unavailable">
+        <strong>Cobertura anual indisponível.</strong> A data da última consulta
+        não pôde ser carregada agora; isso não significa ausência de recursos.
+      </p>
+    );
+  }
+
+  const statusCopy: Readonly<Record<
+    ParliamentaryTransferCoverage["coverageStatus"],
+    string
+  >> = {
+    complete: "Cobertura anual completa.",
+    empty: "Fonte consultada sem proposta atribuída a Barreiras.",
+    partial: "Coleta anual ainda incompleta.",
+    failed: "A última coleta anual falhou.",
+    blocked: "A fonte bloqueou a coleta anual.",
+    unclassified: "O ano ainda não foi classificado.",
+  };
+
+  return (
+    <p
+      className="transfer-current-freshness"
+      data-status={coverage.coverageStatus}
+    >
+      <strong>{statusCopy[coverage.coverageStatus]}</strong>{" "}
+      {coverage.lastAttemptedAt ? (
+        <>
+          Fonte oficial conferida em{" "}
+          <time dateTime={coverage.lastAttemptedAt}>
+            {dateTimeFormatter.format(new Date(coverage.lastAttemptedAt))}
+          </time>.
+        </>
+      ) : (
+        "A fonte não informou a data da última tentativa."
+      )}
+    </p>
+  );
+}
+
 function CoveragePanel({
   rows,
 }: Readonly<{ rows: readonly ParliamentaryTransferCoverage[] | null }>) {
@@ -426,10 +470,12 @@ function CurrentFederalTransferPanel({
   transfers,
   fiscalYear,
   sourceAvailable,
+  coverage,
 }: Readonly<{
   transfers: readonly ParliamentaryTransfer[];
   fiscalYear: number | null;
   sourceAvailable: boolean;
+  coverage: ParliamentaryTransferCoverage | null;
 }>) {
   if (!sourceAvailable) {
     return (
@@ -440,6 +486,7 @@ function CurrentFederalTransferPanel({
             <h2 id="current-federal-title">Consulta anual temporariamente indisponível</h2>
           </div>
         </div>
+        <CurrentFederalFreshness coverage={coverage} />
         <p className="transfer-empty">
           Isso é uma falha de consulta, não ausência de emendas nem valor zero.
         </p>
@@ -460,6 +507,7 @@ function CurrentFederalTransferPanel({
             </h2>
           </div>
         </div>
+        <CurrentFederalFreshness coverage={coverage} />
         <p className="transfer-empty">
           Isso não significa valor zero nem ausência de recursos. A cobertura da
           fonte e o acervo histórico podem ser conferidos logo abaixo.
@@ -486,6 +534,8 @@ function CurrentFederalTransferPanel({
         </div>
         <p>{summary.transferCount.toLocaleString("pt-BR")} emenda(s) encontrada(s)</p>
       </div>
+
+      <CurrentFederalFreshness coverage={coverage} />
 
       <p className="transfer-current-answer">
         {paidCopy} Destinar, empenhar, pagar e executar o objeto são etapas
@@ -2865,6 +2915,7 @@ export default async function ParliamentaryResourcesPage({
                   transfers={currentTransfers}
                   fiscalYear={selectedFiscalYear}
                   sourceAvailable={currentTransferResult.state === "available"}
+                  coverage={result.coverage?.find((row) => row.fiscalYear === selectedFiscalYear) ?? null}
                 />
 
                 {selectedFiscalYear !== null ? (

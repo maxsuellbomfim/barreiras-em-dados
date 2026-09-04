@@ -108,6 +108,21 @@ test("cobertura anual distingue vazio confirmado de ano ainda nao classificado",
   assert.match(page, /Ano ainda n.o classificado/);
 });
 
+test("resposta rapida mostra quando o ano federal foi conferido", () => {
+  assert.match(
+    page,
+    /coverage: ParliamentaryTransferCoverage \| null/,
+    "o painel deve receber a cobertura exata do ano selecionado",
+  );
+  assert.match(page, /Fonte oficial conferida em/);
+  assert.match(page, /Cobertura anual completa/);
+  assert.match(page, /Fonte consultada sem proposta atribu.da a Barreiras/);
+  assert.match(
+    page,
+    /result\.coverage\?\.find\(\(row\) => row\.fiscalYear === selectedFiscalYear\)/,
+  );
+});
+
 test("propostas historicas ficam separadas de emendas e exibem seus limites", () => {
   assert.match(historicalProposalMigration, /transferegov_historical_proposal/);
   assert.match(historicalProposalMigration, /not_available_in_proposal_source/);

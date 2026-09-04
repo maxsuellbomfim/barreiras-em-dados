@@ -108,6 +108,13 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
   falhar, ele é abandonado, e, se concluir, substitui atomicamente o anterior.
   A migração preserva o estado público existente antes de trocar a view e não
   exclui qualquer registro bruto.
+- Em 04/09/2026, a execução de produção `33836165380`, no SHA mesclado
+  `bd182a5`, comprovou o contrato novo. Os seis exercícios de 2021 a 2026
+  receberam snapshots ativos; 2025 reconciliou 17 registros normalizados e
+  os outros cinco anos permaneceram vazios na API atual. O gate público
+  conferiu 15 linhas de execução da CGU, 232 documentos federais e os seis
+  snapshots antes de encerrar verde. A resposta rápida do portal passa a
+  mostrar diretamente o estado e a hora da conferência do ano selecionado.
 
 ## Próximo fluxo vertical
 
