@@ -87,6 +87,7 @@ from .models import (
     PersistenceBatch,
     PersistenceContractError,
     PersistenceResult,
+    RawRecordEvidence,
     RawRecordInput,
     RepositoryDirectEditionResult,
     RepositorySearchResult,
@@ -616,6 +617,14 @@ class TransferegovPersistenceService:
             object_created=stored.created,
             inserted_records=persisted.inserted_records,
             existing_records=persisted.existing_records,
+            record_evidence=tuple(
+                RawRecordEvidence(
+                    record_type=record.record_type,
+                    source_record_key=record.source_record_key,
+                    payload_sha256=record.payload_sha256,
+                )
+                for record in records
+            ),
         )
 
     @staticmethod

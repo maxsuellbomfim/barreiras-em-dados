@@ -4,10 +4,12 @@ import test from "node:test";
 import {
   fetchRpcRows,
   parseCurrentFederalTransferRows,
+  parseCurrentTransferegovSnapshotRows,
   parseFederalCollectorEvidence,
   verifyCguDocumentProjection,
   verifyCguExecutionProjection,
   verifyFederalSourceCoverage,
+  verifyTransferegovSnapshotEvidence,
 } from "../../scripts/verify-public-federal-resource-projections.mjs";
 
 const notBefore = "2026-09-04T02:00:00Z";
@@ -15,6 +17,8 @@ const collectedAt = "2026-09-04T02:01:00Z";
 const aggregateHash = "a".repeat(64);
 const document2022Hash = "b".repeat(64);
 const document2023Hash = "c".repeat(64);
+const snapshot2022Hash = "d".repeat(64);
+const snapshot2023Hash = "e".repeat(64);
 
 const collectorLog = [
   JSON.stringify({
@@ -41,12 +45,16 @@ const collectorLog = [
     fiscal_year: 2022,
     coverage_status: "complete",
     distribution_records: 1,
+    manifest_records: 6,
+    snapshot_fingerprint: snapshot2022Hash,
   }),
   JSON.stringify({
     event: "collector_transferegov_year_completed",
     fiscal_year: 2023,
     coverage_status: "empty",
     distribution_records: 0,
+    manifest_records: 0,
+    snapshot_fingerprint: snapshot2023Hash,
   }),
 ].join("\n");
 
@@ -183,6 +191,27 @@ const coverage = [
 
 const currentTransfers = [{ fiscalYear: 2022, externalTransferKey: "current-1" }];
 
+const currentSnapshots = [
+  {
+    fiscal_year: 2022,
+    coverage_status: "complete",
+    record_count: 6,
+    snapshot_fingerprint: snapshot2022Hash,
+    last_attempted_at: collectedAt,
+    source_url: "https://api-publica.transferegov.gestao.gov.br/parcerias/proposta",
+    methodology_version: "transferegov-current-snapshot/1.0.0",
+  },
+  {
+    fiscal_year: 2023,
+    coverage_status: "empty",
+    record_count: 0,
+    snapshot_fingerprint: snapshot2023Hash,
+    last_attempted_at: collectedAt,
+    source_url: "https://api-publica.transferegov.gestao.gov.br/parcerias/proposta",
+    methodology_version: "transferegov-current-snapshot/1.0.0",
+  },
+];
+
 test("RPC federal aplica backoff a indisponibilidade temporaria", async () => {
   let attempts = 0;
   const delays = [];
@@ -206,12 +235,35 @@ test("evidencia federal exige exatamente os eventos executados", () => {
   assert.equal(evidence.cguExecution.amendments, 2);
   assert.equal(evidence.cguDocuments.length, 2);
   assert.equal(evidence.transferegovCurrent.length, 2);
+  assert.equal(
+    evidence.transferegovCurrent[0].snapshotFingerprint,
+    snapshot2022Hash,
+  );
   assert.throws(
     () => parseFederalCollectorEvidence(
       collectorLog.replace(aggregateHash, "invalido"),
       notBefore,
     ),
     /evidencia federal da CGU invalida/,
+  );
+});
+
+test("snapshot atual prova a mesma versao normalizada da coleta", () => {
+  const evidence = parseFederalCollectorEvidence(collectorLog, notBefore);
+  const parsed = parseCurrentTransferegovSnapshotRows(currentSnapshots);
+  assert.notEqual(parsed, null);
+  assert.deepEqual(
+    verifyTransferegovSnapshotEvidence(parsed, evidence),
+    { transferegovSnapshots: 2 },
+  );
+  assert.throws(
+    () => verifyTransferegovSnapshotEvidence(
+      parsed.map((row) => row.fiscalYear === 2022
+        ? { ...row, snapshotFingerprint: "f".repeat(64) }
+        : row),
+      evidence,
+    ),
+    /impressao do snapshot Transferegov divergente/,
   );
 });
 

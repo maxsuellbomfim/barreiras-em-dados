@@ -16,6 +16,7 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const RPCS = {
   coverage: "get_public_federal_transfer_source_coverage",
   currentTransfers: "get_public_parliamentary_transfers",
+  currentSnapshot: "get_public_transferegov_current_snapshot_evidence",
   executions: "get_public_cgu_federal_amendment_executions",
   executionRanking: "get_public_cgu_federal_amendment_ranking",
   documents: "get_public_cgu_federal_amendment_documents",
@@ -124,12 +125,19 @@ export function parseFederalCollectorEvidence(contents, notBefore) {
     fiscalYear: event.fiscal_year,
     collectionStatus: event.coverage_status,
     distributionRecords: event.distribution_records,
+    manifestRecords: event.manifest_records,
+    snapshotFingerprint: event.snapshot_fingerprint,
   }));
   if (currentEvents.length === 0 || currentEvents.some((event) =>
     !Number.isSafeInteger(event.fiscalYear) || event.fiscalYear < 2021 ||
     !["complete", "empty"].includes(event.collectionStatus) ||
     !safeCount(event.distributionRecords) ||
-    (event.collectionStatus === "empty" && event.distributionRecords !== 0)) ||
+    !safeCount(event.manifestRecords) ||
+    !SHA256.test(event.snapshotFingerprint ?? "") ||
+    event.manifestRecords < event.distributionRecords ||
+    (event.collectionStatus === "empty" &&
+      (event.distributionRecords !== 0 || event.manifestRecords !== 0)) ||
+    (event.collectionStatus === "complete" && event.manifestRecords < 1)) ||
     new Set(currentEvents.map((event) => event.fiscalYear)).size !==
       currentEvents.length) {
     fail("evidencia atual do Transferegov invalida");
@@ -362,6 +370,63 @@ export function parseCurrentFederalTransferRows(rows) {
     parsed.push({ externalTransferKey, fiscalYear });
   }
   return parsed;
+}
+
+export function parseCurrentTransferegovSnapshotRows(rows) {
+  if (!Array.isArray(rows)) return null;
+  const parsed = [];
+  const seen = new Set();
+  for (const row of rows) {
+    if (typeof row !== "object" || row === null ||
+        !Number.isSafeInteger(row.fiscal_year) || row.fiscal_year < 2021 ||
+        !["complete", "empty"].includes(row.coverage_status) ||
+        !safeCount(row.record_count) ||
+        (row.coverage_status === "complete" && row.record_count < 1) ||
+        (row.coverage_status === "empty" && row.record_count !== 0) ||
+        !SHA256.test(requiredText(row.snapshot_fingerprint) ?? "") ||
+        !requiredText(row.last_attempted_at) ||
+        Number.isNaN(Date.parse(row.last_attempted_at)) ||
+        !requiredText(row.source_url)?.startsWith("https://") ||
+        row.methodology_version !== "transferegov-current-snapshot/1.0.0" ||
+        seen.has(row.fiscal_year)) {
+      return null;
+    }
+    seen.add(row.fiscal_year);
+    parsed.push({
+      fiscalYear: row.fiscal_year,
+      collectionStatus: row.coverage_status,
+      recordCount: row.record_count,
+      snapshotFingerprint: row.snapshot_fingerprint,
+      lastAttemptedAt: row.last_attempted_at,
+    });
+  }
+  return parsed;
+}
+
+export function verifyTransferegovSnapshotEvidence(rows, evidence) {
+  if (!Array.isArray(rows) || !Array.isArray(evidence?.transferegovCurrent) ||
+      rows.length !== evidence.transferegovCurrent.length) {
+    fail("evidencia de snapshot Transferegov divergente");
+  }
+  const index = new Map(rows.map((row) => [row.fiscalYear, row]));
+  for (const event of evidence.transferegovCurrent) {
+    const row = index.get(event.fiscalYear);
+    if (!row || row.collectionStatus !== event.collectionStatus ||
+        row.recordCount !== event.manifestRecords) {
+      fail(`contagem do snapshot Transferegov divergente: ${event.fiscalYear}`);
+    }
+    if (row.snapshotFingerprint !== event.snapshotFingerprint) {
+      fail(
+        `impressao do snapshot Transferegov divergente: ${event.fiscalYear}`,
+      );
+    }
+    const attemptedAt = Date.parse(row.lastAttemptedAt ?? "");
+    const startedAt = Date.parse(evidence.notBefore);
+    if (Number.isNaN(attemptedAt) || attemptedAt < startedAt - 5 * 60 * 1000) {
+      fail(`snapshot Transferegov antigo: ${event.fiscalYear}`);
+    }
+  }
+  return { transferegovSnapshots: rows.length };
 }
 
 function countByYear(rows, field) {
@@ -605,6 +670,7 @@ export async function verifyPublicFederalProjection(options) {
       200,
     ),
   );
+  const currentSnapshotRows = await fetchRpcRows(RPCS.currentSnapshot, options);
   const coverageRows = await fetchRpcRows(RPCS.coverage, options);
   const executions = requireParsed(
     executionPages.flat(),
@@ -655,7 +721,20 @@ export async function verifyPublicFederalProjection(options) {
     currentTransfers,
     evidence,
   );
-  return { ...executionSummary, ...documentSummary, ...coverageSummary };
+  const snapshotSummary = verifyTransferegovSnapshotEvidence(
+    requireParsed(
+      currentSnapshotRows,
+      parseCurrentTransferegovSnapshotRows,
+      RPCS.currentSnapshot,
+    ),
+    evidence,
+  );
+  return {
+    ...executionSummary,
+    ...documentSummary,
+    ...coverageSummary,
+    ...snapshotSummary,
+  };
 }
 
 function readArgument(argv, name) {

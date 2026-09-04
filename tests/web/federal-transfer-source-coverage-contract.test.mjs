@@ -28,6 +28,13 @@ const documentCoverage = readFileSync(
   ),
   "utf8",
 );
+const currentSnapshotEvidence = readFileSync(
+  new URL(
+    "../../supabase/migrations/20260904030000_publish_transferegov_snapshot_evidence.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const methodology = readFileSync(
   new URL("../../docs/PARLIAMENTARY_TRANSFERS_METHODOLOGY.md", import.meta.url),
   "utf8",
@@ -149,6 +156,25 @@ test("migration publica somente cobertura agregada e sanitizada", () => {
   assert.match(migration, /grant execute on function[\s\S]+to anon, authenticated/);
   assert.doesNotMatch(migration, /checkpoint\s+jsonb/);
   assert.doesNotMatch(migration, /error_detail/);
+});
+
+test("snapshot atual expõe somente contagem e impressão sanitizada", () => {
+  assert.match(
+    currentSnapshotEvidence,
+    /api\.get_public_transferegov_current_snapshot_evidence/,
+  );
+  assert.match(currentSnapshotEvidence, /security definer/);
+  assert.match(currentSnapshotEvidence, /set search_path = ''/);
+  assert.match(currentSnapshotEvidence, /payload_sha256/);
+  assert.match(currentSnapshotEvidence, /snapshot_fingerprint/);
+  assert.match(
+    currentSnapshotEvidence,
+    /grant execute on function[\s\S]+to anon, authenticated/,
+  );
+  assert.doesNotMatch(
+    currentSnapshotEvidence.match(/returns table \([\s\S]*?\n\)/)?.[0] ?? "",
+    /payload|source_record_key|collection_run_id/,
+  );
 });
 
 test("correção territorial conta somente emendas históricas confirmadas", () => {
