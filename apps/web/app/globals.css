@@ -7702,6 +7702,40 @@ footer {
   line-height: 1.65;
 }
 
+.transfer-current-freshness {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(35, 134, 95, 0.18);
+  border-radius: 0.75rem;
+  background: rgba(235, 249, 242, 0.72);
+  color: #4e5d73;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.transfer-current-freshness strong {
+  color: #16704f;
+}
+
+.transfer-current-freshness[data-status="partial"],
+.transfer-current-freshness[data-status="failed"],
+.transfer-current-freshness[data-status="blocked"],
+.transfer-current-freshness[data-status="unclassified"],
+.transfer-current-freshness[data-status="unavailable"] {
+  border-color: rgba(180, 122, 24, 0.22);
+  background: rgba(255, 248, 235, 0.78);
+}
+
+.transfer-current-freshness[data-status="partial"] strong,
+.transfer-current-freshness[data-status="failed"] strong,
+.transfer-current-freshness[data-status="blocked"] strong,
+.transfer-current-freshness[data-status="unclassified"] strong,
+.transfer-current-freshness[data-status="unavailable"] strong {
+  color: #8d5d0d;
+}
+
 .transfer-current-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
