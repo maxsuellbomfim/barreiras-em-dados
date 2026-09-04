@@ -29,6 +29,7 @@ def artifact(
     parent_artifact_id: str,
     role: str,
     body: bytes,
+    source_record_key: str = "tcm-ba:document:01/2021:one",
 ) -> TcmBaDocumentAuditArtifact:
     digest = hashlib.sha256(body).hexdigest()
     schema_name, content_type, suffix = (
@@ -52,7 +53,7 @@ def artifact(
         content_type=content_type,
         http_status=200,
         schema_name=schema_name,
-        source_record_key="tcm-ba:document:01/2021:one",
+        source_record_key=source_record_key,
     )
 
 
@@ -98,6 +99,68 @@ def valid_snapshot() -> tuple[TcmBaDocumentAuditSnapshot, dict[str, bytes]]:
     }
 
 
+def ten_document_snapshot() -> tuple[
+    TcmBaDocumentAuditSnapshot, dict[str, bytes]
+]:
+    artifacts: list[TcmBaDocumentAuditArtifact] = []
+    bodies: dict[str, bytes] = {}
+    for index in range(1, 11):
+        source_record_key = f"tcm-ba:document:01/2021:item-{index}"
+        prepare_body = PREPARE_BODY.replace(
+            b"</partial-response>",
+            f"<!--{index}--></partial-response>".encode("ascii"),
+        )
+        pdf_body = (
+            b"%PDF-1.7\n"
+            + f"{index} 0 obj\n<<>>\nendobj\n".encode("ascii")
+            + b"%%EOF\n"
+        )
+        prepare = artifact(
+            artifact_id=f"prepare-{index}",
+            parent_artifact_id=f"catalog-{index}",
+            role="prepare",
+            body=prepare_body,
+            source_record_key=source_record_key,
+        )
+        pdf = artifact(
+            artifact_id=f"pdf-{index}",
+            parent_artifact_id=prepare.artifact_id,
+            role="pdf",
+            body=pdf_body,
+            source_record_key=source_record_key,
+        )
+        artifacts.extend((prepare, pdf))
+        bodies[prepare.object_key] = prepare_body
+        bodies[pdf.object_key] = pdf_body
+
+    return (
+        TcmBaDocumentAuditSnapshot(
+            competence="01/2021",
+            partition_status="partial",
+            partition_completed_at=datetime(2026, 8, 28, tzinfo=UTC),
+            observed_records=15,
+            checkpoint={
+                "expected_documents": 20,
+                "preserved_documents": 15,
+                "remaining_documents": 5,
+            },
+            run_status="partial",
+            metrics={
+                "collection_outcome": "partial",
+                "documents_downloaded": 10,
+                "documents_preserved_before": 5,
+                "documents_preserved_after": 15,
+                "documents_remaining": 5,
+            },
+            artifacts=tuple(artifacts),
+            catalog_links=10,
+            current_open_failures=0,
+            historical_open_failures=0,
+        ),
+        bodies,
+    )
+
+
 class FakeRepository:
     def __init__(self, snapshot: TcmBaDocumentAuditSnapshot) -> None:
         self.snapshot = snapshot
@@ -119,6 +182,38 @@ class FakeObjectStore:
 
 
 class TcmBaDocumentBatchAuditTests(unittest.TestCase):
+    def test_approves_ten_document_batch_after_reading_every_object(self) -> None:
+        snapshot, bodies = ten_document_snapshot()
+        store = FakeObjectStore(bodies)
+
+        summary = audit_tcm_ba_document_batch(
+            competence="01/2021",
+            repository=FakeRepository(snapshot),
+            object_store=store,
+        )
+
+        self.assertEqual(summary.downloaded_documents, 10)
+        self.assertEqual(summary.physical_objects_verified, 20)
+        self.assertEqual(set(store.read_keys), set(bodies))
+
+    def test_rejects_batch_larger_than_ten_documents(self) -> None:
+        snapshot, bodies = ten_document_snapshot()
+        snapshot = replace(
+            snapshot,
+            metrics={
+                **snapshot.metrics,
+                "documents_downloaded": 11,
+                "documents_preserved_before": 4,
+            },
+        )
+
+        with self.assertRaisesRegex(TcmBaDocumentAuditError, "entre 1 e 10"):
+            audit_tcm_ba_document_batch(
+                competence="01/2021",
+                repository=FakeRepository(snapshot),
+                object_store=FakeObjectStore(bodies),
+            )
+
     def test_approves_partial_batch_after_reading_every_private_object(self) -> None:
         snapshot, bodies = valid_snapshot()
         store = FakeObjectStore(bodies)

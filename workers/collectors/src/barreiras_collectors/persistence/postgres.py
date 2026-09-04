@@ -12,6 +12,7 @@ from typing import Any, Protocol
 from ..connectors.direct_diary import DirectEditionTarget
 from ..connectors.official_diary_catalog import ALLOWED_HOSTS as CATALOG_ALLOWED_HOSTS
 from ..http import validate_https_url
+from ..tcm_ba_limits import MAX_TCM_BA_DOCUMENTS_PER_BATCH
 from .models import (
     DirectEditionBatch,
     DocumentBatch,
@@ -264,8 +265,11 @@ class PostgresCollectionRepository:
         """Seleciona documentos exatos de um catálogo mensal completo do TCM-BA."""
         if not re.fullmatch(r"(0[1-9]|1[0-2])/\d{4}", competence):
             raise ValueError("competence deve usar MM/AAAA.")
-        if limit < 1 or limit > 5:
-            raise ValueError("limit deve estar entre 1 e 5.")
+        if limit < 1 or limit > MAX_TCM_BA_DOCUMENTS_PER_BATCH:
+            raise ValueError(
+                "limit deve estar entre 1 e "
+                f"{MAX_TCM_BA_DOCUMENTS_PER_BATCH}."
+            )
         if category_code is not None and not re.fullmatch(r"PCMGE\d{3}", category_code):
             raise ValueError("category_code deve usar PCMGE seguido de três dígitos.")
         month, year = (int(part) for part in competence.split("/"))

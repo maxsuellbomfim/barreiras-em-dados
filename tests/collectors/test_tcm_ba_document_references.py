@@ -70,17 +70,20 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
                 QueryResult(
                     rows=[
                         {
-                            "source_record_key": "tcm-ba:document:04/2023:abc",
-                            "parent_artifact_id": "catalog-artifact-1",
-                            "record_index": 0,
+                            "source_record_key": (
+                                f"tcm-ba:document:04/2023:key-{index}"
+                            ),
+                            "parent_artifact_id": f"catalog-artifact-{index}",
+                            "record_index": index - 1,
                             "payload": {
                                 "category": "Relatório",
-                                "name": "documento.pdf",
+                                "name": f"documento-{index}.pdf",
                                 "inserted_at": "03/05/2023 10:00",
                                 "page_number": 1,
                                 "download_form_id": "form:download",
                             },
                         }
+                        for index in range(1, 11)
                     ]
                 ),
             ]
@@ -88,12 +91,12 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
 
         selection = PostgresCollectionRepository(
             lambda: connection
-        ).tcm_ba_document_references(competence="04/2023", limit=1)
+        ).tcm_ba_document_references(competence="04/2023", limit=10)
 
         self.assertEqual(selection.expected_total_documents, 11)
         self.assertEqual(selection.preserved_documents, 0)
         self.assertEqual(selection.pending_documents, 11)
-        self.assertEqual(len(selection.references), 1)
+        self.assertEqual(len(selection.references), 10)
         self.assertEqual(selection.references[0].document_position, 1)
         self.assertEqual(selection.references[0].expected_total_documents, 11)
         self.assertEqual(connection.calls[0][1], ("competence:2023-04",))
@@ -108,7 +111,7 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
                 [],
             ),
         )
-        self.assertEqual(reference_params[-1], 1)
+        self.assertEqual(reference_params[-1], 10)
         self.assertEqual(
             connection.calls[2][1],
             (
@@ -302,7 +305,7 @@ class TcmBaDocumentReferenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             repository.tcm_ba_document_references(competence="2023-04", limit=1)
         with self.assertRaises(ValueError):
-            repository.tcm_ba_document_references(competence="04/2023", limit=6)
+            repository.tcm_ba_document_references(competence="04/2023", limit=11)
 
 
 class TcmBaDocumentPlanTests(unittest.TestCase):
