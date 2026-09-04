@@ -287,12 +287,8 @@ try {
         group by manifest.id
       `);
       seededPartialSnapshot = await database.query(`
-        select manifest.status, manifest.record_count,
-          manifest.collection_run_id::text as collection_run_id,
-          member.raw_record_id::text as raw_record_id
+        select manifest.id
         from source.transferegov_snapshot_manifests as manifest
-        join source.transferegov_snapshot_records as member
-          on member.snapshot_id = manifest.id
         where manifest.fiscal_year = 2022
       `);
       await database.exec(`
@@ -334,12 +330,7 @@ try {
     snapshot_fingerprint: createHash("sha256").update("", "utf8").digest("hex"),
     member_count: 0,
   }]);
-  assert.deepEqual(seededPartialSnapshot?.rows, [{
-    status: "active",
-    record_count: 1,
-    collection_run_id: "00000000-0000-0000-0000-000000008910",
-    raw_record_id: "00000000-0000-0000-0000-000000008912",
-  }]);
+  assert.deepEqual(seededPartialSnapshot?.rows, []);
 
   const territorySchema = await database.query(`
     select to_regnamespace('territory')::text as territory_schema

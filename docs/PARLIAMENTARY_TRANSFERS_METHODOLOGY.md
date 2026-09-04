@@ -127,9 +127,10 @@ individuais e IDs de execução permanecem privados. A migração inicial semeia
 retratos já classificados antes de substituir a view, evitando uma janela vazia
 entre o deploy e a coleta seguinte. Uma partição oficialmente vazia recebe
 membership vazio mesmo que o acervo histórico conserve linhas antigas. Se a
-partição mais recente estiver parcial, falha ou bloqueada, a transição preserva
-somente registros vinculados a uma execução anterior bem-sucedida; evidência
-gravada apenas por uma tentativa falha não é promovida.
+partição mais recente estiver parcial, falha ou bloqueada, a migração não tenta
+reconstruir um suposto retrato íntegro a partir de runs por página: o ano fica
+sem manifesto ativo até uma coleta anual completa. Evidência gravada por uma
+tentativa incompleta nunca é promovida como conjunto atual.
 
 ## Cobertura histórica federal
 

@@ -558,36 +558,15 @@ begin
       select
         partition.status,
         extract(year from partition.period_start)::smallint as fiscal_year,
-        case
-          when partition.status in ('complete', 'empty')
-               and partition_run.status = 'succeeded'
-            then partition.collection_run_id
-          when partition.status in ('partial', 'failed', 'blocked')
-            then last_good_run.id
-        end as seed_run_id
+        partition.collection_run_id as seed_run_id
       from source.collection_partitions as partition
       join endpoint on endpoint.id = partition.source_endpoint_id
-      left join source.collection_runs as partition_run
+      join source.collection_runs as partition_run
         on partition_run.id = partition.collection_run_id
-      left join lateral (
-        select run.id
-        from pg_temp.transferegov_snapshot_seed_records as candidate
-        join raw.raw_records as record
-          on record.id = candidate.raw_record_id
-        join raw.raw_artifacts as artifact
-          on artifact.id = record.raw_artifact_id
-        join source.collection_runs as run
-          on run.id = artifact.collection_run_id
-         and run.status = 'succeeded'
-        where candidate.fiscal_year =
-          extract(year from partition.period_start)::smallint
-        order by coalesce(run.completed_at, run.updated_at, run.created_at) desc,
-          run.id desc
-        limit 1
-      ) as last_good_run on true
+       and partition_run.status = 'succeeded'
       where partition.partition_key =
         'fiscal-year:' || extract(year from partition.period_start)::integer::text
-        and partition.status in ('complete', 'empty', 'partial', 'failed', 'blocked')
+        and partition.status in ('complete', 'empty')
         and partition.period_start >= date '2021-01-01'
     )
     select
@@ -604,20 +583,6 @@ begin
         ) filter (
           where partition.status <> 'empty'
             and seed_record.raw_record_id is not null
-            and (
-              partition.status = 'complete'
-              or exists (
-                select 1
-                from raw.raw_records as seed_raw_record
-                join raw.raw_artifacts as seed_artifact
-                  on seed_artifact.id = seed_raw_record.raw_artifact_id
-                join source.collection_runs as seed_run
-                  on seed_run.id = seed_artifact.collection_run_id
-                 and seed_run.status = 'succeeded'
-                where seed_raw_record.id = seed_record.raw_record_id
-                  and seed_artifact.collection_run_id = partition.seed_run_id
-              )
-            )
         ),
         '[]'::jsonb
       ) as records
