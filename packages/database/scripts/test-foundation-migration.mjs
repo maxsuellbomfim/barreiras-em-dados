@@ -2132,12 +2132,18 @@ try {
       (date '2026-09-03' - day_offset),
       (date '2026-09-03' - day_offset),
       'succeeded',
-      (date '2026-09-03' - day_offset)
-        + make_interval(hours => probe_hour, mins => 17),
-      (date '2026-09-03' - day_offset)
-        + make_interval(hours => probe_hour, mins => 18),
-      (date '2026-09-03' - day_offset)
-        + make_interval(hours => probe_hour, mins => 18),
+      (
+        (date '2026-09-03' - day_offset)
+          + make_interval(hours => probe_hour, mins => 17)
+      )::timestamp at time zone 'America/Bahia',
+      (
+        (date '2026-09-03' - day_offset)
+          + make_interval(hours => probe_hour, mins => 18)
+      )::timestamp at time zone 'America/Bahia',
+      (
+        (date '2026-09-03' - day_offset)
+          + make_interval(hours => probe_hour, mins => 18)
+      )::timestamp at time zone 'America/Bahia',
       jsonb_build_object(
         'control_plane', true,
         'execution_origin', 'github_actions',
