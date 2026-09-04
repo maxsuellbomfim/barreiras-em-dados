@@ -1,6 +1,6 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **03/09/2026**. Este é o ponto de entrada operacional; o histórico
+Atualizado em **04/09/2026**. Este é o ponto de entrada operacional; o histórico
 de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
@@ -49,6 +49,9 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 - a API complementar do Querido Diário permanece sujeita a timeout TLS; essa
   indisponibilidade gera aviso e DLQ próprios, enquanto catálogo e PDFs oficiais
   continuam obrigatórios e qualquer falha neles encerra a execução;
+- o Transferegov atual já reconcilia contagem e contrato com a projeção pública,
+  mas o evento terminal ainda não publica fingerprint ou identificador da
+  execução para provar a linhagem exata de cada linha idempotente;
 - fatos literais aprovados podem ser automáticos, mas identidade ambígua,
   conflito entre fontes e interpretação reputacional exigem revisão;
 - o portal continua marcado como pré-lançamento até os gates operacionais e de
@@ -85,6 +88,13 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 - Na execução `33590214819` da representação, os recortes privados de 2022 e
   2024 reconheceram 20 pessoas já evidenciadas em cada eleição e encerraram sem
   repetir o download bloqueado pelo CDN do TSE.
+- Em 04/09/2026, a execução `33828931185`, no SHA `bb37f6c`, comprovou o novo
+  gate das fontes federais. A projeção pública reconciliou 15 linhas de execução
+  da CGU entre 2014 e 2023, quatro autores classificáveis, 232 documentos entre
+  2021 e 2026 e 12 autores documentais. O Transferegov classificou separadamente
+  os seis exercícios de 2021 a 2026: somente 2025 apresentou três transferências
+  públicas; os demais permaneceram vazios, sem herdar registros antigos. O gate
+  também recalculou a ordem dos rankings e bloqueou qualquer RPC truncada.
 
 ## Próximo fluxo vertical
 
