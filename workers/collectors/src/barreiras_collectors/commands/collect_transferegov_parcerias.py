@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import date, datetime
+from hashlib import sha256
 from zoneinfo import ZoneInfo
 
 from ..collection_control import (
@@ -58,12 +60,22 @@ class TransferegovCollectionSummary:
     preserved_pages: int
     inserted_records: int
     existing_records: int
+    manifest_records: int
+    snapshot_fingerprint: str
     commitment_records: int = 0
     payable_document_records: int = 0
     payment_order_records: int = 0
     bank_order_records: int = 0
     distribution_records: int = 0
     partnership_records: int = 0
+
+    def __post_init__(self) -> None:
+        if self.manifest_records != self.observed_records:
+            raise ValueError(
+                "A contagem do manifesto diverge dos registros observados."
+            )
+        if re.fullmatch(r"[0-9a-f]{64}", self.snapshot_fingerprint) is None:
+            raise ValueError("A impressão do snapshot deve ser SHA-256 hexadecimal.")
 
     @property
     def observed_records(self) -> int:
@@ -143,6 +155,8 @@ def execute_controlled_transferegov(
                 "fiscal_year": fiscal_year,
                 "preserved_pages": summary.preserved_pages,
                 "proposal_records": summary.proposal_records,
+                "manifest_records": summary.manifest_records,
+                "snapshot_fingerprint": summary.snapshot_fingerprint,
             },
             metrics={
                 "fiscal_year": fiscal_year,
@@ -157,6 +171,8 @@ def execute_controlled_transferegov(
                 "payable_document_records": summary.payable_document_records,
                 "payment_order_records": summary.payment_order_records,
                 "bank_order_records": summary.bank_order_records,
+                "manifest_records": summary.manifest_records,
+                "snapshot_fingerprint": summary.snapshot_fingerprint,
             },
         )
     return summary
@@ -254,7 +270,25 @@ def _log_year_completed(
         payable_document_records=summary.payable_document_records,
         payment_order_records=summary.payment_order_records,
         bank_order_records=summary.bank_order_records,
+        manifest_records=summary.manifest_records,
+        snapshot_fingerprint=summary.snapshot_fingerprint,
     )
+
+
+def build_transferegov_snapshot_fingerprint(
+    records: Sequence[tuple[str, str, str]],
+) -> str:
+    """Resume chaves e hashes normalizados sem expor o conteúdo coletado."""
+    canonical_lines: list[str] = []
+    for record_type, source_record_key, payload_sha256 in records:
+        if not record_type or not source_record_key:
+            raise ValueError("O manifesto exige tipo e chave de origem.")
+        if re.fullmatch(r"[0-9a-f]{64}", payload_sha256) is None:
+            raise ValueError("O manifesto exige hash de payload válido.")
+        canonical_lines.append(
+            "\x1f".join((record_type, source_record_key, payload_sha256))
+        )
+    return sha256("\n".join(sorted(canonical_lines)).encode("utf-8")).hexdigest()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -401,6 +435,7 @@ def _collect_snapshot(
     commitment_records = payable_document_records = 0
     payment_order_records = bank_order_records = 0
     preserved_pages = inserted_records = existing_records = 0
+    record_evidence: list[tuple[str, str, str]] = []
     proposal_ids: set[int] = set()
     partnership_ids: set[int] = set()
     document_ids: set[int] = set()
@@ -411,6 +446,14 @@ def _collect_snapshot(
         preserved_pages += 1
         inserted_records += result.inserted_records
         existing_records += result.existing_records
+        record_evidence.extend(
+            (
+                evidence.record_type,
+                evidence.source_record_key,
+                evidence.payload_sha256,
+            )
+            for evidence in result.record_evidence
+        )
         log_event(
             logger,
             logging.INFO,
@@ -562,12 +605,29 @@ def _collect_snapshot(
                 for item in page.items
             )
 
+    manifest_records = len(record_evidence)
+    observed_records = (
+        proposal_records
+        + related_records
+        + commitment_records
+        + payable_document_records
+        + payment_order_records
+        + bank_order_records
+    )
+    if manifest_records != observed_records:
+        raise TransferegovError(
+            "O manifesto normalizado diverge dos registros observados."
+        )
     return TransferegovCollectionSummary(
         proposal_records=proposal_records,
         related_records=related_records,
         preserved_pages=preserved_pages,
         inserted_records=inserted_records,
         existing_records=existing_records,
+        manifest_records=manifest_records,
+        snapshot_fingerprint=build_transferegov_snapshot_fingerprint(
+            record_evidence
+        ),
         commitment_records=commitment_records,
         payable_document_records=payable_document_records,
         payment_order_records=payment_order_records,

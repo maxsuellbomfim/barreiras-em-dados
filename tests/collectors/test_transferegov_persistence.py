@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import unittest
+from hashlib import sha256
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -13,6 +14,7 @@ from barreiras_collectors.commands.collect_transferegov_parcerias import (
     TransferegovCollectionSummary,
     _collect_snapshot,
     _fetch_all_pages,
+    build_transferegov_snapshot_fingerprint,
     execute_controlled_transferegov,
 )
 from barreiras_collectors.connectors.transferegov import (
@@ -30,6 +32,8 @@ from barreiras_collectors.persistence.service import (
     TransferegovPersistenceService,
 )
 from barreiras_collectors.resilience import RetryPolicy
+
+EMPTY_SNAPSHOT_FINGERPRINT = sha256(b"").hexdigest()
 
 
 class OneShotTransport:
@@ -270,12 +274,13 @@ class TransferegovPersistenceTests(unittest.TestCase):
             repository=repository,
         )
 
+        results = []
         for page in (
             commitment_page(),
             payable_document_page(),
             payment_order_page(),
         ):
-            service.persist(page)
+            results.append(service.persist(page))
 
         records = [
             record
@@ -305,10 +310,53 @@ class TransferegovPersistenceTests(unittest.TestCase):
             records[-1].payload,
         )
         self.assertEqual(
+            [
+                (
+                    evidence.record_type,
+                    evidence.source_record_key,
+                    evidence.payload_sha256,
+                )
+                for evidence in results[-1].record_evidence
+            ],
+            [
+                (
+                    "transferegov_ordem_pagamento",
+                    "transferegov:ordem-pagamento:5932",
+                    records[-2].payload_sha256,
+                ),
+                (
+                    "transferegov_ordem_bancaria",
+                    "transferegov:ordem-bancaria:2025OB055607",
+                    records[-1].payload_sha256,
+                ),
+            ],
+        )
+        self.assertEqual(
             repository.batches[-1].object_key,
             "transferegov/parcerias/ordens-pagamento-documento/sha256/"
             f"{payment_order_page().body_sha256[:2]}/"
             f"{payment_order_page().body_sha256}.json",
+        )
+
+    def test_snapshot_fingerprint_is_order_independent_and_exact(self) -> None:
+        rows = (
+            ("tipo-b", "chave-2", "b" * 64),
+            ("tipo-a", "chave-1", "a" * 64),
+        )
+        expected = sha256(
+            (
+                "tipo-a\x1fchave-1\x1f" + "a" * 64 + "\n" +
+                "tipo-b\x1fchave-2\x1f" + "b" * 64
+            ).encode("utf-8")
+        ).hexdigest()
+
+        self.assertEqual(
+            build_transferegov_snapshot_fingerprint(rows),
+            expected,
+        )
+        self.assertEqual(
+            build_transferegov_snapshot_fingerprint(tuple(reversed(rows))),
+            expected,
         )
 
     def test_replay_has_stable_artifact_and_record_idempotency_keys(self) -> None:
@@ -401,6 +449,8 @@ class ControlledTransferegovTests(unittest.TestCase):
                     preserved_pages=1,
                     inserted_records=0,
                     existing_records=0,
+                    manifest_records=0,
+                    snapshot_fingerprint=EMPTY_SNAPSHOT_FINGERPRINT,
                 )
 
             return operation
@@ -440,14 +490,68 @@ class ControlledTransferegovTests(unittest.TestCase):
             def persist(self, collected_page):
                 self.endpoints.append(collected_page.endpoint_code)
                 inserted = len(collected_page.items)
+                contracts = {
+                    "propostas-barreiras": (
+                        "transferegov_proposta", "id_proposta", "proposta"
+                    ),
+                    "distribuicoes-proposta": (
+                        "transferegov_distribuicao_recurso",
+                        "id_distribuicao_recurso_proposta",
+                        "distribuicao",
+                    ),
+                    "parcerias-proposta": (
+                        "transferegov_parceria", "id_parceria", "parceria"
+                    ),
+                    "empenhos-parceria": (
+                        "transferegov_empenho", "id_empenho_parceria", "empenho"
+                    ),
+                    "documentos-habeis-parceria": (
+                        "transferegov_documento_habil",
+                        "id_documento_habil",
+                        "documento-habil",
+                    ),
+                    "ordens-pagamento-documento": (
+                        "transferegov_ordem_pagamento", "id_op", "ordem-pagamento"
+                    ),
+                }
+                record_type, identifier_field, key_label = contracts[
+                    collected_page.endpoint_code
+                ]
+                evidence = [
+                    SimpleNamespace(
+                        record_type=record_type,
+                        source_record_key=(
+                            f"transferegov:{key_label}:{item[identifier_field]}"
+                        ),
+                        payload_sha256=sha256(
+                            json.dumps(item, sort_keys=True).encode("utf-8")
+                        ).hexdigest(),
+                    )
+                    for item in collected_page.items
+                ]
                 if collected_page.endpoint_code == "ordens-pagamento-documento":
                     inserted += sum(
                         bool(item.get("nr_ordem_bancaria"))
                         for item in collected_page.items
                     )
+                    evidence.extend(
+                        SimpleNamespace(
+                            record_type="transferegov_ordem_bancaria",
+                            source_record_key=(
+                                "transferegov:ordem-bancaria:"
+                                f"{item['nr_ordem_bancaria']}"
+                            ),
+                            payload_sha256=sha256(
+                                json.dumps(item, sort_keys=True).encode("utf-8")
+                            ).hexdigest(),
+                        )
+                        for item in collected_page.items
+                        if item.get("nr_ordem_bancaria")
+                    )
                 return SimpleNamespace(
                     inserted_records=inserted,
                     existing_records=0,
+                    record_evidence=tuple(evidence),
                 )
 
         service = ServiceProbe()
@@ -599,6 +703,8 @@ class ControlledTransferegovTests(unittest.TestCase):
                 preserved_pages=3,
                 inserted_records=3,
                 existing_records=0,
+                manifest_records=3,
+                snapshot_fingerprint="a" * 64,
             )
 
         execute_controlled_transferegov(
@@ -621,6 +727,8 @@ class ControlledTransferegovTests(unittest.TestCase):
             preserved_pages=1,
             inserted_records=0,
             existing_records=0,
+            manifest_records=0,
+            snapshot_fingerprint=EMPTY_SNAPSHOT_FINGERPRINT,
         )
 
         self.assertEqual(summary.outcome, CollectionOutcome.EMPTY)
@@ -672,6 +780,8 @@ class ControlledTransferegovTests(unittest.TestCase):
                 preserved_pages=6,
                 inserted_records=10,
                 existing_records=0,
+                manifest_records=10,
+                snapshot_fingerprint="b" * 64,
                 distribution_records=2,
                 partnership_records=0,
                 commitment_records=4,

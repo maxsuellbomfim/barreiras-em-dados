@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
@@ -689,7 +690,7 @@ try {
          join source.data_sources source on source.id = endpoint.data_source_id
          where source.slug = 'transferegov-parcerias'
            and endpoint.slug = 'propostas-barreiras'),
-        'fiscal-year:2025', '2025-01-01', '2025-12-31', 'complete', 11,
+        'fiscal-year:2025', '2025-01-01', '2025-12-31', 'complete', 10,
         '00000000-0000-0000-0000-000000009001',
         '{"fiscal_year":2025,"proposal_records":3}',
         '2026-08-12 18:00:00+00', '2026-08-12 18:00:01+00'
@@ -825,6 +826,53 @@ try {
         '2026-08-12 18:00:00+00'
       );
   `);
+
+  const expectedCurrentSnapshotFingerprint = createHash("sha256")
+    .update([
+      `transferegov_distribuicao_recurso\x1ftransferegov:distribuicao:14886\x1f${"c".repeat(64)}`,
+      `transferegov_distribuicao_recurso\x1ftransferegov:distribuicao:43389\x1f${"f".repeat(64)}`,
+      `transferegov_distribuicao_recurso\x1ftransferegov:distribuicao:50000\x1f${"6".repeat(64)}`,
+      `transferegov_documento_habil\x1ftransferegov:documento-habil:5941\x1f${"3".repeat(64)}`,
+      `transferegov_empenho\x1ftransferegov:empenho:11245\x1f${"2".repeat(64)}`,
+      `transferegov_ordem_pagamento\x1ftransferegov:ordem-pagamento:5932\x1f${"4".repeat(64)}`,
+      `transferegov_parceria\x1ftransferegov:parceria:30785\x1f${"1".repeat(64)}`,
+      `transferegov_proposta\x1ftransferegov:proposta:30854\x1f${"d".repeat(64)}`,
+      `transferegov_proposta\x1ftransferegov:proposta:40000\x1f${"5".repeat(64)}`,
+      `transferegov_proposta\x1ftransferegov:proposta:9274\x1f${"b".repeat(64)}`,
+    ].sort().join("\n"), "utf8")
+    .digest("hex");
+  const currentSnapshotEvidence = await database.query(`
+    select fiscal_year, coverage_status, record_count, snapshot_fingerprint,
+           methodology_version
+    from api.get_public_transferegov_current_snapshot_evidence()
+    where fiscal_year in (2021, 2022, 2025, 2026)
+    order by fiscal_year
+  `);
+  assert.deepEqual(currentSnapshotEvidence.rows, [
+    {
+      fiscal_year: 2021,
+      coverage_status: "empty",
+      record_count: 0,
+      snapshot_fingerprint:
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      methodology_version: "transferegov-current-snapshot/1.0.0",
+    },
+    {
+      fiscal_year: 2022,
+      coverage_status: "empty",
+      record_count: 0,
+      snapshot_fingerprint:
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      methodology_version: "transferegov-current-snapshot/1.0.0",
+    },
+    {
+      fiscal_year: 2025,
+      coverage_status: "complete",
+      record_count: 10,
+      snapshot_fingerprint: expectedCurrentSnapshotFingerprint,
+      methodology_version: "transferegov-current-snapshot/1.0.0",
+    },
+  ]);
 
   await database.exec(`
     insert into source.collection_runs (

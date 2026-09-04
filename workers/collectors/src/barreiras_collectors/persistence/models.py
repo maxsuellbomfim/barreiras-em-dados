@@ -61,6 +61,13 @@ class RepositoryPersistResult:
 
 
 @dataclass(frozen=True)
+class RawRecordEvidence:
+    record_type: str
+    source_record_key: str
+    payload_sha256: str
+
+
+@dataclass(frozen=True)
 class PersistenceResult:
     collection_run_id: str
     raw_artifact_id: str
@@ -69,6 +76,7 @@ class PersistenceResult:
     object_created: bool
     inserted_records: int
     existing_records: int
+    record_evidence: tuple[RawRecordEvidence, ...] = ()
 
 
 @dataclass(frozen=True)

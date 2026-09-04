@@ -49,9 +49,9 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 - a API complementar do Querido Diário permanece sujeita a timeout TLS; essa
   indisponibilidade gera aviso e DLQ próprios, enquanto catálogo e PDFs oficiais
   continuam obrigatórios e qualquer falha neles encerra a execução;
-- o Transferegov atual já reconcilia contagem e contrato com a projeção pública,
-  mas o evento terminal ainda não publica fingerprint ou identificador da
-  execução para provar a linhagem exata de cada linha idempotente;
+- o Transferegov atual reconcilia contagem, contrato e a impressão SHA-256 do
+  conjunto normalizado com a projeção pública; a prova identifica divergência
+  do snapshot anual, mas não expõe payloads nem chaves individuais;
 - fatos literais aprovados podem ser automáticos, mas identidade ambígua,
   conflito entre fontes e interpretação reputacional exigem revisão;
 - o portal continua marcado como pré-lançamento até os gates operacionais e de
@@ -95,6 +95,13 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
   os seis exercícios de 2021 a 2026: somente 2025 apresentou três transferências
   públicas; os demais permaneceram vazios, sem herdar registros antigos. O gate
   também recalculou a ordem dos rankings e bloqueou qualquer RPC truncada.
+- Em 04/09/2026, o gate federal passou a exigir também a contagem e a impressão
+  SHA-256 exatas dos registros normalizados de cada exercício do Transferegov.
+  A impressão é calculada sobre tipo, chave oficial e hash do payload tanto no
+  coletor quanto na projeção pública. Assim, uma linha antiga que permaneça na
+  projeção, uma linha nova omitida ou um payload divergente bloqueia a
+  publicação, mesmo quando os totais públicos coincidem. A RPC de evidência
+  expõe somente ano, estado, contagem, hash, data, fonte e metodologia.
 
 ## Próximo fluxo vertical
 
