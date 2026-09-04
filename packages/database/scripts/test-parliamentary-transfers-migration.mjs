@@ -63,6 +63,8 @@ try {
   });
   let specialTransferStableViewBefore;
   let seededCurrentSnapshot;
+  let seededEmptySnapshot;
+  let seededPartialSnapshot;
   for (const [index, migration] of laterMigrations.entries()) {
     if (
       migrationNames[rankingMigrationIndex + 1 + index] ===
@@ -71,7 +73,8 @@ try {
       await database.exec(`
         insert into source.collection_runs (
           id, source_endpoint_id, idempotency_key, collector_version, status
-        ) values (
+        ) values
+        (
           '00000000-0000-0000-0000-000000008901',
           (select endpoint.id
            from source.source_endpoints endpoint
@@ -79,12 +82,40 @@ try {
            where source.slug = 'transferegov-parcerias'
              and endpoint.slug = 'propostas-barreiras'),
           'transferegov-pre-migration-seed-run', 'test/1', 'succeeded'
+        ),
+        (
+          '00000000-0000-0000-0000-000000008904',
+          (select endpoint.id
+           from source.source_endpoints endpoint
+           join source.data_sources source on source.id = endpoint.data_source_id
+           where source.slug = 'transferegov-parcerias'
+             and endpoint.slug = 'propostas-barreiras'),
+          'transferegov-pre-migration-empty-run', 'test/1', 'succeeded'
+        ),
+        (
+          '00000000-0000-0000-0000-000000008905',
+          (select endpoint.id
+           from source.source_endpoints endpoint
+           join source.data_sources source on source.id = endpoint.data_source_id
+           where source.slug = 'transferegov-parcerias'
+             and endpoint.slug = 'propostas-barreiras'),
+          'transferegov-pre-migration-partial-run', 'test/1', 'failed'
+        ),
+        (
+          '00000000-0000-0000-0000-000000008910',
+          (select endpoint.id
+           from source.source_endpoints endpoint
+           join source.data_sources source on source.id = endpoint.data_source_id
+           where source.slug = 'transferegov-parcerias'
+             and endpoint.slug = 'propostas-barreiras'),
+          'transferegov-pre-migration-newer-good-run', 'test/1', 'succeeded'
         );
         insert into source.collection_partitions (
           source_endpoint_id, partition_key, period_start, period_end, status,
           observed_records, collection_run_id, checkpoint, last_attempted_at,
           completed_at
-        ) values (
+        ) values
+        (
           (select endpoint.id
            from source.source_endpoints endpoint
            join source.data_sources source on source.id = endpoint.data_source_id
@@ -94,12 +125,35 @@ try {
           '00000000-0000-0000-0000-000000008901',
           '{"fiscal_year":2024,"proposal_records":1}',
           '2026-08-12 16:00:00+00', '2026-08-12 16:00:01+00'
+        ),
+        (
+          (select endpoint.id
+           from source.source_endpoints endpoint
+           join source.data_sources source on source.id = endpoint.data_source_id
+           where source.slug = 'transferegov-parcerias'
+             and endpoint.slug = 'propostas-barreiras'),
+          'fiscal-year:2023', '2023-01-01', '2023-12-31', 'empty', 0,
+          '00000000-0000-0000-0000-000000008904',
+          '{"fiscal_year":2023,"proposal_records":0}',
+          '2026-08-12 16:01:00+00', '2026-08-12 16:01:01+00'
+        ),
+        (
+          (select endpoint.id
+           from source.source_endpoints endpoint
+           join source.data_sources source on source.id = endpoint.data_source_id
+           where source.slug = 'transferegov-parcerias'
+             and endpoint.slug = 'propostas-barreiras'),
+          'fiscal-year:2022', '2022-01-01', '2022-12-31', 'partial', 1,
+          '00000000-0000-0000-0000-000000008905',
+          '{"fiscal_year":2022,"proposal_records":1}',
+          '2026-08-12 16:02:00+00', null
         );
         insert into raw.raw_artifacts (
           id, collection_run_id, source_endpoint_id, idempotency_key,
           artifact_kind, source_url, retrieved_at, http_status, content_type,
           byte_size, sha256, object_key, collector_version, parser_version
-        ) values (
+        ) values
+        (
           '00000000-0000-0000-0000-000000008902',
           '00000000-0000-0000-0000-000000008901',
           (select endpoint.id
@@ -111,6 +165,34 @@ try {
           'https://api-publica.transferegov.gestao.gov.br/parcerias/proposta',
           '2026-08-12 16:00:00+00', 200, 'application/json', 1,
           '${"8".repeat(64)}', 'fixtures/transferegov-pre-migration.json',
+          'test/1', 'test/1'
+        ),
+        (
+          '00000000-0000-0000-0000-000000008908',
+          '00000000-0000-0000-0000-000000008905',
+          (select endpoint.id
+           from source.source_endpoints endpoint
+           join source.data_sources source on source.id = endpoint.data_source_id
+           where source.slug = 'transferegov-parcerias'
+             and endpoint.slug = 'propostas-barreiras'),
+          'transferegov-pre-migration-failed-artifact', 'http_response',
+          'https://api-publica.transferegov.gestao.gov.br/parcerias/proposta',
+          '2026-08-12 16:02:00+00', 200, 'application/json', 1,
+          '${"c".repeat(64)}', 'fixtures/transferegov-failed-partial.json',
+          'test/1', 'test/1'
+        ),
+        (
+          '00000000-0000-0000-0000-000000008911',
+          '00000000-0000-0000-0000-000000008910',
+          (select endpoint.id
+           from source.source_endpoints endpoint
+           join source.data_sources source on source.id = endpoint.data_source_id
+           where source.slug = 'transferegov-parcerias'
+             and endpoint.slug = 'propostas-barreiras'),
+          'transferegov-pre-migration-newer-good-artifact', 'http_response',
+          'https://api-publica.transferegov.gestao.gov.br/parcerias/proposta',
+          '2026-08-12 16:03:00+00', 200, 'application/json', 1,
+          '${"e".repeat(64)}', 'fixtures/transferegov-newer-good.json',
           'test/1', 'test/1'
         );
         insert into raw.raw_records (
@@ -124,6 +206,42 @@ try {
           '${"9".repeat(64)}', 'test/1',
           'transferegov-pre-migration-seed-record',
           '2026-08-12 16:00:00+00'
+        ),
+        (
+          '00000000-0000-0000-0000-000000008906',
+          '00000000-0000-0000-0000-000000008902',
+          'transferegov:proposta:stale-2023', 'transferegov_proposta', 1,
+          '{"id_proposta":"8906","ano_proposta":2023}',
+          '${"a".repeat(64)}', 'test/1',
+          'transferegov-pre-migration-stale-empty-record',
+          '2026-08-12 16:00:00+00'
+        ),
+        (
+          '00000000-0000-0000-0000-000000008907',
+          '00000000-0000-0000-0000-000000008902',
+          'transferegov:proposta:last-good-2022', 'transferegov_proposta', 2,
+          '{"id_proposta":"8907","ano_proposta":2022}',
+          '${"b".repeat(64)}', 'test/1',
+          'transferegov-pre-migration-last-good-partial-record',
+          '2026-08-12 16:00:00+00'
+        ),
+        (
+          '00000000-0000-0000-0000-000000008909',
+          '00000000-0000-0000-0000-000000008908',
+          'transferegov:proposta:failed-2022', 'transferegov_proposta', 0,
+          '{"id_proposta":"8909","ano_proposta":2022}',
+          '${"d".repeat(64)}', 'test/1',
+          'transferegov-pre-migration-failed-partial-record',
+          '2026-08-12 16:02:00+00'
+        ),
+        (
+          '00000000-0000-0000-0000-000000008912',
+          '00000000-0000-0000-0000-000000008911',
+          'transferegov:proposta:newer-good-2022', 'transferegov_proposta', 0,
+          '{"id_proposta":"8912","ano_proposta":2022}',
+          '${"f".repeat(64)}', 'test/1',
+          'transferegov-pre-migration-newer-good-record',
+          '2026-08-12 16:03:00+00'
         );
       `);
     }
@@ -155,20 +273,42 @@ try {
           on member.snapshot_id = manifest.id
         where manifest.collection_run_id =
           '00000000-0000-0000-0000-000000008901'
+          and manifest.fiscal_year = 2024
+      `);
+      seededEmptySnapshot = await database.query(`
+        select manifest.status, manifest.record_count,
+          manifest.snapshot_fingerprint,
+          count(member.raw_record_id)::integer as member_count
+        from source.transferegov_snapshot_manifests as manifest
+        left join source.transferegov_snapshot_records as member
+          on member.snapshot_id = manifest.id
+        where manifest.collection_run_id =
+          '00000000-0000-0000-0000-000000008904'
+        group by manifest.id
+      `);
+      seededPartialSnapshot = await database.query(`
+        select manifest.status, manifest.record_count,
+          manifest.collection_run_id::text as collection_run_id,
+          member.raw_record_id::text as raw_record_id
+        from source.transferegov_snapshot_manifests as manifest
+        join source.transferegov_snapshot_records as member
+          on member.snapshot_id = manifest.id
+        where manifest.fiscal_year = 2022
       `);
       await database.exec(`
         delete from source.transferegov_snapshot_records
         where snapshot_id in (
           select id from source.transferegov_snapshot_manifests
-          where collection_run_id =
-            '00000000-0000-0000-0000-000000008901'
+          where fiscal_year in (2022, 2023, 2024)
         );
         delete from source.transferegov_snapshot_manifests
-        where collection_run_id =
-          '00000000-0000-0000-0000-000000008901';
+        where fiscal_year in (2022, 2023, 2024);
         delete from source.collection_partitions
-        where collection_run_id =
-          '00000000-0000-0000-0000-000000008901';
+        where collection_run_id in (
+          '00000000-0000-0000-0000-000000008901',
+          '00000000-0000-0000-0000-000000008904',
+          '00000000-0000-0000-0000-000000008905'
+        );
       `);
     }
   }
@@ -187,6 +327,18 @@ try {
       "utf8",
     ).digest("hex"),
     raw_record_id: "00000000-0000-0000-0000-000000008903",
+  }]);
+  assert.deepEqual(seededEmptySnapshot?.rows, [{
+    status: "active",
+    record_count: 0,
+    snapshot_fingerprint: createHash("sha256").update("", "utf8").digest("hex"),
+    member_count: 0,
+  }]);
+  assert.deepEqual(seededPartialSnapshot?.rows, [{
+    status: "active",
+    record_count: 1,
+    collection_run_id: "00000000-0000-0000-0000-000000008910",
+    raw_record_id: "00000000-0000-0000-0000-000000008912",
   }]);
 
   const territorySchema = await database.query(`
@@ -3832,6 +3984,19 @@ try {
          and endpoint.slug = 'propostas-barreiras'),
       'transferegov-snapshot-failed-fixture', 'test/1', 'running'
     );
+  `);
+  await assert.rejects(
+    database.query(`
+      select source.stage_transferegov_snapshot(
+        '00000000-0000-0000-0000-000000009003'::uuid,
+        2024::smallint,
+        '${JSON.stringify(reducedSnapshotRecords)}'::jsonb,
+        '${reducedSnapshotFingerprint}'
+      )
+    `),
+    /exercicio fiscal informado/i,
+  );
+  await database.exec(`
     select source.stage_transferegov_snapshot(
       '00000000-0000-0000-0000-000000009003'::uuid,
       2025::smallint,

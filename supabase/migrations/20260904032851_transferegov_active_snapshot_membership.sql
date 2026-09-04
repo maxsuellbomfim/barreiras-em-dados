@@ -160,6 +160,87 @@ begin
   if v_computed_fingerprint <> p_snapshot_fingerprint then
     raise exception 'A impressao do snapshot Transferegov diverge da evidencia.';
   end if;
+  if v_record_count > 0 and not exists (
+    select 1
+    from jsonb_array_elements(p_records) as supplied(item)
+    where supplied.item ->> 'record_type' = 'transferegov_proposta'
+  ) then
+    raise exception 'O snapshot Transferegov nao possui proposta raiz.';
+  end if;
+  if exists (
+    with supplied as (
+      select
+        item ->> 'record_type' as record_type,
+        item ->> 'source_record_key' as source_record_key,
+        item ->> 'payload_sha256' as payload_sha256
+      from jsonb_array_elements(p_records) as input(item)
+    ), matched as (
+      select supplied.record_type, record.payload
+      from supplied
+      join raw.raw_records as record
+        on record.record_type = supplied.record_type
+       and record.source_record_key = supplied.source_record_key
+       and record.payload_sha256 = supplied.payload_sha256
+    ), proposals as (
+      select matched.payload ->> 'id_proposta' as proposal_id
+      from matched
+      where matched.record_type = 'transferegov_proposta'
+        and matched.payload ->> 'ano_proposta' ~ '^[0-9]{4}$'
+        and (matched.payload ->> 'ano_proposta')::smallint = p_fiscal_year
+    ), partnerships as (
+      select matched.payload ->> 'id_parceria' as partnership_id
+      from matched
+      where matched.record_type = 'transferegov_parceria'
+        and exists (
+          select 1 from proposals
+          where proposals.proposal_id = matched.payload ->> 'id_proposta'
+        )
+    ), payable_documents as (
+      select matched.payload ->> 'id_documento_habil' as document_id
+      from matched
+      where matched.record_type = 'transferegov_documento_habil'
+        and exists (
+          select 1 from partnerships
+          where partnerships.partnership_id = matched.payload ->> 'id_parceria'
+        )
+    )
+    select 1
+    from matched
+    where (
+      matched.record_type = 'transferegov_proposta'
+      and not exists (
+        select 1 from proposals
+        where proposals.proposal_id = matched.payload ->> 'id_proposta'
+      )
+    ) or (
+      matched.record_type in (
+        'transferegov_distribuicao_recurso', 'transferegov_parceria'
+      )
+      and not exists (
+        select 1 from proposals
+        where proposals.proposal_id = matched.payload ->> 'id_proposta'
+      )
+    ) or (
+      matched.record_type in (
+        'transferegov_empenho', 'transferegov_documento_habil'
+      )
+      and not exists (
+        select 1 from partnerships
+        where partnerships.partnership_id = matched.payload ->> 'id_parceria'
+      )
+    ) or (
+      matched.record_type in (
+        'transferegov_ordem_pagamento', 'transferegov_ordem_bancaria'
+      )
+      and not exists (
+        select 1 from payable_documents
+        where payable_documents.document_id =
+          matched.payload ->> 'id_documento_habil'
+      )
+    )
+  ) then
+    raise exception 'A evidencia Transferegov nao pertence integralmente ao exercicio fiscal informado.';
+  end if;
 
   select run.source_endpoint_id, run.status
   into v_endpoint_id, v_run_status
@@ -473,10 +554,45 @@ begin
         on data_source.id = source_endpoint.data_source_id
       where data_source.slug = 'transferegov-parcerias'
         and source_endpoint.slug = 'propostas-barreiras'
+    ), seedable_partitions as (
+      select
+        partition.status,
+        extract(year from partition.period_start)::smallint as fiscal_year,
+        case
+          when partition.status in ('complete', 'empty')
+               and partition_run.status = 'succeeded'
+            then partition.collection_run_id
+          when partition.status in ('partial', 'failed', 'blocked')
+            then last_good_run.id
+        end as seed_run_id
+      from source.collection_partitions as partition
+      join endpoint on endpoint.id = partition.source_endpoint_id
+      left join source.collection_runs as partition_run
+        on partition_run.id = partition.collection_run_id
+      left join lateral (
+        select run.id
+        from pg_temp.transferegov_snapshot_seed_records as candidate
+        join raw.raw_records as record
+          on record.id = candidate.raw_record_id
+        join raw.raw_artifacts as artifact
+          on artifact.id = record.raw_artifact_id
+        join source.collection_runs as run
+          on run.id = artifact.collection_run_id
+         and run.status = 'succeeded'
+        where candidate.fiscal_year =
+          extract(year from partition.period_start)::smallint
+        order by coalesce(run.completed_at, run.updated_at, run.created_at) desc,
+          run.id desc
+        limit 1
+      ) as last_good_run on true
+      where partition.partition_key =
+        'fiscal-year:' || extract(year from partition.period_start)::integer::text
+        and partition.status in ('complete', 'empty', 'partial', 'failed', 'blocked')
+        and partition.period_start >= date '2021-01-01'
     )
     select
-      partition.collection_run_id,
-      extract(year from partition.period_start)::smallint as fiscal_year,
+      partition.seed_run_id as collection_run_id,
+      partition.fiscal_year,
       coalesce(
         jsonb_agg(
           jsonb_build_object(
@@ -485,20 +601,31 @@ begin
             'payload_sha256', seed_record.payload_sha256
           )
           order by seed_record.record_type, seed_record.source_record_key
-        ) filter (where seed_record.raw_record_id is not null),
+        ) filter (
+          where partition.status <> 'empty'
+            and seed_record.raw_record_id is not null
+            and (
+              partition.status = 'complete'
+              or exists (
+                select 1
+                from raw.raw_records as seed_raw_record
+                join raw.raw_artifacts as seed_artifact
+                  on seed_artifact.id = seed_raw_record.raw_artifact_id
+                join source.collection_runs as seed_run
+                  on seed_run.id = seed_artifact.collection_run_id
+                 and seed_run.status = 'succeeded'
+                where seed_raw_record.id = seed_record.raw_record_id
+                  and seed_artifact.collection_run_id = partition.seed_run_id
+              )
+            )
+        ),
         '[]'::jsonb
       ) as records
-    from source.collection_partitions as partition
-    join endpoint on endpoint.id = partition.source_endpoint_id
+    from seedable_partitions as partition
     left join pg_temp.transferegov_snapshot_seed_records as seed_record
-      on seed_record.fiscal_year =
-        extract(year from partition.period_start)::smallint
-    where partition.partition_key =
-      'fiscal-year:' || extract(year from partition.period_start)::integer::text
-      and partition.status in ('complete', 'empty')
-      and partition.collection_run_id is not null
-      and partition.period_start >= date '2021-01-01'
-    group by partition.collection_run_id, partition.period_start
+      on seed_record.fiscal_year = partition.fiscal_year
+    where partition.seed_run_id is not null
+    group by partition.seed_run_id, partition.fiscal_year, partition.status
   loop
     with supplied as (
       select
