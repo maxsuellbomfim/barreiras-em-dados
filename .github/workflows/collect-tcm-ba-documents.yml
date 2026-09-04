@@ -126,6 +126,7 @@ jobs:
           --competence "$TCM_COMPETENCE"
           --max-documents "$TCM_MAX_DOCUMENTS"
           --category-code "$TCM_CATEGORY_CODE"
+          --execution-origin "github_actions"
           --requests-per-minute "30"
 
       - name: Auditar banco e objetos privados

@@ -137,3 +137,36 @@ test("painel recebe progresso documental sanitizado do TCM-BA", async () => {
   assert.match(component, /latest_work_unit/);
   assert.match(component, /workProgress\.heading/);
 });
+
+test("painel mede somente lotes agendados documentalmente íntegros", async () => {
+  const migrationsDirectory = new URL("../../supabase/migrations/", import.meta.url);
+  const migrationName = (await readdir(migrationsDirectory)).find((name) =>
+    name.endsWith("_admin_tcm_scheduled_streak.sql"),
+  );
+  assert.ok(migrationName, "a migration da sequência agendada deve existir");
+  const streakMigration = await readFile(
+    new URL(migrationName, migrationsDirectory),
+    "utf8",
+  );
+
+  assert.match(streakMigration, /create function api\.get_collection_health_v7\(/);
+  assert.match(streakMigration, /scheduled_success_streak integer/);
+  assert.match(streakMigration, /scheduled_runs_observed integer/);
+  assert.match(streakMigration, /latest_scheduled_run_at timestamptz/);
+  assert.match(streakMigration, /execution_origin' = 'windows_scheduler'/);
+  assert.match(streakMigration, /documents_preserved_before/);
+  assert.match(streakMigration, /documents_preserved_after/);
+  assert.match(streakMigration, /documents_remaining/);
+  assert.match(streakMigration, /expected_documents/);
+  assert.match(streakMigration, /coalesce\([\s\S]*false[\s\S]*as is_valid/);
+  assert.match(streakMigration, /collection-health\/1\.7\.0/);
+  assert.match(streakMigration, /collection_runs_tcm_scheduler_recent_idx/);
+  assert.match(
+    streakMigration,
+    /revoke all on function api\.get_collection_health_v7\(integer\)\s+from public, anon/,
+  );
+  assert.match(page, /get_collection_health_v7/);
+  assert.match(page, /get_collection_health_v6/);
+  assert.match(component, /scheduled_success_streak/);
+  assert.match(component, /Execuções agendadas verificáveis/);
+});

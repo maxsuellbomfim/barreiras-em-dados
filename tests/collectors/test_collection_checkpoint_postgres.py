@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from datetime import UTC, date, datetime, timedelta
 
@@ -56,7 +57,49 @@ class CompletionConnection(CheckpointConnection):
         return QueryResult()
 
 
+class StartConnection(CompletionConnection):
+    def execute(self, query, params=None):
+        self.calls.append((query, params))
+        normalized = " ".join(query.lower().split())
+        if "from source.source_endpoints as endpoint" in normalized:
+            return QueryResult({"id": "00000000-0000-0000-0000-000000000001"})
+        if normalized.startswith("insert into source.collection_runs"):
+            return QueryResult({"id": "00000000-0000-0000-0000-000000000010"})
+        return QueryResult()
+
+
 class CollectionCheckpointPostgresTests(unittest.TestCase):
+    def test_start_persists_execution_origin_before_external_work(self) -> None:
+        connection = StartConnection(None)
+        repository = PostgresCollectionRepository(lambda: connection)
+        started_at = datetime(2026, 9, 4, 13, 30, tzinfo=UTC)
+
+        run_id = repository.start_controlled_run(
+            source_code="tcm-ba",
+            endpoint_code="prestacoes-contas-mensais",
+            idempotency_key="tcm-documents:test:scheduled-start",
+            collector_version="tcm-ba-monthly-document-collector/1.0.0",
+            parser_version="not-applicable",
+            period_start=date(2021, 2, 1),
+            period_end=date(2021, 2, 28),
+            execution_origin="windows_scheduler",
+            started_at=started_at,
+        )
+
+        self.assertEqual(run_id, "00000000-0000-0000-0000-000000000010")
+        insert_call = next(
+            (query, params)
+            for query, params in connection.calls
+            if "insert into source.collection_runs" in query.lower()
+        )
+        self.assertEqual(
+            json.loads(insert_call[1][-1]),
+            {
+                "control_plane": True,
+                "execution_origin": "windows_scheduler",
+            },
+        )
+
     def test_partial_completion_persists_failure_without_resolving_it(self) -> None:
         connection = CompletionConnection(None)
         repository = PostgresCollectionRepository(lambda: connection)

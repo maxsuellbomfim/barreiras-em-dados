@@ -16,6 +16,7 @@ test("lote documental TCM-BA é serial, limitado e auditado", () => {
   );
   assert.match(workflow, /max_documents:[\s\S]*options:\s*\n\s+- "1"\s*\n\s+- "5"/);
   assert.match(workflow, /--requests-per-minute "30"/);
+  assert.match(workflow, /--execution-origin "github_actions"/);
   assert.doesNotMatch(workflow, /--requests-per-minute "(?:3[1-9]|[4-9][0-9]|[1-9][0-9]{2,})"/);
 
   const collectIndex = workflow.indexOf(
