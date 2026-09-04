@@ -372,6 +372,26 @@ continuam consultados dinamicamente. Nas medições SQL individuais, a consulta
 de pagamentos passou de 41,9 ms para 12 ms e o ranking de 16,7 ms para 1,5 ms;
 esses tempos não medem a página inteira. A página de Recursos respondeu HTTP
 200 com os valores e a seção próprios preservados.
-O próximo fluxo menor é verificar a atualização automática dessa projeção na
-próxima extração programada e conferir as consultas restantes de cobertura
-estadual, preservando a separação entre fonte ausente e valor zero.
+Em 03/09/2026, a etapa estadual recebeu um gate público depois de cada
+normalização. A execução não pode mais terminar verde apenas porque preservou
+ou processou um arquivo: ela consulta novamente as RPCs sem cache e exige
+cobertura estadual válida, os mesmos exercícios entre LOA e execução e
+reconciliação exata entre cobertura anual, pagamentos e ranking das
+transferências especiais. O hash publicado pela execução e pelos pagamentos
+precisa ser o mesmo do arquivo que o coletor acabou de baixar; na LOA, os seis
+estados anuais e a hora da tentativa precisam corresponder à execução atual.
+Um PDF da LOA preservado sem linha territorial pode aparecer como `empty`,
+sem ser confundido com fonte bloqueada. Pagamentos e ranking são lidos por
+paginação determinística, portanto o gate não fica limitado aos primeiros 200
+pagamentos ou 50 autores. Nenhum nome ou valor foi fixado no código. A prova
+viva anterior à mesclagem
+encontrou seis exercícios estaduais, 4.234 registros agregados na fonte de
+execução, três pagamentos territoriais em um ranking e cinco exercícios da LOA
+observados; 2021 continuou bloqueado, sem virar zero. O próximo fluxo menor é
+executar os modos estaduais após a mesclagem e conservar como evidência os
+eventos do novo gate, antes de estender a mesma prova às demais fontes.
+Na primeira execução controlada, o catálogo estadual ficou indisponível nas
+quatro tentativas; na repetição, a preservação terminou, mas a seleção da fila
+de normalização excedeu os 15 segundos permitidos pela role. A consulta passou
+a exigir resultado válido do tipo correto e recebeu índices parciais para ZIP,
+manifesto e estado do job, evitando varredura integral do acervo.

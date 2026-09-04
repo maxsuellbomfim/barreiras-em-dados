@@ -364,6 +364,15 @@ try {
       to_regclass(
         'raw.extraction_jobs_bahia_state_execution_latest_idx'
       )::text as latest_job_index,
+      to_regclass(
+        'raw.raw_artifacts_bahia_state_execution_pending_idx'
+      )::text as pending_artifact_index,
+      to_regclass(
+        'raw.raw_records_bahia_state_archive_member_idx'
+      )::text as archive_member_index,
+      to_regclass(
+        'raw.extraction_jobs_bahia_state_artifact_idx'
+      )::text as artifact_job_index,
       to_regprocedure(
         'territory.refresh_bahia_state_execution_annual_coverage_snapshot()'
       )::text as refresh_function,
@@ -375,6 +384,10 @@ try {
     coverage_snapshot:
       "territory.bahia_state_execution_annual_coverage_snapshot",
     latest_job_index: "raw.extraction_jobs_bahia_state_execution_latest_idx",
+    pending_artifact_index:
+      "raw.raw_artifacts_bahia_state_execution_pending_idx",
+    archive_member_index: "raw.raw_records_bahia_state_archive_member_idx",
+    artifact_job_index: "raw.extraction_jobs_bahia_state_artifact_idx",
     refresh_function:
       "territory.refresh_bahia_state_execution_annual_coverage_snapshot()",
     public_rpc: "api.get_public_bahia_state_execution_annual_coverage()",
@@ -422,6 +435,12 @@ try {
         'api.get_public_bahia_special_transfer_ranking(smallint,integer)'
       )::text as ranking_rpc,
       to_regprocedure(
+        'api.get_public_bahia_special_transfer_payments(integer,smallint,text,integer)'
+      )::text as paginated_payment_rpc,
+      to_regprocedure(
+        'api.get_public_bahia_special_transfer_ranking(integer,smallint,integer)'
+      )::text as paginated_ranking_rpc,
+      to_regprocedure(
         'api.get_public_bahia_special_transfer_annual_coverage()'
       )::text as annual_coverage_rpc,
       has_function_privilege(
@@ -434,6 +453,16 @@ try {
         'api.get_public_bahia_special_transfer_ranking(smallint,integer)',
         'EXECUTE'
       ) as anon_ranking_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_bahia_special_transfer_payments(integer,smallint,text,integer)',
+        'EXECUTE'
+      ) as anon_paginated_payment_rpc,
+      has_function_privilege(
+        'anon',
+        'api.get_public_bahia_special_transfer_ranking(integer,smallint,integer)',
+        'EXECUTE'
+      ) as anon_paginated_ranking_rpc,
       has_function_privilege(
         'anon',
         'api.get_public_bahia_special_transfer_annual_coverage()',
@@ -458,10 +487,16 @@ try {
       "api.get_public_bahia_special_transfer_payments(smallint,text,integer)",
     ranking_rpc:
       "api.get_public_bahia_special_transfer_ranking(smallint,integer)",
+    paginated_payment_rpc:
+      "api.get_public_bahia_special_transfer_payments(integer,smallint,text,integer)",
+    paginated_ranking_rpc:
+      "api.get_public_bahia_special_transfer_ranking(integer,smallint,integer)",
     annual_coverage_rpc:
       "api.get_public_bahia_special_transfer_annual_coverage()",
     anon_payment_rpc: true,
     anon_ranking_rpc: true,
+    anon_paginated_payment_rpc: true,
+    anon_paginated_ranking_rpc: true,
     anon_annual_coverage_rpc: true,
     anon_crosswalk_select: false,
   }]);
@@ -3183,6 +3218,15 @@ try {
       aggregation_policy: "single_source_no_cross_source_sum",
     },
   ]);
+
+  const paginatedSpecialTransferPayments = await database.query(`
+    select amendment_number, payment_amount
+    from api.get_public_bahia_special_transfer_payments(2, null, null, 2)
+  `);
+  assert.deepEqual(paginatedSpecialTransferPayments.rows, [{
+    amendment_number: "40720003",
+    payment_amount: "594841.25",
+  }]);
 
   const specialTransferRanking = await database.query(`
     select rank_position, official_author_name, representative_external_id,

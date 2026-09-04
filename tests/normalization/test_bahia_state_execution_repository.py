@@ -130,6 +130,11 @@ class BahiaStateExecutionRepositoryTests(unittest.TestCase):
         self.assertIn("count(*) = 5", query)
         self.assertIn("result.extractor_version = %s", query)
         self.assertIn("result.validator_version = %s", query)
+        self.assertIn(
+            "result.candidate_type = 'bahia_state_execution_aggregate'",
+            query,
+        )
+        self.assertIn("result.validation_status = 'valid'", query)
         self.assertIn("job.status = 'dead_lettered'", query)
 
     def test_persists_job_and_decimal_payloads_in_one_transaction(self) -> None:

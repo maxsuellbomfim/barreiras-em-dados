@@ -339,6 +339,40 @@ test("modo somente transferencias especiais nao abre as demais fontes", () => {
   assert.match(stateLoaJob, /inputs\.resource != 'bahia-special-only'/);
 });
 
+test("jobs estaduais falham se a normalizacao nao chegar as RPCs publicas", () => {
+  const stateExecutionJob = workflow.slice(
+    workflow.indexOf("  bahia_state_amendments:"),
+    workflow.indexOf("  bahia_special_transfers:"),
+  );
+  const specialTransfersJob = workflow.slice(
+    workflow.indexOf("  bahia_special_transfers:"),
+    workflow.indexOf("  bahia_state_loa_amendments:"),
+  );
+  const stateLoaJob = workflow.slice(
+    workflow.indexOf("  bahia_state_loa_amendments:"),
+  );
+
+  for (const job of [stateExecutionJob, specialTransfersJob, stateLoaJob]) {
+    assert.match(job, /actions\/setup-node@a0853c24544627f65ddf259abe73b1d18a591444/);
+    assert.match(job, /node-version: 22\.x/);
+    assert.match(job, /SUPABASE_PUBLISHABLE_KEY/);
+    assert.match(job, /set -o pipefail/);
+    assert.match(job, /--collector-log/);
+  }
+  assert.match(
+    stateExecutionJob,
+    /verify-public-state-resource-projections\.mjs[\s\S]*--scope state-execution/,
+  );
+  assert.match(
+    specialTransfersJob,
+    /verify-public-state-resource-projections\.mjs[\s\S]*--scope special-transfers/,
+  );
+  assert.match(
+    stateLoaJob,
+    /verify-public-state-resource-projections\.mjs[\s\S]*--scope loa[\s\S]*--not-before-file/,
+  );
+});
+
 test("execucao municipal direcionada nao dispara coletores complementares por padrao", () => {
   const transferegovJob = workflow.slice(
     workflow.indexOf("  transferegov:"),
