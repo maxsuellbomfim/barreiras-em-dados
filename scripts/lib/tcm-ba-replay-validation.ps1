@@ -48,7 +48,7 @@ function Assert-TcmBaRequestsPerMinute {
 function Get-TcmBaDocumentFamilyCatchUpLimit {
     [CmdletBinding()]
     param(
-        [ValidateRange(1, 5)]
+        [ValidateRange(1, 10)]
         [int]$MaxDocuments
     )
 
@@ -58,7 +58,7 @@ function Get-TcmBaDocumentFamilyCatchUpLimit {
 function Get-TcmBaCommitmentCatchUpLimit {
     [CmdletBinding()]
     param(
-        [ValidateRange(1, 5)]
+        [ValidateRange(1, 10)]
         [int]$MaxDocuments
     )
 
@@ -218,7 +218,7 @@ function Assert-TcmBaDocumentBatchApproval {
         [AllowNull()]
         [object[]]$Events,
         [string]$ExpectedCompetence,
-        [ValidateRange(1, 5)]
+        [ValidateRange(1, 10)]
         [int]$MaxDocuments
     )
 
@@ -371,7 +371,7 @@ function Assert-TcmBaDocumentTextApproval {
     param(
         [AllowNull()]
         [object[]]$Events,
-        [ValidateRange(1, 5)]
+        [ValidateRange(1, 10)]
         [int]$MaxDocuments
     )
 

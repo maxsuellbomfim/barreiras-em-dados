@@ -26,7 +26,7 @@ $arguments = @(
     "-ExecutionPolicy Bypass"
     "-File `"$wrapperPath`""
     "-AutoCompetence"
-    "-MaxDocuments 5"
+    "-MaxDocuments 10"
     "-RequestsPerMinute 30"
 ) -join " "
 $action = New-ScheduledTaskAction `
@@ -53,11 +53,11 @@ $task = New-ScheduledTask `
     -Trigger $trigger `
     -Settings $settings `
     -Principal $principal `
-    -Description "Drena até 5 documentos TCM-BA a cada $IntervalMinutes minutos com auditoria física."
+    -Description "Drena até 10 documentos TCM-BA a cada $IntervalMinutes minutos com auditoria física."
 Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
 if ($StartNow) {
     Start-ScheduledTask -TaskName $taskName
 }
 $registered = Get-ScheduledTask -TaskName $taskName
 Write-Host "Tarefa $($registered.TaskName) registrada para $currentUser." -ForegroundColor Green
-Write-Host "Cadência: $IntervalMinutes minutos; sem sobreposição; retoma horários perdidos e acorda em suspensão quando conectado à energia; até 5 documentos por rodada; 30 RPM."
+Write-Host "Cadência: $IntervalMinutes minutos; sem sobreposição; retoma horários perdidos e acorda em suspensão quando conectado à energia; até 10 documentos por rodada; 30 RPM."

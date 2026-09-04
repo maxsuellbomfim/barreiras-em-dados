@@ -163,6 +163,22 @@ test("gate aceita páginas embutidas e páginas explicitamente pendentes de OCR"
   assert.equal(result.status, 0, result.stdout + "\n" + result.stderr);
 });
 
+test("gate de texto aceita lote operacional de dez documentos", () => {
+  const result = runGate(
+    [
+      event({
+        pending_found: 10,
+        processed: 10,
+        pages_total: 24,
+        pages_with_embedded_text: 20,
+        pages_awaiting_ocr: 4,
+      }),
+    ],
+    10,
+  );
+  assert.equal(result.status, 0, result.stdout + "\n" + result.stderr);
+});
+
 test("gate rejeita falha, lote vazio e contadores de páginas divergentes", () => {
   for (const invalid of [
     event({ failed: 1, processed: 4 }),

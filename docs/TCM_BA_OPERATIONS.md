@@ -978,7 +978,7 @@ python -B -m barreiras_collectors.commands.collect_tcm_ba_documents `
   --requests-per-minute 30
 ```
 
-O limite aceito é de um a cinco documentos e nunca mais de 30 requisições por
+O limite aceito é de um a dez documentos e nunca mais de 30 requisições por
 minuto. Cada lote cria uma execução de controle própria. O checkpoint registra
 o total esperado, quantos PDFs já estavam preservados, quantos foram baixados e
 quantos restam. A partição `documents:AAAA-MM` permanece `partial` até que o
@@ -1009,10 +1009,10 @@ silenciosamente.
 
 O wrapper recomendado para os próximos lotes é:
 
-    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tcm-ba-document-pilot.ps1 -Competence 01/2021 -MaxDocuments 5 -RequestsPerMinute 30
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tcm-ba-document-pilot.ps1 -Competence 01/2021 -MaxDocuments 10 -RequestsPerMinute 30
 
 O selo TCM_BA_DOCUMENT_PILOT_APPROVED só aparece quando exatamente um evento
-final recompõe o total esperado, preserva de um a cinco PDFs, avança a cobertura
+final recompõe o total esperado, preserva de um a dez PDFs, avança a cobertura
 e mantém partial enquanto houver documentos pendentes. O limite de 30 RPM é
 fechado e as credenciais continuam protegidas pelo usuário atual do Windows.
 
@@ -1045,10 +1045,10 @@ foi novamente observado no catálogo mensal em 02/09/2026; sua retomada também
 permanece no executor local.
 
 A tarefa `Barreiras360-TCMBA-Documents` executa no máximo um lote a cada 15
-minutos, com até cinco documentos e limite fixo de 30 requisições por minuto.
+minutos, com até dez documentos e limite fixo de 30 requisições por minuto.
 Ela roda apenas no usuário atual, em nível limitado, reutiliza o cofre DPAPI e
 ignora nova instância enquanto a anterior estiver ativa. A cadência mínima de 15
-minutos mantém no máximo vinte documentos por hora e não abre uma segunda
+minutos mantém no máximo quarenta documentos por hora e não abre uma segunda
 execução se auditoria, OCR ou processamento ainda estiverem ativos. Para
 instalar ou atualizar:
 
