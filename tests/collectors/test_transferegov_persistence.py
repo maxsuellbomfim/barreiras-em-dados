@@ -27,13 +27,37 @@ from barreiras_collectors.connectors.transferegov import (
     fetch_resource_distributions_page,
 )
 from barreiras_collectors.http import HttpResponse
-from barreiras_collectors.persistence.models import ArtifactIntegrityError
+from barreiras_collectors.persistence.models import (
+    ArtifactIntegrityError,
+    RawRecordEvidence,
+)
+from barreiras_collectors.persistence.postgres import PostgresCollectionRepository
 from barreiras_collectors.persistence.service import (
     TransferegovPersistenceService,
 )
 from barreiras_collectors.resilience import RetryPolicy
 
 EMPTY_SNAPSHOT_FINGERPRINT = sha256(b"").hexdigest()
+
+
+def snapshot_records(count: int, namespace: str) -> tuple[RawRecordEvidence, ...]:
+    return tuple(
+        RawRecordEvidence(
+            record_type="transferegov_proposta",
+            source_record_key=f"transferegov:proposta:{namespace}-{index}",
+            payload_sha256=sha256(f"{namespace}-{index}".encode()).hexdigest(),
+        )
+        for index in range(count)
+    )
+
+
+def snapshot_fingerprint(records: tuple[RawRecordEvidence, ...]) -> str:
+    return build_transferegov_snapshot_fingerprint(
+        tuple(
+            (row.record_type, row.source_record_key, row.payload_sha256)
+            for row in records
+        )
+    )
 
 
 class OneShotTransport:
@@ -282,11 +306,7 @@ class TransferegovPersistenceTests(unittest.TestCase):
         ):
             results.append(service.persist(page))
 
-        records = [
-            record
-            for batch in repository.batches
-            for record in batch.records
-        ]
+        records = [record for batch in repository.batches for record in batch.records]
         self.assertEqual(
             [record.record_type for record in records],
             [
@@ -345,8 +365,11 @@ class TransferegovPersistenceTests(unittest.TestCase):
         )
         expected = sha256(
             (
-                "tipo-a\x1fchave-1\x1f" + "a" * 64 + "\n" +
-                "tipo-b\x1fchave-2\x1f" + "b" * 64
+                "tipo-a\x1fchave-1\x1f"
+                + "a" * 64
+                + "\n"
+                + "tipo-b\x1fchave-2\x1f"
+                + "b" * 64
             ).encode("utf-8")
         ).hexdigest()
 
@@ -407,6 +430,61 @@ class TransferegovPersistenceTests(unittest.TestCase):
 
 
 class ControlledTransferegovTests(unittest.TestCase):
+    def test_repository_stages_only_minimal_snapshot_evidence(self) -> None:
+        calls: list[tuple[str, tuple[object, ...] | None]] = []
+
+        class Result:
+            @staticmethod
+            def fetchone():
+                return {"snapshot_id": "00000000-0000-0000-0000-000000000099"}
+
+        class Connection:
+            closed = False
+
+            def transaction(self):
+                return self
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                del exc_type, exc_value, traceback
+                return False
+
+            def execute(self, query, params=None):
+                calls.append((query, params))
+                return Result()
+
+            def close(self):
+                self.closed = True
+
+        connection = Connection()
+        records = snapshot_records(2, "repository")
+        fingerprint = snapshot_fingerprint(records)
+
+        snapshot_id = PostgresCollectionRepository(
+            lambda: connection  # type: ignore[arg-type]
+        ).stage_transferegov_snapshot(
+            run_id="00000000-0000-0000-0000-000000000001",
+            fiscal_year=2025,
+            records=records,
+            snapshot_fingerprint=fingerprint,
+        )
+
+        self.assertEqual(snapshot_id, "00000000-0000-0000-0000-000000000099")
+        stage_call = next(
+            (query, params)
+            for query, params in calls
+            if "source.stage_transferegov_snapshot" in query
+        )
+        serialized = json.loads(stage_call[1][2])
+        self.assertEqual(
+            set(serialized[0]),
+            {"record_type", "source_record_key", "payload_sha256"},
+        )
+        self.assertEqual(stage_call[1][3], fingerprint)
+        self.assertTrue(connection.closed)
+
     def test_fiscal_year_range_is_bounded_and_inclusive(self) -> None:
         self.assertTrue(hasattr(command, "validate_fiscal_year_range"))
         validate = command.validate_fiscal_year_range
@@ -428,6 +506,8 @@ class ControlledTransferegovTests(unittest.TestCase):
         related_control_years: list[int] = []
 
         class ControlProbe:
+            run_id = "00000000-0000-0000-0000-000000000001"
+
             def __enter__(self):
                 return self
 
@@ -451,11 +531,13 @@ class ControlledTransferegovTests(unittest.TestCase):
                     existing_records=0,
                     manifest_records=0,
                     snapshot_fingerprint=EMPTY_SNAPSHOT_FINGERPRINT,
+                    snapshot_records=(),
                 )
 
             return operation
 
         with self.assertRaisesRegex(TransferegovError, "2022"):
+            staged_years: list[int] = []
             command.execute_yearly_backfill(
                 fiscal_years=(2021, 2022, 2023),
                 control_factory=lambda _year: ControlProbe(),
@@ -464,10 +546,14 @@ class ControlledTransferegovTests(unittest.TestCase):
                 related_control_factory=lambda year: (
                     related_control_years.append(year) or {}
                 ),
+                snapshot_stager=lambda _run_id, year, _records, _fingerprint: (
+                    staged_years.append(year)
+                ),
             )
 
         self.assertEqual(attempted, [2021, 2022, 2023])
         self.assertEqual(related_control_years, [2021, 2022, 2023])
+        self.assertEqual(staged_years, [2021, 2023])
 
     def test_snapshot_walks_from_partnership_to_bank_order_without_skipping_stage(
         self,
@@ -492,7 +578,9 @@ class ControlledTransferegovTests(unittest.TestCase):
                 inserted = len(collected_page.items)
                 contracts = {
                     "propostas-barreiras": (
-                        "transferegov_proposta", "id_proposta", "proposta"
+                        "transferegov_proposta",
+                        "id_proposta",
+                        "proposta",
                     ),
                     "distribuicoes-proposta": (
                         "transferegov_distribuicao_recurso",
@@ -500,10 +588,14 @@ class ControlledTransferegovTests(unittest.TestCase):
                         "distribuicao",
                     ),
                     "parcerias-proposta": (
-                        "transferegov_parceria", "id_parceria", "parceria"
+                        "transferegov_parceria",
+                        "id_parceria",
+                        "parceria",
                     ),
                     "empenhos-parceria": (
-                        "transferegov_empenho", "id_empenho_parceria", "empenho"
+                        "transferegov_empenho",
+                        "id_empenho_parceria",
+                        "empenho",
                     ),
                     "documentos-habeis-parceria": (
                         "transferegov_documento_habil",
@@ -511,7 +603,9 @@ class ControlledTransferegovTests(unittest.TestCase):
                         "documento-habil",
                     ),
                     "ordens-pagamento-documento": (
-                        "transferegov_ordem_pagamento", "id_op", "ordem-pagamento"
+                        "transferegov_ordem_pagamento",
+                        "id_op",
+                        "ordem-pagamento",
                     ),
                 }
                 record_type, identifier_field, key_label = contracts[
@@ -681,6 +775,8 @@ class ControlledTransferegovTests(unittest.TestCase):
         completion: dict[str, object] = {}
 
         class ControlProbe:
+            run_id = "00000000-0000-0000-0000-000000000001"
+
             def __enter__(self):
                 events.append("started")
                 return self
@@ -697,6 +793,7 @@ class ControlledTransferegovTests(unittest.TestCase):
         def operation() -> TransferegovCollectionSummary:
             self.assertEqual(events, ["started"])
             events.append("external-setup")
+            records = snapshot_records(3, "control")
             return TransferegovCollectionSummary(
                 proposal_records=1,
                 related_records=2,
@@ -704,18 +801,42 @@ class ControlledTransferegovTests(unittest.TestCase):
                 inserted_records=3,
                 existing_records=0,
                 manifest_records=3,
-                snapshot_fingerprint="a" * 64,
+                snapshot_fingerprint=snapshot_fingerprint(records),
+                snapshot_records=records,
             )
 
         execute_controlled_transferegov(
             control=ControlProbe(),  # type: ignore[arg-type]
             fiscal_year=2025,
             operation=operation,
+            snapshot_stager=lambda run_id, year, records, fingerprint: (
+                self.assertEqual(
+                    (
+                        run_id,
+                        year,
+                        len(records),
+                        fingerprint,
+                    ),
+                    (
+                        "00000000-0000-0000-0000-000000000001",
+                        2025,
+                        3,
+                        snapshot_fingerprint(snapshot_records(3, "control")),
+                    ),
+                ),
+                events.append("snapshot-staged"),
+            )[-1],
         )
 
         self.assertEqual(
             events,
-            ["started", "external-setup", "completed:complete", "closed"],
+            [
+                "started",
+                "external-setup",
+                "snapshot-staged",
+                "completed:complete",
+                "closed",
+            ],
         )
         self.assertEqual(completion["checkpoint"]["fiscal_year"], 2025)
         self.assertEqual(completion["metrics"]["fiscal_year"], 2025)
@@ -729,6 +850,7 @@ class ControlledTransferegovTests(unittest.TestCase):
             existing_records=0,
             manifest_records=0,
             snapshot_fingerprint=EMPTY_SNAPSHOT_FINGERPRINT,
+            snapshot_records=(),
         )
 
         self.assertEqual(summary.outcome, CollectionOutcome.EMPTY)
@@ -740,6 +862,10 @@ class ControlledTransferegovTests(unittest.TestCase):
         class ControlProbe:
             def __init__(self, endpoint: str) -> None:
                 self.endpoint = endpoint
+
+            @property
+            def run_id(self) -> str:
+                return f"run-{self.endpoint}"
 
             def __enter__(self):
                 events.append(f"started:{self.endpoint}")
@@ -762,9 +888,7 @@ class ControlledTransferegovTests(unittest.TestCase):
             "ordens-pagamento-documento": 3,
         }
         primary = ControlProbe("propostas-barreiras")
-        related = {
-            endpoint: ControlProbe(endpoint) for endpoint in endpoint_records
-        }
+        related = {endpoint: ControlProbe(endpoint) for endpoint in endpoint_records}
 
         def operation() -> TransferegovCollectionSummary:
             self.assertEqual(
@@ -774,6 +898,7 @@ class ControlledTransferegovTests(unittest.TestCase):
                     *(f"started:{endpoint}" for endpoint in endpoint_records),
                 },
             )
+            records = snapshot_records(10, "related")
             return TransferegovCollectionSummary(
                 proposal_records=1,
                 related_records=2,
@@ -781,7 +906,8 @@ class ControlledTransferegovTests(unittest.TestCase):
                 inserted_records=10,
                 existing_records=0,
                 manifest_records=10,
-                snapshot_fingerprint="b" * 64,
+                snapshot_fingerprint=snapshot_fingerprint(records),
+                snapshot_records=records,
                 distribution_records=2,
                 partnership_records=0,
                 commitment_records=4,
@@ -794,6 +920,7 @@ class ControlledTransferegovTests(unittest.TestCase):
             related_controls=related,  # type: ignore[arg-type]
             fiscal_year=2026,
             operation=operation,
+            snapshot_stager=lambda *_values: events.append("snapshot-staged"),
         )
 
         self.assertEqual(
@@ -818,10 +945,7 @@ class ControlledTransferegovTests(unittest.TestCase):
         )
         self.assertEqual(
             events.index("completed:propostas-barreiras"),
-            max(
-                events.index(f"completed:{endpoint}")
-                for endpoint in endpoint_records
-            )
+            max(events.index(f"completed:{endpoint}") for endpoint in endpoint_records)
             + 1,
         )
 
@@ -832,6 +956,10 @@ class ControlledTransferegovTests(unittest.TestCase):
             def __init__(self, endpoint: str) -> None:
                 self.endpoint = endpoint
 
+            @property
+            def run_id(self) -> str:
+                return f"run-{self.endpoint}"
+
             def __enter__(self):
                 return self
 
@@ -841,9 +969,7 @@ class ControlledTransferegovTests(unittest.TestCase):
                 return False
 
             def complete(self, **_values):
-                raise AssertionError(
-                    "A cobertura nao pode ser concluida apos falha."
-                )
+                raise AssertionError("A cobertura nao pode ser concluida apos falha.")
 
         primary = ControlProbe("propostas-barreiras")
         related = {
@@ -864,6 +990,9 @@ class ControlledTransferegovTests(unittest.TestCase):
                 fiscal_year=2026,
                 operation=lambda: (_ for _ in ()).throw(
                     RuntimeError("fonte indisponivel")
+                ),
+                snapshot_stager=lambda *_values: self.fail(
+                    "Uma coleta falha não pode materializar snapshot."
                 ),
             )
 
