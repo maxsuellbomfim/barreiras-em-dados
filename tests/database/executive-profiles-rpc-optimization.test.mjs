@@ -5,7 +5,7 @@ import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 
 const migrationUrl = new URL(
-  "../../supabase/migrations/20260902213010_optimize_executive_profiles_rpc.sql",
+  "../../supabase/migrations/20260902213713_optimize_executive_profiles_rpc.sql",
   import.meta.url,
 );
 
