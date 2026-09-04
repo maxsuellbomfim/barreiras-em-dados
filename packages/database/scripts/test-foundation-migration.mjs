@@ -1629,8 +1629,8 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 17,
-    endpoints: 33,
+    sources: 18,
+    endpoints: 34,
     private_buckets: 1,
   });
 
@@ -2071,6 +2071,154 @@ try {
   assert.deepEqual(transferegovPrivatePrivileges.rows[0], {
     anon_raw: false,
     authenticated_endpoints: false,
+  });
+
+  const publicAvailabilityEndpoint = await database.query(`
+    select source.slug as source_slug, endpoint.slug as endpoint_slug,
+           endpoint.rate_limit_per_minute,
+           endpoint.config ->> 'collector_version' as collector_version
+    from source.source_endpoints as endpoint
+    join source.data_sources as source on source.id = endpoint.data_source_id
+    where source.slug = 'barreiras-360'
+      and endpoint.slug = 'critical-public-pages'
+  `);
+  assert.deepEqual(publicAvailabilityEndpoint.rows, [{
+    source_slug: "barreiras-360",
+    endpoint_slug: "critical-public-pages",
+    rate_limit_per_minute: 1,
+    collector_version: "public-availability-probe/1.0.0",
+  }]);
+
+  await database.exec(`
+    select set_config('request.jwt.claim.sub', '${reviewerUserId}', false);
+    select set_config('request.jwt.claims', '{"aal":"aal2"}', false);
+  `);
+
+  const availabilityBeforeInstrumentation = await database.query(`
+    select availability_success_streak_days,
+           availability_days_observed,
+           availability_daily_history
+    from api.get_collection_health_v8(200, date '2026-09-04')
+    where source_slug = 'barreiras-360'
+      and endpoint_slug = 'critical-public-pages'
+  `);
+  assert.deepEqual(availabilityBeforeInstrumentation.rows, [{
+    availability_success_streak_days: 0,
+    availability_days_observed: 0,
+    availability_daily_history: [],
+  }]);
+
+  await database.exec(`
+    update source.source_endpoints as endpoint
+    set created_at = '2026-08-28T00:00:00-03:00',
+        config = endpoint.config || jsonb_build_object(
+          'history_starts_at', '2026-08-28T00:00:00-03:00'
+        )
+    from source.data_sources as source
+    where source.id = endpoint.data_source_id
+      and source.slug = 'barreiras-360'
+      and endpoint.slug = 'critical-public-pages';
+
+    insert into source.collection_runs (
+      source_endpoint_id, idempotency_key, collector_version,
+      parser_version, collection_window_start, collection_window_end,
+      status, started_at, completed_at, heartbeat_at, metrics
+    )
+    select
+      endpoint.id,
+      'public-availability:test:' || day_offset || ':' || probe_hour,
+      'public-availability-probe/1.0.0',
+      'public-availability-contract/1.0.0',
+      (date '2026-09-03' - day_offset),
+      (date '2026-09-03' - day_offset),
+      'succeeded',
+      (
+        (date '2026-09-03' - day_offset)
+          + make_interval(hours => probe_hour, mins => 17)
+      )::timestamp at time zone 'America/Bahia',
+      (
+        (date '2026-09-03' - day_offset)
+          + make_interval(hours => probe_hour, mins => 18)
+      )::timestamp at time zone 'America/Bahia',
+      (
+        (date '2026-09-03' - day_offset)
+          + make_interval(hours => probe_hour, mins => 18)
+      )::timestamp at time zone 'America/Bahia',
+      jsonb_build_object(
+        'control_plane', true,
+        'execution_origin', 'github_actions',
+        'workflow_event', 'schedule',
+        'collection_outcome', 'complete',
+        'target_count', 8,
+        'targets_checked', 8,
+        'http_5xx_count', 0,
+        'http_non_2xx_count', 0,
+        'transport_failures', 0,
+        'contract_failures', 0,
+        'health_status', 'ok'
+      )
+    from source.source_endpoints as endpoint
+    join source.data_sources as source on source.id = endpoint.data_source_id
+    cross join generate_series(0, 6) as day_offset
+    cross join generate_series(0, 19) as probe_hour
+    where source.slug = 'barreiras-360'
+      and endpoint.slug = 'critical-public-pages';
+  `);
+
+  const availabilityReady = await database.query(`
+    select availability_success_streak_days,
+           availability_days_observed,
+           availability_expected_runs_per_day,
+           availability_daily_history
+    from api.get_collection_health_v8(200, date '2026-09-04')
+    where source_slug = 'barreiras-360'
+      and endpoint_slug = 'critical-public-pages'
+  `);
+  assert.equal(availabilityReady.rows[0].availability_success_streak_days, 7);
+  assert.equal(availabilityReady.rows[0].availability_days_observed, 7);
+  assert.equal(availabilityReady.rows[0].availability_expected_runs_per_day, 20);
+  assert.deepEqual(availabilityReady.rows[0].availability_daily_history[0], {
+    day: "2026-09-03",
+    state: "passed",
+    runs_observed: 20,
+    valid_runs: 20,
+    http_5xx_count: 0,
+  });
+
+  await database.exec(`
+    update source.collection_runs
+    set status = 'partial',
+        metrics = metrics
+          || '{"collection_outcome":"partial","http_5xx_count":1}'::jsonb
+    where idempotency_key = 'public-availability:test:0:0';
+  `);
+  const availabilityBlocked = await database.query(`
+    select availability_success_streak_days, availability_daily_history
+    from api.get_collection_health_v8(200, date '2026-09-04')
+    where source_slug = 'barreiras-360'
+      and endpoint_slug = 'critical-public-pages'
+  `);
+  assert.equal(availabilityBlocked.rows[0].availability_success_streak_days, 0);
+  assert.deepEqual(availabilityBlocked.rows[0].availability_daily_history[0], {
+    day: "2026-09-03",
+    state: "failed",
+    runs_observed: 20,
+    valid_runs: 19,
+    http_5xx_count: 1,
+  });
+
+  const availabilityPrivileges = await database.query(`
+    select
+      has_function_privilege(
+        'anon', 'api.get_collection_health_v8(integer,date)', 'execute'
+      ) as anon_can_execute,
+      has_function_privilege(
+        'authenticated', 'api.get_collection_health_v8(integer,date)', 'execute'
+      ) as reviewer_can_execute
+  `);
+  assert.deepEqual(availabilityPrivileges.rows[0], {
+    anon_can_execute: false,
+    reviewer_can_execute: true,
   });
 
   // Corredores por fonte: a mesma identidade pode receber um segundo

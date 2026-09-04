@@ -719,6 +719,31 @@ summary:focus-visible {
   margin: 0;
 }
 
+.source-health-slo-history {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.source-health-slo-history li {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, auto) minmax(8rem, auto) 1fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .source-health-slo-history li {
+    grid-template-columns: 1fr auto;
+  }
+
+  .source-health-slo-history li > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
 .source-health-backfill h4 {
   font-size: 0.86rem;
 }

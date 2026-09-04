@@ -1,20 +1,24 @@
 name: Verificações
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   node:
     name: Node, contratos e aplicações web
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     # O painel exige as variáveis públicas durante o prerender. O CI usa
     # placeholders sem acesso a dados; Vercel injeta os valores reais.
@@ -62,6 +66,7 @@ jobs:
 
   python:
     name: Coletores e processamento de documentos
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Baixar código
@@ -92,3 +97,36 @@ jobs:
           PYTHONDONTWRITEBYTECODE: '1'
           PYTHONPATH: workers/collectors/src:workers/document-processing/src:workers/normalization/src:workers/reconciliation/src
         run: python -B -m unittest discover -s tests -t . -p 'test_*.py' -v
+
+  public_availability:
+    name: Sondar rotas públicas críticas
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Instalar dependências mínimas
+        run: python -m pip install --disable-pip-version-check '.[postgres]'
+
+      - name: Sondar e registrar disponibilidade pública
+        env:
+          APP_ENV: production
+          PERSISTENCE_MODE: postgres-supabase
+          DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+          PUBLIC_SITE_BASE_URL: https://barreiras-em-dados.vercel.app
+          WORKFLOW_EVENT: ${{ github.event_name }}
+          PYTHONDONTWRITEBYTECODE: '1'
+          PYTHONPATH: workers/collectors/src
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.probe_public_availability
+          --execution-origin github_actions
+          --workflow-event "$WORKFLOW_EVENT"
