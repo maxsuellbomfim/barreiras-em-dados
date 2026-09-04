@@ -9,12 +9,12 @@ where artifact_kind = 'document'
 
 create index if not exists document_pages_tcm_ba_embedded_text_idx
 on raw.document_pages (raw_artifact_id, page_number)
-include (text_content, text_sha256)
+include (text_sha256)
 where parser_version = 'gazette-pdf-embedded-text/1.1.0';
 
 create index if not exists document_pages_tcm_ba_ocr_text_idx
 on raw.document_pages (raw_artifact_id, page_number, created_at desc)
-include (text_content, text_sha256)
+include (text_sha256)
 where parser_version = 'tcm-ba-document-ocr-text/1.0.0'
   and text_content is not null;
 

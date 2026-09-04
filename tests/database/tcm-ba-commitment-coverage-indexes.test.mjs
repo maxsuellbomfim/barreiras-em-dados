@@ -30,4 +30,9 @@ test("indexes the bounded TCM-BA commitment coverage inputs", () => {
   assert.match(migration, /analyze\s+raw\.raw_artifacts/i);
   assert.match(migration, /analyze\s+raw\.document_pages/i);
   assert.match(migration, /analyze\s+raw\.extraction_jobs/i);
+  assert.doesNotMatch(
+    migration,
+    /include\s*\([^)]*text_content[^)]*\)/i,
+    "textos integrais podem exceder o limite físico de uma linha do índice",
+  );
 });
