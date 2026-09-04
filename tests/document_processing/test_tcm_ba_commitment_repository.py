@@ -196,6 +196,12 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
         self.assertIn("schema_version", query)
         self.assertIn("is distinct from 'array'", query)
 
+        statements = [query for query, _params in self.connection.queries]
+        self.assertEqual(
+            statements[0],
+            "set local statement_timeout = '30s'",
+        )
+
     def test_missing_field_breakdown_is_aggregate_and_version_scoped(self) -> None:
         self.connection.breakdown_rows = [
             {
@@ -276,6 +282,11 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
                 PDF_LAYOUT_VERSION,
                 PDF_LAYOUT_VERSION,
             ),
+        )
+        statements = [query for query, _params in self.connection.queries]
+        self.assertEqual(
+            statements[0],
+            "set local statement_timeout = '30s'",
         )
 
     def test_creditor_layout_targets_are_version_scoped_and_bounded(self) -> None:

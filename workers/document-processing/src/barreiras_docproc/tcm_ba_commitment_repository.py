@@ -718,6 +718,7 @@ class TcmBaCommitmentExtractionRepository:
     def commitment_coverage(self) -> TcmBaCommitmentCoverage:
         connection = self.connection_factory()
         try:
+            connection.execute("set local statement_timeout = '30s'")
             row = connection.execute(
                 """
                 with tcm_artifacts as (
@@ -926,6 +927,7 @@ class TcmBaCommitmentExtractionRepository:
     ) -> TcmBaCommitmentFieldBreakdown:
         connection = self.connection_factory()
         try:
+            connection.execute("set local statement_timeout = '30s'")
             rows = connection.execute(
                 """
                 with tcm_artifacts as (
