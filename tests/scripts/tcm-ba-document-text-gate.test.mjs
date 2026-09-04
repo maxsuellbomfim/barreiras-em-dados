@@ -45,6 +45,20 @@ function familyCatchUpLimit(maxDocuments) {
   );
 }
 
+function commitmentCatchUpLimit(maxDocuments) {
+  const helperPath = helper.replaceAll("'", "''");
+  return spawnSync(
+    process.env.PWSH_PATH ?? "pwsh",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      `. '${helperPath}'; Get-TcmBaCommitmentCatchUpLimit -MaxDocuments ${maxDocuments}`,
+    ],
+    { encoding: "utf8" },
+  );
+}
+
 function event(overrides = {}) {
   return {
     event: "tcm_ba_document_text_batch_completed",
@@ -110,7 +124,7 @@ test("wrapper processa texto somente depois da auditoria física", () => {
   assert.ok(approval > commitmentCoverage);
   assert.match(
     wrapper,
-    /Invoke-TcmBaContractFieldCoverage[^\r\n]*\r?\n\s+Invoke-TcmBaCommitmentCandidateProcessing/,
+    /Invoke-TcmBaContractFieldCoverage[^\r\n]*[\s\S]*?Get-TcmBaCommitmentCatchUpLimit[\s\S]*?Invoke-TcmBaCommitmentCandidateProcessing/,
   );
   assert.match(
     wrapper,
@@ -130,6 +144,17 @@ test("wrapper reserva uma segunda janela limitada para drenar famílias atrasada
   assert.match(
     wrapper,
     /Invoke-TcmBaDocumentFamilyInventory[\s\S]*?-Limit \$familyCatchUpLimit/,
+  );
+});
+
+test("wrapper drena até cinquenta empenhos atrasados sem ampliar a coleta", () => {
+  const result = commitmentCatchUpLimit(5);
+  assert.equal(result.status, 0, result.stdout + "\n" + result.stderr);
+  assert.equal(result.stdout.trim(), "50");
+  assert.match(wrapper, /Get-TcmBaCommitmentCatchUpLimit/);
+  assert.match(
+    wrapper,
+    /Invoke-TcmBaCommitmentCandidateProcessing[\s\S]*?-Limit \$commitmentCatchUpLimit/,
   );
 });
 
