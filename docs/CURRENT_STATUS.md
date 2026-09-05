@@ -32,6 +32,13 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 ## Limitações que permanecem explícitas
 
+- auditoria de 04/09 reproduziu e corrigiu falso avanço do monitor público nos
+  primeiros seis dias, término com horário congelado e aceitação de histórico
+  ou payload de saúde incoerente; a nova migration preserva o histórico existente;
+- o gate de sete dias exige vinte sondagens **agendadas** por dia encerrado.
+  Disparos manuais não preenchem essa cobertura. Atrasos do GitHub Actions
+  continuam visíveis como cobertura insuficiente, não como disponibilidade comprovada;
+
 - cobertura histórica varia por fonte; período não classificado não pode ser
   apresentado como vazio;
 - parte da execução estadual antiga não possui chave oficial suficiente para

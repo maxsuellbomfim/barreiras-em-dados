@@ -2165,6 +2165,28 @@ try {
       and endpoint.slug = 'critical-public-pages';
   `);
 
+  // The first six closed days must not become a fictitious seven-day streak.
+  for (let days = 1; days <= 6; days += 1) {
+    await database.exec(`
+      update source.source_endpoints set created_at =
+        (date '2026-09-04' - ${days})::timestamp at time zone 'America/Bahia'
+      where slug = 'critical-public-pages';
+    `);
+    const earlyHistory = await database.query(`
+      select availability_success_streak_days, availability_days_observed,
+             availability_daily_history
+      from api.get_collection_health_v8(200, date '2026-09-04')
+      where source_slug = 'barreiras-360' and endpoint_slug = 'critical-public-pages'
+    `);
+    assert.equal(earlyHistory.rows[0].availability_success_streak_days, days);
+    assert.equal(earlyHistory.rows[0].availability_days_observed, days);
+    assert.equal(earlyHistory.rows[0].availability_daily_history.length, days);
+  }
+  await database.exec(`
+    update source.source_endpoints set created_at = '2026-08-28T00:00:00-03:00'
+    where slug = 'critical-public-pages';
+  `);
+
   const availabilityReady = await database.query(`
     select availability_success_streak_days,
            availability_days_observed,

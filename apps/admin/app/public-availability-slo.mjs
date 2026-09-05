@@ -17,6 +17,14 @@ function historyItem(value, expectedRuns) {
   ) {
     return null;
   }
+  const date = new Date(`${value.day}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value.day) return null;
+  const expectedState = value.runs_observed === 0
+    ? "missing"
+    : value.valid_runs !== value.runs_observed || value.http_5xx_count > 0
+      ? "failed"
+      : value.runs_observed >= expectedRuns ? "passed" : "incomplete";
+  if (value.state !== expectedState || (value.runs_observed === 0 && value.http_5xx_count !== 0)) return null;
   const status = {
     passed: ["Aprovado", "healthy"],
     failed: ["Falhou", "failed"],
@@ -54,6 +62,12 @@ export function formatPublicAvailabilitySlo(item) {
   }
   const history = rawHistory.map((value) => historyItem(value, expectedRuns));
   if (history.some((value) => value === null)) return null;
+  if (observed !== rawHistory.filter((value) => value.runs_observed > 0).length) return null;
+  const firstNotPassed = rawHistory.findIndex((value) => value.state !== "passed");
+  if (streak !== (firstNotPassed < 0 ? rawHistory.length : firstNotPassed)) return null;
+  for (let index = 1; index < history.length; index += 1) {
+    if (Date.parse(history[index - 1].day) - Date.parse(history[index].day) !== 86_400_000) return null;
+  }
   const remaining = TARGET_DAYS - streak;
   return {
     progress: `${streak.toLocaleString("pt-BR")} de ${TARGET_DAYS} dias encerrados aprovados em sequência`,
