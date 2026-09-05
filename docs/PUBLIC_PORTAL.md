@@ -37,6 +37,13 @@ detalhe; fechar um `<details>` não reduz o que é enviado ao navegador. A audit
 atual identificou payloads maiores que merecem revisão, mas não presumiu que
 toda página grande transporta PDFs ou textos integrais.
 
+A busca do Diário aceita número (`4598`) e número/ano (`4598/2026` ou
+`4.598/2026`), priorizando a edição exata sobre referências no texto de outras
+edições. Termos livres selecionam edições que contêm a expressão e retornam
+seus documentos em sequência completa; não removem os documentos anteriores
+ao trecho encontrado. A versão canônica e os estados de publicação continuam
+valendo, inclusive quando existe um lote mais recente ainda não publicável.
+
 ## Disponibilidade não é completude
 
 `/api/health` testa três projeções e retorna `ok`, `degraded` ou `unavailable`,
