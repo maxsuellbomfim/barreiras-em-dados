@@ -221,6 +221,22 @@ ser comprovados antes de usar o vínculo na interface.
 
 ### Entregas restantes
 
+Atualização de 05/09 após PR #701: consulta operacional confirmou quatro objetos
+privados `fns/payments/` e zero artefatos FNS registrados, evidências ou decisões.
+Os bytes foram conferidos no upload. As referências abaixo a upload pendente
+descrevem verificações anteriores, não o estado atual.
+
+`persistence/fns.py` fecha a fronteira de registro dos originais já preservados:
+valida escopo oficial, hash, tamanho, HTTP e cronologia das capturas; relê ambos
+os objetos antes da primeira escrita. Usa o repositório existente com chaves
+derivadas do conteúdo. Não copia JSON bancário para `raw_records`, não concede
+acesso novo, não faz upload e não cria decisão editorial. Se a segunda transação
+falhar, a falha é propagada e o replay reutiliza as mesmas chaves. O piloto é
+marcado parcial, nunca cobertura anual completa. O chamador precisa fornecer
+os metadados originais de aquisição: data de importação não é data de coleta.
+Ainda falta ligar esse serviço ao comando operacional, registrar os dois pares
+reais e reconciliar/revisar antes de acrescentar a participação na interface.
+
 O usuário autorizou o corredor privado `fns/payments/`. A migration
 `20260905151402_authorize_fns_private_storage.sql` restringe a identidade técnica
 existente a SELECT/INSERT nesse prefixo, reutilizando as políticas vigentes.

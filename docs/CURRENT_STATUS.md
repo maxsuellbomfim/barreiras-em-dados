@@ -28,10 +28,14 @@ consulta. Não há alteração nos valores, na autoria coletiva ou nos rankings.
 Consulta operacional em 05/09 confirmou a migration aplicada em produção,
 sem evidências, decisões ou originais FNS registrados. A migration
 `20260905111757` cadastra as duas rotas oficiais necessárias à aquisição,
-sem cron e sem declarar cobertura. Ainda é necessário preservar os originais
-FNS no Storage privado, importar os dois pares com conferência dos bytes e registrar a revisão.
-Esta entrega não insere os pares reais nem muda a tela de recursos. O próximo
-passo é o importador idempotente; a exibição vem após sua validação operacional.
+sem cron e sem declarar cobertura. A migration `20260905151402` autoriza o
+prefixo privado FNS. Consulta em 05/09 confirmou quatro objetos preservados,
+zero artefatos FNS registrados e zero evidências/decisões. O serviço
+`FNSPairPersistenceService` agora confere os dois originais no Storage e registra
+sua linhagem pelo repositório existente, com replay idempotente. Exige URLs e
+horários reais da captura, não os substitui pelo horário da importação. Não
+declara cobertura completa nem aprova vínculos. A carga operacional dos pares,
+a reconciliação registrada e a revisão ainda estão pendentes; não mudou a tela.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 
