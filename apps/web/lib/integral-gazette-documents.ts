@@ -301,10 +301,8 @@ export async function getIntegralGazetteEditions(
       if (edition === null) return { state: "unavailable" };
       editions.push(edition);
     }
-    editions.sort(
-      (left, right) =>
-        right.editionYear - left.editionYear || right.edition - left.edition,
-    );
+    // A RPC ordena antes de paginar: na busca, a edição exata precede menções.
+    // Reordenar aqui também pode promover a linha extra e descartar a correta.
     const hasMore = editions.length > pageSize;
     return {
       state: "available",
