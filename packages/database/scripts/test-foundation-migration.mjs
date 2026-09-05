@@ -367,6 +367,29 @@ try {
   await database.exec(seed);
 
   const workloadUserId = "00000000-0000-4000-8000-000000000301";
+  await database.exec(`select set_config('request.jwt.claim.sub',
+    'c0f3b0e9-0e30-440b-b4c2-31a25a08cb3a', false)`);
+  const fnsAccess = await database.query(`select
+    api.can_access_raw_artifact('insert','raw-artifacts','fns/payments/sha256/aa/file.json') as can_insert,
+    api.can_access_raw_artifact('select','raw-artifacts','fns/payments/sha256/aa/file.json') as can_select,
+    api.can_access_raw_artifact('update','raw-artifacts','fns/payments/sha256/aa/file.json') as can_update,
+    api.can_access_raw_artifact('delete','raw-artifacts','fns/payments/sha256/aa/file.json') as can_delete,
+    api.can_access_raw_artifact('insert','raw-artifacts','fns/other/file.json') as can_escape`);
+  assert.deepEqual(fnsAccess.rows[0], {can_insert:true, can_select:true,
+    can_update:false, can_delete:false, can_escape:false});
+  await database.exec(`set role authenticated;
+    insert into storage.objects(id,bucket_id,name) values
+    ('00000000-0000-4000-8000-000000000399','raw-artifacts','fns/payments/sha256/aa/file.json');
+    update storage.objects set name='fns/payments/changed.json' where id='00000000-0000-4000-8000-000000000399';
+    delete from storage.objects where id='00000000-0000-4000-8000-000000000399';
+    reset role;`);
+  assert.deepEqual((await database.query(`select name from storage.objects
+    where id='00000000-0000-4000-8000-000000000399'`)).rows,
+    [{name:'fns/payments/sha256/aa/file.json'}]);
+  await database.exec(`select set_config('request.jwt.claim.sub',
+    '1575c740-fcff-4b1a-89a9-e8e5a314880a', false)`);
+  assert.equal((await database.query(`select api.can_access_raw_artifact(
+    'select','raw-artifacts','fns/payments/sha256/aa/file.json') as allowed`)).rows[0].allowed,false);
   await database.exec(`
     insert into auth.users (id) values ('${workloadUserId}');
     insert into audit.storage_workload_identities (

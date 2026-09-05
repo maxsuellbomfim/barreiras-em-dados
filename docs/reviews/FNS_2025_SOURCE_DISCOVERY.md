@@ -221,6 +221,16 @@ ser comprovados antes de usar o vínculo na interface.
 
 ### Entregas restantes
 
+O usuário autorizou o corredor privado `fns/payments/`. A migration
+`20260905151402_authorize_fns_private_storage.sql` restringe a identidade técnica
+existente a SELECT/INSERT nesse prefixo, reutilizando as políticas vigentes.
+Não libera UPDATE/DELETE, não torna o bucket público e não cria credenciais.
+Testes executam inserção e tentativas de alteração/exclusão no Storage simulado;
+o objeto permanece intacto. Outra identidade e outro prefixo continuam negados.
+O upload deve usar `SupabaseStorageObjectStore.put_if_absent`, que verifica os
+bytes de retorno. Objeto no Storage não equivale a registro bruto ou revisão:
+essa linhagem precisa ser concluída separadamente antes da publicação.
+
 Atualização operacional de 05/09: a migration do registro versionado já está
 aplicada no Supabase. Consulta read-only encontrou zero evidências, decisões
 e artefatos FNS. A fonte ainda não estava cadastrada. A migration
