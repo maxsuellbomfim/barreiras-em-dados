@@ -194,7 +194,30 @@ já preservado no projeto. O reconciliador retornou um candidato em cada par:
 
 `publication_allowed` continua falso: candidato único não equivale a decisão
 de publicação. Não foi escrita linha financeira ou de identidade no banco.
-A persistência da evidência/decisão e sua projeção pública permanecem pendentes.
+A carga real da evidência/decisão e sua exibição pública permanecem pendentes.
+
+### Registro versionado da evidência e da revisão
+
+A migration `20260905040239_fns_cgu_evidence_registry.sql` cria
+`source.fns_cgu_evidence` e `source.fns_cgu_decisions`, sem leitura ou escrita
+pelos papéis comuns da aplicação. Evidências referenciam os três originais
+registrados e a linha CGU; decisões são acrescentadas, nunca sobrescritas.
+O trigger confere metadados oficiais, hashes e os campos do registro bruto CGU.
+Isso não substitui conferir os bytes no Storage e executar os leitores novamente.
+
+`api.get_public_fns_cgu_links` aceita até 50 códigos e devolve somente documento,
+solicitante, autor FNS, hashes, fonte, data da revisão e versão metodológica.
+Só retorna a última versão aprovada e compatível com a linha CGU atual, sem
+duplicidade. Arquivo CGU alterado, nova evidência pendente ou revogação suspendem
+a projeção. Não retorna campos bancários, IDs privados, notas ou valores, nem
+escreve em registros financeiros ou de identidade.
+
+Quatro testes executam a migration em PostgreSQL embarcado (PGlite), cobrindo
+aprovação/revogação, invalidação, divergências, imutabilidade, permissões e limite
+da API. As fixtures são sintéticas. A migration e o contrato estão implementados;
+nenhum dos dois pares reais foi importado por esta entrega. A aplicação remota,
+o upload privado, a leitura/hash de retorno e a revisão operacional ainda devem
+ser comprovados antes de usar o vínculo na interface.
 
 ### Entregas restantes
 
