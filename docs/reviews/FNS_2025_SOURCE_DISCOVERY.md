@@ -124,6 +124,47 @@ commit;
 
 ## Próxima entrega proposta
 
+### Leitor de evidência implementado em 05/09/2026
+
+`barreiras_collectors.connectors.fns_payment_evidence.parse_fns_payment_evidence`
+recebe os bytes preservados de um pagamento e de sua OB, mais o escopo
+explícito (`action_id`, `payment_year`, `order_number`). Retorna somente os
+campos permitidos e os dois SHA-256. Não faz requisições, não persiste, não
+publica e não resolve identidade. O chamador deve obter o par na consulta
+exata da entidade institucional; a resposta OB não identifica UG/gestão.
+
+Limites deliberados do piloto:
+
+- uma linha em cada resposta, sem páginas adicionais; vazio exige tratamento
+  pelo futuro coletor, não significa sucesso deste leitor;
+- pagamento municipal Fundo a Fundo, OB, Barreiras/BA, competência única,
+  período consistente e valor líquido positivo reconciliado em centavos;
+- anulações, rejeições, outros formatos de competência, múltiplos pagamentos
+  e observações não reconhecidas ficam fora deste escopo e exigem revisão,
+  **não são classificados como erros da fonte nem descartados**;
+- o número de emenda de oito dígitos não informa seu ano: `amendment_year`
+  permanece nulo; `link_status=unlinked` impede interpretar a leitura como
+  associação já comprovada com pessoa ou documento CGU;
+- `requester_source_code` é apenas código publicado pelo FNS, não ID da Câmara
+  ou TSE. Ausência de solicitante permanece nula, sem usar o autor como substituto;
+- bruto, desconto e líquido ficam separados. Nada é somado à base CGU;
+- campos bancários, observação bruta e mensagens de erro da fonte não entram
+  na saída. Não há fixture real com dados bancários no Git.
+
+A API oficial reproduziu uma diferença de codificação no campo `competencia`
+da OB: mesmo recebendo `%C3%9Anica%20em%202025`, devolve a representação UTF-8
+interpretada como Latin-1. O leitor aceita somente essa variante exata de
+`Única em <ano>`, sem corrigir nomes ou alterar os bytes preservados.
+A consulta adicional da OB `055607` reproduziu o mesmo SHA-256 acima.
+
+Validação com os arquivos oficiais preservados: ação `65061`/OB `055607`
+resultou em R$ 5.000.000,00 e solicitante Neto Carletto; ação `68909`/OB
+`059959` em R$ 2.000.000,00 e solicitante Pedro Lucas Fernandes. Em ambas,
+o autor permaneceu Comissão da Saúde. Isso comprova a leitura desses dois
+pares, **não cobertura nacional/histórica nem integração já publicada no site**.
+
+### Integração ainda necessária
+
 1. Parser/conector FNS substituível, usando transporte, limites, retries e
    preservação existentes; sem cron nacional e sem nova dependência.
 2. Projeção minimizada: município, entidade institucional, proposta, processo,
