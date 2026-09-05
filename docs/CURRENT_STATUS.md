@@ -25,8 +25,11 @@ do arquivo anual: trocar o retrato exige nova reconciliação. A migration
 com consulta pública limitada a vínculos aprovados que ainda correspondam à
 CGU atual. Nova evidência pendente, revogação ou conflito retiram o vínculo da
 consulta. Não há alteração nos valores, na autoria coletiva ou nos rankings.
-Ainda é necessário aplicar a migration, preservar os originais FNS no Storage
-privado, importar os dois pares com conferência dos bytes e registrar a revisão.
+Consulta operacional em 05/09 confirmou a migration aplicada em produção,
+sem evidências, decisões ou originais FNS registrados. A migration
+`20260905111757` cadastra as duas rotas oficiais necessárias à aquisição,
+sem cron e sem declarar cobertura. Ainda é necessário preservar os originais
+FNS no Storage privado, importar os dois pares com conferência dos bytes e registrar a revisão.
 Esta entrega não insere os pares reais nem muda a tela de recursos. O próximo
 passo é o importador idempotente; a exibição vem após sua validação operacional.
 Escopo e limitações em

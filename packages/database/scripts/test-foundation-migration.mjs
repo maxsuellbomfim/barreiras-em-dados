@@ -153,6 +153,30 @@ try {
     },
   ]);
 
+  const fnsEndpoints = await database.query(`
+    select e.slug, e.http_method, e.rate_limit_per_minute, e.enabled,
+      e.config->>'raw_visibility' as visibility,
+      e.config->>'municipality_ibge_code' as municipality,
+      e.config->>'automatic_publication' as automatic_publication
+    from source.source_endpoints e join source.data_sources s on s.id=e.data_source_id
+    where s.slug='fns-consulta-detalhada' and s.is_official
+    order by e.slug
+  `);
+  assert.deepEqual(fnsEndpoints.rows, [
+    { slug: 'payment-detail', http_method: 'GET', rate_limit_per_minute: 6,
+      enabled: true, visibility: 'private', municipality: '2903201', automatic_publication: 'false' },
+    { slug: 'payment-order-detail', http_method: 'GET', rate_limit_per_minute: 6,
+      enabled: true, visibility: 'private', municipality: '2903201', automatic_publication: 'false' },
+  ]);
+  await database.exec(`update source.source_endpoints set enabled=false
+    where data_source_id=(select id from source.data_sources where slug='fns-consulta-detalhada')`);
+  await database.exec(migrations[migrationNames.indexOf('20260905111757_register_fns_payment_source.sql')]);
+  const fnsReplay = await database.query(`select count(*)::int n,
+    count(*) filter (where e.enabled)::int enabled
+    from source.source_endpoints e join source.data_sources s on s.id=e.data_source_id
+    where s.slug='fns-consulta-detalhada'`);
+  assert.deepEqual(fnsReplay.rows, [{ n: 2, enabled: 0 }]);
+
   const relations = await database.query(`
     select count(*)::integer as count
     from pg_catalog.pg_tables
@@ -1631,8 +1655,8 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 18,
-    endpoints: 34,
+    sources: 19,
+    endpoints: 36,
     private_buckets: 1,
   });
 
