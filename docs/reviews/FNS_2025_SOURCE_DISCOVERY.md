@@ -221,6 +221,16 @@ ser comprovados antes de usar o vínculo na interface.
 
 ### Entregas restantes
 
+Atualização operacional de 05/09: a migration do registro versionado já está
+aplicada no Supabase. Consulta read-only encontrou zero evidências, decisões
+e artefatos FNS. A fonte ainda não estava cadastrada. A migration
+`20260905111757_register_fns_payment_source.sql` corrige essa precondição com
+as rotas `payment-detail` e `payment-order-detail`, para uso manual no piloto.
+O limite de seis requisições/minuto é uma política local conservadora, não
+uma cota oficial anunciada pelo FNS. Reaplicação não duplica nem reativa rotas
+pausadas. O cadastro não concede acesso ao Storage, não inicia download, não
+registra cobertura e não aprova vínculo. A carga dos originais continua pendente.
+
 1. Conector FNS substituível, usando transporte, limites, retries e
    preservação existentes; sem cron nacional e sem nova dependência.
 2. Projeção minimizada: município, entidade institucional, proposta, processo,
