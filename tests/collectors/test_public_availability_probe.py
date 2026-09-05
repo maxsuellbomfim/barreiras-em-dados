@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 try:
@@ -137,6 +137,81 @@ class PublicAvailabilityProbeTests(unittest.TestCase):
             },
         )
         self.assertNotIn("body", json.dumps(completed, default=str).lower())
+
+    def test_completion_uses_the_clock_after_the_requests(self) -> None:
+        finished = self.now + timedelta(seconds=30)
+        with patch.object(probe, "datetime") as clock:
+            clock.now.side_effect = [self.now, finished]
+            self.run_probe()
+        self.assertEqual(self.repository.started[0]["started_at"], self.now)
+        self.assertEqual(self.repository.completed[0]["completed_at"], finished)
+
+    def test_malformed_or_inconsistent_health_is_a_contract_failure(self) -> None:
+        original = json.loads(health_body())
+        mutations = [
+            {**original, "status": []},
+            {
+                **original,
+                "checks": [
+                    {**original["checks"][0], "key": []},
+                    *original["checks"][1:],
+                ],
+            },
+            {
+                **original,
+                "checks": [
+                    {**original["checks"][0], "status": {}},
+                    *original["checks"][1:],
+                ],
+            },
+            {
+                **original,
+                "checks": [
+                    {**check, "status": "unavailable", "records": None}
+                    for check in original["checks"]
+                ],
+            },
+            {
+                **original,
+                "checks": [
+                    {**original["checks"][0], "records": 0},
+                    *original["checks"][1:],
+                ],
+            },
+            {
+                **original,
+                "checks": [
+                    {**original["checks"][0], "records": True},
+                    *original["checks"][1:],
+                ],
+            },
+        ]
+        for payload in mutations:
+            with self.subTest(payload=payload):
+                self.repository = FakeControlRepository()
+
+                def fetcher(url: str, payload=payload):
+                    if url.endswith("/api/health"):
+                        return probe.ProbeResponse(
+                            200, "application/json", json.dumps(payload).encode(), 1
+                        )
+                    return self.response_for(url)
+
+                self.assertEqual(self.run_probe(fetcher), 1)
+                self.assertEqual(
+                    self.repository.completed[0]["metrics"]["contract_failures"], 1
+                )
+                self.assertEqual(self.repository.completed[0]["outcome"], "partial")
+
+    def test_consistent_degraded_health_is_not_confused_with_an_http_outage(
+        self,
+    ) -> None:
+        payload = json.loads(health_body(status="degraded"))
+        payload["checks"][0].update(status="empty", records=0)
+        response = probe.ProbeResponse(
+            200, "application/json", json.dumps(payload).encode(), 1
+        )
+        self.assertEqual(probe._valid_health_contract(response), (True, "degraded"))
 
     def test_a_5xx_is_persisted_as_partial_and_fails_the_job(self) -> None:
         def fetcher(url: str):

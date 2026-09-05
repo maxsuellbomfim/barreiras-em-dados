@@ -124,6 +124,7 @@ def _valid_health_contract(response: ProbeResponse) -> tuple[bool, str | None]:
     checks = payload.get("checks")
     if (
         payload.get("service") != "barreiras-em-dados-web"
+        or not isinstance(status, str)
         or status not in {"ok", "degraded"}
         or payload.get("httpStatus") != response.status_code
         or not isinstance(checks, list)
@@ -137,14 +138,34 @@ def _valid_health_contract(response: ProbeResponse) -> tuple[bool, str | None]:
             return False, None
         key = check.get("key")
         check_status = check.get("status")
+        if not isinstance(key, str) or not isinstance(check_status, str):
+            return False, None
         if key not in expected_keys or check_status not in {
             "available",
             "empty",
             "unavailable",
         }:
             return False, None
+        records = check.get("records")
+        if check_status == "unavailable":
+            if records is not None:
+                return False, None
+        elif (
+            type(records) is not int
+            or records < 0
+            or (records > 0) != (check_status == "available")
+        ):
+            return False, None
         actual_keys.add(key)
-    return actual_keys == expected_keys, str(status)
+    statuses = [check["status"] for check in checks]
+    expected_status = (
+        "ok"
+        if all(value == "available" for value in statuses)
+        else "unavailable"
+        if all(value == "unavailable" for value in statuses)
+        else "degraded"
+    )
+    return actual_keys == expected_keys and status == expected_status, status
 
 
 def _valid_html_contract(response: ProbeResponse) -> bool:
@@ -233,7 +254,7 @@ def run_public_availability_probe(
         period_start=observed_on,
         period_end=observed_on,
         execution_origin=execution_origin,
-        clock=lambda: now,
+        clock=lambda: datetime.now(UTC),
     )
     with control:
         summary = probe_public_site(base_url=approved_base_url, fetcher=fetcher)

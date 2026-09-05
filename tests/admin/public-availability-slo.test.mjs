@@ -108,3 +108,26 @@ test("recusa histórico incoerente em vez de inventar progresso", () => {
     null,
   );
 });
+
+test("reconcilia a sequência declarada com dias e contagens reais", () => {
+  const day = { day: "2026-09-03", state: "passed", runs_observed: 20, valid_runs: 20, http_5xx_count: 0 };
+  const baseline = {
+    availability_success_streak_days: 1,
+    availability_days_observed: 1,
+    availability_expected_runs_per_day: 20,
+    availability_daily_history: [day],
+  };
+  assert.ok(module.formatPublicAvailabilitySlo(baseline));
+  for (const invalid of [
+    { ...baseline, availability_success_streak_days: 7, availability_days_observed: 7, availability_daily_history: [] },
+    { ...baseline, availability_success_streak_days: 0 },
+    { ...baseline, availability_days_observed: 2 },
+    { ...baseline, availability_daily_history: [{ ...day, valid_runs: 0 }] },
+    { ...baseline, availability_daily_history: [{ ...day, http_5xx_count: 1 }] },
+    { ...baseline, availability_daily_history: [{ ...day, day: "2026-02-30" }] },
+    { ...baseline, availability_daily_history: [day, day] },
+    { ...baseline, availability_daily_history: [day, { ...day, day: "2026-09-01" }] },
+  ]) {
+    assert.equal(module.formatPublicAvailabilitySlo(invalid), null, JSON.stringify(invalid));
+  }
+});
