@@ -11,14 +11,18 @@ públicas de atos, finanças, compras, Legislativo e representação já existem
 O trabalho atual não é abrir outra fase ampla: é tornar cobertura, qualidade,
 desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
-### FNS: leitor validado, integração pública ainda pendente
+### FNS: leitura e reconciliação validadas, integração pública pendente
 
 O leitor `fns_payment_evidence` valida um pagamento e sua ordem bancária no
 piloto Fundo a Fundo de Barreiras, com autor e solicitante separados. Os dois
 pares preservados de 2025 foram processados sem expor campos bancários. Não
 há publicação automática, vínculo de pessoa por nome ou soma adicional à CGU.
-O próximo passo é preservar a evidência no fluxo existente e reconciliar o
-vínculo antes de exibir o solicitante. Escopo e limitações em
+O reconciliador `fns_cgu_reconciliation` releu o ZIP anual completo da CGU e
+encontrou um candidato único para cada um desses dois pagamentos. Ele bloqueia
+conflitos e múltiplas linhas e não autoriza publicação. A chave inclui o hash
+do arquivo anual: trocar o retrato exige nova reconciliação. O próximo passo
+é persistir a evidência e a decisão auditável antes de exibir o solicitante.
+Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 
 ## O que já está disponível no portal
