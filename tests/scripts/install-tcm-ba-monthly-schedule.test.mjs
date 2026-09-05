@@ -12,6 +12,7 @@ test("tarefa mensal local usa DPAPI e verifica diariamente o mês fechado", () =
   assert.match(script, /\.collector-credentials\.local\.json/);
   assert.match(script, /run-tcm-ba-monthly-catalog\.ps1/);
   assert.match(script, /-AutomaticClosedMonth/);
+  assert.match(script, /"-WindowStyle Hidden"/);
   assert.match(script, /-RequestsPerMinute 30/);
   assert.match(script, /New-ScheduledTaskTrigger[\s\S]*-Daily/);
   assert.match(script, /-MultipleInstances IgnoreNew/);

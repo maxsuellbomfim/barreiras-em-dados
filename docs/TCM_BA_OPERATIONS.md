@@ -1055,6 +1055,10 @@ permanece no executor local.
 
 A tarefa `Barreiras360-TCMBA-Documents` executa no máximo um lote a cada 15
 minutos, com até dez documentos e limite fixo de 30 requisições por minuto.
+Os dois instaladores do TCM-BA usam `-WindowStyle Hidden`: as execuções
+agendadas trabalham em segundo plano. O progresso e as falhas continuam
+registrados no banco e no painel administrativo. A opção afeta as próximas
+execuções; uma janela já aberta pertence ao lote iniciado anteriormente.
 Ela roda apenas no usuário atual, em nível limitado, reutiliza o cofre DPAPI e
 ignora nova instância enquanto a anterior estiver ativa. A cadência mínima de 15
 minutos mantém no máximo quarenta documentos por hora e não abre uma segunda

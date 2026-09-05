@@ -24,6 +24,7 @@ $powerShellPath = Join-Path $PSHOME "powershell.exe"
 $arguments = @(
     "-NoProfile"
     "-NonInteractive"
+    "-WindowStyle Hidden"
     "-ExecutionPolicy Bypass"
     "-File `"$wrapperPath`""
     "-AutomaticClosedMonth"
