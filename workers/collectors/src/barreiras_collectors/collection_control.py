@@ -84,6 +84,20 @@ def sanitize_error_detail(error: BaseException) -> str:
     return detail[:500]
 
 
+def default_execution_origin() -> str:
+    """Distingue cron do GitHub de replay manual, sem presumir histórico.
+
+    A origem explícita dos executores (como Windows Scheduler e a sonda de
+    disponibilidade) continua prevalecendo sobre este valor padrão.
+    """
+    if (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        and os.environ.get("GITHUB_EVENT_NAME") == "schedule"
+    ):
+        return "github_actions"
+    return "manual"
+
+
 @dataclass
 class CollectionControl:
     repository: CollectionControlRepository
@@ -94,7 +108,7 @@ class CollectionControl:
     partition_key: str
     period_start: date
     period_end: date
-    execution_origin: str = "manual"
+    execution_origin: str = field(default_factory=default_execution_origin)
     parser_version: str = "not-applicable"
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
     _run_id: str | None = field(init=False, default=None)

@@ -13,10 +13,19 @@ Workflow: `.github/workflows/collect-querido-diario.yml`.
 
 - execução automática: todos os dias às `11:17 UTC`, atualmente `08:17` em
   Barreiras;
+- backfill automático: uma janela de até sete dias às `02:17`, `08:17`,
+  `14:17` e `20:17 UTC`, derivada da cobertura registrada;
 - janela automática: o dia anterior, resolvido com `America/Sao_Paulo`;
 - backfill manual: no máximo sete dias corridos, incluindo as duas pontas;
 - concorrência: uma execução por vez, sem cancelar a anterior;
-- timeout: 20 minutos.
+- timeout: 35 minutos.
+
+Os coletores que usam o controle compartilhado identificam o cron pelo par
+`GITHUB_ACTIONS=true` e `GITHUB_EVENT_NAME=schedule`. Disparos manuais,
+inclusive `workflow_dispatch`, continuam como `manual`. Executores que
+informam uma origem explícita mantêm essa origem. A classificação ocorre
+antes do setup externo, para incluir falhas de autenticação; não reclassifica
+execuções antigas nem, sozinha, comprova cobertura ou sete coletas íntegras.
 
 O cron do GitHub usa UTC. Se a legislação brasileira voltar a adotar horário de
 verão, o horário local de início poderá mudar, mas a data de coleta continuará

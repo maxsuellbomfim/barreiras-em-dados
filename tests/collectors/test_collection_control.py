@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from datetime import UTC, date, datetime
+from unittest.mock import patch
 
 from barreiras_collectors.collection_control import (
     CollectionControl,
@@ -101,6 +103,65 @@ class CollectionControlTests(unittest.TestCase):
             self.repository.started[0]["execution_origin"],
             "windows_scheduler",
         )
+
+    def test_scheduled_github_run_records_origin_even_when_setup_fails(self) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "GITHUB_ACTIONS": "true",
+                "GITHUB_EVENT_NAME": "schedule",
+            },
+            clear=True,
+        ):
+            control = self.make_control()
+            with self.assertRaisesRegex(RuntimeError, "setup failed"):
+                with control:
+                    raise RuntimeError("setup failed")
+
+        self.assertEqual(
+            self.repository.started[0]["execution_origin"], "github_actions"
+        )
+        self.assertEqual(len(self.repository.failed), 1)
+
+    def test_non_scheduled_invocations_do_not_gain_scheduled_origin(self) -> None:
+        for environment in (
+            {},
+            {"GITHUB_EVENT_NAME": "schedule"},
+            {"GITHUB_ACTIONS": "true"},
+            {"GITHUB_ACTIONS": "true", "GITHUB_EVENT_NAME": "workflow_dispatch"},
+            {"GITHUB_ACTIONS": "true", "GITHUB_EVENT_NAME": "push"},
+        ):
+            with (
+                self.subTest(environment=environment),
+                patch.dict("os.environ", environment, clear=True),
+            ):
+                with self.make_control() as control:
+                    control.complete(
+                        outcome=CollectionOutcome.EMPTY, observed_records=0
+                    )
+                self.assertEqual(
+                    self.repository.started[-1]["execution_origin"], "manual"
+                )
+
+    def test_explicit_origin_is_preserved_in_scheduled_environment(self) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "GITHUB_ACTIONS": "true",
+                "GITHUB_EVENT_NAME": "schedule",
+            },
+            clear=True,
+        ):
+            for origin in ("manual", "windows_scheduler"):
+                with self.subTest(origin=origin):
+                    control = replace(self.make_control(), execution_origin=origin)
+                    with control:
+                        control.complete(
+                            outcome=CollectionOutcome.EMPTY, observed_records=0
+                        )
+                    self.assertEqual(
+                        self.repository.started[-1]["execution_origin"], origin
+                    )
 
     def test_unknown_execution_origin_is_rejected_before_run(self) -> None:
         with self.assertRaisesRegex(ValueError, "execution_origin"):
