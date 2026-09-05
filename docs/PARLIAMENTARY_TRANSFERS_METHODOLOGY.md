@@ -29,6 +29,14 @@ O tipo publicado no campo oficial da emenda define a seção:
 Solicitante, recebedor, beneficiário e autor são papéis diferentes. Uma comissão
 não transfere crédito individual aos seus integrantes.
 
+O [piloto FNS de 2025](reviews/FNS_2025_SOURCE_DISCOVERY.md) confirmou essa
+distinção em dois pagamentos já publicados na série documental da CGU: a
+Comissão da Saúde é autora, enquanto a observação do FNS identifica
+solicitantes individuais. Essa evidência ainda não integra a interface.
+Quando incorporada, deve aparecer como participação documentada em campo
+separado, sem reclassificar autoria, duplicar valores ou alterar automaticamente
+o ranking de emendas individuais.
+
 ## Ligação com perfis políticos
 
 O nome informado pelo Transferegov não é comparado livremente com nomes de
