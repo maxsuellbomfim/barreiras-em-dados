@@ -134,6 +134,23 @@ tentativa incompleta nunca é promovida como conjunto atual.
 
 ## Cobertura histórica federal
 
+### Isolamento de falhas na atualização
+
+Na execução agendada `33855558745`, de 04/09/2026, o catálogo de downloads do
+Transferegov respondeu HTTP 403. A condição implícita de sucesso do workflow
+impediu, então, a coleta de fontes independentes da CGU e da API atual.
+
+O workflow agora inicia a evidência federal após o preparo válido do ambiente,
+mesmo que o catálogo histórico falhe. Execução CGU, documentos anuais e retrato
+atual são tentados sequencialmente, sem abrir conexões paralelas; uma falha de
+fonte não suprime as seguintes. Cancelamento ou falha no preparo impede a coleta.
+O erro original continua reprovando o job, e o gate público continua exigindo
+evidência recente de todas as fontes correntes. Não se usa `continue-on-error`
+nem se transforma catálogo bloqueado em cobertura vazia ou completa.
+
+Isso corrige a dependência indevida, não o HTTP 403 da fonte. A cobertura
+histórica continua limitada até que o acesso oficial seja restabelecido.
+
 O arquivo nacional `siconv_proposta.zip` é preservado integralmente em área
 privada e validado contra o catálogo oficial por tamanho e ETag. A projeção
 normalizada forma o conjunto candidato com propostas cujo `COD_MUNIC_IBGE` seja
