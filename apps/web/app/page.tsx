@@ -62,8 +62,8 @@ const publicTracks = [
 
 const quickLinks = [
   {
-    label: "Diário traduzido",
-    detail: "O que foi publicado e o que isso muda na cidade.",
+    label: "Diário Oficial",
+    detail: "Texto integral, organizado por documento, com acesso à fonte oficial.",
     href: "/diario",
     tone: "blue",
   },
@@ -358,7 +358,7 @@ export default async function HomePage() {
           </nav>
 
           <a className="nav-cta" href="/diario">
-            Diário traduzido
+            Diário Oficial
           </a>
         </div>
       </header>

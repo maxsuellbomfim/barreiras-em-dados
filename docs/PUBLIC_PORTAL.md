@@ -1,118 +1,59 @@
-# Portal público de pré-lançamento
+# Portal público — contrato atual
 
-Produção: [https://barreiras-em-dados.vercel.app](https://barreiras-em-dados.vercel.app)
+Atualizado em 04/09/2026. Substitui a descrição do piloto de 31/07; aquele
+documento não descrevia mais as funcionalidades disponíveis. O histórico
+permanece no Git. Para cobertura operacional, leia [CURRENT_STATUS.md](CURRENT_STATUS.md).
 
-Estado verificado em 31/07/2026:
+Produção: <https://barreiras-em-dados.vercel.app>.
 
-- projeto Vercel isolado `barreiras-em-dados`;
-- ambiente `production`;
-- deployment estável `dpl_AGkA5AY7AEqYRqn6RQAKVSUwYxS7`;
-- página inicial e `/api/health` respondendo HTTP 200;
-- coleta diária do Querido Diário ativa no GitHub Actions;
-- projeção pública agregada criada no Supabase;
-- novo painel de coleta pronto para publicação após configurar duas variáveis
-  públicas na Vercel.
+## O que o cidadão encontra
 
-## Objetivo desta versão
+| Área | Contrato de leitura |
+| --- | --- |
+| `/diario` | Busca e paginação de edições; texto literal organizado por documento no detalhe, com páginas, fonte e hashes. Não é tradução nem resumo por IA. |
+| `/atos` | Atos aprovados e sua evidência; nomeação não prova exercício nem remuneração. |
+| `/financas` | Receitas, despesas, fechamentos e cobertura por período. Empenho, liquidação e pagamento não são somados entre si. |
+| `/licitacoes` | Compras, contratos, itens e fornecedores com documentos e filtros. |
+| `/camara` | Leis e proposições, autoria publicada e aliases revisados; autoria ausente não é inventada. |
+| `/representantes` | Executivo, vereadores e representação territorial; eleição, turno, cargo e legislatura permanecem separados. |
+| `/recursos` | Emendas e transferências com fonte, autoria e estágio; ranking financeiro não é nota geral de trabalho parlamentar. |
+| `/estado` | Consulta atual às projeções de Diário, finanças e representação, sem afirmar cobertura histórica integral. |
 
-O portal torna a construção observável sem antecipar a publicação de registros
-municipais ainda não revisados. Ele apresenta:
+## Dados e evidência
 
-- propósito e limites editoriais;
-- cadeia de evidências em linguagem comum;
-- links diretos para fontes oficiais;
-- ordem das primeiras áreas de dados;
-- estado técnico verificável da coleta do Querido Diário.
+As páginas usam RPCs públicas autorizadas no schema `api` e validam seus
+contratos. O browser não recebe credenciais privadas nem acesso às tabelas
+internas. As variáveis `PUBLIC_DATA_SUPABASE_URL` e
+`PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY` são configuração do servidor web;
+autorização continua sendo responsabilidade dos grants e contratos do banco.
 
-Esta versão **não é o lançamento da base cívica** definido no roadmap. Nenhuma
-nomeação, exoneração, despesa, contratação, pessoa ou fornecedor aparece antes
-do fluxo de coleta, extração, validação, revisão humana e aprovação.
+Cada estado tem significado próprio: consulta falha, dado não encontrado na
+fonte, período não coletado e zero oficial não são equivalentes. A evidência
+mostra quando e onde a consulta foi feita; ausência em uma fonte não prova
+inexistência em todas as fontes.
 
-## Indicadores exibidos
+Listas devem receber somente metadados paginados. O texto grande pertence ao
+detalhe; fechar um `<details>` não reduz o que é enviado ao navegador. A auditoria
+atual identificou payloads maiores que merecem revisão, mas não presumiu que
+toda página grande transporta PDFs ou textos integrais.
 
-A seção **A coleta já começou** consulta uma projeção pública somente leitura e
-mostra:
+## Disponibilidade não é completude
 
-- quantidade distinta de edições preservadas;
-- intervalo de datas efetivamente coberto;
-- quantidade distinta de respostas brutas preservadas;
-- horário da última coleta bem-sucedida;
-- link para a fonte oficial agregadora.
+`/api/health` testa três projeções e retorna `ok`, `degraded` ou `unavailable`,
+com HTTP 503 quando todas estão indisponíveis. Suas contagens descrevem o
+recorte consultado — o Diário consulta uma edição para testar a disponibilidade.
 
-Os números descrevem somente o acervo técnico. Eles não medem desempenho,
-regularidade ou qualidade da gestão municipal. Replays idempotentes não aumentam
-as contagens. Falha de consulta é apresentada como indisponibilidade, nunca como
-zero dados.
+A sonda agendada verifica oito rotas e registra execução e falhas. O painel
+interno exige sete dias encerrados consecutivos, com pelo menos vinte sondagens
+agendadas por dia. Testes manuais não completam esse histórico. Trata-se de
+amostragem sintética, não de prova sobre todas as requisições dos visitantes.
 
-## Fluxo da consulta pública
+## Verificação e próximos limites
 
-1. o servidor Next.js chama
-   `api.get_querido_diario_collection_status()` pela Data API;
-2. o PostgREST expõe o schema dedicado `api`;
-3. a função retorna apenas agregados não reputacionais;
-4. a resposta é validada por tipo, formato e versão metodológica;
-5. a página usa cache revalidado a cada cinco minutos;
-6. erro, timeout ou resposta inesperada produzem um estado seguro de
-   indisponibilidade.
+O [relatório da auditoria de 04/09](reviews/AUDIT_2026_09_04.md) registra bugs
+reproduzidos, correções, falhas ainda abertas e medições pontuais de produção.
+Novos PRs devem manter testes Node/Python, contratos, migrations, typecheck,
+build e testes de uso móvel/desktop quando houver mudança visual.
 
-O navegador não recebe acesso direto às tabelas internas. As variáveis
-`PUBLIC_DATA_SUPABASE_URL` e `PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY` são lidas
-somente no servidor web. A chave publicável não concede acesso por si só; os
-grants do banco continuam sendo o controle efetivo.
-
-## Segurança e privacidade
-
-- `anon` pode executar apenas a função agregada;
-- `anon` não pode consultar `raw.raw_records` nem `raw.raw_artifacts`;
-- nenhuma service role, secret key ou senha é usada pelo portal;
-- a função é `SECURITY DEFINER`, tem `search_path` vazio e referências
-  qualificadas;
-- nenhuma informação pessoal ou conteúdo reputacional é retornado;
-- HSTS, `nosniff`, proteção contra iframe, política de referência e bloqueio de
-  câmera, microfone e geolocalização permanecem ativos;
-- não há cookies, login, analytics ou formulários.
-
-Uma CSP com nonce continua pendente e será obrigatória antes de scripts
-externos, autenticação ou conteúdo gerado pelo usuário.
-
-## Qualidade dos dados
-
-Uma revisão visual encontrou texto UTF-8 corrompido no catálogo de três fontes.
-A correção foi aplicada por migration append-only e gerou eventos de auditoria
-com estado anterior, estado novo e motivo. Nenhum histórico foi apagado.
-
-O painel diferencia explicitamente:
-
-- coleta preservada;
-- cobertura da amostra-piloto;
-- atos ainda não extraídos;
-- registros ainda não revisados ou publicados.
-
-## Verificação
-
-Foram verificados:
-
-- build de produção e TypeScript estrito;
-- resposta real da função pela chave publicável;
-- negação de leitura anônima das tabelas brutas;
-- migration fundamental e teste de autorização negativo;
-- renderização desktop em 1440 px;
-- renderização móvel em 390 px, sem overflow horizontal;
-- comportamento de indisponibilidade sem mostrar contagens falsas;
-- `prefers-reduced-motion`, `prefers-reduced-transparency` e
-  `prefers-contrast`;
-- ausência de segredos e vulnerabilidades conhecidas nas dependências de
-  produção.
-
-## Limitações e próxima menor evolução
-
-- a cobertura atual é uma amostra pequena, não o histórico completo;
-- PDFs e textos das edições ainda precisam ser preservados como artefatos
-  filhos;
-- nomeações e exonerações ainda não foram extraídas nem revisadas;
-- o plano gratuito do Supabase não oferece proteção contra senhas vazadas;
-- backup e exercício integrado de DLQ/circuit breaker continuam pendentes.
-
-Depois da publicação do painel, a próxima menor etapa vertical será baixar e
-preservar PDF/texto de uma edição, produzir candidatos determinísticos de
-nomeação/exoneração e encaminhá-los à revisão humana sem publicação automática.
+O portal continua em pré-lançamento: nem cobertura integral desde 2021, nem sete
+dias sem erro, nem ausência de bugs foram comprovados por uma checagem pontual.

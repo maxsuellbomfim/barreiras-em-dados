@@ -8,7 +8,7 @@ import {
   enrichIntegralGazetteEditions,
   getIntegralGazetteEditions,
 } from "../../lib/integral-gazette-documents";
-import { toIntegralGazetteIndex } from "../../lib/integral-gazette-index.mjs";
+import { getIntegralGazetteListState, toIntegralGazetteIndex } from "../../lib/integral-gazette-index.mjs";
 import {
   getOfficialDiaryCatalog,
   type OfficialDiaryCatalogEntry,
@@ -56,13 +56,13 @@ function CatalogPendingNotice({
     <div className="collection-unavailable" role="status">
       <div>
         <strong>
-          {entries.length} edição{entries.length === 1 ? "" : "ões"} aguardando
-          preservação integral
+          {entries.length} {entries.length === 1 ? "edição" : "edições"} no catálogo,
+          sem texto integral nesta consulta
         </strong>
         <p>
           O catálogo oficial já registrou estas edições. Elas aparecerão aqui
-          quando o arquivo integral for preservado e conferido, sem alterar o
-          texto da fonte.
+          após a preservação, conferência e publicação do texto integral, sem
+          alterar o texto da fonte. O catálogo, sozinho, não comprova essas etapas.
         </p>
       </div>
     </div>
@@ -75,8 +75,8 @@ function DiaryCoverageSummary({
   pageCount,
 }: Readonly<{
   collectionStatus: CollectionStatusResult;
-  catalogCount: number;
-  pageCount: number;
+  catalogCount: number | null;
+  pageCount: number | null;
 }>) {
   return (
     <dl className="diary-coverage-summary" aria-label="Resumo da cobertura do Diário">
@@ -90,11 +90,11 @@ function DiaryCoverageSummary({
       </div>
       <div>
         <dt>Catálogo oficial consultado</dt>
-        <dd>{catalogCount.toLocaleString("pt-BR")}</dd>
+        <dd>{catalogCount === null ? "Não apurado" : catalogCount.toLocaleString("pt-BR")}</dd>
       </div>
       <div>
         <dt>Nesta página</dt>
-        <dd>{pageCount.toLocaleString("pt-BR")}</dd>
+        <dd>{pageCount === null ? "Não apurado" : pageCount.toLocaleString("pt-BR")}</dd>
       </div>
     </dl>
   );
@@ -122,8 +122,8 @@ function DiaryCoverageDetails({
             <strong>
               {dateFormatter.format(new Date(`${item.coverageDay}T12:00:00-03:00`))}
             </strong>{" "}
-            · {labels[item.status]} · {item.preservedEditions.toLocaleString("pt-BR")} edição
-            {item.preservedEditions === 1 ? "" : "ões"}
+            · {labels[item.status]} · {item.preservedEditions.toLocaleString("pt-BR")}{" "}
+            {item.preservedEditions === 1 ? "edição" : "edições"}
           </li>
         ))}
       </ul>
@@ -134,6 +134,25 @@ function DiaryCoverageDetails({
 type DiaryPageProps = Readonly<{
   searchParams: Promise<{ pagina?: string; q?: string }>;
 }>;
+
+const emptyNotices = {
+  unavailable: {
+    title: "Consulta do Diário temporariamente indisponível",
+    detail: "Não foi possível consultar as edições agora. Isso não significa ausência de publicações. Tente novamente em alguns minutos.",
+  },
+  search_empty: {
+    title: "Nenhuma edição encontrada para esta busca",
+    detail: "Tente outro nome, número ou palavra. Nenhum resultado no acervo pesquisado não prova que o ato não exista na fonte oficial.",
+  },
+  page_empty: {
+    title: "Nenhuma edição nesta página",
+    detail: "Esta página não retornou registros. Volte à primeira página para consultar o acervo disponível.",
+  },
+  empty: {
+    title: "Nenhuma edição integral neste recorte",
+    detail: "A consulta foi concluída sem edições publicadas neste recorte. Isso não comprova ausência de Diário Oficial nem cobertura histórica completa.",
+  },
+} as const;
 
 function pageNumberFromSearchParams(value: string | undefined): number {
   const parsed = Number.parseInt(value ?? "1", 10);
@@ -165,6 +184,13 @@ export default async function IntegralDiaryPage({
       ? enrichIntegralGazetteEditions(integralResult.editions, catalogEntries)
       : [];
   const editionIndex = toIntegralGazetteIndex(editions);
+  const catalogCount = catalogResult.state === "available" ? catalogEntries.length : null;
+  const listState = getIntegralGazetteListState({
+    state: integralResult.state, editionCount: editions.length,
+    catalogCount, query, pageNumber,
+  });
+  const emptyNotice = listState === "available" || listState === "catalog_only"
+    ? null : emptyNotices[listState];
   const latestCatalogCollectedAt = catalogEntries
     .map((entry) => entry.collectedAt)
     .sort()
@@ -199,7 +225,6 @@ export default async function IntegralDiaryPage({
               <span className="status-dot" aria-hidden="true" />
               Catálogo oficial preservado em{" "}
               {dateTimeFormatter.format(new Date(latestCatalogCollectedAt))}
-              {" "}· atualização automática ativa
             </p>
           ) : null}
           {collectionStatus.state === "available" ? (
@@ -242,21 +267,24 @@ export default async function IntegralDiaryPage({
 
         <DiaryCoverageSummary
           collectionStatus={collectionStatus}
-          catalogCount={catalogEntries.length}
-          pageCount={editions.length}
+          catalogCount={catalogCount}
+          pageCount={integralResult.state === "available" ? editions.length : null}
         />
+        {catalogCount === null ? (
+          <p role="status">O catálogo oficial não pôde ser consultado agora. Sua contagem não foi apurada; não é zero.</p>
+        ) : null}
         <DiaryCoverageDetails result={coverageResult} />
 
-        {editions.length === 0 && catalogEntries.length > 0 ? (
+        {listState === "catalog_only" ? (
           <CatalogPendingNotice entries={catalogEntries} />
-        ) : editions.length === 0 ? (
+        ) : emptyNotice ? (
           <div className="collection-unavailable" role="status">
             <div>
-              <strong>Nenhuma edição integral disponível</strong>
-              <p>
-                A coleta preservará o arquivo oficial antes de exibir qualquer
-                conteúdo nesta página.
-              </p>
+              <strong>{emptyNotice.title}</strong>
+              <p>{emptyNotice.detail}</p>
+              {listState === "search_empty" || listState === "page_empty" ? (
+                <a href="/diario">Ver primeiras edições sem filtro</a>
+              ) : null}
             </div>
           </div>
         ) : (

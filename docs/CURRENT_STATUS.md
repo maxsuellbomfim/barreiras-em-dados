@@ -82,6 +82,11 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 ## Evidências operacionais recentes
 
+- Auditoria de 04/09: [achados, correções e prioridades](reviews/AUDIT_2026_09_04.md).
+  Monitor corrigido e verificado em produção; fontes federais independentes não
+  são mais suprimidas por erro do catálogo histórico. A linguagem do Diário
+  diferencia consulta indisponível, busca vazia e catálogo sem texto publicado.
+
 - Em 04/09/2026, começou a medição prospectiva do gate de sete execuções
   agendadas do dreno documental do TCM-BA. Cada execução passa a registrar no
   início se veio do Agendador do Windows, do GitHub Actions ou de operação

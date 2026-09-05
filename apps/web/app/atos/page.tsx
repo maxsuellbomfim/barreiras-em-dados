@@ -39,7 +39,7 @@ export default async function ApprovedActsPage() {
             <span>← Barreiras 360</span>
           </a>
           <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/diario">Diário traduzido</a>
+            <a href="/diario">Diário Oficial</a>
             <a href="/representantes">Quem decide</a>
           </nav>
         </div>

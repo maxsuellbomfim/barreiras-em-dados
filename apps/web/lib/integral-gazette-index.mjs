@@ -1,3 +1,11 @@
+export function getIntegralGazetteListState({ state, editionCount, catalogCount, query, pageNumber }) {
+  if (state !== "available") return "unavailable";
+  if (editionCount > 0) return "available";
+  if (query) return "search_empty";
+  if (pageNumber > 1) return "page_empty";
+  return (catalogCount ?? 0) > 0 ? "catalog_only" : "empty";
+}
+
 export function toIntegralGazetteIndex(editions) {
   return editions.map((edition) => ({
     edition: edition.edition,
