@@ -410,7 +410,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
             <span>← Barreiras 360</span>
           </a>
           <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/diario">Diário traduzido</a>
+            <a href="/diario">Diário Oficial</a>
             <a href="/atos">Atos de pessoal</a>
           </nav>
         </div>

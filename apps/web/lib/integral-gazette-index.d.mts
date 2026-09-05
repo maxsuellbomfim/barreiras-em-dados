@@ -1,5 +1,13 @@
 import type { IntegralGazetteEdition } from "./integral-gazette-documents";
 
+export function getIntegralGazetteListState(input: Readonly<{
+  state: "available" | "unavailable";
+  editionCount: number;
+  catalogCount: number | null;
+  query: string;
+  pageNumber: number;
+}>): "available" | "unavailable" | "search_empty" | "page_empty" | "catalog_only" | "empty";
+
 export type IntegralGazetteIndexDocument = Readonly<{
   documentId: string;
   literalTitle: string;

@@ -55,11 +55,15 @@ test("catálogo oficial preserva bruto e publica campos oficiais separados da IA
   assert.match(diaryPage, /IntegralGazetteIndex/);
 });
 
-test("edições sem texto integral ficam explicitamente pendentes", () => {
+test("catálogo sem texto publicado fica distinto de erro e busca vazia", () => {
   assert.match(catalogFallbackMigration, /get_official_diary_catalog/);
   assert.match(catalogFallbackMigration, /barreiras_diario_publication/);
   assert.match(catalogClient, /get_official_diary_catalog/);
-  assert.match(diaryPage, /preservação integral/);
+  assert.match(diaryPage, /sem texto integral nesta consulta/);
+  assert.match(diaryPage, /listState === "catalog_only"/);
+  assert.match(diaryPage, /catalogCount === null \? "Não apurado"/);
+  assert.match(diaryPage, /pageCount === null \? "Não apurado"/);
+  assert.doesNotMatch(diaryPage, /atualização automática ativa/);
   assert.match(diaryPage, /CatalogPendingNotice/);
 });
 

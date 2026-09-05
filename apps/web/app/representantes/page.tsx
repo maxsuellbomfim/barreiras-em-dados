@@ -722,7 +722,7 @@ export default async function RepresentativesPage({
             <span>← Barreiras 360</span>
           </a>
           <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/diario">Diário traduzido</a>
+            <a href="/diario">Diário Oficial</a>
             <a href="/recursos">Recursos</a>
             <a href="/licitacoes">Licitações</a>
             <a href="/atos">Atos</a>
