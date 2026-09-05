@@ -14,7 +14,8 @@ from tests.collectors.test_fns_payment_evidence import envelope, order, payment
 
 def page(kind, body):
     query = (
-        "ano=2025&tipoConsulta=2&estado=BA&municipio=290320&acoes=65061&cnpj=08595187000125"
+        "ano=2025&tipoConsulta=2&estado=BA&municipio=290320&acoes=65061"
+        "&cpfCnpjUg=08595187000125"
         if kind == "payment-detail"
         else "anoPagamento=2025&ano=2025&mes=10&uf=BA&"
         "numeroDocumentoSiafi=055607&tipoDocumentoPagamento=OB"

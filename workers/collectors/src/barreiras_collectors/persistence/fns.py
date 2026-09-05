@@ -33,7 +33,7 @@ def _validate(page: CollectedPage, endpoint: str, expected: dict[str, str]) -> N
                 "tipoConsulta",
                 "estado",
                 "municipio",
-                "cnpj",
+                "cpfCnpjUg",
                 "acoes",
                 "page",
                 "count",
@@ -127,7 +127,7 @@ class FNSPairPersistenceService:
                 "tipoConsulta": "2",
                 "estado": "BA",
                 "municipio": "290320",
-                "cnpj": "08595187000125",
+                "cpfCnpjUg": "08595187000125",
             },
         )
         _validate(
