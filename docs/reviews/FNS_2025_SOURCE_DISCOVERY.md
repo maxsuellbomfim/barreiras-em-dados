@@ -163,9 +163,42 @@ resultou em R$ 5.000.000,00 e solicitante Neto Carletto; ação `68909`/OB
 o autor permaneceu Comissão da Saúde. Isso comprova a leitura desses dois
 pares, **não cobertura nacional/histórica nem integração já publicada no site**.
 
-### Integração ainda necessária
+### Reconciliação executada em 05/09/2026
 
-1. Parser/conector FNS substituível, usando transporte, limites, retries e
+`fns_cgu_reconciliation.reconcile_fns_cgu_payment` recebe os dois brutos FNS e
+o ZIP anual completo da CGU. Reutiliza os leitores existentes e não aceita
+uma lista paginada ou previamente filtrada como prova de unicidade.
+
+O piloto restringe o beneficiário ao CNPJ institucional `08595187000125`,
+publicado no seletor FNS e confirmado por consulta read-only aos dois registros
+CGU. Primeiro localiza todas as linhas de pagamento para esse beneficiário,
+município e sufixo anual/OB; só depois confere a linha única por data, valor,
+código completo, UG `257001`, emenda e autoria coletiva observada. Uma segunda
+linha, mesmo com outro valor ou outra gestão, bloqueia a associação. Repetições
+literalmente idênticas seguem a deduplicação do leitor CGU existente.
+
+O resultado diferencia `not_found`, `ambiguous`, `conflict` e `unique_candidate`.
+Arquivo inválido gera erro separado, nunca `not_found`. A grafia do autor é
+preservada separadamente em cada fonte; nenhum código FNS vira ID de pessoa.
+O ano da emenda vem da CGU, não do ano do pagamento. A chave de reconciliação
+inclui os três hashes e muda quando o arquivo anual muda.
+
+Prova operacional: novo download integral do ZIP CGU 2025 conferiu o SHA-256
+`3023ae72864f670962507c4500452eec2bca1d827482c995b1e06f5e2730c300`
+já preservado no projeto. O reconciliador retornou um candidato em cada par:
+
+| Documento CGU | Linha no CSV | Solicitante FNS | Chave de reconciliação |
+|---|---:|---|---|
+| `257001000012025OB055607` | 281848 | Neto Carletto | `12f0a9c778c4554cbc254f6bf8613abef0ac3b3e64edd481120468ae3e377789` |
+| `257001000012025OB059959` | 321164 | Pedro Lucas Fernandes | `a52c1d1312249eb6240d63dfefc6af4b1a72ffef7422e29243f9ee46f987d53f` |
+
+`publication_allowed` continua falso: candidato único não equivale a decisão
+de publicação. Não foi escrita linha financeira ou de identidade no banco.
+A persistência da evidência/decisão e sua projeção pública permanecem pendentes.
+
+### Entregas restantes
+
+1. Conector FNS substituível, usando transporte, limites, retries e
    preservação existentes; sem cron nacional e sem nova dependência.
 2. Projeção minimizada: município, entidade institucional, proposta, processo,
    portaria, data, tipo/número de documento, bruto/desconto/líquido/anulação,
