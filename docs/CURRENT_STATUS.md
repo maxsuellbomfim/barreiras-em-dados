@@ -11,7 +11,7 @@ públicas de atos, finanças, compras, Legislativo e representação já existem
 O trabalho atual não é abrir outra fase ampla: é tornar cobertura, qualidade,
 desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
-### FNS: leitura e reconciliação validadas, integração pública pendente
+### FNS: registro versionado implementado, importação e tela pendentes
 
 O leitor `fns_payment_evidence` valida um pagamento e sua ordem bancária no
 piloto Fundo a Fundo de Barreiras, com autor e solicitante separados. Os dois
@@ -20,8 +20,15 @@ há publicação automática, vínculo de pessoa por nome ou soma adicional à C
 O reconciliador `fns_cgu_reconciliation` releu o ZIP anual completo da CGU e
 encontrou um candidato único para cada um desses dois pagamentos. Ele bloqueia
 conflitos e múltiplas linhas e não autoriza publicação. A chave inclui o hash
-do arquivo anual: trocar o retrato exige nova reconciliação. O próximo passo
-é persistir a evidência e a decisão auditável antes de exibir o solicitante.
+do arquivo anual: trocar o retrato exige nova reconciliação. A migration
+`20260905040239` implementa registro privado de evidências e decisões imutáveis,
+com consulta pública limitada a vínculos aprovados que ainda correspondam à
+CGU atual. Nova evidência pendente, revogação ou conflito retiram o vínculo da
+consulta. Não há alteração nos valores, na autoria coletiva ou nos rankings.
+Ainda é necessário aplicar a migration, preservar os originais FNS no Storage
+privado, importar os dois pares com conferência dos bytes e registrar a revisão.
+Esta entrega não insere os pares reais nem muda a tela de recursos. O próximo
+passo é o importador idempotente; a exibição vem após sua validação operacional.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 

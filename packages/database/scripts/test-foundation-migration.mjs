@@ -44,6 +44,7 @@ try {
     $$;
 
     create schema auth;
+    create role service_role nologin bypassrls;
     create table auth.users (
       id uuid primary key
     );
@@ -160,7 +161,8 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  assert.equal(relations.rows[0].count, 64);
+  // Includes the private FNS evidence and append-only review decision tables.
+  assert.equal(relations.rows[0].count, 66);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -176,7 +178,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 64);
+  assert.equal(rlsRelations.rows[0].count, 66);
 
   const originColumns = await database.query(`
     select count(*)::integer as count
@@ -256,7 +258,7 @@ try {
     where tgname = 'reject_mutation'
       and not tgisinternal
   `);
-  assert.equal(immutableTriggers.rows[0].count, 16);
+  assert.equal(immutableTriggers.rows[0].count, 18);
 
   const extensionSchema = await database.query(`
     select namespace.nspname as schema_name
