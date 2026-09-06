@@ -87,6 +87,24 @@ def parse(p: dict | None = None, o: dict | None = None, **scope) -> dict:
 
 
 class FNSPaymentEvidenceTests(unittest.TestCase):
+    def test_cancellation_message_blocks_even_when_numeric_annulment_is_zero(self):
+        # Synthetic regression for the observed FNS discrepancy: zero in the
+        # numeric field does not invalidate an explicit rejection/cancellation.
+        for side in ("payment", "order", "both"):
+            p, o = payment(), order()
+            reason = "10 - CANCELAMENTO PARCIAL DA ORDEM - EXEMPLO"
+            if side in ("payment", "both"):
+                p["motivoRejeicao"] = reason
+            if side in ("order", "both"):
+                o["motivoRejeicao"] = reason
+            self.assertEqual(p["valorAnulacao"], 0)
+            with (
+                self.subTest(side=side),
+                self.assertRaises(FNSPaymentEvidenceError) as error,
+            ):
+                parse(p, o)
+            self.assertNotIn(reason, str(error.exception))
+
     def test_payment_scope_is_explicit_and_strict(self):
         for scope in [
             {"action_id": True},

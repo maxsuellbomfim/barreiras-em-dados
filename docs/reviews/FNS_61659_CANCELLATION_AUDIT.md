@@ -1,0 +1,65 @@
+# Conferência FNS da ação 61659 — 06/09/2026
+
+## Resultado
+
+Foram preservados localmente, com DPAPI CurrentUser e SHA-256 de reabertura,
+255 registros de pagamento das 26 ações adicionais, em 27 páginas. A captura
+não equivale a normalização, registro no Supabase ou publicação.
+
+A comparação encontrou uma diferença de R$ 1.493,93 na ação 61659:
+
+| Recorte oficial | Bruto | Descontos | Líquido |
+| --- | ---: | ---: | ---: |
+| Catálogo atualizado | 54.466.271,01 | 69.428,00 | 54.396.843,01 |
+| Soma das 15 linhas do detalhe | 54.467.764,94 | 69.428,00 | 54.398.336,94 |
+
+As quatro páginas do catálogo atual reproduzem os totais do catálogo anterior.
+O detalhe de pagamento publica um total geral que coincide com suas 15 linhas,
+mas não com o catálogo. Não se trata apenas de comparar duas datas de captura.
+
+## Ordens conferidas
+
+As ordens 016551 e 018794 foram consultadas em todas as quatro páginas cada
+(10, 10, 10, 5 linhas). Cada resposta abrange 35 municípios; há exatamente uma
+linha Barreiras/BA, código FNS 290320, por ordem. As requisições usam anoPagamento
+2025, mes 04 e ano 2025 do identificador do pagamento, competência Única em
+2025, UF BA e tipo OB. O mês de competência não foi trocado pelo mês do crédito.
+
+- **016551**, documento de 02/06/2025: R$ 1.493,93 e motivo de rejeição com
+  mensagem explícita de cancelamento parcial, tanto no pagamento quanto na OB.
+- **018794**, documento de 12/06/2025: R$ 1.493,93 e motivo de rejeição vazio.
+- No detalhe do pagamento, `valorAnulacao` é zero em ambas.
+- Ambas pertencem ao processo 25000.064601/2025-38, mas são documentos distintos.
+
+Excluir aritmeticamente o valor da linha sinalizada reproduz o catálogo. Isso
+é compatível com o catálogo desconsiderá-la, mas **não prova substituição entre
+as ordens**, nem autoriza alterar retroativamente os originais ou chamar a
+segunda linha de duplicada. Tampouco prova irregularidade ou execução física.
+
+## Consequência para o processamento
+
+O leitor de pares existente já bloqueia `motivoRejeicao` não vazio em qualquer
+lado, mesmo com anulação numérica zero. Um teste sintético explícito protege
+essa combinação, inclusive contra vazamento do texto recebido em exceções.
+Nenhuma regra de soma ou ranking foi modificada.
+
+O leitor ampliado deve preservar os dois registros, a situação textual e a
+divergência numérica. Não deve aceitar apenas a primeira página da OB nem
+deduplicar somente pelo identificador composto do pagamento. É necessário
+separar competência, data de pagamento e documento SIAFI e registrar conflitos
+sem convertê-los em pagamentos efetivos ou emendas automaticamente.
+
+## Rastreabilidade local
+
+Manifestos das capturas complementares (SHA-256):
+
+- primeira página das duas OBs e quatro páginas do catálogo:
+  `f3fbe249d333008512647b9acf9ece946e0d046b07de4b7e9fc66846f6e563f9`;
+- seis páginas restantes das OBs:
+  `8cb07e62cb6556182b7af1328d79852b089789175fd4d5621f4cb8ff986b852f`.
+
+Os manifestos incluem URL exata, horários, HTTP, tamanho e hash de cada resposta.
+Originais ficam cifrados na pasta operacional local `.tmp`, fora do Git.
+Fonte: consulta detalhada oficial em https://consultafns.saude.gov.br/#/detalhada,
+rotas `consulta-detalhada/detalhe-acao` e `detalhe-ordem-bancaria`.
+Nenhum dado bancário, original sensível ou novo vínculo público integra esta entrega.
