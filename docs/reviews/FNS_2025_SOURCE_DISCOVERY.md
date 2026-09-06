@@ -2,6 +2,30 @@
 
 ## Resultado observado
 
+### Atualização: publicação e plano de ampliação
+
+O PR #704 publicou os dois vínculos aprovados em Recursos, com conferência
+no site e sem alterar autoria ou valores. As seções abaixo preservam a sequência
+da investigação; referências antigas a revisão/tela pendentes são históricas.
+
+`fns_action_catalog.plan_fns_actions` validou as quatro páginas locais originais:
+33 linhas, 28 IDs positivos e cinco grupos zero, reconciliando bruto, descontos
+e líquido em centavos. Os IDs positivos entram todos no plano, inclusive ações
+sem “EMENDA” na descrição. ID zero não vira pagamento nem é tratado como
+duplicação. IDs positivos repetidos, páginas faltantes/repetidas/reordenadas,
+totais divergentes e grupo zero com valor bloqueiam o plano.
+
+O total geral pode aparecer só na primeira linha; campos nulos/omitidos nas
+demais não significam zero. Exige-se pelo menos um total explícito e todos os
+totais informados precisam coincidir com a soma das linhas.
+
+Essa validação usa o catálogo preservado em 05/09, não uma nova coleta viva.
+O chamador deve vincular cada original à URL, entidade e ano exatos da captura:
+o corpo do catálogo sozinho não comprova esse escopo. A saída mantém os hashes
+das páginas, não inclui dados bancários, não publica nem prova cobertura dos
+pagamentos. Próximo lote: detalhes das outras 26 ações, com paginação e limites
+do transporte existente; depois examinar separadamente Outros Pagamentos.
+
 Consulta em 05/09/2026 UTC. O detalhe oficial do FNS acrescenta o papel de
 **solicitante** a dois pagamentos já presentes na série documental da CGU.
 Não acrescenta R$ 7 milhões ao total existente e não muda autoria coletiva
