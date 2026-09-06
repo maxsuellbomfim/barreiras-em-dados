@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FnsParticipation } from "./fns-participation";
 
 import {
   getPublicCurrentParliamentaryTransfers,
@@ -1682,6 +1683,12 @@ function CguDocumentMovementPanel({
         <h3 id="cgu-document-results-title">
           Documentos, favorecidos e evidências
         </h3>
+        {result.fnsContext.state === "unavailable" ? (
+          <p className="transfer-empty">
+            A consulta complementar de participação no FNS está indisponível agora.
+            Os documentos e valores da CGU continuam disponíveis abaixo.
+          </p>
+        ) : null}
         {result.documents.length === 0 ? (
           <p className="transfer-empty">
             A fonte foi consultada, mas ainda não há documento territorializado
@@ -1725,6 +1732,10 @@ function CguDocumentMovementPanel({
                     <dd>{document.agencyName}</dd>
                   </div>
                 </dl>
+                <FnsParticipation link={result.fnsContext.links.find((link) =>
+                  link.documentCode === document.documentCode &&
+                  link.cguArchiveSha256 === document.artifactSha256
+                )} />
                 <details className="transfer-details">
                   <summary>Evidência e identificação do documento</summary>
                   <p>
