@@ -7406,6 +7406,14 @@ footer {
   color: #56647a;
 }
 
+.fns-participation code {
+  overflow-wrap: anywhere;
+}
+
+.fns-participation dd {
+  margin-inline-start: 0;
+}
+
 .transfer-source-coverage-scroll {
   max-width: 100%;
   margin-top: 1rem;

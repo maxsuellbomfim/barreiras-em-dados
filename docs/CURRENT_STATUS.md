@@ -11,7 +11,7 @@ públicas de atos, finanças, compras, Legislativo e representação já existem
 O trabalho atual não é abrir outra fase ampla: é tornar cobertura, qualidade,
 desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
-### FNS: piloto importado e reconciliado, revisão e tela pendentes
+### FNS: dois vínculos revisados; integração da tela em validação
 
 O leitor `fns_payment_evidence` valida um pagamento e sua ordem bancária no
 piloto Fundo a Fundo de Barreiras, com autor e solicitante separados. Os dois
@@ -32,10 +32,13 @@ hashes anteriores; os horários registrados são das novas requisições. O ZIP 
 atual mudou: a reconciliação foi refeita sobre os bytes preservados e conferidos,
 sem reutilizar os IDs/linhas antigos. As evidências apontam para esse retrato.
 O piloto e sua execução estão `partial`: não representam cobertura anual.
-Continuam zero decisões e zero vínculos FNS na API pública. Os pagamentos CGU
-de R$ 5 milhões e R$ 2 milhões mantêm autoria da Comissão da Saúde e não foram
-somados novamente. Próximo passo: revisão versionada e exibição minimizada de
-“Solicitante informado pelo FNS” na área de recursos, sem mudar a autoria coletiva.
+Após confirmação explícita do usuário, foram registradas duas aprovações em
+05/09, conferidas na consulta pública: Neto Carletto no documento OB055607
+(R$ 5 milhões) e Pedro Lucas Fernandes no OB059959 (R$ 2 milhões), somente como
+“Solicitante informado pelo FNS”. A autoria permanece da Comissão da Saúde;
+nenhum lançamento, soma ou ranking foi alterado. A integração nos cartões de
+Recursos está em validação, sem declaração de deploy. A consulta é limitada
+aos pagamentos da página e omite vínculos se a evidência CGU mudar.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 

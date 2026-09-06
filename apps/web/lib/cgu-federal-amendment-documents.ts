@@ -3,6 +3,7 @@ import {
   parseCguFederalAmendmentDocumentStudyRows,
 } from "./cgu-federal-amendment-documents.mjs";
 import { fetchPublicRpcRows } from "./public-rpc.mjs";
+import { loadReviewedFnsLinks, type FnsReviewedLinksResult } from "./fns-reviewed-links.mjs";
 
 export type CguFederalAmendmentDocument = Readonly<{
   archiveYear: number;
@@ -56,6 +57,7 @@ export type CguFederalAmendmentDocumentsResult =
   | Readonly<{
       state: "available";
       documents: readonly CguFederalAmendmentDocument[];
+      fnsContext: FnsReviewedLinksResult;
       ranking: readonly CguFederalAmendmentDocumentRanking[];
       totalCount: number;
       catalogCount: number;
@@ -139,9 +141,20 @@ export async function getPublicCguFederalAmendmentDocuments(
     const study = parseCguFederalAmendmentDocumentStudyRows(studyRows);
     const ranking = parseCguFederalAmendmentDocumentRankingRows(rankingRows);
     if (study === null || ranking === null) return { state: "unavailable" };
+    const fnsContext = await loadReviewedFnsLinks(study.documents, (codes) =>
+      fetchPublicRpcRows({
+        url: `${supabaseUrl}/rest/v1/rpc/get_public_fns_cgu_links`,
+        headers: {
+          Accept: "application/json", "Accept-Profile": "api",
+          apikey: publishableKey, "Content-Profile": "api", "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ document_codes: codes }),
+      }, { revalidateSeconds: 0, timeoutMs: 5_000 }),
+    );
     return {
       state: "available",
       ...study,
+      fnsContext,
       ranking,
       page,
       pageSize,
