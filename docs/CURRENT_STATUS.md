@@ -11,7 +11,7 @@ públicas de atos, finanças, compras, Legislativo e representação já existem
 O trabalho atual não é abrir outra fase ampla: é tornar cobertura, qualidade,
 desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
-### FNS: registro versionado implementado, importação e tela pendentes
+### FNS: piloto importado e reconciliado, revisão e tela pendentes
 
 O leitor `fns_payment_evidence` valida um pagamento e sua ordem bancária no
 piloto Fundo a Fundo de Barreiras, com autor e solicitante separados. Os dois
@@ -25,17 +25,17 @@ do arquivo anual: trocar o retrato exige nova reconciliação. A migration
 com consulta pública limitada a vínculos aprovados que ainda correspondam à
 CGU atual. Nova evidência pendente, revogação ou conflito retiram o vínculo da
 consulta. Não há alteração nos valores, na autoria coletiva ou nos rankings.
-Consulta operacional em 05/09 confirmou a migration aplicada em produção,
-sem evidências, decisões ou originais FNS registrados. A migration
-`20260905111757` cadastra as duas rotas oficiais necessárias à aquisição,
-sem cron e sem declarar cobertura. A migration `20260905151402` autoriza o
-prefixo privado FNS. Consulta em 05/09 confirmou quatro objetos preservados,
-zero artefatos FNS registrados e zero evidências/decisões. O serviço
-`FNSPairPersistenceService` agora confere os dois originais no Storage e registra
-sua linhagem pelo repositório existente, com replay idempotente. Exige URLs e
-horários reais da captura, não os substitui pelo horário da importação. Não
-declara cobertura completa nem aprova vínculos. A carga operacional dos pares,
-a reconciliação registrada e a revisão ainda estão pendentes; não mudou a tela.
+Carga operacional autorizada em 05/09 confirmou **quatro objetos privados,
+quatro artefatos registrados e duas evidências reconciliadas**, sem duplicação
+dos objetos ou novos lançamentos financeiros. A recaptura reproduziu os quatro
+hashes anteriores; os horários registrados são das novas requisições. O ZIP CGU
+atual mudou: a reconciliação foi refeita sobre os bytes preservados e conferidos,
+sem reutilizar os IDs/linhas antigos. As evidências apontam para esse retrato.
+O piloto e sua execução estão `partial`: não representam cobertura anual.
+Continuam zero decisões e zero vínculos FNS na API pública. Os pagamentos CGU
+de R$ 5 milhões e R$ 2 milhões mantêm autoria da Comissão da Saúde e não foram
+somados novamente. Próximo passo: revisão versionada e exibição minimizada de
+“Solicitante informado pelo FNS” na área de recursos, sem mudar a autoria coletiva.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 

@@ -221,6 +221,39 @@ ser comprovados antes de usar o vínculo na interface.
 
 ### Entregas restantes
 
+#### Carga real verificada — 05/09/2026, horário de Brasília
+
+Após autorização explícita para recapturar e registrar os quatro originais no
+Storage privado, a execução `f954b26f-e3da-41b6-b6aa-f0ecc89c7eff` foi aberta
+antes da primeira requisição. Foi necessário usar o certificado oficial em um
+caminho temporário sem acento, como já faz o executor TCM; TLS permaneceu
+`verify-full`. A falha inicial de abertura do certificado ocorreu antes da coleta.
+
+As quatro respostas recapturadas entre 00:41 e 00:42 UTC de 06/09 reproduziram
+os hashes anteriores. Todos os uploads retornaram `created=false`, e o serviço
+comparou os bytes restaurados antes de registrar cada par. Consulta final:
+quatro objetos no Storage, quatro artefatos com quatro chaves distintas, duas
+evidências, zero decisões e zero vínculos na API pública. Originais bancários
+continuam privados; não houve alteração de registros financeiros ou identidades.
+
+O retrato CGU atual tem SHA-256
+`047c999d5b1ccb478b034ff4f5879ee032a51560aef01c9c8acda6b15ef1bdd7`
+e 16.797.998 bytes. O original foi relido do Storage, conferido e processado
+integralmente pelo reconciliador para cada par. Não se reutilizaram as linhas
+do retrato anterior. A transação de evidências exigiu correspondência com os
+documentos atuais e usou chave idempotente, sem sobrescrever versões.
+
+| Documento CGU | Linha atual | Solicitante no FNS | Valor já registrado na CGU |
+| --- | ---: | --- | ---: |
+| `257001000012025OB055607` | 135588 | Neto Carletto | R$ 5.000.000,00 |
+| `257001000012025OB059959` | 87058 | Pedro Lucas Fernandes | R$ 2.000.000,00 |
+
+Autoria em ambos: **Comissão da Saúde**. Solicitante não é sinônimo de autor.
+Esses valores não são recursos novos nem incremento de ranking. A execução e
+a partição `pilot:2025:65061-68909` encerraram como `partial`, pois dois pares
+não comprovam cobertura anual. Revisão versionada e tela continuam pendentes.
+Os trechos abaixo registram a sequência histórica anterior à carga.
+
 Atualização de 05/09 após PR #701: consulta operacional confirmou quatro objetos
 privados `fns/payments/` e zero artefatos FNS registrados, evidências ou decisões.
 Os bytes foram conferidos no upload. As referências abaixo a upload pendente
