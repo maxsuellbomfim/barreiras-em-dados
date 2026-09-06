@@ -43,8 +43,14 @@ aos pagamentos da página e omite vínculos se a evidência CGU mudar.
 O leitor `fns_action_catalog` confere as quatro páginas preservadas: 33 linhas,
 28 ações positivas e cinco grupos de valor zero. Os totais reconciliam em
 centavos. Nenhuma ação é excluída por não conter “EMENDA” no nome. Este é um
-plano de detalhamento, não cobertura dos pagamentos: faltam os detalhes das
-outras 26 ações e a modalidade Outros Pagamentos. Não acrescenta valores ao site.
+plano de detalhamento, não cobertura dos pagamentos. A captura local adicional
+preservou 255 registros das outras 26 ações em 27 páginas, ainda sem normalização
+ou registro em produção. A ação 61659 diverge R$ 1.493,93 do catálogo atualizado:
+uma ordem traz cancelamento parcial apesar de anulação numérica zero. As duas
+OBs relacionadas foram conferidas em oito páginas, com uma linha de Barreiras
+em cada ordem. Não deduplicar nem somar automaticamente; detalhes em
+[`FNS_61659_CANCELLATION_AUDIT.md`](reviews/FNS_61659_CANCELLATION_AUDIT.md).
+Faltam as demais ordens e a modalidade Outros Pagamentos. Nenhum valor novo no site.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 
