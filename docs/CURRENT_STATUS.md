@@ -11,7 +11,7 @@ públicas de atos, finanças, compras, Legislativo e representação já existem
 O trabalho atual não é abrir outra fase ampla: é tornar cobertura, qualidade,
 desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
-### FNS: dois vínculos revisados; integração da tela em validação
+### FNS: dois vínculos publicados; catálogo das demais ações conferido
 
 O leitor `fns_payment_evidence` valida um pagamento e sua ordem bancária no
 piloto Fundo a Fundo de Barreiras, com autor e solicitante separados. Os dois
@@ -36,9 +36,15 @@ Após confirmação explícita do usuário, foram registradas duas aprovações 
 05/09, conferidas na consulta pública: Neto Carletto no documento OB055607
 (R$ 5 milhões) e Pedro Lucas Fernandes no OB059959 (R$ 2 milhões), somente como
 “Solicitante informado pelo FNS”. A autoria permanece da Comissão da Saúde;
-nenhum lançamento, soma ou ranking foi alterado. A integração nos cartões de
-Recursos está em validação, sem declaração de deploy. A consulta é limitada
+nenhum lançamento, soma ou ranking foi alterado. O PR #704 foi mesclado e os
+dois cartões foram conferidos em produção; desktop e celular validados no preview.
+A consulta é limitada
 aos pagamentos da página e omite vínculos se a evidência CGU mudar.
+O leitor `fns_action_catalog` confere as quatro páginas preservadas: 33 linhas,
+28 ações positivas e cinco grupos de valor zero. Os totais reconciliam em
+centavos. Nenhuma ação é excluída por não conter “EMENDA” no nome. Este é um
+plano de detalhamento, não cobertura dos pagamentos: faltam os detalhes das
+outras 26 ações e a modalidade Outros Pagamentos. Não acrescenta valores ao site.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 
