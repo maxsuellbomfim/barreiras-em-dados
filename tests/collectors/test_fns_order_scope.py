@@ -3,7 +3,8 @@ import unittest
 from urllib.parse import urlencode
 
 from barreiras_collectors.connectors.fns_order_pages import inspect_order_captures
-from test_fns_order_pages import body, row
+
+from tests.collectors.test_fns_order_pages import body, row
 
 
 class OrderScopeTests(unittest.TestCase):
