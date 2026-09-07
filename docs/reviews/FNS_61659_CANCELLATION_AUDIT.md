@@ -105,5 +105,14 @@ reproduziu os oito hashes e os dois diagnósticos anteriores. Os manifestos,
 porém, não contêm URL final da resposta, somente URL solicitada. Portanto
 essa execução comprova consistência com as requisições registradas, não todos
 os requisitos de importação. Nenhuma gravação real no Supabase foi feita;
-será necessária nova captura com metadados completos. Os originais anteriores
+era necessária nova captura com metadados completos. Os originais anteriores
 permanecem preservados, sem horários ou URLs completados por suposição.
+
+A recaptura subsequente das oito páginas, limitada a seis requisições por minuto,
+registrou URLs solicitada e final, horários, HTTP, tipo, tamanho e hash. Todos
+os oito hashes reproduziram os originais anteriores. O serviço validou quatro
+páginas de cada OB em simulação com repositório em memória: 016551 segue em
+revisão e 018794 com linha territorial única. Não houve escrita no Supabase.
+Os bytes foram novamente cifrados com DPAPI e reabertos para conferir SHA-256.
+Manifesto da nova captura:
+`a084b8786db7e3b24d429a0767f4b4ded99ea7eee29364341cffc0b349d704fa`.

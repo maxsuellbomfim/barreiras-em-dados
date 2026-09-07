@@ -66,8 +66,10 @@ metadados de aquisição e relê todos os objetos antes da primeira gravação.
 Registra apenas artefatos privados, com replay idempotente e cobertura parcial,
 inclusive quando a ordem exige revisão. Não cria registros financeiros.
 A releitura local dos oito originais confirmou os hashes e os diagnósticos,
-mas os manifestos antigos não registram URL final: a importação real permanece
-pendente de nova captura com metadados completos, sem preencher datas/URLs presumidas.
+mas os manifestos antigos não registram URL final. Uma nova captura das oito
+páginas registrou os metadados completos e reproduziu todos os hashes. O serviço
+validou ambas as ordens em simulação, sem gravações no banco; a importação privada
+real ainda está pendente. Nenhuma data ou URL antiga foi preenchida por suposição.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 
