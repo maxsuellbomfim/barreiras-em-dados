@@ -44,8 +44,8 @@ O leitor `fns_action_catalog` confere as quatro páginas preservadas: 33 linhas,
 28 ações positivas e cinco grupos de valor zero. Os totais reconciliam em
 centavos. Nenhuma ação é excluída por não conter “EMENDA” no nome. Este é um
 plano de detalhamento, não cobertura dos pagamentos. A captura local adicional
-preservou 255 registros das outras 26 ações em 27 páginas, ainda sem normalização
-ou registro em produção. A ação 61659 diverge R$ 1.493,93 do catálogo atualizado:
+preservou 255 registros das outras 26 ações em 27 páginas, agora registrados
+como observações privadas, sem publicação. A ação 61659 diverge R$ 1.493,93 do catálogo atualizado:
 uma ordem traz cancelamento parcial apesar de anulação numérica zero. As duas
 OBs relacionadas foram conferidas em oito páginas, com uma linha de Barreiras
 em cada ordem. Não deduplicar nem somar automaticamente; detalhes em
@@ -74,22 +74,27 @@ Storage e consulta SQL independente confirmaram hashes, tamanhos e URLs.
 A execução `e6fe9f01-8641-4cbf-8378-577a96e655d4` permanece `partial`, com zero
 registros financeiros e nenhuma autorização de publicação. A OB 016551 continua
 em revisão; a 018794 não foi convertida em pagamento público. Nenhuma data ou URL
-antiga foi preenchida por suposição. As outras 26 ações continuam pendentes de
-normalização em produção, sem confundir esses oito artefatos com cobertura anual.
+antiga foi preenchida por suposição. Esses oito artefatos não representam cobertura anual.
 O normalizador privado `fns_payment_pages` foi executado localmente nas 27
 páginas: preservou as 255 observações das 26 ações, identificou sete competências
 de ano diferente do pagamento e manteve a rejeição da ação 61659 em revisão.
 Nenhuma chave documental repetida apareceu nesse recorte; IDs compostos iguais
 não causaram exclusão de linhas. Valores são somas documentais, não confirmação
 de transferência; todas as ordens continuam pendentes de vínculo nessa saída.
-A saída ainda não foi persistida nem publicada e não resolve a divergência
+A saída foi persistida privadamente, sem publicação, e não resolve a divergência
 entre o catálogo e o detalhe da ação 61659.
 O comparador `fns_document_link` releu o pagamento e as páginas de cada OB:
 016551 (linha 7) continua em revisão; 018794 (linha 9) apresenta par documental
 consistente em escopo, competência e valor. Ambos seguem sem publicação.
 O normalizador agora também exige ação embutida, esfera municipal e modalidade
 Fundo a Fundo compatíveis; os 255 registros passaram nessa verificação.
-Ainda falta persistir a normalização e obter/conferir as demais ordens.
+As 27 páginas foram recapturadas com metadados completos e hashes idênticos.
+A execução `b78dc03f-bf5d-43d6-8438-66a29234ed55` registrou 27 objetos, 27 artefatos
+e 255 observações privadas. O replay inseriu zero registros e manteve os IDs;
+download e SQL conferiram bytes, hashes e payloads. Cobertura permanece parcial,
+ordens pendentes e `publication_allowed=false`. Falta obter/conferir as demais
+ordens e registrar os resultados dos vínculos, sem transformar compatibilidade
+documental em confirmação de pagamento ou autoria.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 

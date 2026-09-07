@@ -184,3 +184,29 @@ A divergência do catálogo continua aberta. Todos os resultados mantêm
 `publication_allowed=false`; esta etapa não gravou resultados normalizados
 no banco nem alterou os valores públicos. O escopo de aquisição dos pagamentos
 ainda deve ser conferido pelo chamador antes da persistência.
+
+### Persistência das observações privadas
+
+O serviço `FNSPaymentPagesPersistenceService` valida o conjunto completo,
+incluindo beneficiário, ação, ano, número/tamanho da página, URLs e metadados de
+aquisição. Relê todos os objetos antes da primeira gravação. Rejeições permanecem
+nas observações; campos bancários não entram nos payloads normalizados. Cada
+registro conserva hash, página e posição; a identidade de replay inclui o
+conjunto de páginas, evitando reutilizar uma interpretação de outro retrato.
+
+A nova captura das 27 páginas reproduziu os 27 hashes anteriores, com URLs
+finais e horários registrados. Manifesto:
+`9ed1a678bdce2d1b7c8885734c11a3a685770e81f3a107b20fb4b5acebcb969c`.
+
+A execução `b78dc03f-bf5d-43d6-8438-66a29234ed55` importou 27 objetos privados,
+27 artefatos e 255 linhas `fns_payment_observation` em `raw.raw_records`.
+O replay real retornou os mesmos artefatos e inseriu zero novas observações.
+A releitura do Storage confirmou bytes/hash/tamanho; a consulta SQL comparou
+os 255 payloads e seus hashes com a normalização local. O controle foi aberto
+antes da primeira escrita e terminou `partial`, com publicação bloqueada.
+
+São observações documentais privadas, não lançamentos financeiros públicos.
+Todas continuam `order_verification=pending`: os resultados de comparação das
+duas ordens ainda não foram gravados nessas linhas. Nenhuma autoria, soma,
+ranking ou valor público foi alterado. A divergência do catálogo e a rejeição
+permanecem explícitas; falta obter e conferir as demais ordens.
