@@ -3,6 +3,7 @@
 import hashlib
 import json
 from decimal import Decimal
+from urllib.parse import parse_qsl, urlsplit
 
 from .fns_payment_evidence import (
     MAX_RESPONSE_BYTES,
@@ -11,6 +12,76 @@ from .fns_payment_evidence import (
     _require,
     _unique_object,
 )
+
+
+def inspect_order_captures(captures: list[dict], scope: dict[str, str]) -> dict:
+    """Bind preserved response bytes to a caller-supplied official OB scope.
+
+    Capture URL must be the final response URL recorded by the transport.
+    This checks metadata consistency, not authenticity of caller-supplied
+    metadata or authorization to publish. Keep original captures in custody.
+    """
+    try:
+        keys = {
+            "anoPagamento",
+            "mes",
+            "ano",
+            "competencia",
+            "uf",
+            "numeroDocumentoSiafi",
+            "tipoDocumentoPagamento",
+        }
+        _require(isinstance(scope, dict) and set(scope) == keys)
+        _require(all(isinstance(v, str) and v.strip() for v in scope.values()))
+        _require(scope["uf"] == "BA" and scope["tipoDocumentoPagamento"] == "OB")
+        _require(isinstance(captures, list) and 0 < len(captures) <= 100)
+        pages = []
+        for index, capture in enumerate(captures):
+            _require(isinstance(capture, dict))
+            _require(
+                type(capture["http_status"]) is int and capture["http_status"] == 200
+            )
+            raw = capture["body"]
+            _require(isinstance(raw, bytes) and 0 < len(raw) <= MAX_RESPONSE_BYTES)
+            _require(hashlib.sha256(raw).hexdigest() == capture["sha256"])
+            url = capture["url"]
+            _require(isinstance(url, str) and not any(c.isspace() for c in url))
+            parsed = urlsplit(url)
+            _require(
+                parsed.scheme == "https" and parsed.netloc == "consultafns.saude.gov.br"
+            )
+            _require(
+                parsed.path == "/recursos/consulta-detalhada/detalhe-ordem-bancaria"
+                and not parsed.fragment
+            )
+            pairs = parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True)
+            query = dict(pairs)
+            _require(
+                len(query) == len(pairs) and set(query) == keys | {"page", "count"}
+            )
+            _require(all(query[k] == scope[k] for k in keys))
+            _require(query["page"] == str(index + 1))
+            result = json.loads(
+                raw,
+                parse_float=Decimal,
+                parse_constant=_reject_constant,
+                object_pairs_hook=_unique_object,
+            )["resultado"]
+            _require(
+                type(result["itensPorPagina"]) is int
+                and query["count"] == str(result["itensPorPagina"])
+            )
+            pages.append(raw)
+        return inspect_order_pages(pages)
+    except (
+        ValueError,
+        TypeError,
+        KeyError,
+        IndexError,
+        ArithmeticError,
+        RecursionError,
+    ):
+        return {"status": "invalid_capture", "publication_allowed": False}
 
 
 def inspect_order_pages(pages: list[bytes]) -> dict:
