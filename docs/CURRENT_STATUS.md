@@ -61,6 +61,13 @@ O adaptador `inspect_order_captures` confere URL final oficial, parâmetros da
 ordem e competência, página, tamanho solicitado, HTTP e SHA-256 dos bytes.
 Mistura de escopos e parâmetros duplicados são recusados. Ainda depende de
 metadados capturados pelo transporte confiável; não grava nem publica pagamentos.
+O registrador `FNSOrderPersistenceService` usa esse diagnóstico, valida os
+metadados de aquisição e relê todos os objetos antes da primeira gravação.
+Registra apenas artefatos privados, com replay idempotente e cobertura parcial,
+inclusive quando a ordem exige revisão. Não cria registros financeiros.
+A releitura local dos oito originais confirmou os hashes e os diagnósticos,
+mas os manifestos antigos não registram URL final: a importação real permanece
+pendente de nova captura com metadados completos, sem preencher datas/URLs presumidas.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 

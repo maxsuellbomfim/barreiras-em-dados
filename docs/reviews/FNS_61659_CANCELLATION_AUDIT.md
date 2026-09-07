@@ -84,3 +84,26 @@ Originais ficam cifrados na pasta operacional local `.tmp`, fora do Git.
 Fonte: consulta detalhada oficial em https://consultafns.saude.gov.br/#/detalhada,
 rotas `consulta-detalhada/detalhe-acao` e `detalhe-ordem-bancaria`.
 Nenhum dado bancário, original sensível ou novo vínculo público integra esta entrega.
+
+### Integração ao registro privado
+
+O serviço `FNSOrderPersistenceService` reutiliza os contratos de captura,
+Storage e repositório já existentes. Valida a sequência completa, URLs de
+requisição e resposta, escopo, HTTP, tipo, tamanho, hash e horários com fuso;
+relê todos os objetos antes de registrar o primeiro artefato. Uma falha de
+integridade bloqueia o lote inteiro antes das gravações. Falha posterior no
+banco exige replay: as gravações são individualmente idempotentes, não uma
+transação única. As chaves incluem escopo, página e hash; não confundem ordens
+distintas que eventualmente devolvam bytes iguais.
+
+Cancelamento, ausência e conflito territorial podem ser preservados como
+originais para revisão. Nenhum registro financeiro é produzido e a cobertura
+continua parcial. O leitor estrito de pares permanece separado e inalterado.
+
+A execução local do adaptador sobre oito originais reabertos por DPAPI
+reproduziu os oito hashes e os dois diagnósticos anteriores. Os manifestos,
+porém, não contêm URL final da resposta, somente URL solicitada. Portanto
+essa execução comprova consistência com as requisições registradas, não todos
+os requisitos de importação. Nenhuma gravação real no Supabase foi feita;
+será necessária nova captura com metadados completos. Os originais anteriores
+permanecem preservados, sem horários ou URLs completados por suposição.

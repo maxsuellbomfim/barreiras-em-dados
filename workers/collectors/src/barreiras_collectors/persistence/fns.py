@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import replace
 from datetime import datetime
 from urllib.parse import parse_qsl, urlsplit
 
+from ..connectors.fns_order_pages import inspect_order_captures
 from ..connectors.fns_payment_evidence import parse_fns_payment_evidence
 from ..connectors.querido_diario import CollectedPage
 from .models import ArtifactIntegrityError, PersistenceBatch, RepositoryPersistResult
@@ -20,7 +22,13 @@ def _require(condition: bool) -> None:
         raise ValueError("Invalid captured FNS response")
 
 
-def _validate(page: CollectedPage, endpoint: str, expected: dict[str, str]) -> None:
+def _validate(
+    page: CollectedPage,
+    endpoint: str,
+    expected: dict[str, str],
+    *,
+    paginated: bool = False,
+) -> None:
     try:
         route = (
             "detalhe-pagamento"
@@ -79,9 +87,9 @@ def _validate(page: CollectedPage, endpoint: str, expected: dict[str, str]) -> N
             query = dict(pairs)
             _require(len(query) == len(pairs) and set(query) <= allowed)
             _require(all(query.get(key) == value for key, value in expected.items()))
-            if "page" in query:
+            if "page" in query and not paginated:
                 _require(query["page"] == "1")
-            if "count" in query:
+            if "count" in query and not paginated:
                 _require(query["count"] in ("10", "25"))
     except (ValueError, TypeError, AttributeError, OverflowError):
         raise ArtifactIntegrityError(
@@ -178,3 +186,81 @@ class FNSPairPersistenceService:
                 )
             )
         return self.repository.persist(batches[0]), self.repository.persist(batches[1])
+
+
+class FNSOrderPersistenceService:
+    """Register a complete captured OB, never a financial record or approval.
+
+    All metadata and stored bytes are verified before the first write. Writes
+    are individually idempotent, not one transaction; replay recovers failures.
+    Even a complete OB is only partial source coverage. Rejection/absence and
+    territorial conflicts are preserved as originals, not silently discarded.
+    """
+
+    def __init__(self, *, object_store, repository) -> None:
+        self.object_store = object_store
+        self.repository = repository
+
+    def persist(self, *, pages: list[CollectedPage], scope: dict[str, str]):
+        try:
+            _require(isinstance(pages, list) and 0 < len(pages) <= 100)
+            captures = [
+                dict(
+                    url=p.final_url,
+                    body=p.raw_body,
+                    sha256=p.body_sha256,
+                    http_status=p.http_status,
+                )
+                for p in pages
+            ]
+            diagnostic = inspect_order_captures(captures, scope)
+            _require(diagnostic["status"] not in ("invalid_capture", "invalid_pages"))
+            for p in pages:
+                _validate(p, "payment-order-detail", scope, paginated=True)
+            requests = [
+                dict(c, url=p.request_url) for c, p in zip(captures, pages, strict=True)
+            ]
+            _require(inspect_order_captures(requests, scope) == diagnostic)
+            year = scope["anoPagamento"]
+            _require(len(year) == 4 and year.isascii() and year.isdigit())
+        except (ValueError, TypeError, KeyError, AttributeError):
+            raise ArtifactIntegrityError("Capturas paginadas FNS invalidas.") from None
+
+        version = "fns-preserved-order/1.0.0"
+        scope_hash = hashlib.sha256(
+            json.dumps(scope, sort_keys=True).encode()
+        ).hexdigest()
+        batches = []
+        for index, capture in enumerate(pages):
+            sha = capture.body_sha256
+            key = f"fns/payments/{year}/sha256/{sha[:2]}/{sha}.json"
+            if self.object_store.read(key) != capture.raw_body:
+                raise ArtifactIntegrityError(
+                    "Original FNS restaurado diverge da captura."
+                )
+            identity = f"{version}:{scope_hash}:{index + 1}:{sha}"
+            page = replace(
+                capture,
+                idempotency_key=hashlib.sha256(identity.encode()).hexdigest(),
+                schema_name="fns-payment-response",
+                schema_version="1.0.0",
+                response_headers={},
+                cursor={},
+                parsed=None,
+                collection_status="partial",
+                window_start=None,
+                window_end=None,
+            )
+            batches.append(
+                PersistenceBatch(
+                    page=page,
+                    object_key=key,
+                    artifact_idempotency_key=hashlib.sha256(
+                        f"raw:{identity}".encode()
+                    ).hexdigest(),
+                    collector_version=version,
+                    parser_version="fns-order-pages-v1",
+                    records=(),
+                )
+            )
+        return diagnostic, tuple(self.repository.persist(batch) for batch in batches)
