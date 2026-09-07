@@ -84,6 +84,12 @@ não causaram exclusão de linhas. Valores são somas documentais, não confirma
 de transferência; todas as ordens continuam pendentes de vínculo nessa saída.
 A saída ainda não foi persistida nem publicada e não resolve a divergência
 entre o catálogo e o detalhe da ação 61659.
+O comparador `fns_document_link` releu o pagamento e as páginas de cada OB:
+016551 (linha 7) continua em revisão; 018794 (linha 9) apresenta par documental
+consistente em escopo, competência e valor. Ambos seguem sem publicação.
+O normalizador agora também exige ação embutida, esfera municipal e modalidade
+Fundo a Fundo compatíveis; os 255 registros passaram nessa verificação.
+Ainda falta persistir a normalização e obter/conferir as demais ordens.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 
