@@ -68,8 +68,14 @@ inclusive quando a ordem exige revisão. Não cria registros financeiros.
 A releitura local dos oito originais confirmou os hashes e os diagnósticos,
 mas os manifestos antigos não registram URL final. Uma nova captura das oito
 páginas registrou os metadados completos e reproduziu todos os hashes. O serviço
-validou ambas as ordens em simulação, sem gravações no banco; a importação privada
-real ainda está pendente. Nenhuma data ou URL antiga foi preenchida por suposição.
+validou ambas as ordens em simulação. A importação privada subsequente registrou
+oito objetos e oito artefatos; o replay retornou os mesmos IDs. Releitura do
+Storage e consulta SQL independente confirmaram hashes, tamanhos e URLs.
+A execução `e6fe9f01-8641-4cbf-8378-577a96e655d4` permanece `partial`, com zero
+registros financeiros e nenhuma autorização de publicação. A OB 016551 continua
+em revisão; a 018794 não foi convertida em pagamento público. Nenhuma data ou URL
+antiga foi preenchida por suposição. As outras 26 ações continuam pendentes de
+normalização, sem confundir esses oito artefatos com cobertura anual.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 
