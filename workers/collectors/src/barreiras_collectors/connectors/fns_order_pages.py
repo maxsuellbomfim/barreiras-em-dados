@@ -107,6 +107,22 @@ def inspect_order_pages(pages: list[bytes]) -> dict:
             for key in ("pagina", "total", "totalPaginas", "itensPorPagina"):
                 _require(type(result[key]) is int)
             total, count = result["total"], result["itensPorPagina"]
+            # FNS returns one HTTP response with zero declared pages when the
+            # exact requested order has no rows. This is not a financial zero
+            # or proof of annual coverage; retain the response as evidence.
+            if total == 0:
+                _require(
+                    len(pages) == 1
+                    and result["pagina"] == 0
+                    and count > 0
+                    and result["totalPaginas"] == 0
+                    and result["dados"] == []
+                )
+                return dict(
+                    status="not_found",
+                    page_sha256=[hashlib.sha256(raw).hexdigest()],
+                    publication_allowed=False,
+                )
             _require(total > 0 and count > 0 and result["pagina"] == index)
             _require(
                 result["totalPaginas"] == len(pages) == (total + count - 1) // count

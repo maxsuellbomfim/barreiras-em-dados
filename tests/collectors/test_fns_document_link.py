@@ -31,15 +31,15 @@ class DocumentLinkTests(unittest.TestCase):
             competencia="NOV de 2024",
         )
 
-    def link(self):
+    def link(self, *, empty=False):
         raw = json.dumps(
             dict(
                 resultado=dict(
                     pagina=0,
-                    total=1,
-                    totalPaginas=1,
+                    total=0 if empty else 1,
+                    totalPaginas=0 if empty else 1,
                     itensPorPagina=10,
-                    dados=[self.row],
+                    dados=[] if empty else [self.row],
                 )
             )
         ).encode()
@@ -63,6 +63,16 @@ class DocumentLinkTests(unittest.TestCase):
         self.assertEqual(result["status"], "consistent_documentary_pair")
         self.assertFalse(result["publication_allowed"])
         self.assertNotIn("PRIVATE", str(result))
+
+    def test_empty_official_order_keeps_lineage_without_confirming_payment(self):
+        result = self.link(empty=True)
+        self.assertEqual(result["status"], "order_not_found")
+        self.assertFalse(result["publication_allowed"])
+        self.assertEqual(len(result["order_sha256"]), 1)
+        self.assertIn("payment_sha256", result)
+        self.assertNotIn("amount", result)
+        self.scope["ano"] = "2025"
+        self.assertEqual(self.link(empty=True)["status"], "invalid_order_capture")
 
     def test_different_amount_or_echo_blocks(self):
         self.row["valor"] = 96
