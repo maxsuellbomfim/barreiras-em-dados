@@ -75,6 +75,12 @@ def normalize_payment_pages(
                     and row["mesPagamento"] == f"{date.month:02}"
                 )
                 identity = row["id"]
+                _require(identity["esferaAdministrativa"] == "MUNICIPAL")
+                _require(identity["indicadorFundoAFundo"] == "S")
+                _require(
+                    type(identity["programaFundo"]["id"]) is int
+                    and identity["programaFundo"]["id"] == action_id
+                )
                 year, month = str(identity["ano"]), identity["mes"]
                 _require(re.fullmatch(r"[0-9]{4}", year) is not None)
                 _require(

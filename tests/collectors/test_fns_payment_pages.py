@@ -6,7 +6,14 @@ from barreiras_collectors.connectors.fns_payment_pages import normalize_payment_
 
 def payment(number="000001", reason=""):
     return dict(
-        id=dict(mes="11", ano="2024", processoFormatado="25000.017577/2025-48"),
+        id=dict(
+            mes="11",
+            ano="2024",
+            processoFormatado="25000.017577/2025-48",
+            esferaAdministrativa="MUNICIPAL",
+            indicadorFundoAFundo="S",
+            programaFundo={"id": 66458},
+        ),
         anoPagamento="2025",
         mesPagamento="02",
         dataCriacaoSiafi="07/02/2025",
@@ -34,6 +41,13 @@ def page(index, item):
 
 
 class PaymentPagesTests(unittest.TestCase):
+    def test_embedded_action_must_match_requested_action(self):
+        item = payment()
+        item["id"]["programaFundo"]["id"] = 123
+        self.assertEqual(
+            self.normalize([item, payment("000002")])["status"], "invalid_pages"
+        )
+
     def test_invalid_money_and_duplicate_json_keys_fail_closed(self):
         item = payment()
         item["valorTotal"] = "NaN"
@@ -43,7 +57,7 @@ class PaymentPagesTests(unittest.TestCase):
         )
         raw = page(0, payment()).replace(b'"total": 2', b'"total": 2, "total": 2')
         result = normalize_payment_pages(
-            [raw, page(1, payment("000002"))], action_id=1, payment_year=2025
+            [raw, page(1, payment("000002"))], action_id=66458, payment_year=2025
         )
         self.assertEqual(result["status"], "invalid_pages")
 
@@ -97,7 +111,7 @@ class PaymentPagesTests(unittest.TestCase):
     def test_incomplete_and_invalid_scope_fail_closed(self):
         self.assertEqual(
             normalize_payment_pages(
-                [page(0, payment())], action_id=1, payment_year=2025
+                [page(0, payment())], action_id=66458, payment_year=2025
             )["status"],
             "invalid_pages",
         )

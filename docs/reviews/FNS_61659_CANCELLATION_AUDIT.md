@@ -161,3 +161,26 @@ excluídos da saída. Nenhuma ordem é automaticamente vinculada: todas saem com
 `order_verification=pending` e `publication_allowed=false`. O chamador ainda deve
 vincular cada conjunto ao escopo de aquisição e persistir os resultados privados.
 Esta execução não criou linhas no banco nem adicionou valores ao site.
+
+### Comparação com as ordens preservadas
+
+O comparador `fns_document_link` relê o conjunto integral de pagamentos e as
+páginas da OB, recusando seleção ambígua, escopo de requisição incompatível e
+divergência de valor ou competência. A origem municipal/Fundo a Fundo e o código
+da ação embutido no pagamento agora são obrigatórios na normalização; um teste
+reproduziu a aceitação indevida de outra ação antes dessa correção. A execução
+local das 26 ações voltou a produzir 255 observações, sem perda de registros.
+
+Nos originais reais da ação 61659, a página de pagamentos de hash
+`467d11e973f87c1cb0ed74c0176955d37cbf9b85edabb2bb774da1288ef5549e`
+contém 016551 na linha 7 e 018794 na linha 9. A primeira retorna
+`review_required`; a segunda, `consistent_documentary_pair`. O resultado inclui
+o hash da página de pagamento, posição e os quatro hashes da ordem correspondente.
+O eco da competência admite somente a variante UTF-8/Latin-1 já reproduzida.
+
+Par consistente significa apenas compatibilidade documental, não confirmação
+de execução financeira, autoria de emenda ou substituição da ordem cancelada.
+A divergência do catálogo continua aberta. Todos os resultados mantêm
+`publication_allowed=false`; esta etapa não gravou resultados normalizados
+no banco nem alterou os valores públicos. O escopo de aquisição dos pagamentos
+ainda deve ser conferido pelo chamador antes da persistência.
