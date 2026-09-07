@@ -116,3 +116,28 @@ revisão e 018794 com linha territorial única. Não houve escrita no Supabase.
 Os bytes foram novamente cifrados com DPAPI e reabertos para conferir SHA-256.
 Manifesto da nova captura:
 `a084b8786db7e3b24d429a0767f4b4ded99ea7eee29364341cffc0b349d704fa`.
+
+### Importação privada concluída
+
+Execução `e6fe9f01-8641-4cbf-8378-577a96e655d4`, partição
+`pilot:2025:orders:016551-018794`, no endpoint `payment-order-detail`:
+
+- oito objetos novos no prefixo privado `fns/payments/2025/sha256/`;
+- oito artefatos registrados pelo serviço já mesclado;
+- replay real devolveu exatamente os mesmos oito IDs;
+- download pós-registro confirmou bytes, SHA-256, tamanho, HTTP e tipo;
+- consulta SQL independente confirmou oito artefatos, URLs inicial/final
+  correspondentes à captura e zero linhas em `raw.raw_records` para esses IDs;
+- execução e partição permaneceram `partial`, com `publication_allowed=false`.
+
+O controle foi aberto antes da autenticação no Storage e da primeira escrita.
+A carga usou os bytes recapturados e os horários reais, sem nova requisição ao
+FNS e sem reescrever os originais antigos. Não houve lançamento financeiro,
+aprovação editorial, alteração de autoria ou soma adicional no portal.
+Os diagnósticos foram mantidos: 016551 exige revisão; 018794 tem linha territorial
+única, o que não basta para publicá-la como pagamento confirmado.
+
+Próximo passo: normalizar as páginas de múltiplos pagamentos e relacioná-las
+às ordens por chaves documentais completas, mantendo o cancelamento e a
+divergência do catálogo explícitos. Os 255 registros adicionais não estão
+normalizados nem publicados por esta importação.
