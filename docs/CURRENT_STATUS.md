@@ -51,6 +51,12 @@ OBs relacionadas foram conferidas em oito páginas, com uma linha de Barreiras
 em cada ordem. Não deduplicar nem somar automaticamente; detalhes em
 [`FNS_61659_CANCELLATION_AUDIT.md`](reviews/FNS_61659_CANCELLATION_AUDIT.md).
 Faltam as demais ordens e a modalidade Outros Pagamentos. Nenhum valor novo no site.
+O diagnóstico `fns_order_pages` agora lê todas as páginas de uma OB e distingue
+ausência de Barreiras, ambiguidade, conflito territorial, resposta inválida e
+revisão por rejeição. Validado nas oito páginas preservadas: 016551 exige revisão;
+018794 tem linha territorial única. Ambos continuam sem autorização de publicação.
+O leitor não substitui a validação do par nem comprova sozinho a identidade da OB;
+o chamador deve vincular URLs/escopo aos originais antes de integrá-lo ao coletor.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 

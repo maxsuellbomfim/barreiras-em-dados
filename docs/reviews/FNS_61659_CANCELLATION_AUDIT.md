@@ -51,6 +51,27 @@ sem convertê-los em pagamentos efetivos ou emendas automaticamente.
 
 ## Rastreabilidade local
 
+### Diagnóstico paginado implementado
+
+`inspect_order_pages` recebe a sequência completa dos originais de uma OB,
+na ordem das requisições. Confere contagem, tamanho das páginas, metadados
+estáveis, hashes repetidos, código territorial e nome. Não escolhe a primeira
+ocorrência se houver outra linha de Barreiras, mesmo idêntica. Recusa conflito
+entre nome, código e UF. Rejeição não vazia gera `review_required`, sem devolver
+texto bruto ou um valor publicável. A ausência gera `not_found`, nunca zero.
+
+Na execução sobre as oito páginas reais preservadas, 016551 retornou
+`review_required` e 018794 retornou `unique_territorial_row`, valor documental
+1.493,93. Todos os resultados têm `publication_allowed=false`; linha única não
+é pagamento confirmado, emenda identificada ou aprovação editorial. Os hashes
+das quatro páginas acompanham cada diagnóstico válido. Não há rede, gravação
+no banco nem alteração do leitor estrito de pares existente.
+
+O corpo dessa API não comprova a identidade global da OB. O diagnóstico só
+pode ser integrado à persistência após o chamador validar URL, parâmetros,
+datas, escopo e hash dos originais. Ainda falta o fluxo de múltiplos pagamentos
+e sua reconciliação; não converter o resultado em candidato CGU diretamente.
+
 Manifestos das capturas complementares (SHA-256):
 
 - primeira página das duas OBs e quatro páginas do catálogo:
