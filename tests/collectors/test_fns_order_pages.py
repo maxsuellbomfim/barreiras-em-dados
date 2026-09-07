@@ -65,6 +65,32 @@ class OrderPagesTests(unittest.TestCase):
         self.pages[0] = body(0, [row("290070", "ALAGOINHAS"), row("290460", "BRUMADO")])
         self.assertEqual(inspect_order_pages(self.pages)["status"], "not_found")
 
+    def test_official_empty_page_is_absence_without_financial_zero(self):
+        result = {
+            "pagina": 0,
+            "itensPorPagina": 10,
+            "total": 0,
+            "totalPaginas": 0,
+            "dados": [],
+        }
+        raw = json.dumps({"resultado": result}).encode()
+        diagnostic = inspect_order_pages([raw])
+        self.assertEqual(diagnostic["status"], "not_found")
+        self.assertEqual(len(diagnostic["page_sha256"]), 1)
+        self.assertFalse(diagnostic["publication_allowed"])
+        self.assertNotIn("amount", diagnostic)
+        for changes in (
+            {"dados": [row()]},
+            {"dados": None},
+            {"pagina": 1},
+            {"totalPaginas": 1},
+            {"itensPorPagina": 0},
+            {"total": False},
+        ):
+            bad = json.dumps({"resultado": result | changes}).encode()
+            self.assertEqual(inspect_order_pages([bad])["status"], "invalid_pages")
+        self.assertEqual(inspect_order_pages([raw, raw])["status"], "invalid_pages")
+
     def test_code_name_disagreement_blocks_selection(self):
         self.pages[1] = body(1, [row("290460", "BARREIRAS")])
         self.assertEqual(

@@ -1,3 +1,4 @@
+import json
 import unittest
 from dataclasses import replace
 from unittest.mock import Mock
@@ -65,6 +66,29 @@ class OrderRegistrationTests(unittest.TestCase):
             self.persist()
         self.assertNotIn("PRIVATE", str(error.exception))
         self.repo.persist.assert_not_called()
+
+    def test_empty_response_preserves_evidence_without_financial_records(self):
+        raw = json.dumps(
+            dict(
+                resultado=dict(
+                    pagina=0, total=0, totalPaginas=0, itensPorPagina=10, dados=[]
+                )
+            )
+        ).encode()
+        capture = page("payment-order-detail", raw)
+        url = (
+            capture.request_url.split("?")[0]
+            + "?"
+            + urlencode(dict(self.scope, page="1", count="10"))
+        )
+        self.pages = [replace(capture, request_url=url, final_url=url)]
+        self.store.read.side_effect = [raw]
+        diagnostic, _ = self.persist()
+        self.assertEqual(diagnostic["status"], "not_found")
+        batch = self.repo.persist.call_args.args[0]
+        self.assertEqual(batch.records, ())
+        self.assertEqual(batch.page.collection_status, "partial")
+        self.assertFalse(diagnostic["publication_allowed"])
 
     def test_incomplete_order_does_not_touch_storage(self):
         self.pages = self.pages[:1]
