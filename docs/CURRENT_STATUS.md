@@ -75,7 +75,15 @@ A execução `e6fe9f01-8641-4cbf-8378-577a96e655d4` permanece `partial`, com zer
 registros financeiros e nenhuma autorização de publicação. A OB 016551 continua
 em revisão; a 018794 não foi convertida em pagamento público. Nenhuma data ou URL
 antiga foi preenchida por suposição. As outras 26 ações continuam pendentes de
-normalização, sem confundir esses oito artefatos com cobertura anual.
+normalização em produção, sem confundir esses oito artefatos com cobertura anual.
+O normalizador privado `fns_payment_pages` foi executado localmente nas 27
+páginas: preservou as 255 observações das 26 ações, identificou sete competências
+de ano diferente do pagamento e manteve a rejeição da ação 61659 em revisão.
+Nenhuma chave documental repetida apareceu nesse recorte; IDs compostos iguais
+não causaram exclusão de linhas. Valores são somas documentais, não confirmação
+de transferência; todas as ordens continuam pendentes de vínculo nessa saída.
+A saída ainda não foi persistida nem publicada e não resolve a divergência
+entre o catálogo e o detalhe da ação 61659.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 

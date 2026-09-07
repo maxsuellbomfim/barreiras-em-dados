@@ -141,3 +141,23 @@ Próximo passo: normalizar as páginas de múltiplos pagamentos e relacioná-las
 às ordens por chaves documentais completas, mantendo o cancelamento e a
 divergência do catálogo explícitos. Os 255 registros adicionais não estão
 normalizados nem publicados por esta importação.
+
+### Normalização local das páginas de pagamento
+
+O leitor privado `fns_payment_pages` processou as 27 páginas preservadas e
+conferidas por hash: 255 observações em 26 ações, sem excluir nenhuma linha.
+Sete observações têm ano de competência diferente do ano do pagamento. A chave
+documental inclui ação, escopo da OB, processo e data; nenhuma chave se repetiu
+nesse recorte, apesar dos identificadores compostos repetidos na fonte.
+
+A ação 61659 continua `review_required` pela rejeição de uma linha; as outras
+25 tiveram estrutura normalizada. Isso não comprova execução financeira nem
+reconciliação com o catálogo: o total documental inclui a linha rejeitada e
+não deve ser exibido como total efetivamente pago. Anulação numérica, motivo de
+rejeição e equilíbrio bruto/desconto/líquido são avaliados separadamente.
+
+Cada observação mantém página, posição e hash original, com campos bancários
+excluídos da saída. Nenhuma ordem é automaticamente vinculada: todas saem com
+`order_verification=pending` e `publication_allowed=false`. O chamador ainda deve
+vincular cada conjunto ao escopo de aquisição e persistir os resultados privados.
+Esta execução não criou linhas no banco nem adicionou valores ao site.
