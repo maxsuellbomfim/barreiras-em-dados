@@ -57,6 +57,10 @@ revisão por rejeição. Validado nas oito páginas preservadas: 016551 exige re
 018794 tem linha territorial única. Ambos continuam sem autorização de publicação.
 O leitor não substitui a validação do par nem comprova sozinho a identidade da OB;
 o chamador deve vincular URLs/escopo aos originais antes de integrá-lo ao coletor.
+O adaptador `inspect_order_captures` confere URL final oficial, parâmetros da
+ordem e competência, página, tamanho solicitado, HTTP e SHA-256 dos bytes.
+Mistura de escopos e parâmetros duplicados são recusados. Ainda depende de
+metadados capturados pelo transporte confiável; não grava nem publica pagamentos.
 Escopo e limitações em
 [`FNS_2025_SOURCE_DISCOVERY.md`](reviews/FNS_2025_SOURCE_DISCOVERY.md).
 
