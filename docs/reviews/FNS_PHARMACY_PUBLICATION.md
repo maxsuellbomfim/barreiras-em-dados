@@ -46,4 +46,20 @@ no servidor; evidências completas somente no detalhe, sem conteúdo bancário.
 
 Próxima entrega: adaptador de identidade institucional e reconciliação
 documental, com testes de conflitos e dupla contagem. Só depois habilitar a
-projeção pública. Esta etapa não altera a interface nem publica dados reais.
+projeção pública. O leitor privado não publica dados reais; a apresentação
+preparatória está descrita abaixo.
+
+## Apresentação preparada
+
+A rota `/recursos/saude`, acessível de Recursos, possui um estado explícito de
+publicação em preparação e links oficiais. Não exibe amostras nem converte
+pendência em zero. `readPharmacyPublication` faz validações defensivas de uma
+futura projeção revisada, com lista de campos permitidos e limite de 25 linhas.
+Não é mecanismo de autorização: a aprovação e atualidade precisam ser
+estabelecidas pelo servidor/banco, nunca por parâmetros enviados pelo usuário.
+
+O estado real permanece `pending`, definido no servidor. O componente de
+registros está preparado, mas sem alimentação de dados reais. Antes de ativar:
+implementar projeção pública auditável, paginação e filtros no servidor,
+evidências consultáveis por registro e conferência visual do estado preenchido.
+Não há acesso a Storage, dados bancários ou identificadores internos pela rota.

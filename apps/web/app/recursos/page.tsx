@@ -2737,6 +2737,7 @@ export default async function ParliamentaryResourcesPage({
         <div className="section-heading">
           <span className="eyebrow">Dinheiro que chega a Barreiras</span>
           <h1 id="resources-title">Quem destinou recursos para a cidade?</h1>
+          <p><a href="/recursos/saude">Saúde: acompanhe a preparação da consulta de Farmácia Popular →</a></p>
           <p>
             Veja o autor informado pela fonte oficial, quanto foi destinado e
             quanto chegou ao estágio de pagamento. Pessoas, comissões e bancadas

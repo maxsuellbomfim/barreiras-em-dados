@@ -13,6 +13,12 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 ### FNS: dois vínculos publicados; catálogo das demais ações conferido
 
+A rota `/recursos/saude` prepara a apresentação separada de Farmácia Popular.
+No momento informa publicação em preparação e oferece as fontes oficiais;
+não carrega originais privados nem exibe valores. O contrato de apresentação
+recusa evidência desatualizada, registros repetidos e identidade pendente.
+A integração com uma projeção pública revisada ainda não foi ativada.
+
 O leitor privado `fns_pharmacy_pages` separa Farmácia Popular do piloto
 municipal: valida aquisição, página completa e totais, exclui outros programas
 da saída e mantém identidade/reconciliação pendentes. Não publica nem soma
