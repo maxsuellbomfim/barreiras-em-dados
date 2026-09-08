@@ -146,3 +146,35 @@ importação anterior), não detecta tentativas que falharam sem artefato e não
 afirma cobertura anual ou execução financeira. Ainda não há tela para o estado.
 O próximo passo é integrar a leitura à operação dos coletores e continuar os
 lotes das outras ações, mantendo as pendências visíveis no diagnóstico privado.
+
+## Comando operacional repetível
+
+Com o pacote dos coletores instalado (ou seu `src` no `PYTHONPATH`), a partir
+da raiz do projeto e com a configuração PostgreSQL já autorizada no ambiente:
+
+```sh
+python -B -m barreiras_collectors.commands.audit_fns_comparisons --action-id 66458 --payment-year 2025
+```
+
+Usa `PostgresSettings`, `PERSISTENCE_MODE=postgres-supabase` e `DATABASE_URL`.
+Em produção mantém `sslmode=verify-full` e a CA oficial versionada. Não passar
+senhas como argumentos do comando nem copiar valores de ambiente para logs.
+Não precisa de autenticação do Storage: esta leitura examina metadados privados,
+não baixa novamente os bytes.
+
+A transação é `REPEATABLE READ, READ ONLY`, com timeout de 20 segundos.
+O filtro inclui fonte, ação e ano do pagamento. Lê até 1.001 versões e 10.001
+artefatos para detectar estouro dos limites de 1.000/10.000: ultrapassá-los
+provoca falha, nunca sucesso com histórico truncado. As contagens são de
+versões de comparação, não número de pagamentos, somas ou cobertura anual.
+
+- Código 0: todas as versões examinadas atuais e documentalmente compatíveis.
+- Código 2: pendências, ausência de comparações, conflitos ou versões antigas.
+- Código 1: erro de configuração, conexão, limite ou execução, sem texto sensível.
+
+Mesmo o código 0 não autoriza publicação ou comprova execução financeira.
+Na execução real desta entrega: nove versões atuais dentre 57 artefatos,
+sete pares compatíveis e duas ordens não encontradas; `needs_attention`, código
+2. Nenhuma mutação. Essa saída pode alimentar a operação dos coletores sem
+confundir pendência conhecida com sucesso completo ou com erro técnico.
+Ainda não foi adicionado agendamento ou painel para o diagnóstico.

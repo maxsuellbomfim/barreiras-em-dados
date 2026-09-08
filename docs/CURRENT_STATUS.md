@@ -67,6 +67,11 @@ consulta, bloqueando versões antigas, conflitos e mudança de paginação. Uma
 auditoria SQL somente leitura encontrou as nove comparações correspondentes
 ao acervo preservado atual (57 artefatos examinados). Não é nova consulta ao
 FNS nem confirmação de execução financeira; ainda não há tela para esse estado.
+O comando `audit_fns_comparisons --action-id 66458 --payment-year 2025`
+agora executa essa leitura com configuração PostgreSQL existente, transação
+somente leitura e histórico consistente. Validado no banco: nove versões
+atuais, sete compatíveis e duas ausências; saída `needs_attention` e código 2.
+Sem mudança de dados, tela pública ou workflow agendado nesta etapa.
 O diagnóstico `fns_order_pages` agora lê todas as páginas de uma OB e distingue
 ausência de Barreiras, ambiguidade, conflito territorial, resposta inválida e
 revisão por rejeição. Validado nas oito páginas preservadas: 016551 exige revisão;
