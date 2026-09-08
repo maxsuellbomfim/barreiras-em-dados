@@ -83,6 +83,10 @@ A quarta ordem SAMU, 010181, também foi importada após autorização específi
 duplicação. Auditoria independente confirmou quatro comparações atuais e
 compatíveis. Restam dez ordens no retrato preservado; não houve publicação
 financeira. Competências repetidas entre ordens não são deduplicadas por data.
+A quinta ordem, 013631, foi importada com mais 27 páginas e uma comparação
+privada autorizada. Releitura e replay conferidos; auditoria independente
+encontrou cinco comparações atuais e compatíveis. Restam nove ordens no retrato,
+começando pela 018188. Não houve alteração de valores públicos.
 O diagnóstico `fns_order_pages` agora lê todas as páginas de uma OB e distingue
 ausência de Barreiras, ambiguidade, conflito territorial, resposta inválida e
 revisão por rejeição. Validado nas oito páginas preservadas: 016551 exige revisão;

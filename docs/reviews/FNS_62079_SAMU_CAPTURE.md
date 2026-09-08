@@ -83,3 +83,20 @@ valor, autoria ou ranking público foi alterado.
 O retrato preservado contém 14 ordens: quatro conferidas e importadas neste
 fluxo, dez ainda pendentes. Há ordens distintas nas competências 09/12 e 10/12;
 isso não permite concluir duplicidade. Próxima ordem: 013631.
+
+## Quinta ordem: 013631
+
+Após autorização explícita, a execução
+`e4e19605-9f26-454d-aeba-48224130d83d` importou 27 páginas completas
+(85.695 bytes) da ordem 013631 e registrou uma comparação privada.
+Manifesto SHA-256:
+`aac8e322b36eedffd78794b44173502928f319e5a682abdea2eafebc7216acff`.
+O pagamento correspondente está na linha 5 da página 1 do original já citado.
+Os arquivos foram relidos byte a byte; SQL conferiu os metadados e o registro.
+A reexecução inseriu zero comparações adicionais.
+
+Auditoria independente somente leitura: 197 artefatos examinados, cinco
+comparações atuais e documentalmente compatíveis, código 0. Isso não comprova
+execução financeira, autoria ou cobertura anual. Nenhum valor público alterado.
+Estado deste retrato: cinco ordens importadas e nove pendentes de conferência.
+Próxima ordem: 018188. Não deduplicar as ordens pela competência.
