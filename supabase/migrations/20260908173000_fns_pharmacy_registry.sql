@@ -18,6 +18,8 @@ create table source.fns_pharmacy_snapshots (
   check (payment_artifact_id <> register_artifact_id)
 );
 create index fns_pharmacy_latest on source.fns_pharmacy_snapshots(payment_year,scope_key,id desc);
+create index fns_pharmacy_payment_artifact on source.fns_pharmacy_snapshots(payment_artifact_id);
+create index fns_pharmacy_register_artifact on source.fns_pharmacy_snapshots(register_artifact_id);
 
 create table source.fns_pharmacy_documents (
   snapshot_id bigint not null references source.fns_pharmacy_snapshots(id),
@@ -31,6 +33,7 @@ create table source.fns_pharmacy_documents (
   unique(snapshot_id,source_row), unique(snapshot_id,raw_record_id)
 );
 create index fns_pharmacy_document_key on source.fns_pharmacy_documents(document_key);
+create index fns_pharmacy_raw_record on source.fns_pharmacy_documents(raw_record_id);
 
 create table source.fns_pharmacy_decisions (
   id bigint generated always as identity primary key,

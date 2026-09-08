@@ -185,8 +185,8 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  // Includes the private FNS evidence and append-only review decision tables.
-  assert.equal(relations.rows[0].count, 66);
+  // Includes pharmacy snapshots, documents and append-only decisions.
+  assert.equal(relations.rows[0].count, 69);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -202,7 +202,15 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 66);
+  assert.equal(rlsRelations.rows[0].count, 69);
+  const pharmacyAccess = await database.query(`
+    select t, has_table_privilege('anon', 'source.'||t, 'SELECT') as anon_read,
+      has_table_privilege('service_role', 'source.'||t, 'INSERT') as service_write
+    from unnest(array['fns_pharmacy_snapshots','fns_pharmacy_documents',
+      'fns_pharmacy_decisions']) t order by t
+  `);
+  assert.equal(pharmacyAccess.rows.length, 3);
+  assert.ok(pharmacyAccess.rows.every(row => !row.anon_read && !row.service_write));
 
   const originColumns = await database.query(`
     select count(*)::integer as count
@@ -282,7 +290,7 @@ try {
     where tgname = 'reject_mutation'
       and not tgisinternal
   `);
-  assert.equal(immutableTriggers.rows[0].count, 18);
+  assert.equal(immutableTriggers.rows[0].count, 21);
 
   const extensionSchema = await database.query(`
     select namespace.nspname as schema_name
