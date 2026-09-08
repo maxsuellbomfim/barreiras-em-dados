@@ -19,6 +19,12 @@ não carrega originais privados nem exibe valores. O contrato de apresentação
 recusa evidência desatualizada, registros repetidos e identidade pendente.
 A integração com uma projeção pública revisada ainda não foi ativada.
 
+O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
+XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
+estabelecimentos do piloto passaram na conferência local em 08/09. Isso não
+comprova credenciamento histórico nem autoriza publicação; reconciliação por
+beneficiário e registro de decisões ainda faltam. Nenhum valor novo foi ativado.
+
 O leitor privado `fns_pharmacy_pages` separa Farmácia Popular do piloto
 municipal: valida aquisição, página completa e totais, exclui outros programas
 da saída e mantém identidade/reconciliação pendentes. Não publica nem soma
