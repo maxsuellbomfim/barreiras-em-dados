@@ -56,8 +56,11 @@ compatíveis; 002194 e 005367 retornaram listas vazias no escopo oficial consult
 O leitor distingue essa ausência de resposta inválida e não a converte em zero
 financeiro. As nove capturas foram importadas no Supabase privado em oito
 objetos, com replay sem duplicação e releitura dos bytes. A cobertura continua
-parcial; nenhuma soma ou atribuição pública foi alterada. Os diagnósticos dos
-pares ainda não foram gravados nas observações normalizadas. Ver
+parcial; nenhuma soma ou atribuição pública foi alterada. Os nove diagnósticos
+foram registrados separadamente como `fns_document_comparison`, com hashes e
+URLs dos dois lados, sem sobrescrever as observações originais. O replay inseriu
+zero comparações adicionais. Não há aprovação financeira nem leitura pública
+desse novo tipo de registro. Ver
 [conferência do lote](reviews/FNS_66458_ORDER_AUDIT.md).
 O diagnóstico `fns_order_pages` agora lê todas as páginas de uma OB e distingue
 ausência de Barreiras, ambiguidade, conflito territorial, resposta inválida e
