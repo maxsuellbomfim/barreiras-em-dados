@@ -87,9 +87,40 @@ arquivos manteve 25 documentos e identificou 25 observações repetidas. Isso n�
 prova cobertura anual, execução de serviços ou credenciamento histórico. Não
 houve novas requisições, upload, escrita no banco ou valores novos no site.
 
-Próxima entrega: registrar evidências e decisões auditáveis de forma persistida,
-depois habilitar a projeção pública. Não usar os totais de uma ordem coletiva
-como valor de cada farmácia. A apresentação preparatória está descrita abaixo.
+## Registro auditável e limite público
+
+A migration `20260908173000_fns_pharmacy_registry.sql` cria três tabelas privadas:
+`source.fns_pharmacy_snapshots`, `source.fns_pharmacy_documents` e
+`source.fns_pharmacy_decisions`. Nenhuma recebe acesso de leitura/escrita do
+frontend ou da role `service_role`. Inserção exige operador privilegiado;
+alteração/exclusão de evidências e decisões são recusadas. Após uma decisão,
+o conjunto documental fica fechado; correções exigem um novo snapshot.
+
+O importador ainda necessário deve reler e conferir hashes dos bytes privados,
+executar identidade e reconciliação, derivar `scope_key` estável por beneficiário
+e ano e registrar `raw.raw_records.record_type=fns_pharmacy_payment`. O payload
+normalizado contém `document_key`, `document_date`, `net` (string com duas casas),
+`source_row`, `establishment`, `register_row` e `register_sha256`. É ligado ao
+artefato do pagamento. Os testes SQL conferem esse vínculo, mas não substituem
+a validação do arquivo original nem demonstram execução de serviço.
+
+`api.get_public_pharmacy_payments(ano,offset)` retorna até 25 documentos por
+página, com nome institucional, data, valor documental, hashes e data da revisão.
+Não retorna IDs privados, CNPJ, URLs com identificadores, notas, contas ou totais.
+Sempre informa `historical_registration_verified=false`. O consumidor deve
+oferecer a fonte oficial e explicar o significado dos valores, sem somar à
+receita municipal ou ao ranking de emendas. Página vazia não comprova zero.
+
+Só o snapshot mais recente de cada escopo pode aparecer: novo retrato pendente
+bloqueia fallback. Aprovação exige quantidade completa e linhagem válida;
+revogação, mudança da evidência registrada ou chave documental duplicada entre
+escopos retiram a projeção. Inserções de documentos e decisões bloqueiam a mesma
+linha-pai para serializar a aprovação. A consulta revalida todo o conjunto.
+
+Esta entrega contém schema/RPC e testes com dados sintéticos, não uma carga real
+nem aprovação dos pagamentos. Próximo passo: importador idempotente com simulação,
+hashes e relatório de conferência, seguido de revisão e conexão da rota ao RPC.
+Não usar os totais de uma ordem coletiva como valor de cada farmácia.
 
 ## Apresentação preparada
 
