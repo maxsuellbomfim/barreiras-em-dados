@@ -47,7 +47,8 @@ importados no armazenamento privado, conforme o registro abaixo.
 
 ## Importação e conferência das seis ordens restantes
 
-Em 07/09/2026 UTC, a execução `1f1d7518-05f2-444f-b458-7f7708c52d19`
+Em 08/09/2026 UTC (noite de 07/09 em Barreiras), a execução
+`1f1d7518-05f2-444f-b458-7f7708c52d19`
 registrou as três capturas iniciais em três artefatos e dois objetos privados.
 As duas consultas vazias conservaram identidades distintas apesar dos bytes
 iguais. Reexecução retornou os mesmos IDs; nenhuma linha financeira foi criada.
