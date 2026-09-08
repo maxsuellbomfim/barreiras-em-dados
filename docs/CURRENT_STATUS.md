@@ -78,6 +78,11 @@ específica. Três comparações compatíveis foram registradas; replay sem nova
 linhas, releitura dos bytes e SQL conferidos. A auditoria independente confirmou
 as três versões atuais. Não representa cobertura anual nem novos valores no
 site. Ver [conferência SAMU](reviews/FNS_62079_SAMU_CAPTURE.md).
+A quarta ordem SAMU, 010181, também foi importada após autorização específica:
+27 páginas adicionais e uma comparação privada, com releitura e replay sem
+duplicação. Auditoria independente confirmou quatro comparações atuais e
+compatíveis. Restam dez ordens no retrato preservado; não houve publicação
+financeira. Competências repetidas entre ordens não são deduplicadas por data.
 O diagnóstico `fns_order_pages` agora lê todas as páginas de uma OB e distingue
 ausência de Barreiras, ambiguidade, conflito territorial, resposta inválida e
 revisão por rejeição. Validado nas oito páginas preservadas: 016551 exige revisão;
