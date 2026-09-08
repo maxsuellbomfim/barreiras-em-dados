@@ -13,6 +13,11 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 ### FNS: dois vínculos publicados; catálogo das demais ações conferido
 
+O leitor privado `fns_pharmacy_pages` separa Farmácia Popular do piloto
+municipal: valida aquisição, página completa e totais, exclui outros programas
+da saída e mantém identidade/reconciliação pendentes. Não publica nem soma
+pagamentos aos rankings. Ver [caminho de publicação](reviews/FNS_PHARMACY_PUBLICATION.md).
+
 O leitor `fns_payment_evidence` valida um pagamento e sua ordem bancária no
 piloto Fundo a Fundo de Barreiras, com autor e solicitante separados. Os dois
 pares preservados de 2025 foram processados sem expor campos bancários. Não
