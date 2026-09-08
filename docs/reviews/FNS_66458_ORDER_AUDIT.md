@@ -80,10 +80,40 @@ metadados e ausência de registros financeiros. Replay retornou os mesmos IDs.
 Resultado desta ação: nove consultas preservadas, oito conteúdos físicos,
 sete pares compatíveis e duas consultas sem linhas. Runs e partições continuam
 `partial`, `publication_allowed=false`. Não é cobertura completa do FNS de 2025.
-Os diagnósticos dos pares ainda não foram persistidos nas linhas
-`fns_payment_observation`, que continuam pendentes; artefato preservado não é
-aprovação financeira. Próximo passo: registrar a comparação privada com sua
-proveniência e continuar as outras ações, mantendo as duas ausências explícitas.
+As linhas `fns_payment_observation` originais continuam imutáveis e pendentes:
+artefato preservado não é aprovação financeira. A etapa seguinte registrou os
+diagnósticos separadamente, como descrito abaixo, mantendo as ausências explícitas.
 
 Validação nesta etapa: 76 testes FNS e 678 testes Node aprovados. Nenhum código
 de produção, migration, componente público ou ranking foi modificado.
+
+## Comparações privadas imutáveis
+
+O serviço `FNSComparisonPersistenceService` reutiliza os validadores de
+pagamento e ordem, sem gravar observações intermediárias. Confere URLs,
+escopo, metadados e bytes restaurados dos dois lados antes da primeira escrita.
+Só registra uma comparação se houver pagamento único e evidência válida.
+Ausência, conflito e rejeição ficam explícitos; nenhuma dessas situações é
+convertida em confirmação de execução financeira ou autoria.
+
+O registro `fns_document_comparison` mantém resultado, chave do documento,
+versão do método, hash/página/posição do pagamento e URLs/hashes de todas as
+páginas usadas. Não contém campos bancários. A identidade inclui o payload
+canônico: o mesmo replay não duplica; evidência alterada gera nova versão.
+O artefato vinculado é uma interpretação versionada do pagamento já preservado;
+não há novo download da fonte nem alteração das observações anteriores.
+
+A simulação sobre os nove pares reais reproduziu sete compatíveis e dois
+`order_not_found`. A execução privada `b9797e77-0b0f-4867-b6f6-4c6b03af33a2`
+gravou nove comparações. Todos os originais foram relidos do Storage antes
+das escritas. O replay real retornou os mesmos artefatos e inseriu zero linhas;
+SQL comparou os nove payloads/hashes com os resultados locais esperados.
+Uma conexão posterior confirmou run `partial` e publicação bloqueada.
+
+Não foi adicionada consulta pública ou administrativa para esse novo tipo.
+Não selecionar automaticamente uma versão antiga se houver evidência mais
+nova ou conflitante. O próximo passo é integrar a consulta privada de estado
+à evidência corrente e continuar as outras ações. Não altera valores ou rankings.
+
+Validação da implementação: 83 testes FNS, 678 testes Node e Ruff aprovados.
+Sem migration, nova dependência ou mudança visual.
