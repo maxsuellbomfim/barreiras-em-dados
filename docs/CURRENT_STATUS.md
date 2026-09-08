@@ -72,6 +72,12 @@ agora executa essa leitura com configuração PostgreSQL existente, transação
 somente leitura e histórico consistente. Validado no banco: nove versões
 atuais, sete compatíveis e duas ausências; saída `needs_attention` e código 2.
 Sem mudança de dados, tela pública ou workflow agendado nesta etapa.
+O primeiro lote da ação 62079 (SAMU 192) avançou: três ordens completas,
+81 páginas preservadas e importadas no armazenamento privado após autorização
+específica. Três comparações compatíveis foram registradas; replay sem novas
+linhas, releitura dos bytes e SQL conferidos. A auditoria independente confirmou
+as três versões atuais. Não representa cobertura anual nem novos valores no
+site. Ver [conferência SAMU](reviews/FNS_62079_SAMU_CAPTURE.md).
 O diagnóstico `fns_order_pages` agora lê todas as páginas de uma OB e distingue
 ausência de Barreiras, ambiguidade, conflito territorial, resposta inválida e
 revisão por rejeição. Validado nas oito páginas preservadas: 016551 exige revisão;
