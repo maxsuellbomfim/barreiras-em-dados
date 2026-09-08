@@ -51,11 +51,14 @@ OBs relacionadas foram conferidas em oito páginas, com uma linha de Barreiras
 em cada ordem. Não deduplicar nem somar automaticamente; detalhes em
 [`FNS_61659_CANCELLATION_AUDIT.md`](reviews/FNS_61659_CANCELLATION_AUDIT.md).
 Faltam as demais ordens e a modalidade Outros Pagamentos. Nenhum valor novo no site.
-O lote seguinte conferiu três ordens da ação 66458: 012009 é documentalmente
-compatível; 002194 e 005367 retornaram listas vazias no escopo oficial consultado.
+A ação 66458 teve suas nove ordens consultadas: sete pares são documentalmente
+compatíveis; 002194 e 005367 retornaram listas vazias no escopo oficial consultado.
 O leitor distingue essa ausência de resposta inválida e não a converte em zero
-financeiro. Os três originais estão preservados localmente com DPAPI; ainda
-não foram importados no Supabase. Ver [conferência do lote](reviews/FNS_66458_ORDER_AUDIT.md).
+financeiro. As nove capturas foram importadas no Supabase privado em oito
+objetos, com replay sem duplicação e releitura dos bytes. A cobertura continua
+parcial; nenhuma soma ou atribuição pública foi alterada. Os diagnósticos dos
+pares ainda não foram gravados nas observações normalizadas. Ver
+[conferência do lote](reviews/FNS_66458_ORDER_AUDIT.md).
 O diagnóstico `fns_order_pages` agora lê todas as páginas de uma OB e distingue
 ausência de Barreiras, ambiguidade, conflito territorial, resposta inválida e
 revisão por rejeição. Validado nas oito páginas preservadas: 016551 exige revisão;

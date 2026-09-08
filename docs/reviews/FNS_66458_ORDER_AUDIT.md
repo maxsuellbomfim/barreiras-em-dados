@@ -1,4 +1,4 @@
-# FNS — três ordens da ação 66458
+# FNS — ordens da ação 66458
 
 Consulta em 07/09/2026 UTC (noite de 06/09 em Barreiras). Escopo Fundo a Fundo,
 pagamentos de 2025. Não representa cobertura anual nem novos repasses públicos.
@@ -42,5 +42,48 @@ mas pertencem a consultas distintas; não são documentos financeiros duplicados
 
 O par 012009 tem valor líquido, território e eco temporal compatíveis.
 Isso não confirma execução financeira nem autoria de emenda. Nenhum valor,
-ranking ou atribuição foi alterado. Este lote permanece apenas em custódia
-local: a importação privada no Supabase e as demais ordens continuam pendentes.
+ranking ou atribuição foi alterado. Os três originais foram posteriormente
+importados no armazenamento privado, conforme o registro abaixo.
+
+## Importação e conferência das seis ordens restantes
+
+Em 08/09/2026 UTC (noite de 07/09 em Barreiras), a execução
+`1f1d7518-05f2-444f-b458-7f7708c52d19`
+registrou as três capturas iniciais em três artefatos e dois objetos privados.
+As duas consultas vazias conservaram identidades distintas apesar dos bytes
+iguais. Reexecução retornou os mesmos IDs; nenhuma linha financeira foi criada.
+
+O lote seguinte consultou somente as seis ordens restantes, a seis requisições
+por minuto. Cada uma retornou uma página completa e um par documental compatível:
+
+| OB | SHA-256 da resposta |
+| --- | --- |
+| 023587 | `cd979d1981d3842a1a5c999a49d5be576731741827f4aa9fe7cf9e42f2b3389c` |
+| 037894 | `25f322f545c2a1af29b9721790353af9f268202e21ff3e7f0232252c02ac65b5` |
+| 048478 | `173a65a0be454ee51e19b5dafb25a48adee7ee4e7a88925578010b11a9fffad2` |
+| 059458 | `ea689b6b19677525d1b7b3a54f3ea6936183a586a1206a9d12bd6e4a3748d1c0` |
+| 067803 | `7b8aef8ce8f5296d08c58c72f549eeca1511abf40aeb609336491de4dd6278c1` |
+| 078184 | `caebd3f3247e5f3d1ac8c4f5446b286199b74ae365a440297c7e21d73a07fc86` |
+
+Manifesto: `7ab3b21847b2c95b8cdc0b426f367e3e735bc668b1aae7b7f1a788147a653798`.
+Pagamentos de origem: mesmo hash informado acima, linhas 4–9. A comparação
+conferiu escopo solicitado, território, competência e valor líquido, sem
+publicação automática e sem inferir autoria ou execução financeira.
+
+A execução `8097c392-2209-4cb9-9ab4-0f62d5f8f231` importou os seis novos
+objetos e seis artefatos privados. Nos dois lotes, o controle da importação
+foi aberto antes da autenticação/escrita no Storage. Os registros mantêm os
+horários reais de aquisição anteriores à importação. Download posterior
+comparou bytes, SHA-256 e tamanho com os originais locais; SQL conferiu URLs,
+metadados e ausência de registros financeiros. Replay retornou os mesmos IDs.
+
+Resultado desta ação: nove consultas preservadas, oito conteúdos físicos,
+sete pares compatíveis e duas consultas sem linhas. Runs e partições continuam
+`partial`, `publication_allowed=false`. Não é cobertura completa do FNS de 2025.
+Os diagnósticos dos pares ainda não foram persistidos nas linhas
+`fns_payment_observation`, que continuam pendentes; artefato preservado não é
+aprovação financeira. Próximo passo: registrar a comparação privada com sua
+proveniência e continuar as outras ações, mantendo as duas ausências explícitas.
+
+Validação nesta etapa: 76 testes FNS e 678 testes Node aprovados. Nenhum código
+de produção, migration, componente público ou ranking foi modificado.
