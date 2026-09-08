@@ -117,3 +117,32 @@ nova ou conflitante. O próximo passo é integrar a consulta privada de estado
 
 Validação da implementação: 83 testes FNS, 678 testes Node e Ruff aprovados.
 Sem migration, nova dependência ou mudança visual.
+
+## Atualidade das comparações perante o acervo preservado
+
+`inspect_comparison_freshness` valida o hash canônico e a versão do método da
+comparação, compara as URLs por parâmetros (sem depender da ordem textual) e
+procura a aquisição mais recente de cada página usada. Hash diferente torna a
+comparação desatualizada; empate temporal com conteúdos distintos é conflito.
+Ausência, HTTP inválido, data sem fuso e mudança recente de paginação bloqueiam
+o estado atual. Uma resposta vazia que continue atual mantém `order_not_found`,
+nunca se transforma em pagamento de valor zero.
+
+O chamador deve fornecer o histórico completo dos artefatos relevantes; não
+se pode passar apenas os IDs antigos mencionados na comparação. Os limites
+operacionais precisam falhar explicitamente se a consulta for truncada.
+O leitor retorna apenas estado e diagnóstico documental, sem URLs, dados
+bancários, valores ou autorização de publicação.
+
+Uma consulta operacional em transação `READ ONLY`, com timeout e bloqueio de
+truncamento, examinou os 57 artefatos preservados dos dois endpoints FNS e
+as nove comparações da ação 66458. Resultado: nove
+`current_preserved_evidence`, sendo sete `consistent_documentary_pair` e duas
+`order_not_found`. Nenhuma linha foi modificada.
+
+Limites: esta verificação é de metadados do acervo preservado. Não refaz o
+download do FNS, não recalcula hashes dos bytes no Storage (conferidos na
+importação anterior), não detecta tentativas que falharam sem artefato e não
+afirma cobertura anual ou execução financeira. Ainda não há tela para o estado.
+O próximo passo é integrar a leitura à operação dos coletores e continuar os
+lotes das outras ações, mantendo as pendências visíveis no diagnóstico privado.
