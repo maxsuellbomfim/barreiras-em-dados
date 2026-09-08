@@ -100,3 +100,71 @@ comparações atuais e documentalmente compatíveis, código 0. Isso não compro
 execução financeira, autoria ou cobertura anual. Nenhum valor público alterado.
 Estado deste retrato: cinco ordens importadas e nove pendentes de conferência.
 Próxima ordem: 018188. Não deduplicar as ordens pela competência.
+
+## Captura consolidada das nove ordens restantes
+
+As nove ordens restantes foram capturadas integralmente, em dois lotes locais
+cifrados, com limite de seis requisições por minuto. Os serviços de validação
+releram os originais e encontraram nove pares documentalmente compatíveis,
+todos com publicação não autorizada. Isso não comprova execução financeira.
+
+| Ordem | Páginas completas |
+| --- | ---: |
+| 018188 | 27 |
+| 025203 | 29 |
+| 036136 | 29 |
+| 046416 | 29 |
+| 054370 | 29 |
+| 061706 | 2 |
+| 061703 | 2 |
+| 061633 | 29 |
+| 070640 | 29 |
+
+Primeiro lote: 145 páginas, 460.180 bytes; manifesto SHA-256
+`a1f6284dd2323d484c5def8b46271a72489e3ad606b377f9869c3092f857d405`.
+Segundo lote: 60 páginas, 189.065 bytes; manifesto SHA-256
+`424a7b7adc244cf6d53cd2789c8f830804ecf27cdf476de28e4315d60db30011`.
+
+O envio das nove restantes foi inicialmente bloqueado antes de executar.
+Após autorização explícita consolidada para as 205 páginas e nove comparações,
+os dois lotes foram importados no bucket privado. A primeira tentativa autorizada
+parou antes de gravar porque o namespace local excedia o tamanho permitido;
+o identificador foi encurtado com hash das ordens e a execução foi repetida.
+
+| Execução | Páginas importadas | Comparações | Novas comparações no replay |
+| --- | ---: | ---: | ---: |
+| `3c64d426-4ed0-480f-b90c-6f4d142db332` | 145 | 6 | 0 |
+| `6fbd5c7e-0914-44e5-83e3-b84a7b4082a9` | 60 | 3 | 0 |
+
+Os arquivos foram relidos byte a byte; SQL conferiu hashes, tamanhos, URLs e
+payloads das comparações. Não foram criados lançamentos financeiros públicos.
+
+Auditoria independente anterior à importação relê o pagamento original do
+bucket, deriva as 14 ordens esperadas, confere escopos e recompõe os pares
+a partir dos bytes. Confirmou cinco ordens no banco, nove ausentes, nenhuma
+versão repetida, 135 páginas de ordens e 136 objetos com SHA-256 revalidado.
+O resultado é PARTIAL, não fechamento de cobertura. Nenhum valor público mudou.
+
+Depois da importação, o comando oficial `audit_fns_comparisons` encontrou
+14 comparações atuais e compatíveis entre 411 artefatos examinados, código 0.
+
+## Fechamento verificado do retrato
+
+A auditoria independente final baixou novamente os objetos privados e derivou
+as ordens esperadas dos bytes do pagamento original, em vez de confiar em uma
+contagem pré-fixada de registros. Conferiu hashes, tamanhos, URLs, escopos e
+atualidade; recompôs cada comparação com os leitores existentes.
+
+- Resultado: PASS; 14 ordens esperadas e 14 verificadas.
+- Nenhuma ordem ausente e nenhuma versão de comparação repetida.
+- 340 páginas de ordens verificadas; 341 objetos com SHA-256 recalculado,
+  incluindo a página de pagamentos de origem.
+- 14 pares documentalmente compatíveis; publicação não autorizada.
+- 97 testes FNS e 678 testes Node passaram; `git diff --check` sem erros.
+
+Isso fecha a conferência documental privada deste retrato de 2025, não a
+cobertura anual do FNS. As partições operacionais permanecem `partial`;
+nenhum estágio financeiro, autoria ou ranking público foi criado ou alterado.
+As competências repetidas continuam com suas ordens distintas. A próxima
+frente é verificar os demais recortes FNS e a modalidade Outros Pagamentos,
+sem somar essas observações aos lançamentos financeiros já publicados.
