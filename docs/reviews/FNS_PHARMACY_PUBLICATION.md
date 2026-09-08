@@ -131,8 +131,18 @@ futura projeção revisada, com lista de campos permitidos e limite de 25 linhas
 Não é mecanismo de autorização: a aprovação e atualidade precisam ser
 estabelecidas pelo servidor/banco, nunca por parâmetros enviados pelo usuário.
 
-O estado real permanece `pending`, definido no servidor. O componente de
-registros está preparado, mas sem alimentação de dados reais. Antes de ativar:
-implementar projeção pública auditável, paginação e filtros no servidor,
-evidências consultáveis por registro e conferência visual do estado preenchido.
+A rota agora consulta `get_public_pharmacy_payments` no servidor, sem cache de
+aprovações, com ano e página na URL. O piloto inicial abre em 2025; outros anos
+podem ser consultados desde 2021. Uma página cheia exige verificar a página
+seguinte antes de oferecer navegação. Falhas não são convertidas em lista vazia.
 Não há acesso a Storage, dados bancários ou identificadores internos pela rota.
+
+`prepare_pharmacy_import` reexecuta a reconciliação e gera plano privado estável
+com hashes, metadados de aquisição e documentos. Recusa mais de um retrato do
+mesmo beneficiário/ano no lote. `scripts/sql/import-pharmacy-plan.sql` é template
+exclusivo do operador: substituir o marcador por JSON corretamente escapado,
+somente após preservar e reler todos os objetos. SQL executa atomicamente, impede
+conflitos e reutiliza snapshots já importados, inclusive aprovados. Não contém
+decisões de aprovação. Datas de download do cadastro são evidência de aquisição,
+não datas de credenciamento. A fonte possui endpoints próprios, sem reutilizar
+o endpoint do Fundo Municipal de Saúde.
