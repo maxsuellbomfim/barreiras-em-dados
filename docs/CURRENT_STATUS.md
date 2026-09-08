@@ -24,6 +24,13 @@ mostrou 25 cartões, com zero divergência entre a projeção e o lote validado.
 Não são receitas municipais nem entram nos rankings de emendas. O piloto não
 comprova cobertura anual, credenciamento histórico ou execução de serviços.
 
+O inventário adicional desde 2021 identificou 191 documentos aptos à ampliação
+e outros 119 com identidade histórica pendente, sem misturar outros programas.
+O upload do novo lote aguarda autorização específica exigida pelo ambiente;
+nenhuma ampliação foi publicada ainda. O leitor de catálogo agora valida
+paginação, integridade e escopo antes de fechar a contagem anual de entidades.
+Os detalhes e limites constam no documento de Farmácia Popular vinculado abaixo.
+
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
 estabelecimentos do piloto passaram na conferência local em 08/09. Isso não
