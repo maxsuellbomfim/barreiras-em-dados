@@ -1,8 +1,9 @@
 import type { PharmacyPublication } from '../../../lib/pharmacy-publication.mjs';
 import { formatBrlDecimal } from '../../../lib/revenues';
+import type { ReactNode } from 'react';
 
 
-export function PharmacyPayments({ publication }: { publication: PharmacyPublication }) {
+export function PharmacyPayments({ publication, filters, navigation }: { publication: PharmacyPublication; filters?: ReactNode; navigation?: ReactNode }) {
   return <section className="section" aria-labelledby="pharmacy-title">
     <div className="section-heading">
       <span className="eyebrow">Saúde · Farmácia Popular</span>
@@ -10,6 +11,7 @@ export function PharmacyPayments({ publication }: { publication: PharmacyPublica
       <p>Esta consulta é separada das receitas da Prefeitura e dos rankings de emendas.
         Pagamento a uma farmácia privada não significa dinheiro recebido pelo município.</p>
     </div>
+    {filters}
     {publication.status !== 'ready' ? <aside className="transfer-reading-guide" aria-labelledby="pharmacy-status">
       <h2 id="pharmacy-status">{publication.status === 'pending' ? 'Publicação dos pagamentos em preparação' : 'Dados temporariamente indisponíveis'}</h2>
       <p>{publication.status === 'pending' ? 'Ainda não há registros liberados nesta página. Estamos conferindo os estabelecimentos e as evidências antes de exibir os valores.' : 'Não foi possível validar os registros para exibição. Os valores foram omitidos até a conferência.'}</p>
@@ -26,6 +28,7 @@ export function PharmacyPayments({ publication }: { publication: PharmacyPublica
           <p style={{overflowWrap:'anywhere'}}>SHA-256: <code>{row.sha256}</code></p></details>
       </li>)}</ul>
     </>}
+    {navigation}
     <h2>Consulte as fontes oficiais</h2>
     <ul>
       <li><a href="https://consultafns.saude.gov.br/#/detalhada" target="_blank" rel="noreferrer">Consulta detalhada de pagamentos do FNS (abre outra aba)</a></li>

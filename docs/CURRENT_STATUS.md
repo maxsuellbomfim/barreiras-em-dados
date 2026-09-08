@@ -13,11 +13,11 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 
 ### FNS: dois vínculos publicados; catálogo das demais ações conferido
 
-A rota `/recursos/saude` prepara a apresentação separada de Farmácia Popular.
-No momento informa publicação em preparação e oferece as fontes oficiais;
-não carrega originais privados nem exibe valores. O contrato de apresentação
-recusa evidência desatualizada, registros repetidos e identidade pendente.
-A integração com uma projeção pública revisada ainda não foi ativada.
+A rota `/recursos/saude` consulta o RPC revisado de Farmácia Popular no servidor,
+com filtro por ano e páginas de 25 registros. Sem aprovações, mostra pendência;
+falha de consulta é indisponibilidade, nunca zero. Não carrega originais privados.
+O contrato recusa evidência inválida e registros repetidos. A carga real deve ser
+conferida antes de registrar aprovação; integrar o RPC não aprova pagamentos.
 
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
