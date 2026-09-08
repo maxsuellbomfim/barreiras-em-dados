@@ -65,11 +65,31 @@ obtiveram correspondência institucional única usando o XLSX preservado de SHA-
 e suas capturas de pagamentos. Não houve upload, escrita no banco ou publicação.
 Os 110 testes FNS passaram, incluindo os seis testes novos de identidade.
 
-Próxima entrega: reconciliar as chaves documentais por beneficiário (uma mesma
-ordem pode abranger mais de um estabelecimento) e registrar evidências e decisões
-auditáveis. Só depois habilitar a projeção pública. Não usar os totais de uma
-ordem coletiva como valor de cada farmácia. O leitor privado não publica dados
-reais; a apresentação preparatória está descrita abaixo.
+## Reconciliação privada por beneficiário
+
+`reconcile_pharmacy_captures` recebe até 20 capturas completas e o cadastro
+preservado; executa os dois leitores existentes antes de reconciliar. A chave
+documental inclui beneficiário, ano, número, data e ação. Uma nova observação
+dos mesmos bytes não cria outro documento; bytes diferentes preservam referências
+separadas de evidência. Mudança de valores, competência/consulta de ordem ou
+conjunto documental entre retratos do mesmo beneficiário/ano exige revisão e
+retira todos os candidatos da saída. Não há substituição automática pelo último.
+
+O fingerprint da consulta de ordem usa seus parâmetros oficiais sem paginação.
+Compartilhar essa consulta não prova titularidade da ordem nem permite atribuir
+seu total a cada estabelecimento. As referências e valores documentais permanecem
+por beneficiário. Não há soma financeira no reconciliador nem comparação com CGU:
+`cross_source_reconciliation=not_performed` e `publication_allowed=false`.
+
+Conferência local em 08/09/2026 sobre os dois arquivos reais: **25 documentos,
+11 consultas de ordens compartilhadas e nenhum conflito**. O replay dos mesmos
+arquivos manteve 25 documentos e identificou 25 observações repetidas. Isso não
+prova cobertura anual, execução de serviços ou credenciamento histórico. Não
+houve novas requisições, upload, escrita no banco ou valores novos no site.
+
+Próxima entrega: registrar evidências e decisões auditáveis de forma persistida,
+depois habilitar a projeção pública. Não usar os totais de uma ordem coletiva
+como valor de cada farmácia. A apresentação preparatória está descrita abaixo.
 
 ## Apresentação preparada
 
