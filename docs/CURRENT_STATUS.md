@@ -25,8 +25,11 @@ estabelecimentos do piloto passaram na conferência local em 08/09. Isso não
 comprova credenciamento histórico nem autoriza publicação. O reconciliador
 privado agora mantém 25 documentos do piloto e identifica 11 consultas de ordens
 compartilhadas, sem unir beneficiários. Repetir as capturas conserva 25 documentos.
-Faltam registro persistido de evidências/decisões e projeção pública revisada.
-Nenhum valor novo foi ativado.
+A migration `20260908173000` prepara snapshots, documentos e decisões privados
+e imutáveis, com RPC pública paginada somente para aprovação vigente e evidência
+compatível. Retrato novo pendente impede reutilizar aprovação anterior; revogação
+retira a projeção. Faltam o importador operacional, a revisão das cargas e a
+conexão da rota ao RPC. Nenhum pagamento foi importado/aprovado nesta entrega.
 
 O leitor privado `fns_pharmacy_pages` separa Farmácia Popular do piloto
 municipal: valida aquisição, página completa e totais, exclui outros programas
