@@ -60,3 +60,26 @@ o lote seguinte, sem repetir estas três ordens.
 
 Validação local: 97 testes FNS e 678 testes Node aprovados. Nenhum código de
 produção ou migration foi alterado nesta etapa.
+
+## Quarta ordem: 010181
+
+Em 08/09/2026, a quarta ordem foi conferida em 27 páginas completas,
+85.695 bytes, preservadas localmente com DPAPI. Manifesto SHA-256:
+`697619f9bbed4940aebfaa288d22f6aa300e1c31e480f7d0755210cf56890aed`.
+O escopo oficial informa `mes=03` e competência literal `04/12 em 2025`;
+ambos foram mantidos, sem substituir um campo pelo outro. O pagamento
+correspondente está na linha 4 da página 1 do mesmo original acima.
+
+Após autorização explícita para estas 27 páginas e uma comparação privada,
+a execução `0bf0f796-ac7c-412e-81c6-da3e62809b29` importou 27 objetos no
+bucket privado e registrou a comparação. Releitura dos bytes e consulta SQL
+conferiram o resultado; replay inseriu zero comparações adicionais.
+
+Auditoria independente somente leitura: 169 artefatos examinados, quatro
+comparações atuais e documentalmente compatíveis, código de saída 0.
+A cobertura continua parcial e a publicação permanece bloqueada. Nenhum
+valor, autoria ou ranking público foi alterado.
+
+O retrato preservado contém 14 ordens: quatro conferidas e importadas neste
+fluxo, dez ainda pendentes. Há ordens distintas nas competências 09/12 e 10/12;
+isso não permite concluir duplicidade. Próxima ordem: 013631.
