@@ -22,8 +22,11 @@ A integração com uma projeção pública revisada ainda não foi ativada.
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
 estabelecimentos do piloto passaram na conferência local em 08/09. Isso não
-comprova credenciamento histórico nem autoriza publicação; reconciliação por
-beneficiário e registro de decisões ainda faltam. Nenhum valor novo foi ativado.
+comprova credenciamento histórico nem autoriza publicação. O reconciliador
+privado agora mantém 25 documentos do piloto e identifica 11 consultas de ordens
+compartilhadas, sem unir beneficiários. Repetir as capturas conserva 25 documentos.
+Faltam registro persistido de evidências/decisões e projeção pública revisada.
+Nenhum valor novo foi ativado.
 
 O leitor privado `fns_pharmacy_pages` separa Farmácia Popular do piloto
 municipal: valida aquisição, página completa e totais, exclui outros programas
