@@ -44,10 +44,32 @@ valor, estágio informado e evidência devem estar explícitos. Não somar esses
 pagamentos às receitas municipais ou ao ranking de emendas. Listas paginadas
 no servidor; evidências completas somente no detalhe, sem conteúdo bancário.
 
-Próxima entrega: adaptador de identidade institucional e reconciliação
-documental, com testes de conflitos e dupla contagem. Só depois habilitar a
-projeção pública. O leitor privado não publica dados reais; a apresentação
-preparatória está descrita abaixo.
+O adaptador privado `fns_pharmacy_identity` agora cruza o identificador da
+requisição de pagamentos validada com o CNPJ do XLSX oficial preservado do
+Infoms. Confere dígitos verificadores, hash/tamanho dos bytes, origem registrada,
+estrutura limitada da planilha e correspondência única. Nome semelhante não
+substitui CNPJ; repetição, mesmo idêntica, exige revisão. Fórmulas, entidades XML,
+entradas ZIP repetidas e planilhas adicionais são recusadas. Nenhuma dependência
+nova foi adicionada. A origem registrada deve vir da aquisição confiável: não
+aceitar esses metadados de um cliente público.
+
+O resultado permitido contém nome institucional, hashes das duas evidências e
+linha do cadastro, sem CNPJ, endereço, conta ou valor. O nome é o do cadastro,
+não uma inferência de pessoa pelo texto. O cadastro atual não comprova
+credenciamento no ano do pagamento; `historical_registration_verified=false`,
+`reconciliation=pending` e `publication_allowed=false` permanecem explícitos.
+
+Verificação local em 08/09/2026: os dois beneficiários de Farmácia Popular
+obtiveram correspondência institucional única usando o XLSX preservado de SHA-256
+`8d55072edb40db4d38eb9bd583a62880699928587a83e81c3818625b97efa3b2`
+e suas capturas de pagamentos. Não houve upload, escrita no banco ou publicação.
+Os 110 testes FNS passaram, incluindo os seis testes novos de identidade.
+
+Próxima entrega: reconciliar as chaves documentais por beneficiário (uma mesma
+ordem pode abranger mais de um estabelecimento) e registrar evidências e decisões
+auditáveis. Só depois habilitar a projeção pública. Não usar os totais de uma
+ordem coletiva como valor de cada farmácia. O leitor privado não publica dados
+reais; a apresentação preparatória está descrita abaixo.
 
 ## Apresentação preparada
 
