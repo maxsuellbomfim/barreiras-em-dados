@@ -31,6 +31,49 @@ paginação completa e as mesmas validações, antes de afirmar cobertura maior.
 
 ## Contrato implementado
 
+### Inventário histórico conferido em 08/09/2026
+
+As seis primeiras páginas anuais do catálogo oficial de Outros Pagamentos
+foram preservadas localmente com criptografia do Windows, hash e metadados.
+Todas declararam uma única página. O leitor `inspect_entity_catalog` confirmou
+escopo territorial, integridade, paginação, totais e ausência de identificadores
+repetidos. Seu resultado é privado e não classifica entidades como farmácias.
+O leitor aceita múltiplas páginas completas e exige contagem estável; páginas
+ausentes são `partial`, nenhuma captura é `not_collected`, e vazio declarado
+é `empty`. Não há publicação ou inferência de identidade nesse leitor.
+
+Os detalhes das 22 entidades-ano fora de 2025 foram consultados uma vez, com
+intervalo de dez segundos, HTTP 200 e preservação criptografada local. O recorte
+2025 já preservado foi reutilizado; seu catálogo foi recapturado com hash igual.
+Cada detalhe declarou uma única página de até 25 registros. A conferência
+documental e cadastral existente produziu o seguinte inventário:
+
+| Ano | Entidades no catálogo de Outros Pagamentos | Entidades com Farmácia Popular | Documentos do programa | Aptos pelo cadastro preservado | Identidade histórica pendente |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2021 | 6 | 6 | 108 | 48 | 60 |
+| 2022 | 5 | 4 | 78 | 43 | 35 |
+| 2023 | 3 | 3 | 66 | 42 | 24 |
+| 2024 | 3 | 2 | 41 | 41 | 0 |
+| 2025 | 3 | 2 | 25 | 25 | 0 |
+| 2026 | 5 | 2 | 17 | 17 | 0 |
+
+Contagens são por entidade/ano, não pessoas únicas entre anos. O ano 2026 está
+em andamento. Seis entidades-ano de outros programas foram excluídas da
+publicação de Farmácia Popular, sem exibir nomes ou conteúdo desses registros.
+Os 119 documentos com identidade pendente não foram considerados errados ou
+inexistentes: o cadastro atual não resolve a identidade histórica desses casos.
+
+O plano adicional validado contém dez capturas de pagamento, o cadastro já
+preservado e 191 documentos, SHA-256
+`f4e1f0549362d5f0daa802f7497e393b98c06cb874fa6fc9e7f55bdb68761fdd`.
+O envio adicional foi bloqueado pela proteção do ambiente, que exige autorização
+específica para esse novo lote. Nenhum desses 191 documentos foi importado ou
+aprovado neste passo; os 25 documentos anteriores continuam públicos.
+As duas tentativas operacionais foram encerradas com falha de autorização,
+sem representar falha da fonte nem cobertura vazia. Não repetir o upload até
+obter a autorização. Depois: preservar/reler os bytes, simular/importar/repetir,
+conferir a projeção e publicar somente as linhas validadas.
+
 `inspect_pharmacy_capture` aceita uma página completa, até 25 registros,
 de Outros Pagamentos (tipo 3), no recorte Barreiras/BA. Confere URL solicitada
 e final, ano, beneficiário consultado, SHA-256, tamanho, HTTP e paginação.
