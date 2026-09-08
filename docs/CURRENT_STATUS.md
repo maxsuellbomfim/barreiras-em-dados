@@ -1,6 +1,6 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **05/09/2026**. Este é o ponto de entrada operacional; o histórico
+Atualizado em **08/09/2026**. Este é o ponto de entrada operacional; o histórico
 de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
@@ -16,8 +16,13 @@ desempenho e leitura pública confiáveis antes do lançamento divulgado.
 A rota `/recursos/saude` consulta o RPC revisado de Farmácia Popular no servidor,
 com filtro por ano e páginas de 25 registros. Sem aprovações, mostra pendência;
 falha de consulta é indisponibilidade, nunca zero. Não carrega originais privados.
-O contrato recusa evidência inválida e registros repetidos. A carga real deve ser
-conferida antes de registrar aprovação; integrar o RPC não aprova pagamentos.
+O contrato recusa evidência inválida e registros repetidos. Em 08/09, após
+autorização explícita e validação, foram publicados 25 documentos de 2025 de dois
+estabelecimentos. Três arquivos privados foram relidos e conferidos por SHA-256;
+o replay manteve dois snapshots e 25 documentos distintos. A página em produção
+mostrou 25 cartões, com zero divergência entre a projeção e o lote validado.
+Não são receitas municipais nem entram nos rankings de emendas. O piloto não
+comprova cobertura anual, credenciamento histórico ou execução de serviços.
 
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
@@ -28,8 +33,9 @@ compartilhadas, sem unir beneficiários. Repetir as capturas conserva 25 documen
 A migration `20260908173000` prepara snapshots, documentos e decisões privados
 e imutáveis, com RPC pública paginada somente para aprovação vigente e evidência
 compatível. Retrato novo pendente impede reutilizar aprovação anterior; revogação
-retira a projeção. Faltam o importador operacional, a revisão das cargas e a
-conexão da rota ao RPC. Nenhum pagamento foi importado/aprovado nesta entrega.
+retira a projeção. O importador operacional e a rota estão conectados; duas
+decisões registram a revisão do lote autorizado. A migration `20260908200000`
+acrescenta o MIME XLSX oficial ao bucket, mantendo privacidade e acessos existentes.
 
 O leitor privado `fns_pharmacy_pages` separa Farmácia Popular do piloto
 municipal: valida aquisição, página completa e totais, exclui outros programas

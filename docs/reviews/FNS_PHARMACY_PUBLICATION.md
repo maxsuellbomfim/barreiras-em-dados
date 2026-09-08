@@ -1,5 +1,34 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Publicação operacional verificada — 08/09/2026
+
+O usuário autorizou explicitamente importar os três arquivos no bucket privado
+`raw-artifacts` e publicar os 25 pagamentos após validação. A importação e a
+publicação foram realizadas; as seções seguintes conservam o histórico dos
+contratos e das etapas preparatórias, não um bloqueio operacional vigente.
+
+- Plano: `3b89ed8ebb30358d5f9f8e8a5a8748b2311c1af553f8fb67056b14457fb6aad0`.
+- Três objetos relidos byte a byte e conferidos por SHA-256. O primeiro envio
+  parou no XLSX recusado pelo bucket; a migration `20260908200000` adicionou
+  apenas o MIME específico, com auditoria idempotente, sem tornar o bucket público
+  ou ampliar permissões. A retomada reutilizou um objeto e criou os dois restantes.
+- Simulação com rollback, importação e replay: três artefatos, dois snapshots,
+  25 registros brutos e 25 documentos distintos; zero divergências de linhagem.
+- Comparação integral dos payloads e hashes com o plano: 25 correspondências,
+  zero divergências. Duas decisões de aprovação após a conferência.
+- RPC pública: 25 registros na primeira página, zero na seguinte; nomes,
+  datas, valores e hashes conferidos contra o lote. Sem credenciamento histórico.
+- Produção `/recursos/saude?ano=2025`: HTTP 200, 25 cartões. HTML sem os marcadores
+  de identificadores da requisição, notas de revisão ou campos internos testados.
+  Filtro de 2024 exibiu pendência, não zero. Celular a 390 px sem overflow
+  horizontal; Tab do seletor alcançou o botão Consultar com foco visível.
+
+Este recorte não representa todos os pagamentos anuais. Os valores pertencem
+a estabelecimentos privados, separados das receitas municipais e dos rankings.
+Não houve inferência de execução do serviço nem reconciliação com a CGU.
+Próximo passo: ampliar o inventário oficial de períodos/estabelecimentos, com
+paginação completa e as mesmas validações, antes de afirmar cobertura maior.
+
 ## Contrato implementado
 
 `inspect_pharmacy_capture` aceita uma página completa, até 25 registros,
