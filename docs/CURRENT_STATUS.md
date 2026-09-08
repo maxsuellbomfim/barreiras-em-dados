@@ -62,6 +62,11 @@ URLs dos dois lados, sem sobrescrever as observações originais. O replay inser
 zero comparações adicionais. Não há aprovação financeira nem leitura pública
 desse novo tipo de registro. Ver
 [conferência do lote](reviews/FNS_66458_ORDER_AUDIT.md).
+O leitor privado de atualidade confere hashes e aquisição mais recente por
+consulta, bloqueando versões antigas, conflitos e mudança de paginação. Uma
+auditoria SQL somente leitura encontrou as nove comparações correspondentes
+ao acervo preservado atual (57 artefatos examinados). Não é nova consulta ao
+FNS nem confirmação de execução financeira; ainda não há tela para esse estado.
 O diagnóstico `fns_order_pages` agora lê todas as páginas de uma OB e distingue
 ausência de Barreiras, ambiguidade, conflito territorial, resposta inválida e
 revisão por rejeição. Validado nas oito páginas preservadas: 016551 exige revisão;
