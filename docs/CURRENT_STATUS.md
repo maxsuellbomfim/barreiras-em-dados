@@ -26,8 +26,13 @@ comprova cobertura anual, credenciamento histórico ou execução de serviços.
 
 O inventário adicional desde 2021 identificou 191 documentos aptos à ampliação
 e outros 119 com identidade histórica pendente, sem misturar outros programas.
-O upload do novo lote aguarda autorização específica exigida pelo ambiente;
-nenhuma ampliação foi publicada ainda. O leitor de catálogo agora valida
+Após autorização específica, os dez arquivos adicionais foram importados e
+os 191 documentos aprovados: são 216 pagamentos públicos distintos entre
+2021 e 2026. Onze objetos (incluindo o cadastro reutilizado) foram relidos e
+conferidos byte a byte e por SHA-256. A comparação integral do novo lote com
+a RPC pública encontrou zero divergências; o replay após aprovação conservou
+12 snapshots, 216 documentos e 12 decisões. Permanecem 119 documentos com
+identidade histórica pendente, fora da publicação. O leitor de catálogo valida
 paginação, integridade e escopo antes de fechar a contagem anual de entidades.
 Os detalhes e limites constam no documento de Farmácia Popular vinculado abaixo.
 

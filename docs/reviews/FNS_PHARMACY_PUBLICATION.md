@@ -66,13 +66,29 @@ inexistentes: o cadastro atual não resolve a identidade histórica desses casos
 O plano adicional validado contém dez capturas de pagamento, o cadastro já
 preservado e 191 documentos, SHA-256
 `f4e1f0549362d5f0daa802f7497e393b98c06cb874fa6fc9e7f55bdb68761fdd`.
-O envio adicional foi bloqueado pela proteção do ambiente, que exige autorização
-específica para esse novo lote. Nenhum desses 191 documentos foi importado ou
-aprovado neste passo; os 25 documentos anteriores continuam públicos.
-As duas tentativas operacionais foram encerradas com falha de autorização,
-sem representar falha da fonte nem cobertura vazia. Não repetir o upload até
-obter a autorização. Depois: preservar/reler os bytes, simular/importar/repetir,
-conferir a projeção e publicar somente as linhas validadas.
+O envio adicional inicialmente foi bloqueado por falta de autorização específica,
+sem representar falha da fonte ou cobertura vazia. Após autorização explícita
+em 08/09/2026, as duas execuções foram retomadas e o lote foi publicado:
+
+- Dez objetos criados e o cadastro reutilizado; onze objetos relidos byte a byte
+  e conferidos por SHA-256, sem ampliar acesso ao bucket privado.
+- Simulação com rollback, importação e replay; 191 payloads e hashes conferidos,
+  zero divergências, seguidos de dez decisões de aprovação.
+- RPC pública conferida em todas as páginas de 2021 a 2026: os 191 documentos
+  adicionais correspondem ao plano em nome, data, valor e hashes, sem divergência.
+- Total público: 216 documentos e 216 chaves distintas. Por ano: 48 (2021),
+  43 (2022), 42 (2023), 41 (2024), 25 (2025) e 17 (2026).
+- Replay após aprovação conservou 12 snapshots, 216 documentos distintos e
+  12 decisões. Não houve nova aprovação nem duplicação no replay.
+- Produção de 2021 exibiu 25 cartões na primeira página e 23 na segunda,
+  sem link para uma terceira página inexistente.
+
+Os 119 documentos com identidade histórica pendente continuam excluídos.
+O cadastro atual não prova credenciamento histórico; estes pagamentos não são
+receita municipal, emendas ou comprovação de execução. As capturas realizadas
+não substituem um coletor durável com retomada automática. Próximos passos:
+exibir metadados de cobertura publicada por ano e implementar essa retomada,
+sem chamar o recorte atual de cobertura histórica completa.
 
 `inspect_pharmacy_capture` aceita uma página completa, até 25 registros,
 de Outros Pagamentos (tipo 3), no recorte Barreiras/BA. Confere URL solicitada
