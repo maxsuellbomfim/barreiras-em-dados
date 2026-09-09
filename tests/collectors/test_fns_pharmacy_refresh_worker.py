@@ -1,7 +1,7 @@
 import copy
+import json
 import unittest
 from contextlib import contextmanager
-from pathlib import Path
 from unittest.mock import Mock
 
 from barreiras_collectors.persistence.fns_pharmacy import prepare_pharmacy_import
@@ -116,12 +116,7 @@ class PostgresRefreshAdapterTests(unittest.TestCase):
         self.connection.cursor.return_value = MagicMock()
         self.cursor = self.connection.cursor.return_value.__enter__.return_value
         self.store = Mock()
-        template = (
-            Path(__file__).resolve().parents[2] / "scripts/sql/import-pharmacy-plan.sql"
-        ).read_text(encoding="utf-8")
-        self.repository = PostgresPharmacyRefreshRepository(
-            self.connection, self.store, template
-        )
+        self.repository = PostgresPharmacyRefreshRepository(self.connection, self.store)
 
     def test_baseline_uses_latest_scope_and_rehashes_both_originals(self):
         obs = observation()
@@ -156,7 +151,7 @@ class PostgresRefreshAdapterTests(unittest.TestCase):
         self.assertEqual(result["observation"]["payment_capture"]["body"], pay["body"])
         self.assertEqual(result["register"]["body"], reg["body"])
         query, params = self.cursor.execute.call_args.args
-        self.assertIn("order by s.id desc limit 1", query)
+        self.assertIn("get_pharmacy_refresh_baseline", query)
         self.assertNotIn(obs["beneficiary"], query)
         self.assertEqual(params[1], 2025)
         self.store.read.side_effect = [b"wrong"]
@@ -190,27 +185,14 @@ class PostgresRefreshAdapterTests(unittest.TestCase):
             self.cursor.fetchall.return_value = rows
             self.assertFalse(self.repository.verify_publication(plan))
 
-    def test_template_cannot_commit_before_projection_verification(self):
-        self.assertFalse(self.repository.template.startswith("begin;"))
-        self.assertFalse(self.repository.template.endswith("commit;\n"))
+    def test_adapter_requires_explicit_transaction_for_projection_verification(self):
         self.connection.autocommit = False
         with self.assertRaises(ValueError):
-            PostgresPharmacyRefreshRepository(self.connection, self.store, "")
+            PostgresPharmacyRefreshRepository(self.connection, self.store)
 
     def test_plan_text_cannot_close_the_sql_dollar_block(self):
-        from unittest.mock import patch
-
-        from psycopg import sql
-
-        original = sql.Literal.as_string
         plan = {"text": "name ' $import$; SELECT 'not SQL'"}
-        with patch.object(
-            sql.Literal, "as_string", lambda value, context: original(value)
-        ):
-            self.repository.import_plan(plan)
-        statement = self.connection.execute.call_args.args[0]
-        delimiter = statement.splitlines()[0].removeprefix("do ")
-        self.assertTrue(delimiter.startswith("$pharmacy_"))
-        self.assertEqual(statement.count(delimiter), 2)
-        self.assertIn("$import$", statement)
-        self.assertNotIn("__PLAN_JSON__", statement)
+        self.repository.import_plan(plan)
+        statement, values = self.connection.execute.call_args.args
+        self.assertNotIn("$import$", statement)
+        self.assertEqual(json.loads(values[0]), plan)

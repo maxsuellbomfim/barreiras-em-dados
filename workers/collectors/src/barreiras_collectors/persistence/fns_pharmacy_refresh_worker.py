@@ -7,7 +7,6 @@ together. Errors deliberately omit source identifiers and database diagnostics.
 
 import hashlib
 import json
-import uuid
 
 from ..connectors.fns_pharmacy_identity import REGISTER_PAGE
 from .fns_pharmacy import _sha, prepare_pharmacy_refresh
@@ -79,21 +78,11 @@ class PostgresPharmacyRefreshRepository:
     its database locks, even if it changed during the Storage/network reads.
     """
 
-    def __init__(self, connection, object_store, import_template):
+    def __init__(self, connection, object_store):
         if not connection.autocommit:
             raise ValueError("Pharmacy connection must use explicit transactions")
         self.connection = connection
         self.object_store = object_store
-        # Remove only the operator template's outer transaction, never nested SQL.
-        start = import_template.index("\nbegin;\n")
-        if not import_template.endswith("commit;\n"):
-            raise ValueError("Invalid pharmacy import template")
-        self.template = import_template[start + len("\nbegin;\n") : -len("commit;\n")]
-        if (
-            self.template.count("__PLAN_JSON__") != 1
-            or self.template.count("$import$") != 2
-        ):
-            raise ValueError("Invalid pharmacy import template")
 
     def _capture(self, artifact, *, payment):
         body = self.object_store.read(artifact["object_key"])
@@ -134,17 +123,7 @@ class PostgresPharmacyRefreshRepository:
         scope = _sha(["fns-pharmacy", current["beneficiary"], current["payment_year"]])
         with self.connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
-                """
-                select s.id, coalesce((select d.decision='approved'
-                    from source.fns_pharmacy_decisions d where d.snapshot_id=s.id
-                    order by d.id desc limit 1),false) approved,
-                    to_jsonb(p) payment, to_jsonb(r) register
-                from source.fns_pharmacy_snapshots s
-                join raw.raw_artifacts p on p.id=s.payment_artifact_id
-                join raw.raw_artifacts r on r.id=s.register_artifact_id
-                where s.scope_key=%s and s.payment_year=%s
-                order by s.id desc limit 1
-            """,
+                "select * from source.get_pharmacy_refresh_baseline(%s,%s)",
                 (scope, current["payment_year"]),
             )
             row = cursor.fetchone()
@@ -169,8 +148,7 @@ class PostgresPharmacyRefreshRepository:
 
         with self.connection.cursor(row_factory=tuple_row) as cursor:
             cursor.execute(
-                "select distinct scope_key from source.fns_pharmacy_snapshots "
-                "where payment_year=%s limit 1001",
+                "select scope_key from source.get_pharmacy_refresh_scopes(%s)",
                 (year,),
             )
             rows = cursor.fetchall()
@@ -179,19 +157,10 @@ class PostgresPharmacyRefreshRepository:
         return {row[0] for row in rows}
 
     def import_plan(self, plan):
-        from psycopg import sql
-
-        literal = sql.Literal(json.dumps(plan, ensure_ascii=False)).as_string(
-            self.connection
+        self.connection.execute(
+            "select source.import_pharmacy_refresh(%s::jsonb)",
+            (json.dumps(plan, ensure_ascii=False),),
         )
-        # JSON can itself contain dollar delimiters; choose an absent delimiter.
-        delimiter = "$pharmacy_" + uuid.uuid4().hex + "$"
-        while delimiter in literal:
-            delimiter = "$pharmacy_" + uuid.uuid4().hex + "$"
-        statement = self.template.replace("$import$", delimiter).replace(
-            "__PLAN_JSON__", literal
-        )
-        self.connection.execute(statement)
 
     def verify_publication(self, plan):
         from psycopg.rows import dict_row
@@ -202,8 +171,7 @@ class PostgresPharmacyRefreshRepository:
                     """
                     select id, establishment, date::text, amount, sha256,
                         register_sha256
-                    from source.reviewed_pharmacy_rows(%s)
-                    where sha256=%s and register_sha256=%s order by id
+                    from source.get_pharmacy_refresh_rows(%s,%s,%s) order by id
                 """,
                     (
                         snapshot["payment_year"],

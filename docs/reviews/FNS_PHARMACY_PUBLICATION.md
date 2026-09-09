@@ -343,7 +343,7 @@ inclusive quando estiver pendente ou revogado; não é escolhido pelo chamador.
 Os dois originais são relidos e conferidos por hash. Apenas acréscimos sem
 alteração dos documentos anteriores seguem para preservação e importação.
 
-O adaptador remove a transação externa do template operacional e mantém
+O adaptador usa a função restrita `source.import_pharmacy_refresh` e mantém
 importação, aprovação e conferência da projeção pública na mesma transação.
 Compara todas as linhas esperadas, incluindo valores e hashes, antes do commit.
 Falha desfaz a escrita SQL; objetos imutáveis já preservados podem permanecer
@@ -375,6 +375,13 @@ pré-commit com banco/Storage simulados. Em 09/09 a consulta read-only de produ�
 confirmou 19 snapshots/335 documentos e ausência de grants do worker para
 snapshots/decisões; o guard incremental ainda não estava instalado. Portanto
 esse comando ainda exige a etapa de implantação, não é uma automação ativa.
+
+A migration `20260909050000` prepara a superfície mínima de execução: quatro
+funções exclusivas do `collector_worker`, com `search_path` fechado. Permitem
+ler o baseline/escopos, importar um único refresh e conferir suas linhas públicas.
+Não concedem leitura ou escrita direta nas tabelas de decisões, não aceitam
+planos de publicação inicial e não dão acesso a `anon`, `authenticated` ou
+`service_role`. O Python usa parâmetros, sem interpolar JSON em comandos SQL.
 
 Só o snapshot mais recente de cada escopo pode aparecer: novo retrato pendente
 bloqueia fallback. Aprovação exige quantidade completa e linhagem válida;

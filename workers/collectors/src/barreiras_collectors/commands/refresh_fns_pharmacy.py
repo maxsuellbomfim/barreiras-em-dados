@@ -188,18 +188,12 @@ def main(argv=None):
                 objects = SupabaseStorageObjectStore(
                     client.storage.from_(settings.raw_artifacts_bucket)
                 )
-                template = (
-                    Path(__file__).resolve().parents[5]
-                    / "scripts/sql/import-pharmacy-plan.sql"
-                ).read_text(encoding="utf-8")
                 with psycopg.connect(
                     settings.database_url, autocommit=True, connect_timeout=20
                 ) as connection:
                     connection.execute("set statement_timeout='30s'")
                     connection.execute("set lock_timeout='10s'")
-                    repository = PostgresPharmacyRefreshRepository(
-                        connection, objects, template
-                    )
+                    repository = PostgresPharmacyRefreshRepository(connection, objects)
                     with PrivateStore(args.directory) as store:
                         report = _refresh_year(
                             year=args.year,
