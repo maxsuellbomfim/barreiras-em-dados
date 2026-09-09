@@ -45,8 +45,11 @@ export function PharmacyPayments({ publication, coverage, filters, navigation }:
     <ul>
       <li><a href="https://consultafns.saude.gov.br/#/detalhada" target="_blank" rel="noreferrer">Consulta detalhada de pagamentos do FNS (abre outra aba)</a></li>
       <li><a href="https://infoms.saude.gov.br/extensions/SEIDIGI_DEMAS_PFPB_ENDERECOS/index.html" target="_blank" rel="noreferrer">Estabelecimentos ativos no Farmácia Popular (abre outra aba)</a></li>
+      <li><a href="https://www.gov.br/saude/pt-br/composicao/sectics/farmacia-popular/renovacao-de-estabelecimentos-participantes/empresas-credenciadas-para-realizar-a-renovacao-2025/view" target="_blank" rel="noreferrer">Lista oficial de renovação cadastral de 2025 (abre outra aba)</a></li>
     </ul>
     <p>O cadastro de estabelecimentos ativos informa a situação atual. Ele não prova que
       uma farmácia estava credenciada durante todo um período passado.</p>
+    <p>A lista de renovação de 2025 ajuda a conferir a identidade dos estabelecimentos.
+      Ela não comprova credenciamento nos anos anteriores.</p>
   </section>;
 }

@@ -39,11 +39,14 @@ Os detalhes e limites constam no documento de Farmácia Popular vinculado abaixo
 Na revisão seguinte, o PDF oficial de renovação cadastral de 2025 resolveu a
 identidade institucional dos 119 documentos: sete recortes de quatro instituições,
 por CNPJ exato de estabelecimento e matriz, com página e linha preservadas.
-Isso não comprova credenciamento em 2021–2023. O leitor e as novas migrations
-foram preparados, mas **não aplicados em produção**. O envio dos sete JSON e do
-PDF ao bucket privado foi bloqueado pela revisão automática por exigir autorização
-específica para o novo lote. Continuam **216 documentos públicos**; nenhum dos
-119 foi importado ou aprovado nesta revisão.
+Isso não comprova credenciamento em 2021–2023. Após autorização específica,
+os sete JSON e o PDF foram importados no bucket privado e relidos byte a byte
+e por SHA-256. As migrations foram aplicadas e os 119 documentos aprovados após
+conferência integral do plano. O replay manteve 19 snapshots e 19 decisões:
+**335 pagamentos públicos distintos**, todos com valores, datas e evidências
+correspondentes ao registro preservado. Não restam documentos bloqueados neste
+lote de 119; isso não implica cobertura anual completa. Totais por ano:
+2021: 108; 2022: 78; 2023: 66; 2024: 41; 2025: 25; 2026: 17.
 
 A página já mostra a contagem publicada de cada ano selecionado, os dois
 estabelecimentos conferidos e as datas documentais, com aviso de cobertura
