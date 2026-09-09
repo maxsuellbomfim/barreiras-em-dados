@@ -63,6 +63,12 @@ aquisição retomável, validação, importação e controle de execução. Aind
 permissões restritas, agendamento e validação numa execução real; não altera o
 estado da produção.
 
+O PR #736 foi mesclado e o guard incremental instalado. A migration que concede
+as quatro funções ao worker foi bloqueada pela revisão de autorização e aguarda
+confirmação explícita; não houve coleta/publicação automática. A seção pública
+de saúde da atualização está preparada em branch separada: consulta apenas
+datas e contagens, sem conceder autoridade de escrita ao coletor.
+
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
 estabelecimentos do piloto passaram na conferência local em 08/09. Isso não
