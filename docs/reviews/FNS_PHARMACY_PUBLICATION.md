@@ -383,6 +383,23 @@ Não concedem leitura ou escrita direta nas tabelas de decisões, não aceitam
 planos de publicação inicial e não dão acesso a `anon`, `authenticated` ou
 `service_role`. O Python usa parâmetros, sem interpolar JSON em comandos SQL.
 
+## Estado público da atualização
+
+A migration `20260909060000` é independente da autoridade de escrita do worker:
+expõe somente datas, estado e contagens explícitas de execuções controladas.
+Exclui importações operacionais e não retorna IDs, erros, cursors, identificadores
+ou o JSON de métricas. Uma execução falha não apaga a data da última conferência
+com documentos, nem passa a significar zero. Execuções iniciadas sem conclusão
+são descritas dessa forma, sem afirmar que o processo continua rodando.
+
+A seção aparece antes dos pagamentos, junto ao filtro anual. Pendências contam
+consultas de estabelecimento/ano, não documentos ou valores. Ausência no catálogo
+não é apresentada como irregularidade. Validação local: 703 testes Node, typecheck
+e build web aprovados; desktop e viewport de 390 pixels sem overflow horizontal.
+O ambiente local sem configuração pública mostrou corretamente indisponibilidade.
+A implantação dessa seção não ativa o coletor nem substitui a autorização
+pendente para as funções de importação/aprovação automática.
+
 Só o snapshot mais recente de cada escopo pode aparecer: novo retrato pendente
 bloqueia fallback. Aprovação exige quantidade completa e linhagem válida;
 revogação, mudança da evidência registrada ou chave documental duplicada entre
