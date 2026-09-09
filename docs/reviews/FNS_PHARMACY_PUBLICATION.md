@@ -335,6 +335,28 @@ Sempre informa `historical_registration_verified=false`. O consumidor deve
 oferecer a fonte oficial e explicar o significado dos valores, sem somar à
 receita municipal ou ao ranking de emendas. Página vazia não comprova zero.
 
+## Atualização incremental em implementação (09/09/2026)
+
+O executor privado `execute_refresh` agora conecta o plano incremental ao
+Storage e ao adaptador PostgreSQL. O baseline vem do último snapshot no banco,
+inclusive quando estiver pendente ou revogado; não é escolhido pelo chamador.
+Os dois originais são relidos e conferidos por hash. Apenas acréscimos sem
+alteração dos documentos anteriores seguem para preservação e importação.
+
+O adaptador remove a transação externa do template operacional e mantém
+importação, aprovação e conferência da projeção pública na mesma transação.
+Compara todas as linhas esperadas, incluindo valores e hashes, antes do commit.
+Falha desfaz a escrita SQL; objetos imutáveis já preservados podem permanecer
+privados para retomada, sem aprovação ou publicação. O guard SQL volta a conferir
+o baseline sob bloqueio, impedindo aprovação com referência superada/revogada.
+
+Os testes cobrem leitura divergente no Storage, conflito documental, ausência
+de baseline, divergência da projeção e sanitização de erros. Isso ainda não é
+prova operacional: faltam conexão à aquisição, registro de saúde/agendamento,
+permissões mínimas do worker e execução real conferida. Nenhum agendamento ou
+grant é ativado por este módulo. Novos escopos e mudanças cadastrais continuam
+pendentes de revisão, não são tratados como atualização concluída.
+
 Só o snapshot mais recente de cada escopo pode aparecer: novo retrato pendente
 bloqueia fallback. Aprovação exige quantidade completa e linhagem válida;
 revogação, mudança da evidência registrada ou chave documental duplicada entre
