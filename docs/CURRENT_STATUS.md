@@ -56,12 +56,11 @@ O coletor local retomável de Outros Pagamentos preserva páginas cifradas antes
 da classificação. A prova de 2026 parou após uma página e retomou as cinco
 restantes; isso comprova aquisição, não publicação nem cobertura histórica total.
 
-A atualização automática está em implementação local. O executor incremental
+O executor da atualização automática
 relê os originais privados, aceita somente acréscimos compatíveis e confere a
 projeção pública antes de confirmar a transação SQL. O comando local agora liga
-aquisição retomável, validação, importação e controle de execução. Ainda faltam
-permissões restritas, agendamento e validação numa execução real; não altera o
-estado da produção.
+aquisição retomável, validação, importação e controle de execução. Permissões,
+agendamento e execução real foram validados conforme o registro abaixo.
 
 Os PRs #736 e #737 foram mesclados. Em 09/09, após autorização explícita, as
 quatro funções privadas foram habilitadas para `collector_worker`, sem acesso
