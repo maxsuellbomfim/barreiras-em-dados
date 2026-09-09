@@ -20,6 +20,7 @@ for (const format of ['xlsx','pdf']) test(`pharmacy ${format} import replays wit
    insert into source.source_endpoints(data_source_id,slug,enabled) select id,unnest(array['payment','register','register-renewal']),true from source.data_sources;`);
   await db.exec(registry);
   await db.exec(renewal);
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260909040000_pharmacy_refresh_guard.sql',import.meta.url),'utf8'));
   const name="FARMACIA D'AGUA";
   const plan={version:'fns-pharmacy-import/1.0.0',publication_allowed:false,plan_sha256:'e'.repeat(64),
    artifacts:[['payment','a','https://consultafns.saude.gov.br/recursos/consulta-detalhada/detalhe-pagamento?ano=2025','application/json'],['register','b','https://infoms.saude.gov.br/tempcontent/test.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']].map(([endpoint,hash,source_url,content_type])=>({endpoint,sha256:hash.repeat(64),byte_size:100,object_key:`fns/${hash}`,source_url,content_type,retrieved_at:'2026-09-08T16:00:00Z',http_status:endpoint==='payment'?200:null})),
@@ -40,5 +41,21 @@ for (const format of ['xlsx','pdf']) test(`pharmacy ${format} import replays wit
   await assert.rejects(run(),/replay conflict/);
   await db.exec('rollback');
   assert.equal((await db.query('select * from api.get_public_pharmacy_payments(2025,0)')).rows[0].amount,'10.00');
+  plan.snapshots[0].documents[0].payload.net='10.00';
+  plan.plan_sha256='2'.repeat(64);
+  Object.assign(plan.artifacts[0],{sha256:'3'.repeat(64),object_key:'fns/3'});
+  plan.snapshots[0].payment_sha256='3'.repeat(64);
+  plan.snapshots[0].documents[0].idempotency_key='4'.repeat(64);
+  plan.refresh={['c'.repeat(64)]:1};
+  await run(); await run();
+  assert.equal((await db.query('select count(*)::int n from source.fns_pharmacy_decisions')).rows[0].n,2);
+  assert.equal((await db.query('select * from api.get_public_pharmacy_payments(2025,0)')).rows.length,1);
+  plan.plan_sha256='5'.repeat(64);
+  Object.assign(plan.artifacts[0],{sha256:'6'.repeat(64),object_key:'fns/6'});
+  plan.snapshots[0].payment_sha256='6'.repeat(64);
+  plan.snapshots[0].documents[0].idempotency_key='7'.repeat(64);
+  await assert.rejects(run(),/baseline/);
+  await db.exec('rollback');
+  assert.equal((await db.query('select count(*)::int n from source.fns_pharmacy_snapshots')).rows[0].n,2);
  } finally {await db.close();}
 });

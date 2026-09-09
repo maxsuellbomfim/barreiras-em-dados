@@ -29,6 +29,14 @@ substitui a releitura dos bytes nem a comparação documental completa no worker
 Essa migration ainda não foi aplicada em produção; falta conectar o worker e
 o controle de execução antes de ativar a coleta/publicação programada.
 
+`prepare_pharmacy_refresh` liga a regra documental ao plano do importador:
+somente `append_only` gera plano com baseline privado; `unchanged` não cria
+novo snapshot. O template SQL reconhece esse plano e chama a aprovação na
+mesma transação da importação, inclusive no replay. Uma baseline substituída
+causa rollback integral. Planos comuns continuam sem aprovação automática.
+A aprovação e o ID da baseline devem ser obtidos do banco privado pelo worker,
+não recebidos do navegador. Os testes cobrem os caminhos XLSX e PDF.
+
 ## Cadastro oficial de renovação 2025 — lote publicado
 
 O PDF nacional do Ministério da Saúde foi preservado e lido integralmente:

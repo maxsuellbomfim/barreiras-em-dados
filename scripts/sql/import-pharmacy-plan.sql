@@ -1,6 +1,7 @@
 -- Operator-only template. Replace __PLAN_JSON__ with a safely quoted JSON string
 -- from prepare_pharmacy_import, after verifying all private Storage bytes.
--- No approvals here. Entire operation rolls back on a lineage/replay conflict.
+-- Ordinary plans do not approve. Validated refresh plans bind the previous
+-- snapshot and use the transactional approval guard; any conflict rolls back.
 begin;
 do $import$
 declare
@@ -12,6 +13,15 @@ begin
   if p->>'version'<>'fns-pharmacy-import/1.0.0' or p->>'publication_allowed'<>'false'
     or jsonb_array_length(p->'snapshots') not between 1 and 20 then
     raise exception 'Invalid pharmacy import plan';
+  end if;
+  if p ? 'refresh' then
+    if jsonb_typeof(p->'refresh') is distinct from 'object' then
+      raise exception 'Invalid pharmacy refresh plan'; end if;
+    if (select count(*) from jsonb_object_keys(p->'refresh'))<>jsonb_array_length(p->'snapshots')
+      or exists(select 1 from jsonb_array_elements(p->'snapshots') x
+        where coalesce(p->'refresh'->>(x->>'scope_key'),'') !~ '^[1-9][0-9]{0,17}$')
+    then raise exception 'Invalid pharmacy refresh baseline'; end if;
+    lock table source.fns_pharmacy_snapshots,source.fns_pharmacy_decisions in share row exclusive mode;
   end if;
   for a in select value from jsonb_array_elements(p->'artifacts') loop
     select e.id into strict ep from source.source_endpoints e join source.data_sources ds on ds.id=e.data_source_id
@@ -54,6 +64,9 @@ begin
               and source.pharmacy_document_matches(pd))) then
         raise exception 'Pharmacy snapshot replay conflict';
       end if;
+      if p ? 'refresh' then
+        perform source.approve_pharmacy_refresh((p->'refresh'->>(s->>'scope_key'))::bigint,snap);
+      end if;
       continue;
     end if;
     insert into source.fns_pharmacy_snapshots(scope_key,payment_year,payment_artifact_id,register_artifact_id,
@@ -76,6 +89,9 @@ begin
         (d->'payload'->>'net')::numeric,(d->'payload'->>'source_row')::integer,(d->'payload'->>'register_row')::integer,
         (d->'payload'->>'register_page')::integer);
     end loop;
+    if p ? 'refresh' then
+      perform source.approve_pharmacy_refresh((p->'refresh'->>(s->>'scope_key'))::bigint,snap);
+    end if;
   end loop;
   update source.collection_runs set status='partial',completed_at=clock_timestamp(),
     metrics=metrics||jsonb_build_object('import_verified',true,'publication_allowed',false)
