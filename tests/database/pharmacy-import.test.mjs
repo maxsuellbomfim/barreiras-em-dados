@@ -8,7 +8,7 @@ const renewal=await readFile(new URL('../../supabase/migrations/20260909010000_p
 for (const format of ['xlsx','pdf']) test(`pharmacy ${format} import replays without new snapshots, preserves approvals and rolls back conflicts`,async()=>{
  const db=new PGlite();
  try {
-  await db.exec(`create role anon; create role authenticated; create role service_role;
+  await db.exec(`create role anon; create role authenticated; create role service_role; create role collector_worker;
    create schema source; create schema raw; create schema audit; create schema api;
    create function audit.reject_mutation() returns trigger language plpgsql as $$ begin raise exception 'immutable'; end $$;
    create table source.data_sources(id uuid primary key default gen_random_uuid(),slug text);
@@ -20,6 +20,13 @@ for (const format of ['xlsx','pdf']) test(`pharmacy ${format} import replays wit
    insert into source.source_endpoints(data_source_id,slug,enabled) select id,unnest(array['payment','register','register-renewal']),true from source.data_sources;`);
   await db.exec(registry);
   await db.exec(renewal);
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260909040000_pharmacy_refresh_guard.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260909001000_pharmacy_public_coverage.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260909050000_pharmacy_refresh_worker_api.sql',import.meta.url),'utf8'));
+  for(const role of ['anon','authenticated','service_role']) {
+   assert.equal((await db.query("select has_function_privilege($1,'source.import_pharmacy_refresh(jsonb)','EXECUTE') ok",[role])).rows[0].ok,false);
+   assert.equal((await db.query("select has_function_privilege($1,'source.get_pharmacy_refresh_baseline(text,integer)','EXECUTE') ok",[role])).rows[0].ok,false);
+  }
   const name="FARMACIA D'AGUA";
   const plan={version:'fns-pharmacy-import/1.0.0',publication_allowed:false,plan_sha256:'e'.repeat(64),
    artifacts:[['payment','a','https://consultafns.saude.gov.br/recursos/consulta-detalhada/detalhe-pagamento?ano=2025','application/json'],['register','b','https://infoms.saude.gov.br/tempcontent/test.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']].map(([endpoint,hash,source_url,content_type])=>({endpoint,sha256:hash.repeat(64),byte_size:100,object_key:`fns/${hash}`,source_url,content_type,retrieved_at:'2026-09-08T16:00:00Z',http_status:endpoint==='payment'?200:null})),
@@ -40,5 +47,29 @@ for (const format of ['xlsx','pdf']) test(`pharmacy ${format} import replays wit
   await assert.rejects(run(),/replay conflict/);
   await db.exec('rollback');
   assert.equal((await db.query('select * from api.get_public_pharmacy_payments(2025,0)')).rows[0].amount,'10.00');
+  plan.snapshots[0].documents[0].payload.net='10.00';
+  plan.plan_sha256='2'.repeat(64);
+  Object.assign(plan.artifacts[0],{sha256:'3'.repeat(64),object_key:'fns/3'});
+  plan.snapshots[0].payment_sha256='3'.repeat(64);
+  plan.snapshots[0].documents[0].idempotency_key='4'.repeat(64);
+  plan.refresh={['c'.repeat(64)]:1};
+  await db.exec('set role collector_worker');
+  await assert.rejects(db.exec('select * from source.fns_pharmacy_decisions'),/permission denied/);
+  assert.equal((await db.query('select * from source.get_pharmacy_refresh_baseline($1,2025)',['c'.repeat(64)])).rows[0].id,1);
+  await assert.rejects(db.query('select source.import_pharmacy_refresh($1::jsonb)',[JSON.stringify({...plan,refresh:undefined})]),/refresh required/);
+  await db.query('select source.import_pharmacy_refresh($1::jsonb)',[JSON.stringify(plan)]);
+  await db.query('select source.import_pharmacy_refresh($1::jsonb)',[JSON.stringify(plan)]);
+  assert.equal((await db.query('select * from source.get_pharmacy_refresh_rows(2025,$1,$2)',['3'.repeat(64),'b'.repeat(64)])).rows.length,1);
+  await db.exec('reset role');
+  await run(); await run();
+  assert.equal((await db.query('select count(*)::int n from source.fns_pharmacy_decisions')).rows[0].n,2);
+  assert.equal((await db.query('select * from api.get_public_pharmacy_payments(2025,0)')).rows.length,1);
+  plan.plan_sha256='5'.repeat(64);
+  Object.assign(plan.artifacts[0],{sha256:'6'.repeat(64),object_key:'fns/6'});
+  plan.snapshots[0].payment_sha256='6'.repeat(64);
+  plan.snapshots[0].documents[0].idempotency_key='7'.repeat(64);
+  await assert.rejects(run(),/baseline/);
+  await db.exec('rollback');
+  assert.equal((await db.query('select count(*)::int n from source.fns_pharmacy_snapshots')).rows[0].n,2);
  } finally {await db.close();}
 });

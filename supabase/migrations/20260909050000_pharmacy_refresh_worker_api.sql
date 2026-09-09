@@ -1,14 +1,16 @@
--- Operator-only template. Replace __PLAN_JSON__ with a safely quoted JSON string
--- from prepare_pharmacy_import, after verifying all private Storage bytes.
--- Ordinary plans do not approve. Validated refresh plans bind the previous
--- snapshot and use the transactional approval guard; any conflict rolls back.
 begin;
-do $import$
+-- Dedicated worker surface: no direct access to decisions or private tables.
+-- Original bytes must still be rehashed/reconciled by the authorized worker.
+create function source.import_pharmacy_refresh(p jsonb)
+returns void language plpgsql security definer set search_path='' as $worker$
 declare
-  p jsonb := __PLAN_JSON__::jsonb;
   a jsonb; s jsonb; d jsonb; ep uuid; run_id uuid; art uuid;
   pay uuid; reg uuid; snap bigint; rec uuid; existing record; idx integer;
 begin
+  if jsonb_typeof(p) is distinct from 'object' or not coalesce(p ? 'refresh',false)
+    then raise exception 'Pharmacy refresh required'; end if;
+  if octet_length(p::text)>4194304 or jsonb_array_length(p->'snapshots')<>1
+    or jsonb_array_length(p->'artifacts')<>2 then raise exception 'Pharmacy refresh limits'; end if;
   perform pg_advisory_xact_lock(hashtext('fns-pharmacy-import-v1'));
   if p->>'version'<>'fns-pharmacy-import/1.0.0' or p->>'publication_allowed'<>'false'
     or jsonb_array_length(p->'snapshots') not between 1 and 20 then
@@ -99,5 +101,43 @@ begin
       'pharmacy-import:'||(p->>'plan_sha256')||':register',
       'pharmacy-import:'||(p->>'plan_sha256')||':register-renewal');
 end;
-$import$;
+$worker$;
+create function source.get_pharmacy_refresh_baseline(p_scope text,p_year integer)
+returns table(id bigint,approved boolean,payment jsonb,register jsonb)
+language sql stable security definer set search_path='' as $$
+  select s.id, coalesce((select d.decision='approved'
+      from source.fns_pharmacy_decisions d where d.snapshot_id=s.id
+      order by d.id desc limit 1),false),
+    jsonb_build_object('object_key',p.object_key,'sha256',p.sha256,'byte_size',p.byte_size,
+      'source_url',p.source_url,'http_status',p.http_status,'retrieved_at',p.retrieved_at,
+      'content_type',p.content_type),
+    jsonb_build_object('object_key',r.object_key,'sha256',r.sha256,'byte_size',r.byte_size,
+      'source_url',r.source_url,'http_status',r.http_status,'retrieved_at',r.retrieved_at,
+      'content_type',r.content_type)
+  from source.fns_pharmacy_snapshots s
+  join raw.raw_artifacts p on p.id=s.payment_artifact_id
+  join raw.raw_artifacts r on r.id=s.register_artifact_id
+  where s.scope_key=p_scope and s.payment_year=p_year
+  order by s.id desc limit 1;
+$$;
+create function source.get_pharmacy_refresh_scopes(p_year integer)
+returns table(scope_key text) language sql stable security definer set search_path='' as $$
+  select distinct s.scope_key from source.fns_pharmacy_snapshots s
+  where s.payment_year=p_year order by s.scope_key limit 1001;
+$$;
+create function source.get_pharmacy_refresh_rows(p_year integer,p_payment text,p_register text)
+returns table(id text,establishment text,date date,amount text,sha256 text,register_sha256 text)
+language sql stable security definer set search_path='' as $$
+  select r.id,r.establishment,r.date,r.amount,r.sha256,r.register_sha256
+  from source.reviewed_pharmacy_rows(p_year) r
+  where r.sha256=p_payment and r.register_sha256=p_register order by r.id limit 26;
+$$;
+revoke all on function source.import_pharmacy_refresh(jsonb),
+  source.get_pharmacy_refresh_baseline(text,integer),source.get_pharmacy_refresh_scopes(integer),
+  source.get_pharmacy_refresh_rows(integer,text,text) from public,anon,authenticated,service_role;
+grant usage on schema source to collector_worker;
+grant execute on function source.import_pharmacy_refresh(jsonb),
+  source.get_pharmacy_refresh_baseline(text,integer),source.get_pharmacy_refresh_scopes(integer),
+  source.get_pharmacy_refresh_rows(integer,text,text) to collector_worker;
 commit;
+

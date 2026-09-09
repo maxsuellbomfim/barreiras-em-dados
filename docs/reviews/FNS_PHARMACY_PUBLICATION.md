@@ -1,5 +1,42 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Automação em implementação
+
+`assess_refresh` compara duas capturas do mesmo estabelecimento/ano usando os
+leitores documentais existentes. A aprovação anterior deve vir do registro
+autoritativo, nunca de entrada pública. A regra distingue repetição sem novidade
+de acréscimo de documentos; valor, competência, consulta de ordem, remoção,
+cadastro diferente ou aprovação ausente impedem o caminho automático. Alterar
+apenas serialização ou ordem de linhas não cria documentos. Não calcula totais
+nem publica: `publication_allowed=false` permanece obrigatório nesta camada.
+
+Próximas integrações da mesma meta: carregar a aprovação e os originais privados
+no worker, registrar execução pelo `CollectionControl` existente, preservar e
+reler novas capturas, importar/aprovar atomicamente com conferência da versão
+anterior, programar a coleta e exibir atualização/cobertura/pendências públicas.
+Novos escopos, inclusive virada de ano, precisam de caminho explícito de identidade;
+não podem ser tratados como repetição de outro exercício. Esta regra isolada
+**não significa que a atualização automática esteja ativa**.
+
+A migration `20260909040000` acrescenta `source.approve_pharmacy_refresh` para
+o próximo passo de persistência. É `security invoker`, sem acesso de frontend
+ou novos grants ao coletor. Serializa inserções de snapshots e decisões, exige
+baseline imediatamente anterior ainda aprovado, mesma identidade/ano/cadastro,
+linhagem completa e conservação dos documentos anteriores. Acréscimos são
+permitidos; remoção, alteração ou duplicação entre escopos são recusadas.
+Replay devolve a mesma decisão, não cria outra aprovação. A validação SQL não
+substitui a releitura dos bytes nem a comparação documental completa no worker.
+Essa migration ainda não foi aplicada em produção; falta conectar o worker e
+o controle de execução antes de ativar a coleta/publicação programada.
+
+`prepare_pharmacy_refresh` liga a regra documental ao plano do importador:
+somente `append_only` gera plano com baseline privado; `unchanged` não cria
+novo snapshot. O template SQL reconhece esse plano e chama a aprovação na
+mesma transação da importação, inclusive no replay. Uma baseline substituída
+causa rollback integral. Planos comuns continuam sem aprovação automática.
+A aprovação e o ID da baseline devem ser obtidos do banco privado pelo worker,
+não recebidos do navegador. Os testes cobrem os caminhos XLSX e PDF.
+
 ## Cadastro oficial de renovação 2025 — lote publicado
 
 O PDF nacional do Ministério da Saúde foi preservado e lido integralmente:
@@ -297,6 +334,54 @@ Não retorna IDs privados, CNPJ, URLs com identificadores, notas, contas ou tota
 Sempre informa `historical_registration_verified=false`. O consumidor deve
 oferecer a fonte oficial e explicar o significado dos valores, sem somar à
 receita municipal ou ao ranking de emendas. Página vazia não comprova zero.
+
+## Atualização incremental em implementação (09/09/2026)
+
+O executor privado `execute_refresh` agora conecta o plano incremental ao
+Storage e ao adaptador PostgreSQL. O baseline vem do último snapshot no banco,
+inclusive quando estiver pendente ou revogado; não é escolhido pelo chamador.
+Os dois originais são relidos e conferidos por hash. Apenas acréscimos sem
+alteração dos documentos anteriores seguem para preservação e importação.
+
+O adaptador usa a função restrita `source.import_pharmacy_refresh` e mantém
+importação, aprovação e conferência da projeção pública na mesma transação.
+Compara todas as linhas esperadas, incluindo valores e hashes, antes do commit.
+Falha desfaz a escrita SQL; objetos imutáveis já preservados podem permanecer
+privados para retomada, sem aprovação ou publicação. O guard SQL volta a conferir
+o baseline sob bloqueio, impedindo aprovação com referência superada/revogada.
+
+Os testes cobrem leitura divergente no Storage, conflito documental, ausência
+de baseline, divergência da projeção e sanitização de erros. Isso ainda não é
+prova operacional: faltam agendamento, exposição da saúde da atualização,
+permissões mínimas do worker e execução real conferida. Nenhum agendamento ou
+grant é ativado por este módulo. Novos escopos e mudanças cadastrais continuam
+pendentes de revisão, não são tratados como atualização concluída.
+
+O comando `python -m barreiras_collectors.commands.refresh_fns_pharmacy --year
+2026 --directory <diretorio-privado>` conecta a aquisição local cifrada ao
+executor e usa `CollectionControl` antes de autenticar no Storage ou consultar
+o FNS. Reutiliza as configurações existentes do coletor, sem segredos em flags.
+O diretório representa uma aquisição; uma nova atualização requer novo
+diretório, enquanto a retomada usa o mesmo. Somente uma aquisição completa
+entrega observações privadas ao processador. Respostas com várias páginas
+ficam pendentes até a reconciliação documental correspondente, sem publicar
+apenas a primeira página. A saída contém contagens, nunca identificadores.
+
+Escopos anteriores ausentes do catálogo, identidade pendente e detalhes não
+suportados mantêm a execução parcial. Outros programas são contados à parte,
+sem entrar em Farmácia Popular. Falha retorna código 1; parcial, código 2.
+O teste integrado percorre coleta, leitores reais, preservação e conferência
+pré-commit com banco/Storage simulados. Em 09/09 a consulta read-only de produção
+confirmou 19 snapshots/335 documentos e ausência de grants do worker para
+snapshots/decisões; o guard incremental ainda não estava instalado. Portanto
+esse comando ainda exige a etapa de implantação, não é uma automação ativa.
+
+A migration `20260909050000` prepara a superfície mínima de execução: quatro
+funções exclusivas do `collector_worker`, com `search_path` fechado. Permitem
+ler o baseline/escopos, importar um único refresh e conferir suas linhas públicas.
+Não concedem leitura ou escrita direta nas tabelas de decisões, não aceitam
+planos de publicação inicial e não dão acesso a `anon`, `authenticated` ou
+`service_role`. O Python usa parâmetros, sem interpolar JSON em comandos SQL.
 
 Só o snapshot mais recente de cada escopo pode aparecer: novo retrato pendente
 bloqueia fallback. Aprovação exige quantidade completa e linhagem válida;

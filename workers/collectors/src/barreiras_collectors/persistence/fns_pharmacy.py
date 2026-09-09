@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 
 from ..connectors.fns_pharmacy_reconciliation import reconcile_pharmacy_captures
+from ..connectors.fns_pharmacy_refresh import assess_refresh
 
 
 def _sha(value):
@@ -13,6 +14,38 @@ def _sha(value):
             value, sort_keys=True, ensure_ascii=False, separators=(",", ":")
         ).encode()
     ).hexdigest()
+
+
+def prepare_pharmacy_refresh(
+    *,
+    previous,
+    current,
+    previous_register,
+    current_register,
+    previous_approved,
+    previous_snapshot_id,
+):
+    """Prepare only a verified append-only transition, with a database CAS guard.
+
+    Baseline ID and approval must come from the private authoritative repository.
+    Unchanged observations update acquisition health, not payment snapshots.
+    """
+    if type(previous_snapshot_id) is not int or not 0 < previous_snapshot_id < 10**18:
+        raise ValueError("Invalid pharmacy baseline")
+    report = assess_refresh(
+        previous=previous,
+        current=current,
+        previous_register=previous_register,
+        current_register=current_register,
+        previous_approved=previous_approved,
+    )
+    if report["status"] != "append_only":
+        return dict(**report, plan=None)
+    plan = prepare_pharmacy_import([current], register_capture=current_register)
+    plan.pop("plan_sha256")
+    plan["refresh"] = {plan["snapshots"][0]["scope_key"]: previous_snapshot_id}
+    plan["plan_sha256"] = _sha(plan)
+    return dict(**report, plan=plan)
 
 
 def prepare_pharmacy_import(captures, *, register_capture):

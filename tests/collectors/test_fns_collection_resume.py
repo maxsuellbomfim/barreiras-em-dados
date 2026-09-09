@@ -59,6 +59,37 @@ class Transport:
 
 
 class ResumeTests(unittest.TestCase):
+    def test_private_observations_are_delivered_only_after_complete_acquisition(self):
+        store = Store()
+        transport = Transport(store)
+        observations = []
+        partial = collect_year(
+            2025,
+            store,
+            transport,
+            max_requests=1,
+            sleep=lambda _: None,
+            observations=observations,
+        )
+        self.assertEqual(partial["status"], "partial")
+        self.assertEqual(observations, [])
+        complete = collect_year(
+            2025, store, transport, sleep=lambda _: None, observations=observations
+        )
+        self.assertEqual(complete["status"], "complete")
+        self.assertEqual(len(observations), 1)
+        self.assertEqual(observations[0]["beneficiary"], "1")
+        self.assertEqual(len(observations[0]["payment_captures"]), 2)
+        self.assertNotIn("payment_captures", complete)
+        self.assertNotIn("beneficiary", complete)
+        self.assertEqual(len(transport.calls), 3)
+        # A reused result list cannot append stale observations from another run.
+        failed = collect_year(
+            2025, store, transport, sleep=lambda _: None, observations=observations
+        )
+        self.assertEqual(failed["status"], "failed")
+        self.assertEqual(len(observations), 1)
+
     def test_multi_page_catalog_and_official_empty_are_distinct(self):
         for total, expected_status, pages in [(0, "empty", 1), (11, "complete", 24)]:
             store = Store()
