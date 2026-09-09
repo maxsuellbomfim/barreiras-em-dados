@@ -13,7 +13,7 @@ from ..connectors.fns_pharmacy_identity import REGISTER_PAGE
 from .fns_pharmacy import _sha, prepare_pharmacy_refresh
 
 
-def execute_refresh(*, repository, object_store, current, current_register):
+def execute_refresh(*, repository, object_store, current, current_register=None):
     """Execute one complete beneficiary/year observation, never an annual claim."""
     try:
         baseline = repository.load_baseline(current)
@@ -29,13 +29,14 @@ def execute_refresh(*, repository, object_store, current, current_register):
             previous=baseline["observation"],
             current=current,
             previous_register=baseline["register"],
-            current_register=current_register,
+            current_register=current_register or baseline["register"],
             previous_approved=baseline["approved"],
             previous_snapshot_id=baseline["snapshot_id"],
         )
         plan = report.pop("plan")
         if plan is None:
             return report
+        current_register = current_register or baseline["register"]
         bodies = {
             current["payment_capture"]["sha256"]: current["payment_capture"]["body"],
             current_register["sha256"]: current_register["body"],
@@ -162,6 +163,20 @@ class PostgresPharmacyRefreshRepository:
 
     def transaction(self):
         return self.connection.transaction()
+
+    def known_scope_keys(self, year):
+        from psycopg.rows import tuple_row
+
+        with self.connection.cursor(row_factory=tuple_row) as cursor:
+            cursor.execute(
+                "select distinct scope_key from source.fns_pharmacy_snapshots "
+                "where payment_year=%s limit 1001",
+                (year,),
+            )
+            rows = cursor.fetchall()
+        if len(rows) > 1000:
+            raise ValueError("Pharmacy scope limit exceeded")
+        return {row[0] for row in rows}
 
     def import_plan(self, plan):
         from psycopg import sql

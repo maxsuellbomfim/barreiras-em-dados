@@ -352,10 +352,29 @@ o baseline sob bloqueio, impedindo aprovação com referência superada/revogada
 
 Os testes cobrem leitura divergente no Storage, conflito documental, ausência
 de baseline, divergência da projeção e sanitização de erros. Isso ainda não é
-prova operacional: faltam conexão à aquisição, registro de saúde/agendamento,
+prova operacional: faltam agendamento, exposição da saúde da atualização,
 permissões mínimas do worker e execução real conferida. Nenhum agendamento ou
 grant é ativado por este módulo. Novos escopos e mudanças cadastrais continuam
 pendentes de revisão, não são tratados como atualização concluída.
+
+O comando `python -m barreiras_collectors.commands.refresh_fns_pharmacy --year
+2026 --directory <diretorio-privado>` conecta a aquisição local cifrada ao
+executor e usa `CollectionControl` antes de autenticar no Storage ou consultar
+o FNS. Reutiliza as configurações existentes do coletor, sem segredos em flags.
+O diretório representa uma aquisição; uma nova atualização requer novo
+diretório, enquanto a retomada usa o mesmo. Somente uma aquisição completa
+entrega observações privadas ao processador. Respostas com várias páginas
+ficam pendentes até a reconciliação documental correspondente, sem publicar
+apenas a primeira página. A saída contém contagens, nunca identificadores.
+
+Escopos anteriores ausentes do catálogo, identidade pendente e detalhes não
+suportados mantêm a execução parcial. Outros programas são contados à parte,
+sem entrar em Farmácia Popular. Falha retorna código 1; parcial, código 2.
+O teste integrado percorre coleta, leitores reais, preservação e conferência
+pré-commit com banco/Storage simulados. Em 09/09 a consulta read-only de produção
+confirmou 19 snapshots/335 documentos e ausência de grants do worker para
+snapshots/decisões; o guard incremental ainda não estava instalado. Portanto
+esse comando ainda exige a etapa de implantação, não é uma automação ativa.
 
 Só o snapshot mais recente de cada escopo pode aparecer: novo retrato pendente
 bloqueia fallback. Aprovação exige quantidade completa e linhagem válida;

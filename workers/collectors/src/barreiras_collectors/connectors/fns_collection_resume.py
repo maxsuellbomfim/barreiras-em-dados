@@ -24,8 +24,17 @@ class _Pause(Exception):
     pass
 
 
-def collect_year(year, store, transport, *, max_requests=20, sleep=time.sleep):
-    """Bounded 6 rpm acquisition; replay validates every preserved page again."""
+def collect_year(
+    year, store, transport, *, max_requests=20, sleep=time.sleep, observations=None
+):
+    """Bounded 6 rpm acquisition; replay validates every preserved page again.
+
+    Optional empty list receives PRIVATE observations only after completion.
+    It must never be logged or returned through a public interface. All detail
+    pages are retained so a consumer cannot mistake page one for the full year.
+    """
+    pending = []
+    pending_bytes = 0
     state = dict(
         year=year,
         status="running",
@@ -36,6 +45,9 @@ def collect_year(year, store, transport, *, max_requests=20, sleep=time.sleep):
     try:
         _require(type(year) is int and 2021 <= year <= 2100)
         _require(type(max_requests) is int and 1 <= max_requests <= 100)
+        _require(
+            observations is None or (type(observations) is list and not observations)
+        )
         prior = store.load("run")
         if prior is not None and prior["year"] != year:
             return dict(status="failed", publication_allowed=False)
@@ -143,11 +155,14 @@ def collect_year(year, store, transport, *, max_requests=20, sleep=time.sleep):
         result = inspect_entity_catalog(catalogs, payment_year=year)
         _require(result["status"] in ("complete", "empty"))
         for entity in entities:
-            _, details = page_capture("detalhe-pagamento", 1, 25, entity["cpfCnpj"])
+            captured, details = page_capture(
+                "detalhe-pagamento", 1, 25, entity["cpfCnpj"]
+            )
+            captures = []
             expected = details["total"]
             for page in range(1, max(1, details["totalPaginas"]) + 1):
                 if page > 1:
-                    _, details = page_capture(
+                    captured, details = page_capture(
                         "detalhe-pagamento", page, 25, entity["cpfCnpj"]
                     )
                 _require(details["total"] == expected)
@@ -155,6 +170,18 @@ def collect_year(year, store, transport, *, max_requests=20, sleep=time.sleep):
                     all(
                         r["uf"] == "BA" and str(r["anoPagamento"]) == str(year)
                         for r in details["dados"]
+                    )
+                )
+                if observations is not None:
+                    pending_bytes += captured["byte_size"]
+                    _require(pending_bytes <= 64 * 1024 * 1024)
+                    captures.append(captured)
+            if observations is not None:
+                pending.append(
+                    dict(
+                        beneficiary=entity["cpfCnpj"],
+                        payment_year=year,
+                        payment_captures=captures,
                     )
                 )
         state["status"] = result["status"]
@@ -165,4 +192,6 @@ def collect_year(year, store, transport, *, max_requests=20, sleep=time.sleep):
         # Never include URL, identifiers, source text or transport exception.
         state["status"] = "failed"
     store.save("run", state)
+    if observations is not None and state["status"] in ("complete", "empty"):
+        observations.extend(pending)
     return state

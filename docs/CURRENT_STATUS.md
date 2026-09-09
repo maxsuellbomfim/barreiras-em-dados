@@ -58,8 +58,10 @@ restantes; isso comprova aquisição, não publicação nem cobertura histórica
 
 A atualização automática está em implementação local. O executor incremental
 relê os originais privados, aceita somente acréscimos compatíveis e confere a
-projeção pública antes de confirmar a transação SQL. Ainda não está conectado
-ao agendamento nem validado numa execução real; não altera o estado da produção.
+projeção pública antes de confirmar a transação SQL. O comando local agora liga
+aquisição retomável, validação, importação e controle de execução. Ainda faltam
+permissões restritas, agendamento e validação numa execução real; não altera o
+estado da produção.
 
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
