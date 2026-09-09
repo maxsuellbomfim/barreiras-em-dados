@@ -56,12 +56,11 @@ O coletor local retomável de Outros Pagamentos preserva páginas cifradas antes
 da classificação. A prova de 2026 parou após uma página e retomou as cinco
 restantes; isso comprova aquisição, não publicação nem cobertura histórica total.
 
-A atualização automática está em implementação local. O executor incremental
+O executor da atualização automática
 relê os originais privados, aceita somente acréscimos compatíveis e confere a
 projeção pública antes de confirmar a transação SQL. O comando local agora liga
-aquisição retomável, validação, importação e controle de execução. Ainda faltam
-permissões restritas, agendamento e validação numa execução real; não altera o
-estado da produção.
+aquisição retomável, validação, importação e controle de execução. Permissões,
+agendamento e execução real foram validados conforme o registro abaixo.
 
 Os PRs #736 e #737 foram mesclados. Em 09/09, após autorização explícita, as
 quatro funções privadas foram habilitadas para `collector_worker`, sem acesso
@@ -69,8 +68,11 @@ direto às decisões. A execução real de 2026 preservou seis páginas, conferi
 17 documentos de dois estabelecimentos, separou três outros programas e terminou
 sem pendências ou acréscimos. O banco permaneceu com 335 documentos/19 decisões.
 A consulta pública da atualização confirmou estado completo e data da conferência.
-O wrapper de agendamento diário silencioso passou pela mesma execução real;
-sua instalação e prova pelo Windows Scheduler são a etapa operacional seguinte.
+A tarefa `Barreiras360-PharmacyRefresh` está instalada para 07:43 diariamente,
+sem janela. A execução pelo Windows Scheduler em 09/09 às 10:32 terminou com
+código 0 e os mesmos 17 documentos conferidos, sem acréscimos/pendências.
+Depende do computador e da sessão Windows disponíveis; cobre o ano corrente.
+Histórico e ambiguidades permanecem separados, sem presumir cobertura integral.
 
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
