@@ -1687,9 +1687,15 @@ try {
   `);
   assert.deepEqual(seeded.rows[0], {
     sources: 20,
-    endpoints: 38,
+    endpoints: 39,
     private_buckets: 1,
   });
+  const renewalEndpoint = await database.query(`
+    select e.http_method, e.rate_limit_per_minute, e.enabled
+    from source.source_endpoints e join source.data_sources s on s.id=e.data_source_id
+    where s.slug='fns-farmacia-popular' and e.slug='register-renewal'
+  `);
+  assert.deepEqual(renewalEndpoint.rows, [{http_method:'GET',rate_limit_per_minute:6,enabled:true}]);
 
   const rawArtifactBucket = await database.query(`
     select

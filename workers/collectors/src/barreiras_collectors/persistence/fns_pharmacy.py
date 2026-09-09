@@ -34,17 +34,24 @@ def prepare_pharmacy_import(captures, *, register_capture):
             if datetime.fromisoformat(retrieved).utcoffset() is None:
                 raise ValueError("timestamp")
             suffix = "xlsx" if kind == "register" else "json"
+            renewal = kind == "register" and capture.get("format") == "renewal_pdf"
+            if renewal:
+                suffix = "pdf"
             value = dict(
                 sha256=sha,
                 byte_size=capture["byte_size"],
                 object_key=f"fns/payments/pharmacy/sha256/{sha[:2]}/{sha}.{suffix}",
                 retrieved_at=retrieved,
-                endpoint=kind,
+                endpoint="register-renewal" if renewal else kind,
                 source_url=capture["source_url"]
                 if kind == "register"
                 else capture["request_url"],
-                http_status=None if kind == "register" else capture["http_status"],
-                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                http_status=None
+                if kind == "register" and not renewal
+                else capture["http_status"],
+                content_type="application/pdf"
+                if renewal
+                else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 if kind == "register"
                 else "application/json",
             )
@@ -77,6 +84,8 @@ def prepare_pharmacy_import(captures, *, register_capture):
                     register_row=ref["register_row"],
                     register_sha256=reg_sha,
                 )
+                if "register_page" in ref:
+                    payload["register_page"] = ref["register_page"]
                 documents.append(
                     dict(
                         payload=payload,

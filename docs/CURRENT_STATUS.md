@@ -36,6 +36,15 @@ identidade histórica pendente, fora da publicação. O leitor de catálogo vali
 paginação, integridade e escopo antes de fechar a contagem anual de entidades.
 Os detalhes e limites constam no documento de Farmácia Popular vinculado abaixo.
 
+Na revisão seguinte, o PDF oficial de renovação cadastral de 2025 resolveu a
+identidade institucional dos 119 documentos: sete recortes de quatro instituições,
+por CNPJ exato de estabelecimento e matriz, com página e linha preservadas.
+Isso não comprova credenciamento em 2021–2023. O leitor e as novas migrations
+foram preparados, mas **não aplicados em produção**. O envio dos sete JSON e do
+PDF ao bucket privado foi bloqueado pela revisão automática por exigir autorização
+específica para o novo lote. Continuam **216 documentos públicos**; nenhum dos
+119 foi importado ou aprovado nesta revisão.
+
 A página já mostra a contagem publicada de cada ano selecionado, os dois
 estabelecimentos conferidos e as datas documentais, com aviso de cobertura
 parcial. A contagem e a lista compartilham o mesmo gate de aprovação/linhagem;

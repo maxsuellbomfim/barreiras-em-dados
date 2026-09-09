@@ -98,6 +98,8 @@ def reconcile_pharmacy_captures(
                     register_sha256=identity["register_sha256"],
                     register_row=identity["register_row"],
                 )
+                if "register_page" in identity:
+                    evidence["register_page"] = identity["register_page"]
                 if key not in documents:
                     documents[key] = dict(payload=payload, evidence=[])
                 elif documents[key]["payload"] != payload:
