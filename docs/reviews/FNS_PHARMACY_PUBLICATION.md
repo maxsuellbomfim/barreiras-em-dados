@@ -1,6 +1,6 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
-## Cadastro oficial de renovação 2025 — revisão local, carga pendente
+## Cadastro oficial de renovação 2025 — lote publicado
 
 O PDF nacional do Ministério da Saúde foi preservado e lido integralmente:
 425 páginas, 33.049 linhas cadastrais, 4.745.940 bytes, SHA-256
@@ -25,12 +25,20 @@ histórico em 2021–2023**. Não há inferência de execução nem soma com eme
 O leitor restringe origem, MIME de persistência, SHA-256, tamanho, página e linha;
 o importador e o gate SQL preservam o caminho XLSX anterior e a aprovação separada.
 
-O envio ao bucket privado foi bloqueado pela revisão automática por falta de
-autorização específica deste lote. Nenhum arquivo novo foi enviado, as duas
-migrations novas não foram aplicadas remotamente e nenhum documento foi aprovado.
-Próximo passo dependente: autorizar os oito arquivos, reler bytes/hash do bucket,
-importar com replay, aprovar apenas após reconciliação e comparar a projeção
-pública integral. A contagem pública permanece 216, não 335.
+Após bloqueio inicial, o usuário autorizou explicitamente os sete JSON e o PDF,
+bem como a publicação após validação. Oito objetos criados e relidos byte a byte
+e por SHA-256. As duas migrations foram aplicadas, seguidas de simulação com
+rollback, importação e replay. A auditoria encontrou 119 esperados, 119 presentes,
+119 com payload/hash/linhagem correspondentes e 119 chaves distintas.
+Sete decisões de aprovação foram registradas. Novo replay manteve 19 snapshots,
+19 decisões e 335 documentos distintos. A comparação da projeção pública
+integral, incluindo os 216 anteriores, encontrou 335 correspondências de nome,
+data, valor e ambos os hashes; todos conservam credenciamento histórico falso.
+Não resta bloqueio de identidade neste lote de 119. A cobertura continua parcial:
+2021: 108; 2022: 78; 2023: 66; 2024: 41; 2025: 25; 2026: 17.
+A página pública de 2021 confirmou 108 pagamentos de seis estabelecimentos,
+paginação de 25 e aviso de cobertura parcial. Originais e identificadores
+permanecem privados; os pagamentos não entram nas receitas nem nas emendas.
 
 ## Publicação operacional verificada — 08/09/2026
 

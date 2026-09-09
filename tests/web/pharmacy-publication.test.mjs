@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { readPharmacyPublication } from '../../apps/web/lib/pharmacy-publication.mjs';
 
 const publication = () => ({approved:true, evidenceCurrent:true, year:2025, records:[{
@@ -8,6 +9,11 @@ const publication = () => ({approved:true, evidenceCurrent:true, year:2025, reco
   reconciliation:'standalone_fns', program:'FARMACIA POPULAR',
   municipality:'290320', beneficiaryType:'institution', account:'SECRET',
 }]});
+test('official renewal source is accessible without implying historical accreditation',async()=>{
+ const source=await readFile(new URL('../../apps/web/app/recursos/saude/pharmacy-payments.tsx',import.meta.url),'utf8');
+ assert.ok(source.includes('empresas-credenciadas-para-realizar-a-renovacao-2025/view'));
+ assert.ok(source.includes('A lista de renovação de 2025 ajuda a conferir a identidade'));
+});
 test('unpublished is pending, never official zero',()=>{
   assert.deepEqual(readPharmacyPublication(null),{status:'pending',records:[]});
 });
