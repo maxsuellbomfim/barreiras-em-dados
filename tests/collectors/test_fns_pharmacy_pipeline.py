@@ -187,6 +187,16 @@ class PharmacyPipelineTests(unittest.TestCase):
         self.assertEqual(result["status"], "complete")
         execute.assert_not_called()
 
+    def test_pending_review_is_preserved_privately_without_public_identifiers(self):
+        result, _ = self.run_pipeline(status="review_required")
+        self.args["store"].save.assert_called_once()
+        key, review = self.args["store"].save.call_args.args
+        self.assertEqual(len(key), 64)
+        self.assertEqual(review["kind"], "pharmacy_review")
+        self.assertEqual(len(review["items"]), 1)
+        self.assertEqual(review["items"][0]["reason"], "identity_or_document_conflict")
+        self.assertNotIn("items", result)
+
     def test_official_empty_without_history_is_empty_not_failed(self):
         result, execute = self.run_pipeline([], acquisition_status="empty")
         self.assertEqual(result["status"], "empty")

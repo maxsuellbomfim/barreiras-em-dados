@@ -63,11 +63,14 @@ aquisição retomável, validação, importação e controle de execução. Aind
 permissões restritas, agendamento e validação numa execução real; não altera o
 estado da produção.
 
-O PR #736 foi mesclado e o guard incremental instalado. A migration que concede
-as quatro funções ao worker foi bloqueada pela revisão de autorização e aguarda
-confirmação explícita; não houve coleta/publicação automática. A seção pública
-de saúde da atualização está preparada em branch separada: consulta apenas
-datas e contagens, sem conceder autoridade de escrita ao coletor.
+Os PRs #736 e #737 foram mesclados. Em 09/09, após autorização explícita, as
+quatro funções privadas foram habilitadas para `collector_worker`, sem acesso
+direto às decisões. A execução real de 2026 preservou seis páginas, conferiu
+17 documentos de dois estabelecimentos, separou três outros programas e terminou
+sem pendências ou acréscimos. O banco permaneceu com 335 documentos/19 decisões.
+A consulta pública da atualização confirmou estado completo e data da conferência.
+O wrapper de agendamento diário silencioso passou pela mesma execução real;
+sua instalação e prova pelo Windows Scheduler são a etapa operacional seguinte.
 
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
