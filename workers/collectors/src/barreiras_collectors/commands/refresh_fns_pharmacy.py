@@ -47,6 +47,7 @@ def _refresh_year(
     *, year, control, store, transport, repository, object_store, max_requests, sleep
 ):
     known = repository.known_scope_keys(year)
+    reviews = []
     observations = []
     acquisition = collect_year(
         year,
@@ -97,6 +98,7 @@ def _refresh_year(
         seen.add(scope)
         if len(captures) != 1 or programs != {"FARMACIA POPULAR"}:
             report["pending_scopes"] += 1
+            reviews.append(dict(scope_key=scope, reason="unsupported_or_mixed_pages"))
             continue
         result = execute_refresh(
             repository=repository,
@@ -118,7 +120,19 @@ def _refresh_year(
             ] += 1
         else:
             report["pending_scopes"] += 1
+            reviews.append(
+                dict(scope_key=scope, reason="identity_or_document_conflict")
+            )
     report["missing_scopes"] = len(known - seen)
+    reviews.extend(
+        dict(scope_key=scope, reason="missing_from_catalogue")
+        for scope in sorted(known - seen)
+    )
+    if reviews:
+        # Same DPAPI store as the full acquisition: not a public decision, not
+        # approval. Scope keys locate the preserved observations without names.
+        review = dict(kind="pharmacy_review", year=year, items=reviews)
+        store.save(_sha(["pharmacy-review", review]), review)
     if report["pending_scopes"] or report["missing_scopes"]:
         report["status"] = "partial"
     control.complete(
@@ -150,6 +164,9 @@ def main(argv=None):
     parser.add_argument("--year", type=int, required=True)
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--max-requests", type=int, default=20)
+    parser.add_argument(
+        "--execution-origin", choices=("manual", "windows_scheduler"), default="manual"
+    )
     args = parser.parse_args(argv)
     try:
         if not 2021 <= args.year <= 2100 or not 1 <= args.max_requests <= 100:
@@ -165,10 +182,13 @@ def main(argv=None):
             repository=PostgresCollectionRepository.from_dsn(settings.database_url),
             source_code="fns-farmacia-popular",
             endpoint_code="payment",
-            idempotency_key=build_execution_idempotency_key("pharmacy-refresh"),
+            idempotency_key=build_execution_idempotency_key(
+                f"pharmacy-refresh-{args.year}"
+            ),
             collector_version="pharmacy-refresh/1.0.0",
             parser_version="pharmacy-refresh/1.0.0",
             partition_key=f"pharmacy-refresh:{args.year}",
+            execution_origin=args.execution_origin,
             period_start=date(args.year, 1, 1),
             period_end=date(args.year, 12, 31),
         )

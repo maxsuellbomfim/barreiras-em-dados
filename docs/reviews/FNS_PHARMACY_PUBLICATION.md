@@ -385,6 +385,33 @@ planos de publicação inicial e não dão acesso a `anon`, `authenticated` ou
 
 ## Estado público da atualização
 
+### Operação validada em 09/09/2026
+
+As quatro funções privadas foram autorizadas e aplicadas. O login do coletor
+herda apenas sua execução, sem SELECT/INSERT/UPDATE/DELETE direto nas decisões.
+Uma execução real e outra pelo wrapper preservaram seis páginas e verificaram
+17 documentos de 2026, sem novos documentos, pendências ou escopos ausentes.
+Três consultas de outros programas foram excluídas da classificação de Farmácia
+Popular. O conjunto preservou 19 snapshots, 335 documentos e 19 decisões.
+
+`scripts/install-pharmacy-refresh-schedule.ps1` prepara tarefa diária às 07:43
+para o ano corrente. Usa Windows Scheduler, sessão interativa sem elevação,
+janela oculta, limite de 30 minutos e proibição de sobreposição. O computador
+e a sessão do usuário precisam estar disponíveis; não é serviço cloud 24/7.
+`-CredentialRoot` permite reutilizar o cofre existente sem copiar credenciais.
+O wrapper mantém originais cifrados em `data/pharmacy-refresh/<ano>/<lote>`;
+um checkpoint incompleto retoma o mesmo lote. Aquisição concluída com pendências
+preserva seu lote e permite nova consulta no próximo dia, sem aprovar conflitos.
+Pendências têm manifestos privados cifrados `kind=pharmacy_review`, com chave de
+escopo e motivo, junto às páginas originais. A saída pública contém só contagens.
+Revisão desses manifestos exige o usuário Windows que os preservou; ainda não
+existe uma caixa de revisão web para eles. Nenhum original local é apagado.
+
+Instalação só é considerada ativa após consultar a tarefa registrada e conferir
+uma execução com `execution_origin=windows_scheduler`. Não confundir testes do
+wrapper com execução pelo agendador. Histórico de 2021–2025 não é reconsultado
+diariamente por essa tarefa; pode usar o mesmo wrapper com `-Year` explícito.
+
 A migration `20260909060000` é independente da autoridade de escrita do worker:
 expõe somente datas, estado e contagens explícitas de execuções controladas.
 Exclui importações operacionais e não retorna IDs, erros, cursors, identificadores
