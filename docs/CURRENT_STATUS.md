@@ -36,6 +36,14 @@ identidade histórica pendente, fora da publicação. O leitor de catálogo vali
 paginação, integridade e escopo antes de fechar a contagem anual de entidades.
 Os detalhes e limites constam no documento de Farmácia Popular vinculado abaixo.
 
+A página já mostra a contagem publicada de cada ano selecionado, os dois
+estabelecimentos conferidos e as datas documentais, com aviso de cobertura
+parcial. A contagem e a lista compartilham o mesmo gate de aprovação/linhagem;
+nenhum total fica preservado quando o documento deixa de estar aprovado.
+O coletor local retomável de Outros Pagamentos preserva páginas cifradas antes
+da classificação. A prova de 2026 parou após uma página e retomou as cinco
+restantes; isso comprova aquisição, não publicação nem cobertura histórica total.
+
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
 estabelecimentos do piloto passaram na conferência local em 08/09. Isso não

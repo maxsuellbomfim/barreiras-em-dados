@@ -103,6 +103,52 @@ A interface distingue indisponibilidade dessa contagem, mostra estabelecimentos
 com identidade conferida e explica que os extremos das datas não comprovam
 coleta contínua. A conferência viva preservou os 216 documentos publicados.
 
+Em produção, 2021 mostra 48 pagamentos de dois estabelecimentos. A versão nova
+preservou o fingerprint integral da projeção pública
+`7af550f9a04f40cf2dd0a6fc60315d7a` (MD5 usado apenas para comparação SQL, não
+como hash de custódia). Desktop a 1280 px e celular a 390 px foram inspecionados
+visualmente e não apresentaram overflow horizontal.
+
+### Aquisição privada paginada e retomável
+
+`collect_fns_other_payments_local` substitui a coleta operacional descartável
+por um comando versionado. Exemplo, com `PYTHONPATH=workers/collectors/src`:
+
+```text
+python -m barreiras_collectors.commands.collect_fns_other_payments_local --year 2026 --directory .tmp/pharmacy-2026-snapshot-01 --max-requests 20
+```
+
+Repetir o mesmo comando retoma as páginas faltantes: relê, decifra e confere
+as capturas existentes, sem refazer suas requisições. Uma atualização da fonte
+exige outra pasta de snapshot; nunca sobrescrever os originais antigos. A pasta
+não deve entrar no Git nem ser compartilhada. O comando não usa credenciais
+Supabase e não faz upload, normalização ou publicação.
+
+- Registra a execução antes da primeira requisição; estado parcial/falha retorna
+  código diferente de zero. Logs contêm somente ano, contadores e estado.
+- Limite de seis requisições por minuto, timeout de 45 segundos e três tentativas
+  com backoff para falhas transitórias. Orçamento de até 100 requisições por
+  invocação, 100 páginas por recurso e 128 MiB de arquivos locais por snapshot.
+- Catálogo completo e detalhes são paginados, com escopo/quantidades consistentes,
+  tamanho limitado, SHA-256 e read-back. Hash identifica bytes, não autentica a
+  fonte. Aquisição via HTTPS oficial é verificada separadamente.
+- Windows DPAPI CurrentUser, escritas atômicas cifradas e lock exclusivo impedem
+  duas instâncias na mesma pasta. Nenhuma janela auxiliar é aberta.
+- `complete` significa somente que as páginas declaradas pela fonte naquele
+  retrato foram preservadas. Não significa que todos os pagamentos são Farmácia
+  Popular ou publicáveis. `empty` só se refere ao catálogo oficialmente vazio.
+- Detalhes com múltiplas páginas ficam privados: o publicador documental atual
+  continua recusando esse caso até reconciliação dos totais entre páginas.
+
+Prova operacional em 09/09/2026 UTC: primeira invocação limitada a uma requisição
+terminou `partial`, com uma página. A retomada fez cinco requisições e terminou
+`complete`, com seis páginas preservadas para cinco entidades do catálogo 2026.
+O replay conferiu as mesmas seis páginas com zero requisições. Passaram 130
+testes FNS (incluindo DPAPI e lock no Windows), Ruff e 692 testes Node.
+Não houve upload ou alteração pública nessa prova. Os 119 documentos históricos
+sem identidade comprovada continuam fora da publicação; isso é uma limitação
+explicitamente registrada, não um motivo para inferir identidade por nome.
+
 `inspect_pharmacy_capture` aceita uma página completa, até 25 registros,
 de Outros Pagamentos (tipo 3), no recorte Barreiras/BA. Confere URL solicitada
 e final, ano, beneficiário consultado, SHA-256, tamanho, HTTP e paginação.
