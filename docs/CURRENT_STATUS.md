@@ -69,8 +69,11 @@ direto às decisões. A execução real de 2026 preservou seis páginas, conferi
 17 documentos de dois estabelecimentos, separou três outros programas e terminou
 sem pendências ou acréscimos. O banco permaneceu com 335 documentos/19 decisões.
 A consulta pública da atualização confirmou estado completo e data da conferência.
-O wrapper de agendamento diário silencioso passou pela mesma execução real;
-sua instalação e prova pelo Windows Scheduler são a etapa operacional seguinte.
+A tarefa `Barreiras360-PharmacyRefresh` está instalada para 07:43 diariamente,
+sem janela. A execução pelo Windows Scheduler em 09/09 às 10:32 terminou com
+código 0 e os mesmos 17 documentos conferidos, sem acréscimos/pendências.
+Depende do computador e da sessão Windows disponíveis; cobre o ano corrente.
+Histórico e ambiguidades permanecem separados, sem presumir cobertura integral.
 
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois

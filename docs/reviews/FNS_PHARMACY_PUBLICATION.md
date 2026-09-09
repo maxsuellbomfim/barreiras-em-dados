@@ -407,9 +407,13 @@ escopo e motivo, junto às páginas originais. A saída pública contém só con
 Revisão desses manifestos exige o usuário Windows que os preservou; ainda não
 existe uma caixa de revisão web para eles. Nenhum original local é apagado.
 
-Instalação só é considerada ativa após consultar a tarefa registrada e conferir
-uma execução com `execution_origin=windows_scheduler`. Não confundir testes do
-wrapper com execução pelo agendador. Histórico de 2021–2025 não é reconsultado
+Instalação confirmada em 09/09: a tarefa iniciou às 10:32:51 (Brasília), com
+`execution_origin=windows_scheduler`, e terminou com código 0; seis páginas,
+17 documentos, dois escopos inalterados, três outros programas excluídos e
+zero pendências/ausências. Próxima execução: 10/09 às 07:43. O instalador usa
+o Windows PowerShell do sistema, não o diretório do host embarcado do Codex:
+a primeira tentativa revelou executável ausente e não iniciou coleta; corrigida
+a configuração, a prova agendada passou. Histórico de 2021–2025 não é reconsultado
 diariamente por essa tarefa; pode usar o mesmo wrapper com `-Year` explícito.
 
 A migration `20260909060000` é independente da autoridade de escrita do worker:

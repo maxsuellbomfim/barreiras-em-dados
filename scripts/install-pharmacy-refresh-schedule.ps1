@@ -13,7 +13,9 @@ foreach($file in @('.collector-credentials.local.json','.env.collector.local')){
     if(-not (Test-Path -LiteralPath (Join-Path $CredentialRoot $file))){throw 'Collector configuration unavailable'}
 }
 $arguments="-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`" -CredentialRoot `"$CredentialRoot`" -Scheduled"
-$action=New-ScheduledTaskAction -Execute (Join-Path $PSHOME 'powershell.exe') -Argument $arguments -WorkingDirectory $projectRoot
+$powerShellPath=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+if(-not (Test-Path -LiteralPath $powerShellPath)){throw 'Windows PowerShell unavailable'}
+$action=New-ScheduledTaskAction -Execute $powerShellPath -Argument $arguments -WorkingDirectory $projectRoot
 $trigger=New-ScheduledTaskTrigger -Daily -At $DailyAt
 $settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -WakeToRun -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
 $principal=New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
