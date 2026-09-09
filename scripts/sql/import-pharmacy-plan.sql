@@ -33,7 +33,7 @@ begin
       insert into raw.raw_artifacts(collection_run_id,source_endpoint_id,idempotency_key,artifact_kind,
         source_url,retrieved_at,http_status,content_type,byte_size,sha256,object_key,collector_version,parser_version)
       values(run_id,ep,'pharmacy-artifact:'||(a->>'sha256'),
-        case when a->>'endpoint'='register' then 'document' else 'http_response' end,
+        case when a->>'endpoint' in ('register','register-renewal') then 'document' else 'http_response' end,
         a->>'source_url',(a->>'retrieved_at')::timestamptz,(a->>'http_status')::smallint,
         a->>'content_type',(a->>'byte_size')::bigint,a->>'sha256',a->>'object_key',p->>'version',p->>'version');
     end if;
@@ -71,15 +71,17 @@ begin
             d->>'payload_sha256',p->>'version',d->>'idempotency_key',retrieved_at
           from raw.raw_artifacts where id=pay returning id into rec;
       end if;
-      insert into source.fns_pharmacy_documents(snapshot_id,document_key,raw_record_id,document_date,net_amount,source_row,register_row)
+      insert into source.fns_pharmacy_documents(snapshot_id,document_key,raw_record_id,document_date,net_amount,source_row,register_row,register_page)
       values(snap,d->'payload'->>'document_key',rec,(d->'payload'->>'document_date')::date,
-        (d->'payload'->>'net')::numeric,(d->'payload'->>'source_row')::integer,(d->'payload'->>'register_row')::integer);
+        (d->'payload'->>'net')::numeric,(d->'payload'->>'source_row')::integer,(d->'payload'->>'register_row')::integer,
+        (d->'payload'->>'register_page')::integer);
     end loop;
   end loop;
   update source.collection_runs set status='partial',completed_at=clock_timestamp(),
     metrics=metrics||jsonb_build_object('import_verified',true,'publication_allowed',false)
     where idempotency_key in ('pharmacy-import:'||(p->>'plan_sha256')||':payment',
-      'pharmacy-import:'||(p->>'plan_sha256')||':register');
+      'pharmacy-import:'||(p->>'plan_sha256')||':register',
+      'pharmacy-import:'||(p->>'plan_sha256')||':register-renewal');
 end;
 $import$;
 commit;

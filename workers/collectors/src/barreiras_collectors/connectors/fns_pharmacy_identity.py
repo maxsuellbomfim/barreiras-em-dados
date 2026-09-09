@@ -100,6 +100,13 @@ def inspect_pharmacy_identity(
             payment_capture, beneficiary=beneficiary, payment_year=payment_year
         )
         _require(payment["status"] == "documentary_consistent")
+        if register_capture.get("format") == "renewal_pdf":
+            from .fns_pharmacy_renewal import inspect_renewal_register
+
+            result = inspect_renewal_register(register_capture, beneficiary)
+            if result["status"] == "institution_matched":
+                result["payment_sha256"] = payment_capture["sha256"]
+            return result
         raw = register_capture["body"]
         _require(isinstance(raw, bytes) and 0 < len(raw) <= MAX_BYTES)
         _require(type(register_capture["byte_size"]) is int)

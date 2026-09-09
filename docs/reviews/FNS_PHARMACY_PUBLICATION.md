@@ -1,5 +1,37 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Cadastro oficial de renovação 2025 — revisão local, carga pendente
+
+O PDF nacional do Ministério da Saúde foi preservado e lido integralmente:
+425 páginas, 33.049 linhas cadastrais, 4.745.940 bytes, SHA-256
+`66509552e1bf89ac6ced0ce5dd9d2ac6bce018ad6b8e1cf80a31846e8088ef57`.
+Fonte: [renovação cadastral 2025](https://www.gov.br/saude/pt-br/composicao/sectics/farmacia-popular/renovacao-de-estabelecimentos-participantes/empresas-credenciadas-para-realizar-a-renovacao-2025/view).
+Dois leitores independentes e inspeção visual dos nomes confirmaram quatro
+instituições por identificador exato de estabelecimento, igual ao da matriz.
+A coluna de razão social é da matriz: filiais diferentes não são resolvidas
+automaticamente. Nomes quebrados em mais de uma linha são conservados completos.
+
+| Página / linha de dados | Instituição | Documentos por ano |
+| --- | --- | --- |
+| 44 / 56 | COMERCIAL FARMACEUTICA V.L.A LTDA | 2021: 2 |
+| 385 / 25 | REDE DROGARIAS ULTRA POPULAR LTDA | 2021: 10 |
+| 56 / 9 | D DOS SANTOS DE JESUS COMERCIO DE MEDICAMENTOS LTDA | 2021: 24; 2022: 23; 2023: 24 |
+| 366 / 50 | PRODUTOS FARMACEUTICOS MASCARENHAS LTDA | 2021: 24; 2022: 12 |
+
+Plano privado validado: sete snapshots, 119 documentos, oito arquivos (sete
+JSON e um PDF), hash `1c5ffeafd65545ea62dacf9f77ad0a2022f7d3e97b1bdff1f63d5a6d159a8745`.
+O cadastro de 2025 resolve identidade institucional, **não credenciamento
+histórico em 2021–2023**. Não há inferência de execução nem soma com emendas.
+O leitor restringe origem, MIME de persistência, SHA-256, tamanho, página e linha;
+o importador e o gate SQL preservam o caminho XLSX anterior e a aprovação separada.
+
+O envio ao bucket privado foi bloqueado pela revisão automática por falta de
+autorização específica deste lote. Nenhum arquivo novo foi enviado, as duas
+migrations novas não foram aplicadas remotamente e nenhum documento foi aprovado.
+Próximo passo dependente: autorizar os oito arquivos, reler bytes/hash do bucket,
+importar com replay, aprovar apenas após reconciliação e comparar a projeção
+pública integral. A contagem pública permanece 216, não 335.
+
 ## Publicação operacional verificada — 08/09/2026
 
 O usuário autorizou explicitamente importar os três arquivos no bucket privado

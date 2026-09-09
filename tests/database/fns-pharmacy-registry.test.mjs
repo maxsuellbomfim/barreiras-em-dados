@@ -22,6 +22,7 @@ async function setup() {
   `);
   await db.exec(migration);
   await db.exec(await readFile(new URL('../../supabase/migrations/20260909001000_pharmacy_public_coverage.sql', import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260909010000_pharmacy_renewal_identity.sql', import.meta.url), 'utf8'));
   return db;
 }
 async function snapshot(db, scope='c'.repeat(64)) {
@@ -38,6 +39,28 @@ async function decide(db,id,decision='approved') {
 }
 const read = db => db.query('select * from api.get_public_pharmacy_payments(2025,0)');
 const coverage = async db => (await db.query('select * from api.get_public_pharmacy_coverage(2025)')).rows[0];
+
+test('renewal PDF requires official source, HTTP 200 and matching page; stays private',async()=>{
+  const db=await setup();
+  try {
+    await db.exec(`update raw.raw_artifacts set source_url='https://www.gov.br/saude/pt-br/composicao/sectics/farmacia-popular/renovacao-de-estabelecimentos-participantes/empresas-credenciadas-para-realizar-a-renovacao-2025/@@download/file',content_type='application/pdf',http_status=200 where id='00000000-0000-0000-0000-000000000002';
+      update raw.raw_records set payload=payload||'{"register_page":44,"register_row":1}';`);
+    const id=await snapshot(db);
+    await db.query(`insert into source.fns_pharmacy_documents(snapshot_id,document_key,raw_record_id,document_date,net_amount,source_row,register_row,register_page)
+      values($1,$2,'00000000-0000-0000-0000-000000000003','2025-02-07',10,1,1,44)`,[id,key]);
+    await decide(db,id);
+    assert.equal((await read(db)).rows.length,1);
+    assert.doesNotMatch(JSON.stringify((await read(db)).rows),/register_page|scope_key/);
+    for(const bad of ["http_status=null", "source_url='https://example.com/register.pdf'"]){
+      await db.exec('begin');
+      await db.exec(`update raw.raw_artifacts set ${bad} where id='00000000-0000-0000-0000-000000000002'`);
+      assert.equal((await read(db)).rows.length,0);
+      await db.exec('rollback');
+    }
+    await db.exec(`update raw.raw_records set payload=payload||'{"register_page":45}'`);
+    assert.equal((await coverage(db)).published_documents,0);
+  } finally {await db.close();}
+});
 
 test('pharmacy pending, approved, revoked and new snapshot never fall back', async () => {
   const db=await setup();
