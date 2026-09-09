@@ -1,5 +1,23 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Automação em implementação
+
+`assess_refresh` compara duas capturas do mesmo estabelecimento/ano usando os
+leitores documentais existentes. A aprovação anterior deve vir do registro
+autoritativo, nunca de entrada pública. A regra distingue repetição sem novidade
+de acréscimo de documentos; valor, competência, consulta de ordem, remoção,
+cadastro diferente ou aprovação ausente impedem o caminho automático. Alterar
+apenas serialização ou ordem de linhas não cria documentos. Não calcula totais
+nem publica: `publication_allowed=false` permanece obrigatório nesta camada.
+
+Próximas integrações da mesma meta: carregar a aprovação e os originais privados
+no worker, registrar execução pelo `CollectionControl` existente, preservar e
+reler novas capturas, importar/aprovar atomicamente com conferência da versão
+anterior, programar a coleta e exibir atualização/cobertura/pendências públicas.
+Novos escopos, inclusive virada de ano, precisam de caminho explícito de identidade;
+não podem ser tratados como repetição de outro exercício. Esta regra isolada
+**não significa que a atualização automática esteja ativa**.
+
 ## Cadastro oficial de renovação 2025 — lote publicado
 
 O PDF nacional do Ministério da Saúde foi preservado e lido integralmente:
