@@ -18,6 +18,17 @@ Novos escopos, inclusive virada de ano, precisam de caminho explícito de identi
 não podem ser tratados como repetição de outro exercício. Esta regra isolada
 **não significa que a atualização automática esteja ativa**.
 
+A migration `20260909040000` acrescenta `source.approve_pharmacy_refresh` para
+o próximo passo de persistência. É `security invoker`, sem acesso de frontend
+ou novos grants ao coletor. Serializa inserções de snapshots e decisões, exige
+baseline imediatamente anterior ainda aprovado, mesma identidade/ano/cadastro,
+linhagem completa e conservação dos documentos anteriores. Acréscimos são
+permitidos; remoção, alteração ou duplicação entre escopos são recusadas.
+Replay devolve a mesma decisão, não cria outra aprovação. A validação SQL não
+substitui a releitura dos bytes nem a comparação documental completa no worker.
+Essa migration ainda não foi aplicada em produção; falta conectar o worker e
+o controle de execução antes de ativar a coleta/publicação programada.
+
 ## Cadastro oficial de renovação 2025 — lote publicado
 
 O PDF nacional do Ministério da Saúde foi preservado e lido integralmente:

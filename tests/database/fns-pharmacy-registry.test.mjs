@@ -25,9 +25,9 @@ async function setup() {
   await db.exec(await readFile(new URL('../../supabase/migrations/20260909010000_pharmacy_renewal_identity.sql', import.meta.url), 'utf8'));
   return db;
 }
-async function snapshot(db, scope='c'.repeat(64)) {
+async function snapshot(db, scope='c'.repeat(64), expected=1) {
   const {rows} = await db.query(`insert into source.fns_pharmacy_snapshots(scope_key,payment_year,payment_artifact_id,register_artifact_id,payment_sha256,register_sha256,establishment,expected_documents)
-    values ($1,2025,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',repeat('a',64),repeat('b',64),'FARMACIA TESTE',1) returning id`, [scope]);
+    values ($1,2025,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',repeat('a',64),repeat('b',64),'FARMACIA TESTE',$2) returning id`, [scope,expected]);
   return rows[0].id;
 }
 async function document(db, id) {
@@ -39,6 +39,53 @@ async function decide(db,id,decision='approved') {
 }
 const read = db => db.query('select * from api.get_public_pharmacy_payments(2025,0)');
 const coverage = async db => (await db.query('select * from api.get_public_pharmacy_coverage(2025)')).rows[0];
+
+test('refresh approval is atomic, replayable and unavailable to public roles',async()=>{
+ const db=await setup();
+ try {
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260909040000_pharmacy_refresh_guard.sql',import.meta.url),'utf8'));
+  const before=await snapshot(db); await document(db,before); await decide(db,before);
+  const after=await snapshot(db); await document(db,after);
+  const approve=()=>db.query('select source.approve_pharmacy_refresh($1,$2) as id',[before,after]);
+  const first=(await approve()).rows[0].id;
+  assert.equal((await approve()).rows[0].id,first);
+  assert.equal((await read(db)).rows.length,1);
+  assert.equal((await db.query('select count(*)::int n from source.fns_pharmacy_decisions')).rows[0].n,2);
+  await decide(db,before,'revoked');
+  await assert.rejects(approve(),/baseline/);
+  await db.exec('set role anon');
+  await assert.rejects(approve(),/permission denied/);
+ }finally{await db.close();}
+});
+
+test('refresh refuses superseded baseline and another scope',async()=>{
+ const db=await setup();
+ try {
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260909040000_pharmacy_refresh_guard.sql',import.meta.url),'utf8'));
+  const before=await snapshot(db); await document(db,before); await decide(db,before);
+  const middle=await snapshot(db); await document(db,middle);
+  const after=await snapshot(db); await document(db,after);
+  await assert.rejects(db.query('select source.approve_pharmacy_refresh($1,$2)',[before,after]),/baseline/);
+  const other=await snapshot(db,'e'.repeat(64)); await document(db,other);
+  await assert.rejects(db.query('select source.approve_pharmacy_refresh($1,$2)',[before,other]),/scope/);
+ }finally{await db.close();}
+});
+
+for(const mode of ['added','changed','removed']) test(`refresh ${mode} documents without silent replacement`,async()=>{
+ const db=await setup();
+ try {
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260909040000_pharmacy_refresh_guard.sql',import.meta.url),'utf8'));
+  const before=await snapshot(db); await document(db,before); await decide(db,before);
+  const after=await snapshot(db,'c'.repeat(64),mode==='added'?2:1);
+  const newKey=mode==='changed'?key:'e'.repeat(64), amount=mode==='changed'?'12.00':'10.00', row=mode==='added'?2:1;
+  await db.query(`insert into raw.raw_records select '00000000-0000-0000-0000-000000000004',raw_artifact_id,record_type,payload||jsonb_build_object('document_key',$1::text,'net',$2::text,'source_row',$3::int) from raw.raw_records where id='00000000-0000-0000-0000-000000000003'`,[newKey,amount,row]);
+  if(mode==='added') await document(db,after);
+  await db.query(`insert into source.fns_pharmacy_documents(snapshot_id,document_key,raw_record_id,document_date,net_amount,source_row,register_row) values($1,$2,'00000000-0000-0000-0000-000000000004','2025-02-07',$3,$4,2)`,[after,newKey,amount,row]);
+  const approve=()=>db.query('select source.approve_pharmacy_refresh($1,$2)',[before,after]);
+  if(mode==='added') {await approve();assert.equal((await read(db)).rows.length,2);}
+  else {await assert.rejects(approve(),/changed or removed/);assert.equal((await read(db)).rows.length,0);}
+ }finally{await db.close();}
+});
 
 test('renewal PDF requires official source, HTTP 200 and matching page; stays private',async()=>{
   const db=await setup();
