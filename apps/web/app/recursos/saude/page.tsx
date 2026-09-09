@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getPharmacyPage } from '../../../lib/pharmacy';
+import { getPharmacyPage, getPharmacyCoverage } from '../../../lib/pharmacy';
 import { PharmacyPayments } from './pharmacy-payments';
 
 export const metadata: Metadata = { title: 'Recursos da saúde' };
@@ -8,11 +8,11 @@ export default async function HealthResourcesPage({searchParams}:{searchParams:P
   const params=await searchParams;
   const year=params.ano===undefined ? 2025 : Number(params.ano);
   const page=params.pagina===undefined ? 1 : Number(params.pagina);
-  const {publication,hasNext}=await getPharmacyPage(year,page);
+  const [{publication,hasNext},coverage]=await Promise.all([getPharmacyPage(year,page),getPharmacyCoverage(year)]);
   const validScope=Number.isInteger(year)&&year>=2021&&year<=2100&&Number.isInteger(page)&&page>=1&&page<=401;
   const years=Array.from(new Set([...Array.from({length:new Date().getUTCFullYear()-2020},(_,i)=>2021+i),validScope?year:2025])).sort((a,b)=>b-a);
   return <main><header className="site-header"><a href="/recursos">← Recursos de Barreiras</a></header>
-    <PharmacyPayments publication={publication} filters={
+    <PharmacyPayments publication={publication} coverage={coverage} filters={
       <form className="transfer-year-filter" action="/recursos/saude" method="get" aria-label="Filtrar pagamentos por ano">
         <div><label htmlFor="pharmacy-year">Ano do pagamento</label>
           <select id="pharmacy-year" name="ano" defaultValue={validScope?year:2025}>

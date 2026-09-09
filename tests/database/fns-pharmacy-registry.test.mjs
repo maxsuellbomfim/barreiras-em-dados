@@ -21,6 +21,7 @@ async function setup() {
       '{"document_key":"${key}","document_date":"2025-02-07","net":"10.00","source_row":1,"establishment":"FARMACIA TESTE","register_row":2,"register_sha256":"${'b'.repeat(64)}"}');
   `);
   await db.exec(migration);
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260909001000_pharmacy_public_coverage.sql', import.meta.url), 'utf8'));
   return db;
 }
 async function snapshot(db, scope='c'.repeat(64)) {
@@ -36,23 +37,29 @@ async function decide(db,id,decision='approved') {
   await db.query(`insert into source.fns_pharmacy_decisions(snapshot_id,decision,reviewer_ref,review_note) values ($1,$2,'operator:test','Private review note not for frontend')`,[id,decision]);
 }
 const read = db => db.query('select * from api.get_public_pharmacy_payments(2025,0)');
+const coverage = async db => (await db.query('select * from api.get_public_pharmacy_coverage(2025)')).rows[0];
 
 test('pharmacy pending, approved, revoked and new snapshot never fall back', async () => {
   const db=await setup();
   try {
     const id=await snapshot(db); await document(db,id);
     assert.equal((await read(db)).rows.length,0);
+    assert.equal((await coverage(db)).status,'pending');
     await decide(db,id);
     await db.exec('set role anon');
     const rows=(await read(db)).rows;
     assert.equal(rows.length,1); assert.equal(rows[0].amount,'10.00');
     assert.equal(rows[0].historical_registration_verified,false);
+    assert.equal((await coverage(db)).published_documents,1);
+    assert.equal((await coverage(db)).status,'partial');
     assert.doesNotMatch(JSON.stringify(rows), /review_note|Private review|raw_record_id|scope_key|snapshot_id/);
     await assert.rejects(db.query('select * from source.fns_pharmacy_documents'), /permission denied/);
     await db.exec('reset role');
     await decide(db,id,'revoked'); assert.equal((await read(db)).rows.length,0);
+    assert.equal((await coverage(db)).published_documents,0);
     await decide(db,id); assert.equal((await read(db)).rows.length,1);
     await snapshot(db); assert.equal((await read(db)).rows.length,0);
+    assert.equal((await coverage(db)).status,'pending');
   } finally { await db.close(); }
 });
 
@@ -66,6 +73,7 @@ test('pharmacy approval requires complete evidence; immutable decisions seal doc
     await assert.rejects(db.query('delete from source.fns_pharmacy_decisions'),/immutable/);
     await db.exec("update raw.raw_artifacts set sha256=repeat('f',64) where id='00000000-0000-0000-0000-000000000001'");
     assert.equal((await read(db)).rows.length,0);
+    assert.equal((await coverage(db)).published_documents,0);
     await assert.rejects(db.query('select * from api.get_public_pharmacy_payments(2025,-1)'),/Invalid/);
   } finally { await db.close(); }
 });
@@ -102,6 +110,9 @@ test('pharmacy raw lineage mismatches are rejected and pagination is bounded',as
     const page2=(await db.query('select * from api.get_public_pharmacy_payments(2025,25)')).rows;
     assert.equal(page1.length,25); assert.equal(page2.length,1);
     assert.equal(new Set([...page1,...page2].map(r=>r.id)).size,26);
+    assert.equal((await coverage(db)).published_documents,26);
+    assert.equal((await coverage(db)).establishments,26);
+    await assert.rejects(db.query('select * from api.get_public_pharmacy_coverage(2020)'),/Invalid/);
     assert.equal((await db.query('select * from api.get_public_pharmacy_payments(2024,0)')).rows.length,0);
   } finally { await db.close(); }
 });

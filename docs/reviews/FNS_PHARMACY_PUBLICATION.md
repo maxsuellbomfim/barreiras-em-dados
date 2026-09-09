@@ -90,6 +90,19 @@ não substituem um coletor durável com retomada automática. Próximos passos:
 exibir metadados de cobertura publicada por ano e implementar essa retomada,
 sem chamar o recorte atual de cobertura histórica completa.
 
+### Contagem pública por ano
+
+A migration `20260909001000` compartilha o mesmo gate de evidência entre a lista
+e `api.get_public_pharmacy_coverage(ano)`. A contagem inclui todas as páginas,
+não apenas as 25 linhas visíveis. Revogação, novo retrato pendente, duplicação
+ou evidência incompatível também retiram o documento da contagem. O RPC retorna
+somente contagens, datas e estado: `partial` com documentos publicados, `pending`
+sem aprovação. Nunca afirma cobertura anual completa ou zero na fonte.
+
+A interface distingue indisponibilidade dessa contagem, mostra estabelecimentos
+com identidade conferida e explica que os extremos das datas não comprovam
+coleta contínua. A conferência viva preservou os 216 documentos publicados.
+
 `inspect_pharmacy_capture` aceita uma página completa, até 25 registros,
 de Outros Pagamentos (tipo 3), no recorte Barreiras/BA. Confere URL solicitada
 e final, ano, beneficiário consultado, SHA-256, tamanho, HTTP e paginação.
