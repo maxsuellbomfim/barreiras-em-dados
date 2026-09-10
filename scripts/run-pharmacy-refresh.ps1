@@ -19,7 +19,9 @@ try {
     if(-not (Test-Path -LiteralPath $PythonPath)){throw 'Python unavailable'}
     $stateRoot=Join-Path $CredentialRoot "data/pharmacy-refresh/$Year"
     [IO.Directory]::CreateDirectory($stateRoot) | Out-Null
-    $runLock=[IO.File]::Open((Join-Path $stateRoot 'schedule.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    # A single source-wide lock prevents catch-up tasks for different years
+    # from multiplying the request rate when the computer becomes available.
+    $runLock=[IO.File]::Open((Join-Path $CredentialRoot 'data/pharmacy-refresh/source.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
     $pointer=Join-Path $stateRoot 'active.txt'
     if(Test-Path -LiteralPath $pointer){
         $batch=(Get-Content -LiteralPath $pointer -Raw).Trim()

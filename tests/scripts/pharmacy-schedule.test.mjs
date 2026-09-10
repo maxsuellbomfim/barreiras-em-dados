@@ -15,3 +15,16 @@ test('wrapper usa cofre existente e retoma aquisição incompleta antes de criar
   assert.ok(!script.includes('Read-Host'));
   assert.ok(!script.includes('Start-Process'));
 });
+
+test('histórico usa tarefa e ano fixos sem substituir o ano corrente', async () => {
+  const script = await readFile(new URL('../../scripts/install-pharmacy-refresh-schedule.ps1', import.meta.url), 'utf8');
+  for (const text of ['HistoricalYear', '-Weekly', '-WeeksInterval 1', '-DaysOfWeek', '-Year $HistoricalYear', '$taskName += "-History-$HistoricalYear"']) assert.ok(script.includes(text), text);
+});
+
+test('anos compartilham trava da fonte e reintentam colisões no agendador', async () => {
+  const wrapper = await readFile(new URL('../../scripts/run-pharmacy-refresh.ps1', import.meta.url), 'utf8');
+  const installer = await readFile(new URL('../../scripts/install-pharmacy-refresh-schedule.ps1', import.meta.url), 'utf8');
+  assert.ok(wrapper.includes("'data/pharmacy-refresh/source.lock'"));
+  assert.ok(installer.includes('-RestartCount 3'));
+  assert.ok(installer.includes('-RestartInterval (New-TimeSpan -Minutes 15)'));
+});
