@@ -416,6 +416,27 @@ a primeira tentativa revelou executável ausente e não iniciou coleta; corrigid
 a configuração, a prova agendada passou. Histórico de 2021–2025 não é reconsultado
 diariamente por essa tarefa; pode usar o mesmo wrapper com `-Year` explícito.
 
+### Revisão histórica semanal
+
+Em 09/09 foram instaladas tarefas independentes `Barreiras360-PharmacyRefresh-History-<ano>`
+para 2021–2025, respectivamente de segunda a sexta às 08:43. O instalador aceita
+`-HistoricalYear`, `-DayOfWeek` e `-DailyAt`, rejeitando ano ainda não encerrado.
+Não substitui a tarefa do ano corrente. Todas compartilham uma trava local da
+fonte, inclusive a diária, e preservam checkpoints por ano. Colisão não dispara
+consultas simultâneas; tarefas com falha ou resultado parcial têm até três novas
+tentativas com intervalo de 15 minutos. Cada tentativa limita-se a 20 requisições.
+Pendência editorial continua parcial; não é convertida em aprovação para deixar
+o agendador verde. Computador/sessão disponíveis continuam sendo pré-requisitos.
+
+Prova de 2025: execução manual e pelo agendador validaram quatro páginas,
+25 documentos de dois estabelecimentos e separaram um recorte de outro programa.
+A tarefa de 09/09 às 23:05 retornou código 0; a página pública confirmou a
+conferência dos 25 documentos. Nenhum acréscimo ou conflito foi observado nesse
+recorte. Os anos 2021–2024 estão programados, não novamente auditados por esta
+prova. Detalhes multipágina e identidades divergentes permanecem na revisão
+privada do fluxo existente. Validação: 707 testes Node, incluindo regressões de
+isolamento por ano, cadência semanal e trava compartilhada; nenhum schema alterado.
+
 A migration `20260909060000` é independente da autoridade de escrita do worker:
 expõe somente datas, estado e contagens explícitas de execuções controladas.
 Exclui importações operacionais e não retorna IDs, erros, cursors, identificadores

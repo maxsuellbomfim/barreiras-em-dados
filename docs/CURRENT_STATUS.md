@@ -1,6 +1,6 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **08/09/2026**. Este é o ponto de entrada operacional; o histórico
+Atualizado em **09/09/2026**. Este é o ponto de entrada operacional; o histórico
 de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
@@ -73,6 +73,14 @@ sem janela. A execução pelo Windows Scheduler em 09/09 às 10:32 terminou com
 código 0 e os mesmos 17 documentos conferidos, sem acréscimos/pendências.
 Depende do computador e da sessão Windows disponíveis; cobre o ano corrente.
 Histórico e ambiguidades permanecem separados, sem presumir cobertura integral.
+
+As revisões semanais de 2021–2025 também estão registradas: respectivamente
+segunda a sexta, às 08:43. A trava é compartilhada entre os anos para impedir
+consultas simultâneas em retomadas; o agendador reintenta até três vezes com
+intervalos de 15 minutos. A prova agendada de 2025 em 09/09 às 23:05 terminou
+com código 0, quatro páginas e 25 documentos conferidos, sem acréscimos ou
+pendências; o site confirmou a conferência. Os anos 2021–2024 estão agendados,
+mas isso não comprova uma nova conferência desses anos nem cobertura integral.
 
 O adaptador privado `fns_pharmacy_identity` confere CNPJ válido e único no
 XLSX oficial preservado, ligado à captura validada do pagamento. Os dois
