@@ -1,5 +1,17 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Reconciliação entre aquisição e publicação
+
+Antes de classificar ou importar qualquer observação, o comando exige contagem
+inteira de entidades igual à quantidade recebida, identificadores distintos e
+ano exato para cada observação. `empty` exige catálogo sem entidades; `complete`
+exige entidades presentes. Não se aplica essa exigência de completude a uma
+aquisição pausada, que continua parcial sem publicar. Divergência produz falha
+sanitizada, não uma atualização completa com menos registros. A contagem
+`catalog_entities` acompanha o relatório privado de controle; não expõe nomes,
+identificadores ou documentos brutos. Essa validação não descobre por si só
+fontes externas nem comprova cobertura histórica integral.
+
 ## Automação em implementação
 
 `assess_refresh` compara duas capturas do mesmo estabelecimento/ano usando os

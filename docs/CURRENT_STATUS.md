@@ -5,6 +5,16 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Proteção adicional de cobertura — 10/09/2026
+
+O fluxo de Farmácia Popular agora reconcilia explicitamente o tamanho do
+catálogo concluído com as observações entregues à publicação. Falta, repetição
+de estabelecimento ou ano incompatível interrompem a execução antes de qualquer
+importação. Um catálogo vazio só é aceito quando a aquisição também declara
+vazio. Isso protege contra perda silenciosa entre etapas; não comprova que
+fontes externas ainda desconhecidas estejam cobertas. Os novos testes simulam
+essas divergências e verificam que nenhuma publicação foi chamada.
+
 O projeto está em **estabilização do pré-lançamento e construção do rastro do
 dinheiro**. A fundação, a coleta preservada do Diário e as primeiras projeções
 públicas de atos, finanças, compras, Legislativo e representação já existem.

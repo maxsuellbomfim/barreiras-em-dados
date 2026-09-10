@@ -82,6 +82,26 @@ def _refresh_year(
         return report
     if status not in ("complete", "empty"):
         raise ValueError("Unknown pharmacy acquisition state")
+    count = acquisition.get("catalog_entities")
+    if (
+        type(count) is not int
+        or count != len(observations)
+        or (status == "empty") != (count == 0)
+    ):
+        raise ValueError("Pharmacy catalogue reconciliation failed")
+    catalogue_scopes = set()
+    for observation in observations:
+        beneficiary = observation.get("beneficiary")
+        if (
+            type(observation.get("payment_year")) is not int
+            or observation["payment_year"] != year
+            or not isinstance(beneficiary, str)
+            or not beneficiary.strip()
+            or beneficiary in catalogue_scopes
+        ):
+            raise ValueError("Pharmacy catalogue reconciliation failed")
+        catalogue_scopes.add(beneficiary)
+    report["catalog_entities"] = count
     seen = set()
     for observation in observations:
         scope = _sha(["fns-pharmacy", observation["beneficiary"], year])
