@@ -5,6 +5,16 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Comparação cadastral privada — 10/09/2026
+
+O comparador de Farmácia Popular agora confronta o cadastro XLSX preservado com
+o catálogo anual paginado do FNS, por identificador completo. Incompletude ou
+evidência inválida impedem conclusões de ausência. A saída privada traz contagens
+e posições documentais; não publica nomes, identificadores nem valores novos.
+Compara os retratos fornecidos: cadastro atual não comprova credenciamento
+histórico, e ausência em uma consulta não prova ausência de pagamento. Ainda não
+integra o agendamento; os limites estão no documento de Farmácia Popular.
+
 ### Proteção adicional de cobertura — 10/09/2026
 
 O fluxo de Farmácia Popular agora reconcilia explicitamente o tamanho do
