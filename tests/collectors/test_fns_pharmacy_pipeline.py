@@ -156,6 +156,44 @@ class PharmacyPipelineTests(unittest.TestCase):
         )
         self.assertNotIn("private-id", json.dumps(result))
 
+    def test_catalogue_loss_or_duplicate_blocks_before_publication(self):
+        for count, rows in [
+            (2, [self.observation()]),
+            (2, [self.observation()] * 2),
+            (True, [self.observation()]),
+            (0, [self.observation()]),
+        ]:
+            with self.subTest(count=count, rows=len(rows)):
+                self.control.reset_mock()
+
+                def acquire(*args, rows=rows, count=count, **kwargs):
+                    kwargs["observations"].extend(rows)
+                    return dict(
+                        status="complete", pages_preserved=3, catalog_entities=count
+                    )
+
+                with (
+                    patch(
+                        "barreiras_collectors.commands.refresh_fns_pharmacy.collect_year",
+                        acquire,
+                    ),
+                    patch(
+                        "barreiras_collectors.commands.refresh_fns_pharmacy.execute_refresh"
+                    ) as execute,
+                ):
+                    with self.assertRaisesRegex(
+                        RuntimeError, "Pharmacy acquisition failed"
+                    ):
+                        refresh_year(**self.args)
+                    execute.assert_not_called()
+                    self.control.complete.assert_not_called()
+
+    def test_wrong_observation_year_blocks_before_publication(self):
+        row = self.observation()
+        row["payment_year"] = 2024
+        with self.assertRaisesRegex(RuntimeError, "Pharmacy acquisition failed"):
+            self.run_pipeline([row])
+
     def test_pause_and_failure_never_publish(self):
         result, execute = self.run_pipeline(acquisition_status="partial")
         self.assertEqual(result["status"], "partial")
