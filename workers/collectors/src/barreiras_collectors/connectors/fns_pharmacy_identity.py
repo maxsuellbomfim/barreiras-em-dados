@@ -81,6 +81,24 @@ def _register_rows(body: bytes) -> list[list[str]]:
         return result[1:]
 
 
+def validated_register_rows(capture):
+    """Private XLSX rows; callers must not log identifiers or addresses."""
+    raw = capture["body"]
+    _require(isinstance(raw, bytes) and 0 < len(raw) <= MAX_BYTES)
+    _require(type(capture["byte_size"]) is int and capture["byte_size"] == len(raw))
+    _require(capture["sha256"] == hashlib.sha256(raw).hexdigest())
+    _require(capture["referrer_url"] == REGISTER_PAGE)
+    url = capture["source_url"]
+    _require(isinstance(url, str) and not any(c.isspace() for c in url))
+    parsed = urlsplit(url)
+    _require(parsed.scheme == "https" and parsed.netloc == "infoms.saude.gov.br")
+    _require(parsed.path.startswith("/tempcontent/") and parsed.path.endswith(".xlsx"))
+    _require(not parsed.fragment)
+    rows = _register_rows(raw)
+    _require(all(_valid_cnpj(row[0]) for row in rows))
+    return rows
+
+
 def inspect_pharmacy_identity(
     *,
     register_capture: dict,
@@ -107,23 +125,8 @@ def inspect_pharmacy_identity(
             if result["status"] == "institution_matched":
                 result["payment_sha256"] = payment_capture["sha256"]
             return result
-        raw = register_capture["body"]
-        _require(isinstance(raw, bytes) and 0 < len(raw) <= MAX_BYTES)
-        _require(type(register_capture["byte_size"]) is int)
-        _require(register_capture["byte_size"] == len(raw))
-        sha = hashlib.sha256(raw).hexdigest()
-        _require(register_capture["sha256"] == sha)
-        _require(register_capture["referrer_url"] == REGISTER_PAGE)
-        url = register_capture["source_url"]
-        _require(isinstance(url, str) and not any(c.isspace() for c in url))
-        parsed = urlsplit(url)
-        _require(parsed.scheme == "https" and parsed.netloc == "infoms.saude.gov.br")
-        _require(
-            parsed.path.startswith("/tempcontent/") and parsed.path.endswith(".xlsx")
-        )
-        _require(not parsed.fragment)
-        rows = _register_rows(raw)
-        _require(all(_valid_cnpj(row[0]) for row in rows))
+        rows = validated_register_rows(register_capture)
+        sha = register_capture["sha256"]
         matches = [row for row in rows if row[0] == beneficiary]
         if len(matches) != 1:
             return dict(status="review_required", publication_allowed=False)

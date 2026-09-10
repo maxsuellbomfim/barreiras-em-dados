@@ -1,5 +1,41 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Comparação privada entre cadastro e catálogo
+
+`compare_registry_catalog` compara os identificadores completos de um XLSX
+preservado do Infoms com todas as páginas de um catálogo anual do FNS. Reutiliza
+as validações existentes de origem, bytes, tamanho, hash, estrutura e paginação;
+cadastro com identificadores repetidos ou catálogo inválido bloqueiam a comparação.
+Nenhuma captura é `not_collected`; páginas faltantes são `partial_catalog`;
+catálogo completo sem linhas conserva `empty`. Só após essa validação são
+calculadas diferenças entre os dois conjuntos, sem aproximação por nome ou matriz.
+
+O resultado contém apenas contagens, hashes e posições na planilha/página da
+fonte. Não contém nomes, CNPJ, endereços nem valores financeiros. Não grava no
+banco, não amplia permissões e não autoriza publicação. É uma ferramenta privada
+de comparação dos retratos fornecidos, ainda não ligada ao agendamento.
+
+Limites obrigatórios:
+
+- O XLSX não contém município nem data de posição: o contexto deve vir do
+  operador que observou o filtro de exportação e preservou essa evidência.
+  `registered_entities` conta somente as linhas distintas do arquivo recebido,
+  não comprova o universo municipal nem o credenciamento histórico.
+- Ausência no catálogo é ausência naquela consulta, não prova de ausência de
+  pagamento. `payment_presence=not_determined` permanece fixo, inclusive se uma
+  consulta direta posterior retornar vazia com os mesmos filtros.
+- Entidades presentes apenas em Outros Pagamentos não são automaticamente
+  farmácias: esse catálogo também contempla outros programas. Classificação
+  documental e identidade continuam em etapas próprias.
+- Cadastro atual e relação de renovação não comprovam atividade ou credenciamento
+  em exercícios passados. `historical_registration_verified=false` e
+  `publication_allowed=false` permanecem fixos.
+
+Próximo passo operacional: investigar diferenças com fontes oficiais e períodos
+compatíveis, preservando os retornos privados. Antes de qualquer exibição pública,
+é necessário distinguir cadastro, consulta vazia, período não coletado e pagamento
+efetivamente documentado. Não transformar a diferença entre listas em acusação.
+
 ## Reconciliação entre aquisição e publicação
 
 Antes de classificar ou importar qualquer observação, o comando exige contagem
