@@ -89,3 +89,39 @@ A recuperação cadastral foi confirmada na execução `34989976158`, após PR #
 partição completa e zero falhas pendentes. Não recupera a janela semanal.
 Próxima auditoria delimitada: estabilidade da retomada por cursor dos contratos.
 Não interpretar `next_offset=0` de uma fatia como cobertura de todo o histórico.
+
+### Retomada por chave — 15/09/2026
+
+O teste de regressão reproduziu 120 pendências antigas: OFFSET processava
+001–050 e depois 101–120, fechando com 50 omitidas. O novo cursor usa
+`cursor_version=1`, `next_after_control` e `retry_controls`. A consulta ordena
+e compara a chave oficial com collation C; a posição não depende do tamanho
+atual da fila ou de alterações na data publicada. Ao terminar a varredura,
+o cursor volta ao início para novas observações e pendências anteriores.
+
+O lote mantém o teto de 50 controles e 30 páginas por controle. Antes da
+primeira requisição é gravada uma reserva não terminal de todos os controles
+selecionados. Um erro não perde essa reserva mesmo após gravar artefatos;
+checkpoint final remove apenas os controles concluídos. Truncados e retries
+conhecidos que retornem sem páginas permanecem parciais. Erro recuperado registra
+incidente, conserva o checkpoint e termina com falha; pendências conhecidas
+também retornam código não zero. Um lote limitado só pelo teto normal pode
+encerrar com código zero, mas a cobertura permanece `partial` e o cursor indica
+a próxima fatia — não significa histórico completo.
+
+Offset antigo reinicia de forma conservadora, preservando chaves truncadas
+válidas. Uma lista de pendências inválida bloqueia a execução, nunca é descartada
+silenciosamente. Controles pendentes atrás do cursor aguardam o fim da varredura
+para não impedir o avanço por controles posteriores. Alterações que entram atrás
+do cursor serão observadas na próxima volta, não no mesmo retrato.
+
+Limites separados: a interpretação original de HTTP 404/204 e a paginação
+interna acima de 30 páginas ainda exigem revisão; este patch não os declara
+recuperados nem publica novos fatos financeiros. CI e replay limitado devem
+comprovar o cursor e os registros reais antes de fechar a recuperação.
+
+Operação desta entrega: usar apenas o workflow PNCP, cuja concorrência de
+produção já serializa as execuções. Não executar o mesmo backlog por CLI
+simultaneamente: a reserva ainda não implementa lease ou exclusão distribuída
+entre executores de caminhos diferentes. Esta limitação não é resolvida pelo
+cursor estável; qualquer expansão para múltiplos executores exige outra revisão.

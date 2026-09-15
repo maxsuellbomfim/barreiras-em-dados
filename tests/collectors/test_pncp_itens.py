@@ -98,9 +98,7 @@ class ItensFetchTests(unittest.TestCase):
             fetch_itens(200, json.dumps({"error": "x"}).encode())
 
     def test_resultados_cursor_carries_item(self) -> None:
-        body = json.dumps(
-            [{"sequencialResultado": 1, "numeroItem": 77}]
-        ).encode()
+        body = json.dumps([{"sequencialResultado": 1, "numeroItem": 77}]).encode()
         page = fetch_resultados_page(
             ano=2025,
             sequencial=9,
@@ -283,8 +281,7 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
         )
 
         with patch(
-            "barreiras_collectors.commands.collect_pncp_itens."
-            "collect_itens_batch",
+            "barreiras_collectors.commands.collect_pncp_itens.collect_itens_batch",
             side_effect=[
                 PncpError("fonte indisponivel"),
                 PncpItensPageBatch((), False),
@@ -311,15 +308,12 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
             pncp_itens_com_resultado=lambda _control: set(),
         )
         service = SimpleNamespace(
-            persist_itens=lambda _page, *, control: SimpleNamespace(
-                inserted_records=1
-            ),
+            persist_itens=lambda _page, *, control: SimpleNamespace(inserted_records=1),
         )
 
         with (
             patch(
-                "barreiras_collectors.commands.collect_pncp_itens."
-                "collect_itens_batch",
+                "barreiras_collectors.commands.collect_pncp_itens.collect_itens_batch",
                 return_value=PncpItensPageBatch((page,), False),
             ),
             patch(
@@ -347,9 +341,7 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
 
         execute_controlled_pncp_itens(
             control=self._control_probe(completed),  # type: ignore[arg-type]
-            operation=lambda: PncpItensCollectionSummary(
-                0, 0, 0, False, (), 50, 0
-            ),
+            operation=lambda: PncpItensCollectionSummary(0, 0, 0, False, (), 50, 0),
         )
 
         self.assertEqual(completed["outcome"].value, "empty")
@@ -366,8 +358,8 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
                 existing_records=13,
                 pending_truncated=True,
                 contract_pages_truncated_controls=(),
-                start_offset=0,
-                next_offset=50,
+                start_after_control=None,
+                next_after_control=CONTROL,
             ),
         )
 
@@ -378,7 +370,9 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
             {
                 "pending_truncated": True,
                 "contract_pages_truncated_controls": [],
-                "next_offset": 50,
+                "cursor_version": 1,
+                "next_after_control": CONTROL,
+                "retry_controls": [],
             },
         )
 
@@ -395,8 +389,7 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
         ).encode()
 
         with patch(
-            "barreiras_collectors.commands.collect_pncp_contratos."
-            "MAX_CONTRATOS_PAGES",
+            "barreiras_collectors.commands.collect_pncp_contratos.MAX_CONTRATOS_PAGES",
             2,
         ):
             batch = collect_contratos_batch(
@@ -412,11 +405,7 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
     def test_contract_list_root_probes_until_short_page(self) -> None:
         first = json.dumps(
             [
-                {
-                    "numeroControlePNCP": (
-                        f"13654405000195-2-{index:06d}/2026"
-                    )
-                }
+                {"numeroControlePNCP": (f"13654405000195-2-{index:06d}/2026")}
                 for index in range(COMPRAS_PAGE_SIZE)
             ]
         ).encode()

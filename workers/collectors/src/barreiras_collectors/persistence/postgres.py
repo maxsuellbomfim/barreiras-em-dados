@@ -1832,15 +1832,44 @@ class PostgresCollectionRepository:
         *,
         refresh_days: int,
         limit: int,
-        offset: int = 0,
+        after_control: str | None = None,
+        include_controls: Sequence[str] = (),
     ) -> list[tuple[str, int, int]]:
-        """ContrataÃ§Ãµes sem snapshot de contratos/empenhos preservado."""
+        """Fila de contratos por chave estável, incluindo retomadas explícitas."""
+        if (
+            isinstance(refresh_days, bool)
+            or not isinstance(refresh_days, int)
+            or refresh_days < 0
+            or isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or limit < 1
+        ):
+            raise ValueError("Dias de atualização e limite PNCP inválidos.")
+        if after_control is not None and (
+            not isinstance(after_control, str)
+            or not after_control.strip()
+            or "\x00" in after_control
+        ):
+            raise ValueError("Cursor de contratos PNCP inválido.")
+        if (
+            not isinstance(include_controls, Sequence)
+            or isinstance(include_controls, (str, bytes))
+            or any(
+                not isinstance(control, str)
+                or not control.strip()
+                or "\x00" in control
+                for control in include_controls
+            )
+        ):
+            raise ValueError("Controles de retomada PNCP inválidos.")
         connection = self.connection_factory()
         try:
             rows = connection.execute(
                 """
                 with contratacao as (
-                  select distinct on (record.payload ->> 'numeroControlePNCP')
+                  select distinct on (
+                    (record.payload ->> 'numeroControlePNCP') collate "C"
+                  )
                     record.payload ->> 'numeroControlePNCP' as control,
                     (record.payload ->> 'anoCompra')::int as ano,
                     (record.payload ->> 'sequencialCompra')::int as sequencial,
@@ -1853,15 +1882,18 @@ class PostgresCollectionRepository:
                     end as published_on
                   from raw.raw_records as record
                   where record.record_type = 'pncp_contratacao'
+                    and nullif(btrim(
+                      record.payload ->> 'numeroControlePNCP'
+                    ), '') is not null
                     and record.payload ->> 'anoCompra' ~ '^[0-9]+$'
                     and record.payload ->> 'sequencialCompra' ~ '^[0-9]+$'
                   order by
-                    record.payload ->> 'numeroControlePNCP',
-                    record.created_at desc
+                    (record.payload ->> 'numeroControlePNCP') collate "C",
+                    record.created_at desc, record.id desc
                 )
                 select control, ano, sequencial
                 from contratacao
-                where coalesce(
+                where (coalesce(
                     published_on >= current_date - %s::int, false
                   )
                   or not exists (
@@ -1875,10 +1907,16 @@ class PostgresCollectionRepository:
                         artifact.metadata -> 'cursor' ->> 'sequencial'
                       )::int = contratacao.sequencial
                   )
-                order by published_on desc nulls last, control
-                limit %s offset %s
+                  or control = any(%s::text[]))
+                  and (%s::text is null
+                    or control collate "C" > %s::text collate "C")
+                order by control collate "C"
+                limit %s
                 """,
-                (refresh_days, limit, offset),
+                (
+                    refresh_days, list(include_controls),
+                    after_control, after_control, limit,
+                ),
             ).fetchall()
         finally:
             connection.close()
@@ -1886,6 +1924,85 @@ class PostgresCollectionRepository:
             (str(row["control"]), int(row["ano"]), int(row["sequencial"]))
             for row in rows
         ]
+
+    def pncp_contract_checkpoint_progress(
+        self,
+        *,
+        run_id: str,
+        checkpoint: Mapping[str, object],
+    ) -> None:
+        """Reserva a retomada do lote antes de qualquer consulta externa."""
+        if (
+            not isinstance(run_id, str)
+            or not run_id.strip()
+            or "\x00" in run_id
+            or not isinstance(checkpoint, Mapping)
+        ):
+            raise ValueError("Reserva de contratos PNCP inválida.")
+        serialized = self._json(dict(checkpoint))
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                connection.execute("set local statement_timeout = '15s'")
+                connection.execute("set local lock_timeout = '5s'")
+                run = connection.execute(
+                    """
+                    update source.collection_runs as run
+                    set cursor_after = %s::jsonb,
+                        heartbeat_at = statement_timestamp()
+                    from source.source_endpoints as endpoint
+                    join source.data_sources as source
+                      on source.id = endpoint.data_source_id
+                    where run.id = %s::uuid
+                      and run.status = 'running'
+                      and run.completed_at is null
+                      and run.source_endpoint_id = endpoint.id
+                      and source.slug = 'pncp'
+                      and source.status = 'active'
+                      and endpoint.slug = 'contratos-api'
+                      and endpoint.enabled
+                    returning run.source_endpoint_id::text as endpoint_id,
+                              run.collection_window_start as period_start,
+                              run.collection_window_end as period_end
+                    """,
+                    (serialized, run_id),
+                ).fetchone()
+                if run is None:
+                    raise PersistenceContractError(
+                        "Execução ativa de contratos PNCP não encontrada."
+                    )
+                connection.execute(
+                    """
+                    insert into source.collection_partitions (
+                      source_endpoint_id, partition_key, period_start, period_end,
+                      status, observed_records, collection_run_id, checkpoint,
+                      last_attempted_at, completed_at, block_reason
+                    ) values (
+                      %s::uuid, 'backlog:contratos', %s::date, %s::date,
+                      'partial', 0, %s::uuid, %s::jsonb,
+                      statement_timestamp(), null, null
+                    )
+                    on conflict (source_endpoint_id, partition_key) do update
+                    set period_start = excluded.period_start,
+                        period_end = excluded.period_end,
+                        status = 'partial',
+                        observed_records = 0,
+                        collection_run_id = excluded.collection_run_id,
+                        checkpoint = excluded.checkpoint,
+                        last_attempted_at = excluded.last_attempted_at,
+                        completed_at = null,
+                        block_reason = null
+                    """,
+                    (
+                        str(run["endpoint_id"]),
+                        run["period_start"],
+                        run["period_end"],
+                        run_id,
+                        serialized,
+                    ),
+                )
+        finally:
+            connection.close()
 
     def pncp_itens_com_resultado(self, control: str) -> set[int]:
         """Itens da contratação que já têm algum resultado preservado."""

@@ -5,6 +5,26 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: retomada de contratos sem saltos na fila
+
+Reprodução local: numa fila de 120 contratações antigas, o OFFSET avançava
+sobre registros que desapareciam da elegibilidade após a preservação. O comando
+encerrava como completo tendo percorrido só 70 controles, deixando 50 para trás.
+A retomada passa a usar a chave oficial em ordem estável, com cursor versionado;
+offset legado reinicia explicitamente, sem presumir uma conversão de posição.
+
+Antes de consultar/preservar páginas, uma reserva durável mantém os controles
+do lote e pendências anteriores. Interrupção ou falha na gravação final deixa
+essa reserva disponível. Páginas truncadas e retries conhecidos com retorno
+sem páginas não somem por já existir um artefato. Pendências atrás do cursor
+voltam na próxima varredura; não consomem sempre o começo de cada lote.
+
+Testes cobrem 120 controles em três lotes, compras recentes que permanecem
+elegíveis, truncamento, falha após preservação, cancelamento e falha de checkpoint.
+A correção não certifica cobertura histórica nem redefine HTTP 404/204 como
+ausência comprovada. A publicação exige CI verde e conferência operacional de
+uma execução limitada antes de declarar recuperação real da fila.
+
 ### PNCP: valores com centavos não são ausência na fonte
 
 Após recuperar a lista, a conferência identificou um erro na projeção monetária:
@@ -18,6 +38,14 @@ literal, preservando valores, filtros, assinatura, permissões e evidências.
 Não estima nem soma dinheiro; zero e negativos informados são preservados,
 enquanto ausência ou conteúdo inválido não viram zero. A publicação exige testes de regressão e
 reconciliação entre o registro bruto, a API anônima e os números visíveis.
+
+O PR #754 foi mesclado e a migração `20260915183000` aplicada. No recorte
+padrão, a reconciliação confirmou 60 contratações e 562 resultados sem
+divergências dos valores brutos; os demais campos e permissões foram preservados.
+A API anônima e o site confirmaram os valores, incluindo R$ 308.568,74 na compra
+`13654405000195-1-000039/2026`, com zero distinto de ausência. Celular e desktop
+validados; 812 testes Node aprovados, três ignorados, CI Node/Python e Vercel verdes.
+Isso encerra o defeito monetário observado, não a coleta semanal parcial.
 
 ### PNCP: recuperar a consulta pública de licitações
 
