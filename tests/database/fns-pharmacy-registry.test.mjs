@@ -23,11 +23,12 @@ async function setup() {
   await db.exec(migration);
   await db.exec(await readFile(new URL('../../supabase/migrations/20260909001000_pharmacy_public_coverage.sql', import.meta.url), 'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/20260909010000_pharmacy_renewal_identity.sql', import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260915090000_pharmacy_establishment_filter.sql', import.meta.url), 'utf8'));
   return db;
 }
-async function snapshot(db, scope='c'.repeat(64), expected=1) {
+async function snapshot(db, scope='c'.repeat(64), expected=1, establishment='FARMACIA TESTE') {
   const {rows} = await db.query(`insert into source.fns_pharmacy_snapshots(scope_key,payment_year,payment_artifact_id,register_artifact_id,payment_sha256,register_sha256,establishment,expected_documents)
-    values ($1,2025,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',repeat('a',64),repeat('b',64),'FARMACIA TESTE',$2) returning id`, [scope,expected]);
+    values ($1,2025,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',repeat('a',64),repeat('b',64),$3,$2) returning id`, [scope,expected,establishment]);
   return rows[0].id;
 }
 async function document(db, id) {
@@ -39,6 +40,215 @@ async function decide(db,id,decision='approved') {
 }
 const read = db => db.query('select * from api.get_public_pharmacy_payments(2025,0)');
 const coverage = async db => (await db.query('select * from api.get_public_pharmacy_coverage(2025)')).rows[0];
+
+const fixtureKey = value => value.toString(16).padStart(64,'0');
+let fixtureRecordNumber=0;
+async function establishmentFixture(db,{scope,keys,name='FARMACIA HOMONIMA',approved=true}) {
+  const id=await snapshot(db,scope,keys.length,name);
+  for(const [index,documentKey] of keys.entries()) {
+    const recordId=`00000000-0000-0000-0002-${String(++fixtureRecordNumber).padStart(12,'0')}`;
+    await db.query(`insert into raw.raw_records select $1::uuid,raw_artifact_id,record_type,
+      payload||jsonb_build_object('document_key',$2::text,'source_row',$3::int,'establishment',$4::text)
+      from raw.raw_records where id='00000000-0000-0000-0000-000000000003'`,[recordId,documentKey,index+1,name]);
+    await db.query(`insert into source.fns_pharmacy_documents
+      (snapshot_id,document_key,raw_record_id,document_date,net_amount,source_row,register_row)
+      values($1,$2,$3::uuid,'2025-02-07',10,$4,2)`,[id,documentKey,recordId,index+1]);
+  }
+  if(approved) await decide(db,id);
+  return id;
+}
+const filteredPayments=async(db,establishmentId=null,offset=0,year=2025)=>(await db.query(
+  'select * from api.get_public_pharmacy_payments_filtered($1,$2,$3)',[year,establishmentId,offset])).rows;
+const filteredCoverage=async(db,establishmentId=null,year=2025)=>(await db.query(
+  'select * from api.get_public_pharmacy_coverage_filtered($1,$2)',[year,establishmentId])).rows[0];
+const establishments=async(db,offset=0,year=2025)=>(await db.query(
+  'select * from api.get_public_pharmacy_establishments($1,$2)',[year,offset])).rows;
+const invalidSelection={code:'22023',message:'Invalid pharmacy establishment selection'};
+
+test('pharmacy establishment filter exposes reviewed opaque options and keeps homonyms separate',async()=>{
+  const db=await setup();
+  try {
+    assert.deepEqual(await establishments(db),[]);
+    assert.deepEqual(await filteredCoverage(db),{year:2025,published_documents:0,establishments:0,
+      first_date:null,last_date:null,status:'pending',selected_establishment:null,filter_applied:false});
+    const first=fixtureKey(1),second=fixtureKey(2),other=fixtureKey(3);
+    await establishmentFixture(db,{scope:'c'.repeat(64),keys:[first,second]});
+    await establishmentFixture(db,{scope:'e'.repeat(64),keys:[other]});
+    assert.deepEqual(await establishments(db),[
+      {establishment_id:first,establishment:'FARMACIA HOMONIMA'},
+      {establishment_id:other,establishment:'FARMACIA HOMONIMA'}
+    ]);
+    // A currently reviewed document remains a selector even when it is not the minimum option id.
+    assert.deepEqual((await filteredPayments(db,second)).map(row=>row.id),[first,second]);
+    assert.deepEqual((await filteredPayments(db,other)).map(row=>row.id),[other]);
+    assert.deepEqual(await filteredCoverage(db,second),{year:2025,published_documents:2,establishments:1,
+      first_date:new Date('2025-02-07T00:00:00.000Z'),last_date:new Date('2025-02-07T00:00:00.000Z'),status:'partial',
+      selected_establishment:'FARMACIA HOMONIMA',filter_applied:true});
+    assert.equal((await filteredCoverage(db)).published_documents,3);
+    assert.equal((await filteredCoverage(db)).establishments,2);
+    assert.equal((await filteredCoverage(db)).selected_establishment,null);
+    assert.equal((await filteredCoverage(db)).filter_applied,false);
+    assert.deepEqual(await filteredPayments(db),(await read(db)).rows);
+    assert.deepEqual((await db.query('select * from api.get_public_pharmacy_payments_filtered(2025)')).rows,
+      (await read(db)).rows);
+    assert.deepEqual((await db.query('select * from api.get_public_pharmacy_establishments(2025)')).rows,
+      await establishments(db));
+    assert.deepEqual((await db.query('select * from api.get_public_pharmacy_coverage_filtered(2025)')).rows[0],
+      await filteredCoverage(db));
+  }finally{await db.close();}
+});
+
+test('pharmacy establishment filter paginates real ingestion limits with the same filtered counts',async()=>{
+  const db=await setup();
+  try {
+    const keys=Array.from({length:25},(_,index)=>fixtureKey(index+1)),other=fixtureKey(26);
+    await establishmentFixture(db,{scope:'c'.repeat(64),keys,name:'FARMACIA A'});
+    await establishmentFixture(db,{scope:'e'.repeat(64),keys:[other],name:'FARMACIA B'});
+    // The importer still limits one snapshot to 25 documents; this test does not relax its CHECKs.
+    const first=await filteredPayments(db),second=await filteredPayments(db,null,25);
+    assert.equal(first.length,25);assert.equal(second.length,1);
+    assert.equal(new Set([...first,...second].map(row=>row.id)).size,26);
+    assert.equal((await filteredCoverage(db)).published_documents,26);
+    assert.equal((await filteredPayments(db,keys[24])).length,25);
+    assert.deepEqual(await filteredPayments(db,keys[24],25),[]);
+    assert.equal((await filteredCoverage(db,keys[24])).published_documents,25);
+    assert.deepEqual((await filteredPayments(db,other)).map(row=>row.id),[other]);
+    assert.equal((await filteredCoverage(db,other)).published_documents,1);
+    assert.deepEqual(await filteredPayments(db,other,10000),[]);
+    assert.equal((await filteredCoverage(db,other)).status,'partial');
+  }finally{await db.close();}
+});
+
+test('pharmacy establishment filter options are bounded, deterministic and not grouped by name',async()=>{
+  const db=await setup();
+  try {
+    for(let index=1;index<=26;index++) {
+      await establishmentFixture(db,{scope:fixtureKey(index+100),keys:[fixtureKey(index)],
+        name:index===26?'FARMACIA A':'FARMACIA HOMONIMA'});
+    }
+    const first=await establishments(db),second=await establishments(db,25);
+    assert.equal(first.length,25);assert.equal(second.length,1);
+    assert.equal(first[0].establishment,'FARMACIA A');
+    assert.deepEqual([...first,...second].map(row=>row.establishment_id),
+      [fixtureKey(26),...Array.from({length:25},(_,index)=>fixtureKey(index+1))]);
+    assert.equal(new Set([...first,...second].map(row=>row.establishment_id)).size,26);
+    assert.deepEqual(await establishments(db,50),[]);
+    assert.deepEqual(await establishments(db,10000),[]);
+    // Resolution is against the complete reviewed year, not the current 25-option page.
+    assert.equal((await filteredCoverage(db,second[0].establishment_id)).published_documents,1);
+    assert.equal((await filteredPayments(db,second[0].establishment_id)).length,1);
+  }finally{await db.close();}
+});
+
+test('pharmacy establishment filter never restores old snapshots or revoked selections',async()=>{
+  const db=await setup();
+  try {
+    const original=fixtureKey(2),newMinimum=fixtureKey(1),scope='c'.repeat(64);
+    await establishmentFixture(db,{scope,keys:[original]});
+    assert.equal((await establishments(db))[0].establishment_id,original);
+    const replacement=await establishmentFixture(db,{scope,keys:[original,newMinimum],approved:false});
+    assert.deepEqual(await establishments(db),[]);
+    assert.deepEqual(await filteredPayments(db),[]);
+    assert.equal((await filteredCoverage(db)).status,'pending');
+    await assert.rejects(filteredPayments(db,original),invalidSelection);
+    await assert.rejects(filteredCoverage(db,original),invalidSelection);
+    await decide(db,replacement);
+    assert.equal((await establishments(db))[0].establishment_id,newMinimum);
+    assert.equal((await filteredPayments(db,original)).length,2);
+    assert.equal((await filteredCoverage(db,original)).published_documents,2);
+    await decide(db,replacement,'revoked');
+    assert.deepEqual(await establishments(db),[]);
+    assert.deepEqual(await filteredPayments(db),[]);
+    await assert.rejects(filteredPayments(db,original),invalidSelection);
+    await assert.rejects(filteredCoverage(db,newMinimum),invalidSelection);
+    await decide(db,replacement);
+    await db.exec("update raw.raw_artifacts set sha256=repeat('f',64) where id='00000000-0000-0000-0000-000000000001'");
+    assert.deepEqual(await establishments(db),[]);
+    await assert.rejects(filteredPayments(db,original),invalidSelection);
+    await assert.rejects(filteredCoverage(db,original),invalidSelection);
+  }finally{await db.close();}
+});
+
+test('pharmacy establishment filter cannot bypass the year-global duplicate gate',async()=>{
+  const db=await setup();
+  try {
+    const shared=fixtureKey(1),unique=fixtureKey(2);
+    await establishmentFixture(db,{scope:'c'.repeat(64),keys:[shared,unique]});
+    const duplicate=await establishmentFixture(db,{scope:'e'.repeat(64),keys:[shared],approved:false});
+    for(const approved of [false,true]) {
+      if(approved) await decide(db,duplicate);
+      assert.deepEqual(await establishments(db),[]);
+      assert.deepEqual(await filteredPayments(db),[]);
+      assert.equal((await filteredCoverage(db)).published_documents,0);
+      // Even the nonduplicated anchor is hidden when another row invalidates its snapshot.
+      for(const token of [shared,unique]) {
+        await assert.rejects(filteredPayments(db,token),invalidSelection);
+        await assert.rejects(filteredCoverage(db,token),invalidSelection);
+      }
+    }
+  }finally{await db.close();}
+});
+
+test('pharmacy establishment filter rejects invalid scope and never broadens an unknown selection',async()=>{
+  const db=await setup();
+  try {
+    const token='a'.repeat(64),scope='c'.repeat(64);
+    await establishmentFixture(db,{scope,keys:[token]});
+    for(const invalid of ['',token.toUpperCase(),'b'.repeat(63),'b'.repeat(65),'b'.repeat(64),scope,"' OR true --"]) {
+      await assert.rejects(filteredPayments(db,invalid),{code:'22023'});
+      await assert.rejects(filteredCoverage(db,invalid),{code:'22023'});
+    }
+    await assert.rejects(filteredPayments(db,token,0,2024),invalidSelection);
+    await assert.rejects(filteredCoverage(db,token,2024),invalidSelection);
+    assert.deepEqual(await establishments(db,0,2024),[]);
+    assert.deepEqual(await filteredPayments(db,null,0,2024),[]);
+    assert.equal((await filteredCoverage(db,null,2024)).status,'pending');
+    for(const year of [null,2020,2101]) {
+      await assert.rejects(filteredPayments(db,null,0,year),{code:'22023'});
+      await assert.rejects(filteredCoverage(db,null,year),{code:'22023'});
+      await assert.rejects(establishments(db,0,year),{code:'22023'});
+    }
+    for(const offset of [null,-1,10001]) {
+      await assert.rejects(filteredPayments(db,token,offset),{code:'22023'});
+      await assert.rejects(establishments(db,offset),{code:'22023'});
+    }
+    assert.equal((await filteredPayments(db)).length,1);
+    assert.equal((await filteredCoverage(db,token)).published_documents,1);
+  }finally{await db.close();}
+});
+
+test('pharmacy establishment filter preserves private fields and explicit public RPC grants',async()=>{
+  const db=await setup();
+  try {
+    const token=fixtureKey(1);
+    await establishmentFixture(db,{scope:'c'.repeat(64),keys:[token]});
+    await db.exec('create role pharmacy_unprivileged; grant usage on schema api to pharmacy_unprivileged');
+    for(const role of ['anon','authenticated']) {
+      await db.exec(`set role ${role}`);
+      const rows=await filteredPayments(db,token),options=await establishments(db),counts=await filteredCoverage(db,token);
+      assert.equal(rows.length,1);assert.equal(options.length,1);assert.equal(counts.published_documents,1);
+      assert.deepEqual(Object.keys(rows[0]).sort(),[
+        'id','establishment','date','amount','sha256','register_sha256','reviewed_at','historical_registration_verified'].sort());
+      assert.deepEqual(Object.keys(options[0]).sort(),['establishment_id','establishment'].sort());
+      assert.deepEqual(Object.keys(counts).sort(),['year','published_documents','establishments','first_date','last_date',
+        'status','selected_establishment','filter_applied'].sort());
+      assert.doesNotMatch(JSON.stringify({rows,options,counts}),
+        /scope_key|snapshot_id|raw_record_id|register_row|register_page|review_note|reviewer_ref|Private review|CNPJ|cnpj/);
+      await assert.rejects(db.query('select * from source.filtered_pharmacy_rows(2025,null)'),/permission denied/);
+      await assert.rejects(db.query('select * from source.reviewed_pharmacy_rows(2025)'),/permission denied/);
+      await assert.rejects(db.query('select * from source.fns_pharmacy_snapshots'),/permission denied/);
+      await db.exec('reset role');
+    }
+    for(const role of ['service_role','pharmacy_unprivileged']) {
+      await db.exec(`set role ${role}`);
+      await assert.rejects(filteredPayments(db,token),/permission denied/);
+      await assert.rejects(filteredCoverage(db,token),/permission denied/);
+      await assert.rejects(establishments(db),/permission denied/);
+      if(role==='service_role') await assert.rejects(db.query('select * from source.filtered_pharmacy_rows(2025,null)'),/permission denied/);
+      await db.exec('reset role');
+    }
+  }finally{await db.close();}
+});
 
 test('refresh approval is atomic, replayable and unavailable to public roles',async()=>{
  const db=await setup();

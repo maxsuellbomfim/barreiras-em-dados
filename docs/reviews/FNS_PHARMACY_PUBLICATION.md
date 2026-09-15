@@ -1,5 +1,46 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Filtro por estabelecimento e ano — 15/09/2026
+
+A página pública permite selecionar um estabelecimento entre as opções com
+documentos atualmente aprovados para o ano. Opções e pagamentos têm paginação
+independente, de no máximo 25 linhas. A contagem abrange todas as páginas da
+seleção, enquanto o diagnóstico de atualização permanece explicitamente anual.
+Trocar o ano reinicia a seleção; voltar da página vazia mantém ano e filtro.
+Falha ou referência inválida não se converte em consulta de todos os registros.
+
+O seletor reutiliza um ID documental que já era público, resolvido somente no
+conjunto revisado do ano. Não é um identificador privado nem uma garantia de
+anonimização. Referências antigas continuam válidas enquanto seu documento
+permanecer aprovado, mesmo que um acréscimo mude a primeira opção. Nomes iguais
+não são unidos: cada chave interna mantém sua opção e referência documental.
+Nenhuma chave interna, identificador cadastral ou conteúdo bruto é devolvido.
+
+A migration `20260915090000` mantém as RPCs anteriores e adiciona pagamentos
+filtrados, cobertura filtrada e opções. Todas reutilizam o gate anual de evidência
+antes da seleção, inclusive para conflitos em outros estabelecimentos. Não altera
+CHECKs de ingestão, aprovações, tabelas financeiras nem permissões dos workers.
+O helper permanece privado; somente as projeções são executáveis por
+`anon`/`authenticated`.
+
+O dry-run global encontrou versões antigas do histórico remoto com timestamps
+diferentes dos arquivos locais. Nenhuma delas foi reparada, revertida ou
+reaplicada. Apenas o SQL desta migration e seu registro de histórico foram
+executados na mesma transação. A API foi conferida após a atualização do cache
+de esquema: projeções antigas e novas reproduziram integralmente os pagamentos
+de 2021–2026, com hashes idênticos. A união dos filtros equivale à lista anual,
+sem sobreposição; referência inexistente recebeu erro, nunca lista geral.
+
+Verificação: RED por funções/componentes ausentes e escopo de cobertura errado;
+GREEN em 17 testes reais de banco, testes de loaders/renderização e suíte completa
+de 742 testes Node, além de 180 testes FNS e typecheck/build web. Na prévia local
+com API pública, 2025 passou de 25 registros gerais a 14 do estabelecimento
+selecionado, sem mudar seus textos/valores. Ano 2021 manteve 108 publicados em
+seis opções, com 25 registros em cada uma das duas primeiras páginas gerais.
+Troca de ano e retorno da página vazia foram operados por teclado; não houve
+overflow em 390 e 1280 px. Esta entrega não acrescenta pagamentos nem converte
+catálogo parcial em cobertura completa.
+
 ## Navegação em páginas sem registros
 
 Resposta válida e vazia numa página posterior à primeira produz `empty_page`,

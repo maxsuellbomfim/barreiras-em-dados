@@ -1,9 +1,28 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **14/09/2026**. Este é o ponto de entrada operacional; o histórico
+Atualizado em **15/09/2026**. Este é o ponto de entrada operacional; o histórico
 de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
+
+### Farmácia Popular: seleção pública por estabelecimento
+
+A rota de saúde recebe filtro por estabelecimento dentro do ano escolhido,
+com opções paginadas e contagem calculada sobre todas as páginas da seleção.
+A referência reutiliza um documento já público, sem expor a chave privada do
+cadastro. Nomes iguais permanecem separados; link inválido, revogação ou mudança
+da evidência não ampliam a consulta automaticamente. Trocar o ano reinicia o
+filtro; retornar de uma página vazia conserva a seleção. A atualização da coleta
+continua identificada como anual, antes do filtro.
+
+A migration aditiva foi aplicada isoladamente em 15/09, sem reparar o histórico
+remoto anterior. A comparação integral das RPCs públicas de 2021–2026 conservou
+os mesmos documentos e hashes; a união das seleções reproduziu cada ano sem
+perdas ou duplicatas. Testes reais de banco e renderização, 742 testes Node,
+180 testes FNS, typecheck/build web e navegação em 390/1280 px passaram.
+Esta entrega não importa pagamentos nem comprova cobertura histórica completa.
+Próximo passo de dados: obter o leiaute oficial por estabelecimento/competência
+antes de atribuir a Barreiras parcelas recebidas por matrizes, conforme o domínio.
 
 ### Farmácia Popular: página vazia não é ausência de publicação
 

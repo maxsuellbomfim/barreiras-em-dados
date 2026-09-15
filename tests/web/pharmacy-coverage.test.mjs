@@ -15,3 +15,16 @@ test('pending is not official zero; failed or contradictory coverage is unavaila
   }
   assert.equal((await loadPharmacyCoverage(2021,async()=>{throw Error('SECRET');})).status,'unavailable');
 });
+
+test('filtered coverage describes one validated selection, not the entire year',async()=>{
+  const selected='a'.repeat(64), calls=[];
+  const filtered={...row,establishments:1,filter_applied:true,selected_establishment:'Farmácia de teste'};
+  const result=await loadPharmacyCoverage(2021,async args=>{calls.push(args);return [filtered];},selected);
+  assert.deepEqual(calls,[{p_year:2021,p_establishment_id:selected}]);
+  assert.deepEqual(result,filtered);
+  for(const bad of [{...filtered,filter_applied:false},{...filtered,selected_establishment:null},
+    {...filtered,establishments:2},{...filtered,selected_establishment:'<SECRET>'}]) {
+    assert.equal((await loadPharmacyCoverage(2021,async()=>[bad],selected)).status,'unavailable');
+  }
+  assert.equal((await loadPharmacyCoverage(2021,()=>assert.fail(),'invalid')).status,'unavailable');
+});

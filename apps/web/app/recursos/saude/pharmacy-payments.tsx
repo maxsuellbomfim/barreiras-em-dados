@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import type { PharmacyCoverage } from '../../../lib/pharmacy-coverage.mjs';
 
 
-export function PharmacyPayments({ publication, coverage, filters, navigation }: { publication: PharmacyPublication; coverage?: PharmacyCoverage; filters?: ReactNode; navigation?: ReactNode }) {
+export function PharmacyPayments({ publication, coverage, filters, navigation, filtered=false, firstPageHref }: { publication: PharmacyPublication; coverage?: PharmacyCoverage; filters?: ReactNode; navigation?: ReactNode; filtered?:boolean; firstPageHref?:string }) {
   return <section className="section" aria-labelledby="pharmacy-title">
     <div className="section-heading">
       <span className="eyebrow">Saúde · Farmácia Popular</span>
@@ -15,11 +15,11 @@ export function PharmacyPayments({ publication, coverage, filters, navigation }:
     {filters}
     {coverage && <aside className="transfer-reading-guide" aria-labelledby="pharmacy-coverage">
       <h2 id="pharmacy-coverage">Cobertura da publicação</h2>
-      {coverage.status==='unavailable' ? <p>A contagem do ano está temporariamente indisponível. Isso não significa ausência de pagamentos.</p> :
+      {coverage.status==='unavailable' ? <p>A contagem {filtered?'deste filtro':'do ano'} está temporariamente indisponível. Isso não significa ausência de pagamentos.</p> :
         coverage.status==='pending' ? <p>Ainda não há pagamentos aprovados para exibição neste ano. Isso não significa que a fonte oficial informou zero.</p> : <>
-          <p><strong>{coverage.published_documents} pagamentos publicados em {coverage.year}</strong>, de {coverage.establishments} estabelecimentos com identidade conferida.</p>
+          <p><strong>{coverage.published_documents} pagamentos publicados em {coverage.year}</strong>, de {coverage.establishments} {coverage.establishments===1?'estabelecimento':'estabelecimentos'} com identidade conferida.</p>
           <p>Documentos de {coverage.first_date?.split('-').reverse().join('/')} a {coverage.last_date?.split('-').reverse().join('/')}.
-            A contagem considera todas as páginas do ano selecionado.</p>
+            {coverage.filter_applied ? ' A contagem considera todas as páginas do estabelecimento selecionado neste ano.' : ' A contagem considera todas as páginas do ano selecionado.'}</p>
           <p><strong>Cobertura parcial.</strong> Documentos sem validação suficiente ficam fora da lista.
             As datas acima não comprovam coleta completa de todos os meses. O cadastro atual não confirma o credenciamento no passado.</p>
         </>}
@@ -37,7 +37,7 @@ export function PharmacyPayments({ publication, coverage, filters, navigation }:
       <h2 id="pharmacy-status">Nenhum pagamento nesta página</h2>
       <p>A consulta não retornou registros para esta página do ano {publication.year}.
         Isso não comprova ausência de pagamentos no ano ou na fonte oficial.</p>
-      <p><a href={`?ano=${publication.year}`}>Voltar à primeira página</a> para conferir os registros do ano selecionado.</p>
+      <p><a href={firstPageHref??`?ano=${publication.year}`}>Voltar à primeira página</a> para conferir os registros {filtered?'do estabelecimento e ano selecionados':'do ano selecionado'}.</p>
     </aside> : publication.status !== 'ready' ? <aside className="transfer-reading-guide" aria-labelledby="pharmacy-status">
       <h2 id="pharmacy-status">{publication.status === 'pending' ? 'Publicação dos pagamentos em preparação' : 'Dados temporariamente indisponíveis'}</h2>
       <p>{publication.status === 'pending' ? 'Ainda não há registros liberados nesta página. Estamos conferindo os estabelecimentos e as evidências antes de exibir os valores.' : 'Não foi possível validar os registros para exibição. Os valores foram omitidos até a conferência.'}</p>

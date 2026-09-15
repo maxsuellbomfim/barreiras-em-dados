@@ -40,3 +40,19 @@ test('pharmacy pagination bounds scope and probes only full pages',async()=>{
     assert.equal((await loadPharmacyPage(2025,page,()=>assert.fail())).publication.status,'unavailable');
   }
 });
+
+test('establishment filter reaches current and next pages and never falls back',async()=>{
+  const selected='f'.repeat(64), calls=[];
+  const result=await loadPharmacyPage(2025,1,async args=>{
+    calls.push(args);
+    return args.p_offset===0?Array.from({length:25},(_,i)=>({...row,id:String(i)})):[];
+  },selected);
+  assert.equal(result.publication.status,'ready');
+  assert.deepEqual(calls,[{p_year:2025,p_offset:0,p_establishment_id:selected},{p_year:2025,p_offset:25,p_establishment_id:selected}]);
+  for(const invalid of ['', 'unknown', ['f'.repeat(64)], 'F'.repeat(64)]) {
+    assert.equal((await loadPharmacyPage(2025,1,()=>assert.fail('invalid selection queried'),invalid)).publication.status,'unavailable');
+  }
+  assert.equal((await loadPharmacyPage(2025,1,async()=>[],selected)).publication.status,'unavailable');
+  assert.equal((await loadPharmacyPage(2025,2,async()=>[],selected)).publication.status,'empty_page');
+  assert.equal((await loadPharmacyPage(2025,1,async()=>{throw Error('private');},selected)).publication.status,'unavailable');
+});
