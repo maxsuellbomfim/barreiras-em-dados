@@ -2,6 +2,34 @@
 
 ## Auditoria de descoberta por período — 15/09/2026
 
+### Preservação dirigida do par validado
+
+Comando `python -B -m barreiras_collectors.commands.collect_pncp_municipal_link_evidence`;
+no workflow PNCP, modo manual `municipal_link_evidence`. Sem argumentos livres,
+o escopo é fechado às duas URLs oficiais do contrato 23/2026 e compra 3/2026 do
+Fundo. Não expande os agendamentos nem executa outros coletores/normalização.
+
+Usa `PncpRegistryPersistenceService` como snapshot de evidência privada (não
+cadastro normalizado). O recurso recebe prefixo `municipal-link:` no metadado;
+o schema técnico `pncp-registry-snapshot` e o corredor de Storage já existentes
+são reaproveitados. Os bytes integrais são preservados sem reescrever campos;
+upload idempotente e releitura por SHA-256 antecedem a validação cruzada.
+Não cria registros brutos consumíveis pelo normalizador financeiro.
+
+Partição `municipal-link:13654405000195-2-000023/2026`, sob `registry-api`, registra
+o começo antes de autenticar ou consultar a fonte. Conclusão significa **dois
+artefatos privados validados**, não cobertura histórica ou publicação. O
+checkpoint liga os dois artefatos por ID/hash e mantém `publication_authorized=false`.
+Falha preserva evidências eventualmente já gravadas, mas não fecha a partição
+como completa. Identidade/link divergente, hash incorreto ou redirecionamento
+inesperado bloqueia a validação. O par fixo foi escolhido pela auditoria abaixo;
+não é algoritmo genérico de inferência por semelhança de nome/objeto.
+
+Tentativas locais nesta etapa falharam no Storage (HTTP 400). A consulta
+administrativa de permissões também foi negada à role local. Nenhuma permissão
+foi ampliada. A conclusão operacional depende do replay isolado em produção e
+da conferência dos metadados e da partição; testes verdes não comprovam upload.
+
 Endpoint confirmado no [manual de integração](https://pncp.gov.br/manual/pt-br/latest/contrato_empenho/consultar_contratos_ou_empenhos_de_uma_contratacao.html):
 o endereço do coletor por contratação está correto. Na contratação 40/2026,
 HTTP 404 veio com mensagem explícita de que não há contrato publicado no PNCP
