@@ -5,6 +5,23 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Farmácia Popular: exportação CSV da consulta completa
+
+A página de saúde recebe download CSV de todas as páginas da seleção de ano
+e estabelecimento. A exportação lê um único retrato revisado no banco, com
+limite explícito de 5.000 documentos e 4 MB; excesso ou falha não gera arquivo
+parcial. Valores decimais são preservados como texto, com fonte e ressalva de
+cobertura parcial em cada linha. Identificadores numéricos e textos interpretáveis
+como fórmulas recebem proteção de planilha, explicada na interface.
+
+A nova RPC foi aplicada isoladamente, com histórico transacional. A conferência
+da API manteve os 335 documentos públicos de 2021–2026 sem alteração. O leitor
+CSV padrão do Python comparou os seis arquivos anuais e dois filtros de 2025
+com a projeção pública: nenhuma divergência. Os 763 testes Node, 180 FNS,
+contratos, migrations, typecheck e build web passaram. Download por teclado,
+fonte de 16 px, controle de 44 px e larguras de 390/1280 px foram conferidos.
+A entrega não importa dados novos nem comprova cobertura completa da fonte.
+
 ### Farmácia Popular: seleção pública por estabelecimento
 
 A rota de saúde recebe filtro por estabelecimento dentro do ano escolhido,

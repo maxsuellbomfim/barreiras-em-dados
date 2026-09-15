@@ -1,5 +1,51 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Exportação CSV da seleção completa — 15/09/2026
+
+`/recursos/saude/exportar` exige `ano` e aceita a mesma referência pública de
+`estabelecimento` do filtro. Não aceita parâmetros repetidos, paginação ou escopo
+desconhecido. O link na página descarta apenas os contadores de página e mantém
+o ano/estabelecimento; a tela avisa que o download abrange todas as páginas.
+Nenhuma exportação é consultada antecipadamente ao abrir a lista.
+
+A migration `20260915110000` adiciona uma única RPC que materializa a seleção
+revisada e devolve metadados e registros no mesmo envelope. Isso evita combinar
+páginas lidas antes/depois de uma revisão e evita o limite externo de linhas do
+PostgREST. Reutiliza o gate anual privado e a lista de oito campos já públicos,
+sem alterar tabelas, aprovações ou permissões de workers. Em 5.001 documentos
+a função falha, sem devolver envelope truncado. O servidor valida o tamanho,
+contagem, ordem, unicidade e evidência; a validação em blocos de 25 é somente
+em memória, nunca novas requisições de páginas.
+
+Formato: UTF-8 com BOM, separador `;`, aspas duplicadas segundo CSV, finais CRLF,
+datas ISO e valor líquido BRL em string com vírgula decimal, sem conversão para
+float. Cada linha informa a consulta geral do FNS (não um endereço individual
+inventado), cobertura parcial e horário UTC da extração. Um apóstrofo protege
+textos com início de fórmula ou aparência numérica/científica; a interface
+explica essa proteção. Nenhum identificador cadastral privado, conta bancária,
+payload bruto ou chave interna é incluído. O arquivo continua sujeito aos
+limites de conhecimento da fonte e não representa receita municipal.
+
+Resposta bem-sucedida usa `attachment`, `text/csv`, `nosniff` e `no-store`;
+o nome usa somente constantes e ano validado. A montagem termina e verifica
+4 MB antes de começar a resposta. Filtro inválido, indisponibilidade, ausência
+de registros revisados ou excesso não produz CSV vazio/parcial com aparência
+de sucesso. O download pode refletir revisão posterior à abertura da tela,
+mas cada arquivo corresponde a uma única consulta consistente.
+
+RED comprovado antes da função SQL, leitor, rota e componente. GREEN em
+24 testes reais de banco (incluindo 5.000/5.001 com snapshots legais), suíte
+completa de 763 testes Node e 180 testes FNS; contratos, migrations e web
+typecheck/build aprovados. Uma revisão independente não encontrou bloqueadores.
+A função e seu registro de migration foram aplicados na mesma transação,
+sem reescrever/reaplicar históricos anteriores. A API manteve exatamente os
+335 documentos previamente públicos de 2021–2026. O parser CSV padrão do Python
+releu oito downloads locais: seis anos e dois filtros de 2025, conferindo todas
+as linhas e campos contra a projeção pública. HTTP de erro não continha anexo.
+No navegador, o download acionado por teclado a partir da página 2 de 2021
+conservou a página; o arquivo anual continha 108 registros, não só os 25 visíveis.
+UI em 390 e 1280 px sem overflow, texto de 16 px e controle de 44 px.
+
 ## Filtro por estabelecimento e ano — 15/09/2026
 
 A página pública permite selecionar um estabelecimento entre as opções com
