@@ -15,12 +15,14 @@ import logging
 import os
 import random
 import re
+import ssl
 import time
 import zipfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.error import URLError
 from urllib.parse import unquote, urlparse
 
 from ..http import (
@@ -40,8 +42,7 @@ DATASET_NAME = "transferencias-especiais"
 RESOURCE_ID = "809f9b7d-c252-482d-9c92-f2169d48c29c"
 ARCHIVE_NAME = "TransferenciasEspeciais.zip"
 CATALOG_URL = (
-    "https://dados.ba.gov.br/api/3/action/"
-    "package_show?id=transferencias-especiais"
+    "https://dados.ba.gov.br/api/3/action/package_show?id=transferencias-especiais"
 )
 DOWNLOAD_URL = (
     f"https://dados.ba.gov.br/dataset/{DATASET_ID}/resource/{RESOURCE_ID}/"
@@ -127,9 +128,7 @@ PAYMENT_RECORD_TAIL = re.compile(
     r'"?https://www\.transparencia\.ba\.gov\.br/[^";\r\n]+"?\s*$',
     re.IGNORECASE,
 )
-EXECUTION_CODE = re.compile(
-    r'\d{4}\.\d+\.\d+\.\d+\.\d+\.\d+\.\d+\.\d+'
-)
+EXECUTION_CODE = re.compile(r"\d{4}\.\d+\.\d+\.\d+\.\d+\.\d+\.\d+\.\d+")
 
 
 class BahiaSpecialTransferArchiveError(RuntimeError):
@@ -598,6 +597,28 @@ def _request(
             ) from error
         except RETRYABLE_TRANSPORT_EXCEPTIONS as error:
             breaker.record_failure()
+            reason = error.reason if isinstance(error, URLError) else error
+            # Only fixed categories; exception messages may contain URLs or data.
+            error_kind = (
+                "timeout"
+                if isinstance(reason, TimeoutError)
+                else "tls"
+                if isinstance(reason, ssl.SSLError)
+                else "transport"
+            )
+            log_event(
+                log,
+                logging.WARNING,
+                "collector_http_transport_error",
+                source=SOURCE_CODE,
+                endpoint=ENDPOINT_CODE,
+                resource="catalog" if url == CATALOG_URL else "archive",
+                attempt=attempt,
+                max_attempts=policy.max_attempts,
+                timeout_seconds=TIMEOUT_SECONDS,
+                error_kind=error_kind,
+                will_retry=attempt < policy.max_attempts,
+            )
             if attempt < policy.max_attempts:
                 sleep(policy.delay(attempt, random_value()))
                 continue
@@ -609,6 +630,7 @@ def _request(
             "collector_http_response",
             source=SOURCE_CODE,
             endpoint=ENDPOINT_CODE,
+            resource="catalog" if url == CATALOG_URL else "archive",
             status=response.status,
             attempt=attempt,
             body_size_bytes=len(response.body),

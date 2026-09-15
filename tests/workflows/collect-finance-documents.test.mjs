@@ -7,6 +7,17 @@ const workflow = await readFile(
   "utf8",
 );
 
+test("instalacao financeira identica usa tentativas limitadas sem ocultar falhas", () => {
+  const steps = [...workflow.matchAll(
+    /- name: Instalar dependências fixadas([\s\S]*?)(?=\n      - name:|$)/g,
+  )].map((match) => match[1]);
+  const commands = steps.map((step) => /run: ([^\r\n]+)/.exec(step)?.[1]);
+  assert.equal(commands.length, 7);
+  assert.equal(commands.filter((command) => command === "python -B scripts/install_collector_dependencies.py").length, 6);
+  assert.equal(commands.filter((command) => command === 'python -m pip install --disable-pip-version-check ".[postgres,storage,pdf]"').length, 1);
+  for (const step of steps) assert.doesNotMatch(step, /continue-on-error:/);
+});
+
 const financeWorkflowGroups = new Map([
   ["collect-finance-documents.yml", "municipal-finance-collection-production"],
   ["collect-municipal-transparency.yml", "municipal-finance-collection-production"],

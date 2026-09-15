@@ -5,6 +5,18 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Recuperação das coletas financeiras — 15/09/2026
+
+A execução financeira de 15/09 falhou na instalação das dependências de
+balancetes e no acesso ao catálogo de Transferências Especiais da Bahia.
+A instalação repetida agora usa três tentativas limitadas, sem trocar versões
+fixadas nem ocultar o último erro. O conector estadual registra a etapa e uma
+categoria de falha sanitizada por tentativa, mantendo os quatro pedidos e o
+timeout já existentes. Uma sonda do catálogo retornou HTTP 200 e contrato
+válido; isso não comprova preservação nem recuperação da execução completa.
+O fechamento exige replay dirigido, conferência dos documentos e, no caso
+estadual, normalização e reconciliação pública do mesmo retrato.
+
 ### Farmácia Popular: exportação CSV da consulta completa
 
 A página de saúde recebe download CSV de todas as páginas da seleção de ano
