@@ -5,6 +5,21 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: recuperar a consulta pública de licitações
+
+A RPC pública de contratações estava retornando HTTP 500/57014; receber HTML
+200 na rota não comprovava que os registros tinham aparecido. O plano SQL
+mostrou uma varredura de toda a tabela bruta para as compras e outra para os
+resultados de cada compra. A consulta de 2026 excedeu 20 segundos no diagnóstico.
+Dois índices parciais usam as chaves oficiais já consultadas, sem trocar a RPC,
+seus filtros, permissões, valores, itens, resultados ou evidências.
+
+No ensaio transacional revertido de 15/09, o corpo da consulta retornou 40
+contratações de 2026 em 808 ms. A função real retornou a lista padrão de 60 em
+1.074 ms; os índices ocuparam 152 KiB. São medições pontuais, não promessa de
+latência nem prova de cobertura histórica. A migração e a conferência da API
+e da página em produção ainda precisam ser concluídas.
+
 ### PNCP: impedir retorno à versão antiga dos contratos
 
 A auditoria do replay de 15/09 identificou seis contratos oficiais com um
@@ -13,8 +28,12 @@ o novo e depois o antigo, deixando os seis contratos na evidência anterior.
 Uma migration aditiva seleciona um único snapshot mais recente por chave
 oficial antes do limite, preservando histórico e vínculo com o registro bruto.
 Snapshots já representados pela versão atual não devem consumir o lote.
-A aplicação e a reconciliação em produção ainda precisam ser conferidas;
-não se presume atualização pública a partir de contadores de versões.
+O PR #752 foi mesclado e a migração `20260915154500` aplicada em produção.
+Foram criadas seis versões corretivas; as 300 versões anteriores permaneceram
+inalteradas. As 192 chaves oficiais ficaram reconciliadas, sem divergência do
+snapshot mais recente; repetir o lote não criou versões nem fornecedores.
+A comprovação pública dos seis contratos depende da correção do timeout acima;
+não se presume atualização no site a partir dos contadores do banco.
 
 ### PNCP: falha cadastral não deve interromper compras independentes
 
