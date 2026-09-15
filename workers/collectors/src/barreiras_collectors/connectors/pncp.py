@@ -46,6 +46,17 @@ class PncpError(RuntimeError):
     """Falha explícita ao consultar o PNCP."""
 
 
+class PncpContractsResponseError(PncpError):
+    """Resposta de contratos que não pode ser tratada como dado ou vazio."""
+
+    def __init__(self, *, status: int | None, reason: str) -> None:
+        self.status = status
+        # Alias explícito para consumidores que nomeiam o campo como HTTP.
+        self.http_status = status
+        self.reason = reason
+        super().__init__("A resposta de contratos do PNCP não pôde ser validada.")
+
+
 CONTRATACOES_ENDPOINT_CODE = "consulta-contratacoes"
 # Modalidades da Lei 14.133/2021 aceitas pela API de consulta.
 CONTRATACAO_MODALIDADES: tuple[int, ...] = tuple(range(1, 14))
@@ -329,6 +340,7 @@ def fetch_contratos_page(
         url,
         schema_name="pncp-contratos-page",
         endpoint_code=CONTRATOS_ENDPOINT_CODE,
+        strict_contracts=True,
         cursor={
             "offset": (pagina - 1) * COMPRAS_PAGE_SIZE,
             "size": COMPRAS_PAGE_SIZE,
@@ -348,6 +360,7 @@ def _fetch_compras_array(
     *,
     schema_name: str,
     endpoint_code: str = COMPRAS_ENDPOINT_CODE,
+    strict_contracts: bool = False,
     cursor: dict[str, int],
     transport: HttpTransport | None,
     retry_policy: RetryPolicy | None,
@@ -397,29 +410,82 @@ def _fetch_compras_array(
             body_size_bytes=len(response.body),
         )
         if response.status in (204, 404):
+            if strict_contracts:
+                raise PncpContractsResponseError(
+                    status=response.status,
+                    reason=(
+                        "http_not_found"
+                        if response.status == 404
+                        else "http_no_content"
+                    ),
+                )
             # 404 aqui é ausência do recurso na API pncp/v1, não falha.
             return None
         if response.status == 200:
             try:
                 payload = json.loads(response.body)
             except (json.JSONDecodeError, UnicodeDecodeError) as error:
+                if strict_contracts:
+                    raise PncpContractsResponseError(
+                        status=response.status,
+                        reason="invalid_response",
+                    ) from None
                 raise PncpError(
                     f"O recurso {schema_name} não devolveu JSON válido."
                 ) from error
+            if (
+                strict_contracts
+                and isinstance(payload, dict)
+                and (
+                    "error" in payload
+                    or (
+                        isinstance(payload.get("status"), int)
+                        and 400 <= payload["status"] <= 599
+                    )
+                )
+            ):
+                raise PncpContractsResponseError(
+                    status=response.status,
+                    reason="invalid_response",
+                )
             total_paginas = 1
             total_registros = 0
             if isinstance(payload, list):
                 items = payload
+                if strict_contracts:
+                    total_registros = len(items)
             elif isinstance(payload, dict) and isinstance(payload.get("data"), list):
                 items = payload["data"]
-                total_paginas = int(payload.get("totalPaginas") or 1)
-                total_registros = int(payload.get("totalRegistros") or len(items))
+                if strict_contracts:
+                    total_registros = _strict_contract_count(payload, "totalRegistros")
+                    total_paginas = _strict_contract_count(payload, "totalPaginas")
+                else:
+                    total_paginas = int(payload.get("totalPaginas") or 1)
+                    total_registros = int(payload.get("totalRegistros") or len(items))
             else:
+                if strict_contracts:
+                    raise PncpContractsResponseError(
+                        status=response.status,
+                        reason="invalid_response",
+                    ) from None
                 raise PncpError(
                     f"A raiz de {schema_name} deve ser uma lista ou objeto "
                     "paginado JSON."
                 )
-            if not items:
+            if strict_contracts:
+                if any(not isinstance(item, dict) for item in items):
+                    raise PncpContractsResponseError(
+                        status=response.status,
+                        reason="invalid_response",
+                    )
+                _validate_contract_page_counts(
+                    items=items,
+                    total_paginas=total_paginas,
+                    total_registros=total_registros,
+                    cursor=cursor,
+                    paginated_root=isinstance(payload, dict),
+                )
+            if not items and not strict_contracts:
                 return None
             return PncpPage(
                 schema_name=schema_name,
@@ -451,9 +517,17 @@ def _fetch_compras_array(
                 raw_body=response.body,
                 window_start=None,
                 window_end=None,
-                items=tuple(item for item in items if isinstance(item, dict)),
+                items=(
+                    tuple(items)
+                    if strict_contracts
+                    else tuple(item for item in items if isinstance(item, dict))
+                ),
                 total_paginas=total_paginas,
-                total_registros=total_registros or len(items),
+                total_registros=(
+                    total_registros
+                    if strict_contracts
+                    else total_registros or len(items)
+                ),
             )
         if response.status not in RETRYABLE:
             raise PncpError(
@@ -463,6 +537,44 @@ def _fetch_compras_array(
             sleep(policy.delay(attempt, 0.5))
 
     raise PncpError(f"O PNCP ficou indisponível para {schema_name}.")
+
+
+def _strict_contract_count(payload: dict, field: str) -> int:
+    """Lê uma contagem do envelope sem coerção ou defaults implícitos."""
+    value = payload.get(field)
+    if field not in payload or isinstance(value, bool) or not isinstance(value, int):
+        raise PncpContractsResponseError(status=200, reason="invalid_response")
+    if value < 0:
+        raise PncpContractsResponseError(status=200, reason="invalid_response")
+    return value
+
+
+def _validate_contract_page_counts(
+    *,
+    items: list,
+    total_paginas: int,
+    total_registros: int,
+    cursor: dict[str, int],
+    paginated_root: bool,
+) -> None:
+    """Bloqueia envelope contraditório, inclusive páginas vazias."""
+    if not paginated_root:
+        return
+    pagina = cursor.get("pagina", 1)
+    if pagina < 1:
+        raise PncpContractsResponseError(status=200, reason="invalid_response")
+    if total_paginas == 0:
+        if items or total_registros != 0 or pagina != 1:
+            raise PncpContractsResponseError(status=200, reason="invalid_response")
+        return
+    if total_paginas < pagina:
+        raise PncpContractsResponseError(status=200, reason="invalid_response")
+    if items:
+        if total_registros < len(items):
+            raise PncpContractsResponseError(status=200, reason="invalid_response")
+        return
+    if total_registros != 0 or total_paginas > 1:
+        raise PncpContractsResponseError(status=200, reason="invalid_response")
 
 
 @dataclass(frozen=True)

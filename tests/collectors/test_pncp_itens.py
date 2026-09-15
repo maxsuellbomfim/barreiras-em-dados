@@ -163,7 +163,12 @@ class ItensFetchTests(unittest.TestCase):
 
     def test_contracts_endpoint_requests_selected_page(self) -> None:
         transport = SequencedTransport(
-            (200, json.dumps({"data": [{}], "totalPaginas": 2}).encode())
+            (
+                200,
+                json.dumps(
+                    {"data": [{}], "totalPaginas": 2, "totalRegistros": 51}
+                ).encode(),
+            )
         )
 
         page = fetch_contratos_page(
@@ -385,7 +390,14 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
             {"data": full, "totalPaginas": 3, "totalRegistros": 150}
         ).encode()
         second = json.dumps(
-            {"data": full, "totalPaginas": 3, "totalRegistros": 150}
+            {
+                "data": [
+                    {"numeroControlePNCP": f"13654405000195-2-{index:06d}/2026"}
+                    for index in range(COMPRAS_PAGE_SIZE, COMPRAS_PAGE_SIZE * 2)
+                ],
+                "totalPaginas": 3,
+                "totalRegistros": 150,
+            }
         ).encode()
 
         with patch(

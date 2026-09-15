@@ -5,6 +5,27 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: resposta inconclusiva não é ausência de contratos
+
+O replay do PR #755 percorreu exatamente as 50 chaves previstas e conservou
+os 334 registros brutos e as 306 versões normalizadas anteriores. Preservou
+seis novas observações, sem criar versões públicas redundantes. Porém, 47
+consultas HTTP 404 ainda eram registradas como vazias. O lote permaneceu
+parcial; isso não comprovou inexistência de contratos nem cobertura histórica.
+
+A correção distingue HTTP 404/204 e conteúdo inconsistente de uma lista HTTP
+200 explicitamente vazia. A lista vazia precisa ser preservada e relida por
+hash antes de concluir a consulta. Páginas repetidas, contagens incompatíveis
+e erros após uma página válida mantêm o controle pendente. O lote continua
+nas outras chaves e salva a retomada, sem ficar preso à primeira resposta 404.
+
+Contratos válidos de outras consultas continuam chegando à normalização, mas
+o gate final reprova o workflow se houve pendências: publicar dados validados
+não significa esconder falhas de cobertura. Não há nova dependência, migration
+ou alteração de valores públicos. CI e replay limitado ainda precisam confirmar
+o comportamento operacional desta correção, inclusive a falha explícita esperada
+quando a fonte devolver respostas inconclusivas.
+
 ### PNCP: retomada de contratos sem saltos na fila
 
 Reprodução local: numa fila de 120 contratações antigas, o OFFSET avançava
