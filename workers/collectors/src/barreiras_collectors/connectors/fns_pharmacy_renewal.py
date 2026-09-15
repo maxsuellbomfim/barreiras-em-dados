@@ -100,29 +100,35 @@ def _pdf_rows(raw):
     )
 
 
+def validated_renewal_rows(capture):
+    """Private rows from trusted acquisition metadata; never log their contents."""
+    raw = capture["body"]
+    if (
+        not isinstance(raw, bytes)
+        or not raw.startswith(b"%PDF-")
+        or not 0 < len(raw) <= 8_000_000
+    ):
+        raise ValueError("Invalid renewal bytes")
+    if (
+        type(capture["byte_size"]) is not int
+        or capture["byte_size"] != len(raw)
+        or capture["sha256"] != hashlib.sha256(raw).hexdigest()
+    ):
+        raise ValueError("Invalid renewal integrity")
+    if (
+        capture.get("http_status") != 200
+        or capture["source_url"]
+        not in tuple(p + "/@@download/file" for p in RENEWAL_PATHS)
+        or capture["referrer_url"] not in tuple(p + "/view" for p in RENEWAL_PATHS)
+    ):
+        raise ValueError("Invalid renewal origin")
+    # The parser caches mutable rows. Callers must not modify the identity cache.
+    return [dict(row) for row in _pdf_rows(raw)]
+
+
 def inspect_renewal_register(capture, beneficiary):
     try:
-        raw = capture["body"]
-        if (
-            not isinstance(raw, bytes)
-            or not raw.startswith(b"%PDF-")
-            or not 0 < len(raw) <= 8_000_000
-        ):
-            raise ValueError("Invalid renewal bytes")
-        if (
-            type(capture["byte_size"]) is not int
-            or capture["byte_size"] != len(raw)
-            or capture["sha256"] != hashlib.sha256(raw).hexdigest()
-        ):
-            raise ValueError("Invalid renewal integrity")
-        if (
-            capture.get("http_status") != 200
-            or capture["source_url"]
-            not in tuple(p + "/@@download/file" for p in RENEWAL_PATHS)
-            or capture["referrer_url"] not in tuple(p + "/view" for p in RENEWAL_PATHS)
-        ):
-            raise ValueError("Invalid renewal origin")
-        match = match_renewal_rows(_pdf_rows(raw), beneficiary)
+        match = match_renewal_rows(validated_renewal_rows(capture), beneficiary)
         if match is None:
             return dict(status="review_required", publication_allowed=False)
         return dict(

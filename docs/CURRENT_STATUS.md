@@ -5,6 +5,16 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Vínculo documental matriz/filial — investigação privada
+
+O leitor de Farmácia Popular agora permite localizar uma linha do cadastro
+preservado na coluna exata de estabelecimento do PDF de renovação de 2025.
+A saída contém hashes e posições documentais, sem identificadores ou nomes.
+Duplicatas e identificadores inválidos bloqueiam a conclusão. O vínculo não
+comprova pagamento municipal, histórico de credenciamento ou nome da filial;
+não altera o publicador nem o agendamento. Próximo passo: conferir documentos
+financeiros da matriz identificada, sem atribuir o total de uma rede a Barreiras.
+
 ### Retomada após disputa entre coletas — 14/09/2026
 
 O wrapper de Farmácia Popular agora espera até 15 minutos pela trava exclusiva
