@@ -33,6 +33,19 @@ const items = "Preservar itens e resultados das contratações";
 const contracts = "Preservar contratos e empenhos das contratações";
 const normalize = "Normalizar contratos PNCP";
 
+test("evidencia municipal executa apenas o par privado e nunca normaliza", () => {
+  const evidence = "Preservar vínculo municipal privado";
+  for (const name of [registry, weekly, backfill, replay, items, contracts, normalize])
+    assert.equal(enabled(name, { mode: "municipal_link_evidence" }), false, name);
+  assert.equal(enabled(evidence, { mode: "municipal_link_evidence" }), true);
+  for (const mode of ["full", "backfill", "contracts_only", "registry_only"])
+    assert.equal(enabled(evidence, { mode }), false);
+  assert.equal(enabled(evidence, { event: "schedule" }), false);
+  assert.equal(enabled(evidence, { mode: "municipal_link_evidence", priorSucceeded: false }), false);
+  assert.doesNotMatch(step(evidence), /continue-on-error/);
+  assert.match(step(evidence), /collect_pncp_municipal_link_evidence/);
+});
+
 test("falha cadastral permite os passos independentes sem ocultar o resultado", () => {
   const registryStep = step(registry);
   assert.match(registryStep, /^        id: collect_registry$/m);
@@ -164,7 +177,7 @@ test("falha em contratos nao impede normalizacao e permanece visivel no resultad
   );
   assert.match(
     step(normalize),
-    /if: github\.event_name != 'workflow_dispatch' \|\| inputs\.mode != 'registry_only'[\s\S]*?normalize_pncp_contracts/,
+    /if: github\.event_name != 'workflow_dispatch' \|\| \(inputs\.mode != 'registry_only' && inputs\.mode != 'municipal_link_evidence'\)[\s\S]*?normalize_pncp_contracts/,
   );
   assert.match(
     step("Sinalizar falha parcial da coleta"),

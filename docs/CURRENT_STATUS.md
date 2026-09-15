@@ -5,6 +5,19 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: preservação privada do vínculo Prefeitura–Fundo Social
+
+O modo manual `municipal_link_evidence` preserva somente o contrato 130/2026
+e a compra IN-029/2026 do Fundo Municipal de Assistência Social. Reutiliza o
+armazenamento imutável de snapshots, com releitura por hash, sem criar registros
+`pncp_contrato`/`pncp_contratacao` nem chamar normalização ou publicação.
+Valida controles exatos, CNPJs distintos corretos, IBGE 2903201 nos dois arquivos
+e vínculo declarado na fonte. A execução é registrada antes da autenticação.
+
+As tentativas locais falharam no upload privado; não comprovaram preservação.
+O modo isolado permite verificar a operação pela configuração de produção do
+workflow PNCP, sem ampliar permissões. A integração pública continua pendente.
+
 ### PNCP: lacuna confirmada na descoberta por contratação-pai
 
 A consulta oficial por publicação de 01/01 a 15/09/2026 retornou 40 contratos
