@@ -7564,6 +7564,21 @@ footer {
   overflow-wrap: anywhere;
 }
 
+.pharmacy-export p,
+.pharmacy-export summary {
+  font-size: 1rem;
+}
+
+.pharmacy-export a {
+  display: inline-block;
+  min-height: 44px;
+  padding-block: 0.5rem;
+  color: var(--blue-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
 .transfer-source-selector {
   margin-top: 1rem;
   display: grid;

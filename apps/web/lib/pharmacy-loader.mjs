@@ -1,7 +1,7 @@
 import { readPharmacyPublication } from './pharmacy-publication.mjs';
 import { validPharmacySelection } from './pharmacy-establishments.mjs';
 
-function parseRows(rows, year) {
+export function readPharmacyRows(rows, year) {
   if (!Array.isArray(rows) || rows.length>25) throw Error('Invalid page');
   if (!rows.length) return readPharmacyPublication(null);
   for(const row of rows) {
@@ -22,7 +22,7 @@ export async function loadPharmacyPage(year,page,callRpc,establishment=null) {
   const selection=establishment===null?{}:{p_establishment_id:establishment};
   try {
     const rows=await callRpc({p_year:year,p_offset:(page-1)*25,...selection});
-    const publication=parseRows(rows,year);
+    const publication=readPharmacyRows(rows,year);
     if(publication.status==='unavailable') return unavailable;
     // Empty offsets say nothing about publication of the entire year.
     if(publication.status==='pending' && page>1) {
@@ -31,7 +31,7 @@ export async function loadPharmacyPage(year,page,callRpc,establishment=null) {
     if(publication.status==='pending' && establishment!==null) return unavailable;
     let hasNext=false;
     if(rows.length===25 && page<401) {
-      const next=parseRows(await callRpc({p_year:year,p_offset:page*25,...selection}),year);
+      const next=readPharmacyRows(await callRpc({p_year:year,p_offset:page*25,...selection}),year);
       if(next.status==='unavailable') return unavailable;
       hasNext=next.status==='ready';
     }

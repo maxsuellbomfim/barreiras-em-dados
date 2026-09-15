@@ -4,6 +4,7 @@ import { pharmacyHref, validPharmacySelection } from '../../../lib/pharmacy-esta
 import { PharmacyPayments } from './pharmacy-payments';
 import { PharmacyRefreshStatus } from './pharmacy-refresh';
 import { PharmacyEstablishments } from './pharmacy-establishments';
+import { PharmacyExportLink } from './pharmacy-export';
 
 export const metadata: Metadata = { title: 'Recursos da saúde' };
 
@@ -31,6 +32,7 @@ export default async function HealthResourcesPage({searchParams}:{searchParams:P
       <p>Consultar outro ano reinicia a seleção de estabelecimento e as páginas.</p>
       {validYear&&<PharmacyEstablishments year={year} page={page} optionsPage={optionsPage} selection={selection}
         selectedName={coverage.status==='partial'?coverage.selected_establishment:undefined} options={options}/>}
+      <PharmacyExportLink year={year} selection={selection} coverage={coverage}/>
       {selection!==null&&<p>A atualização abaixo se refere ao ano inteiro, antes do filtro por estabelecimento.</p>}
       <PharmacyRefreshStatus refresh={refresh}/>
     </>} navigation={validScope && <nav aria-label="Páginas dos pagamentos">
