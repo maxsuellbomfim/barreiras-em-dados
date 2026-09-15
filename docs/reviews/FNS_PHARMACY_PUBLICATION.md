@@ -65,6 +65,37 @@ compatíveis, preservando os retornos privados. Antes de qualquer exibição pú
 é necessário distinguir cadastro, consulta vazia, período não coletado e pagamento
 efetivamente documentado. Não transformar a diferença entre listas em acusação.
 
+### Investigação privada de matriz e estabelecimento
+
+`inspect_registry_renewal_link`, no módulo `fns_pharmacy_matrix_evidence`, recebe
+as duas capturas preservadas e a linha física do XLSX (a partir de 2). Revalida
+os arquivos integralmente e procura o identificador completo somente na segunda
+coluna do PDF: `CNPJ_ESTABELECIMENTO`. A primeira é `CNPJ_MATRIZ`; a razão social
+também é da matriz e nunca é devolvida como nome da filial.
+
+Uma ocorrência única com ambos os identificadores válidos resulta em
+`link_documented`, com hashes, página/linha do PDF, linha do XLSX, ano da lista
+e indicação de matriz diferente. Não há comparação por nome, prefixo ou raiz
+do CNPJ. Matriz repetida para estabelecimentos distintos é permitida, mas
+estabelecimento repetido, mesmo em páginas diferentes, é `ambiguous_evidence`.
+Cadastro com chave duplicada também bloqueia. Origem, hash, tamanho, leiaute
+ou posição inválidos produzem `invalid_evidence`; ausência em PDF íntegro é
+apenas `not_located_in_renewal`, nunca ausência de credenciamento ou pagamento.
+
+O resultado não contém identificadores, nomes, endereços ou valores. Permanecem
+fixos `publication_allowed=false`, `historical_registration_verified=false`,
+`payment_presence=not_determined` e `municipal_payment_attribution=not_determined`.
+Um cadastro atual e uma lista de renovação de 2025 não comprovam vínculo em
+outro exercício, condição municipal da matriz ou parcela recebida pela filial.
+Os metadados de captura vêm do transporte/operador confiável, não de clientes web.
+
+O leitor reutilizável devolve cópias das linhas, sem permitir alteração do cache
+do parser. O caminho de identidade existente conserva a exigência de matriz igual
+ao estabelecimento/beneficiário. O novo diagnóstico não acessa a rede nem o banco,
+não integra o agendamento e não autoriza ampliar consultas ou publicar pagamentos.
+A investigação financeira posterior exige fonte e escopo próprios; não se deve
+ratear ou somar o total da matriz como se fosse destinado a Barreiras.
+
 ## Reconciliação entre aquisição e publicação
 
 Antes de classificar ou importar qualquer observação, o comando exige contagem
