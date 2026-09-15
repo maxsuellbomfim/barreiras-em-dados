@@ -25,6 +25,21 @@ cinco views preservadas, processar o ZIP e passar no gate público que compara
 o hash da coleta com cobertura, pagamentos e ranking. Workflow verde isolado
 ou sonda do catálogo não substituem essa conferência.
 
+O replay `34986034919`, no commit mesclado do PR #749, preservou em 15/09 um
+ZIP de 564.639 bytes, cinco views e 12.361 linhas. O banco confirmou um único
+artefato de hash
+`dc73e9fdbd87fcf5c9889a74016eb32a2524ab6bdd75ee6203ffc72b5da67a28`
+e cinco manifestos. A etapa seguinte falhou com `httpx.ReadTimeout` durante
+o login do Storage, antes de ler/processar o ZIP; não era erro dos registros.
+
+A normalização passa a repetir apenas falhas de timeout/rede, no máximo três
+vezes, com `RetryPolicy` existente e eventos sanitizados. Recusa de credencial,
+sessão/usuário ausente e falha permanente não repetem nem acessam o bucket.
+Esgotamento mantém erro e impede criar o repositório/processar/publicar.
+Não há mudança em senha, permissões, timeout HTTP, TLS ou critérios editoriais.
+Após login, o serviço existente relê o ZIP e compara SHA-256 antes da extração;
+essa integridade não é substituída pelo sucesso da autenticação.
+
 O Portal de Dados Abertos da Bahia publica o conjunto oficial
 **Transferências Especiais**, atualizado em 20/08/2026. O catálogo CKAN aponta
 para um ZIP de 554.925 bytes com cinco views. O conector valida URL, recurso,

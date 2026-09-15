@@ -17,6 +17,16 @@ válido; isso não comprova preservação nem recuperação da execução comple
 O fechamento exige replay dirigido, conferência dos documentos e, no caso
 estadual, normalização e reconciliação pública do mesmo retrato.
 
+O PR #749 foi mesclado e o replay de balancetes `34985731862` concluiu catálogo
+e drenagem: 120 documentos existentes, 120 PDFs já preservados, zero falhas ou
+duplicações. Banco e API pública confirmaram o resultado. O replay estadual
+`34986034919` preservou um ZIP com cinco views e 12.361 linhas, mas a
+normalização parou por timeout na autenticação do Storage. Essa etapa recebe
+agora até três tentativas somente para falhas transitórias de transporte;
+credencial recusada ou sessão incompleta continuam interrompendo sem repetição.
+Aquisição recuperada não é publicação recuperada: o gate público ainda deve
+comprovar a normalização do retrato atual antes do fechamento.
+
 ### Farmácia Popular: exportação CSV da consulta completa
 
 A página de saúde recebe download CSV de todas as páginas da seleção de ano

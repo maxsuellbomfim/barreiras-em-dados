@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 import logging
+import random
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
 from barreiras_collectors.logging import log_event
 from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
+from barreiras_collectors.resilience import RetryPolicy
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
 from ..bahia_special_transfer_processing import (
@@ -148,6 +151,64 @@ def run_batch(
     return summary
 
 
+def _authenticate_storage(client, *, email: str, password: str) -> None:
+    """Retry only transport failures, before opening any preserved artifact."""
+    from httpx import NetworkError, TimeoutException
+
+    policy = RetryPolicy(max_attempts=3, max_delay_seconds=1.0)
+    logger = logging.getLogger(__name__)
+    for attempt in range(1, policy.max_attempts + 1):
+        try:
+            authentication = client.auth.sign_in_with_password(
+                {"email": email, "password": password}
+            )
+        except (TimeoutException, NetworkError) as error:
+            will_retry = attempt < policy.max_attempts
+            log_event(
+                logger,
+                logging.WARNING,
+                "normalization_bahia_storage_authentication_failed",
+                source="bahia-open-data",
+                attempt=attempt,
+                max_attempts=policy.max_attempts,
+                error_kind="timeout"
+                if isinstance(error, TimeoutException)
+                else "network",
+                will_retry=will_retry,
+            )
+            if will_retry:
+                # Jitter only; no cryptographic material is generated here.
+                jitter = random.random()  # noqa: S311
+                time.sleep(policy.delay(attempt, jitter))
+                continue
+            raise RuntimeError(
+                "A autenticação do Storage permaneceu indisponível "
+                "após três tentativas."
+            ) from None
+        except Exception:
+            log_event(
+                logger,
+                logging.ERROR,
+                "normalization_bahia_storage_authentication_failed",
+                source="bahia-open-data",
+                attempt=attempt,
+                max_attempts=policy.max_attempts,
+                error_kind="authentication",
+                will_retry=False,
+            )
+            raise RuntimeError(
+                "Falha ao autenticar a identidade técnica do Storage."
+            ) from None
+        if (
+            getattr(authentication, "session", None) is None
+            or getattr(authentication, "user", None) is None
+        ):
+            raise RuntimeError(
+                "O Storage não forneceu uma sessão autenticada."
+            ) from None
+        return
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -191,19 +252,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         persistence_settings.supabase_url,
         persistence_settings.supabase_publishable_key,
     )
-    try:
-        authentication = client.auth.sign_in_with_password(
-            {
-                "email": persistence_settings.supabase_workload_email,
-                "password": persistence_settings.supabase_workload_password,
-            }
-        )
-    except Exception as error:
-        raise RuntimeError(
-            "Falha ao autenticar a identidade técnica do Storage."
-        ) from error
-    if authentication.session is None or authentication.user is None:
-        raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
+    _authenticate_storage(
+        client,
+        email=persistence_settings.supabase_workload_email,
+        password=persistence_settings.supabase_workload_password,
+    )
 
     repository = BahiaSpecialTransferRepository.from_dsn(
         persistence_settings.database_url
