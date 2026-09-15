@@ -1,3 +1,5 @@
+import { fetchPncpQueryStatuses, type PncpQueryStatus } from "./pncp-query-status";
+
 export type ProcurementResult = Readonly<{
   numeroItem: number;
   fornecedor: string;
@@ -86,6 +88,7 @@ export type Procurement = Readonly<{
   itens: readonly ProcurementItem[];
   resultados: readonly ProcurementResult[];
   executionSummary: ProcurementExecutionSummary;
+  queryStatus?: PncpQueryStatus;
   methodologyVersion: string;
 }>;
 
@@ -580,8 +583,14 @@ export async function getPncpProcurements(
       }
       procurements.push(procurement);
     }
-    const contexts = await fetchPriceContexts(supabaseUrl, publishableKey);
-    return { state: "available", procurements: attachPriceContexts(procurements, contexts) };
+    const [contexts, statuses] = await Promise.all([
+      fetchPriceContexts(supabaseUrl, publishableKey),
+      fetchPncpQueryStatuses(supabaseUrl, publishableKey, procurements.map(item => item.controlNumber)),
+    ]);
+    return { state: "available", procurements: attachPriceContexts(procurements, contexts).map(item => ({
+      ...item,
+      queryStatus: statuses.get(item.controlNumber) ?? { state: "unavailable", checkedAt: null, sourceUrl: null },
+    })) };
   } catch {
     return { state: "unavailable" };
   }

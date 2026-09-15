@@ -5,6 +5,20 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: estado individual da consulta nos cards
+
+Projeção privada indexada por controle oficial, atualizada junto com a reserva
+e o fechamento do coletor. Uma tentativa mais recente pendente substitui sucesso
+antigo; evidência malformada ou incompatível não certifica conclusão. A API
+limitada a 60 controles retorna somente estado, data e link oficial. A ausência
+de observação é desconhecida, não prova de que nunca houve coleta.
+
+Nos cards, consulta concluída, resposta vazia confirmada, resposta inconclusiva,
+páginas pendentes, interrupção e indisponibilidade recebem mensagens distintas.
+O aviso permanece fora dos detalhes. Falha da consulta de estado não oculta
+contratações e valores já publicados. Não há conclusão sobre pagamentos ou
+cobertura histórica; nenhum valor financeiro é recalculado.
+
 ### PNCP: evidência individual das consultas de contratos
 
 O coletor passa a registrar `control_observations` nas métricas privadas da
@@ -13,13 +27,14 @@ páginas verificadas. Distingue consulta concluída, lista explicitamente vazia,
 resposta inconclusiva, limite de páginas e interrupção. Nenhuma página preservada
 significa contagem desconhecida, não zero. Hash incompatível impede conclusão.
 
-Esta é a base para a projeção pública individual, não essa projeção pronta.
+Esta base privada alimenta agora a projeção pública individual descrita acima.
 As observações só são gravadas quando o fechamento controlado da execução é
 persistido. Encerramento abrupto ou falha nesse fechamento conserva a reserva
 de pendências, mas não autoriza inferir o resultado individual ausente. Runs
 antigos não são retroativamente classificados. Sem migration, acesso novo ou
-alteração dos valores públicos; falta validar o primeiro run da versão nova
-e implementar a consulta pública indexada com essas evidências.
+alteração dos valores públicos. O primeiro run do PR #758 foi auditado: 50
+observações correspondentes à seleção prevista, três consultas concluídas e
+47 inconclusivas, sem falso vazio. Registros anteriores conservaram seus hashes.
 
 ### PNCP: limites dos vínculos explicados nos cards
 
