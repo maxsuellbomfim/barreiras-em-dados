@@ -125,3 +125,42 @@ produção já serializa as execuções. Não executar o mesmo backlog por CLI
 simultaneamente: a reserva ainda não implementa lease ou exclusão distribuída
 entre executores de caminhos diferentes. Esta limitação não é resolvida pelo
 cursor estável; qualquer expansão para múltiplos executores exige outra revisão.
+
+### Respostas de contratos e prova de vazio — 15/09/2026
+
+O replay `35011311863` do PR #755 confirmou a retomada de 50 controles na ordem
+planejada, preservou três páginas/seis observações e não alterou as 306 versões
+normalizadas existentes. As 47 respostas HTTP 404 foram chamadas de vazias pelo
+conector legado. Não são prova de ausência de contrato; a cobertura continua
+parcial, embora o workflow daquela versão tenha terminado verde.
+
+O [manual oficial de contratos por contratação](https://pncp.gov.br/manual/pt-br/latest/contrato_empenho/consultar_contratos_ou_empenhos_de_uma_contratacao.html)
+confirma o endpoint e as chaves de vínculo, mas não estabelece que HTTP 404/204
+certifique inexistência de contratos. A política conservadora desta entrega é:
+
+- HTTP 404/204: resposta inconclusiva, motivo/status/página registrados, controle
+  mantido em `retry_controls`. Não publica zero e não remove fatos anteriores.
+- HTTP 200 com lista vazia explícita: preservar corpo, URL, hash e cursor; só
+  depois de conferir a persistência pode resolver a pendência daquela consulta.
+  É observação do recurso naquele momento, não cobertura de todo o histórico.
+- Envelope paginado: validar metadados explícitos e contagens; não presumir
+  uma página quando faltam metadados, nem descartar itens de tipo inválido.
+- Página repetida, mudança de paginação ou quantidade incompatível: manter
+  parcial e conservar as páginas válidas já recebidas, sem duplicar a repetida.
+- O teto segue 50 contratações/30 páginas. Respostas inconclusivas não impedem
+  avançar a chave; retries atrás do cursor voltam após a varredura. Falha de
+  Storage/banco ou erro transitório esgotado continuam interrompendo com
+  checkpoint recuperável, sem alargar tentativas ou limites da fonte.
+
+O evento `collector_pncp_contratos_inconclusive` distingue motivo, código HTTP
+e página. `collector_pncp_contratos_empty_confirmed` só existe após preservação
+da resposta vazia. As métricas conservam `response_issues` e `empty_controls`;
+o checkpoint reutiliza a lista durável de pendências. Itens e resultados não
+têm sua interpretação alterada por esta entrega.
+
+A normalização pode aproveitar registros válidos apesar de respostas parciais
+em outros controles. `collect_contracts.outcome` entra obrigatoriamente no gate
+final; a execução não fica verde apenas porque a normalização concluiu.
+O próximo replay será dirigido e auditado contra os hashes anteriores. Resposta
+inconclusiva deve produzir `partial`/falha explícita, não uma promessa de fonte
+recuperada. Nenhum registro antigo ou migration aplicada foi reescrito.

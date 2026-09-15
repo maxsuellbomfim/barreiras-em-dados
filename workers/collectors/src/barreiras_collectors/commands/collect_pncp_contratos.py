@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import re
@@ -17,7 +18,11 @@ from ..collection_control import (
     PartialCollectionFailure,
     build_execution_idempotency_key,
 )
-from ..connectors.pncp import SOURCE_CODE, fetch_contratos_page
+from ..connectors.pncp import (
+    SOURCE_CODE,
+    PncpContractsResponseError,
+    fetch_contratos_page,
+)
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import PNCP_COLLECTOR_VERSION, PncpComprasPersistenceService
@@ -70,6 +75,9 @@ def resolve_contract_checkpoint(
 class PncpContratosPageBatch:
     pages: tuple
     truncated: bool
+    incomplete_reason: str | None = None
+    http_status: int | None = None
+    response_page: int | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +92,8 @@ class PncpContratosCollectionSummary:
     next_after_control: str | None
     retry_controls: tuple[str, ...] = ()
     restart_reason: str | None = None
+    response_issues: tuple[dict[str, object], ...] = ()
+    empty_controls: tuple[str, ...] = ()
 
     @property
     def checkpoint(self) -> dict[str, object]:
@@ -160,6 +170,8 @@ def execute_controlled_pncp_contratos(
                 "cursor_version": CONTRACT_CURSOR_VERSION,
                 "cursor_restart_reason": summary.restart_reason,
                 "retry_controls": list(summary.retry_controls),
+                "response_issues": list(summary.response_issues),
+                "empty_controls": list(summary.empty_controls),
                 "contract_pages_truncated_controls": list(
                     summary.contract_pages_truncated_controls
                 ),
@@ -177,31 +189,69 @@ def collect_contratos_batch(
     logger: logging.Logger,
     transport=None,
 ) -> PncpContratosPageBatch:
-    """Percorre contratos e informa quando o teto impede confirmar o fim."""
+    """Preserva páginas válidas sem confundir resposta inconclusiva com fim."""
     pages = []
-    list_page_hashes: set[str] = set()
+    seen_controls: set[str] = set()
+    page_items_seen: set[str] = set()
+    declared_totals = None
+    first_root_paginated = None
+    records_seen = 0
     for pagina in range(1, MAX_CONTRATOS_PAGES + 1):
-        page = fetch_contratos_page(
-            ano=ano,
-            sequencial=sequencial,
-            pagina=pagina,
-            logger=logger,
-            transport=transport,
-        )
+
+        def incomplete(reason, status=None, response_page=pagina):
+            return PncpContratosPageBatch(
+                tuple(pages), False, reason, status, response_page
+            )
+
+        try:
+            page = fetch_contratos_page(
+                ano=ano,
+                sequencial=sequencial,
+                pagina=pagina,
+                logger=logger,
+                transport=transport,
+            )
+        except PncpContractsResponseError as error:
+            return incomplete(error.reason, error.http_status)
         if page is None:
-            return PncpContratosPageBatch(tuple(pages), False)
+            return incomplete("missing_response_evidence")
         try:
             root = json.loads(page.raw_body)
         except (json.JSONDecodeError, UnicodeDecodeError):
-            root = None
+            return incomplete("invalid_response", page.http_status)
         paginated_root = isinstance(root, dict)
-        if not paginated_root and page.body_sha256 in list_page_hashes:
-            return PncpContratosPageBatch(tuple(pages), False)
-        if not paginated_root:
-            list_page_hashes.add(page.body_sha256)
+        if first_root_paginated is None:
+            first_root_paginated = paginated_root
+        elif first_root_paginated != paginated_root:
+            return incomplete("pagination_changed", page.http_status)
+        # Ignore envelope/page-number differences; repeated official identities
+        # or item sequences cannot prove that all pages were visited.
+        signature = hashlib.sha256(
+            json.dumps(page.items, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        controls = [item.get("numeroControlePNCP") for item in page.items]
+        keys = [key for key in controls if isinstance(key, str) and key]
+        if (
+            signature in page_items_seen
+            or len(keys) != len(set(keys))
+            or seen_controls.intersection(keys)
+        ):
+            return incomplete("repeated_page", page.http_status)
+        page_items_seen.add(signature)
+        seen_controls.update(keys)
+        if paginated_root:
+            totals = (page.total_paginas, page.total_registros)
+            if declared_totals is not None and totals != declared_totals:
+                return incomplete("pagination_changed", page.http_status)
+            declared_totals = totals
         pages.append(page)
+        records_seen += len(page.items)
         if paginated_root and pagina >= page.total_paginas:
+            if records_seen != page.total_registros:
+                return incomplete("record_count_mismatch", page.http_status)
             return PncpContratosPageBatch(tuple(pages), False)
+        if paginated_root and records_seen >= page.total_registros:
+            return incomplete("record_count_mismatch", page.http_status)
         if not paginated_root and len(page.items) < page.cursor["size"]:
             return PncpContratosPageBatch(tuple(pages), False)
     return PncpContratosPageBatch(tuple(pages), bool(pages))
@@ -298,6 +348,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         next_after_control=summary.next_after_control,
         cursor_version=CONTRACT_CURSOR_VERSION,
         retry_controls=list(summary.retry_controls),
+        response_issues=list(summary.response_issues),
+        empty_controls=list(summary.empty_controls),
         coverage_status=summary.outcome.value,
     )
     return 1 if summary.retry_controls else 0
@@ -358,6 +410,8 @@ def _collect_pending(
     records_existing = 0
     contract_pages_truncated_controls: list[str] = []
     retries = set(cursor.retry_controls)
+    response_issues: list[dict[str, object]] = []
+    empty_controls: list[str] = []
     last_control = cursor.after_control
 
     def summarize(*, interrupted=False):
@@ -372,6 +426,8 @@ def _collect_pending(
             next_after_control=last_control if truncated or interrupted else None,
             retry_controls=tuple(sorted(retries)),
             restart_reason=cursor.restart_reason,
+            response_issues=tuple(response_issues),
+            empty_controls=tuple(empty_controls),
         )
 
     for control, ano, sequencial in pending:
@@ -379,6 +435,22 @@ def _collect_pending(
             batch = collect_contratos_batch(
                 ano=ano, sequencial=sequencial, logger=logger
             )
+            if batch.incomplete_reason or (not batch.pages and not batch.truncated):
+                retries.add(control)
+                issue = {
+                    "control": control,
+                    "reason": batch.incomplete_reason or "missing_response_evidence",
+                    "http_status": batch.http_status,
+                    "pagina": batch.response_page,
+                }
+                response_issues.append(issue)
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "collector_pncp_contratos_inconclusive",
+                    source=SOURCE_CODE,
+                    **issue,
+                )
             if batch.truncated:
                 retries.add(control)
                 contract_pages_truncated_controls.append(control)
@@ -412,17 +484,19 @@ def _collect_pending(
             raise PncpContratosBatchFailure(
                 summarize(interrupted=True), error
             ) from None
-        if batch.pages and not batch.truncated:
+        if batch.pages and not batch.truncated and not batch.incomplete_reason:
             retries.discard(control)
-        # Um retorno sem páginas pode ser 404/204. Não apaga retry conhecido.
-        if not batch.pages:
-            log_event(
-                logger,
-                logging.INFO,
-                "collector_pncp_contratos_empty",
-                source=SOURCE_CODE,
-                control=control,
-            )
+            # Somente uma resposta explícita, preservada e validada é vazia.
+            if all(not page.items for page in batch.pages):
+                empty_controls.append(control)
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "collector_pncp_contratos_empty_confirmed",
+                    source=SOURCE_CODE,
+                    control=control,
+                    body_sha256=batch.pages[0].body_sha256,
+                )
         processed += 1
         last_control = control
 

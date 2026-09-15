@@ -115,6 +115,7 @@ jobs:
       - name: Preservar contratos e empenhos das contratações
         id: collect_contracts
         if: github.event_name != 'workflow_dispatch' || inputs.mode != 'registry_only'
+        continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratos
 
@@ -129,6 +130,7 @@ jobs:
         env:
           PNCP_REGISTRY_OUTCOME: ${{ steps.collect_registry.outcome }}
           PNCP_ITEMS_OUTCOME: ${{ steps.collect_items.outcome }}
+          PNCP_CONTRACTS_OUTCOME: ${{ steps.collect_contracts.outcome }}
         run: |
           status=0
           if [ "$PNCP_REGISTRY_OUTCOME" = "failure" ]; then
@@ -137,6 +139,10 @@ jobs:
           fi
           if [ "$PNCP_ITEMS_OUTCOME" = "failure" ]; then
             echo "::error::A coleta de itens/resultados do PNCP falhou; a falha permanece registrada independentemente das demais etapas."
+            status=1
+          fi
+          if [ "$PNCP_CONTRACTS_OUTCOME" = "failure" ]; then
+            echo "::error::A coleta de contratos/empenhos do PNCP falhou; a falha permanece registrada independentemente das demais etapas."
             status=1
           fi
           exit "$status"

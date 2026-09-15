@@ -52,6 +52,10 @@ test("falha cadastral permite os passos independentes sem ocultar o resultado", 
     gate,
     /PNCP_REGISTRY_OUTCOME: \$\{\{ steps\.collect_registry\.outcome \}\}/,
   );
+  assert.match(
+    gate,
+    /PNCP_CONTRACTS_OUTCOME: \$\{\{ steps\.collect_contracts\.outcome \}\}/,
+  );
   assert.doesNotMatch(gate, /^        continue-on-error:/m);
 });
 
@@ -87,7 +91,7 @@ test("escopos existentes preservam o mesmo conjunto de etapas", () => {
   }
 });
 
-test("gate shell reprova cadastro ou itens e aceita cadastro nao solicitado", () => {
+test("gate shell reprova cadastro, itens ou contratos e aceita cadastro nao solicitado", () => {
   const gate = step("Sinalizar falha parcial da coleta");
   const shellBody = gate.split(/\r?\n        run: \|\r?\n/)[1];
   assert.ok(shellBody, "gate shell ausente");
@@ -96,15 +100,16 @@ test("gate shell reprova cadastro ou itens e aceita cadastro nao solicitado", ()
   const bash = process.platform === "win32"
     ? "C:\\Program Files\\Git\\bin\\bash.exe"
     : "bash";
-  for (const [registryOutcome, itemsOutcome, expectedStatus] of [
-    ["success", "success", 0],
-    ["failure", "success", 1],
-    ["failure", "skipped", 1],
-    ["success", "failure", 1],
-    ["failure", "failure", 1],
-    ["skipped", "success", 0],
-    ["skipped", "skipped", 0],
-    ["success", "skipped", 0],
+  for (const [registryOutcome, itemsOutcome, contractsOutcome, expectedStatus] of [
+    ["success", "success", "success", 0],
+    ["failure", "success", "success", 1],
+    ["failure", "skipped", "success", 1],
+    ["success", "failure", "success", 1],
+    ["success", "success", "failure", 1],
+    ["failure", "failure", "failure", 1],
+    ["skipped", "success", "skipped", 0],
+    ["skipped", "skipped", "skipped", 0],
+    ["success", "skipped", "skipped", 0],
   ]) {
     const result = spawnSync(bash, ["--noprofile", "--norc", "-c", script], {
       encoding: "utf8", timeout: 5000, windowsHide: true,
@@ -113,6 +118,7 @@ test("gate shell reprova cadastro ou itens e aceita cadastro nao solicitado", ()
         SystemRoot: process.env.SystemRoot,
         PNCP_REGISTRY_OUTCOME: registryOutcome,
         PNCP_ITEMS_OUTCOME: itemsOutcome,
+        PNCP_CONTRACTS_OUTCOME: contractsOutcome,
       },
     });
     assert.ifError(result.error);
@@ -149,6 +155,22 @@ test("falha em itens nao impede contratos e permanece visivel no resultado", () 
   );
   assert.match(workflow, /if \[ "\$PNCP_ITEMS_OUTCOME" = "failure" \]/);
   assert.match(step("Sinalizar falha parcial da coleta"), /exit /);
+});
+
+test("falha em contratos nao impede normalizacao e permanece visivel no resultado", () => {
+  assert.match(
+    step(contracts),
+    /id: collect_contracts[\s\S]*?continue-on-error: true[\s\S]*?collect_pncp_contratos/,
+  );
+  assert.match(
+    step(normalize),
+    /if: github\.event_name != 'workflow_dispatch' \|\| inputs\.mode != 'registry_only'[\s\S]*?normalize_pncp_contracts/,
+  );
+  assert.match(
+    step("Sinalizar falha parcial da coleta"),
+    /PNCP_CONTRACTS_OUTCOME: \$\{\{ steps\.collect_contracts\.outcome \}\}/,
+  );
+  assert.match(workflow, /if \[ "\$PNCP_CONTRACTS_OUTCOME" = "failure" \]/);
 });
 
 test("workflow manual oferece execucao apenas de contratos", () => {
