@@ -20,10 +20,19 @@ export function PharmacyPayments({ publication, coverage, filters, navigation }:
           <p><strong>{coverage.published_documents} pagamentos publicados em {coverage.year}</strong>, de {coverage.establishments} estabelecimentos com identidade conferida.</p>
           <p>Documentos de {coverage.first_date?.split('-').reverse().join('/')} a {coverage.last_date?.split('-').reverse().join('/')}.
             A contagem considera todas as páginas do ano selecionado.</p>
-          <p><strong>Cobertura parcial.</strong> Documentos cuja identidade do estabelecimento ainda não foi comprovada ficam fora da lista.
+          <p><strong>Cobertura parcial.</strong> Documentos sem validação suficiente ficam fora da lista.
             As datas acima não comprovam coleta completa de todos os meses. O cadastro atual não confirma o credenciamento no passado.</p>
         </>}
     </aside>}
+    <aside className="transfer-reading-guide pharmacy-scope-guide" aria-labelledby="pharmacy-scope-title">
+      <h2 id="pharmacy-scope-title">Por que uma farmácia pode não aparecer?</h2>
+      <p>Esta lista é parcial: mostra pagamentos com documentos e identidade conferidos,
+        não a relação completa de farmácias credenciadas.</p>
+      <p>Quando uma rede recebe pela matriz, o pagamento não informa, por si só, quanto
+        corresponde a cada filial. Sem esse detalhamento, o total da rede não é atribuído a Barreiras.</p>
+      <p><strong>Não encontrar uma farmácia aqui não comprova que ela deixou de receber
+        ou de atender pelo programa.</strong> Consulte também o cadastro oficial nas fontes abaixo.</p>
+    </aside>
     {publication.status !== 'ready' ? <aside className="transfer-reading-guide" aria-labelledby="pharmacy-status">
       <h2 id="pharmacy-status">{publication.status === 'pending' ? 'Publicação dos pagamentos em preparação' : 'Dados temporariamente indisponíveis'}</h2>
       <p>{publication.status === 'pending' ? 'Ainda não há registros liberados nesta página. Estamos conferindo os estabelecimentos e as evidências antes de exibir os valores.' : 'Não foi possível validar os registros para exibição. Os valores foram omitidos até a conferência.'}</p>

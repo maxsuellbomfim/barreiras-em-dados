@@ -1,5 +1,49 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Leitura pública do escopo
+
+A rota `/recursos/saude` explica por que uma farmácia pode não aparecer antes
+da lista de registros. O aviso é sempre visível: independe do retorno da
+consulta de cobertura e dos estados `ready`, `pending` e `unavailable`.
+Não transforma ausência em zero, não apresenta o catálogo de pagamentos como
+cadastro completo de credenciados e não atribui totais de rede a uma filial.
+Nenhum nome, identificador ou contagem da investigação privada entra no texto.
+Filtros, paginação, documentos e valores permanecem iguais; não há nova RPC.
+
+O teste renderiza o componente e o formatador reais com TypeScript/React já
+existentes, cobrindo todas as combinações dos três estados de publicação e
+quatro estados de cobertura. O bloco é semântico, não recolhível e usa fonte
+de 16 px. A conferência local em 1440 e 390 px não apresentou overflow da página;
+o filtro anual continuou operável por teclado.
+
+### Evidência necessária para ampliar o recorte de filiais
+
+O [relatório do TCU no Acórdão 307/2023, itens 60–64, páginas 15–16](https://portal.tcu.gov.br/data/files/36/A1/6F/F7/90F96810ED256058E18818A8/002.450-2022-4-VR%20-%20MON_Farmacia_popular.pdf)
+descreve a identificação do estabelecimento na solicitação e a inclusão da
+transação confirmada no Relatório de Pagamento do Datasus. Trata-se de evidência
+do fluxo examinado naquele período, não de documentação de uma API atual nem
+de comprovação de que o leiaute atual permita vincular cada parcela a uma OB.
+
+Antes de acrescentar valores de filiais, obter a exportação existente ou o
+leiaute atual desse demonstrativo, limitado a Barreiras e competências definidas.
+O contrato abaixo é uma necessidade do projeto, **não um schema oficial já
+disponível ou implementado**:
+
+- estabelecimento dispensador e matriz recebedora, com identificadores completos;
+- município do estabelecimento na competência, sem presumir localização atual;
+- competência da operação e competência/data do pagamento em campos distintos;
+- valores autorizados, atestados, ajustes e estornos separados;
+- parcela efetivamente paga atribuível ao estabelecimento, caso registrada;
+- vínculo com processo, lote e OB, quando existente, e explicação dos campos,
+  abrangência e data de extração.
+
+Excluir CPF, CNS, nomes, prescrições, contas bancárias e dados individuais de
+pacientes. Se não existir rateio oficial do pagamento, não converter valor
+autorizado em pago nem dividir o total pela quantidade de filiais. Nenhum
+pedido de acesso a dados foi transmitido por esta entrega. Cadastros, indicadores
+de pessoas atendidas e sistemas de autorização do paciente não substituem
+esse demonstrativo financeiro.
+
 ## Retomada local após contenção da fonte
 
 O Windows pode iniciar simultaneamente tarefas diárias e semanais atrasadas.

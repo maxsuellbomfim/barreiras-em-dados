@@ -5,6 +5,17 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Farmácia Popular: limite da lista explicado ao público
+
+A página de saúde passa a explicar, antes dos registros, que a lista de
+pagamentos não é o cadastro completo de farmácias. Ausência não prova falta
+de repasse ou atendimento, e total de matriz não é atribuído a Barreiras sem
+detalhamento por filial. O aviso permanece visível nos estados de preparação
+e indisponibilidade, sem alterar valores, contagens ou aprovações. A leitura
+foi conferida no desktop e celular; o próximo dado necessário está especificado
+no documento de Farmácia Popular: demonstrativo por estabelecimento e competência,
+sem dados de pacientes e sem confundir autorização com pagamento.
+
 ### Vínculo documental matriz/filial — investigação privada
 
 O leitor de Farmácia Popular agora permite localizar uma linha do cadastro

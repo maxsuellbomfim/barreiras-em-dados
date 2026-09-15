@@ -7532,6 +7532,11 @@ footer {
   line-height: 1.6;
 }
 
+.pharmacy-scope-guide p,
+.pharmacy-scope-guide strong {
+  font-size: 1rem;
+}
+
 .transfer-source-selector {
   margin-top: 1rem;
   display: grid;
