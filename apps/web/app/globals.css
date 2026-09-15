@@ -7533,8 +7533,15 @@ footer {
 }
 
 .pharmacy-scope-guide p,
-.pharmacy-scope-guide strong {
+.pharmacy-scope-guide strong,
+.pharmacy-page-status p {
   font-size: 1rem;
+}
+
+.pharmacy-page-status a {
+  color: var(--blue-dark);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
 .transfer-source-selector {

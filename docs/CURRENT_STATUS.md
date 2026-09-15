@@ -5,6 +5,15 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Farmácia Popular: página vazia não é ausência de publicação
+
+A navegação distingue uma página posterior sem registros (`empty_page`) de
+publicação em preparação e falha de consulta. O retorno à primeira página
+preserva o ano selecionado. A mudança não altera pagamentos, cobertura,
+aprovações ou coletores. A busca de dados por filial identificou uma previsão
+de abertura da base DBPOPFARMA em outubro/2026; o leiaute financeiro continua
+não comprovado, conforme o documento de domínio.
+
 ### Farmácia Popular: limite da lista explicado ao público
 
 A página de saúde passa a explicar, antes dos registros, que a lista de

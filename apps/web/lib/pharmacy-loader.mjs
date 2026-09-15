@@ -22,6 +22,10 @@ export async function loadPharmacyPage(year,page,callRpc) {
     const rows=await callRpc({p_year:year,p_offset:(page-1)*25});
     const publication=parseRows(rows,year);
     if(publication.status==='unavailable') return unavailable;
+    // Empty offsets say nothing about publication of the entire year.
+    if(publication.status==='pending' && page>1) {
+      return {publication:{status:'empty_page',year,records:[]},hasNext:false};
+    }
     let hasNext=false;
     if(rows.length===25 && page<401) {
       const next=parseRows(await callRpc({p_year:year,p_offset:page*25}),year);
