@@ -5,6 +5,17 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: impedir retorno à versão antiga dos contratos
+
+A auditoria do replay de 15/09 identificou seis contratos oficiais com um
+snapshot novo preservado, mas a normalização produziu doze versões: processava
+o novo e depois o antigo, deixando os seis contratos na evidência anterior.
+Uma migration aditiva seleciona um único snapshot mais recente por chave
+oficial antes do limite, preservando histórico e vínculo com o registro bruto.
+Snapshots já representados pela versão atual não devem consumir o lote.
+A aplicação e a reconciliação em produção ainda precisam ser conferidas;
+não se presume atualização pública a partir de contadores de versões.
+
 ### PNCP: falha cadastral não deve interromper compras independentes
 
 A execução semanal `34865113818` falhou no cadastro em 14/09 antes de consultar
@@ -21,6 +32,13 @@ Testes verificam todos os modos, os dois agendamentos e o código de saída real
 do gate. A consulta por janela também deve devolver falha quando a cobertura
 for parcial, preservando o checkpoint; vazio comprovado permanece distinto.
 Nenhuma regra de publicação, valor ou limite da fonte foi alterado.
+
+O PR #751 foi mesclado com checks verdes. O modo `registry_only`, execução
+`34989976158`, recuperou órgão e unidades: HTTP 200, dois snapshots existentes
+conferidos por hash, zero duplicação. Banco: `registry:current` completo,
+execução concluída e zero falhas pendentes desse recorte. A janela semanal
+continua parcial. A fila de contratos exige auditoria separada de cursor e
+distinção entre HTTP 404, resposta vazia e paginação incompleta.
 
 ### Recuperação das coletas financeiras — 15/09/2026
 

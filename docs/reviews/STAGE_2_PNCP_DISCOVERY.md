@@ -84,6 +84,8 @@ modalidades 1 e 2 falhas, 3–13 adiadas, zero páginas/novos registros.
 A etapa devolveu sucesso apesar da cobertura parcial; o comando passa a
 devolver saída não zero nesse caso, após persistir o checkpoint e o evento.
 Cobertura completa e consulta comprovadamente vazia continuam retornando zero.
-A recuperação cadastral será conferida separadamente. Próxima auditoria
-delimitada: estabilidade da retomada por cursor dos contratos.
+A recuperação cadastral foi confirmada na execução `34989976158`, após PR #751:
+órgão e unidades HTTP 200, dois snapshots já existentes conferidos por hash,
+partição completa e zero falhas pendentes. Não recupera a janela semanal.
+Próxima auditoria delimitada: estabilidade da retomada por cursor dos contratos.
 Não interpretar `next_offset=0` de uma fatia como cobertura de todo o histórico.
