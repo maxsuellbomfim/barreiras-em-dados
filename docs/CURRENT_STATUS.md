@@ -5,6 +5,16 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: limites dos vínculos explicados nos cards
+
+Os cards de licitações passam a avisar, antes de abrir os detalhes, que os
+vínculos publicados não comprovam a coleta de todos os contratos e pagamentos.
+As mensagens distinguem vínculos ainda não publicados, preparação e resumo
+indisponível. Valores, fontes e cálculos permanecem iguais. A API ainda não
+expõe cobertura individual por contratação: esta entrega não classifica uma
+consulta específica como vazia, completa ou inconclusiva. Esse é o próximo
+passo, com evidência própria por identificador oficial.
+
 ### PNCP: resposta inconclusiva não é ausência de contratos
 
 O replay do PR #755 percorreu exatamente as 50 chaves previstas e conservou
@@ -22,9 +32,11 @@ nas outras chaves e salva a retomada, sem ficar preso à primeira resposta 404.
 Contratos válidos de outras consultas continuam chegando à normalização, mas
 o gate final reprova o workflow se houve pendências: publicar dados validados
 não significa esconder falhas de cobertura. Não há nova dependência, migration
-ou alteração de valores públicos. CI e replay limitado ainda precisam confirmar
-o comportamento operacional desta correção, inclusive a falha explícita esperada
-quando a fonte devolver respostas inconclusivas.
+ou alteração de valores públicos. O PR #756 foi mesclado após os checks verdes.
+O replay limitado confirmou respostas inconclusivas conservadas como pendência,
+normalização independente e reprovação explícita no gate final. Isso confirmou
+o tratamento da falha, não a recuperação da fonte; não houve alteração dos
+dados públicos nesse replay.
 
 ### PNCP: retomada de contratos sem saltos na fila
 

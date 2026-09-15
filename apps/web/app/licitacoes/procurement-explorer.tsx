@@ -168,12 +168,16 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
           contratação.
         </p>
       )}
+      <p className="meta-note procurement-coverage-note">
+        Este card mostra os vínculos publicados na plataforma; isso não confirma que todos os contratos e pagamentos foram coletados.
+        {" "}A ausência de um vínculo aqui não prova que ele não exista na fonte oficial.
+      </p>
       <details className="procurement-execution">
         <summary>Execução financeira ligada</summary>
         {procurement.executionSummary.state === "linked" ? (
           <>
             <p className="meta-note">
-              Registros normalizados encontrados pelo identificador oficial da contratação.
+              Os valores abaixo se referem somente aos registros vinculados nesta plataforma.
               Os valores são líquidos de cancelamentos e reversões.
             </p>
             <dl className="procurement-values procurement-execution-values">
@@ -254,19 +258,17 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
           </>
         ) : procurement.executionSummary.state === "no_linked_execution" ? (
           <p className="meta-note">
-            A contratação foi normalizada, mas ainda não há contrato, empenho,
-            liquidação ou pagamento vinculado por identificador oficial. Isso não
-            significa que a despesa não exista.
+            Ainda não publicamos vínculos de contrato, empenho, liquidação ou pagamento para esta contratação.
+            {" "}O motivo pode ser uma coleta pendente, uma resposta inconclusiva ou a falta de um vínculo validado.
           </p>
         ) : procurement.executionSummary.state === "not_normalized" ? (
           <p className="meta-note">
-            A execução financeira ainda não foi normalizada para esta contratação.
+            Os vínculos desta contratação ainda estão em preparação.
             O registro do PNCP continua disponível na fonte oficial.
           </p>
         ) : (
           <p className="meta-note">
-            O resumo de execução será exibido quando a versão pública do vínculo
-            estiver disponível.
+            O resumo dos vínculos não está disponível neste momento.
           </p>
         )}
       </details>
