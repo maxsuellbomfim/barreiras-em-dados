@@ -291,18 +291,22 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
         self.assertIn("offset %s", connection.calls[0][0].lower())
         self.assertEqual(connection.calls[0][1], (120, 51, 100))
 
-    def test_pncp_contract_backlog_applies_checkpoint_offset(self) -> None:
+    def test_pncp_contract_backlog_applies_checkpoint_keyset(self) -> None:
         connection = CheckpointConnection(None)
         repository = PostgresCollectionRepository(lambda: connection)
 
         repository.pncp_pending_contratos(
             refresh_days=120,
             limit=51,
-            offset=50,
+            after_control="13654405000195-1-000050/2023",
         )
 
-        self.assertIn("offset %s", connection.calls[0][0].lower())
-        self.assertEqual(connection.calls[0][1], (120, 51, 50))
+        self.assertNotIn("offset", connection.calls[0][0].lower())
+        self.assertIn('control collate "C" >', connection.calls[0][0])
+        self.assertEqual(connection.calls[0][1], (
+            120, [], "13654405000195-1-000050/2023",
+            "13654405000195-1-000050/2023", 51,
+        ))
 
     def test_pncp_backfill_anchor_uses_only_classified_control_partitions(
         self,
