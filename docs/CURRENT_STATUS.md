@@ -5,6 +5,22 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: evidência individual das consultas de contratos
+
+O coletor passa a registrar `control_observations` nas métricas privadas da
+execução: identificador oficial, início/fim, resultado e referências/hash das
+páginas verificadas. Distingue consulta concluída, lista explicitamente vazia,
+resposta inconclusiva, limite de páginas e interrupção. Nenhuma página preservada
+significa contagem desconhecida, não zero. Hash incompatível impede conclusão.
+
+Esta é a base para a projeção pública individual, não essa projeção pronta.
+As observações só são gravadas quando o fechamento controlado da execução é
+persistido. Encerramento abrupto ou falha nesse fechamento conserva a reserva
+de pendências, mas não autoriza inferir o resultado individual ausente. Runs
+antigos não são retroativamente classificados. Sem migration, acesso novo ou
+alteração dos valores públicos; falta validar o primeiro run da versão nova
+e implementar a consulta pública indexada com essas evidências.
+
 ### PNCP: limites dos vínculos explicados nos cards
 
 Os cards de licitações passam a avisar, antes de abrir os detalhes, que os
