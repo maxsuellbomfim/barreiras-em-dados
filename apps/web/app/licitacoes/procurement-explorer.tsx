@@ -44,6 +44,17 @@ function pncpUrl(procurement: Procurement) {
 }
 
 function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>) {
+  const queryState = procurement.queryStatus?.state ?? "unavailable";
+  const queryLabels = {
+    unknown: "Verificação individual ainda não disponível",
+    pending: "Consulta pendente de conclusão",
+    query_complete: "Consulta de contratos concluída",
+    empty_confirmed: "Resposta vazia confirmada nesta consulta",
+    inconclusive: "Resposta do PNCP inconclusiva",
+    partial: "Consulta com páginas pendentes",
+    interrupted: "Consulta interrompida",
+    unavailable: "Estado da consulta temporariamente indisponível",
+  };
   return (
     <article className="digest-card" aria-label="Contratação pública">
       <div className="track-top">
@@ -168,6 +179,28 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
           contratação.
         </p>
       )}
+      <div className="procurement-query-status">
+        <p><strong>{queryLabels[queryState]}</strong></p>
+        <p className="meta-note">
+          {queryState === "empty_confirmed"
+            ? "O PNCP devolveu uma lista vazia de contratos nesta consulta, e essa resposta foi preservada. Isso não prova ausência de contratos em outros períodos ou fontes."
+            : queryState === "query_complete"
+              ? "As páginas desta consulta foram verificadas e preservadas. Isso não comprova pagamentos nem execução do contrato, nem cobertura de todo o histórico."
+              : queryState === "unknown"
+                ? "Ainda não há evidência individual validada para informar o resultado desta consulta. Isso não significa que a contratação nunca tenha sido coletada."
+                : "Ainda não foi possível confirmar o resultado completo da consulta de contratos. Os vínculos já publicados continuam disponíveis abaixo."}
+        </p>
+        {procurement.queryStatus?.checkedAt ? (
+          <p className="meta-note">
+            Consulta registrada em <time dateTime={procurement.queryStatus.checkedAt}>
+              {new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Bahia" }).format(new Date(procurement.queryStatus.checkedAt))}
+            </time>{" (horário de Barreiras)"}
+          </p>
+        ) : null}
+        {procurement.queryStatus?.sourceUrl ? (
+          <p className="meta-note"><a href={procurement.queryStatus.sourceUrl} target="_blank" rel="noreferrer">Conferir a contratação na fonte oficial (PNCP)</a></p>
+        ) : null}
+      </div>
       <p className="meta-note procurement-coverage-note">
         Este card mostra os vínculos publicados na plataforma; isso não confirma que todos os contratos e pagamentos foram coletados.
         {" "}A ausência de um vínculo aqui não prova que ele não exista na fonte oficial.

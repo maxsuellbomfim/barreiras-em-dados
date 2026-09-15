@@ -26,6 +26,23 @@ const fixture = state => ({
 });
 const render = state => renderToStaticMarkup(createElement(ProcurementExplorer, { procurements: [fixture(state)] }));
 
+test("estado individual aparece antes dos detalhes com data e escopo restrito", () => {
+  const procurement = {...fixture("linked"), queryStatus: {state:"query_complete",checkedAt:"2026-09-15T20:00:00Z",sourceUrl:"https://pncp.gov.br/app/editais/13654405000195/2025/1"}};
+  const html = renderToStaticMarkup(createElement(ProcurementExplorer,{procurements:[procurement]}));
+  assert.match(html,/Consulta de contratos concluída/);
+  assert.match(html,/<time dateTime="2026-09-15T20:00:00Z">/);
+  assert.ok(html.indexOf('class="procurement-query-status"')<html.indexOf('<details class="procurement-execution">'));
+  assert.match(html,/não comprova pagamentos nem execução/);
+});
+test("cada limitação individual tem mensagem própria sem falso zero", () => {
+  const states={unknown:"Verificação individual ainda não disponível",pending:"Consulta pendente de conclusão",inconclusive:"Resposta do PNCP inconclusiva",partial:"Consulta com páginas pendentes",interrupted:"Consulta interrompida",empty_confirmed:"Resposta vazia confirmada nesta consulta",unavailable:"Estado da consulta temporariamente indisponível"};
+  for(const [state,label] of Object.entries(states)) {
+    const html=renderToStaticMarkup(createElement(ProcurementExplorer,{procurements:[{...fixture("no_linked_execution"),queryStatus:{state,checkedAt:null,sourceUrl:null}}]}));
+    assert.ok(html.includes(label),state);
+    assert.doesNotMatch(html,/não existem contratos|nenhum pagamento foi feito|R\$\s*0,00/);
+  }
+});
+
 for (const state of ["linked", "no_linked_execution", "not_normalized", "not_available"]) {
   test(`aviso de cobertura visível sem abrir detalhes: ${state}`, () => {
     const html = render(state);

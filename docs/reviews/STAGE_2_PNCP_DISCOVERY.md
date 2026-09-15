@@ -212,4 +212,36 @@ Esta entrega não altera API, UI, normalização, permissões ou migrations. A p
 projeção pública deverá resolver artefatos/controles, validar o esquema versionado,
 considerar a tentativa mais recente e expor só estado/data/fonte necessários ao
 leitor, sem varrer os JSON brutos a cada card. A primeira execução operacional da
-versão nova ainda precisa ser auditada; testes locais não substituem essa prova.
+versão nova foi auditada após o PR #758: a seleção de 50 controles coincidiu com
+as 50 observações, três com evidência de consulta concluída e 47 inconclusivas.
+O gate final conservou a falha parcial; isso não é recuperação da fonte.
+
+### Projeção pública de estado por contratação
+
+`source.pncp_contract_query_status` é uma projeção privada de última tentativa,
+não substitui o histórico de execuções e artefatos. Um trigger da execução
+normaliza as reservas e observações; leituras públicas usam a chave primária,
+sem varrer o JSON bruto. A migração inicial reconstitui as execuções elegíveis.
+Execuções sem `control_plane=true` ou fora do endpoint PNCP de contratos são
+ignoradas. Reprocessar uma execução antiga não substitui uma tentativa nova.
+
+Reserva de controle pendente limpa a data/conclusão anterior. O fechamento da
+mesma execução pode substituí-la por observação validada. Falha no fechamento
+deixa a reserva pendente, não recupera sucesso antigo. Controles apenas herdados
+na lista de pendências continuam pendentes, sem data de consulta inventada.
+
+Observações precisam de versão/escopo, datas dentro da execução, contagens
+coerentes e páginas consecutivas. Artefatos devem existir com SHA-256 e HTTP200
+compatíveis, schema de contratos e cursor do mesmo controle. Duplicatas ou
+inconsistências resultam em `unknown`, sem impedir a preservação de outros fatos.
+
+`api.get_pncp_contract_query_status(text[])` atende até 60 controles municipais
+por chamada e expõe somente controle, estado, data e link oficial. Referências
+internas/hashes permanecem privados. Sem observação válida, `unknown` significa
+verificação individual não disponível, jamais não-coletado comprovado.
+
+O cliente valida cardinalidade, duplicatas, controles, estados, data e origem do
+link. Falha de RPC produz aviso de indisponibilidade sem remover os contratos.
+A consulta de estado não usa cache para não reapresentar sucesso durante uma
+reserva nova. O card mostra data no horário de Barreiras e ressalta que conclusão
+da consulta não comprova execução, pagamento ou cobertura de todo o histórico.

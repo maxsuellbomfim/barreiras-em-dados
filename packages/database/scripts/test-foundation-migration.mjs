@@ -185,8 +185,8 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  // Includes pharmacy snapshots, documents and append-only decisions.
-  assert.equal(relations.rows[0].count, 69);
+  // Includes pharmacy snapshots and the private PNCP latest-query projection.
+  assert.equal(relations.rows[0].count, 70);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -202,7 +202,11 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 69);
+  assert.equal(rlsRelations.rows[0].count, 70);
+  const queryStatusAccess = await database.query(`select
+    has_table_privilege('anon','source.pncp_contract_query_status','SELECT') as anon_read,
+    has_table_privilege('collector_worker','source.pncp_contract_query_status','INSERT') as worker_write`);
+  assert.deepEqual(queryStatusAccess.rows,[{anon_read:false,worker_write:false}]);
   const pharmacyAccess = await database.query(`
     select t, has_table_privilege('anon', 'source.'||t, 'SELECT') as anon_read,
       has_table_privilege('service_role', 'source.'||t, 'INSERT') as service_write
