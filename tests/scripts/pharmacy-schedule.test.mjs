@@ -11,7 +11,7 @@ test('atualização local é silenciosa, limitada e não sobreposta', async () =
 
 test('wrapper usa cofre existente e retoma aquisição incompleta antes de criar outra', async () => {
   const script = await readFile(new URL('../../scripts/run-pharmacy-refresh.ps1', import.meta.url), 'utf8');
-  for (const text of ['Read-CollectorCredentialStore', 'finally', 'refresh_fns_pharmacy', '--max-requests 20', 'active.txt', '$resultCode -eq 0', 'FileShare]::None', 'SUPABASE_WORKLOAD_PASSWORD']) assert.ok(script.includes(text), text);
+  for (const text of ['Read-CollectorCredentialStore', 'finally', 'refresh_fns_pharmacy', '--max-requests 20', 'active.txt', '$resultCode -eq 0', 'Wait-CollectorSourceLock', 'SUPABASE_WORKLOAD_PASSWORD']) assert.ok(script.includes(text), text);
   assert.ok(!script.includes('Read-Host'));
   assert.ok(!script.includes('Start-Process'));
 });
@@ -27,4 +27,7 @@ test('anos compartilham trava da fonte e reintentam colisões no agendador', asy
   assert.ok(wrapper.includes("'data/pharmacy-refresh/source.lock'"));
   assert.ok(installer.includes('-RestartCount 3'));
   assert.ok(installer.includes('-RestartInterval (New-TimeSpan -Minutes 15)'));
+  assert.ok(wrapper.indexOf('Wait-CollectorSourceLock -Path') < wrapper.indexOf('Read-CollectorCredentialStore -Path'));
+  assert.ok(wrapper.includes('SourceLockTimeoutSeconds=900'));
+  assert.ok(wrapper.includes("$status='deferred'; $reason='source_busy'; $resultCode=75"));
 });

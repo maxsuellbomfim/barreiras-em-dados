@@ -1,9 +1,20 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **09/09/2026**. Este é o ponto de entrada operacional; o histórico
+Atualizado em **14/09/2026**. Este é o ponto de entrada operacional; o histórico
 de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
+
+### Retomada após disputa entre coletas — 14/09/2026
+
+O wrapper de Farmácia Popular agora espera até 15 minutos pela trava exclusiva
+da fonte, antes de carregar credenciais ou criar um lote. Isso permite serializar
+as tarefas atrasadas que o Windows inicia juntas ao voltar a ficar disponível.
+Tempo esgotado é adiamento com código de erro, nunca coleta concluída. Erros de
+permissão ou de caminho não são tratados como disputa transitória.
+Cada tentativa registra estado, etapa e horários em arquivo local sanitizado,
+inclusive antes do coletor. Esse diagnóstico é separado do último relatório
+documental; não altera a consulta pública nem afirma cobertura integral.
 
 ### Comparação cadastral privada — 10/09/2026
 

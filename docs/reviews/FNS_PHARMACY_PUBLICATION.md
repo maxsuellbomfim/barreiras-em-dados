@@ -1,5 +1,34 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Retomada local após contenção da fonte
+
+O Windows pode iniciar simultaneamente tarefas diárias e semanais atrasadas.
+`Wait-CollectorSourceLock` conserva a trava única `source.lock` e aguarda sua
+liberação por até 900 segundos. Só falhas de compartilhamento/trava do Windows
+(32/33) são reintentadas. Permissão negada, diretório ausente e demais erros
+propagam imediatamente. O detentor libera o handle; nunca se apaga a trava alheia.
+
+O wrapper adquire essa trava antes de carregar credenciais ou criar `active.txt`.
+Timeout retorna código 75 e estado `deferred`, motivo `source_busy`; não inicia
+requisições nem cria lote. As tentativas limitadas do agendador continuam ativas,
+e o limite total da tarefa continua em 30 minutos. O parâmetro
+`-SourceLockTimeoutSeconds` aceita de 0 a 900 segundos; zero ainda tenta adquirir
+uma vez, sem espera.
+
+`data/pharmacy-refresh/<ano>/attempt.json` registra somente ano, estado, etapa,
+horários UTC e motivo sanitizado. A gravação substitui atomicamente o arquivo;
+ocorre antes da leitura do cofre e é encerrada em conclusão, falha ou adiamento.
+O arquivo não contém mensagens de exceção, credenciais ou dados documentais.
+`latest.json` continua sendo o último relatório devolvido pelo coletor: sua
+existência não prova que a última tentativa do wrapper terminou bem. Os dois
+estados devem ser conferidos em conjunto, preservando a última coleta válida.
+Falha ao acessar a própria pasta de estado pode impedir esse registro local e
+continua sinalizada pelo código de saída e resultado da tarefa Windows.
+
+Esse diagnóstico local não é enviado à API pública nem substitui a conferência
+dos documentos, cobertura e projeção pelo coletor. Não houve mudança de schema,
+permissões, valores financeiros ou política de aprovação.
+
 ## Comparação privada entre cadastro e catálogo
 
 `compare_registry_catalog` compara os identificadores completos de um XLSX
