@@ -164,3 +164,20 @@ final; a execução não fica verde apenas porque a normalização concluiu.
 O próximo replay será dirigido e auditado contra os hashes anteriores. Resposta
 inconclusiva deve produzir `partial`/falha explícita, não uma promessa de fonte
 recuperada. Nenhum registro antigo ou migration aplicada foi reescrito.
+
+### Cards públicos: ausência de vínculo não comprova ausência na fonte
+
+O replay dirigido após o PR #756 confirmou a manutenção das respostas
+inconclusivas como pendências, com falha explícita no gate final e sem alteração
+dos dados públicos. Não confirmou recuperação da fonte.
+
+O aviso de cobertura fica visível antes dos detalhes de execução financeira.
+As mensagens de vínculos ainda não publicados, preparação e indisponibilidade
+usam linguagem simples. Possíveis causas são apresentadas como possibilidades,
+nunca como diagnóstico individual. Os valores vinculados continuam iguais.
+
+A API atual não inclui cobertura por controle PNCP. Portanto os cards não
+declaram HTTP 404/204, vazio confirmado ou completude por contratação. Uma
+projeção auditável por identificador oficial é necessária para esse próximo
+passo. Testes renderizam o componente real nos quatro estados, preservam o
+link oficial e verificam que o aviso não fica escondido em detalhes fechados.
