@@ -1,8 +1,9 @@
-export async function loadPharmacyCoverage(year, callRpc) {
+import { validPharmacySelection, validPharmacyName } from './pharmacy-establishments.mjs';
+export async function loadPharmacyCoverage(year, callRpc, establishment=null) {
   const unavailable={status:'unavailable'};
-  if(!Number.isInteger(year)||year<2021||year>2100) return unavailable;
+  if(!Number.isInteger(year)||year<2021||year>2100||!validPharmacySelection(establishment)) return unavailable;
   try {
-    const rows=await callRpc({p_year:year});
+    const rows=await callRpc({p_year:year,...(establishment===null?{}:{p_establishment_id:establishment})});
     if(!Array.isArray(rows)||rows.length!==1) return unavailable;
     const r=rows[0];
     if(!r||r.year!==year||!Number.isSafeInteger(r.published_documents)||r.published_documents<0||
@@ -12,7 +13,10 @@ export async function loadPharmacyCoverage(year, callRpc) {
       new Date(value).toISOString().slice(0,10)===value;
     if(r.published_documents===0 ? r.status!=='pending'||r.establishments!==0||r.first_date!==null||r.last_date!==null :
       r.status!=='partial'||r.establishments<1||!validDate(r.first_date)||!validDate(r.last_date)||r.first_date>r.last_date) return unavailable;
+    if(establishment!==null && (r.filter_applied!==true || !validPharmacyName(r.selected_establishment) || r.establishments!==1 || r.status!=='partial')) return unavailable;
+    if(establishment===null && (r.filter_applied===true || r.selected_establishment!=null)) return unavailable;
     return {year,published_documents:r.published_documents,establishments:r.establishments,
-      first_date:r.first_date,last_date:r.last_date,status:r.status};
+      first_date:r.first_date,last_date:r.last_date,status:r.status,
+      ...(establishment===null?{}:{filter_applied:true,selected_establishment:r.selected_establishment.trim()})};
   } catch { return unavailable; }
 }

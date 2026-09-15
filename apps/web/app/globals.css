@@ -7544,6 +7544,26 @@ footer {
   text-underline-offset: 0.2em;
 }
 
+.pharmacy-establishment-filter p,
+.pharmacy-establishment-filter a,
+.pharmacy-establishment-filter summary {
+  font-size: 1rem;
+}
+
+.pharmacy-establishment-filter a {
+  color: var(--blue-dark);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.pharmacy-establishment-filter li {
+  padding-block: 0.65rem;
+}
+
+.pharmacy-establishment-filter code {
+  overflow-wrap: anywhere;
+}
+
 .transfer-source-selector {
   margin-top: 1rem;
   display: grid;

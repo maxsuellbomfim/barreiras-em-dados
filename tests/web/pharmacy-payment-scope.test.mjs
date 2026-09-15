@@ -71,6 +71,19 @@ test('empty-page recovery keeps readable text and an identifiable link',async()=
   assert.match(css,/\.pharmacy-page-status a\s*\{[^}]*text-decoration:\s*underline/);
 });
 
+test('filtered coverage and empty-page recovery stay within the selected establishment',()=>{
+  const selection='a'.repeat(64);
+  const html=render({publication:{status:'empty_page',year:2025,records:[]},
+    firstPageHref:`?ano=2025&estabelecimento=${selection}`,filtered:true,
+    coverage:{status:'partial',year:2025,published_documents:3,establishments:1,
+      first_date:'2025-01-01',last_date:'2025-02-01',filter_applied:true,selected_establishment:'Farmácia teste'}});
+  assert.match(html,/3 pagamentos publicados em 2025/);
+  assert.match(html,/todas as páginas do estabelecimento selecionado/);
+  assert.doesNotMatch(html,/todas as páginas do ano selecionado/);
+  assert.match(html,new RegExp(`href="\\?ano=2025&amp;estabelecimento=${selection}"`));
+  assert.match(html,/1 estabelecimento com identidade conferida/);
+});
+
 test('guide does not expose identities or alter published amounts and pagination', () => {
   const html = render({ publication: { status: 'ready', year: 2025, records: [record],
     privateMatrix: 'PRIVATE_MATRIX', privateIdentifier: 'PRIVATE_IDENTIFIER' },
