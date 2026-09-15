@@ -24,6 +24,18 @@ no bruto e normalizado. A busca exclusivamente pelas compras de Barreiras omite
 contratos municipais com contratação-pai externa. Este diagnóstico não altera
 totais públicos nem autoriza afirmar execução/pagamento.
 
+A consulta da compra-pai no endpoint antigo retornou HTTP 301 com mensagem
+indicando o novo endereço `/api/consulta/v1/orgaos/{cnpj}/compras/{ano}/{sequencial}`.
+No endereço indicado, a resposta confirmou o controle exato
+`13250888000162-1-000003/2026`, órgão **Fundo Municipal de Assistência Social**,
+unidade **Fundo Municipal de Assistência Social 2026**, município Barreiras e
+IBGE **2903201**. Objeto Jornada Social de Barreiras, inexigibilidade IN-029/2026.
+Assim, é outro CNPJ municipal, não prova de compra de outro município nem de erro
+do vínculo publicado. A auditoria mantém `cross_organization_links` em revisão
+porque compara CNPJs, não infere pertencimento territorial sem cadastro/evidência.
+Próxima implementação deverá preservar ambos os registros e representar o Fundo
+como órgão próprio, sem reescrever seu identificador como se fosse o da Prefeitura.
+
 ### Repetir a auditoria sem escrita remota
 
 Preparar JSON com chaves do inventário, via consulta somente leitura:

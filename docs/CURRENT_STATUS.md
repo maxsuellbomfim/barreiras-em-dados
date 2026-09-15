@@ -16,9 +16,11 @@ no normalizado: partir apenas das compras municipais não o descobre.
 O script read-only `scripts/audit-pncp-contract-inventory.mjs` compara o catálogo
 oficial por período com um inventário de chaves, exige a página integral e
 aponta ausências e vínculos divergentes. Não importa, normaliza nem publica.
-O contrato externo permanece em revisão: não presumir adesão, erro da fonte ou
-compra municipal. Próxima entrega: descoberta por período com preservação própria
-e tratamento explícito de contratação-pai externa, sem forjar vínculo local.
+A compra-pai foi confirmada na nova API oficial: Fundo Municipal de Assistência
+Social de Barreiras, CNPJ próprio e IBGE 2903201. Outro CNPJ não significa outro
+município. A vinculação ainda requer preservação e tratamento do órgão correto.
+Próxima entrega: descoberta por período e cadastro explícito dos fundos municipais,
+sem atribuir suas compras ao CNPJ principal nem publicar sem evidência preservada.
 
 ### PNCP: estado individual da consulta nos cards
 
