@@ -9,7 +9,7 @@ import logging
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from ..collection_control import (
@@ -94,6 +94,7 @@ class PncpContratosCollectionSummary:
     restart_reason: str | None = None
     response_issues: tuple[dict[str, object], ...] = ()
     empty_controls: tuple[str, ...] = ()
+    control_observations: tuple[dict[str, object], ...] = ()
 
     @property
     def checkpoint(self) -> dict[str, object]:
@@ -172,6 +173,7 @@ def execute_controlled_pncp_contratos(
                 "retry_controls": list(summary.retry_controls),
                 "response_issues": list(summary.response_issues),
                 "empty_controls": list(summary.empty_controls),
+                "control_observations": list(summary.control_observations),
                 "contract_pages_truncated_controls": list(
                     summary.contract_pages_truncated_controls
                 ),
@@ -412,6 +414,7 @@ def _collect_pending(
     retries = set(cursor.retry_controls)
     response_issues: list[dict[str, object]] = []
     empty_controls: list[str] = []
+    control_observations: list[dict[str, object]] = []
     last_control = cursor.after_control
 
     def summarize(*, interrupted=False):
@@ -428,9 +431,43 @@ def _collect_pending(
             restart_reason=cursor.restart_reason,
             response_issues=tuple(response_issues),
             empty_controls=tuple(empty_controls),
+            control_observations=tuple(control_observations),
         )
 
     for control, ano, sequencial in pending:
+        started_at = datetime.now(UTC).isoformat()
+        preserved_pages: list[dict[str, object]] = []
+
+        def observe(
+            state,
+            reason=None,
+            http_status=None,
+            response_page=None,
+            *,
+            current_control=control,
+            observation_started=started_at,
+            evidence=preserved_pages,
+        ):
+            # Private execution evidence, not a statement of historical coverage.
+            # No response body, Storage path or exception message is copied here.
+            control_observations.append(
+                {
+                    "version": 1,
+                    "scope": "pncp_contracts_query",
+                    "control": current_control,
+                    "started_at": observation_started,
+                    "finished_at": datetime.now(UTC).isoformat(),
+                    "state": state,
+                    "reason": reason,
+                    "http_status": http_status,
+                    "response_page": response_page,
+                    "records_preserved": (
+                        sum(page["records"] for page in evidence) if evidence else None
+                    ),
+                    "pages": list(evidence),
+                }
+            )
+
         try:
             batch = collect_contratos_batch(
                 ano=ano, sequencial=sequencial, logger=logger
@@ -464,6 +501,22 @@ def _collect_pending(
                 )
             for page in batch.pages:
                 result = service.persist_contratos(page, control=control)
+                if (
+                    not isinstance(result.raw_artifact_id, str)
+                    or not result.raw_artifact_id
+                    or not re.fullmatch(r"[0-9a-f]{64}", result.sha256)
+                    or result.sha256 != page.body_sha256
+                ):
+                    raise ValueError("Evidência persistida PNCP incompatível.")
+                preserved_pages.append(
+                    {
+                        "page": page.cursor["pagina"],
+                        "raw_artifact_id": result.raw_artifact_id,
+                        "sha256": result.sha256,
+                        "http_status": page.http_status,
+                        "records": len(page.items),
+                    }
+                )
                 pages_persisted += 1
                 records_inserted += result.inserted_records
                 records_existing += result.existing_records
@@ -481,6 +534,7 @@ def _collect_pending(
                 )
         except Exception as error:
             retries.add(control)
+            observe("interrupted", "collection_interrupted")
             raise PncpContratosBatchFailure(
                 summarize(interrupted=True), error
             ) from None
@@ -497,6 +551,20 @@ def _collect_pending(
                     control=control,
                     body_sha256=batch.pages[0].body_sha256,
                 )
+            observe(
+                "empty_confirmed"
+                if all(not page.items for page in batch.pages)
+                else "query_complete"
+            )
+        elif batch.incomplete_reason or (not batch.pages and not batch.truncated):
+            observe(
+                "inconclusive",
+                batch.incomplete_reason or "missing_response_evidence",
+                batch.http_status,
+                batch.response_page,
+            )
+        else:
+            observe("partial", "page_limit")
         processed += 1
         last_control = control
 

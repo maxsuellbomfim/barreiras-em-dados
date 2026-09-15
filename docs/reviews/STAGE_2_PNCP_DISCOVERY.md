@@ -181,3 +181,35 @@ declaram HTTP 404/204, vazio confirmado ou completude por contratação. Uma
 projeção auditável por identificador oficial é necessária para esse próximo
 passo. Testes renderizam o componente real nos quatro estados, preservam o
 link oficial e verificam que o aviso não fica escondido em detalhes fechados.
+
+### Observações individuais, versão 1 (escopo privado)
+
+`source.collection_runs.metrics.control_observations` recebe no fechamento
+controlado um registro por contratação efetivamente tentada, até o teto de 50.
+O escopo `pncp_contracts_query` nunca representa todos os pagamentos, contratos
+históricos ou documentos de outras fontes.
+
+- `query_complete`: paginação validada e páginas preservadas; não atesta cobertura histórica.
+- `empty_confirmed`: a consulta respondeu explicitamente vazia e a evidência foi preservada.
+- `inconclusive`: resposta insuficiente, incluindo 404/204 ou paginação inconsistente.
+- `partial`: limite de páginas atingido.
+- `interrupted`: erro de coleta/persistência; mensagem da exceção não integra a observação.
+
+Cada observação contém controle, início/fim UTC, motivo/status/página da resposta
+inconclusiva quando conhecidos e páginas efetivamente preservadas. Cada página
+referencia artefato, SHA-256, número, HTTP e quantidade observada. O hash retornado
+pela persistência precisa coincidir com o corpo coletado. Corpos, chaves de bucket
+e credenciais não são copiados. `records_preserved` conta linhas observadas mesmo
+quando o artefato já existia; sem página verificada permanece `null`, nunca zero.
+
+Não há observação inventada para controles selecionados mas não tentados. A
+reserva anterior à coleta mantém esses controles retomáveis. Se o processo for
+encerrado abruptamente ou o fechamento falhar, as observações podem não ter sido
+gravadas: o consumidor futuro deve respeitar a tentativa pendente e não apresentar
+uma observação antiga como prova da conclusão da tentativa mais recente.
+
+Esta entrega não altera API, UI, normalização, permissões ou migrations. A próxima
+projeção pública deverá resolver artefatos/controles, validar o esquema versionado,
+considerar a tentativa mais recente e expor só estado/data/fonte necessários ao
+leitor, sem varrer os JSON brutos a cada card. A primeira execução operacional da
+versão nova ainda precisa ser auditada; testes locais não substituem essa prova.

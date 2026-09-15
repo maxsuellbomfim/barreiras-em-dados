@@ -51,12 +51,22 @@ class MutableBacklog:
     def persist_contratos(self, page, *, control):
         self.preserved.add(page.number)
         self.visited.append(control)
-        return SimpleNamespace(inserted_records=1, existing_records=0)
+        return SimpleNamespace(
+            inserted_records=1,
+            existing_records=0,
+            raw_artifact_id=f"artifact-{page.number}",
+            sha256=page.body_sha256,
+        )
 
 
 def page(number):
     return SimpleNamespace(
-        number=number, cursor={"pagina": 1}, total_paginas=1, items=[{}]
+        number=number,
+        cursor={"pagina": 1},
+        total_paginas=1,
+        items=[{}],
+        body_sha256=f"{number:064x}",
+        http_status=200,
     )
 
 
