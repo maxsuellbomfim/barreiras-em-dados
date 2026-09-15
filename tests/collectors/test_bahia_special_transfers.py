@@ -3,10 +3,13 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
+import ssl
 import unittest
 import zipfile
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from urllib.error import URLError
 
 from barreiras_collectors.connectors.bahia_special_transfers import (
     ARCHIVE_NAME,
@@ -14,12 +17,13 @@ from barreiras_collectors.connectors.bahia_special_transfers import (
     DOWNLOAD_URL,
     EXPECTED_MEMBER_COLUMNS,
     PAYMENT_MEMBER_NAME,
+    TIMEOUT_SECONDS,
     BahiaSpecialTransferArchiveError,
     fetch_special_transfer_archive,
     fetch_special_transfer_catalog,
     parse_special_transfer_archive,
 )
-from barreiras_collectors.resilience import RetryPolicy
+from barreiras_collectors.resilience import CircuitBreaker, CircuitState, RetryPolicy
 
 
 def _csv_bytes(columns: tuple[str, ...], values: tuple[str, ...]) -> bytes:
@@ -79,14 +83,17 @@ def catalog_body(*, size: int, resource_url: str = DOWNLOAD_URL) -> bytes:
 
 
 class SequenceTransport:
-    def __init__(self, responses: list[SimpleNamespace]) -> None:
+    def __init__(self, responses: list[SimpleNamespace | Exception]) -> None:
         self.responses = responses
         self.requests: list[tuple[str, int]] = []
 
     def get(self, url, *, headers, timeout_seconds, max_body_bytes):
         del headers, timeout_seconds
         self.requests.append((url, max_body_bytes))
-        return self.responses.pop(0)
+        result = self.responses.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
 
 
 def response(body: bytes, *, final_url: str, content_type: str) -> SimpleNamespace:
@@ -104,6 +111,104 @@ def response(body: bytes, *, final_url: str, content_type: str) -> SimpleNamespa
 
 
 class BahiaSpecialTransferConnectorTests(unittest.TestCase):
+    def test_transport_exhaustion_logs_each_attempt_without_sensitive_reason(self):
+        marker = "private-body-token-must-not-appear"
+        transport = SequenceTransport(
+            [URLError(TimeoutError(marker)) for _ in range(4)]
+        )
+        delays = []
+        breaker = CircuitBreaker(failure_threshold=4)
+        logger = logging.getLogger("bahia-special-timeout-test")
+        with self.assertLogs(logger, level="WARNING") as captured:
+            with self.assertRaisesRegex(BahiaSpecialTransferArchiveError, "catálogo"):
+                fetch_special_transfer_catalog(
+                    transport=transport,
+                    circuit_breaker=breaker,
+                    random_value=lambda: 1,
+                    sleep=delays.append,
+                    logger=logger,
+                )
+        events = [json.loads(record.getMessage()) for record in captured.records]
+        self.assertEqual(len(transport.requests), 4)
+        self.assertEqual(delays, [0.5, 1.0, 2.0])
+        self.assertEqual(breaker.state, CircuitState.OPEN)
+        self.assertEqual([event["attempt"] for event in events], [1, 2, 3, 4])
+        self.assertEqual(
+            [event["will_retry"] for event in events], [True, True, True, False]
+        )
+        for event in events:
+            self.assertEqual(
+                event,
+                {
+                    "event": "collector_http_transport_error",
+                    "source": "bahia-open-data",
+                    "endpoint": "state-special-transfers",
+                    "resource": "catalog",
+                    "attempt": event["attempt"],
+                    "max_attempts": 4,
+                    "timeout_seconds": TIMEOUT_SECONDS,
+                    "error_kind": "timeout",
+                    "will_retry": event["will_retry"],
+                },
+            )
+        self.assertNotIn(marker, " ".join(captured.output))
+
+    def test_archive_transport_diagnostic_distinguishes_tls_without_changing_retries(
+        self,
+    ):
+        body = archive_bytes()
+        catalog = fetch_special_transfer_catalog(
+            transport=SequenceTransport(
+                [
+                    response(
+                        catalog_body(size=len(body)),
+                        final_url=CATALOG_URL,
+                        content_type="application/json",
+                    ),
+                ]
+            )
+        )
+        marker = "certificate-detail-must-not-appear"
+        transport = SequenceTransport(
+            [
+                URLError(ssl.SSLError(marker)),
+                response(body, final_url=DOWNLOAD_URL, content_type="application/zip"),
+            ]
+        )
+        logger = logging.getLogger("bahia-special-tls-test")
+        with self.assertLogs(logger, level="WARNING") as captured:
+            archive = fetch_special_transfer_archive(
+                catalog=catalog,
+                transport=transport,
+                logger=logger,
+                sleep=lambda _: None,
+            )
+        event = json.loads(captured.records[0].getMessage())
+        self.assertEqual(event["resource"], "archive")
+        self.assertEqual(event["error_kind"], "tls")
+        self.assertEqual(event["will_retry"], True)
+        self.assertEqual(archive.attempts, 2)
+        self.assertNotIn(marker, " ".join(captured.output))
+
+    def test_http_exhaustion_remains_a_failure_and_identifies_catalog(self):
+        responses = [
+            SimpleNamespace(status=503, body=b"private-body") for _ in range(4)
+        ]
+        transport = SequenceTransport(responses)
+        logger = logging.getLogger("bahia-special-http-test")
+        with self.assertLogs(logger, level="INFO") as captured:
+            with self.assertRaisesRegex(
+                BahiaSpecialTransferArchiveError, "indisponível"
+            ):
+                fetch_special_transfer_catalog(
+                    transport=transport, logger=logger, sleep=lambda _: None
+                )
+        events = [json.loads(record.getMessage()) for record in captured.records]
+        self.assertEqual(len(events), 4)
+        self.assertTrue(all(event["resource"] == "catalog" for event in events))
+        self.assertEqual([event["status"] for event in events], [503] * 4)
+        self.assertNotIn("private-body", " ".join(captured.output))
+
     def test_validates_five_views_without_exposing_rows_or_identifiers(self) -> None:
         manifests = parse_special_transfer_archive(archive_bytes())
 
@@ -188,6 +293,7 @@ class BahiaSpecialTransferConnectorTests(unittest.TestCase):
                 ),
             ]
         )
+
         def now():
             return datetime(2026, 8, 21, 12, 0, tzinfo=UTC)
 

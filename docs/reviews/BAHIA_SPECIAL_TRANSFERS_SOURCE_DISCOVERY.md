@@ -4,6 +4,27 @@ Data da verificação: 21/08/2026.
 
 ## Resultado
 
+### Disponibilidade e diagnóstico — 15/09/2026
+
+As execuções financeiras `34830546115` (14/09) e `34952573445` (15/09)
+falharam na aquisição desta fonte. Na segunda, o acesso ao catálogo esgotou
+quatro tentativas de 120 segundos antes de obter ZIP ou normalizar registros.
+Uma sonda posterior, usando a mesma URL e cadeia TLS, retornou HTTP 200,
+3.501 bytes e contrato válido. Isso confirma a resposta naquele instante,
+não a recuperação da coleta nem a atualidade da publicação.
+
+Cada exceção de transporte agora emite `collector_http_transport_error` com
+fonte, endpoint, etapa (`catalog`/`archive`), tentativa, limite, timeout e
+categoria fixa (`timeout`, `tls` ou `transport`). Nunca inclui a mensagem da
+exceção, corpo ou URL. Respostas HTTP também identificam a etapa. Não houve
+aumento de timeout/tentativas, mudança de TLS, fallback para ZIP antigo ou
+alteração das regras de publicação. O esgotamento continua lançando erro.
+
+Para fechar a recuperação: executar `resource=bahia-special-only`, conferir
+cinco views preservadas, processar o ZIP e passar no gate público que compara
+o hash da coleta com cobertura, pagamentos e ranking. Workflow verde isolado
+ou sonda do catálogo não substituem essa conferência.
+
 O Portal de Dados Abertos da Bahia publica o conjunto oficial
 **Transferências Especiais**, atualizado em 20/08/2026. O catálogo CKAN aponta
 para um ZIP de 554.925 bytes com cinco views. O conector valida URL, recurso,

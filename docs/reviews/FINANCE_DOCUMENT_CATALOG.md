@@ -49,6 +49,24 @@ validada → revisão → finance.revenues → projeção pública
 
 ## Limite atual
 
+### Instalação e recuperação operacional — 15/09/2026
+
+Na execução `34952573445`, balancetes não chegou à coleta: a instalação não
+encontrou `cryptography==50.0.0`. Outro job do mesmo commit/Python instalou a
+mesma versão; não foi comprovado pin inválido. O helper stdlib
+`scripts/install_collector_dependencies.py` repete somente o comando fixo
+`.[postgres,storage]`, no máximo três vezes, com limite de 180 segundos por
+processo e esperas de 5/10 segundos. Mantém a saída original do pip e o último
+código não zero; timeout termina com 124 e falha ao iniciar com 127.
+Não recebe comandos nem configurações livres. As seis instalações idênticas
+do workflow financeiro o reutilizam; o passo com extras PDF não mudou.
+
+Sucesso na instalação não comprova coleta. A recuperação deve executar somente
+balancetes, mantendo catálogo completo e drenagem limitada/checkpoint dos PDFs.
+Contadores de catálogo, documentos preservados, falhas e limites precisam ser
+conferidos antes de informar cobertura. Não é necessário reexecutar toda a
+matriz nem fontes que já concluíram.
+
 O workflow preserva a resposta da API e o PDF oficial quando o endpoint entrega
 um link válido. O publicador grava somente linhas com validação determinística,
 preserva a direção contábil das deduções e liga cada linha ao JSON pai e ao PDF
