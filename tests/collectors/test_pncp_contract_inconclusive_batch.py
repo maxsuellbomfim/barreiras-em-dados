@@ -9,7 +9,12 @@ from unittest.mock import patch
 
 from barreiras_collectors.commands import collect_pncp_contratos as command
 from barreiras_collectors.persistence.service import PncpComprasPersistenceService
-from test_pncp_itens import FakeObjectStore, FakeRepository, SequencedTransport
+
+from tests.collectors.test_pncp_itens import (
+    FakeObjectStore,
+    FakeRepository,
+    SequencedTransport,
+)
 
 
 def control(number):
