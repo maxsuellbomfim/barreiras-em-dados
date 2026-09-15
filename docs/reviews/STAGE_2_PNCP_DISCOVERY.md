@@ -1,5 +1,68 @@
 # Etapa 2 — descoberta da fonte PNCP para Barreiras
 
+## Auditoria de descoberta por período — 15/09/2026
+
+Endpoint confirmado no [manual de integração](https://pncp.gov.br/manual/pt-br/latest/contrato_empenho/consultar_contratos_ou_empenhos_de_uma_contratacao.html):
+o endereço do coletor por contratação está correto. Na contratação 40/2026,
+HTTP 404 veio com mensagem explícita de que não há contrato publicado no PNCP
+para aquela contratação. Isso não comprova inexistência de contrato fora do
+PNCP e não permite reclassificar outras respostas 404 sem examinar sua evidência.
+
+Sondagem da API `/api/consulta/v1/contratos`, `cnpjOrgao=13654405000195`,
+`dataInicial=20260101`, `dataFinal=20260915`, página 1, tamanho 500: 40 registros,
+uma página, zero páginas restantes. Os 40 controles são distintos e municipais.
+Confronto com inventário normalizado: 39 presentes e um ausente. Inclui o
+contrato 153/2024 publicado em 2026; ano da chave não substitui data de publicação.
+
+A consulta individual oficial confirmou o contrato **130/2026**, controle
+`13654405000195-2-000023/2026`, órgão Município de Barreiras, unidade Secretaria
+Municipal de Administração, objeto Jornada Social de Barreiras, valor global
+informado R$ 28.780. O vínculo publicado pela fonte é com a contratação
+`13250888000162-1-000003/2026`; `frutoAdesao=false`, ata nula. Não interpretar
+automaticamente como adesão nem corrigir o CNPJ. SQL read-only confirmou ausência
+no bruto e normalizado. A busca exclusivamente pelas compras de Barreiras omite
+contratos municipais com contratação-pai externa. Este diagnóstico não altera
+totais públicos nem autoriza afirmar execução/pagamento.
+
+A consulta da compra-pai no endpoint antigo retornou HTTP 301 com mensagem
+indicando o novo endereço `/api/consulta/v1/orgaos/{cnpj}/compras/{ano}/{sequencial}`.
+No endereço indicado, a resposta confirmou o controle exato
+`13250888000162-1-000003/2026`, órgão **Fundo Municipal de Assistência Social**,
+unidade **Fundo Municipal de Assistência Social 2026**, município Barreiras e
+IBGE **2903201**. Objeto Jornada Social de Barreiras, inexigibilidade IN-029/2026.
+Assim, é outro CNPJ municipal, não prova de compra de outro município nem de erro
+do vínculo publicado. A auditoria mantém `cross_organization_links` em revisão
+porque compara CNPJs, não infere pertencimento territorial sem cadastro/evidência.
+Próxima implementação deverá preservar ambos os registros e representar o Fundo
+como órgão próprio, sem reescrever seu identificador como se fosse o da Prefeitura.
+
+### Repetir a auditoria sem escrita remota
+
+Preparar JSON com chaves do inventário, via consulta somente leitura:
+
+```sql
+select distinct c.external_id as contract_control,
+       p.external_id as procurement_control
+from procurement.contracts c
+left join procurement.procurements p on p.id=c.procurement_id
+where c.external_id like '13654405000195-2-%';
+```
+
+```powershell
+node scripts/audit-pncp-contract-inventory.mjs 20260101 20260915 caminho/inventario.json
+```
+
+Uma única consulta de até 500 registros e até 366 dias, timeout de 60s. Não usa
+credenciais. Saída contém apenas chaves oficiais, contagens e diagnósticos, nunca
+fornecedores, identificadores pessoais ou valores. Código 0: chaves coincidem no
+recorte; 2: revisão necessária; 1: resposta incompleta/inválida/indisponível.
+Não pagina automaticamente: subdividir o intervalo se exceder uma página.
+`MATCH` não comprova cobertura histórica, igualdade de valores ou publicação
+autorizada. Nenhuma resposta de erro pode ser tratada como lista vazia.
+
+Próximo passo: preservar o catálogo por período e seus documentos antes de
+publicar recuperações; manter pai externo separado do cadastro de compras locais.
+
 Data: 01/08/2026. Pesquisa somente leitura contra a API pública, sem coleta.
 
 ## Confirmado ao vivo

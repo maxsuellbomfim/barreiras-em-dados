@@ -5,6 +5,23 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: lacuna confirmada na descoberta por contratação-pai
+
+A consulta oficial por publicação de 01/01 a 15/09/2026 retornou 40 contratos
+municipais em uma página. O inventário contém 39 dessas chaves. O contrato
+130/2026 (`13654405000195-2-000023/2026`) é municipal, mas o PNCP o relaciona à
+compra `13250888000162-1-000003/2026`, de outro CNPJ. Ele não consta no bruto nem
+no normalizado: partir apenas das compras municipais não o descobre.
+
+O script read-only `scripts/audit-pncp-contract-inventory.mjs` compara o catálogo
+oficial por período com um inventário de chaves, exige a página integral e
+aponta ausências e vínculos divergentes. Não importa, normaliza nem publica.
+A compra-pai foi confirmada na nova API oficial: Fundo Municipal de Assistência
+Social de Barreiras, CNPJ próprio e IBGE 2903201. Outro CNPJ não significa outro
+município. A vinculação ainda requer preservação e tratamento do órgão correto.
+Próxima entrega: descoberta por período e cadastro explícito dos fundos municipais,
+sem atribuir suas compras ao CNPJ principal nem publicar sem evidência preservada.
+
 ### PNCP: estado individual da consulta nos cards
 
 Projeção privada indexada por controle oficial, atualizada junto com a reserva
