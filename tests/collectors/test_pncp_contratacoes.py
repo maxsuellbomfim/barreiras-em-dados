@@ -4,7 +4,7 @@ import json
 import logging
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from barreiras_collectors.commands import collect_pncp_contratacoes as command
 from barreiras_collectors.commands.collect_pncp_contratacoes import (
@@ -373,6 +373,150 @@ class ControlledPncpContratacoesTests(unittest.TestCase):
             events,
             ["started", "external-setup", "completed:empty", "closed"],
         )
+
+
+class PncpContratacoesMainExitTests(unittest.TestCase):
+    def run_main(self, summary, *, horizon_reached=False):
+        events = []
+        repository = SimpleNamespace(
+            start_controlled_run=Mock(
+                side_effect=lambda **_values: events.append("started") or "run-test"
+            ),
+            complete_controlled_run=Mock(
+                side_effect=lambda **_values: events.append("checkpoint")
+            ),
+            fail_controlled_run=Mock(),
+            pncp_backfill_anchor=Mock(return_value=command.BACKFILL_HORIZON),
+        )
+        with (
+            patch.object(
+                command.CollectorSettings,
+                "from_env",
+                return_value=SimpleNamespace(log_level="INFO"),
+            ),
+            patch.object(
+                command.PersistenceSettings,
+                "from_env",
+                return_value=SimpleNamespace(
+                    mode="postgres-supabase", database_url="test-dsn"
+                ),
+            ),
+            patch.object(
+                command.PostgresCollectionRepository,
+                "from_dsn",
+                return_value=repository,
+            ),
+            patch.object(command.logging, "basicConfig"),
+            patch.object(
+                command,
+                "_build_cloud_service",
+                side_effect=lambda **_values: events.append("setup"),
+            ) as cloud,
+            patch.object(
+                command,
+                "_collect_window",
+                side_effect=lambda **_values: events.append("collected") or summary,
+            ) as collect,
+            patch.object(
+                command,
+                "log_event",
+                side_effect=lambda *_args, **_values: events.append("logged"),
+            ) as log,
+        ):
+            result = command.main(
+                ["--backfill"]
+                if horizon_reached
+                else ["--since", "2026-09-07", "--until", "2026-09-14"]
+            )
+            events.append("returned")
+        return result, repository, events, log, cloud, collect
+
+    def test_partial_exits_nonzero_after_recording_checkpoint_and_summary(self):
+        for partial_fields in (
+            {"failed_modalities": (1, 2), "deferred_modalities": tuple(range(3, 14))},
+            {"failed_modalities": (2,)},
+            {"deferred_modalities": (3,)},
+            {"truncated_modalities": (6,)},
+        ):
+            with self.subTest(partial_fields=partial_fields):
+                fields = {"truncated_modalities": (), **partial_fields}
+                summary = PncpContratacoesCollectionSummary(
+                    pages=0, inserted_records=0, existing_records=0, **fields
+                )
+                result, repository, events, log, _, _ = self.run_main(summary)
+                self.assertEqual(
+                    events,
+                    [
+                        "started",
+                        "setup",
+                        "collected",
+                        "checkpoint",
+                        "logged",
+                        "returned",
+                    ],
+                )
+                values = repository.complete_controlled_run.call_args.kwargs
+                self.assertEqual(
+                    values["partition_key"], "published:2026-09-07:2026-09-14"
+                )
+                self.assertEqual(values["outcome"], "partial")
+                self.assertEqual(
+                    values["checkpoint"],
+                    {
+                        "truncated_modalities": list(summary.truncated_modalities),
+                        "failed_modalities": list(summary.failed_modalities),
+                        "deferred_modalities": list(summary.deferred_modalities),
+                    },
+                )
+                self.assertEqual(values["observed_records"], 0)
+                self.assertEqual(log.call_args.kwargs["coverage_status"], "partial")
+                repository.fail_controlled_run.assert_not_called()
+                self.assertNotEqual(result, 0)
+
+    def test_partial_keeps_preserved_records_and_still_exits_nonzero(self):
+        summary = PncpContratacoesCollectionSummary(
+            pages=2,
+            inserted_records=3,
+            existing_records=4,
+            truncated_modalities=(),
+            failed_modalities=(2,),
+        )
+        result, repository, _, log, _, _ = self.run_main(summary)
+        self.assertEqual(
+            repository.complete_controlled_run.call_args.kwargs["observed_records"], 7
+        )
+        self.assertEqual(log.call_args.kwargs["coverage_status"], "partial")
+        self.assertNotEqual(result, 0)
+
+    def test_complete_and_officially_empty_keep_zero_exit(self):
+        for records, expected in ((2, "complete"), (0, "empty")):
+            with self.subTest(expected=expected):
+                summary = PncpContratacoesCollectionSummary(
+                    pages=int(records > 0),
+                    inserted_records=records,
+                    existing_records=0,
+                    truncated_modalities=(),
+                )
+                result, repository, _, log, _, _ = self.run_main(summary)
+                self.assertEqual(
+                    repository.complete_controlled_run.call_args.kwargs["outcome"],
+                    expected,
+                )
+                self.assertEqual(log.call_args.kwargs["coverage_status"], expected)
+                self.assertEqual(result, 0)
+
+    def test_backfill_horizon_noop_does_not_open_collection_and_returns_zero(self):
+        result, repository, events, log, cloud, collect = self.run_main(
+            None,
+            horizon_reached=True,
+        )
+        self.assertEqual(result, 0)
+        self.assertEqual(events, ["logged", "returned"])
+        self.assertEqual(log.call_args.args[2], "collector_pncp_backfill_complete")
+        repository.start_controlled_run.assert_not_called()
+        repository.complete_controlled_run.assert_not_called()
+        cloud.assert_not_called()
+        collect.assert_not_called()
 
 
 if __name__ == "__main__":

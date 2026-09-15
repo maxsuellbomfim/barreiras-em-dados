@@ -231,7 +231,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         existing_records=summary.existing_records,
         coverage_status=summary.outcome.value,
     )
-    return 0
+    return 1 if summary.outcome is CollectionOutcome.PARTIAL else 0
 
 
 def _build_cloud_service(
