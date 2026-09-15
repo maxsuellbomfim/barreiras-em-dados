@@ -13,6 +13,21 @@ test('pharmacy loader distinguishes no approved rows from failure',async()=>{
   assert.equal((await loadPharmacyPage(2025,1,async()=>{throw Error('secret');})).publication.status,'unavailable');
   assert.equal((await loadPharmacyPage(2025,1,async()=>[{...row,reviewed_at:null}])).publication.status,'unavailable');
 });
+
+test('empty later pages do not claim the yearly publication is pending',async()=>{
+  for(const page of [2,401]) {
+    const calls=[];
+    const result=await loadPharmacyPage(2025,page,async args=>{
+      calls.push(args);
+      return [];
+    });
+    assert.deepEqual(result,{publication:{status:'empty_page',year:2025,records:[]},hasNext:false});
+    assert.deepEqual(calls,[{p_year:2025,p_offset:(page-1)*25}]);
+  }
+  assert.equal((await loadPharmacyPage(2025,2,async()=>{throw Error('SECRET');})).publication.status,'unavailable');
+  assert.equal((await loadPharmacyPage(2025,2,async()=>null)).publication.status,'unavailable');
+  assert.equal((await loadPharmacyPage(2025,2,async()=>[{...row,amount:'invalid'}])).publication.status,'unavailable');
+});
 test('pharmacy pagination bounds scope and probes only full pages',async()=>{
   const calls=[];
   const result=await loadPharmacyPage(2025,2,async args=>{

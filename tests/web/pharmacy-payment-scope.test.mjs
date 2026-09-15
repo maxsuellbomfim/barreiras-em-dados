@@ -34,7 +34,7 @@ const render = props => renderToStaticMarkup(createElement(PharmacyPayments, pro
 const guide = html => html.match(/<aside[^>]*aria-labelledby="pharmacy-scope-title"[^>]*>([\s\S]*?)<\/aside>/)?.[1];
 
 test('scope warning is visible in every publication and coverage state', () => {
-  for (const status of ['ready', 'pending', 'unavailable']) {
+  for (const status of ['ready', 'pending', 'unavailable', 'empty_page']) {
     for (const coverageStatus of [undefined, 'partial', 'pending', 'unavailable']) {
       const html = render({ publication: { status, year: 2025, records: status === 'ready' ? [record] : [] },
         coverage: coverageStatus && { status: coverageStatus, year: 2025,
@@ -51,6 +51,24 @@ test('scope warning is visible in every publication and coverage state', () => {
       if (status === 'ready') assert.ok(html.indexOf(content) < html.indexOf('Registros de 2025'));
     }
   }
+});
+
+test('empty page offers a same-year way back without claiming zero or pending publication', () => {
+  for (const year of [2021,2025,2026]) {
+    const html=render({publication:{status:'empty_page',year,records:[]}});
+    assert.match(html,/<aside class="transfer-reading-guide pharmacy-page-status"/);
+    assert.match(html,/Nenhum pagamento nesta página/);
+    assert.match(html,new RegExp(`href="\\?ano=${year}"[^>]*>Voltar à primeira página`));
+    assert.doesNotMatch(html,/Publicação dos pagamentos em preparação|Dados temporariamente indisponíveis|Ainda não há registros liberados nesta página/);
+    assert.match(html,/não comprova ausência de pagamentos/);
+    assert.doesNotMatch(html,/<li[^>]*class="transfer-reading-guide"/);
+  }
+});
+
+test('empty-page recovery keeps readable text and an identifiable link',async()=>{
+  const css=await readFile(new URL('../../apps/web/app/globals.css',import.meta.url),'utf8');
+  assert.match(css,/\.pharmacy-page-status p\s*\{[^}]*font-size:\s*1rem/);
+  assert.match(css,/\.pharmacy-page-status a\s*\{[^}]*text-decoration:\s*underline/);
 });
 
 test('guide does not expose identities or alter published amounts and pagination', () => {

@@ -1,5 +1,20 @@
 # Farmácia Popular: leitura privada e caminho de publicação
 
+## Navegação em páginas sem registros
+
+Resposta válida e vazia numa página posterior à primeira produz `empty_page`,
+não `pending`. A mensagem limita a ausência à página consultada, não ao ano
+nem à fonte oficial; o link de retorno conserva o ano. A primeira página
+vazia continua em preparação, e erro de transporte, resposta inválida ou
+evidência inconsistente continuam indisponíveis, sem valores expostos.
+Não há nova RPC, consulta extra, fallback de registros ou alteração de total.
+Testes do loader cobrem os limites 2 e 401, falhas e payloads inválidos;
+renderização real cobre o aviso em todos os estados e o retorno por ano.
+Conferência local com a projeção pública: página 2 de 2025 sem registros,
+retorno por teclado à página 1 com 25 cartões, ano mantido. Texto de 16 px,
+link sublinhado e foco visível; sem overflow em 390 e 1280 px. Nenhum dado
+financeiro foi alterado pela conferência.
+
 ## Leitura pública do escopo
 
 A rota `/recursos/saude` explica por que uma farmácia pode não aparecer antes
@@ -43,6 +58,22 @@ autorizado em pago nem dividir o total pela quantidade de filiais. Nenhum
 pedido de acesso a dados foi transmitido por esta entrega. Cadastros, indicadores
 de pessoas atendidas e sistemas de autorização do paciente não substituem
 esse demonstrativo financeiro.
+
+### Fonte futura identificada — consulta em 14/09/2026
+
+O [Plano de Dados Abertos do MS 2026–2028, páginas físicas 135–136](https://www.gov.br/saude/pt-br/acesso-a-informacao/dados-abertos/pda/plano-de-dados-abertos-2026-2028.pdf/@@download/file)
+prevê abrir o conjunto de dispensações DBPOPFARMA em outubro/2026, com
+atualização mensal e responsabilidade DAF/SCTIE. É uma previsão documental,
+não confirmação de disponibilidade nem de campos financeiros por filial.
+O [catálogo MGDI do Farmácia Popular](https://dadosabertos.saude.gov.br/dataset/mgdi-programa-farmacia-popular-do-brasil)
+lista indicadores de pessoas atendidas, não um demonstrativo de parcela paga.
+
+Próximo passo: obter o dicionário e o endereço oficial de distribuição da
+DBPOPFARMA; conferir se há município, estabelecimento, competência e estágio
+financeiro. Só depois decidir se complementa os pagamentos ou deve compor uma
+visão separada de atendimento. Não consultar sistemas de autorização de
+pacientes nem criar um coletor sobre campos presumidos. Nenhum pedido foi
+transmitido ao contato institucional indicado no plano.
 
 ## Retomada local após contenção da fonte
 

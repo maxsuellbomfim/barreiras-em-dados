@@ -33,7 +33,12 @@ export function PharmacyPayments({ publication, coverage, filters, navigation }:
       <p><strong>Não encontrar uma farmácia aqui não comprova que ela deixou de receber
         ou de atender pelo programa.</strong> Consulte também o cadastro oficial nas fontes abaixo.</p>
     </aside>
-    {publication.status !== 'ready' ? <aside className="transfer-reading-guide" aria-labelledby="pharmacy-status">
+    {publication.status === 'empty_page' ? <aside className="transfer-reading-guide pharmacy-page-status" aria-labelledby="pharmacy-status">
+      <h2 id="pharmacy-status">Nenhum pagamento nesta página</h2>
+      <p>A consulta não retornou registros para esta página do ano {publication.year}.
+        Isso não comprova ausência de pagamentos no ano ou na fonte oficial.</p>
+      <p><a href={`?ano=${publication.year}`}>Voltar à primeira página</a> para conferir os registros do ano selecionado.</p>
+    </aside> : publication.status !== 'ready' ? <aside className="transfer-reading-guide" aria-labelledby="pharmacy-status">
       <h2 id="pharmacy-status">{publication.status === 'pending' ? 'Publicação dos pagamentos em preparação' : 'Dados temporariamente indisponíveis'}</h2>
       <p>{publication.status === 'pending' ? 'Ainda não há registros liberados nesta página. Estamos conferindo os estabelecimentos e as evidências antes de exibir os valores.' : 'Não foi possível validar os registros para exibição. Os valores foram omitidos até a conferência.'}</p>
       <p>Isso não significa que os pagamentos foram zero ou que não existem na fonte oficial.</p>
