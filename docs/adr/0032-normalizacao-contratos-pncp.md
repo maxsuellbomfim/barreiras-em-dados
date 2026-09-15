@@ -40,3 +40,24 @@ ainda não normalizados.
 
 A próxima etapa é adicionar os endpoints oficiais de empenhos/execução
 financeira e ligá-los somente por identificadores verificáveis.
+
+## Correção aditiva — 15/09/2026
+
+O replay `34988436563` revelou regressão de versões: seis novos registros
+oficiais geraram doze versões normalizadas; a última versão de cada contrato
+apontava novamente ao snapshot anterior. A rotina percorria todos os registros
+do mais novo para o mais antigo e comparava cada um somente com a versão
+normalizada corrente. Por isso, contagens de inserções não comprovavam atualização.
+
+A rotina deve selecionar apenas o snapshot mais recente por chave oficial
+(`numeroControlePNCP`, com a grafia alternativa já aceita), usando ordem
+determinística de coleta, criação e identificador. A deduplicação acontece antes
+do limite; registros já representados pelo hash corrente não consomem o lote.
+Histórico e `supersedes_id` são preservados. Corrigir o ponteiro exige uma nova
+versão auditável, nunca apagar versões antigas nem reescrever migrations aplicadas.
+
+O teste de aceite executa a função real: novo seguido de antigo não regride;
+repetição não cria versões; nova evidência cria uma única versão; múltiplas
+chaves, limite, grafia alternativa, empate e escopo territorial são verificados.
+Esta correção não resolve a paginação mutável da fila de coleta nem transforma
+resposta 404 em inexistência oficial de contratos.
