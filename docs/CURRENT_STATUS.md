@@ -5,6 +5,20 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: valores com centavos não são ausência na fonte
+
+Após recuperar a lista, a conferência identificou um erro na projeção monetária:
+três expressões regulares aceitavam inteiros, mas rejeitavam decimais oficiais.
+Na página padrão de 60 contratações, 60 valores estimados e 40 homologados
+estavam presentes no registro bruto, porém saíam como nulos na API. Isso fazia
+a interface informar ausência indevidamente. Os originais permanecem íntegros.
+
+A correção aditiva troca somente essas três validações por um ponto decimal
+literal, preservando valores, filtros, assinatura, permissões e evidências.
+Não estima nem soma dinheiro; zero e negativos informados são preservados,
+enquanto ausência ou conteúdo inválido não viram zero. A publicação exige testes de regressão e
+reconciliação entre o registro bruto, a API anônima e os números visíveis.
+
 ### PNCP: recuperar a consulta pública de licitações
 
 A RPC pública de contratações estava retornando HTTP 500/57014; receber HTML
@@ -17,8 +31,13 @@ seus filtros, permissões, valores, itens, resultados ou evidências.
 No ensaio transacional revertido de 15/09, o corpo da consulta retornou 40
 contratações de 2026 em 808 ms. A função real retornou a lista padrão de 60 em
 1.074 ms; os índices ocuparam 152 KiB. São medições pontuais, não promessa de
-latência nem prova de cobertura histórica. A migração e a conferência da API
-e da página em produção ainda precisam ser concluídas.
+latência nem prova de cobertura histórica. O PR #753 foi mesclado com checks
+verdes e a migração `20260915170000` aplicada: 60 chaves distintas, quatro
+funções/ACL e 306 versões contratuais preservadas. A API anônima confirmou as
+evidências atuais dos seis contratos em três consultas (877/201/176 ms).
+O navegador exibiu 60 cards sem aviso de indisponibilidade. Isso encerra o
+timeout observado; a leitura de centavos e a cobertura semanal são pendências
+separadas, não encerradas por esse resultado.
 
 ### PNCP: impedir retorno à versão antiga dos contratos
 
@@ -32,8 +51,8 @@ O PR #752 foi mesclado e a migração `20260915154500` aplicada em produção.
 Foram criadas seis versões corretivas; as 300 versões anteriores permaneceram
 inalteradas. As 192 chaves oficiais ficaram reconciliadas, sem divergência do
 snapshot mais recente; repetir o lote não criou versões nem fornecedores.
-A comprovação pública dos seis contratos depende da correção do timeout acima;
-não se presume atualização no site a partir dos contadores do banco.
+Após a correção do timeout no PR #753, a API pública confirmou os seis contratos
+sem duplicação e com as evidências atuais por identificador bruto e hash.
 
 ### PNCP: falha cadastral não deve interromper compras independentes
 
