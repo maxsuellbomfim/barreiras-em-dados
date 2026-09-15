@@ -57,3 +57,33 @@ Data: 01/08/2026. Pesquisa somente leitura contra a API pública, sem coleta.
 Comparação de preços, alertas de sobrepreço e qualquer publicação — a Etapa
 2 publica apenas depois de itens/contratos com evidência e histórico, e
 comparações de preço ficam explicitamente para fase posterior.
+
+## Atualização operacional — 15/09/2026
+
+As seções acima registram a descoberta de 01/08, não o estado atual de implantação.
+Os coletores de compras, itens, contratos e a normalização já existem.
+
+- A execução semanal `34865113818` parou após quatro timeouts no cadastro do
+  órgão. A consulta semanal não executou. A janela 07–14/09/2026 foi inferida
+  do agendamento/código e recebe replay explícito, não foi presumida coletada.
+- A execução retroativa `34835690380` concluiu compras de 13/07–11/08/2024,
+  mas falhou nos contratos após respostas HTTP 503. O sucesso `34957780144`
+  consultou compras de 13/06–12/07/2024 e outra fatia de contratos; não prova
+  sozinho a retomada do controle exato que falhou.
+- O workflow passa a tratar a etapa cadastral com `continue-on-error` e
+  `steps.collect_registry.outcome` no gate final. Isso permite as etapas
+  independentes sem converter falha cadastral em workflow bem-sucedido.
+- `registry_only` consulta apenas órgão e unidades. Os modos anteriores e os
+  dois agendamentos mantêm seus escopos. Falhas de preparação não são ignoradas.
+- A verificação operacional exige partição final e execução coerentes,
+  listas de modalidades falhas/adiadas/truncadas vazias e evidência preservada.
+  Fonte vazia, fonte indisponível e consulta não executada não são equivalentes.
+
+Replay da janela semanal: `34988436563`. Banco conferido: cobertura parcial,
+modalidades 1 e 2 falhas, 3–13 adiadas, zero páginas/novos registros.
+A etapa devolveu sucesso apesar da cobertura parcial; o comando passa a
+devolver saída não zero nesse caso, após persistir o checkpoint e o evento.
+Cobertura completa e consulta comprovadamente vazia continuam retornando zero.
+A recuperação cadastral será conferida separadamente. Próxima auditoria
+delimitada: estabilidade da retomada por cursor dos contratos.
+Não interpretar `next_offset=0` de uma fatia como cobertura de todo o histórico.

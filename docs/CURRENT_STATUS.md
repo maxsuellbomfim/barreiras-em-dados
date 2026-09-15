@@ -5,6 +5,23 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: falha cadastral não deve interromper compras independentes
+
+A execução semanal `34865113818` falhou no cadastro em 14/09 antes de consultar
+as contratações. A execução verde de 15/09 percorreu outra janela retroativa;
+não recuperou o cadastro nem comprova a janela semanal de 07–14/09/2026.
+O replay dirigido `34988436563` registrou cobertura parcial: duas modalidades
+falharam, onze foram adiadas e nenhuma página foi preservada nessa janela.
+Isso não comprova ausência de contratações. A recuperação permanece pendente.
+
+O workflow isola agora a falha cadastral das etapas independentes e mantém
+reprovação obrigatória ao final quando cadastro ou itens falham. O novo modo
+`registry_only` recupera só órgão/unidades, sem repetir compras ou normalização.
+Testes verificam todos os modos, os dois agendamentos e o código de saída real
+do gate. A consulta por janela também deve devolver falha quando a cobertura
+for parcial, preservando o checkpoint; vazio comprovado permanece distinto.
+Nenhuma regra de publicação, valor ou limite da fonte foi alterado.
+
 ### Recuperação das coletas financeiras — 15/09/2026
 
 A execução financeira de 15/09 falhou na instalação das dependências de
@@ -24,8 +41,11 @@ duplicações. Banco e API pública confirmaram o resultado. O replay estadual
 normalização parou por timeout na autenticação do Storage. Essa etapa recebe
 agora até três tentativas somente para falhas transitórias de transporte;
 credencial recusada ou sessão incompleta continuam interrompendo sem repetição.
-Aquisição recuperada não é publicação recuperada: o gate público ainda deve
-comprovar a normalização do retrato atual antes do fechamento.
+Após o PR #750, o replay `34987498327` concluiu aquisição, normalização e
+reconciliação pública do mesmo ZIP. Banco e API confirmaram três pagamentos
+territoriais, um autor no ranking, zero pagamentos sem vínculo e zero falhas
+pendentes da partição atual. Os seis registros brutos já existiam; não houve
+duplicação. Isso não encerra pendências históricas de outras partições.
 
 ### Farmácia Popular: exportação CSV da consulta completa
 

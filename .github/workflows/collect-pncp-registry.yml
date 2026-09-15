@@ -18,6 +18,7 @@ on:
           - backfill
           - contracts_only
           - replay_window
+          - registry_only
       replay_since:
         description: "Início da janela manual para replay (YYYY-MM-DD)"
         required: false
@@ -75,7 +76,9 @@ jobs:
           | sha256sum --check --strict
 
       - name: Preservar cadastro
-        if: github.event.schedule != '43 5 * * *' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'full')
+        id: collect_registry
+        if: github.event.schedule != '43 5 * * *' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'full' || inputs.mode == 'registry_only')
+        continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_registry
 
@@ -104,17 +107,19 @@ jobs:
 
       - name: Preservar itens e resultados das contratações
         id: collect_items
-        if: github.event_name != 'workflow_dispatch' || inputs.mode != 'contracts_only'
+        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'contracts_only' && inputs.mode != 'registry_only')
         continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_itens
 
       - name: Preservar contratos e empenhos das contratações
         id: collect_contracts
+        if: github.event_name != 'workflow_dispatch' || inputs.mode != 'registry_only'
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratos
 
       - name: Normalizar contratos PNCP
+        if: github.event_name != 'workflow_dispatch' || inputs.mode != 'registry_only'
         run: >-
           python -B -m barreiras_collectors.commands.normalize_pncp_contracts
           --limit 500
@@ -122,9 +127,16 @@ jobs:
       - name: Sinalizar falha parcial da coleta
         if: always()
         env:
+          PNCP_REGISTRY_OUTCOME: ${{ steps.collect_registry.outcome }}
           PNCP_ITEMS_OUTCOME: ${{ steps.collect_items.outcome }}
         run: |
-          if [ "$PNCP_ITEMS_OUTCOME" = "failure" ]; then
-            echo "::error::A coleta de itens/resultados do PNCP falhou; contratos e normalização foram executados de forma independente."
-            exit 1
+          status=0
+          if [ "$PNCP_REGISTRY_OUTCOME" = "failure" ]; then
+            echo "::error::A coleta do cadastro PNCP falhou; a falha permanece registrada independentemente das demais etapas."
+            status=1
           fi
+          if [ "$PNCP_ITEMS_OUTCOME" = "failure" ]; then
+            echo "::error::A coleta de itens/resultados do PNCP falhou; a falha permanece registrada independentemente das demais etapas."
+            status=1
+          fi
+          exit "$status"
