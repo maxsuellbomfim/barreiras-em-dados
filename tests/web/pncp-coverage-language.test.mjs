@@ -12,7 +12,14 @@ const compiled = ts.transpileModule(source, { compilerOptions: {
   module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022,
 }}).outputText;
 const mod = { exports: {} };
-new Function("require", "module", "exports", compiled)(requireWeb, mod, mod.exports);
+const urlSource = readFileSync(new URL("../../apps/web/lib/pncp-source-url.ts", import.meta.url), "utf8");
+const urlMod = { exports: {} };
+new Function("module", "exports", ts.transpileModule(urlSource, { compilerOptions: {
+  module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
+}}).outputText)(urlMod, urlMod.exports);
+new Function("require", "module", "exports", compiled)(
+  id => id === "../../lib/pncp-source-url" ? urlMod.exports : requireWeb(id), mod, mod.exports,
+);
 const { ProcurementExplorer } = mod.exports;
 const fixture = state => ({
   controlNumber: "13654405000195-1-000001/2025", ano: 2025, sequencial: 1,
@@ -25,6 +32,20 @@ const fixture = state => ({
     contracts: [], evidenceCount: 0, evidence: [], },
 });
 const render = state => renderToStaticMarkup(createElement(ProcurementExplorer, { procurements: [fixture(state)] }));
+
+test("card do Fundo abre seu registro oficial, sem trocar o CNPJ pelo da Prefeitura", () => {
+  const procurement = { ...fixture("not_available"), controlNumber: "13250888000162-1-000003/2026", ano: 2025, sequencial: 99 };
+  const html = renderToStaticMarkup(createElement(ProcurementExplorer, { procurements: [procurement] }));
+  assert.match(html, /href="https:\/\/pncp.gov.br\/app\/editais\/13250888000162\/2026\/3"/);
+  assert.doesNotMatch(html, /app\/editais\/13654405000195/);
+});
+
+test("card com identificador inválido mantém o registro sem inventar URL", () => {
+  const procurement = { ...fixture("not_available"), controlNumber: "invalid" };
+  const html = renderToStaticMarkup(createElement(ProcurementExplorer, { procurements: [procurement] }));
+  assert.match(html, /Link oficial indisponível: identificador não validado/);
+  assert.doesNotMatch(html, /app\/editais\//);
+});
 
 test("estado individual aparece antes dos detalhes com data e escopo restrito", () => {
   const procurement = {...fixture("linked"), queryStatus: {state:"query_complete",checkedAt:"2026-09-15T20:00:00Z",sourceUrl:"https://pncp.gov.br/app/editais/13654405000195/2025/1"}};

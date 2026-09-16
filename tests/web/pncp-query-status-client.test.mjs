@@ -10,6 +10,31 @@ if(source)new Function("require","module","exports",ts.transpileModule(source,{c
 const {fetchPncpQueryStatuses}=mod.exports;
 const key="13654405000195-1-000027/2026";
 const row={control_number:key,state:"query_complete",checked_at:"2026-09-15T20:00:00Z",source_url:"https://pncp.gov.br/app/editais/13654405000195/2026/27"};
+test("compra de fundo municipal não apaga estados das compras da Prefeitura",async()=>{
+  const fund="13250888000162-1-000003/2026";
+  const calls=[];
+  const result=await fetchPncpQueryStatuses("https://example.supabase.co","sb_publishable_test",[fund,key,key],async(url,init)=>{
+    calls.push(JSON.parse(init.body));
+    return {ok:true,json:async()=>[row]};
+  });
+  assert.equal(result.get(key)?.state,"query_complete");
+  assert.equal(result.has(fund),false);
+  assert.deepEqual(calls,[{control_numbers:[key]}]);
+});
+test("lote sem controles atendidos não consulta nem inventa cobertura",async()=>{
+  let called=false;
+  const result=await fetchPncpQueryStatuses("https://example.supabase.co","test",["13250888000162-1-000003/2026"],async()=>{called=true;throw Error("unexpected");});
+  assert.equal(called,false);
+  assert.equal(result.size,0);
+});
+test("limite do lote e controle malformado não são contornados pelo filtro",async()=>{
+  let calls=0;
+  const fetcher=async()=>{calls++;return {ok:true,json:async()=>[row]};};
+  const tooMany=Array.from({length:61},(_,index)=>`13654405000195-1-${index+1}/2026`);
+  assert.equal((await fetchPncpQueryStatuses("https://example.supabase.co","test",tooMany,fetcher)).size,0);
+  assert.equal((await fetchPncpQueryStatuses("https://example.supabase.co","test",[key+"\n"],fetcher)).size,0);
+  assert.equal(calls,0);
+});
 test("cliente recebe somente metadados do lote solicitado",async()=>{
   const calls=[];
   const result=await fetchPncpQueryStatuses("https://example.supabase.co","sb_publishable_test",[key],async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>[row]};});

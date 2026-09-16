@@ -333,6 +333,13 @@ verificação individual não disponível, jamais não-coletado comprovado.
 
 O cliente valida cardinalidade, duplicatas, controles, estados, data e origem do
 link. Falha de RPC produz aviso de indisponibilidade sem remover os contratos.
+O lote consultado contém apenas controles do CNPJ atualmente atendido pelo RPC;
+outros órgãos não invalidam os estados elegíveis, mas permanecem sem observação
+individual disponível. O limite de 60 chaves distintas vale antes desse filtro.
+O link principal do card, por sua vez, usa o CNPJ, ano e sequência do controle
+oficial da própria compra, nunca o CNPJ fixo da Prefeitura. Essa construção de
+URL não valida pertencimento territorial, identidade do órgão ou publicação:
+tais verificações continuam sendo responsabilidade da ingestão/normalização.
 A consulta de estado não usa cache para não reapresentar sucesso durante uma
 reserva nova. O card mostra data no horário de Barreiras e ressalta que conclusão
 da consulta não comprova execução, pagamento ou cobertura de todo o histórico.

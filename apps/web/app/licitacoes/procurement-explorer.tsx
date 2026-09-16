@@ -1,6 +1,5 @@
 import type { Procurement } from "../../lib/pncp-procurements";
-
-const BARREIRAS_CNPJ = "13654405000195";
+import { pncpProcurementSourceUrl } from "../../lib/pncp-source-url";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -36,14 +35,8 @@ function evidenceLabel(value: string) {
   }[value] ?? value;
 }
 
-function pncpUrl(procurement: Procurement) {
-  return (
-    "https://pncp.gov.br/app/editais/" +
-    `${BARREIRAS_CNPJ}/${procurement.ano}/${procurement.sequencial}`
-  );
-}
-
 function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>) {
+  const sourceUrl = pncpProcurementSourceUrl(procurement.controlNumber);
   const queryState = procurement.queryStatus?.state ?? "unavailable";
   const queryLabels = {
     unknown: "Verificação individual ainda não disponível",
@@ -334,9 +327,9 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
         </details>
       ) : null}
       <p className="act-evidence">
-        <a href={pncpUrl(procurement)} target="_blank" rel="noreferrer">
+        {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">
           Ver no PNCP (registro oficial)
-        </a>{" "}
+        </a> : <span>Link oficial indisponível: identificador não validado</span>}{" "}
         · processo {procurement.controlNumber}
       </p>
       <p className="act-review-mode">
