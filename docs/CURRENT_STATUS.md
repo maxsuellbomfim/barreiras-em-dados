@@ -1,9 +1,21 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **15/09/2026**. Este é o ponto de entrada operacional; o histórico
+Atualizado em **16/09/2026**. Este é o ponto de entrada operacional; o histórico
 de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
+
+### PNCP: fundos de Educação e Cultura corrigidos
+
+A migração `20260916104808_pncp_fund_owner_repair.sql` foi aplicada, e a operação
+privada retornou dois reparos. Os contratos `30667266000153-2-000013/2026` e
+`50525166000108-2-000062/2026` estão na versão 2 com seus fundos próprios, mantendo
+as versões anteriores. Os valores permanecem R$ 30.756,96 e R$ 11.259,12.
+
+A compra-pai oficial é a mesma: `13654405000195-1-000002/2026`. A resposta da API
+de resumo manteve três contratos e R$ 253.195,44; o digest da resposta completa
+foi idêntico antes/depois. Nenhum empenho, aditivo ou obra dependia das versões
+corrigidas. O Fundo Social e o contrato 130/2026 seguem pendentes de importação.
 
 ### PNCP: normalização com órgão explícito
 
