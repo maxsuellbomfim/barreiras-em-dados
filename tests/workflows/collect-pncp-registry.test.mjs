@@ -199,3 +199,11 @@ test("workflow manual permite replay explícito de uma janela falha", () => {
   assert.match(step(replay), /--since "\$PNCP_REPLAY_SINCE"/);
   assert.match(step(replay), /--until "\$PNCP_REPLAY_UNTIL"/);
 });
+test('publicação do Fundo exige opção manual explícita após preservação', () => {
+  const publish = step('Publicar par revisado do Fundo Social');
+  assert.match(publish, /github.event_name == 'workflow_dispatch' && inputs.mode == 'municipal_link_evidence' && inputs.publish_social_fund/);
+  assert.match(publish, /commands.publish_pncp_social_fund/);
+  assert.doesNotMatch(publish, /continue-on-error: true/);
+  assert.match(workflow, /publish_social_fund:[\s\S]*?default: false\s+type: boolean/);
+  assert.ok(workflow.indexOf('commands.collect_pncp_municipal_link_evidence') < workflow.indexOf('commands.publish_pncp_social_fund'));
+});

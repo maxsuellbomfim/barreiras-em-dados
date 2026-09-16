@@ -20,6 +20,11 @@ on:
           - replay_window
           - registry_only
           - municipal_link_evidence
+      publish_social_fund:
+        description: "Publicar somente o par revisado 130/2026 + IN-029/2026 (modo municipal_link_evidence)"
+        required: false
+        default: false
+        type: boolean
       replay_since:
         description: "Início da janela manual para replay (YYYY-MM-DD)"
         required: false
@@ -87,6 +92,11 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'municipal_link_evidence'
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_municipal_link_evidence
+
+      - name: Publicar par revisado do Fundo Social
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'municipal_link_evidence' && inputs.publish_social_fund
+        run: >-
+          python -B -m barreiras_collectors.commands.publish_pncp_social_fund
 
       - name: Preservar contratações da última semana
         if: github.event.schedule != '43 5 * * *' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'full')

@@ -1,5 +1,23 @@
 # ADR 0032 — Normalização determinística de contratos PNCP
 
+## Importação delimitada do Fundo Social — 16/09/2026
+
+A publicação do contrato 130/2026 e da compra IN-029/2026 usa função privada
+específica, sem ampliar o normalizador para aceitar órgãos desconhecidos.
+O worker lê os bytes do bucket privado indicados pela partição de preservação
+concluída. Python valida o par e PostgreSQL reconfere hash, tamanho, URL oficial,
+identificadores, território, vínculo e valores antes da transação publicar.
+
+A função cadastra somente o Fundo comprovado pelo arquivo, preserva o contrato
+sob a Prefeitura e exige exatamente as inserções esperadas. Qualquer alteração
+além do par reverte toda a operação. Erros do driver não propagam payloads privados.
+Uma repetição com conteúdo JSON equivalente não duplica o fato publicado.
+
+O agendamento permanece inalterado. `publish_social_fund=true` só tem efeito no
+modo manual `municipal_link_evidence`, depois da preservação bem-sucedida.
+Aplicação da migração não executa publicação. A confirmação final exige consulta
+dos órgãos, vínculo, valor e projeção pública; workflow verde não basta.
+
 ## Contexto
 
 O coletor PNCP já preservava respostas brutas de contratações e contratos, mas

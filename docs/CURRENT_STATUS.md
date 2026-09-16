@@ -5,6 +5,18 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: publicação delimitada do Fundo Social preparada
+
+O importador privado do par contrato 130/2026 + compra IN-029/2026 foi implementado.
+Ele relê os dois arquivos preservados, confere hashes, controles, órgãos, vínculo
+e R$ 28.780 antes de publicar numa transação. Repetição não cria cópia; divergência
+ou normalização além do lote reverte a operação. O workflow exige opção manual
+explícita, desativada por padrão. Migração e publicação ainda não executadas.
+
+Validação local: suíte Node (879 testes), Python (1.377 testes), Ruff e seis
+testes específicos de banco, incluindo reversão após inserção. Falta aplicar
+a migração aprovada, executar o modo controlado e confirmar a leitura pública.
+
 ### PNCP: fundos de Educação e Cultura corrigidos
 
 A migração `20260916104808_pncp_fund_owner_repair.sql` foi aplicada, e a operação
