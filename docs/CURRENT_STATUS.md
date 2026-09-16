@@ -5,7 +5,7 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
-### PNCP: publicação delimitada do Fundo Social preparada
+### PNCP: Fundo Social e contrato 130/2026 publicados
 
 O importador privado do par contrato 130/2026 + compra IN-029/2026 foi implementado.
 Ele relê os dois arquivos preservados, confere hashes, controles, órgãos, vínculo
@@ -22,9 +22,18 @@ reproduziu a rejeição por excesso de escopo. A migração `20260916133316` iso
 a normalização nas duas chaves revisadas, sem modificar o normalizador geral.
 Sete testes específicos confirmam publicação isolada, idempotência e rollback.
 
+A execução `35102245286` concluiu a publicação após a correção. A partição está
+`complete`, com dois registros, um contrato na versão 1 e nenhuma duplicação.
+A leitura como `anon` confirma compra `13250888000162-1-000003/2026`, contrato
+`13654405000195-2-000023/2026`, órgãos próprios e R$ 28.780. Valor homologado
+continua ausente; não há pagamento vinculado. A página pública `/licitacoes?ano=2026`
+respondeu HTTP 200 contendo o controle da compra e o contrato 130/2026.
+
 Validação local: suíte Node (879 testes), Python (1.377 testes), Ruff e seis
-testes específicos de banco, incluindo reversão após inserção. Falta concluir
-o CI, executar o modo controlado e confirmar a leitura pública.
+testes específicos de banco, incluindo reversão após inserção. A correção tem
+881 testes Node e 1.378 Python aprovados, mais a regressão de compra fora do lote.
+Próximo passo: reconciliar as 32 compras pendentes da fila geral separadamente,
+sem presumir que este lote representa toda a cobertura PNCP.
 
 ### PNCP: fundos de Educação e Cultura corrigidos
 
