@@ -17,6 +17,11 @@ A execução `35101338599` preservou o par, mas falhou na publicação, sem inse
 o contrato. O diagnóstico inicial ocultava também o tipo/código do erro;
 a correção registra somente classe e SQLSTATE, nunca o texto privado do driver.
 
+A fila geral contém 32 compras pendentes. O teste com compra externa ao par
+reproduziu a rejeição por excesso de escopo. A migração `20260916133316` isola
+a normalização nas duas chaves revisadas, sem modificar o normalizador geral.
+Sete testes específicos confirmam publicação isolada, idempotência e rollback.
+
 Validação local: suíte Node (879 testes), Python (1.377 testes), Ruff e seis
 testes específicos de banco, incluindo reversão após inserção. Falta concluir
 o CI, executar o modo controlado e confirmar a leitura pública.
