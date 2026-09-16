@@ -5,6 +5,19 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: links corretos para órgãos com CNPJ próprio
+
+O link oficial dos cards passa a ser derivado do controle PNCP completo, sem
+substituir o CNPJ do Fundo pelo da Prefeitura. Identificador inválido não gera
+link presumido. A consulta de estado atende apenas as chaves suportadas pelo
+RPC atual; uma chave de outro órgão não apaga os estados das compras municipais.
+Não são alterados valores, dados publicados, permissões ou normalização.
+
+Antes de publicar a compra do Fundo, falta resolver explicitamente seu órgão
+no normalizador: o fluxo atual associa compras territoriais ao órgão executivo
+principal e busca o contrato-pai sob esse mesmo órgão. Essa premissa não atende
+ao par preservado com CNPJs distintos. A integração pública permanece pendente.
+
 ### PNCP: preservação privada do vínculo Prefeitura–Fundo Social
 
 O modo manual `municipal_link_evidence` preserva somente o contrato 130/2026
@@ -15,8 +28,9 @@ Valida controles exatos, CNPJs distintos corretos, IBGE 2903201 nos dois arquivo
 e vínculo declarado na fonte. A execução é registrada antes da autenticação.
 
 As tentativas locais falharam no upload privado; não comprovaram preservação.
-O modo isolado permite verificar a operação pela configuração de produção do
-workflow PNCP, sem ampliar permissões. A integração pública continua pendente.
+Depois do PR #761, a execução de produção 35027228347 concluiu o modo isolado
+e registrou `validated_artifacts=2`, `publication_authorized=false`, sem ampliar
+permissões. A integração pública continua pendente.
 
 ### PNCP: lacuna confirmada na descoberta por contratação-pai
 

@@ -10,8 +10,12 @@ const controlPattern = /^13654405000195-1-([0-9]{1,12})\/([0-9]{4})$/;
 export async function fetchPncpQueryStatuses(
   baseUrl: string, publishableKey: string, controls: readonly string[], fetcher: typeof fetch = fetch,
 ): Promise<ReadonlyMap<string, PncpQueryStatus>> {
-  const keys = [...new Set(controls)];
-  if (keys.length === 0 || keys.length > 60 || keys.some(key => !controlPattern.test(key))) return new Map();
+  const unique = [...new Set(controls)];
+  if (unique.length > 60) return new Map();
+  // The status RPC currently covers only the Prefeitura's CNPJ. Other owners
+  // must not invalidate eligible cards or receive invented query observations.
+  const keys = unique.filter(key => controlPattern.exec(key)?.[0] === key);
+  if (keys.length === 0) return new Map();
   try {
     const response = await fetcher(`${baseUrl}/rest/v1/rpc/get_pncp_contract_query_status`, {
       method: "POST",
