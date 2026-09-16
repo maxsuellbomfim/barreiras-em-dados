@@ -82,3 +82,24 @@ A auditoria read-only encontrou dois contratos antigos atribuídos a
 de Educação). Ambos têm contratação-pai vinculada. A nova regra evita novas
 atribuições desse tipo, mas a reparação desses dois registros depende do cadastro
 documentado dos fundos e de replay validado; não é efetuada por esta migração.
+
+## Reparo delimitado dos fundos de Educação e Cultura
+
+O lote seguinte cadastra somente os dois fundos comprovados no bruto, com
+`body_type=municipal_fund`, CNPJ próprio e origem no registro preservado. Esse
+tipo identifica um fundo, sem inferir personalidade jurídica ou autonomia.
+A unicidade anterior dos demais tipos permanece; fundos ativos exigem CNPJ
+e têm unicidade por município/CNPJ.
+
+O reparo exige os hashes, nomes, CNPJs, IBGE, chaves, página preservada e valores
+do lote auditado. Só cria nova versão se a anterior ainda pertencer à Prefeitura.
+Conserva todos os campos do contrato exceto identidade da versão, órgão e
+`supersedes_id`. Não altera fornecedor, compra-pai, valores ou texto oficial.
+Vínculos financeiros, aditivos ou obras dependentes bloqueiam a operação para
+revisão específica. Divergência aborta a transação inteira; replay não duplica.
+
+O Fundo Social e o contrato 130/2026 não integram este reparo e continuam pendentes.
+
+A migração prepara a estrutura e a função privada de reparo, sem exigir esse
+lote em instalações novas. A execução é explícita pelo operador; não há grant
+para frontend ou worker. A função retorna o número de novas versões criadas.
