@@ -11,11 +11,13 @@ O importador privado do par contrato 130/2026 + compra IN-029/2026 foi implement
 Ele relê os dois arquivos preservados, confere hashes, controles, órgãos, vínculo
 e R$ 28.780 antes de publicar numa transação. Repetição não cria cópia; divergência
 ou normalização além do lote reverte a operação. O workflow exige opção manual
-explícita, desativada por padrão. Migração e publicação ainda não executadas.
+explícita, desativada por padrão. A migração `20260916131458` está aplicada;
+acesso de execução confirmado somente para o worker, não para anon/authenticated.
+A publicação ainda não foi executada.
 
 Validação local: suíte Node (879 testes), Python (1.377 testes), Ruff e seis
-testes específicos de banco, incluindo reversão após inserção. Falta aplicar
-a migração aprovada, executar o modo controlado e confirmar a leitura pública.
+testes específicos de banco, incluindo reversão após inserção. Falta concluir
+o CI, executar o modo controlado e confirmar a leitura pública.
 
 ### PNCP: fundos de Educação e Cultura corrigidos
 

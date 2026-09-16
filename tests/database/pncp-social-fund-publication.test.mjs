@@ -121,7 +121,7 @@ async function contracts(db) {
 
 
 
-const publishMigration=await readFile(new URL('../../supabase/migrations/20260916140000_publish_social_fund_pair.sql',import.meta.url),'utf8');
+const publishMigration=await readFile(new URL('../../supabase/migrations/20260916131458_publish_social_fund_pair.sql',import.meta.url),'utf8');
 const parentKey='13250888000162-1-000003/2026',contractKey='13654405000195-2-000023/2026';
 const urls=['https://pncp.gov.br/api/pncp/v1/orgaos/13654405000195/contratos/2026/23','https://pncp.gov.br/api/consulta/v1/orgaos/13250888000162/compras/2026/3'];
 async function setup(t){
