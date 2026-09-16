@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+import re
 from datetime import UTC, datetime
 
 from ..collection_control import (
@@ -15,6 +16,19 @@ from ..persistence.postgres import PostgresCollectionRepository
 from ..settings import PersistenceSettings
 from .collect_pncp_municipal_link_evidence import CONTRACT, RESOURCES, validate_pair
 from .pncp_runtime import build_authenticated_object_store
+
+
+def failure_code(error):
+    """Expose a bounded error class and SQLSTATE, never driver text or parameters."""
+    name = type(error).__name__
+    name = name if re.fullmatch(r"[A-Za-z]{1,80}", name) else "Error"
+    state = getattr(error, "sqlstate", None)
+    state = (
+        state
+        if isinstance(state, str) and re.fullmatch(r"[0-9A-Z]{5}", state)
+        else "unknown"
+    )
+    return f"{name}:{state}"
 
 
 def publish_pair(connection, object_store):
@@ -84,10 +98,11 @@ def main(argv=None):
             store = build_authenticated_object_store(settings)
             with psycopg.connect(settings.database_url) as connection:
                 result = publish_pair(connection, store)
-        except Exception:
+        except Exception as error:
             # Database errors may include bound private JSON: never propagate them.
             raise RuntimeError(
-                "Social Fund publication failed; private details omitted."
+                f"Social Fund publication failed ({failure_code(error)}); "
+                "private details omitted."
             ) from None
         control.complete(
             outcome=CollectionOutcome.COMPLETE,

@@ -13,7 +13,9 @@ e R$ 28.780 antes de publicar numa transação. Repetição não cria cópia; di
 ou normalização além do lote reverte a operação. O workflow exige opção manual
 explícita, desativada por padrão. A migração `20260916131458` está aplicada;
 acesso de execução confirmado somente para o worker, não para anon/authenticated.
-A publicação ainda não foi executada.
+A execução `35101338599` preservou o par, mas falhou na publicação, sem inserir
+o contrato. O diagnóstico inicial ocultava também o tipo/código do erro;
+a correção registra somente classe e SQLSTATE, nunca o texto privado do driver.
 
 Validação local: suíte Node (879 testes), Python (1.377 testes), Ruff e seis
 testes específicos de banco, incluindo reversão após inserção. Falta concluir
