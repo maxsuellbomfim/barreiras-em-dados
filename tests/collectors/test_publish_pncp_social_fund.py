@@ -5,6 +5,22 @@ from tests.collectors.test_pncp_municipal_link_evidence import snapshots
 
 
 class SocialFundPublicationTests(unittest.TestCase):
+    def test_failure_diagnostic_never_exposes_driver_payload(self):
+        from barreiras_collectors.commands.publish_pncp_social_fund import failure_code
+
+        error = RuntimeError("private payload and credentials")
+        error.sqlstate = "42501"
+        self.assertEqual(failure_code(error), "RuntimeError:42501")
+        error.sqlstate = "private payload"
+        self.assertEqual(failure_code(error), "RuntimeError:unknown")
+        error.sqlstate = "P0001"
+        error.diag = SimpleNamespace(
+            message_primary="Normalização excedeu o lote autorizado; operação revertida"
+        )
+        self.assertEqual(failure_code(error), "RuntimeError:P0001:batch_scope")
+        error.diag.message_primary = "private payload"
+        self.assertEqual(failure_code(error), "RuntimeError:P0001")
+
     def test_missing_or_invalid_bytes_never_call_publication(self):
         from barreiras_collectors.commands.publish_pncp_social_fund import publish_pair
 

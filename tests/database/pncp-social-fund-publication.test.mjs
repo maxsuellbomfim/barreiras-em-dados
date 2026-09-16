@@ -142,6 +142,7 @@ async function setup(t){
  alter table org.public_bodies add column jurisdiction text;
  alter table org.public_bodies add column state_code text;`);
  await db.exec(publishMigration);
+ await db.exec(await readFile(new URL('../../supabase/migrations/20260916133316_scope_social_fund_normalization.sql',import.meta.url),'utf8'));
  const data=[contract(contractKey,{numeroControlePNCPCompra:parentKey,valorInicial:28780,valorGlobal:28780}),{numeroControlePNCP:parentKey,orgaoEntidade:{cnpj:'13250888000162',razaoSocial:'FUNDO MUNICIPAL DE ASSISTENCIA SOCIAL'},unidadeOrgao:{codigoIbge:'2903201'},valorTotalEstimado:28780,objetoCompra:'Objeto oficial'}];
  const bodies=data.map(x=>Buffer.from(JSON.stringify(x))),ids=[];
  for(let i=0;i<2;i++)ids.push((await db.query("insert into raw.raw_artifacts(sha256,byte_size,source_url,http_status,metadata) values($1,$2,$3,200,$4) returning id",[createHash('sha256').update(bodies[i]).digest('hex'),bodies[i].length,urls[i],JSON.stringify({schema_name:'pncp-registry-snapshot',final_url:urls[i]})])).rows[0].id);
@@ -168,6 +169,13 @@ test('anon não publica e worker só recebe a função delimitada',async t=>{
  const row=(await f.db.query("select has_function_privilege('anon','procurement.publish_social_fund_pair(uuid,bytea,uuid,bytea)','execute') a,has_function_privilege('collector_worker','procurement.publish_social_fund_pair(uuid,bytea,uuid,bytea)','execute') w")).rows[0];
  assert.deepEqual(row,{a:false,w:true});
 });
+test('compra pendente fora do lote não bloqueia nem é publicada por este importador',async t=>{
+ const f=await setup(t);
+ const payload={numeroControlePNCP:'13654405000195-1-009999/2026',orgaoEntidade:{cnpj:'13654405000195'},objetoCompra:'Compra fora do lote'};
+ await f.db.query("insert into raw.raw_records(record_type,payload,payload_sha256,collected_at) values('pncp_contratacao',$1,$2,now())",[JSON.stringify(payload),'a'.repeat(64)]);
+ assert.equal((await publish(f)).status,'published');
+ assert.equal((await f.db.query("select count(*)::int n from procurement.procurements where external_id='13654405000195-1-009999/2026'")).rows[0].n,0);
+});
 test('valor divergente com bytes íntegros não publica',async t=>{
  const f=await setup(t);
  const payload=JSON.parse(f.bodies[0].toString());payload.valorGlobal=28781;
@@ -178,7 +186,7 @@ test('valor divergente com bytes íntegros não publica',async t=>{
 });
 test('falha posterior à inserção reverte também os registros brutos e o Fundo',async t=>{
  const f=await setup(t);
- await f.db.exec(`create or replace function procurement.normalize_pncp_contracts(p_limit integer default 500)
+ await f.db.exec(`create or replace function procurement.normalize_pncp_social_fund_pair(p_limit integer default 500)
  returns table(procurements_inserted integer,suppliers_inserted integer,contracts_inserted integer,contracts_skipped integer)
  language sql as 'select 2,0,1,0';`);
  await assert.rejects(publish(f),/excedeu o lote/);

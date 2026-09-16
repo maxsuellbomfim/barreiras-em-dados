@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+import re
 from datetime import UTC, datetime
 
 from ..collection_control import (
@@ -15,6 +16,33 @@ from ..persistence.postgres import PostgresCollectionRepository
 from ..settings import PersistenceSettings
 from .collect_pncp_municipal_link_evidence import CONTRACT, RESOURCES, validate_pair
 from .pncp_runtime import build_authenticated_object_store
+
+
+def failure_code(error):
+    """Expose a bounded error class and SQLSTATE, never driver text or parameters."""
+    name = type(error).__name__
+    name = name if re.fullmatch(r"[A-Za-z]{1,80}", name) else "Error"
+    state = getattr(error, "sqlstate", None)
+    state = (
+        state
+        if isinstance(state, str) and re.fullmatch(r"[0-9A-Z]{5}", state)
+        else "unknown"
+    )
+    reasons = {
+        "Tamanho inválido; publicação bloqueada": "size",
+        "Artefato não preservado": "missing_artifact",
+        "Artefato incompatível; publicação bloqueada": "artifact",
+        "Identidade incompatível; publicação bloqueada": "identity",
+        "Existe versão divergente; exige nova revisão": "conflicting_version",
+        "Vínculo ou valores divergentes; publicação bloqueada": "values_or_parent",
+        "Órgão ambíguo": "ambiguous_owner",
+        "Cadastro do Fundo incompatível": "fund_registry",
+        "Normalização excedeu o lote autorizado; operação revertida": "batch_scope",
+        "Vínculo final não validado; operação revertida": "final_link",
+    }
+    reason = reasons.get(getattr(getattr(error, "diag", None), "message_primary", None))
+    suffix = f":{reason}" if state == "P0001" and reason else ""
+    return f"{name}:{state}{suffix}"
 
 
 def publish_pair(connection, object_store):
@@ -84,10 +112,11 @@ def main(argv=None):
             store = build_authenticated_object_store(settings)
             with psycopg.connect(settings.database_url) as connection:
                 result = publish_pair(connection, store)
-        except Exception:
+        except Exception as error:
             # Database errors may include bound private JSON: never propagate them.
             raise RuntimeError(
-                "Social Fund publication failed; private details omitted."
+                f"Social Fund publication failed ({failure_code(error)}); "
+                "private details omitted."
             ) from None
         control.complete(
             outcome=CollectionOutcome.COMPLETE,
