@@ -5,6 +5,19 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: normalização com órgão explícito
+
+A migração aplicada `20260916023040_pncp_explicit_owner.sql` remove a atribuição por
+IBGE sozinho. Cada CNPJ precisa resolver um único órgão cadastrado; o código
+legado `PREF-BARREIRAS` é aceito explicitamente para a Prefeitura. O controle
+PNCP deve corresponder ao CNPJ do registro. O contrato pode apontar para uma
+compra de outro órgão cadastrado pela chave oficial, sem inferência por texto.
+Correções de órgão ou vínculo geram novas versões, preservando a origem.
+
+Na consulta de produção, somente a Prefeitura estava cadastrada. O Fundo e o
+par privado ainda precisam de importação validada. Esta entrega não cadastra
+órgãos, não publica esse par e não declara cobertura adicional da fonte.
+
 ### PNCP: links corretos para órgãos com CNPJ próprio
 
 O link oficial dos cards passa a ser derivado do controle PNCP completo, sem
