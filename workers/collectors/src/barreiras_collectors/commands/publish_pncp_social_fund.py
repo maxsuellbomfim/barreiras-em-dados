@@ -28,7 +28,21 @@ def failure_code(error):
         if isinstance(state, str) and re.fullmatch(r"[0-9A-Z]{5}", state)
         else "unknown"
     )
-    return f"{name}:{state}"
+    reasons = {
+        "Tamanho inválido; publicação bloqueada": "size",
+        "Artefato não preservado": "missing_artifact",
+        "Artefato incompatível; publicação bloqueada": "artifact",
+        "Identidade incompatível; publicação bloqueada": "identity",
+        "Existe versão divergente; exige nova revisão": "conflicting_version",
+        "Vínculo ou valores divergentes; publicação bloqueada": "values_or_parent",
+        "Órgão ambíguo": "ambiguous_owner",
+        "Cadastro do Fundo incompatível": "fund_registry",
+        "Normalização excedeu o lote autorizado; operação revertida": "batch_scope",
+        "Vínculo final não validado; operação revertida": "final_link",
+    }
+    reason = reasons.get(getattr(getattr(error, "diag", None), "message_primary", None))
+    suffix = f":{reason}" if state == "P0001" and reason else ""
+    return f"{name}:{state}{suffix}"
 
 
 def publish_pair(connection, object_store):
