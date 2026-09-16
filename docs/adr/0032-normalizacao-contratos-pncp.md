@@ -61,3 +61,24 @@ repetição não cria versões; nova evidência cria uma única versão; múltip
 chaves, limite, grafia alternativa, empate e escopo territorial são verificados.
 Esta correção não resolve a paginação mutável da fila de coleta nem transforma
 resposta 404 em inexistência oficial de contratos.
+
+## Órgãos distintos — 16/09/2026
+
+O IBGE identifica território, não o contratante. A normalização exige cadastro
+único do CNPJ em `org.public_bodies` e controle PNCP compatível. O código legado
+exato `PREF-BARREIRAS` é mapeado apenas ao CNPJ da Prefeitura, sem fallback para
+qualquer órgão executivo. Cadastro ausente ou ambíguo não autoriza atribuição.
+
+A contratação-pai é resolvida pela chave oficial e por seu próprio órgão, que
+pode ser diferente do contratante. Duas grafias conflitantes do campo de vínculo
+bloqueiam a nova normalização do contrato. Órgão ou vínculo corrigido gera nova
+versão mesmo quando o hash bruto não mudou, sem apagar versões anteriores.
+Os auxiliares permanecem privados; o worker usa a função normalizadora existente.
+Esta migração não importa o par preservado nem cadastra automaticamente fundos.
+
+A auditoria read-only encontrou dois contratos antigos atribuídos a
+`PREF-BARREIRAS` apesar de CNPJ distinto na fonte: `50525166000108-2-000062/2026`
+(Fundo Municipal de Cultura) e `30667266000153-2-000013/2026` (Fundo Municipal
+de Educação). Ambos têm contratação-pai vinculada. A nova regra evita novas
+atribuições desse tipo, mas a reparação desses dois registros depende do cadastro
+documentado dos fundos e de replay validado; não é efetuada por esta migração.
