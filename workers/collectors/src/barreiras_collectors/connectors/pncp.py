@@ -55,7 +55,8 @@ class PncpRateLimitError(PncpError):
 class PncpContractsResponseError(PncpError):
     """Resposta de contratos que não pode ser tratada como dado ou vazio."""
 
-    def __init__(self, *, status: int | None, reason: str) -> None:
+    def __init__(self, *, status: int | None, reason: str, evidence=None) -> None:
+        self.evidence = evidence
         self.status = status
         # Alias explícito para consumidores que nomeiam o campo como HTTP.
         self.http_status = status
@@ -431,15 +432,26 @@ def _fetch_compras_array(
         )
         if response.status in (204, 404):
             if strict_contracts:
+                reason = (
+                    _contract_not_found_reason(response.body, url, response.final_url)
+                    if response.status == 404 else "http_no_content"
+                )
+                evidence = None
+                # Initial private evidence scope: the municipal backlog only.
+                if reason == "source_reports_no_published_contract" and (
+                    f"/orgaos/{BARREIRAS_CNPJ}/" in urlsplit(url).path
+                ):
+                    evidence = RegistrySnapshot(
+                        resource="contract-response:" + urlsplit(url).path,
+                        url=url, final_url=response.final_url,
+                        fetched_at=received_at, http_status=404,
+                        body=response.body,
+                        body_sha256=hashlib.sha256(response.body).hexdigest(),
+                        media_type="application/json",
+                    )
                 raise PncpContractsResponseError(
                     status=response.status,
-                    reason=(
-                        _contract_not_found_reason(
-                            response.body, url, response.final_url
-                        )
-                        if response.status == 404
-                        else "http_no_content"
-                    ),
+                    reason=reason, evidence=evidence,
                 )
             # 404 aqui é ausência do recurso na API pncp/v1, não falha.
             return None

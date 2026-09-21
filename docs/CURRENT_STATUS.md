@@ -5,6 +5,15 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: evidência privada de contrato municipal não publicado
+
+Respostas explícitas da Prefeitura passam a ser preservadas no bucket privado,
+com leitura de volta e hash, sem gerar registros de contrato. A observação usa
+`awaiting_source_publication` somente após a gravação verificada e referencia
+o artefato. Mantém retentativa, cobertura parcial e resultado não conclusivo;
+outros órgãos e 404 genéricos continuam no diagnóstico anterior. Não publica
+inexistência de contrato nem altera o histórico público.
+
 ### PNCP: diagnóstico de ausência de publicação, sem declarar inexistência
 
 O coletor distingue a mensagem oficial explícita de contrato não publicado de
