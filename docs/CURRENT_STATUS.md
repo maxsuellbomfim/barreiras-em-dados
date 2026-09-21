@@ -5,6 +5,24 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: contratos consultados pelo órgão da compra
+
+Após o PR #769, a mesma correção alcança contratos: o CNPJ da consulta vem do
+controle da compra, não de uma constante da Prefeitura. O órgão do contrato
+continua sendo o informado no próprio documento; a relação entre órgãos
+diferentes exige o controle oficial da compra. A fila também exige evidência
+do órgão correto antes de considerar a compra já consultada.
+
+Uma leitura oficial única em 21/09, sem persistência, do endpoint de contratos
+da compra `13250888000162-1-000003/2026` retornou um registro. Isso valida o
+endereço corrigido, não a conclusão de todo o backlog. Retentativas, limites,
+idempotência e tratamento inconclusivo de 404/204 permanecem inalterados.
+Auditoria read-only dos 346 registros brutos vindos desse endpoint encontrou
+zero divergências entre órgão da compra e URL consultada e zero vínculos ausentes.
+Referência: Manual PNCP 2.6, seção 13.10 (CNPJ do proprietário da contratação).
+Próximo passo operacional: permitir retomada isolada de itens/resultados e
+validar a persistência sem repetir a descoberta indisponível.
+
 ### PNCP: itens e resultados respeitam o órgão da compra
 
 O replay `35609380644` terminou com falha explícita. A descoberta de

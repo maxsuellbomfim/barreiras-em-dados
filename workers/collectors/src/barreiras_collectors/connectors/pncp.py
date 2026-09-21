@@ -266,10 +266,10 @@ def _retry_after_seconds(headers: Mapping[str, str]) -> float | None:
             return None
 
 
-def _compras_url(cnpj: str) -> str:
+def _orgao_url(cnpj: str) -> str:
     if not isinstance(cnpj, str) or not re.fullmatch(r"[0-9]{14}", cnpj):
         raise PncpError("CNPJ do órgão da contratação inválido.")
-    return f"https://pncp.gov.br/api/pncp/v1/orgaos/{cnpj}/compras"
+    return f"https://pncp.gov.br/api/pncp/v1/orgaos/{cnpj}"
 
 
 def fetch_itens_page(
@@ -285,7 +285,7 @@ def fetch_itens_page(
 ) -> PncpPage | None:
     """Uma página de itens de uma contratação; None quando não há conteúdo."""
     url = (
-        f"{_compras_url(cnpj)}/{ano}/{sequencial}/itens"
+        f"{_orgao_url(cnpj)}/compras/{ano}/{sequencial}/itens"
         f"?pagina={pagina}&tamanhoPagina={COMPRAS_PAGE_SIZE}"
     )
     return _fetch_compras_array(
@@ -317,7 +317,10 @@ def fetch_resultados_page(
     logger: logging.Logger | None = None,
 ) -> PncpPage | None:
     """Resultados homologados de um item; None quando ainda não há resultado."""
-    url = f"{_compras_url(cnpj)}/{ano}/{sequencial}/itens/{numero_item}/resultados"
+    url = (
+        f"{_orgao_url(cnpj)}/compras/{ano}/{sequencial}"
+        f"/itens/{numero_item}/resultados"
+    )
     return _fetch_compras_array(
         url,
         schema_name="pncp-resultados-page",
@@ -341,6 +344,7 @@ def fetch_contratos_page(
     ano: int,
     sequencial: int,
     pagina: int = 1,
+    cnpj: str = BARREIRAS_CNPJ,
     transport: HttpTransport | None = None,
     retry_policy: RetryPolicy | None = None,
     sleep: Callable[[float], None] = time.sleep,
@@ -348,7 +352,7 @@ def fetch_contratos_page(
 ) -> PncpPage | None:
     """Contratos/empenhos vinculados a uma contratação, sem normalização."""
     url = (
-        f"{CONTRATOS_BASE_URL}/contratacao/{ano}/{sequencial}"
+        f"{_orgao_url(cnpj)}/contratos/contratacao/{ano}/{sequencial}"
         f"?pagina={pagina}&tamanhoPagina={COMPRAS_PAGE_SIZE}"
     )
     return _fetch_compras_array(

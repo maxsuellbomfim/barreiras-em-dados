@@ -81,8 +81,8 @@ class ContractResumeTests(unittest.TestCase):
         )
 
     @staticmethod
-    def batch(*, ano, sequencial, logger):
-        del ano, logger
+    def batch(*, ano, sequencial, logger, cnpj="13654405000195"):
+        del ano, logger, cnpj
         return command.PncpContratosPageBatch((page(sequencial),), False)
 
     def run_sweep(self, recent):
@@ -394,8 +394,10 @@ class ContractResumeTests(unittest.TestCase):
         repository = MutableBacklog(count=120)
         cursor = None
 
-        def batch(*, ano, sequencial, logger):
-            result = self.batch(ano=ano, sequencial=sequencial, logger=logger)
+        def batch(*, ano, sequencial, logger, cnpj):
+            result = self.batch(
+                ano=ano, sequencial=sequencial, logger=logger, cnpj=cnpj
+            )
             return command.PncpContratosPageBatch(result.pages, sequencial <= 30)
 
         with patch.object(command, "collect_contratos_batch", side_effect=batch):
