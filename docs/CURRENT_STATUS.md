@@ -5,6 +5,14 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: seleção de consulta separada da fila herdada
+
+O checkpoint passa a registrar `selected_query_controls` antes da consulta e no
+fechamento. A migration `20260921210000` usa essa seleção para reservar estados,
+sem invalidar respostas apenas por estarem na fila herdada. Cursores antigos
+mantêm tratamento conservador; não há reclassificação retroativa das 47 pendências.
+Requer migration e execução do coletor atualizado. Contratos e retentativas não mudam.
+
 ### PNCP: indicador público com evidência privada
 
 Novo estado “Aguardando publicação de contrato no PNCP”, separado de resposta

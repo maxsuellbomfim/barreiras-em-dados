@@ -11,6 +11,7 @@ const awaitingMigration = await readFile(new URL("20260921194000_pncp_awaiting_p
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
 const control = "13654405000195-1-000027/2026";
 const hash = "a".repeat(64);
+const selectedMigration = await readFile(new URL("20260921210000_pncp_selected_queries.sql", migrations), "utf8");
 async function setup(t, seed) {
   const db = new PGlite(); t.after(()=>db.close());
   await db.exec(`create role anon; create role authenticated; create role collector_worker;
@@ -31,6 +32,7 @@ async function setup(t, seed) {
     returns table(control_number text,state text,checked_at timestamptz,source_url text)
     language sql as $$select unnest(control_numbers),'unknown'::text,null::timestamptz,null::text$$;`);
   if(awaitingMigration) await db.exec(awaitingMigration);
+  if(selectedMigration) await db.exec(selectedMigration);
   return db;
 }
 function observation(overrides={}) { return { version:1, scope:"pncp_contracts_query",control,
@@ -41,6 +43,17 @@ async function run(db, number, {obs=[observation()], status="partial", start="20
   await db.query(`insert into source.collection_runs values($1,$2,$3,$4,$5,$6,$7)`,[id(number),id(2),status,start,end,JSON.stringify(cursor),JSON.stringify({control_plane:true,control_observations:obs,...extra})]);
 }
 async function read(db) { return (await db.query("select * from api.get_pncp_contract_query_status($1)",[[control]])).rows[0]; }
+
+test("fila herdada preserva observação; seleção explícita invalida mesmo se interrompida", async t=>{
+ const db=await setup(t); await run(db,10);
+ const before=await read(db);
+ await run(db,11,{obs:[],status:"running",start:"2026-09-16T10:00:00Z",end:null,cursor:{cursor_version:1,retry_controls:[control],selected_query_controls:[]}});
+ assert.deepEqual(await read(db),before);
+ await run(db,12,{obs:[],status:"running",start:"2026-09-17T10:00:00Z",end:null,cursor:{cursor_version:1,retry_controls:[control],selected_query_controls:[control]}});
+ assert.equal((await read(db)).state,"pending");
+ await db.query("update source.collection_runs set status='failed',completed_at='2026-09-17T10:05:00Z' where id=$1",[id(12)]);
+ assert.equal((await read(db)).state,"pending");
+});
 
 test("aguardando publicação exige resposta privada correspondente e não expõe evidência",async t=>{
  const db=await setup(t);

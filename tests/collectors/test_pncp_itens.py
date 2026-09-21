@@ -478,6 +478,7 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
                 "cursor_version": 1,
                 "next_after_control": CONTROL,
                 "retry_controls": [],
+                "selected_query_controls": [],
             },
         )
 

@@ -71,6 +71,20 @@ def page(number):
 
 
 class ContractResumeTests(unittest.TestCase):
+    def test_inherited_retry_is_not_a_selected_query(self):
+        repository = MutableBacklog(count=3)
+        cursor = command.resolve_contract_checkpoint({
+            "cursor_version": 1,
+            "next_after_control": control(1),
+            "retry_controls": [control(1)],
+        })
+        with patch.object(command, "collect_contratos_batch", side_effect=self.batch):
+            summary = self.collect(repository, cursor)
+        selected = [control(2), control(3)]
+        self.assertEqual(repository.progress[0]["selected_query_controls"], selected)
+        self.assertEqual(summary.checkpoint["selected_query_controls"], selected)
+        self.assertEqual(summary.checkpoint["retry_controls"], [control(1)])
+
     def collect(self, repository, cursor=None):
         return command._collect_pending(
             repository=repository,
