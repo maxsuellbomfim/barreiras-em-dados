@@ -5,6 +5,15 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: descoberta privada por publicação, sem ativação automática
+
+O comando `collect_pncp_publication_evidence` preserva uma página por execução,
+em janela de publicação de até sete dias. Não altera contratos públicos nem
+resolve os 74 controles inconclusivos por inferência. Retorna a próxima página
+para retomada explícita; uma página validada nunca declara a janela inteira
+completa. Não está ligado a cron nem ao normalizador. Procedimento e limites em
+`docs/reviews/STAGE_2_PNCP_DISCOVERY.md`.
+
 ### PNCP: retomada manual isolada de itens/resultados
 
 O modo `items_only` executa o coletor de itens/resultados e a normalização
