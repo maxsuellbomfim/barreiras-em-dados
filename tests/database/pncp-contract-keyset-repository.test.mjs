@@ -27,7 +27,8 @@ async function fixture(t) {
       record_type text not null, payload jsonb not null, created_at timestamptz not null
     );
     create table raw.raw_artifacts (
-      id bigint generated always as identity primary key, metadata jsonb not null
+      id bigint generated always as identity primary key, metadata jsonb not null,
+      source_url text
     );
   `);
   return db;
@@ -43,11 +44,22 @@ async function preserve(db, number, {
   }), created]);
 }
 
-async function snapshot(db, number, schema = "pncp-contratos-page") {
-  await db.query("insert into raw.raw_artifacts (metadata) values ($1)", [JSON.stringify({
+async function snapshot(db, number, schema = "pncp-contratos-page", owner = "13654405000195") {
+  await db.query("insert into raw.raw_artifacts (metadata, source_url) values ($1, $2)", [JSON.stringify({
     schema_name: schema, cursor: { ano: 2023, sequencial: number },
-  })]);
+  }), `https://pncp.gov.br/api/pncp/v1/orgaos/${owner}/contratos/contratacao/2023/${number}`]);
 }
+
+test("evidência da Prefeitura não encerra compra do Fundo com ano e número iguais", async (t) => {
+  const db = await fixture(t);
+  const fund = "13250888000162-1-000003/2023";
+  await preserve(db, 3);
+  await preserve(db, 3, { control: fund });
+  await snapshot(db, 3);
+  assert.deepEqual((await pending(db)).map((row) => row.control), [fund]);
+  await snapshot(db, 3, "pncp-contratos-page", "13250888000162");
+  assert.deepEqual(await pending(db), []);
+});
 
 async function pending(db, {
   refreshDays = 120, limit = 50, afterControl = null, includeControls = [], legacyOffset = 0,

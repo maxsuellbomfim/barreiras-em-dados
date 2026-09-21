@@ -19,6 +19,7 @@ from ..collection_control import (
     build_execution_idempotency_key,
 )
 from ..connectors.pncp import (
+    BARREIRAS_CNPJ,
     SOURCE_CODE,
     PncpContractsResponseError,
     fetch_contratos_page,
@@ -188,6 +189,7 @@ def collect_contratos_batch(
     *,
     ano: int,
     sequencial: int,
+    cnpj: str = BARREIRAS_CNPJ,
     logger: logging.Logger,
     transport=None,
 ) -> PncpContratosPageBatch:
@@ -207,6 +209,7 @@ def collect_contratos_batch(
 
         try:
             page = fetch_contratos_page(
+                cnpj=cnpj,
                 ano=ano,
                 sequencial=sequencial,
                 pagina=pagina,
@@ -470,7 +473,8 @@ def _collect_pending(
 
         try:
             batch = collect_contratos_batch(
-                ano=ano, sequencial=sequencial, logger=logger
+                ano=ano, sequencial=sequencial, logger=logger,
+                cnpj=control.split("-", 1)[0],
             )
             if batch.incomplete_reason or (not batch.pages and not batch.truncated):
                 retries.add(control)
