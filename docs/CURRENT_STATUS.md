@@ -5,6 +5,13 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: diagnóstico de ausência de publicação, sem declarar inexistência
+
+O coletor distingue a mensagem oficial explícita de contrato não publicado de
+um 404 genérico, exigindo status e caminho da compra compatíveis. A distinção
+é somente diagnóstica: mantém pendência, retentativa e cobertura parcial, sem
+publicar zero, concluir ausência fora do PNCP ou apagar contratos preservados.
+
 ### PNCP: descoberta privada por publicação, sem ativação automática
 
 O comando `collect_pncp_publication_evidence` preserva uma página por execução,

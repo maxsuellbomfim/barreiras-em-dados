@@ -39,6 +39,24 @@ def fetch(body: bytes, *, status: int = 200, pagina: int = 1):
 
 
 class PncpContractResponseEvidenceTests(unittest.TestCase):
+    def test_explicit_unpublished_message_is_diagnostic_not_empty(self):
+        payload = {
+            "status": "404",
+            "message": "Não há contrato publicado no PNCP para esta contratação.",
+            "path": "/pncp-api/v1/orgaos/13654405000195/contratos/contratacao/2026/32",
+        }
+        for changes, reason in (
+            ({}, "source_reports_no_published_contract"),
+            ({"status": "500"}, "http_not_found"),
+            ({"path": payload["path"].replace("/32", "/99")}, "http_not_found"),
+            ({"message": "Não encontrado"}, "http_not_found"),
+        ):
+            with self.subTest(changes=changes):
+                with self.assertRaises(PncpContractsResponseError) as raised:
+                    fetch(json.dumps({**payload, **changes}).encode(), status=404)
+                self.assertEqual(raised.exception.reason, reason)
+                self.assertNotIn(payload["message"], str(raised.exception))
+
     def test_404_and_204_are_typed_without_body_or_secret(self) -> None:
         body_marker = "private-body-marker"
         for status, reason in ((404, "http_not_found"), (204, "http_no_content")):

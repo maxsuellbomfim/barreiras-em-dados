@@ -77,6 +77,22 @@ class ContractInconclusiveBatchTests(unittest.TestCase):
                 self.assertEqual(batch.http_status, status)
                 self.assertEqual(batch.pages, ())
 
+    def test_explicit_unpublished_response_keeps_retry_and_partial_coverage(self):
+        payload = {
+            "status": "404",
+            "message": "Não há contrato publicado no PNCP para esta contratação.",
+            "path": "/pncp-api/v1/orgaos/13654405000195/contratos/contratacao/2025/1",
+        }
+        batch = self.batch((404, json.dumps(payload).encode()))
+        self.assertEqual(batch.incomplete_reason, "source_reports_no_published_contract")
+        repository = Backlog(count=1)
+        with patch.object(command, "collect_contratos_batch", return_value=batch):
+            summary = self.collect(repository, repository)
+        self.assertEqual(summary.outcome.value, "partial")
+        self.assertEqual(summary.retry_controls, (control(1),))
+        self.assertEqual(summary.empty_controls, ())
+        self.assertEqual(repository.batches, [])
+
     def test_valid_page_followed_by_404_keeps_page_but_not_completion(self):
         batch = self.batch((200, body()), (404, b""))
         self.assertEqual(len(batch.pages), 1)
