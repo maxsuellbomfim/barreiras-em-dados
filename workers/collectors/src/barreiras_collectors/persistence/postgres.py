@@ -1809,6 +1809,8 @@ class PostgresCollectionRepository:
                     from raw.raw_artifacts as artifact
                     where artifact.metadata ->> 'schema_name'
                         = 'pncp-itens-page'
+                      and substring(artifact.source_url from '/orgaos/([0-9]{14})/')
+                        = split_part(contratacao.control, '-', 1)
                       and (artifact.metadata -> 'cursor' ->> 'ano')::int
                         = contratacao.ano
                       and (

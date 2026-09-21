@@ -79,6 +79,40 @@ def fetch_itens(status: int, body: bytes):
 
 
 class ItensFetchTests(unittest.TestCase):
+    def test_fund_items_and_results_use_the_procurement_owner(self) -> None:
+        transport = SequencedTransport((200, itens_body([1])))
+        for fetch, extra in (
+            (fetch_itens_page, {"pagina": 1}),
+            (fetch_resultados_page, {"numero_item": 1}),
+        ):
+            page = fetch(
+                ano=2026,
+                sequencial=3,
+                cnpj="13250888000162",
+                transport=transport,
+                **extra,
+            )
+            self.assertIsNotNone(page)
+        self.assertTrue(
+            all(
+                "/orgaos/13250888000162/compras/2026/3/itens" in url
+                for url in transport.urls
+            )
+        )
+
+    def test_invalid_owner_is_rejected_before_request(self) -> None:
+        transport = SequencedTransport((200, itens_body([1])))
+        for cnpj in ("", "../13654405000195", "\uff11" * 14):
+            with self.subTest(cnpj=cnpj), self.assertRaises(PncpError):
+                fetch_itens_page(
+                    ano=2026,
+                    sequencial=3,
+                    pagina=1,
+                    cnpj=cnpj,
+                    transport=transport,
+                )
+        self.assertEqual(transport.urls, [])
+
     def test_array_root_becomes_page_with_compras_cursor(self) -> None:
         page = fetch_itens(200, itens_body([1, 2]))
 
@@ -186,6 +220,25 @@ class ItensFetchTests(unittest.TestCase):
 
 
 class ItensPaginationTests(unittest.TestCase):
+    def test_batch_keeps_fund_owner_through_transport(self) -> None:
+        transport = SequencedTransport((200, itens_body([1])))
+        batch = collect_itens_batch(
+            ano=2026,
+            sequencial=3,
+            cnpj="13250888000162",
+            logger=logging.getLogger("test"),
+            transport=transport,
+        )
+        self.assertEqual(len(batch.pages), 1)
+        self.assertIn("/orgaos/13250888000162/", transport.urls[0])
+        prefeitura = fetch_itens_page(
+            ano=2026,
+            sequencial=3,
+            pagina=1,
+            transport=SequencedTransport((200, itens_body([1]))),
+        )
+        self.assertNotEqual(batch.pages[0].idempotency_key, prefeitura.idempotency_key)
+
     def test_stops_when_api_ignores_pagination(self) -> None:
         full_page = itens_body(list(range(1, COMPRAS_PAGE_SIZE + 1)))
         pages = collect_itens_pages(
@@ -302,6 +355,53 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
         self.assertEqual(summary.contratacoes_processed, 1)
         self.assertEqual(summary.failed_controls, (CONTROL,))
         self.assertEqual(summary.next_offset, 0)
+        self.assertEqual(summary.outcome.value, "partial")
+
+    def test_pending_fund_passes_owner_to_items_and_results(self) -> None:
+        control = "13250888000162-1-000003/2026"
+        page = SimpleNamespace(items=[{"numeroItem": 1, "temResultado": True}])
+        repository = SimpleNamespace(
+            pncp_pending_itens=lambda **_kwargs: [(control, 2026, 3)],
+            pncp_itens_com_resultado=lambda _control: set(),
+        )
+        service = SimpleNamespace(
+            persist_itens=lambda _page, **_kwargs: SimpleNamespace(inserted_records=1),
+        )
+        with (
+            patch(
+                "barreiras_collectors.commands.collect_pncp_itens.collect_itens_batch",
+                return_value=PncpItensPageBatch((page,), False),
+            ) as items,
+            patch(
+                "barreiras_collectors.commands.collect_pncp_itens.fetch_resultados_page",
+                return_value=None,
+            ) as results,
+        ):
+            _collect_pending(
+                service=service,
+                repository=repository,
+                logger=logging.getLogger("test"),
+                start_offset=0,
+            )
+        self.assertEqual(items.call_args.kwargs["cnpj"], "13250888000162")
+        self.assertEqual(results.call_args.kwargs["cnpj"], "13250888000162")
+
+    def test_mismatched_control_is_deferred_without_requests(self) -> None:
+        repository = SimpleNamespace(
+            pncp_pending_itens=lambda **_kwargs: [(CONTROL, 2026, 9)],
+        )
+        with patch(
+            "barreiras_collectors.commands.collect_pncp_itens.collect_itens_batch",
+            return_value=PncpItensPageBatch((), False),
+        ) as fetch:
+            summary = _collect_pending(
+                service=SimpleNamespace(),
+                repository=repository,
+                logger=logging.getLogger("test"),
+                start_offset=0,
+            )
+        fetch.assert_not_called()
+        self.assertEqual(summary.failed_controls, (CONTROL,))
         self.assertEqual(summary.outcome.value, "partial")
 
     def test_unavailable_item_result_keeps_control_pending_for_retry(self) -> None:

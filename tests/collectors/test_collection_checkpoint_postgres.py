@@ -291,6 +291,17 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
         self.assertIn("offset %s", connection.calls[0][0].lower())
         self.assertEqual(connection.calls[0][1], (120, 51, 100))
 
+    def test_pncp_item_backlog_does_not_borrow_another_organs_artifact(self) -> None:
+        connection = CheckpointConnection(None)
+        repository = PostgresCollectionRepository(lambda: connection)
+        repository.pncp_pending_itens(refresh_days=120, limit=51)
+        query = " ".join(connection.calls[0][0].lower().split())
+        self.assertIn(
+            "substring(artifact.source_url from '/orgaos/([0-9]{14})/') "
+            "= split_part(contratacao.control, '-', 1)",
+            query,
+        )
+
     def test_pncp_contract_backlog_applies_checkpoint_keyset(self) -> None:
         connection = CheckpointConnection(None)
         repository = PostgresCollectionRepository(lambda: connection)

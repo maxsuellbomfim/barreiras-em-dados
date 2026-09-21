@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -15,6 +16,7 @@ from ..collection_control import (
     build_execution_idempotency_key,
 )
 from ..connectors.pncp import (
+    BARREIRAS_CNPJ,
     SOURCE_CODE,
     PncpError,
     fetch_itens_page,
@@ -108,6 +110,7 @@ def collect_itens_batch(
     *,
     ano: int,
     sequencial: int,
+    cnpj: str = BARREIRAS_CNPJ,
     logger: logging.Logger,
     transport=None,
 ) -> PncpItensPageBatch:
@@ -116,6 +119,7 @@ def collect_itens_batch(
     seen_itens: set[int] = set()
     for pagina in range(1, MAX_ITENS_PAGES + 1):
         page = fetch_itens_page(
+            cnpj=cnpj,
             ano=ano,
             sequencial=sequencial,
             pagina=pagina,
@@ -269,7 +273,16 @@ def _collect_pending(
     for control, ano, sequencial in pending:
         itens: list[dict] = []
         try:
+            identity = re.fullmatch(r"([0-9]{14})-1-([0-9]{6})/([0-9]{4})", control)
+            if (
+                identity is None
+                or int(identity[2]) != sequencial
+                or int(identity[3]) != ano
+            ):
+                raise PncpError("Controle da contratação incompatível com a fila.")
+            cnpj = identity[1]
             batch = collect_itens_batch(
+                cnpj=cnpj,
                 ano=ano,
                 sequencial=sequencial,
                 logger=logger,
@@ -312,6 +325,7 @@ def _collect_pending(
                 continue
             try:
                 resultado_page = fetch_resultados_page(
+                    cnpj=cnpj,
                     ano=ano,
                     sequencial=sequencial,
                     numero_item=numero_item,
