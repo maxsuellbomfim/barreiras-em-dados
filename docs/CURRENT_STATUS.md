@@ -5,6 +5,27 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: itens e resultados respeitam o órgão da compra
+
+O replay `35609380644` terminou com falha explícita. A descoberta de
+15/03–13/04/2024 continuou parcial por HTTP 503, timeout e desconexões;
+17 consultas de contratos retornaram 404 inconclusivo, não ausência comprovada.
+A normalização independente inseriu 63 itens, sem novos contratos.
+
+O coletor de itens falhou com conflito de idempotência. A inspeção encontrou
+CNPJ fixo da Prefeitura nas URLs de itens/resultados, embora a fila também
+inclua compras de fundos. Agora o órgão é extraído do controle oficial,
+conferindo ano e sequencial antes da consulta. A fila histórica também exige
+o mesmo órgão na evidência; coincidência de ano/número não encerra outra compra.
+As chaves e os bloqueios de idempotência foram preservados.
+
+Consulta read-only de 21/09 verificou 4.267 registros brutos de itens/resultados:
+zero divergências entre órgão do controle e URL de origem; nenhuma URL sem órgão.
+Isso não prova completude, valores corretos ou ausência de outros problemas.
+A correção ainda exige execução operacional após implantação; não transforma
+as falhas da fonte ou os 404 em sucesso. Próximo passo: validar a retomada de
+itens e revisar separadamente o escopo por órgão do coletor de contratos.
+
 ### PNCP: pendências históricas reconciliadas; falha de descoberta isolada
 
 Consulta de 21/09 confirmou zero compras pendentes no comparador de chave,

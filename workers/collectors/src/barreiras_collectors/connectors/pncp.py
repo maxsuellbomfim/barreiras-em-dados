@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -265,11 +266,18 @@ def _retry_after_seconds(headers: Mapping[str, str]) -> float | None:
             return None
 
 
+def _compras_url(cnpj: str) -> str:
+    if not isinstance(cnpj, str) or not re.fullmatch(r"[0-9]{14}", cnpj):
+        raise PncpError("CNPJ do órgão da contratação inválido.")
+    return f"https://pncp.gov.br/api/pncp/v1/orgaos/{cnpj}/compras"
+
+
 def fetch_itens_page(
     *,
     ano: int,
     sequencial: int,
     pagina: int,
+    cnpj: str = BARREIRAS_CNPJ,
     transport: HttpTransport | None = None,
     retry_policy: RetryPolicy | None = None,
     sleep: Callable[[float], None] = time.sleep,
@@ -277,7 +285,7 @@ def fetch_itens_page(
 ) -> PncpPage | None:
     """Uma página de itens de uma contratação; None quando não há conteúdo."""
     url = (
-        f"{COMPRAS_BASE_URL}/{ano}/{sequencial}/itens"
+        f"{_compras_url(cnpj)}/{ano}/{sequencial}/itens"
         f"?pagina={pagina}&tamanhoPagina={COMPRAS_PAGE_SIZE}"
     )
     return _fetch_compras_array(
@@ -302,13 +310,14 @@ def fetch_resultados_page(
     ano: int,
     sequencial: int,
     numero_item: int,
+    cnpj: str = BARREIRAS_CNPJ,
     transport: HttpTransport | None = None,
     retry_policy: RetryPolicy | None = None,
     sleep: Callable[[float], None] = time.sleep,
     logger: logging.Logger | None = None,
 ) -> PncpPage | None:
     """Resultados homologados de um item; None quando ainda não há resultado."""
-    url = f"{COMPRAS_BASE_URL}/{ano}/{sequencial}/itens/{numero_item}/resultados"
+    url = f"{_compras_url(cnpj)}/{ano}/{sequencial}/itens/{numero_item}/resultados"
     return _fetch_compras_array(
         url,
         schema_name="pncp-resultados-page",
