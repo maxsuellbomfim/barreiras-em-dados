@@ -84,7 +84,9 @@ class ContractInconclusiveBatchTests(unittest.TestCase):
             "path": "/pncp-api/v1/orgaos/13654405000195/contratos/contratacao/2025/1",
         }
         batch = self.batch((404, json.dumps(payload).encode()))
-        self.assertEqual(batch.incomplete_reason, "source_reports_no_published_contract")
+        self.assertEqual(
+            batch.incomplete_reason, "source_reports_no_published_contract"
+        )
         repository = Backlog(count=1)
         with patch.object(command, "collect_contratos_batch", return_value=batch):
             summary = self.collect(repository, repository)
