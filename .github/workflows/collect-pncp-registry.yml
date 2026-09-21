@@ -17,6 +17,7 @@ on:
           - full
           - backfill
           - contracts_only
+          - items_only
           - replay_window
           - registry_only
           - municipal_link_evidence
@@ -136,7 +137,7 @@ jobs:
 
       - name: Preservar contratos e empenhos das contratações
         id: collect_contracts
-        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence')
+        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'items_only')
         continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratos

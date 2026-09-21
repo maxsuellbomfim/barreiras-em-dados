@@ -103,6 +103,17 @@ test("modo somente cadastro exclui todas as consultas e normalizacoes de compras
   }
 });
 
+test("retomada de itens não consulta cadastro, descoberta ou contratos", () => {
+  assert.match(workflow, /^          - items_only$/m);
+  for (const name of [registry, weekly, backfill, replay, contracts,
+    "Preservar vínculo municipal privado", "Publicar par revisado do Fundo Social"])
+    assert.equal(enabled(name, { mode: "items_only" }), false, name);
+  for (const name of [items, normalize]) {
+    assert.equal(enabled(name, { mode: "items_only" }), true, name);
+    assert.equal(enabled(name, { mode: "items_only", priorSucceeded: false }), false);
+  }
+});
+
 test("escopos existentes preservam o mesmo conjunto de etapas", () => {
   const names = [registry, weekly, backfill, replay, items, contracts, normalize];
   const scenarios = [
@@ -141,6 +152,7 @@ test("gate shell reprova cadastro, itens ou contratos e aceita cadastro nao soli
     ["failure", "success", "success", 1],
     ["failure", "skipped", "success", 1],
     ["success", "failure", "success", 1],
+    ["skipped", "failure", "skipped", 1],
     ["success", "success", "failure", 1],
     ["failure", "failure", "failure", 1],
     ["skipped", "success", "skipped", 0],
