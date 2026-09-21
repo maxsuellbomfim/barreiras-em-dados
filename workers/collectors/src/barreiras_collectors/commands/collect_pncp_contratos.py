@@ -79,6 +79,7 @@ class PncpContratosPageBatch:
     incomplete_reason: str | None = None
     http_status: int | None = None
     response_page: int | None = None
+    response_evidence: object | None = None
 
 
 @dataclass(frozen=True)
@@ -217,7 +218,10 @@ def collect_contratos_batch(
                 transport=transport,
             )
         except PncpContractsResponseError as error:
-            return incomplete(error.reason, error.http_status)
+            return PncpContratosPageBatch(
+                tuple(pages), False, error.reason, error.http_status,
+                pagina, error.evidence,
+            )
         if page is None:
             return incomplete("missing_response_evidence")
         try:
@@ -440,6 +444,7 @@ def _collect_pending(
     for control, ano, sequencial in pending:
         started_at = datetime.now(UTC).isoformat()
         preserved_pages: list[dict[str, object]] = []
+        preserved_response = {}
 
         def observe(
             state,
@@ -450,6 +455,7 @@ def _collect_pending(
             current_control=control,
             observation_started=started_at,
             evidence=preserved_pages,
+            response_evidence=preserved_response,
         ):
             # Private execution evidence, not a statement of historical coverage.
             # No response body, Storage path or exception message is copied here.
@@ -468,6 +474,8 @@ def _collect_pending(
                         sum(page["records"] for page in evidence) if evidence else None
                     ),
                     "pages": list(evidence),
+                    **({"response_evidence": dict(response_evidence)}
+                       if response_evidence else {}),
                 }
             )
 
@@ -476,6 +484,19 @@ def _collect_pending(
                 ano=ano, sequencial=sequencial, logger=logger,
                 cnpj=control.split("-", 1)[0],
             )
+            if batch.response_evidence is not None:
+                snapshot = batch.response_evidence
+                result = service.persist_contract_response(snapshot)
+                if (
+                    not isinstance(result.raw_artifact_id, str)
+                    or not result.raw_artifact_id
+                ):
+                    raise ValueError("Evidência privada PNCP ausente.")
+                preserved_response.update({
+                    "raw_artifact_id": result.raw_artifact_id,
+                    "sha256": snapshot.body_sha256,
+                    "http_status": snapshot.http_status,
+                })
             if batch.incomplete_reason or (not batch.pages and not batch.truncated):
                 retries.add(control)
                 issue = {
@@ -562,7 +583,9 @@ def _collect_pending(
             )
         elif batch.incomplete_reason or (not batch.pages and not batch.truncated):
             observe(
-                "inconclusive",
+                "awaiting_source_publication"
+                if preserved_response and not batch.pages and batch.response_page == 1
+                else "inconclusive",
                 batch.incomplete_reason or "missing_response_evidence",
                 batch.http_status,
                 batch.response_page,

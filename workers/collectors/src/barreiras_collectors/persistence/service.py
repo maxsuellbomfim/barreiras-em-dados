@@ -2157,6 +2157,12 @@ class PncpComprasPersistenceService:
         self.object_store = object_store
         self.repository = repository
 
+    def persist_contract_response(self, snapshot):
+        """Private HTTP evidence only; never generates normalized contract records."""
+        return PncpRegistryPersistenceService(
+            object_store=self.object_store, repository=self.repository
+        ).persist(snapshot)
+
     def persist_itens(self, page, *, control: str) -> PersistenceResult:
         records = []
         for index, item in enumerate(page.items):

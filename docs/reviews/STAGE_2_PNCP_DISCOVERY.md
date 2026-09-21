@@ -1,5 +1,17 @@
 # Etapa 2 — descoberta da fonte PNCP para Barreiras
 
+## Preservação privada do diagnóstico municipal
+
+O coletor transporta o corpo HTTP 404 apenas quando mensagem, status e caminho
+confirmam a declaração explícita da fonte. Escopo inicial: CNPJ da Prefeitura
+`13654405000195`, correspondente às 74 pendências auditadas. Reutiliza snapshots
+privados com leitura de volta e SHA-256; nenhum `pncp_contrato` é criado.
+`control_observations.response_evidence` referencia ID/hash/status do artefato;
+o corpo não vai para logs ou mensagens de erro. `awaiting_source_publication`
+depende de persistência bem-sucedida; falha no Storage interrompe a execução.
+Retentativas e cobertura parcial permanecem: este PR não muda o gate geral
+para verde nem autoriza afirmação pública de inexistência do contrato.
+
 ## Diagnóstico de 404 explícito — 21/09/2026
 
 A consulta oficial da compra `13654405000195-1-000040/2026` respondeu HTTP 404

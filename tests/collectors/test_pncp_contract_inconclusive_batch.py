@@ -88,12 +88,31 @@ class ContractInconclusiveBatchTests(unittest.TestCase):
             batch.incomplete_reason, "source_reports_no_published_contract"
         )
         repository = Backlog(count=1)
+        saved = []
+        service = SimpleNamespace(persist_contract_response=lambda snapshot: (
+            saved.append(snapshot) or SimpleNamespace(raw_artifact_id="private-id")
+        ))
         with patch.object(command, "collect_contratos_batch", return_value=batch):
-            summary = self.collect(repository, repository)
+            summary = self.collect(repository, service)
         self.assertEqual(summary.outcome.value, "partial")
         self.assertEqual(summary.retry_controls, (control(1),))
         self.assertEqual(summary.empty_controls, ())
         self.assertEqual(repository.batches, [])
+        self.assertEqual(len(saved), 1)
+        self.assertEqual(saved[0].http_status, 404)
+        self.assertEqual(json.loads(saved[0].body), payload)
+        observation = summary.control_observations[0]
+        self.assertEqual(observation["state"], "awaiting_source_publication")
+        self.assertEqual(
+            observation["response_evidence"]["raw_artifact_id"], "private-id"
+        )
+        with patch.object(command, "collect_contratos_batch", return_value=batch):
+            with self.assertRaises(command.PncpContratosBatchFailure):
+                self.collect(Backlog(count=1), SimpleNamespace(
+                    persist_contract_response=lambda snapshot: (_ for _ in ()).throw(
+                        RuntimeError("storage unavailable")
+                    )
+                ))
 
     def test_valid_page_followed_by_404_keeps_page_but_not_completion(self):
         batch = self.batch((200, body()), (404, b""))
