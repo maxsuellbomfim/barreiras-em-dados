@@ -5,6 +5,18 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: retomada manual isolada de itens/resultados
+
+O modo `items_only` executa o coletor de itens/resultados e a normalização
+PNCP existente (limite 500), sem consultar cadastro, descoberta semanal,
+backfill, replay de janela ou contratos. Não é publicação de lote restrito:
+o normalizador mantém seu escopo regular sobre registros já preservados.
+Limites, checkpoints, retentativas e horários automáticos não mudam.
+Falha do coletor continua reprovando o gate final, mesmo se a normalização
+independente concluir. Preparação global malsucedida impede as etapas.
+Verificação operacional após a mesclagem deve conferir a partição e os
+registros; workflow verde não comprova que todo o backlog foi concluído.
+
 ### PNCP: contratos consultados pelo órgão da compra
 
 Após o PR #769, a mesma correção alcança contratos: o CNPJ da consulta vem do
