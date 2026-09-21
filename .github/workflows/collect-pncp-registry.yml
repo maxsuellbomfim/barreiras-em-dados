@@ -21,6 +21,12 @@ on:
           - replay_window
           - registry_only
           - municipal_link_evidence
+          - publication_evidence
+      publication_page:
+        description: "Página da consulta privada por publicação (1–100; janela até 7 dias)"
+        required: false
+        default: "1"
+        type: string
       publish_social_fund:
         description: "Publicar somente o par revisado 130/2026 + IN-029/2026 (modo municipal_link_evidence)"
         required: false
@@ -99,6 +105,20 @@ jobs:
         run: >-
           python -B -m barreiras_collectors.commands.publish_pncp_social_fund
 
+      - name: Preservar página privada por publicação
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'publication_evidence'
+        env:
+          PNCP_REPLAY_SINCE: ${{ inputs.replay_since }}
+          PNCP_REPLAY_UNTIL: ${{ inputs.replay_until }}
+          PNCP_PUBLICATION_PAGE: ${{ inputs.publication_page }}
+        run: |
+          test -n "$PNCP_REPLAY_SINCE"
+          test -n "$PNCP_REPLAY_UNTIL"
+          python -B -m barreiras_collectors.commands.collect_pncp_publication_evidence \
+            --since "$PNCP_REPLAY_SINCE" \
+            --until "$PNCP_REPLAY_UNTIL" \
+            --page "$PNCP_PUBLICATION_PAGE"
+
       - name: Preservar contratações da última semana
         id: collect_weekly
         continue-on-error: true
@@ -130,20 +150,20 @@ jobs:
 
       - name: Preservar itens e resultados das contratações
         id: collect_items
-        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'contracts_only' && inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence')
+        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'contracts_only' && inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'publication_evidence')
         continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_itens
 
       - name: Preservar contratos e empenhos das contratações
         id: collect_contracts
-        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'items_only')
+        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'items_only' && inputs.mode != 'publication_evidence')
         continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratos
 
       - name: Normalizar contratos PNCP
-        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence')
+        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'publication_evidence')
         run: >-
           python -B -m barreiras_collectors.commands.normalize_pncp_contracts
           --limit 500

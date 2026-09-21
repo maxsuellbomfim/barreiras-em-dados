@@ -11,7 +11,9 @@ O comando `collect_pncp_publication_evidence` preserva uma página por execuçã
 em janela de publicação de até sete dias. Não altera contratos públicos nem
 resolve os 74 controles inconclusivos por inferência. Retorna a próxima página
 para retomada explícita; uma página validada nunca declara a janela inteira
-completa. Não está ligado a cron nem ao normalizador. Procedimento e limites em
+completa. O workflow PNCP oferece o modo manual `publication_evidence`, com
+`replay_since`, `replay_until` e `publication_page`; nenhuma outra coleta ou
+normalização executa nesse modo. Não está ligado a cron. Procedimento e limites em
 `docs/reviews/STAGE_2_PNCP_DISCOVERY.md`.
 
 ### PNCP: retomada manual isolada de itens/resultados

@@ -2,6 +2,14 @@
 
 ## Consulta alternativa limitada — 21/09/2026
 
+No GitHub Actions, `Coletar cadastro PNCP` oferece `publication_evidence`.
+Preencher `replay_since`, `replay_until` (até sete dias inclusivos) e
+`publication_page` (1–100). O modo não executa outros coletores, normalização
+ou publicação, mesmo se `publish_social_fund` estiver marcado. Falha nesta
+etapa reprova o job, sem `continue-on-error`. A trava de concorrência PNCP
+existente permanece compartilhada. Datas e página passam por variáveis de
+ambiente com argumentos entre aspas, nunca interpoladas no código shell.
+
 Com as credenciais técnicas já configuradas, a execução manual privada é:
 
 ```powershell
