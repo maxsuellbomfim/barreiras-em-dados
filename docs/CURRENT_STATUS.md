@@ -5,6 +5,15 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: indicador público com evidência privada
+
+Novo estado “Aguardando publicação de contrato no PNCP”, separado de resposta
+inconclusiva e falha técnica. A projeção valida ID/hash/status e compra do
+artefato; o público recebe somente estado, data e link oficial. Não muda
+cobertura, fila de reconsulta ou contratos. Requer a migration
+`20260921194000_pncp_awaiting_publication.sql` e deploy web; sem aplicação da
+migration, o estado anterior permanece. Reservas recentes continuam prevalecendo.
+
 ### PNCP: evidência privada de contrato municipal não publicado
 
 Respostas explícitas da Prefeitura passam a ser preservadas no bucket privado,

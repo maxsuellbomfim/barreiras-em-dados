@@ -1,5 +1,16 @@
 # Etapa 2 — descoberta da fonte PNCP para Barreiras
 
+## Indicador público de publicação pendente
+
+A migration `20260921194000` amplia a projeção existente sem alterar os registros
+brutos, retentativas ou cobertura. Valida a referência privada e o caminho da
+compra antes de aceitar `awaiting_source_publication`. API mantém apenas quatro
+campos públicos: controle, estado, data e fonte; nenhum corpo/hash é exposto.
+Reprojeta apenas execuções com o novo estado, respeitando reservas mais recentes.
+O frontend informa que ausência de publicação no PNCP não prova inexistência
+do contrato em outras fontes. Aplicação em produção precisa de verificação
+separada; checks de código não comprovam migração nem exibição pública.
+
 ## Preservação privada do diagnóstico municipal
 
 O coletor transporta o corpo HTTP 404 apenas quando mensagem, status e caminho
