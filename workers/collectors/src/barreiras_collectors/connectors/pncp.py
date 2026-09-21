@@ -16,6 +16,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from urllib.parse import urlsplit
 
 from ..http import (
     RETRYABLE_TRANSPORT_EXCEPTIONS,
@@ -433,7 +434,9 @@ def _fetch_compras_array(
                 raise PncpContractsResponseError(
                     status=response.status,
                     reason=(
-                        "http_not_found"
+                        _contract_not_found_reason(
+                            response.body, url, response.final_url
+                        )
                         if response.status == 404
                         else "http_no_content"
                     ),
@@ -556,6 +559,33 @@ def _fetch_compras_array(
             sleep(policy.delay(attempt, 0.5))
 
     raise PncpError(f"O PNCP ficou indisponível para {schema_name}.")
+
+
+def _contract_not_found_reason(body: bytes, url: str, final_url: str) -> str:
+    """Diagnostic only: never certifies absence, completes coverage or drops retries."""
+    generic = "http_not_found"
+    requested, final = urlsplit(url), urlsplit(final_url)
+    if (
+        final.scheme != "https"
+        or final.netloc != requested.netloc
+        or final.path != requested.path
+    ):
+        return generic
+    try:
+        payload = json.loads(body)
+    except (ValueError, UnicodeDecodeError):
+        return generic
+    if not isinstance(payload, dict):
+        return generic
+    expected_path = requested.path.replace("/api/pncp/v1/", "/pncp-api/v1/", 1)
+    if (
+        payload.get("status") in (404, "404")
+        and payload.get("path") == expected_path
+        and payload.get("message")
+        == "Não há contrato publicado no PNCP para esta contratação."
+    ):
+        return "source_reports_no_published_contract"
+    return generic
 
 
 def _strict_contract_count(payload: dict, field: str) -> int:

@@ -1,5 +1,18 @@
 # Etapa 2 — descoberta da fonte PNCP para Barreiras
 
+## Diagnóstico de 404 explícito — 21/09/2026
+
+A consulta oficial da compra `13654405000195-1-000040/2026` respondeu HTTP 404
+com a mensagem exata “Não há contrato publicado no PNCP para esta contratação.”
+O diagnóstico `source_reports_no_published_contract` exige mensagem exata,
+status 404 no corpo e caminho oficial correspondente à compra consultada,
+sem redirecionamento para outro host/caminho. Outros 404 permanecem genéricos.
+Isso não comprova inexistência de contrato fora do PNCP. Continua sendo
+`PncpContractsResponseError`: a fila mantém o controle para reconsulta e não
+declara cobertura vazia/completa. Não há nova publicação nem remoção de dados.
+O corpo dessa sondagem não foi importado; este diagnóstico operacional não
+substitui evidência preservada para conclusões públicas.
+
 ## Consulta alternativa limitada — 21/09/2026
 
 No GitHub Actions, `Coletar cadastro PNCP` oferece `publication_evidence`.
