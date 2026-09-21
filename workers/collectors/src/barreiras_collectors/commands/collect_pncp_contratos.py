@@ -97,6 +97,7 @@ class PncpContratosCollectionSummary:
     response_issues: tuple[dict[str, object], ...] = ()
     empty_controls: tuple[str, ...] = ()
     control_observations: tuple[dict[str, object], ...] = ()
+    selected_query_controls: tuple[str, ...] = ()
 
     @property
     def checkpoint(self) -> dict[str, object]:
@@ -104,6 +105,7 @@ class PncpContratosCollectionSummary:
             "cursor_version": CONTRACT_CURSOR_VERSION,
             "next_after_control": self.next_after_control,
             "retry_controls": list(self.retry_controls),
+            "selected_query_controls": list(self.selected_query_controls),
             "pending_truncated": self.pending_truncated,
             "contract_pages_truncated_controls": list(
                 self.contract_pages_truncated_controls
@@ -406,6 +408,7 @@ def _collect_pending(
         {
             "cursor_version": CONTRACT_CURSOR_VERSION,
             "next_after_control": cursor.after_control,
+            "selected_query_controls": [row[0] for row in pending],
             "retry_controls": sorted(
                 set(cursor.retry_controls) | {row[0] for row in pending}
             ),
@@ -439,6 +442,7 @@ def _collect_pending(
             response_issues=tuple(response_issues),
             empty_controls=tuple(empty_controls),
             control_observations=tuple(control_observations),
+            selected_query_controls=tuple(row[0] for row in pending),
         )
 
     for control, ano, sequencial in pending:

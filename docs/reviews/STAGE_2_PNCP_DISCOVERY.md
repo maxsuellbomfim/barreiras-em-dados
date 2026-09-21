@@ -1,5 +1,14 @@
 # Etapa 2 — descoberta da fonte PNCP para Barreiras
 
+## Reserva explícita por lote
+
+`selected_query_controls` separa as compras selecionadas da união de retentativas
+herdadas. É preservado antes da primeira requisição e no fechamento, inclusive
+interrupções. A projeção usa a seleção explícita (até 50 controles); na ausência
+do campo ou formato inválido mantém a reserva conservadora legada. Observações
+continuam exigindo as mesmas evidências. Não reinterpreta cursores históricos:
+as 47 pendências diagnosticadas precisam de nova consulta ou revisão separada.
+
 ## Indicador público de publicação pendente
 
 A migration `20260921194000` amplia a projeção existente sem alterar os registros
