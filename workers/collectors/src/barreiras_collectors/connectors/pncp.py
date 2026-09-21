@@ -46,6 +46,10 @@ class PncpError(RuntimeError):
     """Falha explícita ao consultar o PNCP."""
 
 
+class PncpRateLimitError(PncpError):
+    """Limite de requisições persistiu após as tentativas permitidas."""
+
+
 class PncpContractsResponseError(PncpError):
     """Resposta de contratos que não pode ser tratada como dado ou vazio."""
 
@@ -230,6 +234,8 @@ def fetch_contratacoes_page(
             raise PncpError(
                 f"O PNCP respondeu HTTP {response.status} nas contratações."
             )
+        if response.status == 429 and attempt == policy.max_attempts:
+            raise PncpRateLimitError("O PNCP manteve HTTP 429; consultas adiadas.")
         if attempt < policy.max_attempts:
             retry_after = _retry_after_seconds(response.headers)
             if response.status == 429 and retry_after is None:

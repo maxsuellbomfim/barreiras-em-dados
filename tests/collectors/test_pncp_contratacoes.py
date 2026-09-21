@@ -70,6 +70,41 @@ def fetch(status: int, body: bytes):
 
 
 class ContratacoesFetchTests(unittest.TestCase):
+    def test_exhausted_rate_limit_defers_other_modalities(self):
+        from barreiras_collectors.connectors.pncp import PncpRateLimitError
+
+        transport = OneShotTransport(429, b"rate limited")
+        sleeps = []
+        with self.assertRaises(PncpRateLimitError):
+            fetch_contratacoes_page(
+                since="20240315",
+                until="20240413",
+                modalidade=7,
+                pagina=1,
+                transport=transport,
+                retry_policy=RetryPolicy(max_attempts=2),
+                sleep=sleeps.append,
+            )
+        self.assertEqual(len(transport.urls), 2)
+        self.assertEqual(len(sleeps), 1)
+        with (
+            patch.object(command, "CONTRATACAO_MODALIDADES", (1, 7, 8)),
+            patch.object(
+                command,
+                "fetch_contratacoes_page",
+                side_effect=[None, PncpRateLimitError("limited")],
+            ) as request,
+        ):
+            summary = _collect_window(
+                service=Mock(),
+                since="20240315",
+                until="20240413",
+                logger=logging.getLogger(__name__),
+            )
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(summary.failed_modalities, (7,))
+        self.assertEqual(summary.deferred_modalities, (8,))
+
     def test_page_with_items_preserves_bytes_and_cursor(self) -> None:
         body = json.dumps(
             {

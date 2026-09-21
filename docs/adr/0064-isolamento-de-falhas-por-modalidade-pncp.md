@@ -31,6 +31,14 @@ de páginas como se comprovassem a cobertura integral do período.
 
 ## Consequências
 
+HTTP 429 persistente tem tratamento próprio: após esgotar as tentativas da
+requisição (respeitando o `Retry-After` existente), o coletor de descoberta
+adia as modalidades restantes imediatamente. Não espera a segunda modalidade
+falhar, não converte adiamento em vazio e não avança a janela retroativa.
+O checkpoint mantém modalidades falhas/adiadas e o motivo `rate_limit` aparece
+no evento de diagnóstico. Esta proteção é local à descoberta; não implementa
+um bloqueio compartilhado entre todos os endpoints PNCP.
+
 Em 21/09/2026, a execução `35592051735` falhou no backfill e suprimiu os
 subrecursos e a normalização. O mesmo isolamento passa a abranger descoberta
 semanal, backfill e replay manual: cada etapa mantém seu `outcome`, permite

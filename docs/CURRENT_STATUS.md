@@ -19,6 +19,11 @@ O log mostra HTTP 429 nas duas tentativas da modalidade 7 na janela
 15/03–13/04/2024; a cobertura ficou corretamente `partial`, nunca `empty`.
 Próximo ajuste separado: revisar cadência e retomada diante do limite da fonte.
 
+A descoberta agora distingue HTTP 429 persistente: depois das tentativas já
+permitidas, adia as modalidades restantes sem novas chamadas nessa janela.
+Mantém cobertura parcial e retomada idempotente; não amplia tentativas nem
+declara que a limitação da fonte foi resolvida. Não é um cooldown global.
+
 ### PNCP: Fundo Social e contrato 130/2026 publicados
 
 O importador privado do par contrato 130/2026 + compra IN-029/2026 foi implementado.
