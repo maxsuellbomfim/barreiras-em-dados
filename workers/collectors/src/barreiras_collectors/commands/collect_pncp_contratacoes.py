@@ -18,6 +18,7 @@ from ..connectors.pncp import (
     CONTRATACAO_MODALIDADES,
     SOURCE_CODE,
     PncpError,
+    PncpRateLimitError,
     fetch_contratacoes_page,
 )
 from ..logging import log_event
@@ -280,7 +281,11 @@ def _collect_window(
                 error_type=type(error).__name__,
                 consecutive_failures=consecutive_failures,
             )
-            if consecutive_failures >= MAX_CONSECUTIVE_MODALITY_FAILURES:
+            rate_limited = isinstance(error, PncpRateLimitError)
+            if (
+                rate_limited
+                or consecutive_failures >= MAX_CONSECUTIVE_MODALITY_FAILURES
+            ):
                 deferred_modalities.extend(CONTRATACAO_MODALIDADES[index + 1 :])
                 log_event(
                     logger,
@@ -289,6 +294,7 @@ def _collect_window(
                     source=SOURCE_CODE,
                     modalidades=deferred_modalities,
                     failure_budget=MAX_CONSECUTIVE_MODALITY_FAILURES,
+                    reason="rate_limit" if rate_limited else "consecutive_failures",
                 )
                 break
             continue
