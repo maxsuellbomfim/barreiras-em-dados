@@ -7,6 +7,7 @@ const migrations = new URL("../../supabase/migrations/", import.meta.url);
 const names = (await readdir(migrations)).filter(name=>name.endsWith("_pncp_contract_query_status.sql"));
 assert.ok(names.length<=1,"single versioned projection migration");
 const migration = names.length ? await readFile(new URL(names[0],migrations),"utf8") : null;
+const awaitingMigration = await readFile(new URL("20260921194000_pncp_awaiting_publication.sql", migrations), "utf8");
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
 const control = "13654405000195-1-000027/2026";
 const hash = "a".repeat(64);
@@ -29,6 +30,7 @@ async function setup(t, seed) {
   else await db.exec(`create function api.get_pncp_contract_query_status(control_numbers text[])
     returns table(control_number text,state text,checked_at timestamptz,source_url text)
     language sql as $$select unnest(control_numbers),'unknown'::text,null::timestamptz,null::text$$;`);
+  if(awaitingMigration) await db.exec(awaitingMigration);
   return db;
 }
 function observation(overrides={}) { return { version:1, scope:"pncp_contracts_query",control,
@@ -39,6 +41,21 @@ async function run(db, number, {obs=[observation()], status="partial", start="20
   await db.query(`insert into source.collection_runs values($1,$2,$3,$4,$5,$6,$7)`,[id(number),id(2),status,start,end,JSON.stringify(cursor),JSON.stringify({control_plane:true,control_observations:obs,...extra})]);
 }
 async function read(db) { return (await db.query("select * from api.get_pncp_contract_query_status($1)",[[control]])).rows[0]; }
+
+test("aguardando publicação exige resposta privada correspondente e não expõe evidência",async t=>{
+ const db=await setup(t);
+ await db.exec(`update raw.raw_artifacts set http_status=404,metadata='{"schema_name":"pncp-registry-snapshot","resource":"contract-response:/api/pncp/v1/orgaos/13654405000195/contratos/contratacao/2026/27"}'`);
+ const obs=observation({state:"awaiting_source_publication",reason:"source_reports_no_published_contract",http_status:404,response_page:1,records_preserved:null,pages:[],response_evidence:{raw_artifact_id:id(3),sha256:hash,http_status:404}});
+ await run(db,10,{obs:[obs]});
+ assert.equal((await read(db)).state,"awaiting_source_publication");
+ assert.ok(!JSON.stringify(await read(db)).includes(hash));
+ for(const [i,change] of [{sha256:"b".repeat(64)},{raw_artifact_id:id(999)},{http_status:200}].entries()) {
+   await run(db,20+i,{obs:[{...obs,response_evidence:{...obs.response_evidence,...change}}]});
+   assert.equal((await read(db)).state,"unknown");
+ }
+ await db.exec(`update raw.raw_artifacts set metadata=jsonb_set(metadata,'{resource}','"contract-response:/api/pncp/v1/orgaos/13654405000195/contratos/contratacao/2026/99"')`);
+ await run(db,30,{obs:[obs]}); assert.equal((await read(db)).state,"unknown");
+});
 
 test("consulta completa expõe só estado, data e fonte; projeção é indexada",async t=>{
   const db=await setup(t); await run(db,10);

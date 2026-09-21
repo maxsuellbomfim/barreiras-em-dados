@@ -33,6 +33,15 @@ const fixture = state => ({
 });
 const render = state => renderToStaticMarkup(createElement(ProcurementExplorer, { procurements: [fixture(state)] }));
 
+test("aguardando publicação informa a fonte e não afirma inexistência",()=>{
+ const html=renderToStaticMarkup(createElement(ProcurementExplorer,{procurements:[{
+  ...fixture("no_linked_execution"),queryStatus:{state:"awaiting_source_publication",checkedAt:"2026-09-21T19:00:00Z",sourceUrl:null}
+ }]}));
+ assert.match(html,/Aguardando publicação de contrato no PNCP/);
+ assert.match(html,/não prova que o contrato não exista em outras fontes/);
+ assert.doesNotMatch(html,/raw_artifact|sha256/);
+});
+
 test("card do Fundo abre seu registro oficial, sem trocar o CNPJ pelo da Prefeitura", () => {
   const procurement = { ...fixture("not_available"), controlNumber: "13250888000162-1-000003/2026", ano: 2025, sequencial: 99 };
   const html = renderToStaticMarkup(createElement(ProcurementExplorer, { procurements: [procurement] }));

@@ -1,10 +1,10 @@
 export type PncpQueryStatus = Readonly<{
-  state: "unknown" | "pending" | "query_complete" | "empty_confirmed" | "inconclusive" | "partial" | "interrupted" | "unavailable";
+  state: "unknown" | "pending" | "query_complete" | "empty_confirmed" | "inconclusive" | "partial" | "interrupted" | "unavailable" | "awaiting_source_publication";
   checkedAt: string | null;
   sourceUrl: string | null;
 }>;
 
-const states = new Set(["unknown", "pending", "query_complete", "empty_confirmed", "inconclusive", "partial", "interrupted"]);
+const states = new Set(["unknown", "pending", "query_complete", "empty_confirmed", "inconclusive", "partial", "interrupted", "awaiting_source_publication"]);
 const controlPattern = /^13654405000195-1-([0-9]{1,12})\/([0-9]{4})$/;
 
 export async function fetchPncpQueryStatuses(

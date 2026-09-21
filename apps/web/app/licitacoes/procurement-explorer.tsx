@@ -41,6 +41,7 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
   const queryLabels = {
     unknown: "Verificação individual ainda não disponível",
     pending: "Consulta pendente de conclusão",
+    awaiting_source_publication: "Aguardando publicação de contrato no PNCP",
     query_complete: "Consulta de contratos concluída",
     empty_confirmed: "Resposta vazia confirmada nesta consulta",
     inconclusive: "Resposta do PNCP inconclusiva",
@@ -175,7 +176,9 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
       <div className="procurement-query-status">
         <p><strong>{queryLabels[queryState]}</strong></p>
         <p className="meta-note">
-          {queryState === "empty_confirmed"
+          {queryState === "awaiting_source_publication"
+            ? "Na data da consulta, o PNCP informou que não havia contrato publicado para esta compra. A resposta foi preservada. Isso não prova que o contrato não exista em outras fontes. A compra permanece na fila de reconsulta."
+            : queryState === "empty_confirmed"
             ? "O PNCP devolveu uma lista vazia de contratos nesta consulta, e essa resposta foi preservada. Isso não prova ausência de contratos em outros períodos ou fontes."
             : queryState === "query_complete"
               ? "As páginas desta consulta foram verificadas e preservadas. Isso não comprova pagamentos nem execução do contrato, nem cobertura de todo o histórico."
