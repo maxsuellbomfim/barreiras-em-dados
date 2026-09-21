@@ -31,6 +31,13 @@ de páginas como se comprovassem a cobertura integral do período.
 
 ## Consequências
 
+Em 21/09/2026, a execução `35592051735` falhou no backfill e suprimiu os
+subrecursos e a normalização. O mesmo isolamento passa a abranger descoberta
+semanal, backfill e replay manual: cada etapa mantém seu `outcome`, permite
+continuação das etapas independentes e é reprovada explicitamente pelo gate
+final. Não muda checkpoint, cobertura, retentativas, escopo ou publicação.
+Falhas de preparação global continuam bloqueando a execução.
+
 - Uma degradação localizada do PNCP não descarta dados oficiais já recebidos.
 - O workflow pode terminar sem erro de processo enquanto o painel mantém a
   cobertura parcial visível e rastreável.
