@@ -273,7 +273,7 @@ def _collect_pending(
     for control, ano, sequencial in pending:
         itens: list[dict] = []
         try:
-            identity = re.fullmatch(r"([0-9]{14})-1-([0-9]{6})/([0-9]{4})", control)
+            identity = re.fullmatch(r"([0-9]{14})-1-([0-9]{1,12})/([0-9]{4})", control)
             if (
                 identity is None
                 or int(identity[2]) != sequencial
