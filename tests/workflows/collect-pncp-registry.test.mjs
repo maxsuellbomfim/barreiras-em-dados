@@ -33,6 +33,26 @@ const items = "Preservar itens e resultados das contratações";
 const contracts = "Preservar contratos e empenhos das contratações";
 const normalize = "Normalizar contratos PNCP";
 
+test("consulta por publicação fica isolada e transmite inputs somente pelo ambiente", () => {
+  const evidence = "Preservar página privada por publicação";
+  assert.match(workflow, /^          - publication_evidence$/m);
+  for (const name of [registry, weekly, backfill, replay, items, contracts, normalize,
+    "Preservar vínculo municipal privado", "Publicar par revisado do Fundo Social"])
+    assert.equal(enabled(name, { mode: "publication_evidence" }), false, name);
+  assert.equal(enabled(evidence, { mode: "publication_evidence" }), true);
+  assert.equal(enabled(evidence, { mode: "publication_evidence", priorSucceeded: false }), false);
+  for (const mode of ["full", "items_only", "contracts_only", "registry_only", "backfill", "replay_window", "municipal_link_evidence"])
+    assert.equal(enabled(evidence, { mode }), false);
+  assert.equal(enabled(evidence, { event: "schedule" }), false);
+  const block = step(evidence);
+  assert.doesNotMatch(block, /continue-on-error/);
+  assert.match(block, /PNCP_PUBLICATION_PAGE: \$\{\{ inputs.publication_page \}\}/);
+  assert.match(block, /--since "\$PNCP_REPLAY_SINCE"/);
+  assert.match(block, /--until "\$PNCP_REPLAY_UNTIL"/);
+  assert.match(block, /--page "\$PNCP_PUBLICATION_PAGE"/);
+  assert.doesNotMatch(block.split('run: |')[1], /\$\{\{/);
+});
+
 test("falhas de descoberta não bloqueiam etapas independentes e reprovam o gate", () => {
   const gate = step("Sinalizar falha parcial da coleta");
   const script = gate.split(/\r?\n        run: \|\r?\n/)[1]
@@ -212,7 +232,7 @@ test("falha em contratos nao impede normalizacao e permanece visivel no resultad
   );
   assert.match(
     step(normalize),
-    /if: github\.event_name != 'workflow_dispatch' \|\| \(inputs\.mode != 'registry_only' && inputs\.mode != 'municipal_link_evidence'\)[\s\S]*?normalize_pncp_contracts/,
+    /if: github\.event_name != 'workflow_dispatch' \|\| \(inputs\.mode != 'registry_only' && inputs\.mode != 'municipal_link_evidence' && inputs\.mode != 'publication_evidence'\)[\s\S]*?normalize_pncp_contracts/,
   );
   assert.match(
     step("Sinalizar falha parcial da coleta"),
