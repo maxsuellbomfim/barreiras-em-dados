@@ -33,6 +33,29 @@ const items = "Preservar itens e resultados das contratações";
 const contracts = "Preservar contratos e empenhos das contratações";
 const normalize = "Normalizar contratos PNCP";
 
+test("falhas de descoberta não bloqueiam etapas independentes e reprovam o gate", () => {
+  const gate = step("Sinalizar falha parcial da coleta");
+  const script = gate.split(/\r?\n        run: \|\r?\n/)[1]
+    .split(/\r?\n/).map(line => line.replace(/^          /, "")).join("\n");
+  for (const [name, id, envName] of [
+    [weekly, "collect_weekly", "PNCP_WEEKLY_OUTCOME"],
+    [backfill, "collect_backfill", "PNCP_BACKFILL_OUTCOME"],
+    [replay, "collect_replay", "PNCP_REPLAY_OUTCOME"],
+  ]) {
+    assert.match(step(name), new RegExp(`^        id: ${id}$`, "m"));
+    assert.match(step(name), /^        continue-on-error: true$/m);
+    assert.ok(gate.includes(`${envName}: $` + `{{ steps.${id}.outcome }}`));
+    for (const downstream of [items, contracts, normalize])
+      assert.equal(enabled(downstream, { priorSucceeded: true }), true);
+    const result = spawnSync(process.platform === "win32" ? "C:\\Program Files\\Git\\bin\\bash.exe" : "bash",
+      ["--noprofile", "--norc", "-c", script], {
+        encoding: "utf8", timeout: 5000, windowsHide: true,
+        env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, [envName]: "failure" },
+      });
+    assert.equal(result.status, 1, `${envName}: ${result.stderr}`);
+  }
+});
+
 test("evidencia municipal executa apenas o par privado e nunca normaliza", () => {
   const evidence = "Preservar vínculo municipal privado";
   for (const name of [registry, weekly, backfill, replay, items, contracts, normalize])

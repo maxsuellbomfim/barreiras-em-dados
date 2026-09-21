@@ -99,17 +99,23 @@ jobs:
           python -B -m barreiras_collectors.commands.publish_pncp_social_fund
 
       - name: Preservar contratações da última semana
+        id: collect_weekly
+        continue-on-error: true
         if: github.event.schedule != '43 5 * * *' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'full')
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratacoes
 
       - name: Backfill retroativo de contratações
+        id: collect_backfill
+        continue-on-error: true
         if: github.event.schedule == '43 5 * * *' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'full' || inputs.mode == 'backfill'))
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_contratacoes
           --backfill
 
       - name: Reprocessar janela PNCP
+        id: collect_replay
+        continue-on-error: true
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'replay_window'
         env:
           PNCP_REPLAY_SINCE: ${{ inputs.replay_since }}
@@ -145,10 +151,17 @@ jobs:
         if: always()
         env:
           PNCP_REGISTRY_OUTCOME: ${{ steps.collect_registry.outcome }}
+          PNCP_WEEKLY_OUTCOME: ${{ steps.collect_weekly.outcome }}
+          PNCP_BACKFILL_OUTCOME: ${{ steps.collect_backfill.outcome }}
+          PNCP_REPLAY_OUTCOME: ${{ steps.collect_replay.outcome }}
           PNCP_ITEMS_OUTCOME: ${{ steps.collect_items.outcome }}
           PNCP_CONTRACTS_OUTCOME: ${{ steps.collect_contracts.outcome }}
         run: |
           status=0
+          if [ "$PNCP_WEEKLY_OUTCOME" = "failure" ] || [ "$PNCP_BACKFILL_OUTCOME" = "failure" ] || [ "$PNCP_REPLAY_OUTCOME" = "failure" ]; then
+            echo "::error::A descoberta de contratações falhou ou ficou incompleta; as etapas independentes foram mantidas, sem declarar cobertura completa."
+            status=1
+          fi
           if [ "$PNCP_REGISTRY_OUTCOME" = "failure" ]; then
             echo "::error::A coleta do cadastro PNCP falhou; a falha permanece registrada independentemente das demais etapas."
             status=1

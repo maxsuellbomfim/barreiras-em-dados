@@ -1,9 +1,23 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **16/09/2026**. Este é o ponto de entrada operacional; o histórico
+Atualizado em **21/09/2026**. Este é o ponto de entrada operacional; o histórico
 de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
+
+### PNCP: pendências históricas reconciliadas; falha de descoberta isolada
+
+Consulta de 21/09 confirmou zero compras pendentes no comparador de chave,
+hash e órgão. Em 19/09 às 09:48 UTC foram normalizadas uma compra de 2023 e
+33 de 2024, todas versão 1, com artefato de origem e órgão compatível. Isso
+supera o lote de 32 antes observado; não é necessário reimportá-lo.
+
+O workflow `35592051735` falhou no backfill em 21/09 e suprimiu as etapas
+independentes. A correção mantém itens, contratos e normalização habilitados
+após falha de descoberta, mas reprova o resultado final e não muda cobertura.
+O log mostra HTTP 429 nas duas tentativas da modalidade 7 na janela
+15/03–13/04/2024; a cobertura ficou corretamente `partial`, nunca `empty`.
+Próximo ajuste separado: revisar cadência e retomada diante do limite da fonte.
 
 ### PNCP: Fundo Social e contrato 130/2026 publicados
 
