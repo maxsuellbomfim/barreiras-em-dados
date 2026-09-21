@@ -1,5 +1,32 @@
 # Etapa 2 — descoberta da fonte PNCP para Barreiras
 
+## Consulta alternativa limitada — 21/09/2026
+
+Com as credenciais técnicas já configuradas, a execução manual privada é:
+
+```powershell
+python -B -m barreiras_collectors.commands.collect_pncp_publication_evidence --since 2026-09-01 --until 2026-09-07 --page 1
+```
+
+- Consulta oficial `/api/consulta/v1/contratos`, somente CNPJ da Prefeitura,
+  por **data de publicação**, não pelo ano do contrato ou da compra.
+- Uma página de 50 registros por execução; janela máxima de sete dias;
+  página máxima 100. Sem cron ou publicação automática.
+- Reutiliza preservação privada por hash e leitura de volta do Storage.
+  HTTP indisponível/204/404 não se torna ausência comprovada. Vazio exige
+  resposta JSON 200 com totais explícitos e coerentes.
+- Controle começa antes da autenticação do Storage. Partição inclui janela
+  **e página**; `complete` refere-se exclusivamente à página preservada.
+- `next_page` permite retomada manual. `window_complete=false` permanece
+  inclusive na última página: ainda falta reconciliar as páginas, mudanças
+  na fonte, controles repetidos entre páginas e vínculo oficial com a compra.
+- Não cria registros de contrato consumidos pelo normalizador. O contrato
+  antigo publicado agora não é descartado. Vínculos entre órgãos distintos
+  exigem evidência posterior; não são inferidos desta consulta.
+
+Próximo gate operacional: resposta oficial preservada e validada, seguida de
+reconciliação integral de uma janela pequena antes de qualquer publicação.
+
 ## Auditoria de descoberta por período — 15/09/2026
 
 ### Preservação dirigida do par validado
