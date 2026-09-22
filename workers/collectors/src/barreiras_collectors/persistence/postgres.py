@@ -1737,7 +1737,7 @@ class PostgresCollectionRepository:
             connection.close()
 
     def pncp_backfill_anchor(self) -> date | None:
-        """Data mais antiga com cobertura integral classificada no PNCP."""
+        """Modalidades isoladas não avançam o histórico de janelas completas."""
         connection = self.connection_factory()
         try:
             row = connection.execute(
@@ -1755,6 +1755,11 @@ class PostgresCollectionRepository:
                   and partition.status in ('complete', 'empty')
                   and run.status = 'succeeded'
                   and partition.period_start is not null
+                  and partition.period_end is not null
+                  and partition.partition_key = (
+                    'published:' || partition.period_start::text || ':' ||
+                    partition.period_end::text
+                  )
                 """
             ).fetchone()
         finally:
@@ -1765,6 +1770,39 @@ class PostgresCollectionRepository:
         if isinstance(value, date):
             return value
         return date.fromisoformat(str(value))
+
+    def pncp_partial_window(self) -> tuple[date, date] | None:
+        """Retoma exatamente a janela parcial, sem ampliá-la ou fechar subjanela."""
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select partition.period_start, partition.period_end
+                from source.collection_partitions as partition
+                join source.source_endpoints as endpoint
+                  on endpoint.id = partition.source_endpoint_id
+                join source.data_sources as data_source
+                  on data_source.id = endpoint.data_source_id
+                where data_source.slug = 'pncp'
+                  and endpoint.slug = 'consulta-contratacoes'
+                  and partition.status = 'partial'
+                  and partition.period_end - partition.period_start between 0 and 30
+                  and partition.partition_key = (
+                    'published:' || partition.period_start::text || ':' ||
+                    partition.period_end::text
+                  )
+                order by partition.period_start, partition.period_end
+                limit 1
+                """
+            ).fetchone()
+        finally:
+            connection.close()
+        if row is None:
+            return None
+        return (
+            date.fromisoformat(str(row["period_start"])),
+            date.fromisoformat(str(row["period_end"])),
+        )
 
     def pncp_pending_itens(
         self,

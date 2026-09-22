@@ -338,6 +338,23 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
         repository = PostgresCollectionRepository(lambda: connection)
 
         self.assertEqual(repository.pncp_backfill_anchor(), date(2025, 6, 8))
+        query = connection.calls[0][0]
+        self.assertIn("partition.partition_key =", query)
+        self.assertIn("partition.period_end::text", query)
+        self.assertTrue(connection.closed)
+
+    def test_pncp_partial_window_keeps_exact_dates_and_excludes_modalities(self):
+        connection = CheckpointConnection(
+            {"period_start": date(2024, 3, 15), "period_end": date(2024, 3, 15)}
+        )
+        repository = PostgresCollectionRepository(lambda: connection)
+        self.assertEqual(
+            repository.pncp_partial_window(), (date(2024, 3, 15), date(2024, 3, 15))
+        )
+        query = connection.calls[0][0]
+        self.assertIn("partition.status = 'partial'", query)
+        self.assertIn("partition.partition_key =", query)
+        self.assertIn("between 0 and 30", query)
         self.assertTrue(connection.closed)
 
     def test_tcm_document_planner_respects_open_retry_schedule(self) -> None:

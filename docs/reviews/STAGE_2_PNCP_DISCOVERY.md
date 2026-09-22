@@ -2,6 +2,14 @@
 
 ## Replay isolado de descoberta
 
+Na CLI, `--since 2024-03-15 --until 2024-04-13 --modalidade 9` consulta somente
+a modalidade escolhida, preservando todas as suas páginas. Exige as duas datas
+e é incompatível com `--backfill`. A partição recebe o sufixo `:modality:9` e
+nunca substitui a janela geral. O resultado do comando refere-se só a esse
+escopo; não há agregação automática de sucessos isolados ou reclassificação do
+checkpoint antigo. No backfill, janelas gerais parciais têm prioridade e são
+retomadas com as datas exatas; partições por modalidade não avançam o cursor.
+
 A descoberta usa `PacedRateLimiter(10)` compartilhado por toda a janela,
 incluindo cada tentativa HTTP. O teto coincide com o endpoint cadastrado; não
 é garantia de aceitação pelo PNCP nem coordenação entre processos distintos.

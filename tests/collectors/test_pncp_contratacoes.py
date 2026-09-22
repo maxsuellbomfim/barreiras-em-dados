@@ -466,7 +466,7 @@ class ControlledPncpContratacoesTests(unittest.TestCase):
 
 
 class PncpContratacoesMainExitTests(unittest.TestCase):
-    def run_main(self, summary, *, horizon_reached=False):
+    def run_main(self, summary, *, horizon_reached=False, extra_args=(), partial=None):
         events = []
         repository = SimpleNamespace(
             start_controlled_run=Mock(
@@ -477,6 +477,7 @@ class PncpContratacoesMainExitTests(unittest.TestCase):
             ),
             fail_controlled_run=Mock(),
             pncp_backfill_anchor=Mock(return_value=command.BACKFILL_HORIZON),
+            pncp_partial_window=Mock(return_value=partial),
         )
         with (
             patch.object(
@@ -516,10 +517,61 @@ class PncpContratacoesMainExitTests(unittest.TestCase):
             result = command.main(
                 ["--backfill"]
                 if horizon_reached
-                else ["--since", "2026-09-07", "--until", "2026-09-14"]
+                else ["--since", "2026-09-07", "--until", "2026-09-14", *extra_args]
             )
             events.append("returned")
         return result, repository, events, log, cloud, collect
+
+    def test_single_modality_has_separate_coverage(self):
+        summary = PncpContratacoesCollectionSummary(0, 0, 0, ())
+        result, repository, _, log, _, collect = self.run_main(
+            summary, extra_args=("--modalidade", "9")
+        )
+        self.assertEqual(result, 0)
+        values = repository.complete_controlled_run.call_args.kwargs
+        self.assertEqual(
+            values["partition_key"], "published:2026-09-07:2026-09-14:modality:9"
+        )
+        self.assertEqual(collect.call_args.kwargs["modalidade"], 9)
+        self.assertEqual(log.call_args.kwargs["modalidade"], 9)
+
+    def test_backfill_prioritizes_exact_partial_window_before_cursor(self):
+        from datetime import date
+
+        summary = PncpContratacoesCollectionSummary(0, 0, 0, ())
+        _, repository, _, _, _, collect = self.run_main(
+            summary,
+            horizon_reached=True,
+            partial=(date(2024, 3, 15), date(2024, 3, 15)),
+        )
+        repository.pncp_backfill_anchor.assert_not_called()
+        self.assertEqual(collect.call_args.kwargs["since"], "20240315")
+        self.assertEqual(collect.call_args.kwargs["until"], "20240315")
+
+    def test_scoped_query_requires_explicit_dates_and_no_backfill(self):
+        for args in (
+            ["--modalidade", "9"],
+            ["--modalidade", "9", "--backfill"],
+            ["--modalidade", "0"],
+            ["--modalidade", "14"],
+        ):
+            with self.subTest(args=args), self.assertRaises(SystemExit):
+                command.main(args)
+
+    def test_scoped_window_fetches_only_selected_modality(self):
+        with patch.object(
+            command, "fetch_contratacoes_page", return_value=None
+        ) as fetch:
+            summary = _collect_window(
+                service=Mock(),
+                since="20240315",
+                until="20240413",
+                logger=logging.getLogger(__name__),
+                modalidade=9,
+            )
+        self.assertEqual(fetch.call_count, 1)
+        self.assertEqual(fetch.call_args.kwargs["modalidade"], 9)
+        self.assertEqual(summary.outcome.value, "empty")
 
     def test_partial_exits_nonzero_after_recording_checkpoint_and_summary(self):
         for partial_fields in (
