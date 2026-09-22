@@ -33,6 +33,44 @@ const items = "Preservar itens e resultados das contratações";
 const contracts = "Preservar contratos e empenhos das contratações";
 const normalize = "Normalizar contratos PNCP";
 
+test("diagnóstico de rede é limitado ao replay isolado com falha", () => {
+  const block = step("Diagnosticar rede PNCP sem persistir");
+  const expression = block.match(/^        if: (.+)$/m)[1];
+  for (const mode of ["discovery_only", "full", "replay_window"])
+    for (const outcome of ["failure", "success", "skipped"])
+      assert.equal(runInNewContext(expression, {
+        github: { event_name: "workflow_dispatch" }, inputs: { mode },
+        steps: { collect_replay: { outcome } },
+      }), mode === "discovery_only" && outcome === "failure");
+  assert.match(block, /--connect-timeout 10 --max-time 20/);
+  assert.match(block, /--output \/dev\/null/);
+  assert.match(block, /--proto '=https'/);
+  assert.doesNotMatch(block, /--retry|--insecure|--verbose|secrets\./);
+  assert.match(block, /codigoModalidadeContratacao=1/);
+  assert.match(block, /não comprova cobertura/);
+  const script = block.split(/\r?\n        run: \|\r?\n/)[1]
+    .split(/\r?\n/).map(line => line.replace(/^          /, "")).join("\n");
+  const bash = process.platform === "win32" ? "C:\\Program Files\\Git\\bin\\bash.exe" : "bash";
+  for (const code of [0, 28]) {
+    const result = spawnSync(bash, ["--noprofile", "--norc", "-c",
+      `set -e; curl() { printf '%s\\n' "$@"; return ${code}; };\n${script}`], {
+      encoding: "utf8", timeout: 5000, windowsHide: true,
+      env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot,
+        PNCP_REPLAY_SINCE: "2024-03-15", PNCP_REPLAY_UNTIL: "2024-03-15" },
+    });
+    assert.equal(result.status, code);
+    assert.match(result.stdout, /dataInicial=20240315&dataFinal=20240315/);
+  }
+  const invalid = spawnSync(bash, ["--noprofile", "--norc", "-c",
+    `set -e; curl() { echo unexpected_request; };\n${script}`], {
+    encoding: "utf8", timeout: 5000, windowsHide: true,
+    env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot,
+      PNCP_REPLAY_SINCE: "2024-03-15&other=value", PNCP_REPLAY_UNTIL: "2024-03-15" },
+  });
+  assert.notEqual(invalid.status, 0);
+  assert.doesNotMatch(invalid.stdout, /unexpected_request/);
+});
+
 test("replay de descoberta isolada não executa itens, contratos ou normalização", () => {
   assert.match(workflow, /^          - discovery_only$/m);
   assert.equal(enabled(replay, {mode:"discovery_only"}), true);
