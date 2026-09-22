@@ -425,6 +425,13 @@ class GazetteDocumentRepository:
                             ),
                         )
                         inserted_documents += 1
+                # A conflict may belong to another artifact/edition with the
+                # same bytes. It is not proof that this batch was persisted.
+                # Raising inside the transaction also rolls back partial inserts.
+                if inserted_documents != len(batch.documents):
+                    raise ProcessingError(
+                        "Conflito documental: lote integral não foi persistido."
+                    )
                 return PersistResult(
                     created=True,
                     documents_inserted=inserted_documents,
