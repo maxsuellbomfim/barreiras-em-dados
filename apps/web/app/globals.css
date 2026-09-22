@@ -905,6 +905,21 @@ a:focus-visible {
   background: rgba(255, 255, 255, 0.62);
 }
 
+.reviewed-diary-index > div {
+  min-width: 0;
+}
+
+.reviewed-diary-index ol {
+  padding-left: 1.5rem;
+  margin-block: 1rem;
+}
+
+.reviewed-diary-index a {
+  display: inline-block;
+  padding-block: 0.65rem;
+  overflow-wrap: anywhere;
+}
+
 .collection-signal-muted {
   flex: 0 0 auto;
   background: #edf0f5;

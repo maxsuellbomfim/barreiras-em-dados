@@ -5,6 +5,16 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Diário: navegação revisada pelas páginas oficiais da edição 4310
+
+O detalhe de 4310/2024 recebe índice de 15 intervalos, cobrindo as 137 páginas,
+somente quando o hash corresponde ao PDF revisado `424488a81d36041e...`.
+Links abrem o original na página inicial; não publicam os PDFs derivados locais
+nem o OCR. Limites foram conferidos visualmente; atas com a mesma numeração
+e empresas distintas permanecem separadas. Texto auxiliar continua em revisão.
+O índice não comprova pagamentos nem fidelidade da extração e não carrega PDF
+no navegador antes do clique. Não há escrita no banco nesta entrega.
+
 ### Diário: transparência sobre qualidade da extração
 
 Índice e detalhe deixam de anunciar transcrição integral ou texto completo sem
