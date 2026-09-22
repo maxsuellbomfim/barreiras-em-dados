@@ -59,7 +59,7 @@ test("catálogo sem texto publicado fica distinto de erro e busca vazia", () => 
   assert.match(catalogFallbackMigration, /get_official_diary_catalog/);
   assert.match(catalogFallbackMigration, /barreiras_diario_publication/);
   assert.match(catalogClient, /get_official_diary_catalog/);
-  assert.match(diaryPage, /sem texto integral nesta consulta/);
+  assert.match(diaryPage, /sem texto disponível nesta consulta/);
   assert.match(diaryPage, /listState === "catalog_only"/);
   assert.match(diaryPage, /catalogCount === null \? "Não apurado"/);
   assert.match(diaryPage, /pageCount === null \? "Não apurado"/);

@@ -35,6 +35,27 @@ const coverage = await readFile(
   new URL("../../apps/web/lib/public-diary-coverage.ts", import.meta.url),
   "utf8",
 );
+const notice = await readFile(
+  new URL("../../apps/web/app/diario/diary-extraction-notice.tsx", import.meta.url),
+  "utf8",
+);
+
+test("aviso acessível explica omissões, busca e limite do hash sem acusar a fonte", () => {
+  assert.match(notice, /<aside/);
+  assert.match(notice, /aria-label="Limitações do texto extraído"/);
+  assert.match(notice, /páginas do acervo com texto incompleto/);
+  assert.match(notice, /nomes, números e tabelas/);
+  assert.match(notice, /não prova que ele não esteja no Diário/);
+  assert.match(notice, /não comprova que a/);
+});
+
+test("Diário não confunde extração disponível com transcrição integral validada", () => {
+  assert.match(page, /DiaryExtractionNotice/);
+  assert.match(editionPage, /DiaryExtractionNotice/);
+  assert.doesNotMatch(editionPage, /Transcrição integral|Fonte oficial, texto completo|na íntegra e pesquisável/);
+  assert.doesNotMatch(index, /Ler documento na íntegra/);
+  assert.doesNotMatch(explorer, /Texto literal preservado/);
+});
 
 test("paginacao do diario integral usa RPC com offset e navegacao publica", () => {
   assert.match(client, /get_integral_gazette_editions_page/);
@@ -57,7 +78,7 @@ test("busca global mantém o termo e pagina sem expor tabelas brutas", () => {
 
 test("diario explica cobertura sem confundir pagina com acervo total", () => {
   assert.match(page, /DiaryCoverageSummary/);
-  assert.match(page, /Acervo integral preservado/);
+  assert.match(page, /Edições preservadas/);
   assert.match(page, /Catálogo oficial consultado/);
   assert.match(page, /Nesta página/);
 });
@@ -94,7 +115,7 @@ test("interface mostra texto literal completo e não usa digest ou paráfrase", 
   assert.match(explorer, /<pre/);
   assert.match(explorer, /fullText/);
   assert.doesNotMatch(index, /fullText/);
-  assert.match(explorer, /Edição integral — separação segura indisponível/);
+  assert.match(explorer, /Texto da edição — separação segura indisponível/);
   assert.match(explorer, /type="search"/);
   assert.match(explorer, /document\.literalTitle/);
   assert.doesNotMatch(page, /Resumo oficial|Explicação em palavras simples|Diário Oficial traduzido/);

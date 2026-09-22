@@ -5,6 +5,16 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Diário: transparência sobre qualidade da extração
+
+Índice e detalhe deixam de anunciar transcrição integral ou texto completo sem
+prova. Aviso visível explica omissões, erros de OCR, limites da busca e do hash;
+conteúdo existente, paginação e links permanecem. Não é a conclusão da recuperação.
+Piloto local 4310/2024: 137 páginas com OCR e hashes conferidos; revisão editorial
+pendente, sem importação/publicação. A auditoria encontrou sinal de numeração
+isolada em 14.832 páginas de 295 edições publicadas, sem OCR registrado nessas
+páginas. Contagem não equivale a revisão visual integral do acervo.
+
 ### Diário: OCR para página com apenas numeração
 
 Conferência visual em 22/09: o PDF de hash `424488a81d36041e...` identifica
