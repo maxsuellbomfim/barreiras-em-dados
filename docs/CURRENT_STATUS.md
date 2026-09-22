@@ -5,6 +5,18 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Diário: OCR para página com apenas numeração
+
+Conferência visual em 22/09: o PDF de hash `424488a81d36041e...` identifica
+edição EXTRA 4310, de 12/12/2024, na primeira página, com ato legível em imagem.
+O artefato associado a 4309 aponta para `diario4310.pdf`; a extração embutida
+da primeira página contém apenas `1`. A fila de OCR passa a aceitar texto
+exatamente igual ao número da página, somente em PDFs diretos do Diário e
+sem resultado OCR ou texto alternativo útil. Texto curto não é descartado por
+tamanho. TCM e TXT não recebem essa nova regra. OCR concluído não é repetido.
+Esta etapa não republica versões existentes: reconciliação das edições e
+reprocessamento editorial após OCR ainda exigem validação do conteúdo.
+
 ### Diário: confirmação de persistência sem falso sucesso
 
 A auditoria de 22/09 identificou artefatos de 4309/2024 e 4263/2024 com

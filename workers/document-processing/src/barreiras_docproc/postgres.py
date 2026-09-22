@@ -978,7 +978,7 @@ class PostgresExtractionRepository:
         *,
         source: str = "querido-diario",
     ) -> tuple[tuple[TextArtifact, tuple[int, ...]], ...]:
-        """Páginas nulas da fonte indicada, agrupadas por artefato."""
+        """Páginas sem texto útil; numeração isolada só no PDF direto do Diário."""
         if source not in {"querido-diario", "tcm-ba"}:
             raise ValueError("source deve ser querido-diario ou tcm-ba.")
         connection = self.connection_factory()
@@ -1011,7 +1011,17 @@ class PostgresExtractionRepository:
                           = 'tcm-ba-monthly-document'
                     )
                   )
-                  and page.text_content is null
+                  and (
+                    page.text_content is null
+                    or (
+                      source_scope.value = 'querido-diario'
+                      and artifact.metadata ->> 'schema_name'
+                          = 'gazette-direct-edition'
+                      and artifact.content_type = 'application/pdf'
+                      and page.extraction_method <> 'ocr'
+                      and btrim(page.text_content) = page.page_number::text
+                    )
+                  )
                   and not exists (
                     select 1
                     from raw.document_pages as supplemental
@@ -1019,6 +1029,11 @@ class PostgresExtractionRepository:
                         = page.raw_artifact_id
                       and supplemental.page_number = page.page_number
                       and supplemental.text_content is not null
+                      and (
+                        page.text_content is null
+                        or supplemental.extraction_method = 'ocr'
+                        or btrim(supplemental.text_content) <> page.page_number::text
+                      )
                   )
                 order by
                   case
