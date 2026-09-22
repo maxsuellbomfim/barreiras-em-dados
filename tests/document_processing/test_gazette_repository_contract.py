@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import unittest
+from dataclasses import replace
 
 from barreiras_docproc.gazette_documents import DocumentBlock, GazetteDocumentDraft
 from barreiras_docproc.gazette_repository import (
@@ -9,7 +10,7 @@ from barreiras_docproc.gazette_repository import (
     GazetteDocumentBatch,
     GazetteDocumentRepository,
 )
-from barreiras_docproc.processing import PageInput
+from barreiras_docproc.processing import PageInput, ProcessingError
 
 
 class Cursor:
@@ -24,10 +25,14 @@ class Cursor:
 
 
 class Transaction:
+    def __init__(self) -> None:
+        self.failed = False
+
     def __enter__(self):
         return self
 
-    def __exit__(self, *_args):
+    def __exit__(self, error_type, *_args):
+        self.failed = error_type is not None
         return False
 
 
@@ -38,6 +43,8 @@ class RecordingConnection:
         self.page_rows = []
         self.inserted_version = {"id": "00000000-0000-0000-0000-000000000901"}
         self.persisted_batches: set[str] = set()
+        self.version_results = None
+        self.last_transaction = Transaction()
 
     def execute(self, query, params=None):
         normalized = " ".join(query.split())
@@ -54,11 +61,13 @@ class RecordingConnection:
         if "from raw.document_pages" in normalized:
             return Cursor(rows=self.page_rows)
         if "insert into editorial.gazette_document_versions" in normalized:
+            if self.version_results is not None:
+                return Cursor(row=self.version_results.pop(0))
             return Cursor(row=self.inserted_version)
         return Cursor()
 
     def transaction(self):
-        return Transaction()
+        return self.last_transaction
 
     def close(self):
         return None
@@ -223,7 +232,7 @@ class GazetteRepositoryContractTests(unittest.TestCase):
 
         self.assertEqual(pages, (PageInput(1, "ocr/1", "texto", "b" * 64, "ocr"),))
 
-    def test_persist_version_is_append_only_and_idempotent(self) -> None:
+    def make_batch(self):
         artifact = GazetteArtifact(
             "00000000-0000-0000-0000-000000000707",
             "a" * 64,
@@ -235,7 +244,7 @@ class GazetteRepositoryContractTests(unittest.TestCase):
         document = GazetteDocumentDraft(
             0, 0, 1, 1, "PORTARIA N 2", "PORTARIA N 2\nTexto", "validated"
         )
-        batch = GazetteDocumentBatch(
+        return GazetteDocumentBatch(
             artifact=artifact,
             pages=(PageInput(1, "parser/1", "PORTARIA N 2\nTexto", "b" * 64),),
             blocks=(
@@ -249,7 +258,30 @@ class GazetteRepositoryContractTests(unittest.TestCase):
             validator_version="validator/1",
         )
 
+    def test_conflicting_document_does_not_report_success(self) -> None:
+        self.connection.inserted_version = None
+        with self.assertRaises(ProcessingError):
+            self.repository.persist_version(self.make_batch())
+        self.assertTrue(self.connection.last_transaction.failed)
+
+    def test_partial_insertion_raises_inside_transaction(self) -> None:
+        batch = self.make_batch()
+        self.connection.version_results = [self.connection.inserted_version, None]
+        with self.assertRaises(ProcessingError):
+            self.repository.persist_version(
+                replace(batch, documents=batch.documents * 2)
+            )
+        self.assertTrue(self.connection.last_transaction.failed)
+
+    def test_existing_batch_is_still_an_idempotent_noop(self) -> None:
+        batch = self.make_batch()
+        self.connection.persisted_batches.add(batch.idempotency_key)
         result = self.repository.persist_version(batch)
+        self.assertFalse(result.created)
+        self.assertEqual(result.documents_inserted, 0)
+
+    def test_persist_version_is_append_only_and_idempotent(self) -> None:
+        result = self.repository.persist_version(self.make_batch())
 
         self.assertTrue(result.created)
         inserts = [

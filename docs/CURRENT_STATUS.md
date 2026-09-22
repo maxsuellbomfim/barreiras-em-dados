@@ -5,6 +5,21 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### Diário: confirmação de persistência sem falso sucesso
+
+A auditoria de 22/09 identificou artefatos de 4309/2024 e 4263/2024 com
+os mesmos hashes dos publicados como 4310/2024 e 4264/2024. O conflito de
+idempotência impedia novas versões, mas era anunciado como persistência bem-sucedida.
+O repositório agora exige a inserção de todos os documentos do lote; conflito
+reverte a transação e segue o registro de falha existente. Lote já persistido
+continua sendo uma operação idempotente. Nenhum texto foi duplicado ou renumerado.
+A identidade correta dessas edições ainda exige conferência dos PDFs originais.
+Há também indício de extração insuficiente: 136/137 páginas do artefato associado
+a 4309 e 9/11 do associado a 4263 têm menos de 20 caracteres; a primeira página
+retorna apenas `1`. Hash íntegro não prova texto completo. Conferência visual e
+OCR são o próximo passo, sem usar esse limiar isolado para alterar publicação.
+O aviso de catálogo indisponível na interface também segue em diagnóstico.
+
 ### PNCP: retomada seletiva no backfill agendado
 
 Para janela parcial com checkpoint válido, cada execução do backfill consulta
