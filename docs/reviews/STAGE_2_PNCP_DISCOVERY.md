@@ -1,5 +1,13 @@
 # Etapa 2 — descoberta da fonte PNCP para Barreiras
 
+## Resultado operacional e cobertura
+
+Saída 2 identifica lote com todas as seleções observadas em estados validados
+(`query_complete`, `empty_confirmed`, `awaiting_source_publication`), sem páginas
+truncadas, ainda com retentativas. O workflow mostra aviso e resumo de cobertura
+parcial; pendências herdadas não são declaradas resolvidas. Saída 1 e exceções
+mantêm falha. Nenhum estado do banco é convertido para completo por esse aviso.
+
 ## Reserva explícita por lote
 
 `selected_query_controls` separa as compras selecionadas da união de retentativas

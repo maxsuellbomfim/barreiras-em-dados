@@ -100,6 +100,32 @@ class PncpContratosCollectionSummary:
     selected_query_controls: tuple[str, ...] = ()
 
     @property
+    def exit_status(self) -> int:
+        if not self.retry_controls:
+            return 0
+        observations = self.control_observations
+        selected = self.selected_query_controls
+        if (
+            selected
+            and len(observations) == len(selected) == len(set(selected))
+            and {item.get("control") for item in observations} == set(selected)
+            and not self.contract_pages_truncated_controls
+            and all(
+                item.get("state") in (
+                    "query_complete", "empty_confirmed", "awaiting_source_publication"
+                )
+                for item in observations
+            )
+            and all(
+                item.get("response_evidence", {}).get("raw_artifact_id")
+                for item in observations
+                if item.get("state") == "awaiting_source_publication"
+            )
+        ):
+            return 2
+        return 1
+
+    @property
     def checkpoint(self) -> dict[str, object]:
         return {
             "cursor_version": CONTRACT_CURSOR_VERSION,
@@ -363,7 +389,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         empty_controls=list(summary.empty_controls),
         coverage_status=summary.outcome.value,
     )
-    return 1 if summary.retry_controls else 0
+    return summary.exit_status
 
 
 def _collect_pending(

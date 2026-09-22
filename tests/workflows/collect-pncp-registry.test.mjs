@@ -33,6 +33,19 @@ const items = "Preservar itens e resultados das contratações";
 const contracts = "Preservar contratos e empenhos das contratações";
 const normalize = "Normalizar contratos PNCP";
 
+test("contratos convertem somente código 2 em aviso, sem ocultar falha técnica", () => {
+  const script = step(contracts).split(/\r?\n        run: \|\r?\n/)[1]
+    .split(/\r?\n/).map(line => line.replace(/^          /, "")).join("\n");
+  const bash = process.platform === "win32" ? "C:\\Program Files\\Git\\bin\\bash.exe" : "bash";
+  for (const code of [0, 1, 2, 124, 137]) {
+    const result = spawnSync(bash, ["--noprofile", "--norc", "-c",
+      `set -e; python() { return ${code}; }; export GITHUB_STEP_SUMMARY=/dev/null;\n${script}`], {encoding:"utf8"});
+    assert.equal(result.status, code === 2 ? 0 : code);
+    assert.equal(result.stdout.includes("::warning::"), code === 2);
+  }
+  assert.match(script,/cobertura completa nem inexistência/);
+});
+
 test("consulta por publicação fica isolada e transmite inputs somente pelo ambiente", () => {
   const evidence = "Preservar página privada por publicação";
   assert.match(workflow, /^          - publication_evidence$/m);
