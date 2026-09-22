@@ -60,12 +60,12 @@ function DocumentDetails({
       <div className="integral-document-body">
         {fallback ? (
           <p className="integral-fallback-note">
-            Edição integral — separação segura indisponível
+            Texto da edição — separação segura indisponível
           </p>
         ) : null}
         <pre className="integral-document-text">{document.fullText}</pre>
         <p className="integral-document-evidence">
-          Texto literal preservado · hash {formatHash(document.textSha256)}
+          Texto extraído preservado · hash {formatHash(document.textSha256)}
         </p>
       </div>
     </details>
@@ -91,7 +91,7 @@ export function IntegralGazetteExplorer({
   return (
     <div className="integral-gazette-explorer">
       <label className="integral-search-label" htmlFor="integral-search">
-        Buscar no texto integral
+        Buscar no texto disponível
       </label>
       <input
         id="integral-search"

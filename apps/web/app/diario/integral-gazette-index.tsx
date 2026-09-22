@@ -59,7 +59,7 @@ export function IntegralGazetteIndex({
                       {document.pageStart}–{document.pageEnd}
                     </span>
                   </div>
-                  <a href={document.permalink}>Ler documento na íntegra</a>
+                  <a href={document.permalink}>Ler texto disponível</a>
                 </article>
               ))}
             </div>

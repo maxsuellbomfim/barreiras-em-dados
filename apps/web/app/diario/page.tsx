@@ -18,17 +18,18 @@ import {
   type PublicDiaryCoverageResult,
 } from "../../lib/public-diary-coverage";
 import { IntegralGazetteIndex } from "./integral-gazette-index";
+import { DiaryExtractionNotice } from "./diary-extraction-notice";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Diário Oficial organizado",
   description:
-    "Texto integral do Diário Oficial de Barreiras, separado por edição e documento, com fonte e hash verificáveis.",
+    "Texto extraído do Diário Oficial de Barreiras, organizado por edição e documento, com fontes e limitações informadas.",
   openGraph: {
     title: "Diário Oficial de Barreiras, organizado e pesquisável",
     description:
-      "Texto integral de cada edição, separado por documento, com fonte e hash verificáveis.",
+      "Consulte o texto disponível de cada edição, com fontes e limitações da extração.",
   },
 };
 
@@ -57,11 +58,11 @@ function CatalogPendingNotice({
       <div>
         <strong>
           {entries.length} {entries.length === 1 ? "edição" : "edições"} no catálogo,
-          sem texto integral nesta consulta
+          sem texto disponível nesta consulta
         </strong>
         <p>
           O catálogo oficial já registrou estas edições. Elas aparecerão aqui
-          após a preservação, conferência e publicação do texto integral, sem
+          após a preservação, conferência e publicação do texto extraído, sem
           alterar o texto da fonte. O catálogo, sozinho, não comprova essas etapas.
         </p>
       </div>
@@ -81,7 +82,7 @@ function DiaryCoverageSummary({
   return (
     <dl className="diary-coverage-summary" aria-label="Resumo da cobertura do Diário">
       <div>
-        <dt>Acervo integral preservado</dt>
+        <dt>Edições preservadas</dt>
         <dd>
           {collectionStatus.state === "available"
             ? collectionStatus.data.preservedEditionCount.toLocaleString("pt-BR")
@@ -149,7 +150,7 @@ const emptyNotices = {
     detail: "Esta página não retornou registros. Volte à primeira página para consultar o acervo disponível.",
   },
   empty: {
-    title: "Nenhuma edição integral neste recorte",
+    title: "Nenhuma edição disponível neste recorte",
     detail: "A consulta foi concluída sem edições publicadas neste recorte. Isso não comprova ausência de Diário Oficial nem cobertura histórica completa.",
   },
 } as const;
@@ -212,13 +213,12 @@ export default async function IntegralDiaryPage({
 
       <section className="section" aria-labelledby="integral-diary-title">
         <div className="section-heading">
-          <span className="eyebrow">Fonte oficial, texto completo</span>
+          <span className="eyebrow">Fonte oficial, texto extraído</span>
           <h1 id="integral-diary-title">Diário Oficial organizado</h1>
           <p>
-            O conteúdo abaixo é a transcrição integral dos arquivos
-            preservados. Apenas agrupamos as páginas em documentos quando a
-            separação é segura; em caso de dúvida, mantemos a edição inteira.
-            O texto não é reescrito.
+            Consulte o texto extraído dos arquivos preservados, organizado por
+            edição e documento. Não substituímos os atos por resumos. A extração
+            pode ter falhas; consulte as limitações abaixo antes de usar os dados.
           </p>
           {latestCatalogCollectedAt ? (
             <p className="source-freshness" role="status">
@@ -251,7 +251,7 @@ export default async function IntegralDiaryPage({
         </div>
 
         <form className="diary-global-search" method="get">
-          <label htmlFor="diary-global-query">Buscar em todo o acervo integral</label>
+          <label htmlFor="diary-global-query">Buscar no texto disponível do acervo</label>
           <div>
             <input
               id="diary-global-query"
@@ -265,6 +265,7 @@ export default async function IntegralDiaryPage({
           {pageNumber > 1 ? <input type="hidden" name="pagina" value="1" /> : null}
         </form>
 
+        <DiaryExtractionNotice />
         <DiaryCoverageSummary
           collectionStatus={collectionStatus}
           catalogCount={catalogCount}
@@ -319,7 +320,7 @@ export default async function IntegralDiaryPage({
         )}
 
         <p className="hero-note">
-          Cada documento mantém o texto original, a edição, as páginas, a
+          Cada documento mantém o texto extraído, a edição, as páginas, a
           origem e o hash SHA-256 do artefato preservado. Encontrou um erro?{" "}
           <a
             href="https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/diario&labels=correcao"
@@ -345,7 +346,7 @@ export default async function IntegralDiaryPage({
           </div>
           <div className="footer-status">
             <span className="status-dot" />
-            Texto integral ancorado no documento oficial
+            Texto extraído de documentos oficiais
           </div>
         </div>
       </footer>

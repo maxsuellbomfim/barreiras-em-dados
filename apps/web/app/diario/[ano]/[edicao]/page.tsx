@@ -8,6 +8,7 @@ import {
 import { getOfficialDiaryCatalog } from "../../../../lib/official-diary-catalog";
 import ShareLink from "../../../share-link";
 import { IntegralGazetteExplorer } from "../../integral-gazette-explorer";
+import { DiaryExtractionNotice } from "../../diary-extraction-notice";
 
 export const revalidate = 300;
 
@@ -49,7 +50,7 @@ export async function generateMetadata({
   return {
     title,
     description:
-      "Texto integral da edição do Diário Oficial de Barreiras, separado " +
+      "Texto extraído da edição do Diário Oficial de Barreiras, separado " +
       "por documento, com fonte e hash verificáveis.",
     alternates: {
       canonical: `/diario/${parsed.editionYear}/${parsed.edition}`,
@@ -57,7 +58,7 @@ export async function generateMetadata({
     openGraph: {
       title,
       description:
-        "Texto integral da edição, separado por documento, com fonte e " +
+        "Texto disponível da edição, separado por documento, com fonte e " +
         "hash verificáveis.",
     },
   };
@@ -99,7 +100,7 @@ export default async function GazetteEditionPage({ params }: EditionPageParams) 
 
       <section className="section" aria-labelledby="edition-title">
         <div className="section-heading">
-          <span className="eyebrow">Fonte oficial, texto completo</span>
+          <span className="eyebrow">Fonte oficial, texto extraído</span>
           <h1 id="edition-title">
             Diário Oficial — edição {parsed.edition}/{parsed.editionYear}
           </h1>
@@ -109,16 +110,17 @@ export default async function GazetteEditionPage({ params }: EditionPageParams) 
                   new Date(`${editionDate}T12:00:00-03:00`),
                 )}. `
               : ""}
-            Transcrição integral do arquivo preservado, separada por
-            documento quando a separação é segura. O texto não é reescrito e
-            cada documento carrega o hash do conteúdo.
+            Texto extraído do arquivo preservado, organizado por documento.
+            A extração pode conter erros ou omissões; confira o documento oficial
+            antes de usar nomes, números ou datas.
           </p>
           <ShareLink
             path={path}
-            message={`Diário Oficial de Barreiras, edição ${parsed.edition}/${parsed.editionYear}, na íntegra e pesquisável:`}
+            message={`Consulte o texto disponível do Diário Oficial de Barreiras, edição ${parsed.edition}/${parsed.editionYear}:`}
           />
         </div>
 
+        <DiaryExtractionNotice />
         {result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
             <div>
@@ -161,7 +163,7 @@ export default async function GazetteEditionPage({ params }: EditionPageParams) 
           </div>
           <div className="footer-status">
             <span className="status-dot" />
-            Texto integral ancorado no documento oficial
+            Texto extraído de documentos oficiais
           </div>
         </div>
       </footer>
