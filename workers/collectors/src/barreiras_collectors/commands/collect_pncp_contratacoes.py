@@ -27,7 +27,7 @@ from ..persistence.service import (
     PNCP_COLLECTOR_VERSION,
     PncpContratacoesPersistenceService,
 )
-from ..resilience import RetryPolicy
+from ..resilience import PacedRateLimiter, RetryPolicy
 from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import build_authenticated_object_store
 
@@ -36,6 +36,8 @@ MAX_WINDOW_DAYS = 31
 MAX_PAGES_PER_MODALIDADE = 30
 MAX_CONSECUTIVE_MODALITY_FAILURES = 2
 COLLECTION_RETRY_POLICY = RetryPolicy(max_attempts=2)
+# Mesmo teto cadastrado para consulta-contratacoes; compartilhado na janela.
+DISCOVERY_REQUESTS_PER_MINUTE = 10
 # Barreiras foi validada no PNCP em 2021-07-28; nada existe antes.
 BACKFILL_HORIZON = date(2021, 7, 1)
 
@@ -260,6 +262,7 @@ def _collect_window(
     failed_modalities: list[int] = []
     deferred_modalities: list[int] = []
     consecutive_failures = 0
+    rate_limiter = PacedRateLimiter(DISCOVERY_REQUESTS_PER_MINUTE)
     for index, modalidade in enumerate(CONTRATACAO_MODALIDADES):
         try:
             result = _collect_modality(
@@ -268,6 +271,7 @@ def _collect_window(
                 until=until,
                 modalidade=modalidade,
                 logger=logger,
+                rate_limiter=rate_limiter,
             )
         except PncpError as error:
             failed_modalities.append(modalidade)
@@ -332,6 +336,7 @@ def _collect_modality(
     until: str,
     modalidade: int,
     logger: logging.Logger,
+    rate_limiter: PacedRateLimiter,
 ) -> PncpModalityCollectionSummary:
     pages_persisted = 0
     records_inserted = 0
@@ -344,6 +349,7 @@ def _collect_modality(
             modalidade=modalidade,
             pagina=pagina,
             retry_policy=COLLECTION_RETRY_POLICY,
+            rate_limiter=rate_limiter,
             logger=logger,
         )
         if page is None:
