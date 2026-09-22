@@ -149,6 +149,25 @@ jobs:
             --since "$PNCP_REPLAY_SINCE" \
             --until "$PNCP_REPLAY_UNTIL"
 
+      - name: Diagnosticar rede PNCP sem persistir
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'discovery_only' && steps.collect_replay.outcome == 'failure'
+        continue-on-error: true
+        env:
+          PNCP_REPLAY_SINCE: ${{ inputs.replay_since }}
+          PNCP_REPLAY_UNTIL: ${{ inputs.replay_until }}
+        run: |
+          [[ "$PNCP_REPLAY_SINCE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]
+          [[ "$PNCP_REPLAY_UNTIL" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]
+          since="${PNCP_REPLAY_SINCE//-/}"
+          until="${PNCP_REPLAY_UNTIL//-/}"
+          echo 'Sondagem de uma página/modalidade; não comprova cobertura nem altera a falha registrada.'
+          curl --silent --show-error --proto '=https' --connect-timeout 10 --max-time 20 \
+            --header 'Accept: application/json' \
+            --header 'User-Agent: BarreirasEmDados-Collector/0.1' \
+            --output /dev/null \
+            --write-out 'pncp_network_probe http=%{http_code} dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} first_byte=%{time_starttransfer} total=%{time_total}\n' \
+            "https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial=${since}&dataFinal=${until}&cnpj=13654405000195&codigoModalidadeContratacao=1&pagina=1&tamanhoPagina=50"
+
       - name: Preservar itens e resultados das contratações
         id: collect_items
         if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'contracts_only' && inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'publication_evidence' && inputs.mode != 'discovery_only')

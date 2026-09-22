@@ -5,6 +5,14 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: diagnóstico limitado de rede no runner
+
+Após falha de `discovery_only`, uma sondagem curl de até 20 segundos registra
+tempos de DNS, conexão, TLS e primeiro byte, sem preservar/publicar resposta.
+Mantém o gate reprovado e a cobertura parcial. Não executa nas coletas agendadas.
+Em 22/09, a consulta de 15/03/2024, modalidade 1, respondeu 204 localmente com
+urllib e curl, mas o replay no GitHub expirou; a causa remota ainda não está comprovada.
+
 ### PNCP: recuperação isolada da descoberta
 
 Modo manual `discovery_only` exige datas explícitas e executa somente descoberta,

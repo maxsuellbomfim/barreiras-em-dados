@@ -2,6 +2,12 @@
 
 ## Replay isolado de descoberta
 
+Se o replay isolado falhar, o workflow consulta uma única página da modalidade 1
+com curl (mesma URL/cabeçalhos), limitado a 10s de conexão e 20s totais, sem retries,
+redirects, corpo nos logs ou persistência. Registra fases de rede para comparar
+com o transporte urllib. Não muda cobertura nem o resultado do gate original.
+Uma resposta 204 dessa sondagem não comprova ausência nas demais modalidades.
+
 Para recuperar uma janela menor, usar `discovery_only` com `replay_since` e
 `replay_until` explícitos. Reutiliza a validação de datas, todas as modalidades,
 paginação e persistência existentes. Não executa cadastro, itens, contratos nem
