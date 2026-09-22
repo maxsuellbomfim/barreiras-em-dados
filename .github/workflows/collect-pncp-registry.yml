@@ -159,8 +159,16 @@ jobs:
         id: collect_contracts
         if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'items_only' && inputs.mode != 'publication_evidence')
         continue-on-error: true
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_pncp_contratos
+        run: |
+          status=0
+          python -B -m barreiras_collectors.commands.collect_pncp_contratos || status=$?
+          if [ "$status" = "2" ]; then
+            echo "::warning::Lote PNCP consultado; cobertura parcial e fila de reconsulta mantidas. Consulte as pendências na plataforma."
+            echo "### PNCP: lote consultado, cobertura ainda parcial" >> "$GITHUB_STEP_SUMMARY"
+            echo "As compras selecionadas tiveram resposta preservada. A fila pode conter pendências herdadas e contratos ainda não publicados. Isso não comprova cobertura completa nem inexistência de contratos." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          exit "$status"
 
       - name: Normalizar contratos PNCP
         if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'publication_evidence')

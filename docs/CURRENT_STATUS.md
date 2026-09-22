@@ -5,6 +5,14 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: alerta de cobertura separado de falha técnica
+
+O coletor retorna código 2 quando o lote selecionado possui observações completas
+e validadas, mas a fila ainda contém retentativas. O workflow converte apenas
+esse código em aviso e resumo explícito de cobertura parcial. Erros técnicos e
+observações inconclusivas permanecem falhas. Banco, fila e critérios de publicação
+não mudam; workflow verde não significa cobertura histórica completa.
+
 ### PNCP: seleção de consulta separada da fila herdada
 
 O checkpoint passa a registrar `selected_query_controls` antes da consulta e no
