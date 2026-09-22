@@ -5,6 +5,15 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: retomada seletiva no backfill agendado
+
+Para janela parcial com checkpoint válido, cada execução do backfill consulta
+uma modalidade pendente, priorizando a menos recentemente tentada. Sucesso
+isolado mais recente que a tentativa geral evita repetição nessa fase. A janela
+continua parcial; depois das pendências, exige nova consulta integral para fechar.
+Checkpoint inválido mantém a consulta integral conservadora. Nenhuma modalidade
+isolada avança o histórico ou converte a janela geral em completa.
+
 ### PNCP: retomada manual por modalidade
 
 O comando de descoberta aceita `--modalidade 1..13` com datas explícitas,

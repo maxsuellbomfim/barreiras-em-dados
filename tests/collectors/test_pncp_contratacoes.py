@@ -466,7 +466,16 @@ class ControlledPncpContratacoesTests(unittest.TestCase):
 
 
 class PncpContratacoesMainExitTests(unittest.TestCase):
-    def run_main(self, summary, *, horizon_reached=False, extra_args=(), partial=None):
+    def run_main(
+        self,
+        summary,
+        *,
+        horizon_reached=False,
+        extra_args=(),
+        partial=None,
+        checkpoint=None,
+        retry_modality=None,
+    ):
         events = []
         repository = SimpleNamespace(
             start_controlled_run=Mock(
@@ -478,6 +487,8 @@ class PncpContratacoesMainExitTests(unittest.TestCase):
             fail_controlled_run=Mock(),
             pncp_backfill_anchor=Mock(return_value=command.BACKFILL_HORIZON),
             pncp_partial_window=Mock(return_value=partial),
+            collection_partition_checkpoint=Mock(return_value=checkpoint),
+            pncp_next_discovery_modality=Mock(return_value=retry_modality),
         )
         with (
             patch.object(
@@ -557,6 +568,68 @@ class PncpContratacoesMainExitTests(unittest.TestCase):
         ):
             with self.subTest(args=args), self.assertRaises(SystemExit):
                 command.main(args)
+
+    def test_backfill_retries_one_pending_modality_without_closing_window(self):
+        from datetime import date
+
+        summary = PncpContratacoesCollectionSummary(0, 0, 0, ())
+        result, repository, _, log, _, collect = self.run_main(
+            summary,
+            horizon_reached=True,
+            partial=(date(2024, 3, 15), date(2024, 4, 13)),
+            checkpoint={
+                "failed_modalities": [9, 11, 12],
+                "deferred_modalities": [13],
+                "truncated_modalities": [],
+            },
+            retry_modality=11,
+        )
+        self.assertEqual(collect.call_args.kwargs["modalidade"], 11)
+        self.assertTrue(
+            repository.complete_controlled_run.call_args.kwargs[
+                "partition_key"
+            ].endswith(":modality:11")
+        )
+        self.assertEqual(log.call_args.kwargs["window_coverage_status"], "partial")
+        self.assertEqual(result, 1)
+
+    def test_pending_checkpoint_is_strict_and_deterministic(self):
+        good = {
+            "failed_modalities": [12, 9],
+            "deferred_modalities": [13],
+            "truncated_modalities": [11],
+        }
+        self.assertEqual(command.pending_discovery_modalities(good), (9, 11, 12, 13))
+        for invalid in (
+            None,
+            {},
+            {**good, "failed_modalities": [True]},
+            {**good, "failed_modalities": [14]},
+            {**good, "failed_modalities": "9"},
+        ):
+            self.assertIsNone(command.pending_discovery_modalities(invalid))
+
+    def test_all_scoped_successes_require_integral_verification(self):
+        from datetime import date
+
+        summary = PncpContratacoesCollectionSummary(0, 0, 0, ())
+        result, repository, _, _, _, collect = self.run_main(
+            summary,
+            horizon_reached=True,
+            partial=(date(2024, 3, 15), date(2024, 4, 13)),
+            checkpoint={
+                "failed_modalities": [9],
+                "deferred_modalities": [],
+                "truncated_modalities": [],
+            },
+            retry_modality=None,
+        )
+        self.assertIsNone(collect.call_args.kwargs["modalidade"])
+        self.assertEqual(
+            repository.complete_controlled_run.call_args.kwargs["partition_key"],
+            "published:2024-03-15:2024-04-13",
+        )
+        self.assertEqual(result, 0)
 
     def test_scoped_window_fetches_only_selected_modality(self):
         with patch.object(
