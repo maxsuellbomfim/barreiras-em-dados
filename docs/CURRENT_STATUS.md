@@ -5,6 +5,14 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: retomada manual por modalidade
+
+O comando de descoberta aceita `--modalidade 1..13` com datas explícitas,
+registrando cobertura em partição separada. Não fecha a janela geral nem avança
+seu cursor. O backfill prioriza janelas parciais com suas datas exatas, antes de
+andar para períodos anteriores. Consultas isoladas ainda não são agregadas para
+declarar cobertura completa: essa reconciliação depende de evidências validadas.
+
 ### PNCP: cadência de descoberta corrigida
 
 A descoberta passa a respeitar dez requisições por minuto, como cadastrado no

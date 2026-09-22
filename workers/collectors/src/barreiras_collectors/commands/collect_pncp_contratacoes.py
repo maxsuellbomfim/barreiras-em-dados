@@ -144,12 +144,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--since", default="")
     parser.add_argument("--until", default="")
+    parser.add_argument("--modalidade", type=int, choices=CONTRATACAO_MODALIDADES)
     parser.add_argument(
         "--backfill",
         action="store_true",
         help="Deriva do banco a próxima janela retroativa até o horizonte.",
     )
     arguments = parser.parse_args(argv)
+    if arguments.modalidade is not None and (
+        arguments.backfill or not arguments.since or not arguments.until
+    ):
+        parser.error("--modalidade exige datas explícitas e não aceita --backfill.")
     if arguments.backfill and (arguments.since or arguments.until):
         parser.error("--backfill não aceita --since/--until.")
     since = until = ""
@@ -175,9 +180,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         persistence_settings.database_url
     )
     if arguments.backfill:
-        window = resolve_backfill_window(
-            anchor=repository.pncp_backfill_anchor(),
-            today=datetime.now(MUNICIPAL_TIMEZONE).date(),
+        partial = repository.pncp_partial_window()
+        window = (
+            (partial[0].strftime("%Y%m%d"), partial[1].strftime("%Y%m%d"))
+            if partial is not None
+            else resolve_backfill_window(
+                anchor=repository.pncp_backfill_anchor(),
+                today=datetime.now(MUNICIPAL_TIMEZONE).date(),
+            )
         )
         if window is None:
             log_event(
@@ -192,6 +202,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     period_start = datetime.strptime(since, "%Y%m%d").date()
     period_end = datetime.strptime(until, "%Y%m%d").date()
+    partition_key = f"published:{period_start.isoformat()}:{period_end.isoformat()}"
+    if arguments.modalidade is not None:
+        partition_key += f":modality:{arguments.modalidade}"
     control = CollectionControl(
         repository=repository,
         source_code=SOURCE_CODE,
@@ -199,9 +212,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         idempotency_key=build_execution_idempotency_key("pncp-contratacoes"),
         collector_version=PNCP_COLLECTOR_VERSION,
         parser_version="pncp-contratacao-page/1.0.0",
-        partition_key=(
-            f"published:{period_start.isoformat()}:{period_end.isoformat()}"
-        ),
+        partition_key=partition_key,
         period_start=period_start,
         period_end=period_end,
     )
@@ -216,6 +227,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             since=since,
             until=until,
             logger=logger,
+            modalidade=arguments.modalidade,
         )
 
     summary = execute_controlled_pncp_contratacoes(
@@ -233,6 +245,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         inserted_records=summary.inserted_records,
         existing_records=summary.existing_records,
         coverage_status=summary.outcome.value,
+        modalidade=arguments.modalidade,
     )
     return 1 if summary.outcome is CollectionOutcome.PARTIAL else 0
 
@@ -254,7 +267,13 @@ def _collect_window(
     since: str,
     until: str,
     logger: logging.Logger,
+    modalidade: int | None = None,
 ) -> PncpContratacoesCollectionSummary:
+    if modalidade is not None and (
+        type(modalidade) is not int or modalidade not in CONTRATACAO_MODALIDADES
+    ):
+        raise ValueError("Modalidade PNCP inválida.")
+    modalities = (modalidade,) if modalidade is not None else CONTRATACAO_MODALIDADES
     pages_persisted = 0
     records_inserted = 0
     records_existing = 0
@@ -263,7 +282,7 @@ def _collect_window(
     deferred_modalities: list[int] = []
     consecutive_failures = 0
     rate_limiter = PacedRateLimiter(DISCOVERY_REQUESTS_PER_MINUTE)
-    for index, modalidade in enumerate(CONTRATACAO_MODALIDADES):
+    for index, modalidade in enumerate(modalities):
         try:
             result = _collect_modality(
                 service=service,
@@ -290,7 +309,7 @@ def _collect_window(
                 rate_limited
                 or consecutive_failures >= MAX_CONSECUTIVE_MODALITY_FAILURES
             ):
-                deferred_modalities.extend(CONTRATACAO_MODALIDADES[index + 1 :])
+                deferred_modalities.extend(modalities[index + 1 :])
                 log_event(
                     logger,
                     logging.WARNING,
