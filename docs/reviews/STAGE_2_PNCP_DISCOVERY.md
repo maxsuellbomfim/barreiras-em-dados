@@ -2,6 +2,17 @@
 
 ## Replay isolado de descoberta
 
+No `--backfill` agendado, a janela geral parcial fornece as modalidades falhas,
+adiadas ou truncadas. O seletor consulta uma por execução, em ordem de tentativa
+mais antiga (sem tentativa primeiro). Só deixa de repetir uma modalidade se sua
+partição possui conclusão consistente, execução bem-sucedida posterior à tentativa
+geral, mesmas datas e nenhuma falha/adiamento/truncamento. O checkpoint geral não
+é reescrito por essa seleção. A execução mantém saída 1 e registra
+`window_coverage_status=partial`, mesmo quando a modalidade isolada termina vazia
+ou completa. Ao resolver as pendências, a próxima execução verifica a janela
+integral, em vez de somar resultados antigos e inferir cobertura completa.
+Sem checkpoint válido, usa a consulta integral existente. Não muda o cron.
+
 Na CLI, `--since 2024-03-15 --until 2024-04-13 --modalidade 9` consulta somente
 a modalidade escolhida, preservando todas as suas páginas. Exige as duas datas
 e é incompatível com `--backfill`. A partição recebe o sufixo `:modality:9` e

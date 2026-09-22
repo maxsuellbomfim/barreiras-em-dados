@@ -357,6 +357,36 @@ class CollectionCheckpointPostgresTests(unittest.TestCase):
         self.assertIn("between 0 and 30", query)
         self.assertTrue(connection.closed)
 
+    def test_pncp_retry_rotates_and_requires_current_consistent_success(self):
+        connection = CheckpointConnection({"modality": 11})
+        repository = PostgresCollectionRepository(lambda: connection)
+        self.assertEqual(repository.pncp_next_discovery_modality(
+            partition_key="published:2024-03-15:2024-04-13", modalities=(9, 11, 12, 13)
+        ), 11)
+        query, params = connection.calls[0]
+        self.assertEqual(params, ([9, 11, 12, 13], "published:2024-03-15:2024-04-13"))
+        for fragment in (
+            "child_run.started_at >= parent_run.started_at",
+            "child_run.status = 'succeeded'", "child.completed_at is not null",
+            "child.period_start = parent.period_start",
+            "child.period_end = parent.period_end",
+            "child_run.metrics ->> 'collection_outcome' = child.status",
+            "child.checkpoint -> 'failed_modalities' = '[]'::jsonb",
+            "child.checkpoint -> 'deferred_modalities' = '[]'::jsonb",
+            "child.checkpoint -> 'truncated_modalities' = '[]'::jsonb",
+            "order by child_run.started_at nulls first, candidate.modality",
+        ):
+            self.assertIn(fragment, query)
+        self.assertTrue(connection.closed)
+
+    def test_pncp_retry_rejects_invalid_modalities_before_database(self):
+        repository = PostgresCollectionRepository(lambda: self.fail("no database"))
+        for values in ((), (True,), (0,), (14,), ("9",)):
+            with self.assertRaises(ValueError):
+                repository.pncp_next_discovery_modality(
+                    partition_key="x", modalities=values
+                )
+
     def test_tcm_document_planner_respects_open_retry_schedule(self) -> None:
         connection = CheckpointConnection(None)
         repository = PostgresCollectionRepository(lambda: connection)

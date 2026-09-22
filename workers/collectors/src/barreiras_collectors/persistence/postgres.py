@@ -1804,6 +1804,60 @@ class PostgresCollectionRepository:
             date.fromisoformat(str(row["period_end"])),
         )
 
+    def pncp_next_discovery_modality(
+        self, *, partition_key: str, modalities: tuple[int, ...]
+    ) -> int | None:
+        """Pendência menos recentemente tentada; sucesso antigo não encerra retry."""
+        if not modalities or any(
+            type(m) is not int or not 1 <= m <= 13 for m in modalities
+        ):
+            raise ValueError("Modalidades PNCP inválidas.")
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select candidate.modality
+                from source.collection_partitions as parent
+                join source.source_endpoints as endpoint
+                  on endpoint.id = parent.source_endpoint_id
+                join source.data_sources as data_source
+                  on data_source.id = endpoint.data_source_id
+                join source.collection_runs as parent_run
+                  on parent_run.id = parent.collection_run_id
+                cross join unnest(%s::integer[]) as candidate(modality)
+                left join source.collection_partitions as child
+                  on child.source_endpoint_id = parent.source_endpoint_id
+                  and child.partition_key = parent.partition_key || ':modality:' ||
+                    candidate.modality::text
+                left join source.collection_runs as child_run
+                  on child_run.id = child.collection_run_id
+                where data_source.slug = 'pncp'
+                  and endpoint.slug = 'consulta-contratacoes'
+                  and parent.partition_key = %s
+                  and parent.status = 'partial'
+                  and not coalesce(
+                    child_run.started_at >= parent_run.started_at
+                    and child_run.status = 'succeeded'
+                    and child.completed_at is not null
+                    and child.period_start = parent.period_start
+                    and child.period_end = parent.period_end
+                    and ((child.status = 'empty' and child.observed_records = 0)
+                      or (child.status = 'complete' and child.observed_records > 0))
+                    and child_run.metrics ->> 'collection_outcome' = child.status
+                    and child.checkpoint -> 'failed_modalities' = '[]'::jsonb
+                    and child.checkpoint -> 'deferred_modalities' = '[]'::jsonb
+                    and child.checkpoint -> 'truncated_modalities' = '[]'::jsonb,
+                    false
+                  )
+                order by child_run.started_at nulls first, candidate.modality
+                limit 1
+                """,
+                (list(modalities), partition_key),
+            ).fetchone()
+        finally:
+            connection.close()
+        return int(row["modality"]) if row is not None else None
+
     def pncp_pending_itens(
         self,
         *,

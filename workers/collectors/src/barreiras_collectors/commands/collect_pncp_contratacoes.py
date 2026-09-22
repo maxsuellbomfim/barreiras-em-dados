@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -135,6 +135,22 @@ def resolve_window(since: str, until: str) -> tuple[str, str]:
     return start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
 
 
+def pending_discovery_modalities(checkpoint: object) -> tuple[int, ...] | None:
+    """Checkpoint inválido exige consulta integral, nunca conclusão inferida."""
+    if not isinstance(checkpoint, Mapping):
+        return None
+    pending: set[int] = set()
+    for field in ("failed_modalities", "deferred_modalities", "truncated_modalities"):
+        values = checkpoint.get(field)
+        if not isinstance(values, list) or any(
+            type(value) is not int or value not in CONTRATACAO_MODALIDADES
+            for value in values
+        ):
+            return None
+        pending.update(values)
+    return tuple(sorted(pending))
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -179,8 +195,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     repository = PostgresCollectionRepository.from_dsn(
         persistence_settings.database_url
     )
+    scoped_backfill = False
     if arguments.backfill:
         partial = repository.pncp_partial_window()
+        if partial is not None:
+            key = f"published:{partial[0].isoformat()}:{partial[1].isoformat()}"
+            checkpoint = repository.collection_partition_checkpoint(
+                source_code=SOURCE_CODE,
+                endpoint_code="consulta-contratacoes",
+                partition_key=key,
+            )
+            pending = pending_discovery_modalities(checkpoint)
+            if pending:
+                arguments.modalidade = repository.pncp_next_discovery_modality(
+                    partition_key=key, modalities=pending
+                )
+                scoped_backfill = arguments.modalidade is not None
         window = (
             (partial[0].strftime("%Y%m%d"), partial[1].strftime("%Y%m%d"))
             if partial is not None
@@ -246,8 +276,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         existing_records=summary.existing_records,
         coverage_status=summary.outcome.value,
         modalidade=arguments.modalidade,
+        window_coverage_status="partial" if scoped_backfill else summary.outcome.value,
     )
-    return 1 if summary.outcome is CollectionOutcome.PARTIAL else 0
+    return 1 if scoped_backfill or summary.outcome is CollectionOutcome.PARTIAL else 0
 
 
 def _build_cloud_service(
