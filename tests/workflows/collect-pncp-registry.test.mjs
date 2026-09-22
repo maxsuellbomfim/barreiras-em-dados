@@ -33,6 +33,13 @@ const items = "Preservar itens e resultados das contratações";
 const contracts = "Preservar contratos e empenhos das contratações";
 const normalize = "Normalizar contratos PNCP";
 
+test("replay de descoberta isolada não executa itens, contratos ou normalização", () => {
+  assert.match(workflow, /^          - discovery_only$/m);
+  assert.equal(enabled(replay, {mode:"discovery_only"}), true);
+  for (const name of [registry, weekly, backfill, items, contracts, normalize])
+    assert.equal(enabled(name, {mode:"discovery_only"}), false, name);
+});
+
 test("contratos convertem somente código 2 em aviso, sem ocultar falha técnica", () => {
   const script = step(contracts).split(/\r?\n        run: \|\r?\n/)[1]
     .split(/\r?\n/).map(line => line.replace(/^          /, "")).join("\n");
@@ -245,7 +252,7 @@ test("falha em contratos nao impede normalizacao e permanece visivel no resultad
   );
   assert.match(
     step(normalize),
-    /if: github\.event_name != 'workflow_dispatch' \|\| \(inputs\.mode != 'registry_only' && inputs\.mode != 'municipal_link_evidence' && inputs\.mode != 'publication_evidence'\)[\s\S]*?normalize_pncp_contracts/,
+    /if: github\.event_name != 'workflow_dispatch' \|\| \(inputs\.mode != 'registry_only' && inputs\.mode != 'municipal_link_evidence' && inputs\.mode != 'publication_evidence' && inputs\.mode != 'discovery_only'\)[\s\S]*?normalize_pncp_contracts/,
   );
   assert.match(
     step("Sinalizar falha parcial da coleta"),

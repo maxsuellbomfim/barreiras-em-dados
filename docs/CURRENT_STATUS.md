@@ -5,6 +5,12 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: recuperação isolada da descoberta
+
+Modo manual `discovery_only` exige datas explícitas e executa somente descoberta,
+sem cadastro, itens, contratos ou normalização. Mantém o gate de falhas e as
+partições por período. Um dia validado não completa a janela mensal original.
+
 ### PNCP: alerta de cobertura separado de falha técnica
 
 O coletor retorna código 2 quando o lote selecionado possui observações completas

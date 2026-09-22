@@ -1,5 +1,13 @@
 # Etapa 2 — descoberta da fonte PNCP para Barreiras
 
+## Replay isolado de descoberta
+
+Para recuperar uma janela menor, usar `discovery_only` com `replay_since` e
+`replay_until` explícitos. Reutiliza a validação de datas, todas as modalidades,
+paginação e persistência existentes. Não executa cadastro, itens, contratos nem
+normalização. Erros continuam reprovando o gate. A partição original permanece
+parcial até comprovação de toda a cobertura; subjanela não fecha o mês por inferência.
+
 ## Resultado operacional e cobertura
 
 Saída 2 identifica lote com todas as seleções observadas em estados validados

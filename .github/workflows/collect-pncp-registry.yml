@@ -19,6 +19,7 @@ on:
           - contracts_only
           - items_only
           - replay_window
+          - discovery_only
           - registry_only
           - municipal_link_evidence
           - publication_evidence
@@ -137,7 +138,7 @@ jobs:
       - name: Reprocessar janela PNCP
         id: collect_replay
         continue-on-error: true
-        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'replay_window'
+        if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'replay_window' || inputs.mode == 'discovery_only')
         env:
           PNCP_REPLAY_SINCE: ${{ inputs.replay_since }}
           PNCP_REPLAY_UNTIL: ${{ inputs.replay_until }}
@@ -150,14 +151,14 @@ jobs:
 
       - name: Preservar itens e resultados das contratações
         id: collect_items
-        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'contracts_only' && inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'publication_evidence')
+        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'contracts_only' && inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'publication_evidence' && inputs.mode != 'discovery_only')
         continue-on-error: true
         run: >-
           python -B -m barreiras_collectors.commands.collect_pncp_itens
 
       - name: Preservar contratos e empenhos das contratações
         id: collect_contracts
-        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'items_only' && inputs.mode != 'publication_evidence')
+        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'items_only' && inputs.mode != 'publication_evidence' && inputs.mode != 'discovery_only')
         continue-on-error: true
         run: |
           status=0
@@ -171,7 +172,7 @@ jobs:
           exit "$status"
 
       - name: Normalizar contratos PNCP
-        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'publication_evidence')
+        if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'publication_evidence' && inputs.mode != 'discovery_only')
         run: >-
           python -B -m barreiras_collectors.commands.normalize_pncp_contracts
           --limit 500
