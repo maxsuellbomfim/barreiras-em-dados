@@ -5,6 +5,14 @@ de decisões e entregas permanece em `docs/ROADMAP.md` e `docs/adr/`.
 
 ## Fase atual
 
+### PNCP: cadência de descoberta corrigida
+
+A descoberta passa a respeitar dez requisições por minuto, como cadastrado no
+endpoint. Um limitador compartilhado cobre modalidades, páginas e retentativas.
+O replay local de 15/03/2024 respondeu 204 nas 13 modalidades; a janela até
+13/04 permaneceu parcial após 429 na modalidade 7. A nova cadência ainda exige
+validação operacional: não declara recuperação histórica nem altera publicação.
+
 ### PNCP: diagnóstico limitado de rede no runner
 
 Após falha de `discovery_only`, uma sondagem curl de até 20 segundos registra

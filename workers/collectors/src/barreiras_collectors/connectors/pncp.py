@@ -24,7 +24,7 @@ from ..http import (
     UrllibTransport,
 )
 from ..logging import log_event
-from ..resilience import RetryPolicy
+from ..resilience import PacedRateLimiter, RetryPolicy
 
 SOURCE_CODE = "pncp"
 ENDPOINT_CODE = "registry-api"
@@ -119,6 +119,7 @@ def fetch_contratacoes_page(
     pagina: int,
     transport: HttpTransport | None = None,
     retry_policy: RetryPolicy | None = None,
+    rate_limiter: PacedRateLimiter | None = None,
     sleep: Callable[[float], None] = time.sleep,
     logger: logging.Logger | None = None,
 ) -> PncpPage | None:
@@ -135,6 +136,8 @@ def fetch_contratacoes_page(
     log = logger or logging.getLogger(__name__)
 
     for attempt in range(1, policy.max_attempts + 1):
+        if rate_limiter is not None:
+            rate_limiter.acquire()
         requested_at = datetime.now(UTC).isoformat()
         try:
             response = active_transport.get(

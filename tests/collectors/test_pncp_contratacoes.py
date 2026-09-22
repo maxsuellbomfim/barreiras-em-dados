@@ -21,6 +21,61 @@ from barreiras_collectors.http import HttpResponse
 from barreiras_collectors.resilience import RetryPolicy
 
 
+class DiscoveryPacingTests(unittest.TestCase):
+    def test_every_http_attempt_acquires_limiter(self):
+        events = []
+        limiter = Mock()
+        limiter.acquire.side_effect = lambda: events.append("acquire")
+        transport = Mock()
+
+        def request(*args, **kwargs):
+            events.append("request")
+            return HttpResponse(503, {}, b"", args[0])
+
+        transport.get.side_effect = request
+        with self.assertRaises(PncpError):
+            fetch_contratacoes_page(
+                since="20240315",
+                until="20240315",
+                modalidade=1,
+                pagina=1,
+                transport=transport,
+                rate_limiter=limiter,
+                retry_policy=RetryPolicy(max_attempts=2),
+                sleep=lambda _: None,
+            )
+        self.assertEqual(events, ["acquire", "request", "acquire", "request"])
+
+    def test_window_shares_ten_per_minute_limiter_across_pages_and_modalities(self):
+        page = SimpleNamespace(total_paginas=2)
+        service = Mock()
+        service.persist.return_value = SimpleNamespace(
+            inserted_records=1, existing_records=0
+        )
+        with (
+            patch.object(command, "PacedRateLimiter") as factory,
+            patch.object(command, "CONTRATACAO_MODALIDADES", (1, 2)),
+            patch.object(
+                command, "fetch_contratacoes_page", side_effect=[page, page, None]
+            ) as fetch,
+        ):
+            summary = _collect_window(
+                service=service,
+                since="20240315",
+                until="20240315",
+                logger=logging.getLogger(__name__),
+            )
+        factory.assert_called_once_with(10)
+        self.assertEqual(fetch.call_count, 3)
+        self.assertTrue(
+            all(
+                call.kwargs["rate_limiter"] is factory.return_value
+                for call in fetch.call_args_list
+            )
+        )
+        self.assertEqual(summary.pages, 2)
+
+
 class OneShotTransport:
     def __init__(self, status: int, body: bytes) -> None:
         self.status = status

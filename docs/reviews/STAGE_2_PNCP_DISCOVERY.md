@@ -2,6 +2,11 @@
 
 ## Replay isolado de descoberta
 
+A descoberta usa `PacedRateLimiter(10)` compartilhado por toda a janela,
+incluindo cada tentativa HTTP. O teto coincide com o endpoint cadastrado; não
+é garantia de aceitação pelo PNCP nem coordenação entre processos distintos.
+429 persistente continua interrompendo a janela com cobertura parcial.
+
 Se o replay isolado falhar, o workflow consulta uma única página da modalidade 1
 com curl (mesma URL/cabeçalhos), limitado a 10s de conexão e 20s totais, sem retries,
 redirects, corpo nos logs ou persistência. Registra fases de rede para comparar
