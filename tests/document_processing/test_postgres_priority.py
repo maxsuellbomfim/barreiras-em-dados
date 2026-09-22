@@ -25,6 +25,19 @@ class RecordingConnection:
 
 
 class RecentDirectEditionPriorityTests(unittest.TestCase):
+    def test_ocr_retries_page_number_only_in_direct_diary_pdfs(self) -> None:
+        connection = RecordingConnection()
+        repository = PostgresExtractionRepository(lambda: connection)
+        repository.pending_ocr_pages(30)
+        query = connection.queries[0]
+        self.assertIn("btrim(page.text_content) = page.page_number::text", query)
+        self.assertIn("artifact.content_type = 'application/pdf'", query)
+        self.assertIn("page.extraction_method <> 'ocr'", query)
+        self.assertIn("supplemental.extraction_method = 'ocr'", query)
+        self.assertIn(
+            "btrim(supplemental.text_content) <> page.page_number::text", query
+        )
+
     def test_candidate_queue_prioritizes_recent_direct_editions(self) -> None:
         connection = RecordingConnection()
         repository = PostgresExtractionRepository(lambda: connection)  # type: ignore[arg-type]
