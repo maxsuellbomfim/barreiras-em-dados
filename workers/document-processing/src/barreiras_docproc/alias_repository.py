@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 
 from barreiras_collectors.persistence.postgres import DatabaseConnection
@@ -11,6 +12,23 @@ from .alias_assist import (
     ALIAS_ASSIST_PROMPT_VERSION,
     ALIAS_ASSIST_VALIDATOR_VERSION,
 )
+
+_NAME_KEY_CALL = re.compile(r"\{name_key\}\(([^()]*)\)")
+
+
+def _with_name_keys(sql: str) -> str:
+    """Expande {name_key}(x) para a normalização de api.normalize_public_author_name.
+
+    O papel do worker não executa funções do schema ``api``; a expressão é a
+    mesma, para que "resolvido no site" e "não sugerir de novo" coincidam.
+    """
+    return _NAME_KEY_CALL.sub(
+        lambda match: (
+            "lower(btrim(regexp_replace(regexp_replace("
+            rf"{match.group(1)}, '\([^)]*\)', '', 'g'), '\s+', ' ', 'g')))"
+        ),
+        sql,
+    )
 
 
 class RepresentativeAliasRepository:
@@ -35,7 +53,7 @@ class RepresentativeAliasRepository:
             # evitar que a fila consuma o workflow inteiro sem diagnÃ³stico.
             connection.execute("set statement_timeout = '30s'")
             rows = connection.execute(
-                """
+                _with_name_keys("""
                 with authors as (
                   select
                     nullif(btrim(coalesce(
@@ -138,21 +156,43 @@ class RepresentativeAliasRepository:
                 cross join candidate_options
                 cross join historical_options
                 where authors.author_name is not null
+                  -- Mesma chave do filtro público de autoria: nomes que só
+                  -- diferem por espaço, quebra de linha, caixa ou parênteses
+                  -- já estão resolvidos e não voltam para o revisor.
+                  and {name_key}(authors.author_name) not in (
+                    select {name_key}(alias.alias_text)
+                    from political.representative_aliases as alias
+                    where alias.active
+                    union
+                    select {name_key}(alias.canonical_name)
+                    from political.representative_aliases as alias
+                    where alias.active
+                    union
+                    select {name_key}(people.canonical_name)
+                    from people
+                    where people.canonical_name is not null
+                  )
                   and not exists (
                     select 1
                     from political.representative_alias_suggestions as suggestion
                     where suggestion.source_kind = 'municipal'
-                      and suggestion.observed_name = authors.author_name
-                      and suggestion.prompt_version = %s
-                      and not (
-                        suggestion.status = 'pending'
-                        and suggestion.provider = 'local'
-                        and suggestion.validator_version <> %s
+                      and {name_key}(suggestion.observed_name)
+                        = {name_key}(authors.author_name)
+                      and (
+                        -- Decisão de revisor vale para qualquer versão do prompt.
+                        suggestion.status <> 'pending'
+                        or (
+                          suggestion.prompt_version = %s
+                          and not (
+                            suggestion.provider = 'local'
+                            and suggestion.validator_version <> %s
+                          )
+                        )
                       )
                   )
                 order by authors.item_count desc, authors.author_name
                 limit %s
-                """,
+                """),
                 (
                     ALIAS_ASSIST_PROMPT_VERSION,
                     ALIAS_ASSIST_VALIDATOR_VERSION,
