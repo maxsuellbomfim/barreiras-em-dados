@@ -209,7 +209,10 @@ class CollectionControl:
                 period_end=self.period_end,
                 error_type=exc_type.__name__ if exc_type else "Exception",
                 error_detail=sanitize_error_detail(exc_value),
-                retryable=not isinstance(
+                # Exceções podem se declarar permanentes (ex.: HTTP 404);
+                # registrá-las como "nova tentativa agendada" seria falso.
+                retryable=getattr(exc_value, "retryable", True)
+                and not isinstance(
                     exc_value, (AssertionError, TypeError, ValueError)
                 ),
                 failed_at=self.clock(),
