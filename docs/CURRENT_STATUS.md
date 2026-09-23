@@ -38,8 +38,12 @@ amplas.
 1. **Texto do Diário incompleto em parte do acervo.** A auditoria de 22/09
    encontrou 14.832 páginas de 295 edições publicadas cuja extração contém apenas
    o número da página, sem OCR registrado. A interface já avisa que o texto pode
-   estar incompleto; a fila de OCR passou a aceitar essas páginas, mas o
-   reprocessamento e a conferência ainda não foram feitos. Há também dois pares
+   estar incompleto. Em 23/09 foram corrigidas as duas travas: a fila do
+   segmentador só escolhia edições sem nenhuma versão, então OCR feito depois da
+   primeira publicação nunca chegava ao site; agora a edição volta à fila quando
+   ganha páginas mais novas que sua última versão. E o workflow
+   `ocr-gazette-backlog` drena até 200 páginas a cada 30 minutos (~3 s por
+   página; a fila de 15.133 páginas zera em cerca de dois dias). Há também dois pares
    de edições com hash idêntico (4309/4310 e 4263/4264 de 2024) aguardando
    conferência dos PDFs originais.
 2. **Rastro do dinheiro ponta a ponta:** ainda não é possível seguir um contrato

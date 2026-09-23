@@ -57,6 +57,12 @@ class GazetteDocumentRepository:
         edition: int | None = None,
         edition_year: int | None = None,
     ) -> Sequence[GazetteArtifact]:
+        # Páginas são append-only: OCR ou nova extração criam linhas mais
+        # recentes que a última versão publicada, e a edição volta à fila para
+        # ser reorganizada com esse texto. Uma falha já registrada só é
+        # repetida quando as páginas mudarem; ela continua aberta em
+        # raw.extraction_jobs. As páginas são agregadas uma vez por artefato
+        # para que as subconsultas rodem por edição, não por página.
         connection = self.connection_factory()
         try:
             rows = connection.execute(
@@ -104,6 +110,20 @@ class GazetteDocumentRepository:
                   ) as record on true
                   where artifact.metadata ->> 'document_role' = 'txt'
                     and artifact.metadata ? 'source_record_key'
+                ), page_stats as (
+                  select
+                    page.raw_artifact_id,
+                    min(page.page_number) as first_page,
+                    max(page.page_number) as last_page,
+                    count(distinct page.page_number)
+                      filter (where page.text_content is not null)
+                      as pages_with_text,
+                    max(page.created_at) as newest_page_at
+                  from raw.document_pages as page
+                  where page.raw_artifact_id in (
+                    select candidate.id from candidate_editions as candidate
+                  )
+                  group by page.raw_artifact_id
                 ), selected_editions as (
                 select
                   edition.id::text as id,
@@ -114,25 +134,29 @@ class GazetteDocumentRepository:
                   edition.source_priority,
                   edition.created_at::text as created_at
                 from candidate_editions as edition
-                join raw.document_pages as page
-                  on page.raw_artifact_id = edition.id
+                join page_stats as stats
+                  on stats.raw_artifact_id = edition.id
                 where (%s::integer is null or edition.edition = %s::integer)
                   and (%s::integer is null or edition.edition_year = %s::integer)
+                  and stats.first_page = 1
+                  and stats.pages_with_text = stats.last_page
                   and (
                     (%s::integer is not null and %s::integer is not null)
-                    or not exists (
-                      select 1
-                      from editorial.gazette_document_versions as version
-                      where version.raw_artifact_id = edition.id
+                    or (
+                      stats.newest_page_at > coalesce((
+                        select max(version.created_at)
+                        from editorial.gazette_document_versions as version
+                        where version.raw_artifact_id = edition.id
+                      ), '-infinity'::timestamptz)
+                      and stats.newest_page_at > coalesce((
+                        select max(job.updated_at)
+                        from raw.extraction_jobs as job
+                        where job.raw_artifact_id = edition.id
+                          and job.job_type = 'integral_gazette_documents'
+                          and job.status = 'failed'
+                      ), '-infinity'::timestamptz)
                     )
                   )
-                group by edition.id, edition.sha256, edition.edition,
-                  edition.edition_year, edition.edition_date, edition.created_at,
-                  edition.source_priority
-                having min(page.page_number) = 1
-                  and count(distinct page.page_number)
-                    filter (where page.text_content is not null)
-                    = max(page.page_number)
                 order by edition.edition_year desc, edition.edition desc,
                   edition.source_priority asc, edition.created_at desc
                 limit %s
