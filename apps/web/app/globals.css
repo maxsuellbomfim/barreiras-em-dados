@@ -8937,3 +8937,28 @@ footer {
     min-height: 0;
   }
 }
+
+.sanction-supplier-scroll {
+  overflow-x: auto;
+}
+
+.sanction-supplier-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.sanction-supplier-table caption {
+  padding-bottom: 0.6rem;
+  color: #667389;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.sanction-supplier-table th,
+.sanction-supplier-table td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid #e4e9f1;
+  text-align: left;
+  vertical-align: top;
+}
