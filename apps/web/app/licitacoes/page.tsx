@@ -22,9 +22,12 @@ import {
   municipalSourceCodeLabel,
   type MunicipalProcurementProcess,
 } from "../../lib/municipal-procurement-processes";
-import { getPublicSupplierSanctions } from "../../lib/supplier-sanctions";
+import {
+  formatSanctionCnpj,
+  getPublicSupplierSanctions,
+  type SupplierSanction,
+} from "../../lib/supplier-sanctions";
 import { ProcurementExplorer } from "./procurement-explorer";
-import { SupplierSanctionCard } from "./supplier-sanction-card";
 
 export const revalidate = 300;
 
@@ -102,8 +105,83 @@ type ProcurementsPageProps = {
     modalidade?: string;
     situacao?: string;
     orgao?: string;
+    contratos?: string;
+    processos?: string;
   }>;
 };
+
+type PageQuery = Readonly<Record<string, string | undefined>>;
+
+function parsePanelPage(value: string | undefined): number {
+  const page = Number.parseInt(value ?? "1", 10);
+  return Number.isSafeInteger(page) && page >= 1 && page <= 500 ? page : 1;
+}
+
+function panelPageHref(query: PageQuery, param: string, page: number, anchor: string): string {
+  const next = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value && key !== param) next.set(key, value);
+  }
+  if (page > 1) next.set(param, String(page));
+  const search = next.toString();
+  return `/licitacoes${search ? `?${search}` : ""}#${anchor}`;
+}
+
+function PanelPagination({
+  query,
+  param,
+  page,
+  hasMore,
+  anchor,
+  label,
+}: Readonly<{
+  query: PageQuery;
+  param: string;
+  page: number;
+  hasMore: boolean;
+  anchor: string;
+  label: string;
+}>) {
+  if (page === 1 && !hasMore) return null;
+  return (
+    <nav className="diary-pagination" aria-label={`Paginação de ${label}`}>
+      {page > 1 ? (
+        <a href={panelPageHref(query, param, page - 1, anchor)}>← Mais recentes</a>
+      ) : (
+        <span aria-hidden="true" />
+      )}
+      <span>Página {page}</span>
+      {hasMore ? (
+        <a href={panelPageHref(query, param, page + 1, anchor)}>Anteriores →</a>
+      ) : (
+        <span aria-hidden="true" />
+      )}
+    </nav>
+  );
+}
+
+function sanctionsBySupplier(sanctions: readonly SupplierSanction[]) {
+  const suppliers = new Map<
+    string,
+    { cnpj: string; name: string; count: number; registries: string[] }
+  >();
+  for (const sanction of sanctions) {
+    const current = suppliers.get(sanction.supplierCnpj) ?? {
+      cnpj: sanction.supplierCnpj,
+      name: sanction.companyName ?? sanction.sanctionedName,
+      count: 0,
+      registries: [],
+    };
+    current.count += 1;
+    if (!current.registries.includes(sanction.registry)) {
+      current.registries.push(sanction.registry);
+    }
+    suppliers.set(sanction.supplierCnpj, current);
+  }
+  return [...suppliers.values()].sort(
+    (left, right) => right.count - left.count || left.name.localeCompare(right.name, "pt-BR"),
+  );
+}
 
 function SupplierSanctionsPanel({
   result,
@@ -136,14 +214,45 @@ function SupplierSanctionsPanel({
           data em que foi feita; a conferência é refeita periodicamente.
         </p>
       ) : (
-        <div className="digest-grid">
-          {result.sanctions.map((sanction) => (
-            <SupplierSanctionCard
-              key={`${sanction.registry}:${sanction.sanctionId}`}
-              sanction={sanction}
-            />
-          ))}
-        </div>
+        <>
+          <div className="sanction-supplier-scroll">
+            <table className="sanction-supplier-table">
+              <caption>
+                {sanctionsBySupplier(result.sanctions).length.toLocaleString("pt-BR")}{" "}
+                fornecedores com registro no espelho mais recente dos cadastros
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Fornecedor</th>
+                  <th scope="col">Registros</th>
+                  <th scope="col">Cadastros</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sanctionsBySupplier(result.sanctions).map((supplier) => (
+                  <tr key={supplier.cnpj}>
+                    <td>
+                      <a href={`/licitacoes/fornecedor/${supplier.cnpj}#supplier-sanctions-title`}>
+                        {supplier.name}
+                      </a>
+                      <br />
+                      <span className="meta-note">CNPJ {formatSanctionCnpj(supplier.cnpj)}</span>
+                    </td>
+                    <td>{supplier.count.toLocaleString("pt-BR")}</td>
+                    <td>{supplier.registries.map((registry) => registry.toUpperCase()).join(", ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="act-review-mode">
+            Cada registro espelha o cadastro federal na data da consulta e pode
+            estar em discussão administrativa ou judicial; esta lista não afirma
+            culpa nem irregularidade em contratos específicos. O detalhe de cada
+            sanção, com órgão sancionador e fonte oficial, está na página do
+            fornecedor.
+          </p>
+        </>
       )}
     </section>
   );
@@ -262,8 +371,10 @@ function MunicipalProcessCard({
 
 function MunicipalProcessesPanel({
   result,
+  query,
 }: Readonly<{
   result: Awaited<ReturnType<typeof getPublicMunicipalProcurementProcesses>>;
+  query: PageQuery;
 }>) {
   return (
     <section
@@ -299,10 +410,11 @@ function MunicipalProcessesPanel({
           preenche o acervo aos poucos.
         </p>
       ) : (
-        <details className="finance-details">
+        <details className="finance-details" open={result.page > 1}>
           <summary>
-            Ver os {result.processes.length.toLocaleString("pt-BR")} processos
-            mais recentes
+            {result.page === 1
+              ? "Ver os processos mais recentes"
+              : `Processos — página ${result.page}`}
           </summary>
           <div className="digest-grid">
             {result.processes.map((process) => (
@@ -312,6 +424,14 @@ function MunicipalProcessesPanel({
               />
             ))}
           </div>
+          <PanelPagination
+            query={query}
+            param="processos"
+            page={result.page}
+            hasMore={result.hasMore}
+            anchor="municipal-processes-title"
+            label="processos"
+          />
         </details>
       )}
     </section>
@@ -320,8 +440,10 @@ function MunicipalProcessesPanel({
 
 function MunicipalContractsPanel({
   result,
+  query,
 }: Readonly<{
   result: Awaited<ReturnType<typeof getPublicMunicipalContracts>>;
+  query: PageQuery;
 }>) {
   if (result.state === "unavailable" || result.contracts.length === 0) {
     return (
@@ -350,15 +472,25 @@ function MunicipalContractsPanel({
           física nunca é exibido.
         </p>
       </div>
-      <details className="finance-details">
+      <details className="finance-details" open={result.page > 1}>
         <summary>
-          Ver os {result.contracts.length.toLocaleString("pt-BR")} contratos mais recentes
+          {result.page === 1
+            ? "Ver os contratos mais recentes"
+            : `Contratos — página ${result.page}`}
         </summary>
         <div className="digest-grid">
           {result.contracts.map((contract) => (
             <MunicipalContractCard contract={contract} key={contract.contractId} />
           ))}
         </div>
+        <PanelPagination
+          query={query}
+          param="contratos"
+          page={result.page}
+          hasMore={result.hasMore}
+          anchor="municipal-contracts-title"
+          label="contratos"
+        />
       </details>
     </section>
   );
@@ -395,8 +527,8 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
       ? Promise.resolve({ state: "available" as const, suppliers: [] as const })
       : getPublicSupplierConcentration(),
     getPncpProcurementFilterOptions(),
-    getPublicMunicipalContracts(),
-    getPublicMunicipalProcurementProcesses(),
+    getPublicMunicipalContracts(parsePanelPage(params.contratos)),
+    getPublicMunicipalProcurementProcesses(parsePanelPage(params.processos)),
     getPublicSupplierSanctions(),
   ]);
   const filterOptions =
@@ -551,8 +683,8 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
 
         <SupplierSanctionsPanel result={supplierSanctionsResult} />
 
-        <MunicipalContractsPanel result={municipalContractsResult} />
-        <MunicipalProcessesPanel result={municipalProcessesResult} />
+        <MunicipalContractsPanel result={municipalContractsResult} query={params} />
+        <MunicipalProcessesPanel result={municipalProcessesResult} query={params} />
 
         <p className="hero-note">
           Metodologia: espelho fiel dos registros do PNCP, preservados como
