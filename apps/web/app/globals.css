@@ -8962,3 +8962,12 @@ footer {
   text-align: left;
   vertical-align: top;
 }
+
+.act-ocr-note {
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid #b7791f;
+  background: #fffaf0;
+  color: #5f4b1f;
+  font-size: 0.82rem;
+}

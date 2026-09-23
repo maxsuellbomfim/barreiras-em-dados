@@ -1196,6 +1196,7 @@ try {
       gazette_date::text as gazette_date,
       gazette_url,
       excerpt,
+      text_source,
       methodology_version
     from api.get_approved_gazette_acts(50)
   `);
@@ -1207,7 +1208,8 @@ try {
       gazette_date: "2026-06-10",
       gazette_url: null,
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "approved-gazette-acts/1.6.0",
+      text_source: "embedded_text",
+      methodology_version: "approved-gazette-acts/1.7.0",
     },
   ]);
 

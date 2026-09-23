@@ -49,38 +49,76 @@ class PostgresExtractionRepository:
                     or artifact.metadata ->> 'schema_name'
                         = 'gazette-direct-edition'
                   )
-                  and not exists (
-                    select 1
-                    from raw.extraction_jobs as job
-                    where job.raw_artifact_id = artifact.id
-                      and job.job_type = 'gazette_act_candidates'
-                      and job.idempotency_key = encode(
-                        sha256(
-                          ('gazette-acts:' || artifact.sha256 || ':' || %s)::bytea
-                        ),
-                        'hex'
-                      )
-                      -- Falhas transitórias (por exemplo, StorageApiError)
-                      -- podem ser tentadas novamente até o limite auditável.
-                      and not (
-                        job.status = 'failed'
-                        and job.last_error_code = 'processing_error'
-                        and job.attempt_count < job.max_attempts
-                      )
+                  and (
+                    not exists (
+                      select 1
+                      from raw.extraction_jobs as job
+                      where job.raw_artifact_id = artifact.id
+                        and job.job_type = 'gazette_act_candidates'
+                        and job.idempotency_key = encode(
+                          sha256(
+                            ('gazette-acts:' || artifact.sha256 || ':' || %s)::bytea
+                          ),
+                          'hex'
+                        )
+                        -- Falhas transitórias (por exemplo, StorageApiError)
+                        -- podem ser tentadas novamente até o limite auditável.
+                        and not (
+                          job.status = 'failed'
+                          and job.last_error_code = 'processing_error'
+                          and job.attempt_count < job.max_attempts
+                        )
+                    )
+                    -- OCR mais novo que a última extração feita COM texto de
+                    -- OCR (chave diferente da histórica). Jobs com a chave
+                    -- histórica foram feitos sobre o texto embutido, que em
+                    -- PDF escaneado é só a numeração da página.
+                    or (
+                      select max(ocr.created_at)
+                      from raw.document_pages as ocr
+                      where ocr.raw_artifact_id = artifact.id
+                        and ocr.extraction_method = 'ocr'
+                    ) > coalesce((
+                      select max(greatest(job.created_at, job.updated_at))
+                      from raw.extraction_jobs as job
+                      where job.raw_artifact_id = artifact.id
+                        and job.job_type = 'gazette_act_candidates'
+                        and job.idempotency_key <> encode(
+                          sha256(
+                            ('gazette-acts:' || artifact.sha256 || ':' || %s)::bytea
+                          ),
+                          'hex'
+                        )
+                    ), '-infinity'::timestamptz)
                   )
-                  -- Adiado aguardando OCR: alguma página sem texto e ainda
-                  -- sem linha OCR equivalente para o mesmo número de página.
+                  -- Adiado aguardando OCR: página sem texto ou, no PDF direto
+                  -- do Diário, só com a numeração. Fica atendida por qualquer
+                  -- linha OCR (mesmo de página em branco) ou por outra linha
+                  -- com texto útil para o mesmo número de página.
                   and not exists (
                     select 1
                     from raw.document_pages as page
                     where page.raw_artifact_id = artifact.id
-                      and page.text_content is null
+                      and (
+                        page.text_content is null
+                        or (
+                          artifact.metadata ->> 'schema_name'
+                            = 'gazette-direct-edition'
+                          and page.extraction_method <> 'ocr'
+                          and btrim(page.text_content) = page.page_number::text
+                        )
+                      )
                       and not exists (
                         select 1
                         from raw.document_pages as supplemental
                         where supplemental.raw_artifact_id = artifact.id
                           and supplemental.page_number = page.page_number
                           and supplemental.text_content is not null
+                          and (
+                            supplemental.extraction_method = 'ocr'
+                            or btrim(supplemental.text_content)
+                              <> supplemental.page_number::text
+                          )
                       )
                   )
                 order by
@@ -98,7 +136,7 @@ class PostgresExtractionRepository:
                   artifact.created_at
                 limit %s
                 """,
-                (self._ruleset_version(), limit),
+                (self._ruleset_version(), self._ruleset_version(), limit),
             )
             artifacts = []
             while True:

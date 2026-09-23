@@ -17,6 +17,11 @@ test("dreno de OCR processa em lote e republica as edições que ganharam texto"
   assert.ok(
     workflow.indexOf("ocr_gazette_pages") < workflow.indexOf("segment_gazette_editions"),
   );
+  // Atos só depois da reorganização, e sem publicar direto daqui.
+  assert.ok(
+    workflow.indexOf("segment_gazette_editions") < workflow.indexOf("process_gazette_acts"),
+  );
+  assert.doesNotMatch(workflow, /publish_verified_candidates/);
   assert.match(workflow, /QUERIDO_DIARIO_SUPABASE_WORKLOAD_PASSWORD/);
   assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /permissions:\s*\n\s*contents: read/);

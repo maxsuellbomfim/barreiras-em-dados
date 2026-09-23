@@ -38,6 +38,46 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
             "btrim(supplemental.text_content) <> page.page_number::text", query
         )
 
+    def test_candidate_queue_reopens_editions_after_ocr_text(self) -> None:
+        connection = RecordingConnection()
+        repository = PostgresExtractionRepository(lambda: connection)  # type: ignore[arg-type]
+
+        repository.pending_text_artifacts(30)
+
+        query = connection.queries[0]
+        params = connection.params[0]
+        # OCR mais novo que a última extração feita com texto de OCR reabre a
+        # edição; a extração com a chave histórica usou só o texto embutido.
+        self.assertIn(
+            "select max(ocr.created_at) from raw.document_pages as ocr "
+            "where ocr.raw_artifact_id = artifact.id "
+            "and ocr.extraction_method = 'ocr' ) > coalesce((",
+            query,
+        )
+        self.assertIn("and job.idempotency_key <> encode(", query)
+        self.assertEqual(len(params), 3)
+        self.assertEqual(params[0], params[1])
+
+    def test_candidate_queue_waits_ocr_for_page_number_only_text(self) -> None:
+        connection = RecordingConnection()
+        repository = PostgresExtractionRepository(lambda: connection)  # type: ignore[arg-type]
+
+        repository.pending_text_artifacts(30)
+
+        query = connection.queries[0]
+        self.assertIn(
+            "and page.extraction_method <> 'ocr' "
+            "and btrim(page.text_content) = page.page_number::text",
+            query,
+        )
+        # Página em branco com OCR não pode travar a edição para sempre.
+        self.assertIn(
+            "supplemental.extraction_method = 'ocr' "
+            "or btrim(supplemental.text_content) "
+            "<> supplemental.page_number::text",
+            query,
+        )
+
     def test_candidate_queue_prioritizes_recent_direct_editions(self) -> None:
         connection = RecordingConnection()
         repository = PostgresExtractionRepository(lambda: connection)  # type: ignore[arg-type]

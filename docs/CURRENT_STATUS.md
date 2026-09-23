@@ -43,7 +43,11 @@ amplas.
    primeira publicação nunca chegava ao site; agora a edição volta à fila quando
    ganha páginas mais novas que sua última versão. E o workflow
    `ocr-gazette-backlog` drena até 200 páginas a cada 30 minutos (~3 s por
-   página; a fila de 15.133 páginas zera em cerca de dois dias). Há também dois pares
+   página; a fila de 15.133 páginas zera em cerca de dois dias). A extração de
+   atos passou a usar o OCR das páginas só com numeração (antes o descartava),
+   reabre as edições cujo OCR é mais novo que a última extração feita com OCR
+   e o dreno procura atos logo depois; atos publicados a partir dessas edições
+   exibem aviso de transcrição por OCR. Há também dois pares
    de edições com hash idêntico (4309/4310 e 4263/4264 de 2024) aguardando
    conferência dos PDFs originais.
 2. **Rastro do dinheiro ponta a ponta:** ainda não é possível seguir um contrato

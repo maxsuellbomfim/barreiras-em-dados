@@ -78,3 +78,12 @@ jobs:
         run: >-
           python -B -m barreiras_docproc.commands.segment_gazette_editions
           --limit 50
+
+      # Só entram edições com todas as páginas atendidas por OCR ou texto
+      # útil. Os candidatos vão para a fila interna; publicação segue os
+      # gates dos workflows de coleta (revisão assistida e conferência
+      # literal, ADR 0012).
+      - name: Procurar atos nas edições com texto recuperado
+        run: >-
+          python -B -m barreiras_docproc.commands.process_gazette_acts
+          --limit 20
