@@ -35,7 +35,24 @@ function evidenceLabel(value: string) {
   }[value] ?? value;
 }
 
-function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>) {
+export function procurementDetailPath(controlNumber: string): string {
+  return `/licitacoes/contratacao/${encodeURIComponent(controlNumber)}`;
+}
+
+function executionLabel(procurement: Procurement): string {
+  const summary = procurement.executionSummary;
+  if (summary.state === "linked") {
+    return `${formatCount(summary.contractsCount)} contrato(s), ${formatCount(summary.paymentsCount)} pagamento(s) ligados`;
+  }
+  if (summary.state === "no_linked_execution") return "sem vínculo de execução publicado";
+  if (summary.state === "not_normalized") return "vínculos em preparação";
+  return "resumo de execução indisponível";
+}
+
+export function ProcurementCard({
+  procurement,
+  compact = false,
+}: Readonly<{ procurement: Procurement; compact?: boolean }>) {
   const sourceUrl = pncpProcurementSourceUrl(procurement.controlNumber);
   const queryState = procurement.queryStatus?.state ?? "unavailable";
   const queryLabels = {
@@ -62,7 +79,15 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
           {procurement.situacao ?? "situação no PNCP"}
         </span>
       </div>
-      <h2 className="procurement-object">{procurement.objeto}</h2>
+      <h2 className="procurement-object">
+        {compact ? (
+          <a href={procurementDetailPath(procurement.controlNumber)}>
+            {procurement.objeto}
+          </a>
+        ) : (
+          procurement.objeto
+        )}
+      </h2>
       <dl className="procurement-values">
         {procurement.unidade ? (
           <div>
@@ -87,6 +112,21 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
           </dd>
         </div>
       </dl>
+      {compact ? (
+        <>
+          <p className="meta-note">
+            {formatCount(procurement.itens.length)} item(ns) ·{" "}
+            {formatCount(procurement.resultados.length)} resultado(s) homologado(s) ·{" "}
+            {executionLabel(procurement)} · {queryLabels[queryState].toLowerCase()}
+          </p>
+          <p>
+            <a href={procurementDetailPath(procurement.controlNumber)}>
+              Ver itens, quem venceu, execução e evidências →
+            </a>
+          </p>
+        </>
+      ) : (
+        <>
       {procurement.valorEstimado === null ? (
         <p className="procurement-privacy-note">
           O PNCP não informou um valor estimado neste registro. Isso pode ocorrer
@@ -329,6 +369,8 @@ function ProcurementCard({ procurement }: Readonly<{ procurement: Procurement }>
           </ul>
         </details>
       ) : null}
+        </>
+      )}
       <p className="act-evidence">
         {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">
           Ver no PNCP (registro oficial)
@@ -365,11 +407,19 @@ export function ProcurementExplorer({
         </span>
       </div>
       {procurements.length > 0 ? (
+        <p className="meta-note procurement-coverage-note">
+          Cada cartão mostra os vínculos publicados na plataforma; isso não confirma que todos os contratos e pagamentos foram coletados.
+          {" "}A ausência de um vínculo aqui não prova que ele não exista na fonte oficial.
+          {" "}Itens, vencedores, execução e evidências ficam na página de cada contratação.
+        </p>
+      ) : null}
+      {procurements.length > 0 ? (
         <div className="digest-grid">
           {procurements.map((procurement) => (
             <ProcurementCard
               key={procurement.controlNumber}
               procurement={procurement}
+              compact
             />
           ))}
         </div>
