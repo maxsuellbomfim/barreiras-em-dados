@@ -52,7 +52,10 @@ amplas.
    conferência dos PDFs originais.
 2. **Rastro do dinheiro ponta a ponta:** ainda não é possível seguir um contrato
    até seus empenhos, liquidações e pagamentos por chave oficial. Os fechamentos
-   mensais são agregados; a ligação individual é o gate 4.
+   mensais são agregados; a ligação individual é o gate 4. Fonte encontrada em
+   23/09: empenhos, liquidações e pagamentos individuais no sistema Sudoeste
+   (WebRun) por trás do portal, com o nº do contrato citado no histórico
+   ([`sources/PREFEITURA_DESPESAS_WEBRUN.md`](sources/PREFEITURA_DESPESAS_WEBRUN.md)).
 3. **Dados abertos:** `apps/public-api` está vazio e a única exportação CSV é a
    da Farmácia Popular. A visão prevê downloads e API com os mesmos estados da
    interface.
