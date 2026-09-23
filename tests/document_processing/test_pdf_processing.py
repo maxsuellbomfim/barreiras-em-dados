@@ -225,6 +225,60 @@ class PdfExtractionServiceTests(unittest.TestCase):
             candidate.match_text,
         )
 
+    def test_page_number_only_text_waits_for_ocr(self) -> None:
+        # PDFs escaneados do Diário trazem como texto embutido só o número
+        # da página; extrair atos desse "texto" gerava jobs vazios.
+        body = build_pdf(["PORTARIA N 10. RESOLVE: nada de pessoal aqui.", "2"])
+        service, artifact, repository = make_service(body)
+
+        result = service.process(artifact)
+
+        self.assertTrue(result.deferred_awaiting_ocr)
+        self.assertEqual(repository.batches, [])
+
+    def test_ocr_replaces_page_number_only_text(self) -> None:
+        from barreiras_docproc.candidates import RULESET_VERSION
+        from barreiras_docproc.processing import job_idempotency_key
+
+        body = build_pdf(["PORTARIA N 10. RESOLVE: nada de pessoal aqui.", "2"])
+        service, artifact, repository = make_service(body)
+        repository.supplemental = {
+            2: "Art. 1° - EXONERAR BELTRANA DE TAL do cargo de Chefe,"
+        }
+
+        result = service.process(artifact)
+
+        self.assertTrue(result.job_created)
+        batch = repository.batches[0]
+        self.assertIn("EXONERAR BELTRANA", batch.canonical.text)
+        self.assertEqual(batch.candidates[0].act_type, "exoneracao")
+        # Texto com OCR gera outra extração, não a histórica feita sobre o
+        # texto vazio.
+        self.assertEqual(
+            batch.job_idempotency_key,
+            job_idempotency_key(
+                artifact.sha256, RULESET_VERSION, batch.canonical.sha256
+            ),
+        )
+        self.assertNotEqual(
+            batch.job_idempotency_key,
+            job_idempotency_key(artifact.sha256, RULESET_VERSION),
+        )
+
+    def test_texted_pdf_keeps_historical_job_key(self) -> None:
+        from barreiras_docproc.candidates import RULESET_VERSION
+        from barreiras_docproc.processing import job_idempotency_key
+
+        body = build_pdf(["NOMEAR FULANO DE TAL para o cargo de Assessor,"])
+        service, artifact, repository = make_service(body)
+
+        service.process(artifact)
+
+        self.assertEqual(
+            repository.batches[0].job_idempotency_key,
+            job_idempotency_key(artifact.sha256, RULESET_VERSION),
+        )
+
     def test_fully_scanned_pdf_is_deferred_not_half_processed(self) -> None:
         service, artifact, repository = make_service(build_pdf([None]))
 
