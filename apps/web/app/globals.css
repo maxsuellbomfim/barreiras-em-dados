@@ -4895,7 +4895,7 @@ footer {
   background: rgba(237, 243, 255, 0.7);
 }
 
-.coverage-note strong {
+.coverage-note > strong {
   display: block;
   margin-bottom: 0.5rem;
   font-size: 0.85rem;
