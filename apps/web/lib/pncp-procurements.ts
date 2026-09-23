@@ -528,8 +528,31 @@ function parseProcurement(
   };
 }
 
+export type ProcurementDetailResult =
+  | Readonly<{ state: "available"; procurement: Procurement | null }>
+  | Readonly<{ state: "unavailable" }>;
+
+const CONTROL_NUMBER = /^\d{14}-\d-\d{6}\/\d{4}$/;
+
+export async function getPncpProcurement(
+  controlNumber: string,
+): Promise<ProcurementDetailResult> {
+  if (!CONTROL_NUMBER.test(controlNumber)) {
+    return { state: "available", procurement: null };
+  }
+  const result = await getPncpProcurements({ controlNumber }, 1);
+  if (result.state === "unavailable") return result;
+  return {
+    state: "available",
+    procurement:
+      result.procurements.find((item) => item.controlNumber === controlNumber) ??
+      null,
+  };
+}
+
 export async function getPncpProcurements(
-  filters: ProcurementFilters = {},
+  filters: ProcurementFilters & Readonly<{ controlNumber?: string }> = {},
+  pageSize = 60,
 ): Promise<ProcurementsResult> {
   const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
   const publishableKey =
@@ -556,7 +579,10 @@ export async function getPncpProcurements(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          page_size: 60,
+          page_size: pageSize,
+          ...(filters.controlNumber
+            ? { control_number_filter: filters.controlNumber }
+            : {}),
           supplier_key_filter: filters.supplierKey ?? null,
           fiscal_year_filter: filters.fiscalYear ?? null,
           query_filter: filters.query ?? null,
