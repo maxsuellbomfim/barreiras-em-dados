@@ -35,28 +35,21 @@ amplas.
 
 ## Pendências abertas, por prioridade
 
-1. **Texto do Diário incompleto em parte do acervo.** A auditoria de 22/09
-   encontrou 14.832 páginas de 295 edições publicadas cuja extração contém apenas
-   o número da página, sem OCR registrado. A interface já avisa que o texto pode
-   estar incompleto. Em 23/09 foram corrigidas as duas travas: a fila do
-   segmentador só escolhia edições sem nenhuma versão, então OCR feito depois da
-   primeira publicação nunca chegava ao site; agora a edição volta à fila quando
-   ganha páginas mais novas que sua última versão. E o workflow
-   `ocr-gazette-backlog` drena até 200 páginas a cada 30 minutos (~3 s por
-   página; a fila de 15.133 páginas zera em cerca de dois dias). A extração de
-   atos passou a usar o OCR das páginas só com numeração (antes o descartava),
-   reabre as edições cujo OCR é mais novo que a última extração feita com OCR
-   e o dreno procura atos logo depois; atos publicados a partir dessas edições
-   exibem aviso de transcrição por OCR. Em 24/09 o dreno passou a reconhecer
-   4 páginas em paralelo, com lotes de 800 (PR #815): o agendador do GitHub
-   dispara só ~5 execuções por dia e o backfill de edições antigas acrescenta
-   ~700 páginas escaneadas por dia. Os dois pares de edições com hash idêntico
-   (4309/4310 e 4263/4264 de 2024) eram erro do catálogo da diariomtransparente,
-   que redireciona 4263 e 4309 para `diario4264.pdf` e `diario4310.pdf`; o
-   endereço canônico da prefeitura tem os PDFs certos (capa conferida). O
-   coletor agora prefere o PDF canônico quando o catálogo aponta para arquivo
-   de outra edição e devolve essas duas à fila; 4181, publicada como
-   `diario418.pdf`, é legítima e permanece.
+1. **Texto do Diário: fila de OCR zerada em 24/09.** A auditoria de 22/09
+   achou ~15 mil páginas publicadas cuja extração era só o número da página.
+   Em 24/09 o dreno `ocr-gazette-backlog` passou a reconhecer 4 páginas em
+   paralelo (PR #815) e rodou em lotes manuais; 16.607 páginas têm OCR e 321
+   edições foram reorganizadas no dia (5.395 documentos). Três gargalos
+   apareceram e foram corrigidos: busca de atos pendentes (#817) e fila de
+   reorganização (#819) passavam do `statement_timeout` de 15 s do coletor, e
+   as cópias erradas servidas pelo catálogo travavam a reorganização (#818).
+   4263 e 4309 de 2024 eram erro do catálogo da diariomtransparente (redireciona
+   para `diario4264.pdf` e `diario4310.pdf`); o coletor usa o PDF canônico da
+   prefeitura (#816) e as duas já estão no ar com o conteúdo certo. As cópias
+   seguem no bruto, fora das filas. Atos de edições com OCR exibem aviso de
+   transcrição. Pendências: o agendador do GitHub dispara o dreno só ~5 vezes
+   por dia (suficiente para as ~700 páginas novas diárias do backfill) e a
+   qualidade do OCR não foi auditada por amostragem.
 2. **Rastro do dinheiro ponta a ponta (gate 4), contrato → empenho →
    liquidação → pagamento no ar:** empenhos e liquidações individuais do sistema
    Sudoeste/WebRun preservados mês a mês de janeiro de 2024 a agosto de 2026
