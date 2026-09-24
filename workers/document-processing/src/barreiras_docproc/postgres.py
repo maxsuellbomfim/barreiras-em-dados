@@ -49,6 +49,22 @@ class PostgresExtractionRepository:
                     or artifact.metadata ->> 'schema_name'
                         = 'gazette-direct-edition'
                   )
+                  and not exists (
+                    -- Cópia servida pelo catálogo no lugar da edição: PDF com nome e
+                    -- hash de outra edição (4309 → diario4310.pdf, 4263 →
+                    -- diario4264.pdf em 2024). Mesma regra do coletor direto.
+                    select 1
+                    from raw.raw_artifacts as other_edition
+                    where other_edition.metadata ->> 'schema_name'
+                        = 'gazette-direct-edition'
+                      and other_edition.sha256 = artifact.sha256
+                      and other_edition.metadata ->> 'edition'
+                          <> artifact.metadata ->> 'edition'
+                      and other_edition.metadata ->> 'edition' = substring(
+                        artifact.metadata ->> 'final_url'
+                        from '/diario([0-9]+)(?:-[A-Za-z0-9-]+)?\\.pdf$'
+                      )
+                  )
                   and (
                     not exists (
                       select 1
@@ -1048,6 +1064,22 @@ class PostgresExtractionRepository:
                       and artifact.metadata ->> 'schema_name'
                           = 'tcm-ba-monthly-document'
                     )
+                  )
+                  and not exists (
+                    -- Cópia servida pelo catálogo no lugar da edição: PDF com nome e
+                    -- hash de outra edição (4309 → diario4310.pdf, 4263 →
+                    -- diario4264.pdf em 2024). Mesma regra do coletor direto.
+                    select 1
+                    from raw.raw_artifacts as other_edition
+                    where other_edition.metadata ->> 'schema_name'
+                        = 'gazette-direct-edition'
+                      and other_edition.sha256 = artifact.sha256
+                      and other_edition.metadata ->> 'edition'
+                          <> artifact.metadata ->> 'edition'
+                      and other_edition.metadata ->> 'edition' = substring(
+                        artifact.metadata ->> 'final_url'
+                        from '/diario([0-9]+)(?:-[A-Za-z0-9-]+)?\\.pdf$'
+                      )
                   )
                   and (
                     page.text_content is null

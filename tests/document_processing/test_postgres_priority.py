@@ -232,3 +232,26 @@ class PendingActsIndexContractTests(unittest.TestCase):
             " and ocr.extraction_method = 'ocr'",
             query,
         )
+
+
+class MisattributedDirectCopyTests(unittest.TestCase):
+    def test_ocr_segmentation_and_acts_skip_catalog_copies(self) -> None:
+        # 4309 e 4263 de 2024 são cópias de 4310 e 4264 servidas pelo
+        # catálogo; reorganizá-las falha no conflito de hash a cada OCR novo
+        # e extrair atos delas os atribuiria à edição errada.
+        from barreiras_docproc.gazette_repository import GazetteDocumentRepository
+
+        connection = RecordingConnection()
+        extraction = PostgresExtractionRepository(lambda: connection)
+        extraction.pending_ocr_pages(30)
+        extraction.pending_text_artifacts(20)
+        GazetteDocumentRepository(lambda: connection).pending_artifacts(50)
+
+        self.assertEqual(len(connection.queries), 3)
+        for query in connection.queries:
+            self.assertIn("other_edition.sha256 = artifact.sha256", query)
+            self.assertIn(
+                "other_edition.metadata ->> 'edition' = substring("
+                " artifact.metadata ->> 'final_url'",
+                query,
+            )
