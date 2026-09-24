@@ -126,20 +126,41 @@ class GazetteDocumentRepository:
                   ) as record on true
                   where artifact.metadata ->> 'document_role' = 'txt'
                     and artifact.metadata ? 'source_record_key'
-                ), page_stats as (
+                ), page_numbering as (
+                  -- Duas agregações respondidas só pelos índices
+                  -- document_pages_artifact_page_created_idx e
+                  -- document_pages_text_pages_idx: ler as páginas inteiras
+                  -- (com o texto) passava do statement_timeout do coletor.
                   select
                     page.raw_artifact_id,
                     min(page.page_number) as first_page,
                     max(page.page_number) as last_page,
-                    count(distinct page.page_number)
-                      filter (where page.text_content is not null)
-                      as pages_with_text,
                     max(page.created_at) as newest_page_at
                   from raw.document_pages as page
                   where page.raw_artifact_id in (
                     select candidate.id from candidate_editions as candidate
                   )
                   group by page.raw_artifact_id
+                ), text_pages as (
+                  select
+                    page.raw_artifact_id,
+                    count(distinct page.page_number) as pages_with_text
+                  from raw.document_pages as page
+                  where page.raw_artifact_id in (
+                    select candidate.id from candidate_editions as candidate
+                  )
+                    and page.text_content is not null
+                  group by page.raw_artifact_id
+                ), page_stats as (
+                  select
+                    numbering.raw_artifact_id,
+                    numbering.first_page,
+                    numbering.last_page,
+                    coalesce(with_text.pages_with_text, 0) as pages_with_text,
+                    numbering.newest_page_at
+                  from page_numbering as numbering
+                  left join text_pages as with_text
+                    on with_text.raw_artifact_id = numbering.raw_artifact_id
                 ), selected_editions as (
                 select
                   edition.id::text as id,

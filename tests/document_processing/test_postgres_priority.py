@@ -192,8 +192,6 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
             )
 
         self.assertEqual(connection.queries, [])
-if __name__ == "__main__":
-    unittest.main()
 
 
 class PendingActsIndexContractTests(unittest.TestCase):
@@ -255,3 +253,41 @@ class MisattributedDirectCopyTests(unittest.TestCase):
                 " artifact.metadata ->> 'final_url'",
                 query,
             )
+
+
+class SegmenterPageStatsIndexTests(unittest.TestCase):
+    def test_page_stats_never_read_page_text_rows(self) -> None:
+        # Agregar numeração e texto na mesma varredura lia as páginas inteiras
+        # e passava do statement_timeout de 15 s do coletor (dreno #16).
+        from pathlib import Path
+
+        from barreiras_docproc.gazette_repository import GazetteDocumentRepository
+
+        migration = " ".join(
+            (
+                Path(__file__).resolve().parents[2]
+                / "supabase/migrations"
+                / "20260924185152_gazette_segmenter_page_indexes.sql"
+            )
+            .read_text(encoding="utf-8")
+            .split()
+        )
+        connection = RecordingConnection()
+        GazetteDocumentRepository(lambda: connection).pending_artifacts(50)
+        query = connection.queries[0]
+
+        self.assertNotIn("filter (where page.text_content is not null)", query)
+        self.assertIn("and page.text_content is not null group by", query)
+        self.assertIn(
+            "on raw.document_pages (raw_artifact_id, page_number, created_at);",
+            migration,
+        )
+        self.assertIn(
+            "on raw.document_pages (raw_artifact_id, page_number)"
+            " where text_content is not null;",
+            migration,
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
