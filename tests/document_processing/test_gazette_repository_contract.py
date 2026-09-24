@@ -98,10 +98,11 @@ class GazetteRepositoryContractTests(unittest.TestCase):
         query = self.connection.queries[0][0]
         self.assertIn("min(page.page_number) as first_page", query)
         self.assertIn(
-            "count(distinct page.page_number) "
-            "filter (where page.text_content is not null) as pages_with_text",
+            "count(distinct page.page_number) as pages_with_text "
+            "from raw.document_pages as page",
             query,
         )
+        self.assertIn("and page.text_content is not null", query)
         self.assertIn("stats.first_page = 1", query)
         self.assertIn("stats.pages_with_text = stats.last_page", query)
         self.assertIn(
