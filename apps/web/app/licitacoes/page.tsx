@@ -16,6 +16,11 @@ import {
   type CommitmentLinksResult,
 } from "../../lib/commitment-links";
 import {
+  getLiquidationsForCommitments,
+  type CommitmentLiquidation,
+  type CommitmentLiquidationsResult,
+} from "../../lib/commitment-liquidations";
+import {
   getPublicMunicipalContracts,
   municipalSupplierLabel,
   type MunicipalContract,
@@ -263,9 +268,40 @@ function SupplierSanctionsPanel({
   );
 }
 
+function CommitmentLiquidationsLine({
+  liquidations,
+}: Readonly<{ liquidations: readonly CommitmentLiquidation[] | null }>) {
+  if (liquidations === null) {
+    return (
+      <span className="commitment-links-excerpt">
+        Liquidações indisponíveis nesta consulta.
+      </span>
+    );
+  }
+  if (liquidations.length === 0) {
+    return (
+      <span className="commitment-links-excerpt">
+        Nenhuma liquidação deste empenho nos meses já coletados.
+      </span>
+    );
+  }
+  return (
+    <span className="commitment-links-excerpt">
+      Liquidado (mesma chave oficial do empenho):{" "}
+      {liquidations
+        .map((item) => `${item.liquidationDateText} · valor ${item.amountText}`)
+        .join("; ")}
+    </span>
+  );
+}
+
 function CommitmentLinksList({
   links,
-}: Readonly<{ links: readonly CommitmentLink[] | null }>) {
+  liquidations,
+}: Readonly<{
+  links: readonly CommitmentLink[] | null;
+  liquidations: CommitmentLiquidationsResult;
+}>) {
   if (links === null) {
     return (
       <p className="act-evidence">
@@ -292,7 +328,8 @@ function CommitmentLinksList({
         Ligação automática verificada por código, sujeita a correção: o
         histórico do empenho cita este contrato pelo número, o número aponta
         para um único contrato e o favorecido é o mesmo contratado. Valores
-        aparecem como texto da fonte e não são somados.
+        aparecem como texto da fonte e não são somados. As liquidações vêm da
+        própria fonte com a chave oficial de cada empenho.
       </p>
       <ul>
         {links.map((link) => (
@@ -307,6 +344,14 @@ function CommitmentLinksList({
             <span className="commitment-links-excerpt">
               Trecho do histórico: “{link.citedExcerpt}”
             </span>
+            <br />
+            <CommitmentLiquidationsLine
+              liquidations={
+                liquidations.state === "available"
+                  ? (liquidations.byCommitment.get(link.commitmentKey) ?? [])
+                  : null
+              }
+            />
           </li>
         ))}
       </ul>
@@ -324,9 +369,11 @@ function CommitmentLinksList({
 function MunicipalContractCard({
   contract,
   commitmentLinks,
+  liquidations,
 }: Readonly<{
   contract: MunicipalContract;
   commitmentLinks: readonly CommitmentLink[] | null;
+  liquidations: CommitmentLiquidationsResult;
 }>) {
   return (
     <article className="digest-card">
@@ -372,7 +419,7 @@ function MunicipalContractCard({
           : "PDF ainda não preservado"}{" "}
         · hash {contract.artifactSha256.slice(0, 12)}…
       </p>
-      <CommitmentLinksList links={commitmentLinks} />
+      <CommitmentLinksList links={commitmentLinks} liquidations={liquidations} />
     </article>
   );
 }
@@ -509,10 +556,12 @@ function MunicipalProcessesPanel({
 function MunicipalContractsPanel({
   result,
   links,
+  liquidations,
   query,
 }: Readonly<{
   result: Awaited<ReturnType<typeof getPublicMunicipalContracts>>;
   links: CommitmentLinksResult;
+  liquidations: CommitmentLiquidationsResult;
   query: PageQuery;
 }>) {
   if (result.state === "unavailable" || result.contracts.length === 0) {
@@ -560,6 +609,7 @@ function MunicipalContractsPanel({
                   ? (links.byContract.get(contract.sourceContractId ?? "") ?? [])
                   : null
               }
+              liquidations={liquidations}
             />
           ))}
         </div>
@@ -618,6 +668,14 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
       ? await getCommitmentLinksForContracts(
           municipalContractsResult.contracts.flatMap((contract) =>
             contract.sourceContractId ? [contract.sourceContractId] : [],
+          ),
+        )
+      : { state: "unavailable" };
+  const liquidationsResult: CommitmentLiquidationsResult =
+    commitmentLinksResult.state === "available"
+      ? await getLiquidationsForCommitments(
+          [...commitmentLinksResult.byContract.values()].flatMap((links) =>
+            links.map((link) => link.commitmentKey),
           ),
         )
       : { state: "unavailable" };
@@ -774,6 +832,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
         <MunicipalContractsPanel
           result={municipalContractsResult}
           links={commitmentLinksResult}
+          liquidations={liquidationsResult}
           query={params}
         />
         <MunicipalProcessesPanel result={municipalProcessesResult} query={params} />
