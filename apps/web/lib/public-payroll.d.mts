@@ -99,7 +99,10 @@ export type PublicPayrollRegimeRow = Readonly<{
     | "political_agent"
     | "guardianship_council"
     | "pensioner"
-    | "temporary_worker";
+    | "temporary_worker"
+    | "clt"
+    | "other"
+    | "not_reported";
   regimeLabel: string;
   employeeCount: number;
   grossAmount: string;

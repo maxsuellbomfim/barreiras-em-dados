@@ -1,0 +1,576 @@
+begin;
+
+-- Folha: nenhum dado fica de fora do detalhamento por vínculo e das faixas.
+-- payroll-regime-breakdown/1.2.0 aceita líquido individual negativo (nov/2023),
+-- registra "Celetistas" e "Outros" com o rótulo literal do relatório e agrupa
+-- em "Vínculo não informado no relatório" os meses cujo PDF não traz a coluna
+-- (jan e fev/2024). payroll-compensation-bands/1.1.0 aceita o líquido
+-- negativo. Detalhamentos das versões anteriores continuam válidos.
+
+create or replace function hr.verify_payroll_report_regime_breakdown()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  parent hr.payroll_report_aggregates%rowtype;
+  item jsonb;
+  code text;
+  label text;
+  seen_codes text[] := array[]::text[];
+  item_count integer;
+  item_gross numeric(20,2);
+  item_deduction numeric(20,2);
+  item_net numeric(20,2);
+  total_count integer := 0;
+  total_gross numeric(20,2) := 0;
+  total_deduction numeric(20,2) := 0;
+  total_net numeric(20,2) := 0;
+begin
+  select * into parent
+  from hr.payroll_report_aggregates
+  where id = new.payroll_report_aggregate_id;
+
+  if parent.id is null or parent.validation_state <> 'validated' then
+    raise exception 'regime breakdown requires a validated payroll aggregate'
+      using errcode = '23514';
+  end if;
+  if new.parser_version not in (
+    'payroll-regime-breakdown/1.0.0',
+    'payroll-regime-breakdown/1.1.0',
+    'payroll-regime-breakdown/1.2.0'
+  ) then
+    raise exception 'regime breakdown parser version is not publishable'
+      using errcode = '23514';
+  end if;
+  if jsonb_array_length(new.categories) < 1
+    or jsonb_array_length(new.categories) > 16 then
+    raise exception 'categorias do vínculo devem conter entre 1 e 16 itens'
+      using errcode = '23514';
+  end if;
+
+  for item in select value from jsonb_array_elements(new.categories)
+  loop
+    if jsonb_typeof(item) <> 'object'
+      or not item ?& array[
+        'regime_code', 'regime_label', 'employee_count', 'gross_amount',
+        'deduction_amount', 'net_amount'
+      ]
+      or (select count(*) from jsonb_object_keys(item)) <> 6 then
+      raise exception 'categorias do vínculo possuem campos inválidos'
+        using errcode = '23514';
+    end if;
+
+    code := item ->> 'regime_code';
+    label := item ->> 'regime_label';
+    if code not in (
+      'statutory', 'commissioned', 'selection_process', 'ceded',
+      'political_agent', 'guardianship_council', 'pensioner',
+      'temporary_worker', 'clt', 'other', 'not_reported'
+    ) or label is distinct from (case code
+      when 'statutory' then 'Estatutários'
+      when 'commissioned' then 'Cargos em comissão'
+      when 'selection_process' then 'Processo seletivo'
+      when 'ceded' then 'Cedidos'
+      when 'political_agent' then 'Agentes políticos'
+      when 'guardianship_council' then 'Conselho tutelar'
+      when 'pensioner' then 'Pensionistas'
+      when 'temporary_worker' then 'Trabalhadores temporários'
+      when 'clt' then 'Celetistas'
+      when 'other' then 'Outros'
+      when 'not_reported' then 'Vínculo não informado no relatório'
+    end) then
+      raise exception 'regime/vínculo público desconhecido'
+        using errcode = '23514';
+    end if;
+    if code = any(seen_codes) then
+      raise exception 'regime/vínculo duplicado no agregado'
+        using errcode = '23514';
+    end if;
+    seen_codes := array_append(seen_codes, code);
+
+    if item ->> 'employee_count' !~ '^[0-9]+$'
+      or item ->> 'gross_amount' !~ '^[0-9]+\.[0-9]{2}$'
+      or item ->> 'deduction_amount' !~ '^[0-9]+\.[0-9]{2}$'
+      or item ->> 'net_amount' !~ '^[0-9]+\.[0-9]{2}$' then
+      raise exception 'categorias do vínculo possuem números inválidos'
+        using errcode = '23514';
+    end if;
+    item_count := (item ->> 'employee_count')::integer;
+    item_gross := (item ->> 'gross_amount')::numeric(20,2);
+    item_deduction := (item ->> 'deduction_amount')::numeric(20,2);
+    item_net := (item ->> 'net_amount')::numeric(20,2);
+    if item_gross < 0 or item_deduction < 0 or item_net < 0
+      or item_gross - item_deduction <> item_net then
+      raise exception 'aritmética de regime/vínculo não fecha'
+        using errcode = '23514';
+    end if;
+    total_count := total_count + item_count;
+    total_gross := total_gross + item_gross;
+    total_deduction := total_deduction + item_deduction;
+    total_net := total_net + item_net;
+  end loop;
+
+  if total_count <> parent.employee_count
+    or total_gross <> parent.gross_amount
+    or total_deduction <> parent.deduction_amount
+    or total_net <> parent.net_amount then
+    raise exception 'soma das categorias do vínculo diverge do agregado da folha'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$function$;
+
+create or replace function hr.get_pending_payroll_regime_documents(
+  requested_limit integer,
+  target_reference_month date default null
+)
+returns table (
+  aggregate_id text,
+  artifact_id text,
+  sha256 text,
+  object_key text,
+  byte_size bigint,
+  parent_record_id text,
+  source_url text,
+  reference_month date
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $function$
+begin
+  if requested_limit is null or requested_limit < 1 or requested_limit > 20 then
+    raise exception 'limite de detalhamentos da folha inválido'
+      using errcode = '22023';
+  end if;
+  if target_reference_month is not null and (
+    target_reference_month < date '2021-01-01'
+    or target_reference_month > date '2100-12-01'
+    or target_reference_month
+      <> date_trunc('month', target_reference_month)::date
+  ) then
+    raise exception 'competência do detalhamento da folha inválida'
+      using errcode = '22023';
+  end if;
+
+  return query
+  select
+    aggregate.id::text,
+    artifact.id::text,
+    artifact.sha256,
+    artifact.object_key,
+    artifact.byte_size,
+    aggregate.origin_raw_record_id::text,
+    artifact.source_url,
+    aggregate.reference_month
+  from hr.payroll_report_aggregates as aggregate
+  join raw.raw_artifacts as artifact
+    on artifact.id = aggregate.source_document_artifact_id
+  where aggregate.report_kind = 'municipal_staff'
+    and aggregate.validation_state = 'validated'
+    and aggregate.parser_version = 'payroll-report-aggregate/1.4.0'
+    and aggregate.reference_month = coalesce(
+      target_reference_month,
+      aggregate.reference_month
+    )
+    and not exists (
+      select 1
+      from hr.payroll_report_aggregates as successor
+      where successor.supersedes_id = aggregate.id
+        and successor.validation_state <> 'rejected'
+    )
+    and not exists (
+      select 1
+      from hr.payroll_report_aggregate_invalidations as invalidation
+      where invalidation.aggregate_id = aggregate.id
+    )
+    and not exists (
+      select 1
+      from hr.payroll_report_regime_breakdowns as breakdown
+      where breakdown.payroll_report_aggregate_id = aggregate.id
+        and breakdown.parser_version in (
+    'payroll-regime-breakdown/1.0.0',
+    'payroll-regime-breakdown/1.1.0',
+    'payroll-regime-breakdown/1.2.0'
+  )
+    )
+  order by aggregate.reference_month desc, aggregate.payroll_cycle,
+    aggregate.id
+  limit requested_limit;
+end;
+$function$;
+
+create or replace function api.get_public_payroll_regime_breakdown(
+  target_reference_month date
+)
+returns table (
+  reference_month text,
+  regime_code text,
+  regime_label text,
+  employee_count integer,
+  gross_amount numeric(20,2),
+  deduction_amount numeric(20,2),
+  net_amount numeric(20,2),
+  source_document_count integer,
+  methodology_version text
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $function$
+begin
+  if target_reference_month is null
+    or target_reference_month < date '2021-01-01'
+    or target_reference_month > date '2100-12-01'
+    or target_reference_month
+      <> date_trunc('month', target_reference_month)::date then
+    raise exception 'competência do detalhamento da folha inválida'
+      using errcode = '22023';
+  end if;
+
+  return query
+  with current_components as (
+    select aggregate.*
+    from hr.payroll_report_aggregates as aggregate
+    where aggregate.reference_month = target_reference_month
+      and aggregate.report_kind = 'municipal_staff'
+      and aggregate.validation_state = 'validated'
+      and not exists (
+        select 1
+        from hr.payroll_report_aggregates as successor
+        where successor.supersedes_id = aggregate.id
+          and successor.validation_state <> 'rejected'
+      )
+      and not exists (
+        select 1
+        from hr.payroll_report_aggregate_invalidations as invalidation
+        where invalidation.aggregate_id = aggregate.id
+      )
+  ), complete_components as (
+    select component.*, breakdown.categories
+    from current_components as component
+    join hr.payroll_report_regime_breakdowns as breakdown
+      on breakdown.payroll_report_aggregate_id = component.id
+     and breakdown.parser_version in (
+    'payroll-regime-breakdown/1.0.0',
+    'payroll-regime-breakdown/1.1.0',
+    'payroll-regime-breakdown/1.2.0'
+  )
+    where (select count(*) from current_components)
+      = (select count(*)
+           from current_components as expected
+           join hr.payroll_report_regime_breakdowns as available
+             on available.payroll_report_aggregate_id = expected.id
+            and available.parser_version in (
+    'payroll-regime-breakdown/1.0.0',
+    'payroll-regime-breakdown/1.1.0',
+    'payroll-regime-breakdown/1.2.0'
+  ))
+      and (select count(*) from current_components) > 0
+  ), expanded as (
+    select
+      component.reference_month,
+      component.id as component_id,
+      component.payroll_cycle,
+      item ->> 'regime_code' as regime_code,
+      item ->> 'regime_label' as regime_label,
+      (item ->> 'employee_count')::integer as employee_count,
+      (item ->> 'gross_amount')::numeric(20,2) as gross_amount,
+      (item ->> 'deduction_amount')::numeric(20,2) as deduction_amount,
+      (item ->> 'net_amount')::numeric(20,2) as net_amount
+    from complete_components as component
+    cross join lateral jsonb_array_elements(component.categories) as item
+  )
+  select
+    to_char(expanded.reference_month, 'YYYY-MM-DD'),
+    expanded.regime_code,
+    max(expanded.regime_label),
+    sum(
+      case when expanded.payroll_cycle = 'regular'
+        then expanded.employee_count else 0 end
+    )::integer,
+    sum(expanded.gross_amount)::numeric(20,2),
+    sum(expanded.deduction_amount)::numeric(20,2),
+    sum(expanded.net_amount)::numeric(20,2),
+    (select count(*) from complete_components)::integer,
+    'payroll-regime-monthly/1.0.0'::text
+  from expanded
+  group by expanded.reference_month, expanded.regime_code
+  order by sum(expanded.gross_amount) desc, expanded.regime_code;
+end;
+$function$;
+
+create or replace function hr.verify_payroll_report_compensation_distribution()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  parent hr.payroll_report_aggregates%rowtype;
+  item jsonb;
+  code text;
+  label text;
+  seen_codes text[] := array[]::text[];
+  item_count integer;
+  item_gross numeric(20,2);
+  total_count integer := 0;
+  total_gross numeric(20,2) := 0;
+begin
+  select * into parent
+  from hr.payroll_report_aggregates
+  where id = new.payroll_report_aggregate_id;
+
+  if parent.id is null
+    or parent.validation_state <> 'validated'
+    or parent.report_kind <> 'municipal_staff'
+    or parent.payroll_cycle <> 'regular' then
+    raise exception 'compensation distribution requires a validated regular payroll'
+      using errcode = '23514';
+  end if;
+  if new.parser_version not in (
+    'payroll-compensation-bands/1.0.0',
+    'payroll-compensation-bands/1.1.0'
+  ) then
+    raise exception 'compensation distribution parser version is not publishable'
+      using errcode = '23514';
+  end if;
+  if jsonb_array_length(new.bands) < 1
+    or jsonb_array_length(new.bands) > 6 then
+    raise exception 'faixas de provento devem conter entre 1 e 6 itens'
+      using errcode = '23514';
+  end if;
+
+  for item in select value from jsonb_array_elements(new.bands)
+  loop
+    if jsonb_typeof(item) <> 'object'
+      or not item ?& array[
+        'band_code', 'band_label', 'employee_count', 'gross_amount'
+      ]
+      or (select count(*) from jsonb_object_keys(item)) <> 4 then
+      raise exception 'faixas de provento possuem campos inválidos'
+        using errcode = '23514';
+    end if;
+
+    code := item ->> 'band_code';
+    label := item ->> 'band_label';
+    if code not in (
+      'up_to_1500', 'from_1500_01_to_3000',
+      'from_3000_01_to_5000', 'from_5000_01_to_10000',
+      'from_10000_01_to_20000', 'above_20000'
+    ) or label is distinct from (case code
+      when 'up_to_1500' then 'Até R$ 1.500'
+      when 'from_1500_01_to_3000' then 'De R$ 1.500,01 a R$ 3 mil'
+      when 'from_3000_01_to_5000' then 'De R$ 3.000,01 a R$ 5 mil'
+      when 'from_5000_01_to_10000' then 'De R$ 5.000,01 a R$ 10 mil'
+      when 'from_10000_01_to_20000' then 'De R$ 10.000,01 a R$ 20 mil'
+      when 'above_20000' then 'Acima de R$ 20 mil'
+    end) then
+      raise exception 'faixa pública de provento desconhecida'
+        using errcode = '23514';
+    end if;
+    if code = any(seen_codes) then
+      raise exception 'faixa de provento duplicada no agregado'
+        using errcode = '23514';
+    end if;
+    seen_codes := array_append(seen_codes, code);
+
+    if item ->> 'employee_count' !~ '^[1-9][0-9]*$'
+      or item ->> 'gross_amount' !~ '^[0-9]+\.[0-9]{2}$' then
+      raise exception 'faixas de provento possuem números inválidos'
+        using errcode = '23514';
+    end if;
+    item_count := (item ->> 'employee_count')::integer;
+    item_gross := (item ->> 'gross_amount')::numeric(20,2);
+    if item_gross < 0 then
+      raise exception 'total bruto da faixa deve ser não negativo'
+        using errcode = '23514';
+    end if;
+    total_count := total_count + item_count;
+    total_gross := total_gross + item_gross;
+  end loop;
+
+  if total_count <> parent.employee_count
+    or total_gross <> parent.gross_amount then
+    raise exception 'soma das faixas diverge do agregado da folha regular'
+      using errcode = '23514';
+  end if;
+  if new.maximum_gross_amount > parent.gross_amount
+    or new.maximum_gross_amount < round(parent.gross_amount / parent.employee_count, 2)
+  then
+    raise exception 'maior provento bruto incompatível com o agregado'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$function$;
+
+create or replace function hr.get_pending_payroll_compensation_documents(
+  requested_limit integer,
+  target_reference_month date default null
+)
+returns table (
+  aggregate_id text,
+  artifact_id text,
+  sha256 text,
+  object_key text,
+  byte_size bigint,
+  parent_record_id text,
+  source_url text,
+  reference_month date
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $function$
+begin
+  if requested_limit is null or requested_limit < 1 or requested_limit > 20 then
+    raise exception 'limite de distribuições da folha inválido'
+      using errcode = '22023';
+  end if;
+  if target_reference_month is not null and (
+    target_reference_month < date '2021-01-01'
+    or target_reference_month > date '2100-12-01'
+    or target_reference_month
+      <> date_trunc('month', target_reference_month)::date
+  ) then
+    raise exception 'competência da distribuição da folha inválida'
+      using errcode = '22023';
+  end if;
+
+  return query
+  select
+    aggregate.id::text,
+    artifact.id::text,
+    artifact.sha256,
+    artifact.object_key,
+    artifact.byte_size,
+    aggregate.origin_raw_record_id::text,
+    artifact.source_url,
+    aggregate.reference_month
+  from hr.payroll_report_aggregates as aggregate
+  join raw.raw_artifacts as artifact
+    on artifact.id = aggregate.source_document_artifact_id
+  where aggregate.report_kind = 'municipal_staff'
+    and aggregate.payroll_cycle = 'regular'
+    and aggregate.validation_state = 'validated'
+    and aggregate.parser_version = 'payroll-report-aggregate/1.4.0'
+    and aggregate.reference_month = coalesce(
+      target_reference_month,
+      aggregate.reference_month
+    )
+    and not exists (
+      select 1
+      from hr.payroll_report_aggregates as successor
+      where successor.supersedes_id = aggregate.id
+        and successor.validation_state <> 'rejected'
+    )
+    and not exists (
+      select 1
+      from hr.payroll_report_aggregate_invalidations as invalidation
+      where invalidation.aggregate_id = aggregate.id
+    )
+    and not exists (
+      select 1
+      from hr.payroll_report_compensation_distributions as distribution
+      where distribution.payroll_report_aggregate_id = aggregate.id
+        and distribution.parser_version in (
+    'payroll-compensation-bands/1.0.0',
+    'payroll-compensation-bands/1.1.0'
+  )
+    )
+  order by aggregate.reference_month desc, aggregate.id
+  limit requested_limit;
+end;
+$function$;
+
+create or replace function api.get_public_payroll_compensation_distribution(
+  target_reference_month date
+)
+returns table (
+  reference_month text,
+  band_code text,
+  band_label text,
+  employee_count integer,
+  gross_amount numeric(20,2),
+  average_gross_amount numeric(20,2),
+  maximum_gross_amount numeric(20,2),
+  methodology_version text
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $function$
+begin
+  if target_reference_month is null
+    or target_reference_month < date '2021-01-01'
+    or target_reference_month > date '2100-12-01'
+    or target_reference_month
+      <> date_trunc('month', target_reference_month)::date then
+    raise exception 'competência da distribuição da folha inválida'
+      using errcode = '22023';
+  end if;
+
+  return query
+  with current_regular as (
+    select aggregate.*
+    from hr.payroll_report_aggregates as aggregate
+    where aggregate.reference_month = target_reference_month
+      and aggregate.report_kind = 'municipal_staff'
+      and aggregate.payroll_cycle = 'regular'
+      and aggregate.validation_state = 'validated'
+      and not exists (
+        select 1
+        from hr.payroll_report_aggregates as successor
+        where successor.supersedes_id = aggregate.id
+          and successor.validation_state <> 'rejected'
+      )
+      and not exists (
+        select 1
+        from hr.payroll_report_aggregate_invalidations as invalidation
+        where invalidation.aggregate_id = aggregate.id
+      )
+  ), available as (
+    select aggregate.*, distribution.bands,
+      distribution.maximum_gross_amount
+    from current_regular as aggregate
+    join hr.payroll_report_compensation_distributions as distribution
+      on distribution.payroll_report_aggregate_id = aggregate.id
+     and distribution.parser_version in (
+    'payroll-compensation-bands/1.0.0',
+    'payroll-compensation-bands/1.1.0'
+  )
+    where (select count(*) from current_regular) = 1
+  )
+  select
+    to_char(available.reference_month, 'YYYY-MM-DD'),
+    item ->> 'band_code',
+    item ->> 'band_label',
+    (item ->> 'employee_count')::integer,
+    (item ->> 'gross_amount')::numeric(20,2),
+    round(available.gross_amount / available.employee_count, 2)::numeric(20,2),
+    available.maximum_gross_amount,
+    'payroll-compensation-monthly/1.0.0'::text
+  from available
+  cross join lateral jsonb_array_elements(available.bands) as item
+  order by case item ->> 'band_code'
+    when 'up_to_1500' then 1
+    when 'from_1500_01_to_3000' then 2
+    when 'from_3000_01_to_5000' then 3
+    when 'from_5000_01_to_10000' then 4
+    when 'from_10000_01_to_20000' then 5
+    when 'above_20000' then 6
+  end;
+end;
+$function$;
+
+notify pgrst, 'reload schema';
+
+commit;

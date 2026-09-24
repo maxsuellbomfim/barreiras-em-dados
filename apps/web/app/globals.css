@@ -6924,6 +6924,13 @@ footer {
   font-size: 0.84rem;
 }
 
+.finance-payroll-regime-note {
+  margin: -0.35rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 .finance-payroll-regimes-list dl {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

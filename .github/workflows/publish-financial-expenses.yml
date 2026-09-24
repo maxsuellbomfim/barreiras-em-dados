@@ -201,11 +201,14 @@ jobs:
             --limit 20 \
             "${extra_args[@]}"
 
+      # Mesma condição do detalhamento por vínculo: no agendamento os inputs
+      # vêm vazios, e a condição antiga (escopo 'all' ou 'payroll') impedia a
+      # etapa de rodar; só um mês tinha faixas publicadas.
       - name: Publicar faixas agregadas de provento bruto
         if: >-
           inputs.dry_run_public_obligations != true
-          && (inputs.publication_scope == 'all'
-          || inputs.publication_scope == 'payroll')
+          && inputs.publication_scope != 'expenses'
+          && inputs.publication_scope != 'public-obligations'
         shell: bash
         env:
           INPUT_PAYROLL_REFERENCE_MONTH: ${{ inputs.payroll_reference_month }}

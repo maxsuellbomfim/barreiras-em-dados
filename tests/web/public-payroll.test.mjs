@@ -216,6 +216,30 @@ test("detalhamento por vínculo conserva somente categorias oficiais agregadas",
   );
 });
 
+test("categorias literais do relatório atravessam sem virar erro", () => {
+  // "Outros", "Celetistas" e o mês sem coluna de vínculo não podem sumir.
+  for (const [code, label] of [
+    ["other", "Outros"],
+    ["clt", "Celetistas"],
+    ["not_reported", "Vínculo não informado no relatório"],
+  ]) {
+    const row = parsePublicPayrollRegimeRow({
+      ...validRegimeRows[0],
+      regime_code: code,
+      regime_label: label,
+    });
+    assert.equal(row?.regimeCode, code);
+  }
+  assert.equal(
+    parsePublicPayrollRegimeRow({
+      ...validRegimeRows[0],
+      regime_code: "other",
+      regime_label: "Conselho tutelar",
+    }),
+    null,
+  );
+});
+
 test("detalhamento por vínculo rejeita rótulo, aritmética e campo pessoal", () => {
   assert.equal(
     parsePublicPayrollRegimeRow({
@@ -682,6 +706,10 @@ test("pagina explica vínculos, descontos e limite da informação", async () =>
   assert.match(breakdown, /Como a folha se divide por vínculo/);
   assert.match(breakdown, /não representa necessariamente uma pessoa\s+única/);
   assert.match(breakdown, /<details/);
+  // Categorias sem vínculo definido sempre vêm explicadas.
+  assert.match(breakdown, /Rótulo genérico usado pela Prefeitura/);
+  assert.match(breakdown, /não traz a coluna de vínculo/);
+  assert.match(breakdown, /Vínculo não informado neste mês/);
   assert.match(compensation, /Em quais faixas estão os proventos brutos/);
   assert.match(compensation, /não representa salário-base/);
   assert.match(compensation, /Maior bruto em uma linha/);
