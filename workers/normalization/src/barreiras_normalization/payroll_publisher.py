@@ -11,6 +11,8 @@ from typing import Protocol
 
 from .payroll_report_pdf import (
     PayrollReportAggregate,
+    PayrollReportContractError,
+    declared_reference_month,
     parse_payroll_report_aggregate,
 )
 from .revenue_publisher import ArtifactMismatchError
@@ -106,6 +108,16 @@ class PayrollReportPublisher:
             )
         text = self.text_extractor(raw_body)
         report = parse_payroll_report_aggregate(text)
+        # O portal já listou o PDF de agosto/2026 também como julho: a
+        # competência impressa no documento prevalece sobre o catálogo, e a
+        # divergência vai para revisão sem substituir a versão vigente.
+        declared_month = declared_reference_month(text)
+        if declared_month is not None and declared_month != artifact.reference_month:
+            raise PayrollReportContractError(
+                "competência declarada no PDF "
+                f"({declared_month:%m/%Y}) diverge da catalogada "
+                f"({artifact.reference_month:%m/%Y})"
+            )
         inserted = self.repository.persist_validated_report(artifact, report)
         self.logger.info(
             "payroll_report_published",

@@ -162,6 +162,13 @@ quatro recursos adicionais no portal da Prefeitura:
   retorna somente competência, código e rótulo do grupo, quantidade, proventos,
   descontos, líquido, quantidade de PDFs e versão metodológica. Nome, CPF,
   matrícula, cargo, lotação e valor individual não atravessam esse contrato.
+  A competência impressa no PDF ("MÊS/ANO") prevalece sobre a do catálogo do
+  portal: divergência vai para revisão e não substitui a versão vigente. Em
+  set/2026 o portal listou o PDF de agosto/2026 também como julho; a versão
+  errada de julho foi invalidada (`declared_month_mismatch`, append-only) e a
+  anterior, que declara julho, voltou a valer. O PDF de mar/2023 declara
+  "Abril / 2023" (o de abr/2023 também): permanece publicado e aguarda revisão
+  humana, porque não é possível decidir por código qual documento é março.
   A distribuição `payroll-compensation-bands/1.1.0` usa somente a folha regular
   e publica seis faixas fixas de provento bruto, contagens, média e maior bruto
   em `api.get_public_payroll_compensation_distribution`. Todas as linhas precisam

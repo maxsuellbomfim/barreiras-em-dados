@@ -12,6 +12,7 @@ import re
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
@@ -253,6 +254,51 @@ def _payroll_cycle(text: str) -> PayrollCycle:
             "processamento da folha ausente, desconhecido ou misto"
         )
     return observed.pop()
+
+
+_DECLARED_MONTH = re.compile(
+    r"M\S{1,3}S/ANO\.*\s*:\s*(?P<month>[^\s/]+)\s*/\s*(?P<year>\d{4})",
+    re.IGNORECASE,
+)
+_MONTH_NUMBERS = {
+    "janeiro": 1,
+    "fevereiro": 2,
+    "marco": 3,
+    "abril": 4,
+    "maio": 5,
+    "junho": 6,
+    "julho": 7,
+    "agosto": 8,
+    "setembro": 9,
+    "outubro": 10,
+    "novembro": 11,
+    "dezembro": 12,
+}
+
+
+def declared_reference_month(text: str) -> date | None:
+    """Competência impressa no cabeçalho ("MÊS/ANO.....: Agosto / 2026").
+
+    Devolve None quando o cabeçalho não existe; competências diferentes no
+    mesmo documento são contrato quebrado.
+    """
+
+    declared: set[date] = set()
+    for match in _DECLARED_MONTH.finditer(text):
+        name = _normalized_regime_label(match.group("month")).replace(" ", "")
+        # "Março" pode chegar como "Mar�o": o caractere de substituição some
+        # na normalização e sobra "maro".
+        month = _MONTH_NUMBERS.get(name) or (3 if name == "maro" else None)
+        if month is None:
+            raise PayrollReportContractError(
+                "competência declarada no cabeçalho não reconhecida"
+            )
+        declared.add(date(int(match.group("year")), month, 1))
+    if len(declared) > 1:
+        raise PayrollReportContractError(
+            "documento declara mais de uma competência no cabeçalho"
+        )
+    return next(iter(declared), None)
 
 
 def parse_payroll_report_aggregate(text: str) -> PayrollReportAggregate:
