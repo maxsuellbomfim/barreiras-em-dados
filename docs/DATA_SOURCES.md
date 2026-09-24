@@ -146,10 +146,15 @@ quatro recursos adicionais no portal da Prefeitura:
   atravessam a RPC. Como os leiautes auditados não fecharam deterministicamente
   e parte do acervo é escaneada, cobertura preservada não significa total
   financeiro publicado.
-  Para documentos que trazem a coluna `Regime/Vínculo`, o parser
-  `payroll-regime-breakdown/1.0.0` percorre todas as linhas, valida a aritmética
+  Para documentos que trazem a coluna de vínculo, o parser
+  `payroll-regime-breakdown/1.1.0` percorre todas as linhas, valida a aritmética
   e exige que os oito grupos permitidos fechem exatamente com o agregado do
-  componente. A projeção pública `api.get_public_payroll_regime_breakdown`
+  componente. A coluna aparece como `Regime/Vínculo` seguida de `Local de
+  Trabalho` (desde jul/2025) ou `Lotação` (2022 a jun/2025) e como `Regime`
+  seguida de `Centro de Custo` (2021); em jul/2025 a mar/2026 o cabeçalho do
+  PDF sai deslocado em relação às linhas, e o rótulo é lido desde o início da
+  palavra. Vínculo fora dos oito grupos (set/2022 traz "Outros") mantém o
+  documento pendente de revisão, sem adivinhar a categoria. A projeção pública `api.get_public_payroll_regime_breakdown`
   retorna somente competência, código e rótulo do grupo, quantidade, proventos,
   descontos, líquido, quantidade de PDFs e versão metodológica. Nome, CPF,
   matrícula, cargo, lotação e valor individual não atravessam esse contrato.
