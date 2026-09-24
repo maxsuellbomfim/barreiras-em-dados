@@ -1,14 +1,15 @@
-"""Empenhos individuais da Prefeitura no sistema Sudoeste/WebRun.
+"""Empenhos e liquidações da Prefeitura no sistema Sudoeste/WebRun.
 
 O portal municipal publica despesas por um sistema de terceiro (WebRun 5), sem
 API documentada. A consulta observada em 23/09/2026 tem três passos na mesma
 sessão: abrir o formulário, executar a regra que fixa o período e pedir a
 grade, que chega como JavaScript com todas as linhas do período.
 
-Esta sonda apenas lê e valida um mês fechado. Ela não converte valores nem
-persiste: a grade bruta é devolvida intacta, com SHA-256, para a etapa de
-preservação. Qualquer divergência do contrato observado é falha explícita,
-nunca "zero empenhos".
+Cada estágio (empenhos, liquidações) é descrito por um ``GridSpec`` com o
+formulário, a regra, a grade e os campos observados. A leitura apenas valida
+um mês fechado; não converte valores nem persiste: a grade bruta é devolvida
+intacta, com SHA-256, para a etapa de preservação. Qualquer divergência do
+contrato observado é falha explícita, nunca "zero registros".
 """
 
 from __future__ import annotations
@@ -51,15 +52,90 @@ PRESERVED_HEADERS = frozenset(
     {"content-type", "content-length", "date", "etag", "last-modified"}
 )
 
-_ROW_PREFIX = "{'" + FIELD_DATE + "':"
 _PLAIN_FIELD = re.compile(r"'(field\d+)':'((?:[^'\\]|\\.)*)'")
 _COLUMN = re.compile(r"\{'name':'(field\d+)','title':'((?:[^'\\]|\\.)*)'")
 _SOURCE_FIELD = re.compile(r"d\.c_(\d+)\.field = \\'([^\\']+)\\'")
+_HIDDEN_FIELD = re.compile(
+    r"new HTMLHidden\(\\'PTP\\', \d+, (\d+), \\'((?:[^\\']|\\\\.)*)\\'\)"
+)
 _JS_ESCAPE = re.compile(r"\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)", re.DOTALL)
 # O- orçamentária, E- extra-orçamentária (retenções de folha e similares).
 _KEY = re.compile(r"^[OE]-\d+$")
-_NUMBER = re.compile(r"^\d+(?:/\d+)?$")
 _AMOUNT = re.compile(r"^-?\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?$|^-?\d+(?:,\d{1,2})?$")
+
+
+@dataclass(frozen=True)
+class GridSpec:
+    """Contrato observado de uma grade WebRun de despesa."""
+
+    stage: str
+    endpoint_code: str
+    form_id: int
+    grid_id: int
+    grid_name: str
+    rule_name: str
+    rule_extras: tuple[tuple[str, str], ...]
+    row_prefix: str
+    date_field: str
+    key_field: str
+    number_field: str
+    amount_field: str
+    creditor_field: str
+    number_pattern: re.Pattern[str]
+    # Campos que a grade só expõe nos valores ocultos do botão de detalhe.
+    hidden_fields: tuple[str, ...] = ()
+    # Empenho tem chave própria; várias liquidações podem citar o mesmo empenho.
+    unique_key: bool = True
+
+    @property
+    def required_fields(self) -> tuple[str, ...]:
+        return (
+            self.date_field,
+            self.key_field,
+            self.number_field,
+            self.amount_field,
+            self.creditor_field,
+        )
+
+
+COMMITMENTS = GridSpec(
+    stage="empenhos",
+    endpoint_code=ENDPOINT_CODE,
+    form_id=FORM_ID,
+    grid_id=GRID_ID,
+    grid_name="DESPESAS",
+    rule_name=PERIOD_RULE,
+    rule_extras=(("P_6", "P"),),
+    row_prefix="{'" + FIELD_DATE + "':",
+    date_field=FIELD_DATE,
+    key_field=FIELD_KEY,
+    number_field=FIELD_NUMBER,
+    amount_field=FIELD_AMOUNT,
+    creditor_field=FIELD_CREDITOR,
+    number_pattern=re.compile(r"^\d+(?:/\d+)?$"),
+)
+
+# A liquidação traz a CHAVE do empenho só no botão de detalhe; o número vem
+# como "10  16" em vez de "10/16".
+LIQUIDATIONS = GridSpec(
+    stage="liquidacoes",
+    endpoint_code="webrun-liquidacoes",
+    form_id=7907,
+    grid_id=1089430,
+    grid_name="LIQUIDACAO",
+    rule_name="TRP_TRANSP_LIQUIDAC_MODIFICAR_CONSULTA",
+    rule_extras=(("P_6", "P"),),
+    row_prefix="{'field",
+    date_field="field1089483",
+    key_field="field1089487",
+    number_field="field1089486",
+    amount_field="field1089488",
+    creditor_field="field1144939",
+    number_pattern=re.compile(r"^\d+(?:\s+\d+)?$"),
+    hidden_fields=("field1089487",),
+    unique_key=False,
+)
+STAGES = {spec.stage: spec for spec in (COMMITMENTS, LIQUIDATIONS)}
 
 
 class MunicipalExpensesError(RuntimeError):
@@ -71,7 +147,7 @@ class MunicipalExpensesContractError(MunicipalExpensesError):
 
 
 @dataclass(frozen=True)
-class MonthlyCommitments:
+class MonthlyGrid:
     source_code: str
     endpoint_code: str
     year: int
@@ -90,6 +166,10 @@ class MonthlyCommitments:
     rows: tuple[dict[str, str], ...]
     column_titles: Mapping[str, str]
     source_field_names: Mapping[str, str]
+    stage: str = COMMITMENTS.stage
+
+
+MonthlyCommitments = MonthlyGrid
 
 
 def month_bounds(year: int, month: int) -> tuple[date, date]:
@@ -111,8 +191,29 @@ def fetch_monthly_commitments(
     transport: TcmBaSessionTransport | None = None,
     timeout_seconds: float = 120.0,
     max_body_bytes: int = 96 * 1024 * 1024,
-) -> MonthlyCommitments:
-    """Consulta um mês fechado de empenhos e valida a grade inteira."""
+) -> MonthlyGrid:
+    return fetch_monthly_grid(
+        COMMITMENTS,
+        year,
+        month,
+        today=today,
+        transport=transport,
+        timeout_seconds=timeout_seconds,
+        max_body_bytes=max_body_bytes,
+    )
+
+
+def fetch_monthly_grid(
+    spec: GridSpec,
+    year: int,
+    month: int,
+    *,
+    today: date,
+    transport: TcmBaSessionTransport | None = None,
+    timeout_seconds: float = 120.0,
+    max_body_bytes: int = 96 * 1024 * 1024,
+) -> MonthlyGrid:
+    """Consulta um mês fechado de um estágio e valida a grade inteira."""
     first, last = month_bounds(year, month)
     if last >= today:
         raise ValueError("Somente meses fechados podem ser coletados.")
@@ -125,7 +226,7 @@ def fetch_monthly_commitments(
         {
             "sys": "PTP",
             "action": "openform",
-            "formID": FORM_ID,
+            "formID": spec.form_id,
             "dataConnection": "PM_Barreiras",
             "numerotc": 39,
         }
@@ -144,24 +245,26 @@ def fetch_monthly_commitments(
     rule = _expect_ok(
         active.post(
             rule_url,
-            form=period_rule_form(first, last),
+            form=period_rule_form(first, last, spec),
             headers=headers,
             timeout_seconds=timeout_seconds,
             max_body_bytes=1024 * 1024,
         ),
         "fixar período",
     )
-    declared_total = parse_declared_total(rule.body.decode("iso-8859-1"))
+    declared_total = parse_declared_total(
+        rule.body.decode("iso-8859-1"), spec.grid_name
+    )
     if declared_total == 0:
-        # Mês fechado sem nenhum empenho não é plausível para o Município;
+        # Mês fechado sem nenhum registro não é plausível para o Município;
         # tratá-lo como vazio esconderia falha da fonte.
-        raise MunicipalExpensesContractError("Mês sem empenhos declarados.")
+        raise MunicipalExpensesContractError(f"Mês sem {spec.stage} declarados.")
 
     grid_url = f"{BASE_URL}/navigate.do?" + urlencode(
         {
             "sys": "PTP",
-            "formID": FORM_ID,
-            "componentID": GRID_ID,
+            "formID": spec.form_id,
+            "componentID": spec.grid_id,
             "action": "navigate",
             "param": "first",
             "inner": "true",
@@ -178,16 +281,17 @@ def fetch_monthly_commitments(
         "ler grade",
     )
     received_at = datetime.now(UTC).isoformat()
-    parsed = parse_commitment_grid(grid.body.decode("iso-8859-1"))
+    parsed = parse_grid(spec, grid.body.decode("iso-8859-1"))
     if parsed.page_end != declared_total or len(parsed.rows) != declared_total:
         raise MunicipalExpensesContractError(
             f"Grade com {len(parsed.rows)} linhas (fim de página "
             f"{parsed.page_end}) para {declared_total} declaradas."
         )
-    repeated_rows = validate_rows(parsed.rows, first=first, last=last)
-    return MonthlyCommitments(
+    repeated_rows = validate_grid_rows(spec, parsed.rows, first=first, last=last)
+    return MonthlyGrid(
+        stage=spec.stage,
         source_code=SOURCE_CODE,
-        endpoint_code=ENDPOINT_CODE,
+        endpoint_code=spec.endpoint_code,
         year=year,
         month=month,
         coverage=coverage_for(year, month),
@@ -211,28 +315,32 @@ def fetch_monthly_commitments(
     )
 
 
-def period_rule_form(first: date, last: date) -> dict[str, str]:
+def period_rule_form(
+    first: date, last: date, spec: GridSpec = COMMITMENTS
+) -> dict[str, str]:
     form = {
         "action": "executeRule",
         "pType": "2",
-        "ruleName": PERIOD_RULE,
+        "ruleName": spec.rule_name,
         "sys": "PTP",
-        "formID": str(FORM_ID),
+        "formID": str(spec.form_id),
         "parentRID": "-1",
     }
     for index in range(RULE_PARAMETER_COUNT):
         form[f"P_{index}"] = ""
     form["P_0"] = first.strftime("%d/%m/%Y")
     form["P_1"] = last.strftime("%d/%m/%Y")
-    # Valor enviado pelo próprio formulário em toda consulta observada.
-    form["P_6"] = "P"
+    # Valores enviados pelo próprio formulário em toda consulta observada.
+    form.update(dict(spec.rule_extras))
     return form
 
 
-def parse_declared_total(rule_script: str) -> int:
+def parse_declared_total(rule_script: str, grid_name: str = "DESPESAS") -> int:
     if "interactionError(" in rule_script:
         raise MunicipalExpensesError("A fonte recusou a consulta do período.")
-    match = re.search(r"\$c\('DESPESAS'\)\.setTotalRows\((\d+)\)", rule_script)
+    match = re.search(
+        rf"\$c\('{re.escape(grid_name)}'\)\.setTotalRows\((\d+)\)", rule_script
+    )
     if match is None:
         raise MunicipalExpensesContractError("Regra sem total declarado.")
     return int(match.group(1))
@@ -247,27 +355,39 @@ class ParsedGrid:
 
 
 def parse_commitment_grid(script: str) -> ParsedGrid:
-    if f"d.c_{GRID_ID}.isLastPage = true;" not in script:
+    return parse_grid(COMMITMENTS, script)
+
+
+def parse_grid(spec: GridSpec, script: str) -> ParsedGrid:
+    grid_id = spec.grid_id
+    if f"d.c_{grid_id}.isLastPage = true;" not in script:
         raise MunicipalExpensesContractError("Grade paginada ou incompleta.")
-    page_end = re.search(rf"d\.c_{GRID_ID}\.setGridPageEnd\((\d+)\);", script)
+    page_end = re.search(rf"d\.c_{grid_id}\.setGridPageEnd\((\d+)\);", script)
     if page_end is None:
         raise MunicipalExpensesContractError("Grade sem fim de página.")
-    columns = re.search(rf"^cols_{GRID_ID} = \[(.*)\];$", script, re.MULTILINE)
+    columns = re.search(rf"^cols_{grid_id} = \[(.*)\];$", script, re.MULTILINE)
     if columns is None:
         raise MunicipalExpensesContractError("Grade sem definição de colunas.")
     column_titles = {
         name: _unescape(title) for name, title in _COLUMN.findall(columns.group(1))
     }
-    button_marker = f"d.c_{GRID_ID}.gridButton("
+    button_marker = f"d.c_{grid_id}.gridButton("
     rows: list[dict[str, str]] = []
     source_field_names: dict[str, str] = {}
     for line in script.split("\n"):
-        if not line.startswith(_ROW_PREFIX):
+        if not line.startswith(spec.row_prefix):
             continue
         plain, _, button = line.partition(button_marker)
-        rows.append(
-            {name: _unescape(value) for name, value in _PLAIN_FIELD.findall(plain)}
-        )
+        row = {name: _unescape(value) for name, value in _PLAIN_FIELD.findall(plain)}
+        if spec.hidden_fields:
+            hidden = {
+                f"field{component}": _unescape(value)
+                for component, value in _HIDDEN_FIELD.findall(button)
+            }
+            for field in spec.hidden_fields:
+                if field in hidden:
+                    row.setdefault(field, hidden[field])
+        rows.append(row)
         if not source_field_names and button:
             source_field_names = {
                 f"field{component}": name
@@ -282,38 +402,52 @@ def parse_commitment_grid(script: str) -> ParsedGrid:
 
 
 def validate_rows(rows: tuple[dict[str, str], ...], *, first: date, last: date) -> int:
+    return validate_grid_rows(COMMITMENTS, rows, first=first, last=last)
+
+
+def validate_grid_rows(
+    spec: GridSpec,
+    rows: tuple[dict[str, str], ...],
+    *,
+    first: date,
+    last: date,
+) -> int:
     """Valida a grade e devolve quantas linhas são repetições idênticas.
 
     A fonte repete linhas inteiras; a repetição fica preservada no bruto e
-    só é aceita quando idêntica. Mesma chave com conteúdo diferente é falha.
+    só é aceita quando idêntica. Em estágio de chave única, a mesma chave com
+    conteúdo diferente é falha.
     """
-    seen: dict[str, dict[str, str]] = {}
+    seen_keys: set[str] = set()
+    seen_rows: set[tuple[tuple[str, str], ...]] = set()
     repeated = 0
     for position, row in enumerate(rows, start=1):
-        missing = [field for field in REQUIRED_FIELDS if not row.get(field)]
+        missing = [field for field in spec.required_fields if not row.get(field)]
         if missing:
             raise MunicipalExpensesContractError(
                 f"Linha {position} sem campos obrigatórios: {', '.join(missing)}."
             )
-        key = row[FIELD_KEY]
+        key = row[spec.key_field]
         if not _KEY.match(key):
             raise MunicipalExpensesContractError(
                 f"Linha {position} com chave fora do padrão."
             )
-        if key in seen:
-            if seen[key] != row:
-                raise MunicipalExpensesContractError(
-                    f"Linha {position} repete a chave com conteúdo diferente."
-                )
+        identity = tuple(sorted(row.items()))
+        if identity in seen_rows:
             repeated += 1
             continue
-        seen[key] = row
-        if not _NUMBER.match(row[FIELD_NUMBER]):
+        if spec.unique_key and key in seen_keys:
             raise MunicipalExpensesContractError(
-                f"Linha {position} com número de empenho fora do padrão."
+                f"Linha {position} repete a chave com conteúdo diferente."
             )
-        parse_amount(row[FIELD_AMOUNT])
-        issued = datetime.strptime(row[FIELD_DATE], "%d/%m/%Y").date()
+        seen_rows.add(identity)
+        seen_keys.add(key)
+        if not spec.number_pattern.match(row[spec.number_field]):
+            raise MunicipalExpensesContractError(
+                f"Linha {position} com número fora do padrão."
+            )
+        parse_amount(row[spec.amount_field])
+        issued = datetime.strptime(row[spec.date_field], "%d/%m/%Y").date()
         if not first <= issued <= last:
             raise MunicipalExpensesContractError(
                 f"Linha {position} fora do período consultado."

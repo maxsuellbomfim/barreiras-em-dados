@@ -1,8 +1,9 @@
-"""Preserva os empenhos mensais da Prefeitura (WebRun), um mês fechado por vez.
+"""Preserva empenhos e liquidações mensais da Prefeitura (WebRun), mês a mês.
 
-Cada mês é uma partição controlada (ADR 0086): a grade bruta vai para o
-Storage privado por SHA-256 e cada chave oficial vira um registro bruto. Mês
-anterior a 2024 termina parcial, porque a série histórica falha na fonte.
+Cada mês de cada estágio é uma partição controlada do seu endpoint (ADR 0086):
+a grade bruta vai para o Storage privado por SHA-256 e cada linha distinta vira
+registro bruto. Mês anterior a 2024 termina parcial, porque a série histórica
+falha na fonte.
 """
 
 from __future__ import annotations
@@ -23,27 +24,25 @@ from ..collection_control import (
     build_execution_idempotency_key,
 )
 from ..connectors.municipal_expenses import (
-    ENDPOINT_CODE,
-    FIELD_KEY,
     SOURCE_CODE,
-    MonthlyCommitments,
-    fetch_monthly_commitments,
+    STAGES,
+    MonthlyGrid,
+    fetch_monthly_grid,
     month_bounds,
 )
 from ..logging import log_event
 from ..persistence.models import PersistenceResult
 from ..persistence.municipal_commitments import (
-    COLLECTOR_VERSION,
-    PARSER_VERSION,
+    STAGE_PERSISTENCE,
     MunicipalCommitmentsPersistenceService,
-    commitment_records,
+    stage_records,
 )
 from .plan_payroll_backfill import parse_month, plan_months
 
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 FIRST_MONTH = date(2021, 1, 1)
-# Três requisições por mês; a pausa mantém a fonte bem abaixo de 10/min.
-PAUSE_BETWEEN_MONTHS_SECONDS = 20.0
+# Três requisições por grade; a pausa mantém a fonte bem abaixo de 10/min.
+PAUSE_BETWEEN_GRIDS_SECONDS = 20.0
 HISTORY_UNAVAILABLE = PartialCollectionFailure(
     error_type="SourceHistoryUnavailable",
     error_detail=(
@@ -56,9 +55,10 @@ HISTORY_UNAVAILABLE = PartialCollectionFailure(
 
 @dataclass(frozen=True)
 class MonthOutcome:
+    stage: str
     month: str
     outcome: CollectionOutcome
-    unique_commitments: int
+    unique_records: int
     inserted_records: int
     existing_records: int
     grid_sha256: str
@@ -106,13 +106,14 @@ def resolve_months(
 def execute_controlled_month(
     *,
     control: CollectionControl,
-    operation: Callable[[], tuple[MonthlyCommitments, PersistenceResult]],
+    operation: Callable[[], tuple[MonthlyGrid, PersistenceResult]],
 ) -> MonthOutcome:
     """Declara cobertura só depois de preservar bruto e registros do mês."""
     with control:
         result, persisted = operation()
-        unique = len(commitment_records(result))
-        prefixes = Counter(row[FIELD_KEY][:2] for row in result.rows)
+        unique = len(stage_records(result))
+        key_field = STAGES[result.stage].key_field
+        prefixes = Counter(row[key_field][:2] for row in result.rows)
         complete = result.coverage == "complete"
         outcome = CollectionOutcome.COMPLETE if complete else CollectionOutcome.PARTIAL
         control.complete(
@@ -123,7 +124,8 @@ def execute_controlled_month(
                 "coverage": result.coverage,
                 "declared_total": result.declared_total,
                 "repeated_rows": result.repeated_rows,
-                "unique_commitments": unique,
+                "stage": result.stage,
+                "unique_records": unique,
                 "budget_rows": prefixes.get("O-", 0),
                 "extra_budget_rows": prefixes.get("E-", 0),
                 "inserted_records": persisted.inserted_records,
@@ -135,9 +137,10 @@ def execute_controlled_month(
             partial_failure=None if complete else HISTORY_UNAVAILABLE,
         )
     return MonthOutcome(
+        stage=result.stage,
         month=f"{result.year:04d}-{result.month:02d}",
         outcome=outcome,
-        unique_commitments=unique,
+        unique_records=unique,
         inserted_records=persisted.inserted_records,
         existing_records=persisted.existing_records,
         grid_sha256=result.grid_sha256,
@@ -150,7 +153,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--start-month")
     parser.add_argument("--end-month")
     parser.add_argument("--max-months", type=int, default=1, choices=(1, 3, 6))
+    parser.add_argument(
+        "--stage", choices=(*STAGES, "todos"), default="todos", help="estágio"
+    )
     args = parser.parse_args(argv)
+    stages = tuple(STAGES) if args.stage == "todos" else (args.stage,)
 
     from ..persistence.postgres import PostgresCollectionRepository
     from ..persistence.storage import SupabaseStorageObjectStore
@@ -194,18 +201,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         return services[0]
 
     failures = 0
-    for position, month in enumerate(months):
+    grids = [(month, stage) for month in months for stage in stages]
+    for position, (month, stage) in enumerate(grids):
         if position:
-            time.sleep(PAUSE_BETWEEN_MONTHS_SECONDS)
+            time.sleep(PAUSE_BETWEEN_GRIDS_SECONDS)
         first, last = month_bounds(month.year, month.month)
         label = month.strftime("%Y-%m")
+        spec = STAGES[stage]
+        persistence = STAGE_PERSISTENCE[stage]
+        namespace = "commitments" if stage == "empenhos" else stage
         control = CollectionControl(
             repository=repository,
             source_code=SOURCE_CODE,
-            endpoint_code=ENDPOINT_CODE,
-            idempotency_key=build_execution_idempotency_key(f"commitments-{label}"),
-            collector_version=COLLECTOR_VERSION,
-            parser_version=PARSER_VERSION,
+            endpoint_code=spec.endpoint_code,
+            idempotency_key=build_execution_idempotency_key(f"{namespace}-{label}"),
+            collector_version=persistence.collector_version,
+            parser_version=persistence.parser_version,
             partition_key=f"month:{label}",
             period_start=first,
             period_end=last,
@@ -213,8 +224,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         def operation(
             month: date = month,
-        ) -> tuple[MonthlyCommitments, PersistenceResult]:
-            result = fetch_monthly_commitments(month.year, month.month, today=today)
+            spec=spec,
+        ) -> tuple[MonthlyGrid, PersistenceResult]:
+            result = fetch_monthly_grid(spec, month.year, month.month, today=today)
             return result, service().persist(result)
 
         try:
@@ -226,6 +238,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 logging.ERROR,
                 "collector_municipal_commitments_month_failed",
                 source=SOURCE_CODE,
+                stage=stage,
                 month=label,
                 error_type=type(error).__name__,
             )
@@ -235,9 +248,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             logging.INFO,
             "collector_municipal_commitments_month_preserved",
             source=SOURCE_CODE,
+            stage=summary.stage,
             month=summary.month,
             outcome=summary.outcome.value,
-            unique_commitments=summary.unique_commitments,
+            unique_records=summary.unique_records,
             inserted_records=summary.inserted_records,
             existing_records=summary.existing_records,
             artifact_hash=summary.grid_sha256,
