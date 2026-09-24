@@ -120,8 +120,58 @@ fechado como partição `month:AAAA-MM`: a grade intacta em
 `collect-municipal-commitments` recoleta o mês anterior nos dias 3 e 20 e
 aceita janelas de até seis meses por disparo manual.
 
+## Regra de ligação a contratos
+
+`barreiras_reconciliation.commitment_contract_links`
+(`commitment-contract-link/1.0.0`) aplica o ADR 0086 como função pura. Medição
+em 24/09/2026 com os 1.804 empenhos orçamentários distintos de agosto/2026
+contra os contratos municipais preservados:
+
+| Estado | Empenhos |
+| --- | ---: |
+| ligado | 456 |
+| sem citação de contrato | 1.050 |
+| citação sem contrato no portal (`nenhum_contrato`) | 196 |
+| favorecido divergente | 99 |
+| mais de um contrato com o número (`varios_contratos`) | 2 |
+| número ilegível | 1 |
+
+Os 392 extra-orçamentários ficam `fora_do_escopo`. Os divergentes são, na
+maioria, erros de digitação do cadastro de contratos do portal ("SMAT
+CARTUCHOS", "LABORATÓRIOS" × "LABORATÓRIO"); a regra não os aproxima e eles
+vão para revisão humana. Os dois `varios_contratos` são o mesmo contrato
+cadastrado duas vezes pelo portal (ids diferentes, contratado igual).
+
+## Liquidações e pagamentos (sondagem de 24/09/2026)
+
+Os dois formulários seguem o mesmo protocolo de três requisições, com regra e
+grade próprias:
+
+| Estágio | formID | Regra do período | Grade | Parâmetros além do período | Agosto/2026 |
+| --- | ---: | --- | ---: | --- | --- |
+| Liquidações | 7907 | `TRP_TRANSP_LIQUIDAC_MODIFICAR_CONSULTA` | 1089430 | `P_6=P` | 1.650 linhas, 18,5 MB |
+| Pagamentos | 7910 | `TRP_TRANSP_PAGAMENTO_MODIFICAR_CONSULTA` | 1082549 | `P_7=P`, `P_22=39` | 1.799 linhas, 19,3 MB |
+
+- **Liquidação → empenho por chave oficial.** Toda liquidação traz, nos campos
+  ocultos do botão de detalhe, a `CHAVE` do empenho (`O-250959`), a mesma
+  preservada na grade de empenhos. Em agosto, as 1.650 liquidações têm a chave
+  e 1.560 apontam para empenhos emitidos no próprio mês; as demais liquidam
+  empenhos anteriores. A liquidação não tem identificador próprio (`DES_COD`
+  vem vazio), então sua identidade é a chave do empenho mais o conteúdo literal
+  da linha. O número aparece como `10  16` em vez de `10/16`.
+- **Pagamento com contrato estruturado.** A grade de pagamentos traz as colunas
+  "N° do Proc." (todas as 1.799 linhas), "Contrato" (1.002 linhas, 56%),
+  "Tipo de Contrato", "Data de Liquidação" e "N° da Despesa". O contrato vem
+  em campo próprio, com sufixos de órgão além de `FMS`: `014/2025CM` (Câmara
+  Municipal) e `005/2024CM-ATA` (ata de registro de preços). A ligação de
+  pagamentos deve usar esse campo antes do histórico, e a normalização do
+  número precisa reconhecer esses sufixos antes de ser aplicada a eles.
+
 ## Próximo passo
 
-Ligação empenho→contrato pela regra do ADR 0086 (número citado com sufixo do
-órgão, contrato único e favorecido correspondente). Liquidações (7907) e
-pagamentos (7910) seguem o mesmo protocolo, ainda não sondado.
+Gravar as decisões versionadas (estado, motivo, trecho citado, evidência do
+empenho e do contrato) depois que os primeiros meses forem coletados, e abrir a
+fila de revisão para `citacao_sem_confirmacao`. Em seguida, preservar
+liquidações e pagamentos com o mesmo modelo de partição mensal e ligá-los ao
+empenho pela `CHAVE` (liquidação) e ao contrato pelo campo estruturado
+(pagamento).
