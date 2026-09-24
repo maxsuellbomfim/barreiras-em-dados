@@ -1343,3 +1343,10 @@ article:nth-of-type(3) {
     border-color: #27344c;
   }
 }
+
+/* Fila de ligações empenho × contrato (ADR 0088). */
+.candidate-option {
+  display: block;
+  margin: 0.4rem 0;
+  overflow-wrap: anywhere;
+}

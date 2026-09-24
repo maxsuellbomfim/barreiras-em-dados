@@ -33,13 +33,16 @@ const row = {
   methodology_version: "commitment-contract-links/1.0.0",
 };
 
-test("o site só aceita ligações automáticas de empenhos orçamentários", () => {
+test("o site só aceita empenhos orçamentários ligados pela regra ou por revisão humana", () => {
   const [parsed] = parseCommitmentLinkRows([row]);
   assert.equal(parsed.commitmentNumber, "2281/5");
   assert.equal(parsed.amountText, "70287,86");
+  assert.equal(parsed.reviewMode, "automated");
+  const [human] = parseCommitmentLinkRows([{ ...row, review_mode: "human" }]);
+  assert.equal(human.reviewMode, "human");
   for (const broken of [
     { commitment_key: "E-57409" },
-    { review_mode: "human" },
+    { review_mode: "sugerida" },
     { methodology_version: "commitment-contract-links/0.9.0" },
     { grid_artifact_sha256: "curto" },
     { cited_excerpt: "" },

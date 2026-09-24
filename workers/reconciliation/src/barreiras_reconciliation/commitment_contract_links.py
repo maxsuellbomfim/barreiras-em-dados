@@ -127,6 +127,21 @@ def index_contracts(
     return {key: tuple(found.values()) for key, found in index.items()}
 
 
+REVIEWABLE_REASONS = frozenset({"favorecido_divergente", "varios_contratos"})
+
+
+def candidate_contracts(
+    row: Mapping[str, str],
+    contracts: Mapping[ContractKey, tuple[MunicipalContract, ...]],
+) -> tuple[MunicipalContract, ...]:
+    """Contratos que o número citado aponta, para a revisão humana decidir."""
+    citations = contract_citations(row.get(FIELD_HISTORY, ""))
+    keys = {key for _, key in citations}
+    if len(keys) != 1 or None in keys:
+        return ()
+    return contracts.get(keys.pop(), ())
+
+
 def link_commitment(
     row: Mapping[str, str],
     contracts: Mapping[ContractKey, tuple[MunicipalContract, ...]],

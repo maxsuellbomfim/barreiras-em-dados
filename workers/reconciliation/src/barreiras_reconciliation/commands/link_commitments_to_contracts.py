@@ -13,7 +13,12 @@ import sys
 from collections import Counter
 from collections.abc import Sequence
 
-from ..commitment_contract_links import RULE_VERSION, index_contracts, link_commitment
+from ..commitment_contract_links import (
+    RULE_VERSION,
+    candidate_contracts,
+    index_contracts,
+    link_commitment,
+)
 from ..commitment_link_repository import CommitmentLinkRepository
 
 BATCH_SIZE = 5000
@@ -42,12 +47,20 @@ def link_pending(
             f"{decision.state}:{decision.reason}" if decision.reason else decision.state
             for _, decision in decisions
         )
+    # A revisão humana precisa ver os contratos que o número citado aponta;
+    # a mesma regra que decidiu calcula os candidatos, sem reimplementá-la em SQL.
+    candidates = tuple(
+        (link_id, contract)
+        for link_id, pending in repository.links_without_candidates(RULE_VERSION)
+        for contract in candidate_contracts(pending.row, contracts)
+    )
     return {
         "rule_version": RULE_VERSION,
         "indexed_contract_keys": len(contracts),
         "decided": decided,
         "inserted": inserted,
         "outcomes": dict(sorted(outcomes.items())),
+        "review_candidates_inserted": repository.record_candidates(candidates),
     }
 
 

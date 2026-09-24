@@ -13,6 +13,7 @@ export type CommitmentLink = Readonly<{
   gridArtifactSha256: string;
   gridRetrievedAt: string;
   sourcePageUrl: string;
+  reviewMode: "automated" | "human";
 }>;
 
 export function parseCommitmentLinkRows(
