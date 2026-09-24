@@ -11,6 +11,11 @@ import {
 } from "../../lib/supplier-concentration";
 import { formatBrlDecimal } from "../../lib/revenues";
 import {
+  getCommitmentLinksForContracts,
+  type CommitmentLink,
+  type CommitmentLinksResult,
+} from "../../lib/commitment-links";
+import {
   getPublicMunicipalContracts,
   municipalSupplierLabel,
   type MunicipalContract,
@@ -258,9 +263,71 @@ function SupplierSanctionsPanel({
   );
 }
 
+function CommitmentLinksList({
+  links,
+}: Readonly<{ links: readonly CommitmentLink[] | null }>) {
+  if (links === null) {
+    return (
+      <p className="act-evidence">
+        Empenhos ligados indisponíveis nesta consulta — isso não significa que
+        não existam.
+      </p>
+    );
+  }
+  if (links.length === 0) {
+    return (
+      <p className="act-evidence">
+        Nenhum empenho já coletado cita este contrato pelo número.
+      </p>
+    );
+  }
+  return (
+    <details className="commitment-links">
+      <summary>
+        {links.length === 1
+          ? "1 empenho ligado a este contrato"
+          : `${links.length} empenhos ligados a este contrato`}
+      </summary>
+      <p className="commitment-links-label">
+        Ligação automática verificada por código, sujeita a correção: o
+        histórico do empenho cita este contrato pelo número, o número aponta
+        para um único contrato e o favorecido é o mesmo contratado. Valores
+        aparecem como texto da fonte e não são somados.
+      </p>
+      <ul>
+        {links.map((link) => (
+          <li key={link.linkId}>
+            <strong>
+              Empenho {link.commitmentNumber} · {link.issueDateText}
+            </strong>{" "}
+            · {link.noteType} · valor publicado {link.amountText}
+            <br />
+            {link.publicBody} → {link.creditorName}
+            <br />
+            <span className="commitment-links-excerpt">
+              Trecho do histórico: “{link.citedExcerpt}”
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="act-evidence">
+        <a href={links[0].sourcePageUrl} target="_blank" rel="noreferrer">
+          Despesas no portal oficial →
+        </a>{" "}
+        · grade de empenhos preservada · hash{" "}
+        {links[0].gridArtifactSha256.slice(0, 12)}… · regra {links[0].ruleVersion}
+      </p>
+    </details>
+  );
+}
+
 function MunicipalContractCard({
   contract,
-}: Readonly<{ contract: MunicipalContract }>) {
+  commitmentLinks,
+}: Readonly<{
+  contract: MunicipalContract;
+  commitmentLinks: readonly CommitmentLink[] | null;
+}>) {
   return (
     <article className="digest-card">
       <div className="track-top">
@@ -305,6 +372,7 @@ function MunicipalContractCard({
           : "PDF ainda não preservado"}{" "}
         · hash {contract.artifactSha256.slice(0, 12)}…
       </p>
+      <CommitmentLinksList links={commitmentLinks} />
     </article>
   );
 }
@@ -440,9 +508,11 @@ function MunicipalProcessesPanel({
 
 function MunicipalContractsPanel({
   result,
+  links,
   query,
 }: Readonly<{
   result: Awaited<ReturnType<typeof getPublicMunicipalContracts>>;
+  links: CommitmentLinksResult;
   query: PageQuery;
 }>) {
   if (result.state === "unavailable" || result.contracts.length === 0) {
@@ -469,7 +539,9 @@ function MunicipalContractsPanel({
           Série complementar ao PNCP, espelhada do portal de transparência
           municipal: contratado, valor publicado como texto oficial e o PDF do
           contrato. Valores não são convertidos nem somados. CPF de pessoa
-          física nunca é exibido.
+          física nunca é exibido. Cada contrato mostra os empenhos da
+          Prefeitura cujo histórico o cita pelo número (ligação automática
+          verificada por código).
         </p>
       </div>
       <details className="finance-details" open={result.page > 1}>
@@ -480,7 +552,15 @@ function MunicipalContractsPanel({
         </summary>
         <div className="digest-grid">
           {result.contracts.map((contract) => (
-            <MunicipalContractCard contract={contract} key={contract.contractId} />
+            <MunicipalContractCard
+              contract={contract}
+              key={contract.contractId}
+              commitmentLinks={
+                links.state === "available"
+                  ? (links.byContract.get(contract.sourceContractId ?? "") ?? [])
+                  : null
+              }
+            />
           ))}
         </div>
         <PanelPagination
@@ -533,6 +613,14 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
   ]);
   const filterOptions =
     filterOptionsResult.state === "available" ? filterOptionsResult.options : [];
+  const commitmentLinksResult: CommitmentLinksResult =
+    municipalContractsResult.state === "available"
+      ? await getCommitmentLinksForContracts(
+          municipalContractsResult.contracts.flatMap((contract) =>
+            contract.sourceContractId ? [contract.sourceContractId] : [],
+          ),
+        )
+      : { state: "unavailable" };
 
   return (
     <main>
@@ -683,7 +771,11 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
 
         <SupplierSanctionsPanel result={supplierSanctionsResult} />
 
-        <MunicipalContractsPanel result={municipalContractsResult} query={params} />
+        <MunicipalContractsPanel
+          result={municipalContractsResult}
+          links={commitmentLinksResult}
+          query={params}
+        />
         <MunicipalProcessesPanel result={municipalProcessesResult} query={params} />
 
         <p className="hero-note">
