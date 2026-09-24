@@ -75,7 +75,7 @@ class PayrollReportPdfTests(unittest.TestCase):
         )
         self.assertEqual(
             distribution.parser_version,
-            "payroll-compensation-bands/1.0.0",
+            "payroll-compensation-bands/1.1.0",
         )
         serialized = repr(distribution).casefold()
         for forbidden in ("pessoa um", "matrícula", "cpf", "cargo"):
@@ -125,7 +125,7 @@ class PayrollReportPdfTests(unittest.TestCase):
         self.assertEqual(by_code["commissioned"].net_amount, Decimal("1750.00"))
         self.assertEqual(
             breakdown.parser_version,
-            "payroll-regime-breakdown/1.1.0",
+            "payroll-regime-breakdown/1.2.0",
         )
         self.assertFalse(hasattr(breakdown, "people"))
         self.assertFalse(hasattr(breakdown, "names"))
@@ -215,19 +215,103 @@ class PayrollReportPdfTests(unittest.TestCase):
             breakdown.categories[0].regime_code, "selection_process"
         )
 
-    def test_rejects_generic_other_regime_instead_of_guessing(self) -> None:
-        # set/2022 traz conselheiros tutelares como "Outros": sem categoria
-        # pública para isso, o documento fica pendente de revisão.
+    def test_keeps_literal_other_and_clt_labels_from_the_report(self) -> None:
+        # set/2022 traz conselheiros tutelares como "Outros" e jul/2023 um
+        # "Celetista": entram com o rótulo do relatório, sem reclassificação.
         report = regime_report(
             (
                 "100    PESSOA UM             CONSELHEIRO TUTELAR   "
                 "Outros               CONSELHO TUTELAR        "
                 "3.000,00 500,00 2.500,00"
             ),
-            total="1 3.000,00 500,00 2.500,00",
+            (
+                "101    PESSOA DOIS           MOTORISTA             "
+                "Celetista            SECRETARIA              "
+                "2.000,00 200,00 1.800,00"
+            ),
+            total="2 5.000,00 700,00 4.300,00",
         )
 
-        with self.assertRaisesRegex(PayrollReportContractError, "vínculo"):
+        breakdown = parse_payroll_report_regime_breakdown(report)
+
+        by_code = {item.regime_code: item for item in breakdown.categories}
+        self.assertEqual(by_code["other"].regime_label, "Outros")
+        self.assertEqual(by_code["clt"].regime_label, "Celetistas")
+
+    def test_counts_rows_with_negative_net_amount(self) -> None:
+        # nov/2023: três linhas têm desconto maior que o provento; sem elas a
+        # soma divergia do total declarado.
+        report = regime_report(
+            (
+                "100    PESSOA UM             ENFERMEIRA            "
+                "Processo Seletivo    HOSPITAL                "
+                "127,42 962,71 -835,29"
+            ),
+            (
+                "101    PESSOA DOIS           PROFESSOR             "
+                "Processo Seletivo    ESCOLA MUNICIPAL        "
+                "3.000,00 500,00 2.500,00"
+            ),
+            total="2 3.127,42 1.462,71 1.664,71",
+        )
+
+        breakdown = parse_payroll_report_regime_breakdown(report)
+        distribution = parse_payroll_report_compensation_distribution(report)
+
+        self.assertEqual(breakdown.employee_count, 2)
+        self.assertEqual(breakdown.net_amount, Decimal("1664.71"))
+        self.assertEqual(distribution.employee_count, 2)
+
+    def test_report_without_regime_column_keeps_every_row(self) -> None:
+        # jan e fev/2024 não trazem a coluna de vínculo: o mês inteiro entra
+        # como "Vínculo não informado no relatório", nunca como zero.
+        report = "\n".join(
+            (
+                "PREFEITURA MUNICIPAL DE BARREIRAS",
+                "Listagem Sintética E-TCM",
+                "FOLHA.........: 1-Normal, 3-Complementar, 9-Rescisão",
+                "Mat.   Nome                  Cargo                 "
+                "Provento Desconto Líquido",
+                "100    PESSOA UM             PROFESSOR             "
+                "3.000,00 500,00 2.500,00",
+                "101    PESSOA DOIS           ASSESSOR              "
+                "2.000,00 250,00 1.750,00",
+                "Total de Funcionários: 2 5.000,00 750,00 4.250,00",
+                "Total de Funcionários Geral: 2 5.000,00 750,00 4.250,00",
+            )
+        )
+
+        breakdown = parse_payroll_report_regime_breakdown(report)
+
+        self.assertEqual(
+            [(item.regime_code, item.employee_count) for item in breakdown.categories],
+            [("not_reported", 2)],
+        )
+        self.assertEqual(
+            breakdown.categories[0].regime_label,
+            "Vínculo não informado no relatório",
+        )
+
+    def test_rejects_rows_before_header_when_report_has_regime_column(
+        self,
+    ) -> None:
+        # Relatório misto (coluna só em parte das páginas) não é tratado como
+        # "não informado": continua exigindo revisão.
+        report = regime_report(
+            (
+                "101    PESSOA DOIS           ASSESSOR              "
+                "Cargo em Comissão    GABINETE                "
+                "2.000,00 250,00 1.750,00"
+            ),
+            total="2 5.000,00 750,00 4.250,00",
+        ).replace(
+            "Listagem Sintética E-TCM",
+            "Listagem Sintética E-TCM\n"
+            "100    PESSOA UM             PROFESSOR             "
+            "3.000,00 500,00 2.500,00",
+        )
+
+        with self.assertRaisesRegex(PayrollReportContractError, "cabeçalho"):
             parse_payroll_report_regime_breakdown(report)
 
     def test_parses_only_reconciled_aggregate_totals(self) -> None:

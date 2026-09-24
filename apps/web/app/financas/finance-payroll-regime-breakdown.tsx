@@ -14,6 +14,16 @@ function shareLabel(part: string, total: string): string {
   return `${tenths / BigInt(10)},${tenths % BigInt(10)}%`;
 }
 
+// Categorias que não são um vínculo definido: explicam o que o relatório diz,
+// para que ninguém leia "Outros" ou "não informado" como erro ou omissão.
+const REGIME_NOTES: Readonly<Record<string, string>> = {
+  other:
+    "Rótulo genérico usado pela Prefeitura neste relatório. Os vínculos aparecem como foram informados, sem reclassificação.",
+  clt: "Vínculos regidos pela CLT, como informados no relatório.",
+  not_reported:
+    "O relatório deste mês não traz a coluna de vínculo. Todos os valores aparecem aqui para que nada fique de fora.",
+};
+
 export default function FinancePayrollRegimeBreakdown({
   rows,
   grossTotal,
@@ -22,11 +32,19 @@ export default function FinancePayrollRegimeBreakdown({
   grossTotal: string;
 }>) {
   if (rows.length === 0) return null;
+  const regimeNotReported =
+    rows.length === 1 && rows[0].regimeCode === "not_reported";
   return (
     <details className="finance-payroll-regimes">
       <summary>
         <span>Como a folha se divide por vínculo</span>
-        <small>{rows.length.toLocaleString("pt-BR")} categorias oficiais</small>
+        <small>
+          {regimeNotReported
+            ? "Vínculo não informado neste mês"
+            : `${rows.length.toLocaleString("pt-BR")} ${
+                rows.length === 1 ? "categoria oficial" : "categorias oficiais"
+              }`}
+        </small>
       </summary>
       <p className="finance-payroll-regimes-intro">
         “Vínculo” é a classificação escrita no PDF da Prefeitura. A contagem
@@ -40,6 +58,11 @@ export default function FinancePayrollRegimeBreakdown({
               <h4>{row.regimeLabel}</h4>
               <strong>{shareLabel(row.grossAmount, grossTotal)} do bruto</strong>
             </header>
+            {REGIME_NOTES[row.regimeCode] ? (
+              <p className="finance-payroll-regime-note">
+                {REGIME_NOTES[row.regimeCode]}
+              </p>
+            ) : null}
             <dl>
               <div>
                 <dt>Vínculos na folha regular</dt>

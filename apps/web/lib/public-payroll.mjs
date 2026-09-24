@@ -56,6 +56,9 @@ const PAYROLL_REGIME_LABELS = new Map([
   ["guardianship_council", "Conselho tutelar"],
   ["pensioner", "Pensionistas"],
   ["temporary_worker", "Trabalhadores temporários"],
+  ["clt", "Celetistas"],
+  ["other", "Outros"],
+  ["not_reported", "Vínculo não informado no relatório"],
 ]);
 const PAYROLL_REGIME_FIELDS = [
   "deduction_amount",
