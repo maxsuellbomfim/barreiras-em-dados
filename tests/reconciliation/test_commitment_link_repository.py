@@ -47,6 +47,34 @@ class Connection:
         return None
 
 
+class CandidateRepositoryTests(unittest.TestCase):
+    def test_only_reviewable_reasons_without_candidates_are_listed(self) -> None:
+        connection = Connection([])
+
+        CommitmentLinkRepository(lambda: connection).links_without_candidates(
+            links.RULE_VERSION
+        )
+
+        query = connection.queries[0]
+        self.assertIn(
+            "link.reason in ('favorecido_divergente', 'varios_contratos')", query
+        )
+        self.assertIn("from finance.commitment_link_candidates as candidate", query)
+
+    def test_candidates_are_inserted_append_only(self) -> None:
+        connection = Connection([{"inserted": 1}])
+        contract = MunicipalContract("r1", "098/2026", "X LTDA", "1520")
+
+        CommitmentLinkRepository(lambda: connection).record_candidates(
+            (("link-1", contract),)
+        )
+
+        self.assertIn(
+            "on conflict (link_id, contract_raw_record_id) do nothing",
+            connection.queries[0],
+        )
+
+
 class RepositoryTests(unittest.TestCase):
     def test_contracts_are_latest_version_per_official_portal_id(self) -> None:
         connection = Connection(
@@ -118,9 +146,11 @@ class RepositoryTests(unittest.TestCase):
 
 
 class FakeRepository:
-    def __init__(self, pending):
+    def __init__(self, pending, unconfirmed=()):
         self.pending = list(pending)
         self.recorded = []
+        self.unconfirmed = tuple(unconfirmed)
+        self.candidates = []
 
     def municipal_contracts(self):
         return (
@@ -136,6 +166,13 @@ class FakeRepository:
     def record_decisions(self, decisions):
         self.recorded.extend(decisions)
         return len(decisions)
+
+    def links_without_candidates(self, rule_version):
+        return self.unconfirmed
+
+    def record_candidates(self, candidates):
+        self.candidates.extend(candidates)
+        return len(candidates)
 
 
 class LinkPendingTests(unittest.TestCase):
@@ -169,6 +206,23 @@ class LinkPendingTests(unittest.TestCase):
         self.assertEqual(
             (linked.contract_record_key, linked.contract_portal_id), ("r1", "1520")
         )
+
+    def test_records_candidate_contracts_for_the_review_queue(self) -> None:
+        divergent = PendingCommitment(
+            "c9",
+            {
+                links.FIELD_KEY: "O-99",
+                links.FIELD_HISTORY: "Contrato nº 098/2026",
+                links.FIELD_CREDITOR: "CHAGAS CONSTRUCOES",
+            },
+        )
+        repository = FakeRepository([], unconfirmed=(("link-9", divergent),))
+
+        summary = link_pending(repository, max_commitments=10)
+
+        self.assertEqual(summary["review_candidates_inserted"], 1)
+        link_id, contract = repository.candidates[0]
+        self.assertEqual((link_id, contract.portal_id), ("link-9", "1520"))
 
     def test_respects_the_maximum(self) -> None:
         repository = FakeRepository(

@@ -112,6 +112,35 @@ class PartyNameTests(unittest.TestCase):
         )
 
 
+class CandidateContractTests(unittest.TestCase):
+    def test_returns_the_contracts_the_cited_number_points_to(self) -> None:
+        duplicated = links.candidate_contracts(
+            commitment("O-3", "Contrato nº 004-FMS/2023", "CLEVERSON ALVES MACEDO"),
+            CONTRACTS,
+        )
+        divergent = links.candidate_contracts(
+            commitment("O-2", "Contrato de nº 134/2026", "SMART LTDA"), CONTRACTS
+        )
+
+        self.assertEqual(
+            sorted(contract.record_key for contract in duplicated),
+            ["contrato:5", "contrato:6"],
+        )
+        self.assertEqual(
+            [contract.record_key for contract in divergent], ["contrato:7"]
+        )
+
+    def test_ambiguous_or_illegible_citations_have_no_candidates(self) -> None:
+        for history in (
+            "contrato nº 070/2025 e contrato nº 260/2021",
+            "Contrato nº 082-FMS/202",
+            "sem citação",
+        ):
+            self.assertEqual(
+                links.candidate_contracts(commitment("O-1", history), CONTRACTS), ()
+            )
+
+
 class LinkDecisionTests(unittest.TestCase):
     def test_links_only_with_single_contract_and_same_contractor(self) -> None:
         decision = link_commitment(

@@ -150,6 +150,97 @@ class CommitmentLinkRepository:
             connection.close()
         return int(row["inserted"]) if row else 0
 
+    def links_without_candidates(
+        self, rule_version: str
+    ) -> tuple[tuple[str, PendingCommitment], ...]:
+        """Citações revisáveis cujos contratos candidatos ainda não foram gravados."""
+        connection = self.connection_factory()
+        try:
+            rows = connection.execute(
+                """
+                select
+                  link.id::text as link_id,
+                  record.id::text as raw_record_id,
+                  record.payload
+                from finance.commitment_contract_links as link
+                join raw.raw_records as record
+                  on record.id = link.commitment_raw_record_id
+                where link.state = 'citacao_sem_confirmacao'
+                  and link.reason in ('favorecido_divergente', 'varios_contratos')
+                  and link.rule_version = %s
+                  and not exists (
+                    select 1
+                    from finance.commitment_link_candidates as candidate
+                    where candidate.link_id = link.id
+                  )
+                order by link.decided_at, link.id
+                """,
+                (rule_version,),
+            ).fetchall()
+        finally:
+            connection.close()
+        return tuple(
+            (
+                str(row["link_id"]),
+                PendingCommitment(
+                    raw_record_id=str(row["raw_record_id"]),
+                    row=_payload(row["payload"]),
+                ),
+            )
+            for row in rows
+        )
+
+    def record_candidates(
+        self, candidates: tuple[tuple[str, MunicipalContract], ...]
+    ) -> int:
+        """Grava (decisão, contrato candidato); repetição é ignorada."""
+        if not candidates:
+            return 0
+        serialized = json.dumps(
+            [
+                {
+                    "link_id": link_id,
+                    "contract_raw_record_id": contract.record_key,
+                    "contract_portal_id": contract.portal_id,
+                    "contract_number": contract.number,
+                    "contractor": contract.contractor,
+                }
+                for link_id, contract in candidates
+            ],
+            ensure_ascii=False,
+        )
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                row = connection.execute(
+                    """
+                    with inserted as (
+                      insert into finance.commitment_link_candidates (
+                        link_id, contract_raw_record_id, contract_portal_id,
+                        contract_number, contractor
+                      )
+                      select
+                        item.link_id, item.contract_raw_record_id,
+                        item.contract_portal_id, item.contract_number,
+                        item.contractor
+                      from jsonb_to_recordset(%s::jsonb) as item (
+                        link_id uuid,
+                        contract_raw_record_id uuid,
+                        contract_portal_id text,
+                        contract_number text,
+                        contractor text
+                      )
+                      on conflict (link_id, contract_raw_record_id) do nothing
+                      returning 1
+                    )
+                    select count(*)::integer as inserted from inserted
+                    """,
+                    (serialized,),
+                ).fetchone()
+        finally:
+            connection.close()
+        return int(row["inserted"]) if row else 0
+
 
 def _payload(value: Any) -> Mapping[str, str]:
     if isinstance(value, str):

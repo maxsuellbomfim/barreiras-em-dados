@@ -327,9 +327,11 @@ function CommitmentLinksList({
       <p className="commitment-links-label">
         Ligação automática verificada por código, sujeita a correção: o
         histórico do empenho cita este contrato pelo número, o número aponta
-        para um único contrato e o favorecido é o mesmo contratado. Valores
-        aparecem como texto da fonte e não são somados. As liquidações vêm da
-        própria fonte com a chave oficial de cada empenho.
+        para um único contrato e o favorecido é o mesmo contratado. Quando a
+        grafia do favorecido diverge, a ligação só aparece depois de revisão
+        humana e é marcada como tal. Valores aparecem como texto da fonte e não
+        são somados. As liquidações vêm da própria fonte com a chave oficial de
+        cada empenho.
       </p>
       <ul>
         {links.map((link) => (
@@ -338,6 +340,7 @@ function CommitmentLinksList({
               Empenho {link.commitmentNumber} · {link.issueDateText}
             </strong>{" "}
             · {link.noteType} · valor publicado {link.amountText}
+            {link.reviewMode === "human" ? " · confirmada por revisão humana" : ""}
             <br />
             {link.publicBody} → {link.creditorName}
             <br />
