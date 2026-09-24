@@ -1513,7 +1513,12 @@ class PostgresCollectionRepository:
         self,
         limit: int,
     ) -> tuple[DirectEditionTarget, ...]:
-        """Edições oficiais conhecidas que ainda não possuem PDF preservado."""
+        """Edições oficiais conhecidas que ainda não possuem PDF preservado.
+
+        Não conta como preservado o artefato cujo PDF leva o nome de outra
+        edição e tem o mesmo hash do artefato dessa outra edição: é a cópia
+        que o catálogo serviu por engano (4263 → diario4264.pdf em 2024).
+        """
         if limit < 1:
             raise ValueError("O limite deve ser positivo.")
         connection = self.connection_factory()
@@ -1540,6 +1545,30 @@ class PostgresCollectionRepository:
                     (record.payload ->> 'edition')::integer,
                     (record.payload ->> 'date')::date,
                     record.collected_at desc
+                ),
+                -- Materializado: correlacionado por publicação, o planejador
+                -- varria raw_artifacts centenas de vezes (~10 s).
+                preserved as materialized (
+                  select
+                    artifact.metadata ->> 'edition' as edition,
+                    artifact.metadata ->> 'year' as edition_year
+                  from raw.raw_artifacts as artifact
+                  where artifact.metadata ->> 'schema_name'
+                      = 'gazette-direct-edition'
+                    and not exists (
+                      select 1
+                      from raw.raw_artifacts as other_edition
+                      where other_edition.metadata ->> 'schema_name'
+                          = 'gazette-direct-edition'
+                        and other_edition.sha256 = artifact.sha256
+                        and other_edition.metadata ->> 'edition'
+                            <> artifact.metadata ->> 'edition'
+                        and other_edition.metadata ->> 'edition'
+                            = substring(
+                              artifact.metadata ->> 'final_url'
+                              from '/diario([0-9]+)(?:-[A-Za-z0-9-]+)?\\.pdf$'
+                            )
+                    )
                 )
                 select
                   publication.edition_number,
@@ -1548,12 +1577,9 @@ class PostgresCollectionRepository:
                 from latest_publications as publication
                 where not exists (
                   select 1
-                  from raw.raw_artifacts as artifact
-                  where artifact.metadata ->> 'schema_name'
-                      = 'gazette-direct-edition'
-                    and artifact.metadata ->> 'edition'
-                        = publication.edition_number::text
-                    and artifact.metadata ->> 'year'
+                  from preserved
+                  where preserved.edition = publication.edition_number::text
+                    and preserved.edition_year
                         = publication.edition_year::text
                 )
                 order by publication.edition_number desc
