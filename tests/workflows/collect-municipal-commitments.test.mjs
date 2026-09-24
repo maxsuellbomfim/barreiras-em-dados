@@ -11,6 +11,12 @@ test("empenhos: meses fechados, identidade do corredor municipal e sem publicaç
   assert.match(workflow, /cron: "17 9 3,20 \* \*"/);
   assert.match(workflow, /barreiras_collectors\.commands\.collect_municipal_commitments/);
   assert.match(workflow, /MUNICIPAL_TRANSPARENCY_SUPABASE_WORKLOAD_PASSWORD/);
+  // A ligação roda depois da coleta, no mesmo job e sem publicar.
+  assert.ok(
+    workflow.indexOf("collect_municipal_commitments") <
+      workflow.indexOf("link_commitments_to_contracts"),
+  );
+  assert.match(workflow, /PYTHONPATH: workers\/collectors\/src:workers\/reconciliation\/src/);
   // Entradas do dispatch só chegam ao shell por variável de ambiente.
   assert.doesNotMatch(workflow, /run: [^\n]*\$\{\{ inputs\./);
   assert.doesNotMatch(workflow, /^\s+python[^\n]*\$\{\{/m);

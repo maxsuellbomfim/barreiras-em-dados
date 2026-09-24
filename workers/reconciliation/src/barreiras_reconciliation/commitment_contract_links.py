@@ -55,6 +55,7 @@ class MunicipalContract:
     record_key: str
     number: str
     contractor: str
+    portal_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,7 @@ class LinkDecision:
     cited_excerpt: str
     contract_record_key: str | None
     rule_version: str = RULE_VERSION
+    contract_portal_id: str | None = None
 
 
 def contract_number_key(text: str) -> ContractKey | None:
@@ -163,4 +165,11 @@ def link_commitment(
         return LinkDecision(
             commitment_key, UNCONFIRMED, "favorecido_divergente", excerpt, None
         )
-    return LinkDecision(commitment_key, LINKED, "", excerpt, contract.record_key)
+    return LinkDecision(
+        commitment_key,
+        LINKED,
+        "",
+        excerpt,
+        contract.record_key,
+        contract_portal_id=contract.portal_id or None,
+    )

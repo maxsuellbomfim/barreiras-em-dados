@@ -185,8 +185,9 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  // Includes pharmacy snapshots and the private PNCP latest-query projection.
-  assert.equal(relations.rows[0].count, 70);
+  // Includes pharmacy snapshots, the private PNCP latest-query projection
+  // and the commitment -> contract link decisions (ADR 0086).
+  assert.equal(relations.rows[0].count, 71);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -202,7 +203,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 70);
+  assert.equal(rlsRelations.rows[0].count, 71);
   const queryStatusAccess = await database.query(`select
     has_table_privilege('anon','source.pncp_contract_query_status','SELECT') as anon_read,
     has_table_privilege('collector_worker','source.pncp_contract_query_status','INSERT') as worker_write`);
@@ -294,7 +295,7 @@ try {
     where tgname = 'reject_mutation'
       and not tgisinternal
   `);
-  assert.equal(immutableTriggers.rows[0].count, 21);
+  assert.equal(immutableTriggers.rows[0].count, 22);
 
   const extensionSchema = await database.query(`
     select namespace.nspname as schema_name

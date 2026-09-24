@@ -47,7 +47,7 @@ jobs:
       APP_ENV: production
       LOG_LEVEL: INFO
       PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONPATH: workers/collectors/src
+      PYTHONPATH: workers/collectors/src:workers/reconciliation/src
       PERSISTENCE_MODE: postgres-supabase
       DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
       SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
@@ -87,3 +87,10 @@ jobs:
             args+=(--start-month "$START_MONTH" --end-month "$END_MONTH")
           fi
           python -B -m barreiras_collectors.commands.collect_municipal_commitments "${args[@]}"
+
+      # ADR 0086: decide a ligação empenho -> contrato só para empenhos ainda
+      # sem decisão desta versão da regra; grava append-only e não publica.
+      - name: Ligar empenhos a contratos pela regra determinística
+        run: >-
+          python -B -m barreiras_reconciliation.commands.link_commitments_to_contracts
+          --max-commitments 50000
