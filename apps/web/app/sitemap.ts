@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { getPublicFinanceCoverage } from "../lib/finance-coverage";
 import { searchMunicipalControlDocuments } from "../lib/municipal-control-documents";
+import { getPublicPayrollMonths } from "../lib/public-payroll.mjs";
 import { getPublicSitemapEntries } from "../lib/sitemap-entries";
 
 const BASE_URL = "https://barreiras-em-dados.vercel.app";
@@ -13,11 +14,13 @@ const ENTRY_PATHS = {
 } as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [legalDocuments, entries, financeCoverage] = await Promise.all([
-    searchMunicipalControlDocuments({ pageSize: 50 }),
-    getPublicSitemapEntries(),
-    getPublicFinanceCoverage(),
-  ]);
+  const [legalDocuments, entries, financeCoverage, payrollMonths] =
+    await Promise.all([
+      searchMunicipalControlDocuments({ pageSize: 50 }),
+      getPublicSitemapEntries(),
+      getPublicFinanceCoverage(),
+      getPublicPayrollMonths(120),
+    ]);
   const staticRoutes = [
     { route: "", changeFrequency: "daily", priority: 1 },
     { route: "/diario", changeFrequency: "daily", priority: 0.9 },
@@ -66,5 +69,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           }))
       : [];
 
-  return [...staticRoutes, ...detailRoutes, ...financeMonths, ...ownPages];
+  // Só meses com folha publicada; mês ausente não vira página indexada.
+  const payrollPages: MetadataRoute.Sitemap =
+    payrollMonths.state === "available"
+      ? payrollMonths.months.map((month) => ({
+          url: `${BASE_URL}/financas/folha/${month.referenceMonth.slice(0, 7)}`,
+          changeFrequency: "monthly" as const,
+          priority: 0.6,
+        }))
+      : [];
+
+  return [
+    ...staticRoutes,
+    ...detailRoutes,
+    ...financeMonths,
+    ...payrollPages,
+    ...ownPages,
+  ];
 }
