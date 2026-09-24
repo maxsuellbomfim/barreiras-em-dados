@@ -1,6 +1,7 @@
 import { formatBrlDecimal } from "../../lib/revenues";
 import type { PublicPayrollMonth } from "../../lib/public-payroll.mjs";
 import FinancePayrollSources from "./finance-payroll-sources";
+import { payrollMonthHref } from "./finance-payroll-month-nav";
 
 function formatMonthTitle(value: string): string {
   const parsed = new Date(`${value}T12:00:00-03:00`);
@@ -71,6 +72,12 @@ export default function FinancePayrollHistory({
                 : "documentos oficiais"}. O líquido é bruto menos descontos;
               não é confirmação bancária.
             </p>
+            <a
+              className="finance-payroll-month-link"
+              href={payrollMonthHref(month.referenceMonth)}
+            >
+              Ver divisão por vínculo, faixas e documentos →
+            </a>
             <details className="finance-payroll-sources-details">
               <summary>
                 Conferir {month.documentCount.toLocaleString("pt-BR")} documento

@@ -42,9 +42,8 @@ import {
 } from "../../lib/public-payroll.mjs";
 import FinanceNonpayrollWorkforceCoverage from "./finance-nonpayroll-workforce-coverage";
 import FinancePayrollHistory from "./finance-payroll-history";
-import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
-import FinancePayrollCompensation from "./finance-payroll-compensation";
-import FinancePayrollSources from "./finance-payroll-sources";
+import FinancePayrollMonthCard from "./finance-payroll-month-card";
+import { payrollMonthHref } from "./finance-payroll-month-nav";
 import FinancePayrollYears from "./finance-payroll-years";
 import { FinanceAnnualSummary } from "./finance-annual-summary";
 import { FinanceSiconfiAnnualTotals } from "./finance-siconfi-annual-totals";
@@ -523,83 +522,17 @@ export default async function FinancesPage() {
           </div>
           {latestPayroll ? (
             <>
-              <article className="finance-payroll-card">
-                <div className="finance-payroll-header">
-                  <div>
-                    <span className="finance-payroll-kicker">
-                      {latestPayroll.publicBodyName}
-                    </span>
-                    <h3>{formatMonthTitle(latestPayroll.referenceMonth)}</h3>
-                    <p>
-                      A folha regular informa{" "}
-                      <strong>
-                        {latestPayroll.employeeCount.toLocaleString("pt-BR")} vínculos
-                      </strong>
-                      . Um vínculo não representa necessariamente uma pessoa única.
-                    </p>
-                  </div>
-                  <span className="finance-payroll-status">
-                    {latestPayroll.documentCount.toLocaleString("pt-BR")} PDF
-                    {latestPayroll.documentCount === 1 ? "" : "s"} reconciliado
-                    {latestPayroll.documentCount === 1 ? "" : "s"}
-                  </span>
-                </div>
-                <dl className="finance-payroll-values">
-                  <div className="finance-payroll-gross">
-                    <dt>
-                      Proventos brutos do mês
-                      <small>Soma dos processamentos oficiais publicados</small>
-                    </dt>
-                    <dd>{formatBrlDecimal(latestPayroll.grossAmount)}</dd>
-                  </div>
-                  <div>
-                    <dt>
-                      Descontos
-                      <small>Retenções consolidadas, sem detalhe pessoal</small>
-                    </dt>
-                    <dd>{formatBrlDecimal(latestPayroll.deductionAmount)}</dd>
-                  </div>
-                  <div className="finance-payroll-net">
-                    <dt>
-                      Líquido nos relatórios
-                      <small>Bruto menos descontos; não é confirmação bancária</small>
-                    </dt>
-                    <dd>{formatBrlDecimal(latestPayroll.netAmount)}</dd>
-                  </div>
-                </dl>
-                <div className="finance-payroll-reading">
-                  <strong>Como ler este mês</strong>
-                  <p>
-                    O total reúne {latestPayroll.documentCount.toLocaleString("pt-BR")}{" "}
-                    {latestPayroll.documentCount === 1
-                      ? "processamento oficial"
-                      : "processamentos oficiais"}
-                    :{" "}
-                    {formatBrlDecimal(latestPayroll.grossAmount)} brutos,{" "}
-                    {formatBrlDecimal(latestPayroll.deductionAmount)} em descontos
-                    e {formatBrlDecimal(latestPayroll.netAmount)} líquidos. O código
-                    conferiu {latestPayroll.subtotalCount.toLocaleString("pt-BR")}{" "}
-                    subtotais sem somar os vínculos repetidos no 13º.
-                  </p>
-                </div>
-                <FinancePayrollRegimeBreakdown
-                  rows={payrollRegimeRows}
-                  grossTotal={latestPayroll.grossAmount}
-                />
-                <FinancePayrollCompensation rows={payrollCompensationRows} />
-                <details className="finance-details">
-                  <summary>Conferir cálculo, fonte e documento</summary>
-                  <p className="finance-details-note">
-                    Regra determinística: proventos brutos − descontos = líquido.
-                    O Barreiras 360 não usa IA para calcular esses valores.
-                  </p>
-                  <FinancePayrollSources documents={latestPayroll.sourceDocuments} />
-                  <p className="finance-details-note">
-                    Projeção mensal {latestPayroll.parserVersion}. Cada documento
-                    mantém hash e data de coleta próprios.
-                  </p>
-                </details>
-              </article>
+              <FinancePayrollMonthCard
+                month={latestPayroll}
+                regimeRows={payrollRegimeRows}
+                compensationRows={payrollCompensationRows}
+              />
+              <p className="finance-payroll-month-cta">
+                <a href={payrollMonthHref(latestPayroll.referenceMonth)}>
+                  Abrir este mês e navegar por todos os{" "}
+                  {payrollMonths.length.toLocaleString("pt-BR")} meses publicados →
+                </a>
+              </p>
 
               <FinancePayrollYears summaries={payrollYearSummaries} />
               <FinancePayrollHistory

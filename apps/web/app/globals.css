@@ -9006,3 +9006,146 @@ footer {
   color: #5f4b1f;
   font-size: 0.82rem;
 }
+
+/* Folha por mês: /financas/folha/AAAA-MM */
+.finance-payroll-month-page {
+  max-width: 76rem;
+}
+
+.finance-payroll-month-nav {
+  margin: 0 0 1rem;
+}
+
+.finance-payroll-month-steps {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.finance-payroll-month-steps a,
+.finance-payroll-month-link,
+.finance-payroll-month-cta a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: #273d9c;
+  font-size: 0.88rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.finance-payroll-month-steps a:hover,
+.finance-payroll-month-link:hover,
+.finance-payroll-month-cta a:hover {
+  color: #172a8a;
+  text-decoration: underline;
+  text-underline-offset: 0.22rem;
+}
+
+.finance-payroll-month-picker {
+  margin-top: 0.5rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1rem;
+  background: var(--surface);
+}
+
+.finance-payroll-month-picker > summary {
+  min-height: 44px;
+  padding: 0.75rem 1.1rem;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.finance-payroll-month-picker > div {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0 1.1rem 1rem;
+}
+
+.finance-payroll-month-picker h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+}
+
+.finance-payroll-month-picker ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finance-payroll-month-picker li a {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.7rem;
+  border: 1px solid rgba(39, 61, 156, 0.2);
+  border-radius: 999px;
+  color: #273d9c;
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-transform: capitalize;
+}
+
+.finance-payroll-month-picker li a:hover {
+  background: rgba(39, 61, 156, 0.08);
+}
+
+.finance-payroll-month-picker li a[aria-current="page"] {
+  background: #273d9c;
+  border-color: #273d9c;
+  color: #fff;
+}
+
+.finance-payroll-month-cta {
+  margin: 0.75rem 0 0;
+}
+
+.finance-payroll-pending {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.9rem;
+  background: rgba(39, 61, 156, 0.06);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 620px) {
+  .finance-payroll-month-steps {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+.finance-payroll-month-picker li .is-missing {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.7rem;
+  border: 1px dashed rgba(96, 106, 124, 0.35);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  text-transform: capitalize;
+  opacity: 0.75;
+}
+
+.finance-payroll-month-legend {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.finance-payroll-month-legend a {
+  color: #273d9c;
+  font-weight: 700;
+  text-underline-offset: 0.18rem;
+}

@@ -667,9 +667,16 @@ test("cobertura separada consulta somente a RPC pública", async () => {
 });
 
 test("pagina explica vínculos, descontos e limite da informação", async () => {
-  const [page, sources, breakdown, compensation] = await Promise.all([
+  const [page, card, sources, breakdown, compensation] = await Promise.all([
     readFile(
       new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../../apps/web/app/financas/finance-payroll-month-card.tsx",
+        import.meta.url,
+      ),
       "utf8",
     ),
     readFile(
@@ -696,10 +703,11 @@ test("pagina explica vínculos, descontos e limite da informação", async () =>
   ]);
 
   assert.match(page, /Quanto custa a folha da Prefeitura/);
-  assert.match(page, /Um vínculo não representa necessariamente uma pessoa única/);
-  assert.match(page, /não é confirmação bancária/);
-  assert.match(page, /não usa IA para calcular esses valores/);
-  assert.match(page, /processamentos oficiais/);
+  assert.match(page, /<FinancePayrollMonthCard/);
+  assert.match(card, /Um vínculo não representa necessariamente uma pessoa única/);
+  assert.match(card, /não é confirmação bancária/);
+  assert.match(card, /não usa IA para calcular esses valores/);
+  assert.match(card, /processamentos oficiais/);
   assert.match(sources, /Abrir PDF oficial/);
   assert.match(sources, /13º salário final/);
   assert.match(page, /getPublicPayrollRegimeBreakdown/);
@@ -800,4 +808,34 @@ test("pagina encaminha competências da folha sem total para a cobertura complet
   assert.match(page, /payrollCoverageGapCount/);
   assert.match(page, /Isso não significa gasto zero/);
   assert.match(page, /href="\/financas\/cobertura#payroll-matrix-title"/);
+});
+
+test("todo mês publicado da folha tem página própria e navegação", async () => {
+  const read = (path) =>
+    readFile(new URL(`../../apps/web/app/${path}`, import.meta.url), "utf8");
+  const [route, nav, history, page, sitemap] = await Promise.all([
+    read("financas/folha/[mes]/page.tsx"),
+    read("financas/finance-payroll-month-nav.tsx"),
+    read("financas/finance-payroll-history.tsx"),
+    read("financas/page.tsx"),
+    read("sitemap.ts"),
+  ]);
+
+  // Rota valida o slug e nunca transforma mês ausente em zero.
+  assert.match(route, /periodStartFromSlug\(mes\)/);
+  assert.match(route, /notFound\(\)/);
+  assert.match(route, /Isso não significa gasto zero/);
+  assert.match(route, /Nenhum valor será substituído por zero/);
+  assert.match(route, /payrollRegimeBreakdownMatchesMonth/);
+  assert.match(route, /payrollCompensationMatchesMonth/);
+  assert.match(route, /<FinancePayrollMonthCard/);
+  // Todos os meses a um clique, com o atual marcado.
+  assert.match(nav, /aria-current=\{/);
+  assert.match(nav, /rel="prev"/);
+  assert.match(nav, /rel="next"/);
+  assert.match(nav, /Ver todos os/);
+  assert.match(nav, /\/financas\/folha\/\$\{referenceMonth\.slice\(0, 7\)\}/);
+  assert.match(history, /payrollMonthHref\(month\.referenceMonth\)/);
+  assert.match(page, /payrollMonthHref\(latestPayroll\.referenceMonth\)/);
+  assert.match(sitemap, /\/financas\/folha\//);
 });
