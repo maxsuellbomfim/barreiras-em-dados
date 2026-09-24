@@ -172,7 +172,7 @@ grade próprias:
 As decisões já são gravadas em `finance.commitment_contract_links` pelo
 workflow de empenhos (primeira execução em 24/09/2026: 7.056 empenhos de junho
 a agosto, 1.531 ligados a 185 contratos, 910 para revisão). Falta abrir a fila
-de revisão para `citacao_sem_confirmacao`. Em seguida, preservar
-liquidações e pagamentos com o mesmo modelo de partição mensal e ligá-los ao
-empenho pela `CHAVE` (liquidação) e ao contrato pelo campo estruturado
-(pagamento).
+de revisão para `citacao_sem_confirmacao`. Liquidações já são preservadas
+no mesmo workflow (endpoint `webrun-liquidacoes`; 5.174 de junho a
+agosto/2026) e aparecem sob cada empenho publicado pela `CHAVE` oficial.
+Falta preservar pagamentos e ligá-los ao contrato pelo campo estruturado.

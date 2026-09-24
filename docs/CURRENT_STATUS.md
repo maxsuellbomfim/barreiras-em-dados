@@ -50,16 +50,16 @@ amplas.
    exibem aviso de transcrição por OCR. Há também dois pares
    de edições com hash idêntico (4309/4310 e 4263/4264 de 2024) aguardando
    conferência dos PDFs originais.
-2. **Rastro do dinheiro ponta a ponta (gate 4), primeiro elo pronto:** desde
-   24/09 os empenhos individuais do sistema Sudoeste/WebRun são preservados por
-   mês fechado (ADR 0086; junho a agosto de 2026 coletados, 7.056 empenhos) e
-   cada um recebe uma decisão determinística de ligação ao contrato municipal
-   em `finance.commitment_contract_links`: 1.531 ligados a 185 contratos, 910
-   citações sem confirmação para revisão humana, 3.302 sem citação e 1.313
-   extra-orçamentários fora do escopo. Nada disso é público ainda. Faltam a
-   fila de revisão, a projeção pública e os estágios seguintes: liquidações
-   (trazem a chave oficial do empenho) e pagamentos (trazem contrato e processo
-   em campo próprio)
+2. **Rastro do dinheiro ponta a ponta (gate 4), contrato → empenho →
+   liquidação no ar:** desde 24/09 empenhos e liquidações individuais do
+   sistema Sudoeste/WebRun são preservados por mês fechado (ADR 0086; junho a
+   agosto de 2026: 7.056 empenhos e 5.174 liquidações). A ligação empenho →
+   contrato é decidida por regra determinística (1.531 ligados a 185
+   contratos; 910 citações aguardam revisão humana) e publicada com rótulo
+   (ADR 0087); cada empenho mostra suas liquidações pela chave oficial que a
+   própria fonte publica. Faltam a fila de revisão das citações não
+   confirmadas, os pagamentos (contrato e processo em campo próprio) e a
+   extensão da coleta aos meses de 2024 e 2025
    ([`sources/PREFEITURA_DESPESAS_WEBRUN.md`](sources/PREFEITURA_DESPESAS_WEBRUN.md)).
 3. **Dados abertos:** `apps/public-api` está vazio e a única exportação CSV é a
    da Farmácia Popular. A visão prevê downloads e API com os mesmos estados da
