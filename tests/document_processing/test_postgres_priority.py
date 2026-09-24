@@ -194,3 +194,40 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
         self.assertEqual(connection.queries, [])
 if __name__ == "__main__":
     unittest.main()
+
+
+class PendingActsIndexContractTests(unittest.TestCase):
+    def test_pending_acts_query_matches_partial_index_predicates(self) -> None:
+        # Sem o mesmo predicado, o planejador ignora os índices parciais e a
+        # consulta volta a passar do statement_timeout de 15 s do coletor.
+        from pathlib import Path
+
+        migration = " ".join(
+            (
+                Path(__file__).resolve().parents[2]
+                / "supabase/migrations/20260924124222_gazette_pending_acts_indexes.sql"
+            )
+            .read_text(encoding="utf-8")
+            .split()
+        )
+        connection = RecordingConnection()
+        PostgresExtractionRepository(lambda: connection).pending_text_artifacts(20)
+        query = connection.queries[0]
+
+        self.assertIn(
+            "where artifact_kind = 'document' and ("
+            " metadata ->> 'document_role' = 'txt' or metadata ->> 'schema_name' = 'gazette-direct-edition' );",
+            migration,
+        )
+        self.assertIn(
+            "where artifact.artifact_kind = 'document' and ("
+            " artifact.metadata ->> 'document_role' = 'txt'"
+            " or artifact.metadata ->> 'schema_name' = 'gazette-direct-edition' )",
+            query,
+        )
+        self.assertIn("where extraction_method = 'ocr';", migration)
+        self.assertIn(
+            "where ocr.raw_artifact_id = artifact.id"
+            " and ocr.extraction_method = 'ocr'",
+            query,
+        )
