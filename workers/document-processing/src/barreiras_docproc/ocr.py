@@ -11,6 +11,7 @@ import hashlib
 import io
 import shutil
 import subprocess
+import threading
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -31,6 +32,10 @@ def parser_version_for_source(source: str) -> str:
 # 300 DPI é o ponto doce do Tesseract; PDFs usam 72 pontos por polegada.
 RENDER_SCALE = 300 / 72
 OCR_LANGUAGE = "por"
+
+# O PDFium não é thread-safe; o Tesseract roda em subprocesso e pode ser
+# paralelizado, então só a renderização é serializada.
+_PDFIUM_LOCK = threading.Lock()
 
 
 class OcrError(RuntimeError):
@@ -108,15 +113,16 @@ def rasterize_page(
         ) from error
 
     try:
-        document = pypdfium2.PdfDocument(pdf_bytes)
-        try:
-            page = document[page_number - 1]
-            bitmap = page.render(scale=RENDER_SCALE)
-            image = bitmap.to_pil()
-            if rotation_degrees:
-                image = image.rotate(rotation_degrees, expand=True)
-        finally:
-            document.close()
+        with _PDFIUM_LOCK:
+            document = pypdfium2.PdfDocument(pdf_bytes)
+            try:
+                page = document[page_number - 1]
+                bitmap = page.render(scale=RENDER_SCALE)
+                image = bitmap.to_pil()
+            finally:
+                document.close()
+        if rotation_degrees:
+            image = image.rotate(rotation_degrees, expand=True)
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         return buffer.getvalue()

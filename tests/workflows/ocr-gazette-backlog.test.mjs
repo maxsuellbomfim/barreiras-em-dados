@@ -10,7 +10,10 @@ const workflow = await readFile(
 test("dreno de OCR processa em lote e republica as edições que ganharam texto", () => {
   assert.match(workflow, /cron: "47,17 \* \* \* \*"/);
   assert.match(workflow, /tesseract-ocr-por/);
-  assert.match(workflow, /LIMIT_PAGES: \$\{\{ inputs\.limit_pages \|\| '200' \}\}/);
+  assert.match(workflow, /LIMIT_PAGES: \$\{\{ inputs\.limit_pages \|\| '800' \}\}/);
+  // Um Tesseract de uma thread por página, 4 páginas em paralelo.
+  assert.match(workflow, /OMP_THREAD_LIMIT: "1"/);
+  assert.match(workflow, /--workers 4/);
   assert.match(workflow, /--limit-pages "\$\{LIMIT_PAGES\}"/);
   assert.doesNotMatch(workflow, /--limit-pages "\$\{\{ inputs\./);
   // OCR sem republicação deixaria o texto novo preso no acervo bruto.
