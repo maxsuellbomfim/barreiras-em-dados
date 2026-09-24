@@ -64,7 +64,7 @@ amplas.
    grupos com contrato candidato; confirmações publicam com rótulo de revisão
    humana. Cada empenho mostra suas liquidações e seus pagamentos pela chave
    oficial da fonte, sem somar estágios; pagamentos coletados de 2024-01 a
-   2025-12 (41.088), com 2026 em backfill. Faltam os meses anteriores a
+   2026-08 (32 meses, 53.731 pagamentos). Faltam os meses anteriores a
    2024, que a série histórica da fonte não entrega
    ([`sources/PREFEITURA_DESPESAS_WEBRUN.md`](sources/PREFEITURA_DESPESAS_WEBRUN.md)).
 3. **Dados abertos:** `apps/public-api` está vazio e a única exportação CSV é a
