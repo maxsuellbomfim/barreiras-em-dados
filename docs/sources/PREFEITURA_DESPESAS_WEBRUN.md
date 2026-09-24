@@ -111,10 +111,17 @@ período. Sem ela, meses anteriores a 2024 vêm só em parte (15 empenhos em
 **Volume:** ~20–45 MB por mês, dos quais a maior parte é o JavaScript do botão
 de detalhe repetido por linha; o bruto precisa ser preservado mesmo assim.
 
+## Preservação
+
+Desde 23/09/2026 (ADR 0086), `collect_municipal_commitments` grava cada mês
+fechado como partição `month:AAAA-MM`: a grade intacta em
+`municipal-transparency/despesas-webrun/empenhos/sha256/…` e um registro
+`municipal_commitment_webrun` por chave oficial. O workflow
+`collect-municipal-commitments` recoleta o mês anterior nos dias 3 e 20 e
+aceita janelas de até seis meses por disparo manual.
+
 ## Próximo passo
 
-Persistir cada mês fechado como `raw_artifact` (SHA-256) e um `raw_record` por
-chave, com estado de cobertura; depois a ligação empenho→contrato pelo número
-citado, preservando o sufixo do órgão (`070/2025` e `070-FMS/2025` são
-contratos distintos), com ADR antes de publicar. Liquidações (7907) e
+Ligação empenho→contrato pela regra do ADR 0086 (número citado com sufixo do
+órgão, contrato único e favorecido correspondente). Liquidações (7907) e
 pagamentos (7910) seguem o mesmo protocolo, ainda não sondado.
