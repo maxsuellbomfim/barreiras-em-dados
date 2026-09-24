@@ -47,9 +47,16 @@ amplas.
    atos passou a usar o OCR das páginas só com numeração (antes o descartava),
    reabre as edições cujo OCR é mais novo que a última extração feita com OCR
    e o dreno procura atos logo depois; atos publicados a partir dessas edições
-   exibem aviso de transcrição por OCR. Há também dois pares
-   de edições com hash idêntico (4309/4310 e 4263/4264 de 2024) aguardando
-   conferência dos PDFs originais.
+   exibem aviso de transcrição por OCR. Em 24/09 o dreno passou a reconhecer
+   4 páginas em paralelo, com lotes de 800 (PR #815): o agendador do GitHub
+   dispara só ~5 execuções por dia e o backfill de edições antigas acrescenta
+   ~700 páginas escaneadas por dia. Os dois pares de edições com hash idêntico
+   (4309/4310 e 4263/4264 de 2024) eram erro do catálogo da diariomtransparente,
+   que redireciona 4263 e 4309 para `diario4264.pdf` e `diario4310.pdf`; o
+   endereço canônico da prefeitura tem os PDFs certos (capa conferida). O
+   coletor agora prefere o PDF canônico quando o catálogo aponta para arquivo
+   de outra edição e devolve essas duas à fila; 4181, publicada como
+   `diario418.pdf`, é legítima e permanece.
 2. **Rastro do dinheiro ponta a ponta (gate 4), contrato → empenho →
    liquidação → pagamento no ar:** empenhos e liquidações individuais do sistema
    Sudoeste/WebRun preservados mês a mês de janeiro de 2024 a agosto de 2026

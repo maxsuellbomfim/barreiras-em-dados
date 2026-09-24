@@ -9,9 +9,11 @@ documentos já preservados sigam para processamento.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
+from urllib.parse import urlsplit
 
 from ..logging import log_event
 from .gazette_documents import CollectedDocument, GazetteDocumentClient
@@ -50,6 +52,17 @@ def edition_url(year: int, edition_number: int) -> str:
         "https://barreiras.ba.gov.br/diario/pdf/"
         f"{year}/diario{edition_number}.pdf"
     )
+
+
+# "diario4310.pdf", "diario4704-edicaoextra.pdf". Mesmo padrão da consulta de
+# edições pendentes no repositório.
+_EDITION_FILE = re.compile(r"/diario([0-9]+)(?:-[A-Za-z0-9-]+)?\.pdf$")
+
+
+def named_edition(url: str) -> int | None:
+    """Número de edição no nome do PDF, quando o nome segue o padrão."""
+    match = _EDITION_FILE.search(urlsplit(url).path)
+    return int(match.group(1)) if match else None
 
 
 def fetch_edition(
@@ -157,6 +170,32 @@ def collect_catalog_editions(
                 status=error.status_code,
             )
             continue
+        named = named_edition(document.final_url)
+        if named is not None and named != target.edition_number:
+            # Em 2024 o catálogo levou 4263 e 4309 aos PDFs de 4264 e 4310.
+            # O endereço canônico da edição prevalece quando existe; sem ele,
+            # o PDF do catálogo é mantido (4181 está publicada como
+            # "diario418.pdf") e duplicatas seguem barradas pelo hash.
+            try:
+                document = client.fetch(
+                    edition_url(target.year, target.edition_number),
+                    role="pdf",
+                )
+                canonical_available = True
+            except PermanentHttpError as error:
+                if error.status_code != 404:
+                    raise
+                canonical_available = False
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_catalog_edition_redirect_mismatch",
+                source=SOURCE_CODE,
+                edition=target.edition_number,
+                year=target.year,
+                redirected_edition=named,
+                canonical_available=canonical_available,
+            )
         edition = DirectEdition(
             edition_number=target.edition_number,
             year=target.year,

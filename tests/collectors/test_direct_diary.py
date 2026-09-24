@@ -325,6 +325,48 @@ class CollectEditionsTests(unittest.TestCase):
         )
         self.assertEqual(self.persisted[0].document.final_url, extra_edition_url)
 
+    def test_catalog_redirect_to_another_edition_prefers_canonical_pdf(self) -> None:
+        """4263 foi servida como diario4264.pdf; 4181 só existe como diario418.pdf."""
+        catalog = "https://pmbarreiras.diariomtransparente.com.br/publicacao?referencia="
+        targets = (
+            direct_diary.DirectEditionTarget(4263, 2024, f"{catalog}13234"),
+            direct_diary.DirectEditionTarget(4181, 2024, f"{catalog}12000"),
+        )
+        typo_url = "https://barreiras.ba.gov.br/diario/pdf/2024/diario418.pdf"
+        responses = {
+            targets[0].publication_url: (pdf(4264), edition_url(2024, 4264)),
+            edition_url(2024, 4263): (pdf(4263), edition_url(2024, 4263)),
+            targets[1].publication_url: (pdf(4181), typo_url),
+        }
+        client = GazetteDocumentClient(
+            max_document_bytes=1024,
+            allowed_hosts=frozenset(
+                {"pmbarreiras.diariomtransparente.com.br", "barreiras.ba.gov.br"}
+            ),
+            transport=RedirectMapTransport(responses),
+            rate_limiter=NoopRateLimiter(),  # type: ignore[arg-type]
+            retry_policy=RetryPolicy(max_attempts=2),
+            sleep=lambda _seconds: None,
+        )
+
+        persisted, unavailable = direct_diary.collect_catalog_editions(
+            client, self.persist, targets=targets, logger=self.logger
+        )
+
+        self.assertEqual((persisted, unavailable), (2, ()))
+        self.assertEqual(self.persisted[0].document.raw_body, pdf(4263))
+        self.assertEqual(
+            self.persisted[0].document.final_url, edition_url(2024, 4263)
+        )
+        self.assertEqual(self.persisted[1].document.final_url, typo_url)
+        self.assertEqual(direct_diary.named_edition(typo_url), 418)
+        self.assertEqual(
+            direct_diary.named_edition(
+                "https://barreiras.ba.gov.br/diario/pdf/2026/diario4704-edicaoextra.pdf"
+            ),
+            4704,
+        )
+
 
 class ControlledDirectCollectionTests(unittest.TestCase):
     def test_control_starts_before_external_setup_and_records_coverage(self) -> None:
@@ -453,7 +495,7 @@ class CatalogTargetRepositoryTests(unittest.TestCase):
                 self.closed = False
 
             def execute(self, query, params=None):
-                del query
+                self.query = query
                 self.params = params
                 return Result()
 
@@ -474,6 +516,13 @@ class CatalogTargetRepositoryTests(unittest.TestCase):
         self.assertEqual(targets[0].year, 2026)
         self.assertEqual(connection.params, (6,))
         self.assertTrue(connection.closed)
+        # Cópia servida pelo catálogo (nome e hash de outra edição) não
+        # conta como PDF preservado; o conjunto é calculado uma vez só.
+        self.assertIn("preserved as materialized", connection.query)
+        self.assertIn("other_edition.sha256 = artifact.sha256", connection.query)
+        self.assertIn(
+            "'/diario([0-9]+)(?:-[A-Za-z0-9-]+)?\\.pdf$'", connection.query
+        )
 
 
 class DirectDiaryRunTests(unittest.TestCase):
