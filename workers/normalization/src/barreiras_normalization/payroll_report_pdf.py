@@ -16,7 +16,11 @@ from decimal import Decimal, InvalidOperation
 from typing import Literal
 
 PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.4.0"
-PAYROLL_REGIME_PARSER_VERSION = "payroll-regime-breakdown/1.0.0"
+# 1.1.0: aceita os layouts anteriores (2022 a jun/2025 com coluna "Lotação";
+# 2021 com "Regime" e "Centro de Custo") e recupera o início do rótulo quando
+# o cabeçalho do PDF está deslocado em relação às linhas (jul/2025 a mar/2026).
+# Documentos aceitos pela 1.0.0 produzem o mesmo resultado.
+PAYROLL_REGIME_PARSER_VERSION = "payroll-regime-breakdown/1.1.0"
 PAYROLL_COMPENSATION_PARSER_VERSION = "payroll-compensation-bands/1.0.0"
 PayrollCycle = Literal[
     "regular",
@@ -131,6 +135,12 @@ _EMPLOYEE_AMOUNTS = re.compile(
     rf"(?P<net>{_AMOUNT})\s*$"
 )
 _EMPLOYEE_IDENTIFIER = re.compile(r"^\s*(?:\d+|\([A-Z]\))\s+")
+# Cabeçalho do vínculo: "Regime/Vínculo" desde 2022, "Regime" em 2021. A
+# coluna seguinte fecha o recorte: "Local de Trabalho" desde jul/2025,
+# "Lotação" antes e "Centro de Custo" em 2021 (o PDF pode trazer o "ção" como
+# caractere de substituição).
+_REGIME_HEADER = re.compile(r"\bRegime\b")
+_REGIME_NEXT_COLUMN = re.compile(r"Local de Trabalho|\bLota|Centro de Custo")
 _REGIME_LABELS: dict[PayrollRegimeCode, str] = {
     "statutory": "Estatutários",
     "commissioned": "Cargos em comissão",
@@ -342,9 +352,11 @@ def parse_payroll_report_regime_breakdown(
     )
 
     for line in text.splitlines():
-        if "Regime/V" in line and "Local de Trabalho" in line:
-            regime_start = line.index("Regime/V")
-            local_start = line.index("Local de Trabalho")
+        regime_header = _REGIME_HEADER.search(line)
+        next_column = _REGIME_NEXT_COLUMN.search(line)
+        if regime_header is not None and next_column is not None:
+            regime_start = regime_header.start()
+            local_start = next_column.start()
             if regime_start >= local_start:
                 raise PayrollReportContractError(
                     "colunas de regime/vínculo não reconhecidas"
@@ -366,7 +378,14 @@ def parse_payroll_report_regime_breakdown(
             raise PayrollReportContractError(
                 "linha funcional truncada antes do regime/vínculo"
             )
-        code = _regime_code(line[regime_start:local_start])
+        # O cabeçalho pode estar deslocado em relação à linha; recua até o
+        # início da palavra para não cortar a primeira letra do vínculo. Se o
+        # cargo colar no vínculo sem espaço, o rótulo fica desconhecido e o
+        # documento é rejeitado, nunca adivinhado.
+        label_start = regime_start
+        while label_start > 0 and not line[label_start - 1].isspace():
+            label_start -= 1
+        code = _regime_code(line[label_start:local_start])
         gross = _amount(amounts.group("gross"))
         deduction = _amount(amounts.group("deduction"))
         net = _amount(amounts.group("net"))

@@ -125,7 +125,7 @@ class PayrollReportPdfTests(unittest.TestCase):
         self.assertEqual(by_code["commissioned"].net_amount, Decimal("1750.00"))
         self.assertEqual(
             breakdown.parser_version,
-            "payroll-regime-breakdown/1.0.0",
+            "payroll-regime-breakdown/1.1.0",
         )
         self.assertFalse(hasattr(breakdown, "people"))
         self.assertFalse(hasattr(breakdown, "names"))
@@ -167,6 +167,61 @@ class PayrollReportPdfTests(unittest.TestCase):
             (
                 "100    PESSOA UM             PROFESSOR             "
                 "Vínculo desconhecido SECRETARIA              "
+                "3.000,00 500,00 2.500,00"
+            ),
+            total="1 3.000,00 500,00 2.500,00",
+        )
+
+        with self.assertRaisesRegex(PayrollReportContractError, "vínculo"):
+            parse_payroll_report_regime_breakdown(report)
+
+    def test_accepts_older_layouts_with_lotacao_or_cost_center_column(
+        self,
+    ) -> None:
+        # Até jun/2025 a coluna seguinte ao vínculo é "Lotação" (com o "ção"
+        # às vezes trocado pelo caractere de substituição); em 2021 o
+        # cabeçalho é só "Regime" seguido de "Centro de Custo".
+        row = (
+            "100    PESSOA UM             PROFESSOR             "
+            "Estatutário          ESCOLA MUNICIPAL        "
+            "3.000,00 500,00 2.500,00"
+        )
+        base = regime_report(row, total="1 3.000,00 500,00 2.500,00")
+        for header in (
+            "Regime/Vínculo       Lota��o               ",
+            "Regime               Centro de Custo         ",
+        ):
+            report = base.replace(
+                "Regime/Vínculo       Local de Trabalho       ", header
+            )
+            breakdown = parse_payroll_report_regime_breakdown(report)
+            self.assertEqual(breakdown.categories[0].regime_code, "statutory")
+
+    def test_recovers_label_when_header_is_shifted_right_of_rows(self) -> None:
+        # jul/2025 a mar/2026: o cabeçalho sai um caractere à direita das
+        # linhas e o recorte cortava a primeira letra ("rocesso seletivo").
+        report = regime_report(
+            (
+                "100    PESSOA UM             PROFESSOR            "
+                "Processo Seletivo     ESCOLA MUNICIPAL        "
+                "3.000,00 500,00 2.500,00"
+            ),
+            total="1 3.000,00 500,00 2.500,00",
+        )
+
+        breakdown = parse_payroll_report_regime_breakdown(report)
+
+        self.assertEqual(
+            breakdown.categories[0].regime_code, "selection_process"
+        )
+
+    def test_rejects_generic_other_regime_instead_of_guessing(self) -> None:
+        # set/2022 traz conselheiros tutelares como "Outros": sem categoria
+        # pública para isso, o documento fica pendente de revisão.
+        report = regime_report(
+            (
+                "100    PESSOA UM             CONSELHEIRO TUTELAR   "
+                "Outros               CONSELHO TUTELAR        "
                 "3.000,00 500,00 2.500,00"
             ),
             total="1 3.000,00 500,00 2.500,00",

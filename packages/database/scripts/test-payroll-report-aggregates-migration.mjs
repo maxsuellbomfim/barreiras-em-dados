@@ -1180,9 +1180,22 @@ try {
         '[
           {"regime_code":"statutory","regime_label":"Estatutários","employee_count":8000,"gross_amount":"5000000.00","deduction_amount":"500000.00","net_amount":"4500000.00"}
         ]'::jsonb,
-        'payroll-regime-breakdown/1.0.0', '2026-08-22 04:30:00+00'
+        'payroll-regime-breakdown/1.1.0', '2026-08-22 04:30:00+00'
       );
   `);
+  // 1.0.0 e 1.1.0 convivem no mesmo mês; versão desconhecida é recusada.
+  await assert.rejects(
+    database.exec(`
+      insert into hr.payroll_report_regime_breakdowns (
+        payroll_report_aggregate_id, categories, parser_version, validated_at
+      ) values (
+        '00000000-0000-0000-0000-000000009008',
+        '[{"regime_code":"statutory","regime_label":"Estatutários","employee_count":8184,"gross_amount":"1.00","deduction_amount":"0.00","net_amount":"1.00"}]'::jsonb,
+        'payroll-regime-breakdown/9.9.9', '2026-08-22 04:31:00+00'
+      )
+    `),
+    /parser version is not publishable/,
+  );
   await assert.rejects(
     database.exec(`
       insert into hr.payroll_report_regime_breakdowns (
