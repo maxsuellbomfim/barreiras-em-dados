@@ -60,6 +60,17 @@ test("as grades de liquidação têm índice parcial com o mesmo predicado da RP
   assert.match(sqlBody, /artifact\.metadata ->> 'schema_name' = 'municipal-liquidations-webrun-grid'/);
 });
 
+test("a versão vigente busca primeiro pelas chaves e só depois pela grade do mês", () => {
+  const current = read(
+    "supabase/migrations/20260924035354_commitment_liquidations_key_first.sql",
+  ).replace(/--[^\n]*/g, "");
+  assert.match(current, /with candidates as materialized \(/);
+  assert.ok(current.indexOf("candidates as materialized") < current.indexOf("latest_grids as ("));
+  assert.match(current, /record\.payload ->> 'field1089487' = any\(commitment_keys\)/);
+  assert.match(current, /'commitment-liquidations\/1\.0\.0'::text/);
+  assert.doesNotMatch(current, /\bsum\(/i);
+});
+
 test("a página diferencia indisponível de nenhuma liquidação", () => {
   assert.match(page, /getLiquidationsForCommitments\(/);
   assert.match(page, /Liquidações indisponíveis nesta consulta/);
