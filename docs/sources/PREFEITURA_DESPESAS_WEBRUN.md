@@ -120,8 +120,31 @@ fechado como partição `month:AAAA-MM`: a grade intacta em
 `collect-municipal-commitments` recoleta o mês anterior nos dias 3 e 20 e
 aceita janelas de até seis meses por disparo manual.
 
+## Regra de ligação a contratos
+
+`barreiras_reconciliation.commitment_contract_links`
+(`commitment-contract-link/1.0.0`) aplica o ADR 0086 como função pura. Medição
+em 24/09/2026 com os 1.804 empenhos orçamentários distintos de agosto/2026
+contra os contratos municipais preservados:
+
+| Estado | Empenhos |
+| --- | ---: |
+| ligado | 456 |
+| sem citação de contrato | 1.050 |
+| citação sem contrato no portal (`nenhum_contrato`) | 196 |
+| favorecido divergente | 99 |
+| mais de um contrato com o número (`varios_contratos`) | 2 |
+| número ilegível | 1 |
+
+Os 392 extra-orçamentários ficam `fora_do_escopo`. Os divergentes são, na
+maioria, erros de digitação do cadastro de contratos do portal ("SMAT
+CARTUCHOS", "LABORATÓRIOS" × "LABORATÓRIO"); a regra não os aproxima e eles
+vão para revisão humana. Os dois `varios_contratos` são o mesmo contrato
+cadastrado duas vezes pelo portal (ids diferentes, contratado igual).
+
 ## Próximo passo
 
-Ligação empenho→contrato pela regra do ADR 0086 (número citado com sufixo do
-órgão, contrato único e favorecido correspondente). Liquidações (7907) e
+Gravar as decisões versionadas (estado, motivo, trecho citado, evidência do
+empenho e do contrato) depois que os primeiros meses forem coletados, e abrir a
+fila de revisão para `citacao_sem_confirmacao`. Liquidações (7907) e
 pagamentos (7910) seguem o mesmo protocolo, ainda não sondado.
