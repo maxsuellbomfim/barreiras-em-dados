@@ -2,8 +2,12 @@ name: Drenar OCR do Diário Oficial
 
 # Em 22/09/2026, 15.133 páginas de 309 edições tinham como texto extraído
 # apenas o número da página. O coletor diário faz OCR de 30 páginas por
-# execução (~72 dias para zerar a fila); este dreno processa até 200 páginas
-# a cada 30 minutos e reorganiza em seguida as edições que ganharam texto.
+# execução (~72 dias para zerar a fila); este dreno processa até 800 páginas
+# por execução e reorganiza em seguida as edições que ganharam texto.
+# Em 24/09 o agendador do GitHub disparou só ~5 das 48 execuções diárias e o
+# backfill de edições antigas acrescenta ~700 páginas escaneadas por dia, então
+# o lote de 200 páginas em série (~3 s cada) quase não reduzia a fila. O OCR
+# agora roda 4 páginas em paralelo (um Tesseract de uma thread por núcleo).
 # Páginas OCR são gravadas com idempotência por artefato, página e versão do
 # extrator, então rodar ao mesmo tempo que o coletor diário não duplica nada.
 
@@ -13,9 +17,9 @@ on:
   workflow_dispatch:
     inputs:
       limit_pages:
-        description: "Máximo de páginas com OCR nesta execução (1 a 200)"
+        description: "Máximo de páginas com OCR nesta execução (1 a 1000)"
         required: false
-        default: "200"
+        default: "800"
         type: string
 
 permissions:
@@ -29,11 +33,13 @@ jobs:
   drain:
     name: OCR e reorganização das edições
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       APP_ENV: production
       LOG_LEVEL: INFO
       PYTHONDONTWRITEBYTECODE: "1"
+      # Paralelismo por página; threads OpenMP internas só disputariam núcleos.
+      OMP_THREAD_LIMIT: "1"
       PYTHONPATH: workers/collectors/src:workers/document-processing/src
       PERSISTENCE_MODE: postgres-supabase
       DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
@@ -69,10 +75,11 @@ jobs:
 
       - name: OCR das páginas sem texto útil
         env:
-          LIMIT_PAGES: ${{ inputs.limit_pages || '200' }}
+          LIMIT_PAGES: ${{ inputs.limit_pages || '800' }}
         run: >-
           python -B -m barreiras_docproc.commands.ocr_gazette_pages
           --limit-pages "${LIMIT_PAGES}"
+          --workers 4
 
       - name: Reorganizar as edições que ganharam texto
         run: >-

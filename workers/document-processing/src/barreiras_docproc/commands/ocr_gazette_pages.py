@@ -6,6 +6,8 @@ import argparse
 import hashlib
 import logging
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
+from itertools import repeat
 
 from barreiras_collectors.logging import log_event
 from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
@@ -34,9 +36,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         choices=("querido-diario", "tcm-ba"),
         default="querido-diario",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Páginas reconhecidas em paralelo (processos Tesseract).",
+    )
     arguments = parser.parse_args(argv)
-    if not 1 <= arguments.limit_pages <= 200:
-        parser.error("--limit-pages deve estar entre 1 e 200.")
+    if not 1 <= arguments.limit_pages <= 1000:
+        parser.error("--limit-pages deve estar entre 1 e 1000.")
+    if not 1 <= arguments.workers <= 8:
+        parser.error("--workers deve estar entre 1 e 8.")
 
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
@@ -99,26 +109,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     pages_done = 0
     artifacts_touched = 0
+    pool = ThreadPoolExecutor(max_workers=arguments.workers)
     for artifact, page_numbers in pending:
         raw_body = object_store.read(artifact.object_key)
         if hashlib.sha256(raw_body).hexdigest() != artifact.sha256:
             raise OcrError(
                 "O PDF restaurado diverge do hash registrado do artefato."
             )
-        results = []
-        for page_number in page_numbers:
-            outcome = ocr_page(engine, raw_body, page_number)
-            results.append(
-                PageInput(
-                    page_number=outcome.page_number,
-                    parser_version=parser_version,
-                    text=outcome.text,
-                    sha256=outcome.sha256,
-                    extraction_method="ocr",
-                )
+        # map preserva a ordem das páginas; qualquer falha interrompe o
+        # artefato inteiro antes de gravar, como no laço sequencial.
+        outcomes = list(
+            pool.map(ocr_page, repeat(engine), repeat(raw_body), page_numbers)
+        )
+        results = tuple(
+            PageInput(
+                page_number=outcome.page_number,
+                parser_version=parser_version,
+                text=outcome.text,
+                sha256=outcome.sha256,
+                extraction_method="ocr",
             )
-            pages_done += 1
-        repository.persist_pages(artifact, tuple(results))
+            for outcome in outcomes
+        )
+        pages_done += len(results)
+        repository.persist_pages(artifact, results)
         artifacts_touched += 1
         log_event(
             logger,
@@ -128,6 +142,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             artifact_hash=artifact.sha256,
             pages=len(results),
         )
+    pool.shutdown()
 
     log_event(
         logger,
@@ -137,6 +152,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         artifacts=artifacts_touched,
         pages=pages_done,
         limit_pages=arguments.limit_pages,
+        workers=arguments.workers,
         parser_version=parser_version,
     )
     return 0

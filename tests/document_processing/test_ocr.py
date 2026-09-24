@@ -4,6 +4,7 @@ import hashlib
 import io
 import shutil
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from barreiras_docproc.ocr import (
@@ -42,6 +43,17 @@ class RasterizeTests(unittest.TestCase):
     def test_invalid_pdf_raises_explicit_error(self) -> None:
         with self.assertRaises(OcrError):
             rasterize_page(b"nao eh pdf", 1)
+
+    def test_concurrent_rendering_matches_serial(self) -> None:
+        # O comando reconhece páginas em threads; o PDFium não é thread-safe.
+        body = build_pdf(["Página um", "Página dois", "Página três"])
+        pages = [1, 2, 3] * 8
+        serial = [rasterize_page(body, page) for page in pages]
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            concurrent = list(pool.map(lambda page: rasterize_page(body, page), pages))
+
+        self.assertEqual(concurrent, serial)
 
     def test_can_rotate_landscape_report_before_ocr(self) -> None:
         body = build_pdf(["Conteúdo de teste"])
