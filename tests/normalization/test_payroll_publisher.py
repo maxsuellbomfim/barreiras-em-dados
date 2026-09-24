@@ -18,6 +18,10 @@ from barreiras_normalization.payroll_publisher import (
     PayrollReportPublisher,
     PostgresPayrollPublicationRepository,
 )
+from barreiras_normalization.payroll_report_pdf import (
+    PayrollReportContractError,
+    declared_reference_month,
+)
 from barreiras_normalization.revenue_publisher import ArtifactMismatchError
 
 FIXTURE_TEXT = (
@@ -276,6 +280,46 @@ class PayrollPublisherTests(unittest.TestCase):
         self.assertEqual(str(report.net_amount), "14500.25")
         self.assertFalse(hasattr(report, "people"))
         self.assertFalse(hasattr(report, "names"))
+
+    def test_declared_month_in_pdf_prevails_over_catalog(self) -> None:
+        # O portal listou o PDF de agosto/2026 também como julho: publicar
+        # substituiria a folha verdadeira de julho pela de agosto.
+        repository = FakeRepository()
+        publisher = PayrollReportPublisher(
+            object_reader=FakeReader(PDF_BODY),
+            repository=repository,
+            text_extractor=lambda _body: (
+                "PREFEITURA   MÊS/ANO.....:     Agosto / 2026\n" + FIXTURE_TEXT
+            ),
+        )
+
+        with self.assertRaisesRegex(PayrollReportContractError, "08/2026"):
+            publisher.publish(artifact_for())
+        self.assertEqual(repository.inserted, [])
+
+        matching = PayrollReportPublisher(
+            object_reader=FakeReader(PDF_BODY),
+            repository=repository,
+            text_extractor=lambda _body: (
+                "PREFEITURA   MÊS/ANO.....:     Julho / 2026\n" + FIXTURE_TEXT
+            ),
+        )
+        self.assertEqual(matching.publish(artifact_for()).status, "published")
+
+    def test_declared_month_reads_accents_and_replacement_character(self) -> None:
+        self.assertEqual(
+            declared_reference_month("MÊS/ANO.....:   Março / 2023"),
+            date(2023, 3, 1),
+        )
+        self.assertEqual(
+            declared_reference_month("M�S/ANO.....:   Mar�o / 2023"),
+            date(2023, 3, 1),
+        )
+        self.assertIsNone(declared_reference_month("sem cabeçalho de competência"))
+        with self.assertRaisesRegex(PayrollReportContractError, "mais de uma"):
+            declared_reference_month(
+                "MÊS/ANO..: Julho / 2026\nMÊS/ANO..: Agosto / 2026"
+            )
 
 
 if __name__ == "__main__":
