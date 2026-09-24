@@ -46,6 +46,10 @@ FIELD_AMOUNT = "field1082412"
 FIELD_HISTORY = "field1144634"
 FIELD_CREDITOR = "field1144629"
 REQUIRED_FIELDS = (FIELD_DATE, FIELD_KEY, FIELD_NUMBER, FIELD_AMOUNT, FIELD_CREDITOR)
+# A sessão WebRun devolve cookie; só estes cabeçalhos podem ser preservados.
+PRESERVED_HEADERS = frozenset(
+    {"content-type", "content-length", "date", "etag", "last-modified"}
+)
 
 _ROW_PREFIX = "{'" + FIELD_DATE + "':"
 _PLAIN_FIELD = re.compile(r"'(field\d+)':'((?:[^'\\]|\\.)*)'")
@@ -78,9 +82,11 @@ class MonthlyCommitments:
     open_url: str
     rule_url: str
     grid_url: str
+    requested_at: str
     received_at: str
     grid_body: bytes
     grid_sha256: str
+    grid_headers: Mapping[str, str]
     rows: tuple[dict[str, str], ...]
     column_titles: Mapping[str, str]
     source_field_names: Mapping[str, str]
@@ -112,6 +118,7 @@ def fetch_monthly_commitments(
         raise ValueError("Somente meses fechados podem ser coletados.")
     active = transport or UrllibSessionTransport(ALLOWED_HOSTS)
     active.reset_session()
+    requested_at = datetime.now(UTC).isoformat()
     headers = {"Accept": "text/html,application/javascript,*/*"}
 
     open_url = f"{BASE_URL}/openform.do?" + urlencode(
@@ -145,6 +152,10 @@ def fetch_monthly_commitments(
         "fixar período",
     )
     declared_total = parse_declared_total(rule.body.decode("iso-8859-1"))
+    if declared_total == 0:
+        # Mês fechado sem nenhum empenho não é plausível para o Município;
+        # tratá-lo como vazio esconderia falha da fonte.
+        raise MunicipalExpensesContractError("Mês sem empenhos declarados.")
 
     grid_url = f"{BASE_URL}/navigate.do?" + urlencode(
         {
@@ -185,9 +196,15 @@ def fetch_monthly_commitments(
         open_url=open_url,
         rule_url=rule_url,
         grid_url=grid_url,
+        requested_at=requested_at,
         received_at=received_at,
         grid_body=grid.body,
         grid_sha256=hashlib.sha256(grid.body).hexdigest(),
+        grid_headers={
+            name.lower(): value
+            for name, value in grid.headers.items()
+            if name.lower() in PRESERVED_HEADERS
+        },
         rows=parsed.rows,
         column_titles=parsed.column_titles,
         source_field_names=parsed.source_field_names,

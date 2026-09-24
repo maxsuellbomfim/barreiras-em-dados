@@ -99,6 +99,20 @@ class MonthlyCommitmentsTests(unittest.TestCase):
                 2026, 8, today=TODAY, transport=transport
             )
 
+    def test_zero_declared_commitments_is_failure_not_empty(self) -> None:
+        transport = SessionTransport(
+            rule=RULE.replace(b"setTotalRows(3)", b"setTotalRows(0)")
+        )
+
+        with self.assertRaises(expenses.MunicipalExpensesContractError):
+            expenses.fetch_monthly_commitments(
+                2026, 8, today=TODAY, transport=transport
+            )
+
+        self.assertEqual(
+            [kind for kind, _ in transport.calls], ["reset", "get", "post"]
+        )
+
     def test_source_error_is_not_zero_commitments(self) -> None:
         refused = b"parent.interactionError('Invalid column name \\'X\\'.', null);"
         transport = SessionTransport(rule=refused)
