@@ -1516,6 +1516,34 @@ footer {
   opacity: 0.75;
 }
 
+/* Empenhos ligados a um contrato municipal (ADR 0087). */
+.commitment-links {
+  margin-top: 0.75rem;
+  font-size: 0.88rem;
+}
+
+.commitment-links summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.commitment-links ul {
+  margin: 0.5rem 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.commitment-links li {
+  overflow-wrap: anywhere;
+}
+
+.commitment-links-label,
+.commitment-links-excerpt {
+  font-size: 0.82rem;
+  opacity: 0.8;
+}
+
 /* Base legal municipal: busca leve e leitura integral sem reescrita. */
 .legal-library,
 .legal-document-page {
