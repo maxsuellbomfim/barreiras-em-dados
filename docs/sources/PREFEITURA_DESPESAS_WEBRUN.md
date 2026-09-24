@@ -142,9 +142,36 @@ CARTUCHOS", "LABORATÓRIOS" × "LABORATÓRIO"); a regra não os aproxima e eles
 vão para revisão humana. Os dois `varios_contratos` são o mesmo contrato
 cadastrado duas vezes pelo portal (ids diferentes, contratado igual).
 
+## Liquidações e pagamentos (sondagem de 24/09/2026)
+
+Os dois formulários seguem o mesmo protocolo de três requisições, com regra e
+grade próprias:
+
+| Estágio | formID | Regra do período | Grade | Parâmetros além do período | Agosto/2026 |
+| --- | ---: | --- | ---: | --- | --- |
+| Liquidações | 7907 | `TRP_TRANSP_LIQUIDAC_MODIFICAR_CONSULTA` | 1089430 | `P_6=P` | 1.650 linhas, 18,5 MB |
+| Pagamentos | 7910 | `TRP_TRANSP_PAGAMENTO_MODIFICAR_CONSULTA` | 1082549 | `P_7=P`, `P_22=39` | 1.799 linhas, 19,3 MB |
+
+- **Liquidação → empenho por chave oficial.** Toda liquidação traz, nos campos
+  ocultos do botão de detalhe, a `CHAVE` do empenho (`O-250959`), a mesma
+  preservada na grade de empenhos. Em agosto, as 1.650 liquidações têm a chave
+  e 1.560 apontam para empenhos emitidos no próprio mês; as demais liquidam
+  empenhos anteriores. A liquidação não tem identificador próprio (`DES_COD`
+  vem vazio), então sua identidade é a chave do empenho mais o conteúdo literal
+  da linha. O número aparece como `10  16` em vez de `10/16`.
+- **Pagamento com contrato estruturado.** A grade de pagamentos traz as colunas
+  "N° do Proc." (todas as 1.799 linhas), "Contrato" (1.002 linhas, 56%),
+  "Tipo de Contrato", "Data de Liquidação" e "N° da Despesa". O contrato vem
+  em campo próprio, com sufixos de órgão além de `FMS`: `014/2025CM` (Câmara
+  Municipal) e `005/2024CM-ATA` (ata de registro de preços). A ligação de
+  pagamentos deve usar esse campo antes do histórico, e a normalização do
+  número precisa reconhecer esses sufixos antes de ser aplicada a eles.
+
 ## Próximo passo
 
 Gravar as decisões versionadas (estado, motivo, trecho citado, evidência do
 empenho e do contrato) depois que os primeiros meses forem coletados, e abrir a
-fila de revisão para `citacao_sem_confirmacao`. Liquidações (7907) e
-pagamentos (7910) seguem o mesmo protocolo, ainda não sondado.
+fila de revisão para `citacao_sem_confirmacao`. Em seguida, preservar
+liquidações e pagamentos com o mesmo modelo de partição mensal e ligá-los ao
+empenho pela `CHAVE` (liquidação) e ao contrato pelo campo estruturado
+(pagamento).
