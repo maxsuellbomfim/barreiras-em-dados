@@ -9,7 +9,7 @@ const queue = read(
   "supabase/migrations/20260924090843_commitment_link_review_queue.sql",
 ).replace(/--[^\n]*/g, "");
 const publicLinks = read(
-  "supabase/migrations/20260924080000_public_links_include_human_review.sql",
+  "supabase/migrations/20260924092113_public_links_include_human_review.sql",
 ).replace(/--[^\n]*/g, "");
 
 test("fila e decisão exigem revisor ativo e nunca ficam abertas ao anon", () => {
@@ -50,4 +50,16 @@ test("o painel confirma só com contrato escolhido e justificativa", () => {
   assert.match(component, /revisores ativos/);
   assert.match(page, /<CommitmentLinkReview rpc=\{rpc\} \/>/);
   assert.match(page, /Empenhos × contratos/);
+});
+
+test("a fila vigente agrupa sem carregar o payload inteiro e limita antes das amostras", () => {
+  const slim = read("supabase/migrations/20260924092958_review_groups_slim_cte.sql").replace(
+    /--[^\n]*/g,
+    "",
+  );
+  const pending = slim.slice(slim.indexOf("with pending as materialized"), slim.indexOf("groups as ("));
+  assert.doesNotMatch(pending, /record\.payload,/);
+  assert.match(pending, /record\.payload ->> 'field1144629' as creditor_name/);
+  assert.ok(slim.indexOf("page as (") < slim.indexOf("from page as grouped"));
+  assert.match(slim, /if not api\.is_active_reviewer\(\) then/);
 });
