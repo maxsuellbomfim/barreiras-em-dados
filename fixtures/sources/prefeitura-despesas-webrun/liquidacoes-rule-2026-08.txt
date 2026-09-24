@@ -1,0 +1,2 @@
+try { runMostrarEsconderGif(null, 'PTP', 7907, [true, '', '']); } catch(e) { handleException(e); }
+try { $c('LIQUIDACAO').setTotalRows(2); } catch(e) { handleException(e); }

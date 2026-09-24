@@ -1,8 +1,8 @@
 name: Preservar empenhos municipais
 
-# ADR 0086. Cada mês fechado vira uma partição: a grade bruta do sistema
-# WebRun vai para o Storage privado por SHA-256 e cada chave oficial de
-# empenho vira um registro bruto. O mês anterior é recoletado duas vezes
+# ADR 0086. Cada mês fechado de empenhos e de liquidações vira uma partição
+# do seu endpoint: a grade bruta do sistema WebRun vai para o Storage privado
+# por SHA-256 e cada linha distinta vira um registro bruto. O mês anterior é recoletado duas vezes
 # (dias 3 e 20); grade idêntica é idempotente e grade alterada cria nova
 # versão sem apagar a anterior. Nada aqui publica valores.
 
