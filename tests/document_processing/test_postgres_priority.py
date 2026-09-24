@@ -192,8 +192,6 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
             )
 
         self.assertEqual(connection.queries, [])
-if __name__ == "__main__":
-    unittest.main()
 
 
 class PendingActsIndexContractTests(unittest.TestCase):
@@ -289,3 +287,7 @@ class SegmenterPageStatsIndexTests(unittest.TestCase):
             " where text_content is not null;",
             migration,
         )
+
+
+if __name__ == "__main__":
+    unittest.main()
