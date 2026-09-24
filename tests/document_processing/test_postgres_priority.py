@@ -216,7 +216,8 @@ class PendingActsIndexContractTests(unittest.TestCase):
 
         self.assertIn(
             "where artifact_kind = 'document' and ("
-            " metadata ->> 'document_role' = 'txt' or metadata ->> 'schema_name' = 'gazette-direct-edition' );",
+            " metadata ->> 'document_role' = 'txt'"
+            " or metadata ->> 'schema_name' = 'gazette-direct-edition' );",
             migration,
         )
         self.assertIn(
