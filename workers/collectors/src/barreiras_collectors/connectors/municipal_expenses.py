@@ -135,7 +135,28 @@ LIQUIDATIONS = GridSpec(
     hidden_fields=("field1089487",),
     unique_key=False,
 )
-STAGES = {spec.stage: spec for spec in (COMMITMENTS, LIQUIDATIONS)}
+# O pagamento traz, só no botão de detalhe, a CHAVE do empenho pago e o
+# identificador próprio do pagamento (PAG_COD); contrato e processo vêm em
+# colunas visíveis. A regra do formulário usa P_7 e P_22, não P_6.
+PAYMENTS = GridSpec(
+    stage="pagamentos",
+    endpoint_code="webrun-pagamentos",
+    form_id=7910,
+    grid_id=1082549,
+    grid_name="PAGAMENTO",
+    rule_name="TRP_TRANSP_PAGAMENTO_MODIFICAR_CONSULTA",
+    rule_extras=(("P_7", "P"), ("P_22", "39")),
+    row_prefix="{'field",
+    date_field="field1082587",
+    key_field="field1082596",
+    number_field="field1082588",
+    amount_field="field1082592",
+    creditor_field="field1144925",
+    number_pattern=re.compile(r"^\d+(?:\s+\d+)?$"),
+    hidden_fields=("field1082596", "field1082593"),
+    unique_key=False,
+)
+STAGES = {spec.stage: spec for spec in (COMMITMENTS, LIQUIDATIONS, PAYMENTS)}
 
 
 class MunicipalExpensesError(RuntimeError):

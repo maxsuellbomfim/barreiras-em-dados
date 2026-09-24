@@ -60,6 +60,17 @@ STAGE_PERSISTENCE = {
         key_label="liquidacao",
         one_record_per_key=False,
     ),
+    "pagamentos": StagePersistence(
+        record_type="municipal_payment_webrun",
+        collector_version="municipal-payments-webrun/1.0.0",
+        parser_version="municipal-payments-grid/1.0.0",
+        schema_name="municipal-payments-webrun-grid",
+        object_prefix="municipal-transparency/despesas-webrun/pagamentos",
+        page_prefix="municipal-payments",
+        record_prefix="municipal-payment",
+        key_label="pagamento",
+        one_record_per_key=False,
+    ),
 }
 _COMMITMENTS = STAGE_PERSISTENCE["empenhos"]
 RECORD_TYPE = _COMMITMENTS.record_type

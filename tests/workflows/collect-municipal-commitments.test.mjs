@@ -21,6 +21,9 @@ test("empenhos: meses fechados, identidade do corredor municipal e sem publicaç
   assert.doesNotMatch(workflow, /run: [^\n]*\$\{\{ inputs\./);
   assert.doesNotMatch(workflow, /^\s+python[^\n]*\$\{\{/m);
   assert.match(workflow, /options:\s*\n\s*- "1"\s*\n\s*- "3"\s*\n\s*- "6"/);
+  assert.match(workflow, /- "todos"\s*\n\s*- "empenhos"\s*\n\s*- "liquidacoes"\s*\n\s*- "pagamentos"/);
+  assert.match(workflow, /STAGE: \$\{\{ inputs\.stage \|\| 'todos' \}\}/);
+  assert.match(workflow, /--stage "\$STAGE"/);
   assert.doesNotMatch(workflow, /publish_/);
   assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /permissions:\s*\n\s*contents: read/);
