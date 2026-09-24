@@ -21,6 +21,11 @@ import {
   type CommitmentLiquidationsResult,
 } from "../../lib/commitment-liquidations";
 import {
+  getPaymentsForCommitments,
+  type CommitmentPayment,
+  type CommitmentPaymentsResult,
+} from "../../lib/commitment-payments";
+import {
   getPublicMunicipalContracts,
   municipalSupplierLabel,
   type MunicipalContract,
@@ -295,12 +300,45 @@ function CommitmentLiquidationsLine({
   );
 }
 
+function CommitmentPaymentsLine({
+  payments,
+}: Readonly<{ payments: readonly CommitmentPayment[] | null }>) {
+  if (payments === null) {
+    return (
+      <span className="commitment-links-excerpt">
+        Pagamentos indisponíveis nesta consulta.
+      </span>
+    );
+  }
+  if (payments.length === 0) {
+    return (
+      <span className="commitment-links-excerpt">
+        Nenhum pagamento deste empenho nos meses já coletados.
+      </span>
+    );
+  }
+  return (
+    <span className="commitment-links-excerpt">
+      Pago (mesma chave oficial do empenho):{" "}
+      {payments
+        .map(
+          (item) =>
+            `${item.paymentDateText} · valor ${item.amountText}` +
+            (item.processNumber ? ` · processo ${item.processNumber}` : ""),
+        )
+        .join("; ")}
+    </span>
+  );
+}
+
 function CommitmentLinksList({
   links,
   liquidations,
+  payments,
 }: Readonly<{
   links: readonly CommitmentLink[] | null;
   liquidations: CommitmentLiquidationsResult;
+  payments: CommitmentPaymentsResult;
 }>) {
   if (links === null) {
     return (
@@ -330,8 +368,9 @@ function CommitmentLinksList({
         para um único contrato e o favorecido é o mesmo contratado. Quando a
         grafia do favorecido diverge, a ligação só aparece depois de revisão
         humana e é marcada como tal. Valores aparecem como texto da fonte e não
-        são somados. As liquidações vêm da própria fonte com a chave oficial de
-        cada empenho.
+        são somados. Liquidações e pagamentos vêm da própria fonte com a chave
+        oficial de cada empenho; empenhado, liquidado e pago são estágios
+        distintos e nunca se somam.
       </p>
       <ul>
         {links.map((link) => (
@@ -355,6 +394,14 @@ function CommitmentLinksList({
                   : null
               }
             />
+            <br />
+            <CommitmentPaymentsLine
+              payments={
+                payments.state === "available"
+                  ? (payments.byCommitment.get(link.commitmentKey) ?? [])
+                  : null
+              }
+            />
           </li>
         ))}
       </ul>
@@ -373,10 +420,12 @@ function MunicipalContractCard({
   contract,
   commitmentLinks,
   liquidations,
+  payments,
 }: Readonly<{
   contract: MunicipalContract;
   commitmentLinks: readonly CommitmentLink[] | null;
   liquidations: CommitmentLiquidationsResult;
+  payments: CommitmentPaymentsResult;
 }>) {
   return (
     <article className="digest-card">
@@ -422,7 +471,11 @@ function MunicipalContractCard({
           : "PDF ainda não preservado"}{" "}
         · hash {contract.artifactSha256.slice(0, 12)}…
       </p>
-      <CommitmentLinksList links={commitmentLinks} liquidations={liquidations} />
+      <CommitmentLinksList
+        links={commitmentLinks}
+        liquidations={liquidations}
+        payments={payments}
+      />
     </article>
   );
 }
@@ -560,11 +613,13 @@ function MunicipalContractsPanel({
   result,
   links,
   liquidations,
+  payments,
   query,
 }: Readonly<{
   result: Awaited<ReturnType<typeof getPublicMunicipalContracts>>;
   links: CommitmentLinksResult;
   liquidations: CommitmentLiquidationsResult;
+  payments: CommitmentPaymentsResult;
   query: PageQuery;
 }>) {
   if (result.state === "unavailable" || result.contracts.length === 0) {
@@ -613,6 +668,7 @@ function MunicipalContractsPanel({
                   : null
               }
               liquidations={liquidations}
+              payments={payments}
             />
           ))}
         </div>
@@ -674,14 +730,22 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
           ),
         )
       : { state: "unavailable" };
-  const liquidationsResult: CommitmentLiquidationsResult =
+  const linkedCommitmentKeys =
     commitmentLinksResult.state === "available"
-      ? await getLiquidationsForCommitments(
-          [...commitmentLinksResult.byContract.values()].flatMap((links) =>
-            links.map((link) => link.commitmentKey),
-          ),
+      ? [...commitmentLinksResult.byContract.values()].flatMap((links) =>
+          links.map((link) => link.commitmentKey),
         )
-      : { state: "unavailable" };
+      : null;
+  const [liquidationsResult, paymentsResult]: [
+    CommitmentLiquidationsResult,
+    CommitmentPaymentsResult,
+  ] =
+    linkedCommitmentKeys === null
+      ? [{ state: "unavailable" }, { state: "unavailable" }]
+      : await Promise.all([
+          getLiquidationsForCommitments(linkedCommitmentKeys),
+          getPaymentsForCommitments(linkedCommitmentKeys),
+        ]);
 
   return (
     <main>
@@ -836,6 +900,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
           result={municipalContractsResult}
           links={commitmentLinksResult}
           liquidations={liquidationsResult}
+          payments={paymentsResult}
           query={params}
         />
         <MunicipalProcessesPanel result={municipalProcessesResult} query={params} />

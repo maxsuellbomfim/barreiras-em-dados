@@ -51,7 +51,7 @@ amplas.
    de edições com hash idêntico (4309/4310 e 4263/4264 de 2024) aguardando
    conferência dos PDFs originais.
 2. **Rastro do dinheiro ponta a ponta (gate 4), contrato → empenho →
-   liquidação no ar:** empenhos e liquidações individuais do sistema
+   liquidação → pagamento no ar:** empenhos e liquidações individuais do sistema
    Sudoeste/WebRun preservados mês a mês de janeiro de 2024 a agosto de 2026
    (64 partições `complete`; 82.660 empenhos e 53.070 liquidações; ADR 0086).
    A ligação empenho → contrato é decidida por regra determinística: 21.121
@@ -59,9 +59,12 @@ amplas.
    13.516 citações aguardam revisão humana (6.974 sem contrato no portal,
    6.385 com favorecido divergente — de grafias diferentes da mesma empresa a
    números de contrato atribuídos a outra empresa —, 133 duplicatas do
-   portal, 22 ilegíveis, 2 com várias citações). Cada empenho mostra suas
-   liquidações pela chave oficial da fonte. Faltam a fila de revisão, os
-   pagamentos (contrato e processo em campo próprio) e os meses anteriores a
+   portal, 22 ilegíveis, 2 com várias citações). A fila de revisão humana
+   (aba "Empenhos × contratos" do admin) agrupa 6.518 dessas citações em 304
+   grupos com contrato candidato; confirmações publicam com rótulo de revisão
+   humana. Cada empenho mostra suas liquidações e seus pagamentos pela chave
+   oficial da fonte, sem somar estágios; pagamentos coletados de 2024-01 a
+   2025-12 (41.088), com 2026 em backfill. Faltam os meses anteriores a
    2024, que a série histórica da fonte não entrega
    ([`sources/PREFEITURA_DESPESAS_WEBRUN.md`](sources/PREFEITURA_DESPESAS_WEBRUN.md)).
 3. **Dados abertos:** `apps/public-api` está vazio e a única exportação CSV é a
