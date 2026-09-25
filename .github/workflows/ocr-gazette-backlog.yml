@@ -67,6 +67,14 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q tesseract-ocr tesseract-ocr-por
 
+      - name: Baixar modelo OCR preciso do Diário
+        run: |
+          model_dir="$RUNNER_TEMP/tessdata_best"
+          mkdir -p "$model_dir"
+          curl -fsSL --retry 3 -o "$model_dir/por.traineddata"             "https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/9ddc24e750eec0994223a9edc3fcb434a2244f3b/por.traineddata"
+          echo "711de9dbb8052067bd42f16b9119967f30bada80d57e2ef24f65d09f531adb04  $model_dir/por.traineddata" | sha256sum -c -
+          echo "GAZETTE_TESSDATA_DIR=$model_dir" >> "$GITHUB_ENV"
+
       - name: Verificar CA oficial do Supabase
         run: >-
           echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7

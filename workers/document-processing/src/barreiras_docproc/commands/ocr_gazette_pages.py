@@ -5,7 +5,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import logging
-from collections.abc import Sequence
+import os
+from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from itertools import repeat
 
@@ -14,6 +15,7 @@ from barreiras_collectors.persistence.storage import SupabaseStorageObjectStore
 from barreiras_collectors.settings import CollectorSettings, PersistenceSettings
 
 from ..ocr import (
+    GAZETTE_OCR_MODEL_SHA256,
     OcrError,
     TesseractEngine,
     ocr_page,
@@ -21,6 +23,25 @@ from ..ocr import (
 )
 from ..postgres import PostgresExtractionRepository
 from ..processing import PageInput
+
+GAZETTE_TESSDATA_ENV = "GAZETTE_TESSDATA_DIR"
+
+
+def build_engine(
+    source: str, environ: Mapping[str, str] = os.environ
+) -> TesseractEngine:
+    """Diário exige o modelo fixado, para que a versão gravada seja verdadeira."""
+    if source != "querido-diario":
+        return TesseractEngine()
+    tessdata_dir = environ.get(GAZETTE_TESSDATA_ENV, "").strip()
+    if not tessdata_dir:
+        raise OcrError(
+            f"{GAZETTE_TESSDATA_ENV} deve apontar para o modelo tessdata_best fixado."
+        )
+    return TesseractEngine(
+        tessdata_dir=tessdata_dir,
+        expected_model_sha256=GAZETTE_OCR_MODEL_SHA256,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -92,14 +113,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise RuntimeError("O Storage não forneceu uma sessão autenticada.")
 
     object_store = SupabaseStorageObjectStore(
-        supabase_client.storage.from_(
-            persistence_settings.raw_artifacts_bucket
-        )
+        supabase_client.storage.from_(persistence_settings.raw_artifacts_bucket)
     )
     repository = PostgresExtractionRepository.from_dsn(
         persistence_settings.database_url
     )
-    engine = TesseractEngine()
+    engine = build_engine(arguments.source)
     parser_version = parser_version_for_source(arguments.source)
 
     logger = logging.getLogger(__name__)
@@ -113,9 +132,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     for artifact, page_numbers in pending:
         raw_body = object_store.read(artifact.object_key)
         if hashlib.sha256(raw_body).hexdigest() != artifact.sha256:
-            raise OcrError(
-                "O PDF restaurado diverge do hash registrado do artefato."
-            )
+            raise OcrError("O PDF restaurado diverge do hash registrado do artefato.")
         # map preserva a ordem das páginas; qualquer falha interrompe o
         # artefato inteiro antes de gravar, como no laço sequencial.
         outcomes = list(

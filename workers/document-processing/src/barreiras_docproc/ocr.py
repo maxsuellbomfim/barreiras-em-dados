@@ -13,11 +13,20 @@ import shutil
 import subprocess
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 from .canonical import sanitize_text
 
-OCR_PARSER_VERSION = "gazette-ocr-text/1.0.0"
+# 1.1.0: modelo `por` do tessdata_best (1.0.0 usava o tessdata_fast da
+# distribuição). Corrige erros de dígito sem perder acentos; não reconhece `§`
+# (auditoria de 25/09/2026). Só páginas ainda não lidas usam esta versão.
+OCR_PARSER_VERSION = "gazette-ocr-text/1.1.0"
+# Modelo da distribuição (tessdata_fast), ainda usado fora do Diário.
+FAST_OCR_PARSER_VERSION = "gazette-ocr-text/1.0.0"
+GAZETTE_OCR_MODEL_SHA256 = (
+    "711de9dbb8052067bd42f16b9119967f30bada80d57e2ef24f65d09f531adb04"
+)
 TCM_BA_OCR_PARSER_VERSION = "tcm-ba-document-ocr-text/1.0.0"
 
 
@@ -62,6 +71,8 @@ class TesseractEngine:
         language: str = OCR_LANGUAGE,
         *,
         page_segmentation_mode: int | None = None,
+        tessdata_dir: str | None = None,
+        expected_model_sha256: str | None = None,
     ) -> None:
         if page_segmentation_mode is not None and not 0 <= page_segmentation_mode <= 13:
             raise OcrError("Modo de segmentação do Tesseract deve estar entre 0 e 13.")
@@ -71,14 +82,27 @@ class TesseractEngine:
                 "Binário tesseract não encontrado; instale tesseract-ocr e "
                 "tesseract-ocr-por."
             )
+        if (tessdata_dir is None) != (expected_model_sha256 is None):
+            raise OcrError("Modelo do Tesseract exige diretório e hash juntos.")
+        if tessdata_dir is not None:
+            model = Path(tessdata_dir) / f"{language}.traineddata"
+            if not model.is_file():
+                raise OcrError(f"Modelo do Tesseract ausente: {model}.")
+            digest = hashlib.sha256(model.read_bytes()).hexdigest()
+            if digest != expected_model_sha256:
+                raise OcrError("Modelo do Tesseract diverge do hash fixado.")
         self.binary = binary
         self.language = language
+        self.tessdata_dir = tessdata_dir
         self.page_segmentation_mode = page_segmentation_mode
         mode = page_segmentation_mode if page_segmentation_mode is not None else 3
-        self.parser_version = f"{OCR_PARSER_VERSION}+tesseract-psm{mode}"
+        base = OCR_PARSER_VERSION if tessdata_dir else FAST_OCR_PARSER_VERSION
+        self.parser_version = f"{base}+tesseract-psm{mode}"
 
     def image_to_text(self, png_bytes: bytes) -> str:
         arguments = [self.binary, "stdin", "stdout", "-l", self.language]
+        if self.tessdata_dir is not None:
+            arguments.extend(["--tessdata-dir", self.tessdata_dir])
         if self.page_segmentation_mode is not None:
             arguments.extend(["--psm", str(self.page_segmentation_mode)])
         completed = subprocess.run(  # noqa: S603 - argumentos fixos.
