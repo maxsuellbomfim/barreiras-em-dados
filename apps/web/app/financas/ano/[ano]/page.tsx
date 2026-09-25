@@ -162,7 +162,7 @@ export default async function AnnualFinancePage({ params }: PageProps) {
           <span className="eyebrow">Visão anual verificável</span>
           <h1 id="finance-year-title">As contas de {fiscalYear}, mês a mês</h1>
           <p>
-            Compare a receita declarada e os pagamentos de cada competência. Só há
+            Compare a receita declarada e os pagamentos de cada mês. Só há
             barras quando os dois relatórios oficiais do mês foram reconciliados.
           </p>
         </div>

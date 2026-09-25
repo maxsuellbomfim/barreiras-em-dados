@@ -101,7 +101,7 @@ export default function FinanceObligationCoverageMatrix({
       <div className="collection-unavailable" role="status">
         <div>
           <strong>Matriz de restos a pagar ainda indisponível</strong>
-          <p>Nenhuma competência foi presumida a partir de uma resposta vazia.</p>
+          <p>Nenhum mês foi presumido a partir de uma resposta vazia.</p>
         </div>
       </div>
     );
@@ -137,7 +137,7 @@ export default function FinanceObligationCoverageMatrix({
       >
         <table>
           <caption>
-            Situação documental de cada competência desde 2021. A matriz não informa o saldo da dívida.
+            Situação documental de cada mês desde 2021. A matriz não informa o saldo da dívida.
           </caption>
           <thead>
             <tr>

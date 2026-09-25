@@ -110,7 +110,7 @@ export default function FinanceCoverageMatrix({
         <div>
           <strong>Matriz de cobertura ainda indisponível</strong>
           <p>
-            A lista recebida não permite classificar as competências com
+            A lista recebida não permite classificar os meses com
             segurança. Nenhuma lacuna foi convertida em valor zero.
           </p>
         </div>
@@ -171,13 +171,13 @@ export default function FinanceCoverageMatrix({
                       const statusLabel = financeCoverageStatusLabel(month.status);
                       const evidence = month.status === "not_due"
                         ? month.row
-                          ? "A competência ainda está em andamento; a ausência de relatório validado não é tratada como atraso nem valor zero."
-                          : "Competência futura, ainda fora do período acompanhado."
+                          ? "O mês ainda está em andamento; a ausência de relatório validado não é tratada como atraso nem valor zero."
+                          : "Mês futuro, ainda fora do período acompanhado."
                         : month.status === "missing" && month.row
-                          ? "Não foi localizado relatório validado nas fontes oficiais consultadas para esta competência; isso pode refletir atraso de publicação e não significa valor zero nem comprova descumprimento."
+                          ? "Não foi localizado relatório validado nas fontes oficiais consultadas para este mês; isso pode refletir atraso de publicação e não significa valor zero nem comprova descumprimento."
                         : month.row
                           ? `${month.row.coverageNote} Relatórios de receita: ${month.row.revenueReportCount}. Relatórios de despesa: ${month.row.expenseReportCount}.`
-                          : "A resposta pública não trouxe uma classificação para esta competência.";
+                          : "A resposta pública não trouxe uma classificação para este mês.";
                       const explanation = `${MONTHS[month.month - 1]} de ${year.year}: ${statusLabel}. ${evidence}`;
                       return (
                         <td key={month.month}>
@@ -203,8 +203,8 @@ export default function FinanceCoverageMatrix({
         “Não localizado nas fontes oficiais” indica que a busca mensal não
         encontrou relatório validado; pode refletir atraso de publicação e
         não significa valor zero nem comprova descumprimento.{" "}
-        “não classificado” indica que a competência não veio na resposta e
-        precisa de diagnóstico. “Competência em andamento ou futura” não é
+        “não classificado” indica que o mês não veio na resposta e
+        precisa de diagnóstico. “Mês em andamento ou futuro” não é
         contada como lacuna. Nenhum desses estados significa valor zero.{" "}
         <a href="#document-title">Conferir os documentos publicados</a> ou{" "}
         <a

@@ -101,7 +101,7 @@ test("rótulos explicam todos os estados sem depender apenas de cor", () => {
       "Revisão necessária",
       "Não localizado nas fontes oficiais",
       "Não classificado",
-      "Competência em andamento ou futura",
+      "Mês em andamento ou futuro",
     ],
   );
 });

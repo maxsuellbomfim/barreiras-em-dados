@@ -18,8 +18,8 @@ function statusLabel(family: FinanceFamilyCoverage): string {
   if (family.classifiedPeriods === null) {
     return `${family.observedPeriods.toLocaleString("pt-BR")} período${family.observedPeriods === 1 ? "" : "s"} observado${family.observedPeriods === 1 ? "" : "s"}`;
   }
-  if (family.gapPeriods === 0) return "Sem lacuna classificada";
-  return `${family.gapPeriods?.toLocaleString("pt-BR")} lacuna${family.gapPeriods === 1 ? "" : "s"} explicada${family.gapPeriods === 1 ? "" : "s"}`;
+  if (family.gapPeriods === 0) return "Nenhum período sem dado";
+  return `${family.gapPeriods?.toLocaleString("pt-BR")} ${family.gapPeriods === 1 ? "período sem dado" : "períodos sem dado"}, com o motivo`;
 }
 
 function coverageCopy(family: FinanceFamilyCoverage): string {
@@ -29,9 +29,9 @@ function coverageCopy(family: FinanceFamilyCoverage): string {
       : "A contagem mostra documentos observados; a cobertura esperada desta cadência ainda não foi classificada."
   }
   if (family.classifiedPeriods === 0) {
-    return "A série ainda não retornou competências classificadas. Isso não significa valor zero."
+    return "A série ainda não retornou meses classificados. Isso não significa valor zero."
   }
-  return `${family.observedPeriods.toLocaleString("pt-BR")} de ${family.classifiedPeriods.toLocaleString("pt-BR")} competências têm publicação validada.`;
+  return `${family.observedPeriods.toLocaleString("pt-BR")} de ${family.classifiedPeriods.toLocaleString("pt-BR")} meses têm publicação validada.`;
 }
 
 export default function FinanceFamilyCoverageMap({

@@ -37,7 +37,7 @@ test("página consulta as três famílias separadamente e publica a matriz mensa
   assert.match(loader, /getPublicFinanceDocuments\("pdc-resumo-execucao-da-receita"\)/);
   assert.match(loader, /getPublicFinanceDocuments\("pdc-resumo-execucao-da-despesa"\)/);
   assert.match(coveragePage, /<FinanceMunicipalDocumentCoverage initialResult=\{municipalDocumentCoverage\} \/>/);
-  assert.match(coveragePage, /Balancete, receita e despesa por competência/);
+  assert.match(coveragePage, /Balancete, receita e despesa por mês/);
 });
 
 test("matriz explica ausência, versões e preservação sem chamar lacuna de zero", () => {

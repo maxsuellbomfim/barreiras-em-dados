@@ -29,7 +29,7 @@ export function financeCoverageStatusLabel(status) {
   if (status === "needs_review") return "Revisão necessária";
   if (status === "missing") return "Não localizado nas fontes oficiais";
   if (status === "unclassified") return "Não classificado";
-  return "Competência em andamento ou futura";
+  return "Mês em andamento ou futuro";
 }
 
 function parsePeriod(row, startYear) {

@@ -37,10 +37,10 @@ export default function FinancePayrollCoverage({
   return (
     <details className="finance-payroll-coverage">
       <summary>
-        <span>Ver competências sem total publicado</span>
+        <span>Ver meses sem total publicado</span>
         <small>
-          {gaps.length.toLocaleString("pt-BR")} competência
-          {gaps.length === 1 ? " explicada" : "s explicadas"}
+          {gaps.length.toLocaleString("pt-BR")}{" "}
+          {gaps.length === 1 ? "mês explicado" : "meses explicados"}
         </small>
       </summary>
       <div className="finance-payroll-coverage-list">

@@ -96,6 +96,6 @@ test("catalogo 1.6.0 reconhece PDF preservado em replay idempotente", () => {
 
 test("interface separa demonstrativos fiscais de fechamentos mensais", () => {
   assert.match(page, /isFiscalDocument/);
-  assert.match(page, /RREO e RGF: a vis[aã]o fiscal mais ampla/);
+  assert.match(page, /Relatórios fiscais do ano \(RREO e RGF\)/);
   assert.match(page, /não substituem o fechamento mensal/);
 });

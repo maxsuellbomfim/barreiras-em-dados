@@ -129,9 +129,10 @@ export function FinanceSiconfiAnnualTotals({
         <span className="eyebrow">Ano fechado no Tesouro Nacional</span>
         <h2 id="siconfi-annual-title">O retrato anual oficial das contas</h2>
         <p>
-          Estes valores vêm da Declaração das Contas Anuais (DCA) enviada ao
-          SICONFI. Cada etapa aparece separada porque empenhar, liquidar e pagar
-          não são a mesma coisa.
+          Estes valores vêm da prestação de contas anual que a Prefeitura envia
+          ao Tesouro Nacional (Declaração das Contas Anuais, no sistema SICONFI).
+          Reservar (empenhar), conferir (liquidar) e pagar são etapas diferentes
+          e aparecem separadas.
         </p>
       </div>
       <FinanceDcaAnnualCoverage years={years} />
