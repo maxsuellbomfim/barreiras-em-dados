@@ -39,6 +39,13 @@ amplas.
 
 ## Pendências abertas, por prioridade
 
+0. **Privacidade: CPF completo no texto público do Diário.** A auditoria de
+   25/09 mediu 3.093 sequências no formato `000.000.000-00` em 712 documentos
+   atuais (260 edições), servidas pelas RPCs públicas do Diário, incluindo a
+   busca. A maior parte vem de texto embutido publicado pela prefeitura.
+   Contraria a regra de não publicar CPF completo; a correção (mascarar na
+   projeção pública, sem alterar o bruto) aguarda PR próprio
+   ([`reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md`](reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md)).
 1. **Texto do Diário: fila de OCR zerada em 24/09.** A auditoria de 22/09
    achou ~15 mil páginas publicadas cuja extração era só o número da página.
    Em 24/09 o dreno `ocr-gazette-backlog` passou a reconhecer 4 páginas em
@@ -52,8 +59,11 @@ amplas.
    prefeitura (#816) e as duas já estão no ar com o conteúdo certo. As cópias
    seguem no bruto, fora das filas. Atos de edições com OCR exibem aviso de
    transcrição. Pendências: o agendador do GitHub dispara o dreno só ~5 vezes
-   por dia (suficiente para as ~700 páginas novas diárias do backfill) e a
-   qualidade do OCR não foi auditada por amostragem.
+   por dia (suficiente para as ~700 páginas novas diárias do backfill).
+   Auditoria por amostragem (25/09, 29 páginas): texto corrido e valores
+   monetários conferidos fiéis, mas `§` vira `8` de forma sistemática (2.163
+   páginas), tabelas perdem colunas e há erros de dígito isolados
+   ([`reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md`](reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md)).
 2. **Rastro do dinheiro ponta a ponta (gate 4), contrato → empenho →
    liquidação → pagamento no ar:** empenhos e liquidações individuais do sistema
    Sudoeste/WebRun preservados mês a mês de janeiro de 2024 a agosto de 2026
