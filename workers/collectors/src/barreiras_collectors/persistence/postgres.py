@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sys
+import time
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, timedelta
 from typing import Any, Protocol
@@ -29,6 +31,32 @@ from .models import (
     TcmBaDocumentReference,
     TcmBaDocumentSelection,
 )
+
+# O papel dos coletores tem limite de conexões e é compartilhado por workflows
+# de grupos de concorrência distintos; quando o agendador do GitHub atrasa e
+# sobrepõe execuções, a conexão é recusada. Esperar e tentar de novo evita
+# falha espúria; se o limite persistir, o erro original sobe e a execução falha.
+ROLE_CONNECTION_LIMIT_WAITS_SECONDS = (5, 10, 20, 30, 60, 60, 60)
+
+
+def connect_with_role_limit_retry(
+    connect: Callable[[], Any],
+    retryable_error: type[Exception],
+    sleep: Callable[[float], None] = time.sleep,
+) -> Any:
+    for wait in (*ROLE_CONNECTION_LIMIT_WAITS_SECONDS, None):
+        try:
+            return connect()
+        except retryable_error as error:
+            if wait is None or "too many connections" not in str(error):
+                raise
+            print(
+                f"Limite de conexões do papel atingido; nova tentativa em {wait}s.",
+                file=sys.stderr,
+            )
+            sleep(wait)
+    raise AssertionError("inalcançável")
+
 
 # Prioridade operacional, não juízo de relevância ou irregularidade. Todos os
 # documentos continuam elegíveis e a competência só fecha com cobertura total.
@@ -1310,10 +1338,13 @@ class PostgresCollectionRepository:
             ) from error
 
         def connect() -> DatabaseConnection:
-            return psycopg.connect(  # type: ignore[return-value]
-                database_url,
-                autocommit=True,
-                row_factory=dict_row,
+            return connect_with_role_limit_retry(
+                lambda: psycopg.connect(  # type: ignore[return-value]
+                    database_url,
+                    autocommit=True,
+                    row_factory=dict_row,
+                ),
+                psycopg.OperationalError,
             )
 
         return cls(connect)
