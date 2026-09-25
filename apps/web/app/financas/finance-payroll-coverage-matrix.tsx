@@ -84,7 +84,7 @@ export default function FinancePayrollCoverageMatrix({
   if (!matrix || matrix.years.length === 0) {
     return (
       <div className="collection-unavailable" role="status">
-        <div><strong>Matriz da folha ainda indisponível</strong><p>Nenhuma competência foi presumida.</p></div>
+        <div><strong>Matriz da folha ainda indisponível</strong><p>Nenhum mês foi presumido.</p></div>
       </div>
     );
   }
@@ -107,7 +107,7 @@ export default function FinancePayrollCoverageMatrix({
       </ul>
       <div className="finance-coverage-table-scroll" role="region" aria-label="Cobertura mensal da folha" tabIndex={0}>
         <table>
-          <caption>Folha regular e ciclos adicionais validados por competência desde 2021.</caption>
+          <caption>Folha regular e ciclos adicionais validados mês a mês desde 2021.</caption>
           <thead><tr><th scope="col">Ano</th>{MONTHS.map((month) => <th scope="col" key={month}>{month}</th>)}</tr></thead>
           <tbody>
             {matrix.years.map((year) => (

@@ -40,7 +40,7 @@ export default function FinancePayrollYears({
       </summary>
       <div className="finance-payroll-years-body">
         <p>
-          Soma determinística apenas das competências publicadas abaixo. Ano com
+          Soma feita por código apenas dos meses publicados abaixo. Ano com
           mês ausente é identificado como parcial — o Barreiras 360 não converte
           documento não encontrado ou conflitante em valor zero.
         </p>

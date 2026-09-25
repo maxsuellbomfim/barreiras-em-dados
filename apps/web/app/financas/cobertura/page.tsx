@@ -79,7 +79,7 @@ export default async function FinanceCoveragePage() {
         <section className="finance-coverage-section" aria-labelledby="payroll-matrix-title">
           <div className="section-heading compact">
             <span className="eyebrow">Folha mensal</span>
-            <h2 id="payroll-matrix-title">Quais competências da folha estão publicadas</h2>
+            <h2 id="payroll-matrix-title">Quais meses da folha estão publicados</h2>
             <p>
               O calendário separa publicação, processamento pendente, conflito e
               documento não localizado sem presumir gasto zero.
@@ -103,7 +103,7 @@ export default async function FinanceCoveragePage() {
         <section className="finance-coverage-section" aria-labelledby="municipal-document-coverage-title">
           <div className="section-heading compact">
             <span className="eyebrow">Documentos mensais</span>
-            <h2 id="municipal-document-coverage-title">Balancete, receita e despesa por competência</h2>
+            <h2 id="municipal-document-coverage-title">Balancete, receita e despesa por mês</h2>
             <p>
               As três famílias ficam lado a lado sem somar versões nem confundir
               arquivo catalogado com PDF efetivamente preservado.

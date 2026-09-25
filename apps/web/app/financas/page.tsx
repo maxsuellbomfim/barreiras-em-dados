@@ -433,7 +433,7 @@ export default async function FinancesPage() {
         </section>
 
         <details className="finance-guide finance-guide-details">
-          <summary>Entenda os termos: reservado, conferido e pago</summary>
+          <summary>Entenda os termos: reservado, conferido, pago, restos a pagar e reconciliação</summary>
           <div className="section-heading compact">
             <span className="eyebrow">Em palavras simples</span>
             <h2 id="finance-guide-title">O que cada número quer dizer</h2>
@@ -458,6 +458,14 @@ export default async function FinancesPage() {
             <article>
               <strong>Pago</strong>
               <p>Dinheiro que efetivamente saiu do caixa no período informado.</p>
+            </article>
+            <article>
+              <strong>Restos a pagar</strong>
+              <p>Despesa reservada em um ano e deixada para pagar no ano seguinte. É uma conta a pagar, não um gasto novo.</p>
+            </article>
+            <article>
+              <strong>Reconciliação</strong>
+              <p>Conferência de que dois relatórios oficiais do mesmo período batem entre si. Enquanto ela não fecha, o total não é publicado.</p>
             </article>
           </div>
           <p className="finance-guide-note">
@@ -517,7 +525,7 @@ export default async function FinancesPage() {
                 >
                   <div>
                     <strong>
-                      {payrollCoverageGapCount.toLocaleString("pt-BR")} competências sem total publicado
+                      {payrollCoverageGapCount.toLocaleString("pt-BR")} meses sem total publicado
                     </strong>
                     <p>
                       Isso não significa gasto zero. O calendário explica, mês a mês,
@@ -576,7 +584,7 @@ export default async function FinancesPage() {
                     {formatMonthTitle(closure.periodEnd)}
                   </h3>
                   <p className="finance-period-note">
-                    Competência: {formatDate(closure.periodStart)} a {formatDate(closure.periodEnd)}
+                    Mês: {formatDate(closure.periodStart)} a {formatDate(closure.periodEnd)}
                   </p>
                   <div className="monthly-closure-reading">
                     <strong>Comentário do mês</strong>
@@ -685,7 +693,7 @@ export default async function FinancesPage() {
                 Este é o valor efetivamente pago pela Prefeitura no período do
                 relatório. A visão geral mostra {recentExpenseReports.length.toLocaleString("pt-BR")} meses
                 recentes de um total de {sortedExpenseReports.length.toLocaleString("pt-BR")} relatórios;
-                o calendário acima mantém o acesso às demais competências.
+                o calendário acima mantém o acesso aos demais meses.
               </p>
             </div>
             <div className="digest-grid">
@@ -795,7 +803,7 @@ export default async function FinancesPage() {
                 O último período disponível é {latestRevenue ? formatDate(latestRevenue) : "não informado"}.
                 A visão geral mostra {recentRevenues.length.toLocaleString("pt-BR")} lançamentos recentes
                 de um total de {sortedRevenues.length.toLocaleString("pt-BR")}; os demais ficam no detalhe
-                mensal para não misturar competências e códigos diferentes.
+                mensal para não misturar meses e códigos diferentes.
               </p>
             </div>
             <div className="finance-reading" role="note">
@@ -930,25 +938,25 @@ export default async function FinancesPage() {
             >
               <div>
                 <strong>{publishedObligationMonths.toLocaleString("pt-BR")}</strong>
-                <span>competências com valor</span>
+                <span>meses com valor</span>
               </div>
               <div>
                 <strong>{obligationSectionAbsentMonths.toLocaleString("pt-BR")}</strong>
-                <span>competências com seção ausente</span>
+                <span>meses com seção ausente</span>
               </div>
               <div>
                 <strong>{obligationSectionIncompleteMonths.toLocaleString("pt-BR")}</strong>
-                <span>competências com fonte incompleta</span>
+                <span>meses com fonte incompleta</span>
               </div>
               <div>
                 <strong>{obligationSourceConflictMonths.toLocaleString("pt-BR")}</strong>
-                <span>competências com divergência oficial</span>
+                <span>meses com divergência oficial</span>
               </div>
             </div>
             <details className="finance-details finance-obligation-history">
               <summary>
                 Ver histórico mês a mês: {recentPublicObligations.length.toLocaleString("pt-BR")} recentes de{" "}
-                {publicObligations.length.toLocaleString("pt-BR")} competências publicadas
+                {publicObligations.length.toLocaleString("pt-BR")} meses publicados
               </summary>
               <div className="digest-grid">
                 {recentPublicObligations.map((obligation: PublicObligation) => (
@@ -1030,7 +1038,7 @@ export default async function FinancesPage() {
             <div>
               <span className="eyebrow">Cobertura e lacunas</span>
               <strong>
-                {obligationCoverageGapCount.toLocaleString("pt-BR")} competências sem valor publicado
+                {obligationCoverageGapCount.toLocaleString("pt-BR")} meses sem valor publicado
               </strong>
               <p>
                 Documento ausente, seção incompleta e divergência entre fontes não
@@ -1250,7 +1258,7 @@ export default async function FinancesPage() {
           <section aria-labelledby="fiscal-document-title" className="finance-documents finance-fiscal-documents">
             <div className="section-heading compact">
               <span className="eyebrow">Demonstrativos fiscais</span>
-              <h2 id="fiscal-document-title">RREO e RGF: a visão fiscal mais ampla</h2>
+              <h2 id="fiscal-document-title">Relatórios fiscais do ano (RREO e RGF)</h2>
               <p>
                 Estes relatórios mostram metas fiscais, resultados e limites em
                 períodos bimestrais ou quadrimestrais. Eles ajudam a acompanhar

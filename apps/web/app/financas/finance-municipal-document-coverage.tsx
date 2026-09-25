@@ -103,8 +103,8 @@ export default function FinanceMunicipalDocumentCoverage({
       <div className="finance-coverage-summary" aria-label="Resumo dos documentos financeiros mensais">
         <div><strong>{count("preserved").toLocaleString("pt-BR")}</strong><span>PDFs preservados</span></div>
         <div><strong>{count("catalogued").toLocaleString("pt-BR")}</strong><span>encontrados; PDF pendente</span></div>
-        <div><strong>{count("not_listed").toLocaleString("pt-BR")}</strong><span>competências vencidas não localizadas</span></div>
-        <div><strong>{versionedPeriods.toLocaleString("pt-BR")}</strong><span>competências com versões</span></div>
+        <div><strong>{count("not_listed").toLocaleString("pt-BR")}</strong><span>meses já vencidos sem documento localizado</span></div>
+        <div><strong>{versionedPeriods.toLocaleString("pt-BR")}</strong><span>meses com mais de uma versão</span></div>
       </div>
       <ul className="finance-coverage-legend" aria-label="Legenda da cobertura documental mensal">
         {LEGEND.map((status) => (
@@ -154,7 +154,7 @@ export default function FinanceMunicipalDocumentCoverage({
       <p className="finance-coverage-method">
         “Não localizado no catálogo preservado consultado” significa apenas que o arquivo
         não apareceu após o prazo de trinta dias; não significa valor zero nem
-        prova de omissão permanente. Quando há mais de uma versão para a mesma competência,
+        prova de omissão permanente. Quando há mais de uma versão para o mesmo mês,
         nenhuma é somada e a célula informa a quantidade observada.
       </p>
     </div>

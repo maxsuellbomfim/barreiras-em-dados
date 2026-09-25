@@ -133,7 +133,7 @@ function ExpenseEvidence({
 function EmptyMonth({ periodStart }: Readonly<{ periodStart: string }>) {
   return (
     <section className="section finance-month-empty" aria-labelledby="month-empty-title">
-      <span className="eyebrow">Competência mensal</span>
+      <span className="eyebrow">Resultado do mês</span>
       <h1 id="month-empty-title">As contas de {formatMonth(periodStart)} ainda não foram publicadas</h1>
       <p>
         Isso não significa receita ou despesa zero. O Barreiras 360 só publica o
@@ -296,7 +296,7 @@ export default async function MonthlyFinancePage({ params }: PageProps) {
               <span className="eyebrow">Para onde foi o dinheiro</span>
               <h2 id="finance-month-lines-title">As 25 maiores linhas pagas no mês</h2>
               <p>
-                Linhas contábeis do único relatório validado para esta competência,
+                Linhas contábeis do único relatório validado para este mês,
                 ordenadas pelo valor pago. Elas agrupam códigos de despesa: não são
                 necessariamente pagamentos individuais nem um ranking de fornecedores.
               </p>
