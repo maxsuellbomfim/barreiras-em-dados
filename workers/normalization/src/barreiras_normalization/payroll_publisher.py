@@ -83,6 +83,40 @@ def default_payroll_pdf_text_extractor(raw_body: bytes) -> str:
     return pdf.text
 
 
+# Divergências entre o "MÊS/ANO" impresso e a competência do catálogo aceitas
+# por decisão registrada (docs/reviews/PAYROLL_2023_03_DECLARED_MONTH.md).
+# Chave: hash do PDF; valor: (competência do catálogo, competência impressa).
+# Qualquer outro PDF divergente continua indo para revisão.
+PAYROLL_DECLARED_MONTH_EXCEPTIONS_VERSION = "payroll-declared-month-exceptions/1.0.0"
+ACCEPTED_DECLARED_MONTH_DIVERGENCES: dict[str, tuple[date, date]] = {
+    # SERVIDORES040423145443.pdf: cabeçalho "Abril / 2023", emitido em
+    # 04/04/2023 e listado pelo portal como março. Nenhum dos 73 relatórios foi
+    # emitido dentro do próprio mês; o de abril/2023 saiu em 05/05/2023.
+    "11a6f1365797c296bceb4471b5ec66f8922bb1a0599d5a4e97d22d0a595c15cb": (
+        date(2023, 3, 1),
+        date(2023, 4, 1),
+    ),
+}
+
+
+def declared_month_error(
+    artifact_sha256: str,
+    reference_month: date,
+    declared_month: date | None,
+) -> str | None:
+    """Motivo de revisão quando o PDF declara outra competência, ou None."""
+
+    if declared_month is None or declared_month == reference_month:
+        return None
+    accepted = ACCEPTED_DECLARED_MONTH_DIVERGENCES.get(artifact_sha256)
+    if accepted == (reference_month, declared_month):
+        return None
+    return (
+        f"competência declarada no PDF ({declared_month:%m/%Y}) diverge da "
+        f"catalogada ({reference_month:%m/%Y})"
+    )
+
+
 class PayrollReportPublisher:
     """Confere o artefato e envia somente o agregado reconciliado ao banco."""
 
@@ -112,12 +146,11 @@ class PayrollReportPublisher:
         # competência impressa no documento prevalece sobre o catálogo, e a
         # divergência vai para revisão sem substituir a versão vigente.
         declared_month = declared_reference_month(text)
-        if declared_month is not None and declared_month != artifact.reference_month:
-            raise PayrollReportContractError(
-                "competência declarada no PDF "
-                f"({declared_month:%m/%Y}) diverge da catalogada "
-                f"({artifact.reference_month:%m/%Y})"
-            )
+        error = declared_month_error(
+            artifact.sha256, artifact.reference_month, declared_month
+        )
+        if error is not None:
+            raise PayrollReportContractError(error)
         inserted = self.repository.persist_validated_report(artifact, report)
         self.logger.info(
             "payroll_report_published",

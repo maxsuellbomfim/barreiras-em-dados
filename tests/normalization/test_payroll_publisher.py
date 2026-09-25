@@ -13,10 +13,12 @@ from barreiras_normalization.commands.publish_payroll_reports import (
     strict_publication_error,
 )
 from barreiras_normalization.payroll_publisher import (
+    ACCEPTED_DECLARED_MONTH_DIVERGENCES,
     PAYROLL_PUBLICATION_JOB_TYPE,
     PayrollArtifact,
     PayrollReportPublisher,
     PostgresPayrollPublicationRepository,
+    declared_month_error,
 )
 from barreiras_normalization.payroll_report_pdf import (
     PayrollReportContractError,
@@ -305,6 +307,20 @@ class PayrollPublisherTests(unittest.TestCase):
             ),
         )
         self.assertEqual(matching.publish(artifact_for()).status, "published")
+
+    def test_registered_exception_accepts_only_its_exact_divergence(self) -> None:
+        # mar/2023: decisão registrada para um único PDF e um único par de
+        # competências; outro hash ou outro par continuam em revisão.
+        march_sha = next(iter(ACCEPTED_DECLARED_MONTH_DIVERGENCES))
+        march, april = date(2023, 3, 1), date(2023, 4, 1)
+        self.assertEqual(ACCEPTED_DECLARED_MONTH_DIVERGENCES[march_sha], (march, april))
+        self.assertIsNone(declared_month_error(march_sha, march, april))
+        self.assertIsNone(declared_month_error("f" * 64, march, march))
+        self.assertIsNone(declared_month_error("f" * 64, march, None))
+        self.assertRegex(declared_month_error("f" * 64, march, april), "04/2023")
+        self.assertRegex(
+            declared_month_error(march_sha, march, date(2023, 5, 1)), "05/2023"
+        )
 
     def test_declared_month_reads_accents_and_replacement_character(self) -> None:
         self.assertEqual(
