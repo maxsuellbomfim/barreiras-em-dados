@@ -37,6 +37,37 @@ test("cliente preserva prioridade e paginação determinadas pela busca no banco
   assert.deepEqual(result.editions.map((row) => row.edition), [4598]);
   assert.equal(result.hasMore, true);
   assert.equal(result.offset, 0);
-  assert.match(requested.url, /\/search_integral_gazette_editions$/);
+  assert.match(requested.url, /\/search_integral_gazette_index$/);
   assert.deepEqual(requested.body, {query_text: "4598", page_size: 2, page_offset: 0});
+});
+
+test("lista usa o índice sem texto integral e ainda valida título e hash", async (t) => {
+  const previousUrl = process.env.PUBLIC_DATA_SUPABASE_URL;
+  const previousKey = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+  process.env.PUBLIC_DATA_SUPABASE_URL = "https://example.supabase.co";
+  process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  t.after(() => {
+    if (previousUrl === undefined) delete process.env.PUBLIC_DATA_SUPABASE_URL;
+    else process.env.PUBLIC_DATA_SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY;
+    else process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY = previousKey;
+  });
+  const withoutText = edition(4700);
+  delete withoutText.documents[0].full_text;
+  let url = "";
+  t.mock.method(globalThis, "fetch", async (requested) => {
+    url = requested;
+    return new Response(JSON.stringify([withoutText]));
+  });
+  const result = await getIntegralGazetteEditions({ pageSize: 20 });
+  assert.equal(result.state, "available");
+  assert.equal(result.editions[0].documents[0].literalTitle, "Portaria");
+  assert.equal(result.editions[0].documents[0].fullText, "");
+  assert.match(url, /\/get_integral_gazette_index_page$/);
+
+  const badHash = edition(4701);
+  delete badHash.documents[0].full_text;
+  badHash.documents[0].text_sha256 = "x";
+  t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify([badHash])));
+  assert.equal((await getIntegralGazetteEditions({ pageSize: 20 })).state, "unavailable");
 });
