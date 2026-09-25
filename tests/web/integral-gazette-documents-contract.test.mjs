@@ -58,7 +58,7 @@ test("Diário não confunde extração disponível com transcrição integral va
 });
 
 test("paginacao do diario integral usa RPC com offset e navegacao publica", () => {
-  assert.match(client, /get_integral_gazette_editions_page/);
+  assert.match(client, /get_integral_gazette_index_page/);
   assert.match(client, /page_offset/);
   assert.match(client, /hasMore/);
   assert.match(client, /pageSize \+ 1/);
@@ -68,7 +68,7 @@ test("paginacao do diario integral usa RPC com offset e navegacao publica", () =
 });
 
 test("busca global mantém o termo e pagina sem expor tabelas brutas", () => {
-  assert.match(client, /search_integral_gazette_editions/);
+  assert.match(client, /search_integral_gazette_index/);
   assert.match(client, /query_text/);
   assert.match(page, /diary-global-query/);
   assert.match(page, /querySuffix/);
@@ -98,7 +98,8 @@ test("cobertura pública classifica janela coletada sem chamar ausência de vazi
 });
 
 test("contrato público usa a RPC integral e rejeita payload incompleto", () => {
-  assert.match(client, /get_integral_gazette_editions/);
+  assert.match(client, /get_integral_gazette_edition`/);
+  assert.match(client, /get_integral_gazette_index_page/);
   assert.match(client, /function parseIntegralGazetteEdition/);
   assert.match(client, /textSha256/);
   assert.match(client, /pageStart/);

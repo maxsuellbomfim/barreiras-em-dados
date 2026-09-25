@@ -67,7 +67,9 @@ function optionalHttpsUrl(value: unknown): string | null {
   return valueString?.startsWith("https://") ? valueString : null;
 }
 
-function parseDocument(value: unknown): GazetteDocument | null {
+// withText=false: índice da lista, que não traz o texto integral de cada
+// documento; título, páginas e hash continuam validados.
+function parseDocument(value: unknown, withText = true): GazetteDocument | null {
   if (typeof value !== "object" || value === null) return null;
   const row = value as Record<string, unknown>;
   const documentOrder = row.document_order;
@@ -86,8 +88,7 @@ function parseDocument(value: unknown): GazetteDocument | null {
     pageEnd < pageStart ||
     typeof literalTitle !== "string" ||
     !literalTitle.trim() ||
-    typeof fullText !== "string" ||
-    !fullText.trim() ||
+    (withText && (typeof fullText !== "string" || !fullText.trim())) ||
     typeof textSha256 !== "string" ||
     !SHA256.test(textSha256) ||
     typeof publicationStatus !== "string" ||
@@ -95,7 +96,7 @@ function parseDocument(value: unknown): GazetteDocument | null {
   ) {
     return null;
   }
-  if (!fullText.includes(literalTitle)) return null;
+  if (withText && !(fullText as string).includes(literalTitle)) return null;
   return {
     documentId: row.document_id,
     documentOrder,
@@ -103,7 +104,7 @@ function parseDocument(value: unknown): GazetteDocument | null {
     documentType: optionalString(row.document_type),
     pageStart,
     pageEnd,
-    fullText,
+    fullText: withText ? (fullText as string) : "",
     textSha256,
     publicationStatus: publicationStatus as GazetteDocument["publicationStatus"],
   };
@@ -111,6 +112,7 @@ function parseDocument(value: unknown): GazetteDocument | null {
 
 function parseIntegralGazetteEdition(
   value: unknown,
+  withText = true,
 ): IntegralGazetteEdition | null {
   if (typeof value !== "object" || value === null) return null;
   const row = value as Record<string, unknown>;
@@ -138,7 +140,7 @@ function parseIntegralGazetteEdition(
   const documents: GazetteDocument[] = [];
   const orders = new Set<number>();
   for (const rawDocument of row.documents) {
-    const document = parseDocument(rawDocument);
+    const document = parseDocument(rawDocument, withText);
     if (document === null || orders.has(document.documentOrder)) return null;
     orders.add(document.documentOrder);
     documents.push(document);
@@ -278,7 +280,9 @@ export async function getIntegralGazetteEditions(
   }
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/${query ? "search_integral_gazette_editions" : "get_integral_gazette_editions_page"}`,
+      // Índice sem texto integral: a lista não o exibe, e a resposta completa
+      // (~3,4 MB) passava do limite de 2 MB do cache de dados do Next.
+      `${supabaseUrl}/rest/v1/rpc/${query ? "search_integral_gazette_index" : "get_integral_gazette_index_page"}`,
       {
         method: "POST",
         headers: {
@@ -309,7 +313,7 @@ export async function getIntegralGazetteEditions(
     if (!Array.isArray(payload)) return { state: "unavailable" };
     const editions: IntegralGazetteEdition[] = [];
     for (const row of payload) {
-      const edition = parseIntegralGazetteEdition(row);
+      const edition = parseIntegralGazetteEdition(row, false);
       if (edition === null) return { state: "unavailable" };
       editions.push(edition);
     }
