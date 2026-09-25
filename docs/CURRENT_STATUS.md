@@ -39,15 +39,15 @@ amplas.
 
 ## Pendências abertas, por prioridade
 
-0. **Privacidade: CPF completo no texto público do Diário.** A auditoria de
-   25/09 mediu 3.093 sequências no formato `000.000.000-00` em 712 documentos
-   atuais (260 edições), servidas pelas RPCs públicas do Diário, incluindo a
-   busca. A maior parte vem de texto embutido publicado pela prefeitura.
-   Contraria a regra de não publicar CPF completo. Correção: coluna gerada
-   `public_full_text` com `editorial.mask_cpf_v1` (cpf-mask/1.0.0), usada por
-   edição, lista, busca, atos e resumos. O texto literal e o hash seguem
-   intactos. Migration `diario_public_cpf_mask` aplicada só depois do deploy
-   do site que aceita as versões novas
+0. **Privacidade: CPF no texto público do Diário. Corrigido em 25/09, falta
+   só vigiar.** A auditoria mediu 3.093 CPFs completos em 712 documentos
+   públicos (260 edições), e a busca encontrava documento por CPF. A
+   migration `20260925121627_diario_public_cpf_mask` (PR #829) passou a
+   mascarar CPF em edição, lista, busca, atos e resumos, com a coluna gerada
+   `public_full_text` e a função `editorial.mask_cpf_v1` (cpf-mask/1.0.0).
+   O texto literal e o hash não mudam. Conferido pela API anônima: nenhum CPF
+   completo nas saídas e busca por CPF vazia. Limite: CPF muito deformado pelo
+   OCR e sem o rótulo "CPF" perto pode escapar
    ([`reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md`](reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md)).
 1. **Texto do Diário: fila de OCR zerada em 24/09.** A auditoria de 22/09
    achou ~15 mil páginas publicadas cuja extração era só o número da página.
