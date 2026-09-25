@@ -9149,3 +9149,23 @@ footer {
   font-weight: 700;
   text-underline-offset: 0.18rem;
 }
+
+.finance-payroll-document-note {
+  margin: 0.75rem 0 1rem;
+  padding: 0.85rem 1rem;
+  border-left: 4px solid #b7791f;
+  border-radius: 0.6rem;
+  background: rgba(183, 121, 31, 0.08);
+}
+
+.finance-payroll-document-note strong {
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.finance-payroll-document-note p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}

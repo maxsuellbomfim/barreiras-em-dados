@@ -839,3 +839,31 @@ test("todo mês publicado da folha tem página própria e navegação", async ()
   assert.match(page, /payrollMonthHref\(latestPayroll\.referenceMonth\)/);
   assert.match(sitemap, /\/financas\/folha\//);
 });
+
+test("decisão sobre competência divergente é visível e amarrada ao mesmo PDF", async () => {
+  const { PAYROLL_DOCUMENT_NOTES, payrollDocumentNotes } = await import(
+    "../../apps/web/lib/payroll-document-notes.mjs"
+  );
+  const publisher = await readFile(
+    new URL(
+      "../../workers/normalization/src/barreiras_normalization/payroll_publisher.py",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const card = await readFile(
+    new URL("../../apps/web/app/financas/finance-payroll-month-card.tsx", import.meta.url),
+    "utf8",
+  );
+  for (const sha of PAYROLL_DOCUMENT_NOTES.keys()) {
+    // Aviso público só para PDF aceito por decisão registrada no publicador.
+    assert.ok(publisher.includes(`"${sha}": (`), `hash sem decisão no publicador: ${sha}`);
+  }
+  const [note] = payrollDocumentNotes([
+    { artifactSha256: "11a6f1365797c296bceb4471b5ec66f8922bb1a0599d5a4e97d22d0a595c15cb" },
+    { artifactSha256: "f".repeat(64) },
+  ]);
+  assert.match(note.title, /Abril \/ 2023/);
+  assert.match(note.body, /março de 2023/);
+  assert.match(card, /payrollDocumentNotes\(month\.sourceDocuments\)/);
+});

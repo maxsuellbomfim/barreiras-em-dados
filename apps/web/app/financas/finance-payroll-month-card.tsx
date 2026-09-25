@@ -3,6 +3,7 @@ import type {
   PublicPayrollMonth,
   PublicPayrollRegimeRow,
 } from "../../lib/public-payroll.mjs";
+import { payrollDocumentNotes } from "../../lib/payroll-document-notes.mjs";
 import { formatBrlDecimal } from "../../lib/revenues";
 import FinancePayrollCompensation from "./finance-payroll-compensation";
 import FinancePayrollRegimeBreakdown from "./finance-payroll-regime-breakdown";
@@ -30,6 +31,7 @@ export default function FinancePayrollMonthCard({
   regimeRows: readonly PublicPayrollRegimeRow[];
   compensationRows: readonly PublicPayrollCompensationRow[];
 }>) {
+  const notes = payrollDocumentNotes(month.sourceDocuments);
   return (
     <article className="finance-payroll-card">
       <div className="finance-payroll-header">
@@ -48,6 +50,12 @@ export default function FinancePayrollMonthCard({
           {month.documentCount === 1 ? "" : "s"}
         </span>
       </div>
+      {notes.map((note) => (
+        <aside className="finance-payroll-document-note" key={note.title}>
+          <strong>{note.title}</strong>
+          <p>{note.body}</p>
+        </aside>
+      ))}
       <dl className="finance-payroll-values">
         <div className="finance-payroll-gross">
           <dt>
