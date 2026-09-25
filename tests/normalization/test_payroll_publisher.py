@@ -13,10 +13,16 @@ from barreiras_normalization.commands.publish_payroll_reports import (
     strict_publication_error,
 )
 from barreiras_normalization.payroll_publisher import (
+    ACCEPTED_DECLARED_MONTH_DIVERGENCES,
     PAYROLL_PUBLICATION_JOB_TYPE,
     PayrollArtifact,
     PayrollReportPublisher,
     PostgresPayrollPublicationRepository,
+    declared_month_error,
+)
+from barreiras_normalization.payroll_report_pdf import (
+    PayrollReportContractError,
+    declared_reference_month,
 )
 from barreiras_normalization.revenue_publisher import ArtifactMismatchError
 
@@ -276,6 +282,60 @@ class PayrollPublisherTests(unittest.TestCase):
         self.assertEqual(str(report.net_amount), "14500.25")
         self.assertFalse(hasattr(report, "people"))
         self.assertFalse(hasattr(report, "names"))
+
+    def test_declared_month_in_pdf_prevails_over_catalog(self) -> None:
+        # O portal listou o PDF de agosto/2026 também como julho: publicar
+        # substituiria a folha verdadeira de julho pela de agosto.
+        repository = FakeRepository()
+        publisher = PayrollReportPublisher(
+            object_reader=FakeReader(PDF_BODY),
+            repository=repository,
+            text_extractor=lambda _body: (
+                "PREFEITURA   MÊS/ANO.....:     Agosto / 2026\n" + FIXTURE_TEXT
+            ),
+        )
+
+        with self.assertRaisesRegex(PayrollReportContractError, "08/2026"):
+            publisher.publish(artifact_for())
+        self.assertEqual(repository.inserted, [])
+
+        matching = PayrollReportPublisher(
+            object_reader=FakeReader(PDF_BODY),
+            repository=repository,
+            text_extractor=lambda _body: (
+                "PREFEITURA   MÊS/ANO.....:     Julho / 2026\n" + FIXTURE_TEXT
+            ),
+        )
+        self.assertEqual(matching.publish(artifact_for()).status, "published")
+
+    def test_registered_exception_accepts_only_its_exact_divergence(self) -> None:
+        # mar/2023: decisão registrada para um único PDF e um único par de
+        # competências; outro hash ou outro par continuam em revisão.
+        march_sha = next(iter(ACCEPTED_DECLARED_MONTH_DIVERGENCES))
+        march, april = date(2023, 3, 1), date(2023, 4, 1)
+        self.assertEqual(ACCEPTED_DECLARED_MONTH_DIVERGENCES[march_sha], (march, april))
+        self.assertIsNone(declared_month_error(march_sha, march, april))
+        self.assertIsNone(declared_month_error("f" * 64, march, march))
+        self.assertIsNone(declared_month_error("f" * 64, march, None))
+        self.assertRegex(declared_month_error("f" * 64, march, april), "04/2023")
+        self.assertRegex(
+            declared_month_error(march_sha, march, date(2023, 5, 1)), "05/2023"
+        )
+
+    def test_declared_month_reads_accents_and_replacement_character(self) -> None:
+        self.assertEqual(
+            declared_reference_month("MÊS/ANO.....:   Março / 2023"),
+            date(2023, 3, 1),
+        )
+        self.assertEqual(
+            declared_reference_month("M�S/ANO.....:   Mar�o / 2023"),
+            date(2023, 3, 1),
+        )
+        self.assertIsNone(declared_reference_month("sem cabeçalho de competência"))
+        with self.assertRaisesRegex(PayrollReportContractError, "mais de uma"):
+            declared_reference_month(
+                "MÊS/ANO..: Julho / 2026\nMÊS/ANO..: Agosto / 2026"
+            )
 
 
 if __name__ == "__main__":

@@ -1531,6 +1531,34 @@ footer {
   opacity: 0.75;
 }
 
+/* Empenhos ligados a um contrato municipal (ADR 0087). */
+.commitment-links {
+  margin-top: 0.75rem;
+  font-size: 0.88rem;
+}
+
+.commitment-links summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.commitment-links ul {
+  margin: 0.5rem 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.commitment-links li {
+  overflow-wrap: anywhere;
+}
+
+.commitment-links-label,
+.commitment-links-excerpt {
+  font-size: 0.82rem;
+  opacity: 0.8;
+}
+
 /* Base legal municipal: busca leve e leitura integral sem reescrita. */
 .legal-library,
 .legal-document-page {
@@ -4910,7 +4938,7 @@ footer {
   background: rgba(237, 243, 255, 0.7);
 }
 
-.coverage-note strong {
+.coverage-note > strong {
   display: block;
   margin-bottom: 0.5rem;
   font-size: 0.85rem;
@@ -6909,6 +6937,13 @@ footer {
 .finance-payroll-regimes-list strong {
   color: var(--accent-strong);
   font-size: 0.84rem;
+}
+
+.finance-payroll-regime-note {
+  margin: -0.35rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .finance-payroll-regimes-list dl {
@@ -8951,4 +8986,201 @@ footer {
   .source-status-card {
     min-height: 0;
   }
+}
+
+.sanction-supplier-scroll {
+  overflow-x: auto;
+}
+
+.sanction-supplier-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.sanction-supplier-table caption {
+  padding-bottom: 0.6rem;
+  color: #667389;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.sanction-supplier-table th,
+.sanction-supplier-table td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid #e4e9f1;
+  text-align: left;
+  vertical-align: top;
+}
+
+.act-ocr-note {
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid #b7791f;
+  background: #fffaf0;
+  color: #5f4b1f;
+  font-size: 0.82rem;
+}
+
+/* Folha por mês: /financas/folha/AAAA-MM */
+.finance-payroll-month-page {
+  max-width: 76rem;
+}
+
+.finance-payroll-month-nav {
+  margin: 0 0 1rem;
+}
+
+.finance-payroll-month-steps {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.finance-payroll-month-steps a,
+.finance-payroll-month-link,
+.finance-payroll-month-cta a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: #273d9c;
+  font-size: 0.88rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.finance-payroll-month-steps a:hover,
+.finance-payroll-month-link:hover,
+.finance-payroll-month-cta a:hover {
+  color: #172a8a;
+  text-decoration: underline;
+  text-underline-offset: 0.22rem;
+}
+
+.finance-payroll-month-picker {
+  margin-top: 0.5rem;
+  border: 1px solid rgba(28, 40, 61, 0.1);
+  border-radius: 1rem;
+  background: var(--surface);
+}
+
+.finance-payroll-month-picker > summary {
+  min-height: 44px;
+  padding: 0.75rem 1.1rem;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.finance-payroll-month-picker > div {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0 1.1rem 1rem;
+}
+
+.finance-payroll-month-picker h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+}
+
+.finance-payroll-month-picker ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finance-payroll-month-picker li a {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.7rem;
+  border: 1px solid rgba(39, 61, 156, 0.2);
+  border-radius: 999px;
+  color: #273d9c;
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-transform: capitalize;
+}
+
+.finance-payroll-month-picker li a:hover {
+  background: rgba(39, 61, 156, 0.08);
+}
+
+.finance-payroll-month-picker li a[aria-current="page"] {
+  background: #273d9c;
+  border-color: #273d9c;
+  color: #fff;
+}
+
+.finance-payroll-month-cta {
+  margin: 0.75rem 0 0;
+}
+
+.finance-payroll-pending {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.9rem;
+  background: rgba(39, 61, 156, 0.06);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 620px) {
+  .finance-payroll-month-steps {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+.finance-payroll-month-picker li .is-missing {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.7rem;
+  border: 1px dashed rgba(96, 106, 124, 0.35);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  text-transform: capitalize;
+  opacity: 0.75;
+}
+
+.finance-payroll-month-legend {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.finance-payroll-month-legend a {
+  color: #273d9c;
+  font-weight: 700;
+  text-underline-offset: 0.18rem;
+}
+
+.finance-payroll-document-note {
+  margin: 0.75rem 0 1rem;
+  padding: 0.85rem 1rem;
+  border-left: 4px solid #b7791f;
+  border-radius: 0.6rem;
+  background: rgba(183, 121, 31, 0.08);
+}
+
+.finance-payroll-document-note strong {
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.finance-payroll-document-note p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }

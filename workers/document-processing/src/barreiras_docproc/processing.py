@@ -90,9 +90,31 @@ class ExtractionRepository(Protocol):
 JOB_TYPE = "gazette_act_candidates"
 
 
-def job_idempotency_key(artifact_sha256: str, ruleset_version: str) -> str:
+def job_idempotency_key(
+    artifact_sha256: str,
+    ruleset_version: str,
+    ocr_text_sha256: str | None = None,
+) -> str:
+    """Identifica a extração; texto com OCR entra na chave.
+
+    Sem OCR a chave é a histórica (arquivo + regras). Quando páginas do PDF
+    são substituídas por OCR, o hash do texto usado entra na chave: OCR novo
+    gera outra extração em vez de ser barrado pela anterior, feita sobre o
+    texto vazio.
+    """
     material = f"gazette-acts:{artifact_sha256}:{ruleset_version}"
+    if ocr_text_sha256 is not None:
+        material += f":ocr-text:{ocr_text_sha256}"
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def embedded_text_is_missing(page_number: int, text: str | None) -> bool:
+    """Texto embutido ausente ou só com a numeração da página.
+
+    PDFs escaneados do Diário trazem como texto embutido apenas o número da
+    página; tratá-lo como texto real descartaria o OCR daquela página.
+    """
+    return text is None or text.strip() == str(page_number)
 
 
 def integral_gazette_idempotency_key(
@@ -177,14 +199,20 @@ class GazetteActExtractionService:
                 )
                 for page in pdf.pages
             )
-            if pdf.pages_with_text < len(pdf.pages):
+            needs_ocr = [
+                page.page_number
+                for page in pdf.pages
+                if embedded_text_is_missing(page.page_number, page.text)
+            ]
+            ocr_text_sha256 = None
+            if needs_ocr:
                 supplemental = self.repository.supplemental_page_texts(
                     artifact.raw_artifact_id
                 )
                 missing = [
-                    page.page_number
-                    for page in pdf.pages
-                    if page.text is None and page.page_number not in supplemental
+                    page_number
+                    for page_number in needs_ocr
+                    if page_number not in supplemental
                 ]
                 if missing:
                     # Não extrair de texto parcial: registra as páginas (o
@@ -196,9 +224,9 @@ class GazetteActExtractionService:
                         deferred_awaiting_ocr=True,
                     )
                 merged_parts = [
-                    page.text
-                    if page.text is not None
-                    else supplemental[page.page_number]
+                    supplemental[page.page_number]
+                    if embedded_text_is_missing(page.page_number, page.text)
+                    else page.text
                     for page in pdf.pages
                 ]
                 merged_text = "\n\n".join(part for part in merged_parts if part)
@@ -207,6 +235,7 @@ class GazetteActExtractionService:
                     sha256=hashlib.sha256(merged_text.encode("utf-8")).hexdigest(),
                     parser_version="gazette-merged-text/1.0.0",
                 )
+                ocr_text_sha256 = canonical.sha256
             else:
                 canonical = CanonicalText(
                     text=pdf.text,
@@ -214,6 +243,7 @@ class GazetteActExtractionService:
                     parser_version=pdf.parser_version,
                 )
         else:
+            ocr_text_sha256 = None
             canonical = derive_canonical_text(raw_body)
             pages = (
                 PageInput(
@@ -233,6 +263,7 @@ class GazetteActExtractionService:
             job_idempotency_key=job_idempotency_key(
                 artifact.sha256,
                 RULESET_VERSION,
+                ocr_text_sha256,
             ),
             ruleset_version=RULESET_VERSION,
             candidates=candidates,

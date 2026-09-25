@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sys
+import time
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, timedelta
 from typing import Any, Protocol
@@ -29,6 +31,32 @@ from .models import (
     TcmBaDocumentReference,
     TcmBaDocumentSelection,
 )
+
+# O papel dos coletores tem limite de conexões e é compartilhado por workflows
+# de grupos de concorrência distintos; quando o agendador do GitHub atrasa e
+# sobrepõe execuções, a conexão é recusada. Esperar e tentar de novo evita
+# falha espúria; se o limite persistir, o erro original sobe e a execução falha.
+ROLE_CONNECTION_LIMIT_WAITS_SECONDS = (5, 10, 20, 30, 60, 60, 60)
+
+
+def connect_with_role_limit_retry(
+    connect: Callable[[], Any],
+    retryable_error: type[Exception],
+    sleep: Callable[[float], None] = time.sleep,
+) -> Any:
+    for wait in (*ROLE_CONNECTION_LIMIT_WAITS_SECONDS, None):
+        try:
+            return connect()
+        except retryable_error as error:
+            if wait is None or "too many connections" not in str(error):
+                raise
+            print(
+                f"Limite de conexões do papel atingido; nova tentativa em {wait}s.",
+                file=sys.stderr,
+            )
+            sleep(wait)
+    raise AssertionError("inalcançável")
+
 
 # Prioridade operacional, não juízo de relevância ou irregularidade. Todos os
 # documentos continuam elegíveis e a competência só fecha com cobertura total.
@@ -1310,10 +1338,13 @@ class PostgresCollectionRepository:
             ) from error
 
         def connect() -> DatabaseConnection:
-            return psycopg.connect(  # type: ignore[return-value]
-                database_url,
-                autocommit=True,
-                row_factory=dict_row,
+            return connect_with_role_limit_retry(
+                lambda: psycopg.connect(  # type: ignore[return-value]
+                    database_url,
+                    autocommit=True,
+                    row_factory=dict_row,
+                ),
+                psycopg.OperationalError,
             )
 
         return cls(connect)
@@ -1513,7 +1544,12 @@ class PostgresCollectionRepository:
         self,
         limit: int,
     ) -> tuple[DirectEditionTarget, ...]:
-        """Edições oficiais conhecidas que ainda não possuem PDF preservado."""
+        """Edições oficiais conhecidas que ainda não possuem PDF preservado.
+
+        Não conta como preservado o artefato cujo PDF leva o nome de outra
+        edição e tem o mesmo hash do artefato dessa outra edição: é a cópia
+        que o catálogo serviu por engano (4263 → diario4264.pdf em 2024).
+        """
         if limit < 1:
             raise ValueError("O limite deve ser positivo.")
         connection = self.connection_factory()
@@ -1540,6 +1576,30 @@ class PostgresCollectionRepository:
                     (record.payload ->> 'edition')::integer,
                     (record.payload ->> 'date')::date,
                     record.collected_at desc
+                ),
+                -- Materializado: correlacionado por publicação, o planejador
+                -- varria raw_artifacts centenas de vezes (~10 s).
+                preserved as materialized (
+                  select
+                    artifact.metadata ->> 'edition' as edition,
+                    artifact.metadata ->> 'year' as edition_year
+                  from raw.raw_artifacts as artifact
+                  where artifact.metadata ->> 'schema_name'
+                      = 'gazette-direct-edition'
+                    and not exists (
+                      select 1
+                      from raw.raw_artifacts as other_edition
+                      where other_edition.metadata ->> 'schema_name'
+                          = 'gazette-direct-edition'
+                        and other_edition.sha256 = artifact.sha256
+                        and other_edition.metadata ->> 'edition'
+                            <> artifact.metadata ->> 'edition'
+                        and other_edition.metadata ->> 'edition'
+                            = substring(
+                              artifact.metadata ->> 'final_url'
+                              from '/diario([0-9]+)(?:-[A-Za-z0-9-]+)?\\.pdf$'
+                            )
+                    )
                 )
                 select
                   publication.edition_number,
@@ -1548,12 +1608,9 @@ class PostgresCollectionRepository:
                 from latest_publications as publication
                 where not exists (
                   select 1
-                  from raw.raw_artifacts as artifact
-                  where artifact.metadata ->> 'schema_name'
-                      = 'gazette-direct-edition'
-                    and artifact.metadata ->> 'edition'
-                        = publication.edition_number::text
-                    and artifact.metadata ->> 'year'
+                  from preserved
+                  where preserved.edition = publication.edition_number::text
+                    and preserved.edition_year
                         = publication.edition_year::text
                 )
                 order by publication.edition_number desc

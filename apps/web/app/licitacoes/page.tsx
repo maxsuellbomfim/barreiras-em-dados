@@ -11,6 +11,21 @@ import {
 } from "../../lib/supplier-concentration";
 import { formatBrlDecimal } from "../../lib/revenues";
 import {
+  getCommitmentLinksForContracts,
+  type CommitmentLink,
+  type CommitmentLinksResult,
+} from "../../lib/commitment-links";
+import {
+  getLiquidationsForCommitments,
+  type CommitmentLiquidation,
+  type CommitmentLiquidationsResult,
+} from "../../lib/commitment-liquidations";
+import {
+  getPaymentsForCommitments,
+  type CommitmentPayment,
+  type CommitmentPaymentsResult,
+} from "../../lib/commitment-payments";
+import {
   getPublicMunicipalContracts,
   municipalSupplierLabel,
   type MunicipalContract,
@@ -22,9 +37,12 @@ import {
   municipalSourceCodeLabel,
   type MunicipalProcurementProcess,
 } from "../../lib/municipal-procurement-processes";
-import { getPublicSupplierSanctions } from "../../lib/supplier-sanctions";
+import {
+  formatSanctionCnpj,
+  getPublicSupplierSanctions,
+  type SupplierSanction,
+} from "../../lib/supplier-sanctions";
 import { ProcurementExplorer } from "./procurement-explorer";
-import { SupplierSanctionCard } from "./supplier-sanction-card";
 
 export const revalidate = 300;
 
@@ -102,8 +120,83 @@ type ProcurementsPageProps = {
     modalidade?: string;
     situacao?: string;
     orgao?: string;
+    contratos?: string;
+    processos?: string;
   }>;
 };
+
+type PageQuery = Readonly<Record<string, string | undefined>>;
+
+function parsePanelPage(value: string | undefined): number {
+  const page = Number.parseInt(value ?? "1", 10);
+  return Number.isSafeInteger(page) && page >= 1 && page <= 500 ? page : 1;
+}
+
+function panelPageHref(query: PageQuery, param: string, page: number, anchor: string): string {
+  const next = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value && key !== param) next.set(key, value);
+  }
+  if (page > 1) next.set(param, String(page));
+  const search = next.toString();
+  return `/licitacoes${search ? `?${search}` : ""}#${anchor}`;
+}
+
+function PanelPagination({
+  query,
+  param,
+  page,
+  hasMore,
+  anchor,
+  label,
+}: Readonly<{
+  query: PageQuery;
+  param: string;
+  page: number;
+  hasMore: boolean;
+  anchor: string;
+  label: string;
+}>) {
+  if (page === 1 && !hasMore) return null;
+  return (
+    <nav className="diary-pagination" aria-label={`Paginação de ${label}`}>
+      {page > 1 ? (
+        <a href={panelPageHref(query, param, page - 1, anchor)}>← Mais recentes</a>
+      ) : (
+        <span aria-hidden="true" />
+      )}
+      <span>Página {page}</span>
+      {hasMore ? (
+        <a href={panelPageHref(query, param, page + 1, anchor)}>Anteriores →</a>
+      ) : (
+        <span aria-hidden="true" />
+      )}
+    </nav>
+  );
+}
+
+function sanctionsBySupplier(sanctions: readonly SupplierSanction[]) {
+  const suppliers = new Map<
+    string,
+    { cnpj: string; name: string; count: number; registries: string[] }
+  >();
+  for (const sanction of sanctions) {
+    const current = suppliers.get(sanction.supplierCnpj) ?? {
+      cnpj: sanction.supplierCnpj,
+      name: sanction.companyName ?? sanction.sanctionedName,
+      count: 0,
+      registries: [],
+    };
+    current.count += 1;
+    if (!current.registries.includes(sanction.registry)) {
+      current.registries.push(sanction.registry);
+    }
+    suppliers.set(sanction.supplierCnpj, current);
+  }
+  return [...suppliers.values()].sort(
+    (left, right) => right.count - left.count || left.name.localeCompare(right.name, "pt-BR"),
+  );
+}
 
 function SupplierSanctionsPanel({
   result,
@@ -136,22 +229,204 @@ function SupplierSanctionsPanel({
           data em que foi feita; a conferência é refeita periodicamente.
         </p>
       ) : (
-        <div className="digest-grid">
-          {result.sanctions.map((sanction) => (
-            <SupplierSanctionCard
-              key={`${sanction.registry}:${sanction.sanctionId}`}
-              sanction={sanction}
-            />
-          ))}
-        </div>
+        <>
+          <div className="sanction-supplier-scroll">
+            <table className="sanction-supplier-table">
+              <caption>
+                {sanctionsBySupplier(result.sanctions).length.toLocaleString("pt-BR")}{" "}
+                fornecedores com registro no espelho mais recente dos cadastros
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Fornecedor</th>
+                  <th scope="col">Registros</th>
+                  <th scope="col">Cadastros</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sanctionsBySupplier(result.sanctions).map((supplier) => (
+                  <tr key={supplier.cnpj}>
+                    <td>
+                      <a href={`/licitacoes/fornecedor/${supplier.cnpj}#supplier-sanctions-title`}>
+                        {supplier.name}
+                      </a>
+                      <br />
+                      <span className="meta-note">CNPJ {formatSanctionCnpj(supplier.cnpj)}</span>
+                    </td>
+                    <td>{supplier.count.toLocaleString("pt-BR")}</td>
+                    <td>{supplier.registries.map((registry) => registry.toUpperCase()).join(", ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="act-review-mode">
+            Cada registro espelha o cadastro federal na data da consulta e pode
+            estar em discussão administrativa ou judicial; esta lista não afirma
+            culpa nem irregularidade em contratos específicos. O detalhe de cada
+            sanção, com órgão sancionador e fonte oficial, está na página do
+            fornecedor.
+          </p>
+        </>
       )}
     </section>
   );
 }
 
+function CommitmentLiquidationsLine({
+  liquidations,
+}: Readonly<{ liquidations: readonly CommitmentLiquidation[] | null }>) {
+  if (liquidations === null) {
+    return (
+      <span className="commitment-links-excerpt">
+        Liquidações indisponíveis nesta consulta.
+      </span>
+    );
+  }
+  if (liquidations.length === 0) {
+    return (
+      <span className="commitment-links-excerpt">
+        Nenhuma liquidação deste empenho nos meses já coletados.
+      </span>
+    );
+  }
+  return (
+    <span className="commitment-links-excerpt">
+      Liquidado (mesma chave oficial do empenho):{" "}
+      {liquidations
+        .map((item) => `${item.liquidationDateText} · valor ${item.amountText}`)
+        .join("; ")}
+    </span>
+  );
+}
+
+function CommitmentPaymentsLine({
+  payments,
+}: Readonly<{ payments: readonly CommitmentPayment[] | null }>) {
+  if (payments === null) {
+    return (
+      <span className="commitment-links-excerpt">
+        Pagamentos indisponíveis nesta consulta.
+      </span>
+    );
+  }
+  if (payments.length === 0) {
+    return (
+      <span className="commitment-links-excerpt">
+        Nenhum pagamento deste empenho nos meses já coletados.
+      </span>
+    );
+  }
+  return (
+    <span className="commitment-links-excerpt">
+      Pago (mesma chave oficial do empenho):{" "}
+      {payments
+        .map(
+          (item) =>
+            `${item.paymentDateText} · valor ${item.amountText}` +
+            (item.processNumber ? ` · processo ${item.processNumber}` : ""),
+        )
+        .join("; ")}
+    </span>
+  );
+}
+
+function CommitmentLinksList({
+  links,
+  liquidations,
+  payments,
+}: Readonly<{
+  links: readonly CommitmentLink[] | null;
+  liquidations: CommitmentLiquidationsResult;
+  payments: CommitmentPaymentsResult;
+}>) {
+  if (links === null) {
+    return (
+      <p className="act-evidence">
+        Empenhos ligados indisponíveis nesta consulta — isso não significa que
+        não existam.
+      </p>
+    );
+  }
+  if (links.length === 0) {
+    return (
+      <p className="act-evidence">
+        Nenhum empenho já coletado cita este contrato pelo número.
+      </p>
+    );
+  }
+  return (
+    <details className="commitment-links">
+      <summary>
+        {links.length === 1
+          ? "1 empenho ligado a este contrato"
+          : `${links.length} empenhos ligados a este contrato`}
+      </summary>
+      <p className="commitment-links-label">
+        Ligação automática verificada por código, sujeita a correção: o
+        histórico do empenho cita este contrato pelo número, o número aponta
+        para um único contrato e o favorecido é o mesmo contratado. Quando a
+        grafia do favorecido diverge, a ligação só aparece depois de revisão
+        humana e é marcada como tal. Valores aparecem como texto da fonte e não
+        são somados. Liquidações e pagamentos vêm da própria fonte com a chave
+        oficial de cada empenho; empenhado, liquidado e pago são estágios
+        distintos e nunca se somam.
+      </p>
+      <ul>
+        {links.map((link) => (
+          <li key={link.linkId}>
+            <strong>
+              Empenho {link.commitmentNumber} · {link.issueDateText}
+            </strong>{" "}
+            · {link.noteType} · valor publicado {link.amountText}
+            {link.reviewMode === "human" ? " · confirmada por revisão humana" : ""}
+            <br />
+            {link.publicBody} → {link.creditorName}
+            <br />
+            <span className="commitment-links-excerpt">
+              Trecho do histórico: “{link.citedExcerpt}”
+            </span>
+            <br />
+            <CommitmentLiquidationsLine
+              liquidations={
+                liquidations.state === "available"
+                  ? (liquidations.byCommitment.get(link.commitmentKey) ?? [])
+                  : null
+              }
+            />
+            <br />
+            <CommitmentPaymentsLine
+              payments={
+                payments.state === "available"
+                  ? (payments.byCommitment.get(link.commitmentKey) ?? [])
+                  : null
+              }
+            />
+          </li>
+        ))}
+      </ul>
+      <p className="act-evidence">
+        <a href={links[0].sourcePageUrl} target="_blank" rel="noreferrer">
+          Despesas no portal oficial →
+        </a>{" "}
+        · grade de empenhos preservada · hash{" "}
+        {links[0].gridArtifactSha256.slice(0, 12)}… · regra {links[0].ruleVersion}
+      </p>
+    </details>
+  );
+}
+
 function MunicipalContractCard({
   contract,
-}: Readonly<{ contract: MunicipalContract }>) {
+  commitmentLinks,
+  liquidations,
+  payments,
+}: Readonly<{
+  contract: MunicipalContract;
+  commitmentLinks: readonly CommitmentLink[] | null;
+  liquidations: CommitmentLiquidationsResult;
+  payments: CommitmentPaymentsResult;
+}>) {
   return (
     <article className="digest-card">
       <div className="track-top">
@@ -196,6 +471,11 @@ function MunicipalContractCard({
           : "PDF ainda não preservado"}{" "}
         · hash {contract.artifactSha256.slice(0, 12)}…
       </p>
+      <CommitmentLinksList
+        links={commitmentLinks}
+        liquidations={liquidations}
+        payments={payments}
+      />
     </article>
   );
 }
@@ -262,8 +542,10 @@ function MunicipalProcessCard({
 
 function MunicipalProcessesPanel({
   result,
+  query,
 }: Readonly<{
   result: Awaited<ReturnType<typeof getPublicMunicipalProcurementProcesses>>;
+  query: PageQuery;
 }>) {
   return (
     <section
@@ -299,10 +581,11 @@ function MunicipalProcessesPanel({
           preenche o acervo aos poucos.
         </p>
       ) : (
-        <details className="finance-details">
+        <details className="finance-details" open={result.page > 1}>
           <summary>
-            Ver os {result.processes.length.toLocaleString("pt-BR")} processos
-            mais recentes
+            {result.page === 1
+              ? "Ver os processos mais recentes"
+              : `Processos — página ${result.page}`}
           </summary>
           <div className="digest-grid">
             {result.processes.map((process) => (
@@ -312,6 +595,14 @@ function MunicipalProcessesPanel({
               />
             ))}
           </div>
+          <PanelPagination
+            query={query}
+            param="processos"
+            page={result.page}
+            hasMore={result.hasMore}
+            anchor="municipal-processes-title"
+            label="processos"
+          />
         </details>
       )}
     </section>
@@ -320,8 +611,16 @@ function MunicipalProcessesPanel({
 
 function MunicipalContractsPanel({
   result,
+  links,
+  liquidations,
+  payments,
+  query,
 }: Readonly<{
   result: Awaited<ReturnType<typeof getPublicMunicipalContracts>>;
+  links: CommitmentLinksResult;
+  liquidations: CommitmentLiquidationsResult;
+  payments: CommitmentPaymentsResult;
+  query: PageQuery;
 }>) {
   if (result.state === "unavailable" || result.contracts.length === 0) {
     return (
@@ -347,18 +646,40 @@ function MunicipalContractsPanel({
           Série complementar ao PNCP, espelhada do portal de transparência
           municipal: contratado, valor publicado como texto oficial e o PDF do
           contrato. Valores não são convertidos nem somados. CPF de pessoa
-          física nunca é exibido.
+          física nunca é exibido. Cada contrato mostra os empenhos da
+          Prefeitura cujo histórico o cita pelo número (ligação automática
+          verificada por código).
         </p>
       </div>
-      <details className="finance-details">
+      <details className="finance-details" open={result.page > 1}>
         <summary>
-          Ver os {result.contracts.length.toLocaleString("pt-BR")} contratos mais recentes
+          {result.page === 1
+            ? "Ver os contratos mais recentes"
+            : `Contratos — página ${result.page}`}
         </summary>
         <div className="digest-grid">
           {result.contracts.map((contract) => (
-            <MunicipalContractCard contract={contract} key={contract.contractId} />
+            <MunicipalContractCard
+              contract={contract}
+              key={contract.contractId}
+              commitmentLinks={
+                links.state === "available"
+                  ? (links.byContract.get(contract.sourceContractId ?? "") ?? [])
+                  : null
+              }
+              liquidations={liquidations}
+              payments={payments}
+            />
           ))}
         </div>
+        <PanelPagination
+          query={query}
+          param="contratos"
+          page={result.page}
+          hasMore={result.hasMore}
+          anchor="municipal-contracts-title"
+          label="contratos"
+        />
       </details>
     </section>
   );
@@ -395,12 +716,36 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
       ? Promise.resolve({ state: "available" as const, suppliers: [] as const })
       : getPublicSupplierConcentration(),
     getPncpProcurementFilterOptions(),
-    getPublicMunicipalContracts(),
-    getPublicMunicipalProcurementProcesses(),
+    getPublicMunicipalContracts(parsePanelPage(params.contratos)),
+    getPublicMunicipalProcurementProcesses(parsePanelPage(params.processos)),
     getPublicSupplierSanctions(),
   ]);
   const filterOptions =
     filterOptionsResult.state === "available" ? filterOptionsResult.options : [];
+  const commitmentLinksResult: CommitmentLinksResult =
+    municipalContractsResult.state === "available"
+      ? await getCommitmentLinksForContracts(
+          municipalContractsResult.contracts.flatMap((contract) =>
+            contract.sourceContractId ? [contract.sourceContractId] : [],
+          ),
+        )
+      : { state: "unavailable" };
+  const linkedCommitmentKeys =
+    commitmentLinksResult.state === "available"
+      ? [...commitmentLinksResult.byContract.values()].flatMap((links) =>
+          links.map((link) => link.commitmentKey),
+        )
+      : null;
+  const [liquidationsResult, paymentsResult]: [
+    CommitmentLiquidationsResult,
+    CommitmentPaymentsResult,
+  ] =
+    linkedCommitmentKeys === null
+      ? [{ state: "unavailable" }, { state: "unavailable" }]
+      : await Promise.all([
+          getLiquidationsForCommitments(linkedCommitmentKeys),
+          getPaymentsForCommitments(linkedCommitmentKeys),
+        ]);
 
   return (
     <main>
@@ -551,8 +896,14 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
 
         <SupplierSanctionsPanel result={supplierSanctionsResult} />
 
-        <MunicipalContractsPanel result={municipalContractsResult} />
-        <MunicipalProcessesPanel result={municipalProcessesResult} />
+        <MunicipalContractsPanel
+          result={municipalContractsResult}
+          links={commitmentLinksResult}
+          liquidations={liquidationsResult}
+          payments={paymentsResult}
+          query={params}
+        />
+        <MunicipalProcessesPanel result={municipalProcessesResult} query={params} />
 
         <p className="hero-note">
           Metodologia: espelho fiel dos registros do PNCP, preservados como

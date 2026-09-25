@@ -80,3 +80,15 @@ test("workflow permite direcionar a folha para uma competencia exata", () => {
   assert.match(payrollStep, /--require-complete-month/);
   assert.match(payrollStep, /publish_payroll_regime_breakdowns/);
 });
+
+test("faixas de provento rodam no agendamento como o detalhamento por vínculo", () => {
+  // Com inputs vazios no cron, exigir escopo 'all' ou 'payroll' deixava a
+  // etapa sem rodar: só um mês tinha faixas publicadas.
+  const step = workflow.slice(
+    workflow.indexOf("- name: Publicar faixas agregadas de provento bruto"),
+  );
+  const condition = step.slice(0, step.indexOf("shell:"));
+  assert.match(condition, /inputs\.publication_scope != 'expenses'/);
+  assert.match(condition, /inputs\.publication_scope != 'public-obligations'/);
+  assert.doesNotMatch(condition, /publication_scope == 'all'/);
+});

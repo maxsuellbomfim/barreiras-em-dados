@@ -57,6 +57,12 @@ class GazetteDocumentRepository:
         edition: int | None = None,
         edition_year: int | None = None,
     ) -> Sequence[GazetteArtifact]:
+        # Páginas são append-only: OCR ou nova extração criam linhas mais
+        # recentes que a última versão publicada, e a edição volta à fila para
+        # ser reorganizada com esse texto. Uma falha já registrada só é
+        # repetida quando as páginas mudarem; ela continua aberta em
+        # raw.extraction_jobs. As páginas são agregadas uma vez por artefato
+        # para que as subconsultas rodem por edição, não por página.
         connection = self.connection_factory()
         try:
             rows = connection.execute(
@@ -80,6 +86,22 @@ class GazetteDocumentRepository:
                   where artifact.metadata ->> 'schema_name' = 'gazette-direct-edition'
                     and coalesce(artifact.metadata ->> 'edition', '') ~ '^[0-9]+$'
                     and coalesce(artifact.metadata ->> 'year', '') ~ '^[0-9]{4}$'
+                    and not exists (
+                      -- Cópia servida pelo catálogo no lugar da edição: PDF com nome e
+                      -- hash de outra edição (4309 → diario4310.pdf, 4263 →
+                      -- diario4264.pdf em 2024). Mesma regra do coletor direto.
+                      select 1
+                      from raw.raw_artifacts as other_edition
+                      where other_edition.metadata ->> 'schema_name'
+                          = 'gazette-direct-edition'
+                        and other_edition.sha256 = artifact.sha256
+                        and other_edition.metadata ->> 'edition'
+                            <> artifact.metadata ->> 'edition'
+                        and other_edition.metadata ->> 'edition' = substring(
+                          artifact.metadata ->> 'final_url'
+                          from '/diario([0-9]+)(?:-[A-Za-z0-9-]+)?\\.pdf$'
+                        )
+                    )
                   union all
                   select
                     artifact.id,
@@ -104,6 +126,41 @@ class GazetteDocumentRepository:
                   ) as record on true
                   where artifact.metadata ->> 'document_role' = 'txt'
                     and artifact.metadata ? 'source_record_key'
+                ), page_numbering as (
+                  -- Duas agregações respondidas só pelos índices
+                  -- document_pages_artifact_page_created_idx e
+                  -- document_pages_text_pages_idx: ler as páginas inteiras
+                  -- (com o texto) passava do statement_timeout do coletor.
+                  select
+                    page.raw_artifact_id,
+                    min(page.page_number) as first_page,
+                    max(page.page_number) as last_page,
+                    max(page.created_at) as newest_page_at
+                  from raw.document_pages as page
+                  where page.raw_artifact_id in (
+                    select candidate.id from candidate_editions as candidate
+                  )
+                  group by page.raw_artifact_id
+                ), text_pages as (
+                  select
+                    page.raw_artifact_id,
+                    count(distinct page.page_number) as pages_with_text
+                  from raw.document_pages as page
+                  where page.raw_artifact_id in (
+                    select candidate.id from candidate_editions as candidate
+                  )
+                    and page.text_content is not null
+                  group by page.raw_artifact_id
+                ), page_stats as (
+                  select
+                    numbering.raw_artifact_id,
+                    numbering.first_page,
+                    numbering.last_page,
+                    coalesce(with_text.pages_with_text, 0) as pages_with_text,
+                    numbering.newest_page_at
+                  from page_numbering as numbering
+                  left join text_pages as with_text
+                    on with_text.raw_artifact_id = numbering.raw_artifact_id
                 ), selected_editions as (
                 select
                   edition.id::text as id,
@@ -114,25 +171,29 @@ class GazetteDocumentRepository:
                   edition.source_priority,
                   edition.created_at::text as created_at
                 from candidate_editions as edition
-                join raw.document_pages as page
-                  on page.raw_artifact_id = edition.id
+                join page_stats as stats
+                  on stats.raw_artifact_id = edition.id
                 where (%s::integer is null or edition.edition = %s::integer)
                   and (%s::integer is null or edition.edition_year = %s::integer)
+                  and stats.first_page = 1
+                  and stats.pages_with_text = stats.last_page
                   and (
                     (%s::integer is not null and %s::integer is not null)
-                    or not exists (
-                      select 1
-                      from editorial.gazette_document_versions as version
-                      where version.raw_artifact_id = edition.id
+                    or (
+                      stats.newest_page_at > coalesce((
+                        select max(version.created_at)
+                        from editorial.gazette_document_versions as version
+                        where version.raw_artifact_id = edition.id
+                      ), '-infinity'::timestamptz)
+                      and stats.newest_page_at > coalesce((
+                        select max(job.updated_at)
+                        from raw.extraction_jobs as job
+                        where job.raw_artifact_id = edition.id
+                          and job.job_type = 'integral_gazette_documents'
+                          and job.status = 'failed'
+                      ), '-infinity'::timestamptz)
                     )
                   )
-                group by edition.id, edition.sha256, edition.edition,
-                  edition.edition_year, edition.edition_date, edition.created_at,
-                  edition.source_priority
-                having min(page.page_number) = 1
-                  and count(distinct page.page_number)
-                    filter (where page.text_content is not null)
-                    = max(page.page_number)
                 order by edition.edition_year desc, edition.edition desc,
                   edition.source_priority asc, edition.created_at desc
                 limit %s

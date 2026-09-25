@@ -146,15 +146,31 @@ quatro recursos adicionais no portal da Prefeitura:
   atravessam a RPC. Como os leiautes auditados não fecharam deterministicamente
   e parte do acervo é escaneada, cobertura preservada não significa total
   financeiro publicado.
-  Para documentos que trazem a coluna `Regime/Vínculo`, o parser
-  `payroll-regime-breakdown/1.0.0` percorre todas as linhas, valida a aritmética
-  e exige que os oito grupos permitidos fechem exatamente com o agregado do
-  componente. A projeção pública `api.get_public_payroll_regime_breakdown`
+  O parser `payroll-regime-breakdown/1.2.0` percorre todas as linhas, valida a
+  aritmética (inclusive líquido individual negativo, quando o desconto supera o
+  provento) e exige que os grupos fechem exatamente com o agregado do
+  componente. A coluna aparece como `Regime/Vínculo` seguida de `Local de
+  Trabalho` (desde jul/2025) ou `Lotação` (2022 a jun/2025) e como `Regime`
+  seguida de `Centro de Custo` (2021); em jul/2025 a mar/2026 o cabeçalho do
+  PDF sai deslocado em relação às linhas, e o rótulo é lido desde o início da
+  palavra. Nenhum vínculo fica de fora: "Celetista" e "Outros" (set/2022 usa
+  para conselheiros tutelares) entram com o rótulo literal do relatório, sem
+  reclassificação, e relatórios sem a coluna (jan e fev/2024) entram inteiros
+  como "Vínculo não informado no relatório". Rótulo desconhecido continua
+  rejeitado para revisão.
+  A projeção pública `api.get_public_payroll_regime_breakdown`
   retorna somente competência, código e rótulo do grupo, quantidade, proventos,
   descontos, líquido, quantidade de PDFs e versão metodológica. Nome, CPF,
   matrícula, cargo, lotação e valor individual não atravessam esse contrato.
-  Leiaute sem essa coluna significa detalhamento indisponível, não valor zero.
-  A distribuição `payroll-compensation-bands/1.0.0` usa somente a folha regular
+  A competência impressa no PDF ("MÊS/ANO") prevalece sobre a do catálogo do
+  portal: divergência vai para revisão e não substitui a versão vigente. Em
+  set/2026 o portal listou o PDF de agosto/2026 também como julho; a versão
+  errada de julho foi invalidada (`declared_month_mismatch`, append-only) e a
+  anterior, que declara julho, voltou a valer. O PDF de mar/2023 declara
+  "Abril / 2023", mas foi emitido em 04/04/2023 e o portal o lista como março:
+  decisão registrada em `docs/reviews/PAYROLL_2023_03_DECLARED_MONTH.md` o
+  trata como março, com exceção amarrada ao hash e aviso na página do mês.
+  A distribuição `payroll-compensation-bands/1.1.0` usa somente a folha regular
   e publica seis faixas fixas de provento bruto, contagens, média e maior bruto
   em `api.get_public_payroll_compensation_distribution`. Todas as linhas precisam
   fechar com o total do PDF; 13º e outros componentes não entram nas faixas.

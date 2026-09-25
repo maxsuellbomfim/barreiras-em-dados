@@ -185,8 +185,10 @@ try {
       'evidence', 'analysis', 'editorial', 'audit'
     )
   `);
-  // Includes pharmacy snapshots and the private PNCP latest-query projection.
-  assert.equal(relations.rows[0].count, 70);
+  // Includes pharmacy snapshots, the private PNCP latest-query projection
+  // the commitment -> contract link decisions (ADR 0086) and their review
+  // candidates (ADR 0088).
+  assert.equal(relations.rows[0].count, 72);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -202,7 +204,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 70);
+  assert.equal(rlsRelations.rows[0].count, 72);
   const queryStatusAccess = await database.query(`select
     has_table_privilege('anon','source.pncp_contract_query_status','SELECT') as anon_read,
     has_table_privilege('collector_worker','source.pncp_contract_query_status','INSERT') as worker_write`);
@@ -294,7 +296,7 @@ try {
     where tgname = 'reject_mutation'
       and not tgisinternal
   `);
-  assert.equal(immutableTriggers.rows[0].count, 21);
+  assert.equal(immutableTriggers.rows[0].count, 23);
 
   const extensionSchema = await database.query(`
     select namespace.nspname as schema_name
@@ -1196,6 +1198,7 @@ try {
       gazette_date::text as gazette_date,
       gazette_url,
       excerpt,
+      text_source,
       methodology_version
     from api.get_approved_gazette_acts(50)
   `);
@@ -1207,7 +1210,8 @@ try {
       gazette_date: "2026-06-10",
       gazette_url: null,
       excerpt: "NOMEAR FULANO DE TAL",
-      methodology_version: "approved-gazette-acts/1.6.0",
+      text_source: "embedded_text",
+      methodology_version: "approved-gazette-acts/1.7.0",
     },
   ]);
 
@@ -1690,8 +1694,8 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 20,
-    endpoints: 39,
+    sources: 21,
+    endpoints: 42,
     private_buckets: 1,
   });
   const renewalEndpoint = await database.query(`

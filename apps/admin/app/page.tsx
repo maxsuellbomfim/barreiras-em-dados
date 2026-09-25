@@ -4,6 +4,7 @@ import { createClient, type Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AdminMfaGate } from "./admin-mfa-gate";
+import { CommitmentLinkReview, type RpcCall } from "./commitment-link-review";
 import {
   CollectionHealth,
   type CollectionHealthItem,
@@ -79,7 +80,13 @@ type HistoryState =
 
 type TypeFilter = "todos" | "nomeacao" | "exoneracao";
 type DecisionFilter = "todas" | "approved" | "rejected";
-type AdminView = "fila" | "historico" | "financas" | "aliases" | "saude";
+type AdminView =
+  | "fila"
+  | "historico"
+  | "financas"
+  | "aliases"
+  | "ligacoes"
+  | "saude";
 
 type FinanceInventoryItem = Readonly<{
   document_id: string;
@@ -1132,6 +1139,10 @@ export default function ReviewQueuePage() {
     [],
   );
 
+  const rpc = useCallback<RpcCall>(
+    (fn, args) => supabase.rpc(fn, args),
+    [supabase],
+  );
   const [session, setSession] = useState<Session | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -1613,6 +1624,14 @@ export default function ReviewQueuePage() {
             </button>
             <button
               type="button"
+              className={view === "ligacoes" ? "tab tab-active" : "tab"}
+              aria-current={view === "ligacoes" ? "page" : undefined}
+              onClick={() => setView("ligacoes")}
+            >
+              Empenhos × contratos
+            </button>
+            <button
+              type="button"
               className={view === "saude" ? "tab tab-active" : "tab"}
               aria-current={view === "saude" ? "page" : undefined}
               onClick={() => setView("saude")}
@@ -1632,12 +1651,16 @@ export default function ReviewQueuePage() {
           </nav>
           <p className="meta panel-scope-note">
             Os contadores de histórico e aliases mostram apenas o lote carregado
-            nesta tela. Finanças são o inventário de documentos preservados;
+            nesta tela. Empenhos × contratos revisa as citações de contrato que a
+            regra não confirmou. Finanças são o inventário de documentos preservados;
             Saúde das fontes acompanha coletores e cobertura; a fila de revisão
             é somente a aba "Fila".
           </p>
 
-          {view !== "financas" && view !== "aliases" && view !== "saude" ? <div className="toolbar">
+          {view !== "financas" &&
+          view !== "aliases" &&
+          view !== "ligacoes" &&
+          view !== "saude" ? <div className="toolbar">
             <input
               type="search"
               aria-label="Buscar por pessoa, cargo, órgão ou trecho"
@@ -1675,7 +1698,9 @@ export default function ReviewQueuePage() {
             ) : null}
           </div> : null}
 
-          {view === "saude" ? (
+          {view === "ligacoes" ? (
+            <CommitmentLinkReview rpc={rpc} />
+          ) : view === "saude" ? (
             <CollectionHealth
               state={collectionHealth}
               search={healthSearch}

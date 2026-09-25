@@ -12,12 +12,23 @@ import re
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
 PAYROLL_REPORT_PARSER_VERSION = "payroll-report-aggregate/1.4.0"
-PAYROLL_REGIME_PARSER_VERSION = "payroll-regime-breakdown/1.0.0"
-PAYROLL_COMPENSATION_PARSER_VERSION = "payroll-compensation-bands/1.0.0"
+# 1.1.0: aceita os layouts anteriores (2022 a jun/2025 com coluna "Lotação";
+# 2021 com "Regime" e "Centro de Custo") e recupera o início do rótulo quando
+# o cabeçalho do PDF está deslocado em relação às linhas (jul/2025 a mar/2026).
+# Documentos aceitos pela 1.0.0 produzem o mesmo resultado.
+# 1.2.0: nenhum vínculo fica de fora. Aceita líquido individual negativo
+# (desconto maior que o provento; nov/2023), registra "Celetista" e "Outros"
+# com o rótulo literal do relatório e, quando o relatório não traz a coluna de
+# vínculo (jan e fev/2024), agrupa todas as linhas em "Vínculo não informado
+# no relatório" em vez de descartar o mês.
+PAYROLL_REGIME_PARSER_VERSION = "payroll-regime-breakdown/1.2.0"
+# 1.1.0: aceita líquido individual negativo (nov/2023).
+PAYROLL_COMPENSATION_PARSER_VERSION = "payroll-compensation-bands/1.1.0"
 PayrollCycle = Literal[
     "regular",
     "thirteenth_advance",
@@ -32,6 +43,9 @@ PayrollRegimeCode = Literal[
     "guardianship_council",
     "pensioner",
     "temporary_worker",
+    "clt",
+    "other",
+    "not_reported",
 ]
 
 
@@ -125,12 +139,20 @@ _PAYROLL_FIELD = re.compile(
     r"(?P<before>.*?)FOLHA\s*\.{3,}\s*:\s*(?P<after>.*)",
     re.IGNORECASE,
 )
+# O líquido individual pode ser negativo quando o desconto supera o provento
+# (acertos e devoluções); o total do relatório continua positivo.
 _EMPLOYEE_AMOUNTS = re.compile(
     rf"(?P<gross>{_AMOUNT})\s+"
     rf"(?P<deduction>{_AMOUNT})\s+"
-    rf"(?P<net>{_AMOUNT})\s*$"
+    rf"(?P<net>-?{_AMOUNT})\s*$"
 )
 _EMPLOYEE_IDENTIFIER = re.compile(r"^\s*(?:\d+|\([A-Z]\))\s+")
+# Cabeçalho do vínculo: "Regime/Vínculo" desde 2022, "Regime" em 2021. A
+# coluna seguinte fecha o recorte: "Local de Trabalho" desde jul/2025,
+# "Lotação" antes e "Centro de Custo" em 2021 (o PDF pode trazer o "ção" como
+# caractere de substituição).
+_REGIME_HEADER = re.compile(r"\bRegime\b")
+_REGIME_NEXT_COLUMN = re.compile(r"Local de Trabalho|\bLota|Centro de Custo")
 _REGIME_LABELS: dict[PayrollRegimeCode, str] = {
     "statutory": "Estatutários",
     "commissioned": "Cargos em comissão",
@@ -140,6 +162,9 @@ _REGIME_LABELS: dict[PayrollRegimeCode, str] = {
     "guardianship_council": "Conselho tutelar",
     "pensioner": "Pensionistas",
     "temporary_worker": "Trabalhadores temporários",
+    "clt": "Celetistas",
+    "other": "Outros",
+    "not_reported": "Vínculo não informado no relatório",
 }
 _COMPENSATION_BANDS: tuple[tuple[str, str, Decimal | None], ...] = (
     ("up_to_1500", "Até R$ 1.500", Decimal("1500.00")),
@@ -231,6 +256,51 @@ def _payroll_cycle(text: str) -> PayrollCycle:
     return observed.pop()
 
 
+_DECLARED_MONTH = re.compile(
+    r"M\S{1,3}S/ANO\.*\s*:\s*(?P<month>[^\s/]+)\s*/\s*(?P<year>\d{4})",
+    re.IGNORECASE,
+)
+_MONTH_NUMBERS = {
+    "janeiro": 1,
+    "fevereiro": 2,
+    "marco": 3,
+    "abril": 4,
+    "maio": 5,
+    "junho": 6,
+    "julho": 7,
+    "agosto": 8,
+    "setembro": 9,
+    "outubro": 10,
+    "novembro": 11,
+    "dezembro": 12,
+}
+
+
+def declared_reference_month(text: str) -> date | None:
+    """Competência impressa no cabeçalho ("MÊS/ANO.....: Agosto / 2026").
+
+    Devolve None quando o cabeçalho não existe; competências diferentes no
+    mesmo documento são contrato quebrado.
+    """
+
+    declared: set[date] = set()
+    for match in _DECLARED_MONTH.finditer(text):
+        name = _normalized_regime_label(match.group("month")).replace(" ", "")
+        # "Março" pode chegar como "Mar�o": o caractere de substituição some
+        # na normalização e sobra "maro".
+        month = _MONTH_NUMBERS.get(name) or (3 if name == "maro" else None)
+        if month is None:
+            raise PayrollReportContractError(
+                "competência declarada no cabeçalho não reconhecida"
+            )
+        declared.add(date(int(match.group("year")), month, 1))
+    if len(declared) > 1:
+        raise PayrollReportContractError(
+            "documento declara mais de uma competência no cabeçalho"
+        )
+    return next(iter(declared), None)
+
+
 def parse_payroll_report_aggregate(text: str) -> PayrollReportAggregate:
     """Valida subtotais e retorna apenas o total geral reconciliado."""
 
@@ -314,10 +384,15 @@ def _regime_code(value: str) -> PayrollRegimeCode:
         ("conselho tutelar", "guardianship_council"),
         ("pensionista", "pensioner"),
         ("trabalhador tempor", "temporary_worker"),
+        ("celetist", "clt"),
     )
     for prefix, code in known_regimes:
         if normalized.startswith(prefix):
             candidates.append(code)
+    # "Outros" é uma classificação do próprio relatório (set/2022 a usa para
+    # conselheiros tutelares): registrada literalmente, nunca reclassificada.
+    if normalized == "outros":
+        candidates.append("other")
     if len(candidates) != 1:
         raise PayrollReportContractError(
             "regime/vínculo ausente, desconhecido ou ambíguo"
@@ -331,6 +406,17 @@ def parse_payroll_report_regime_breakdown(
     """Agrupa linhas por vínculo somente quando fecha com o total oficial."""
 
     overall = parse_payroll_report_aggregate(text)
+    lines = text.splitlines()
+    # Relatório sem a coluna de vínculo (jan e fev/2024): todas as linhas vão
+    # para "Vínculo não informado no relatório". Só vale quando nenhuma página
+    # traz a coluna; relatório misto continua rejeitado.
+    without_regime_column = not any(
+        _REGIME_HEADER.search(line) and _REGIME_NEXT_COLUMN.search(line)
+        for line in lines
+    ) and any(
+        all(field.search(line) for field in _REQUIRED_HEADER_FIELDS)
+        for line in lines
+    )
     header_positions: tuple[int, int] | None = None
     grouped: dict[PayrollRegimeCode, list[Decimal | int]] = defaultdict(
         lambda: [
@@ -341,10 +427,12 @@ def parse_payroll_report_regime_breakdown(
         ]
     )
 
-    for line in text.splitlines():
-        if "Regime/V" in line and "Local de Trabalho" in line:
-            regime_start = line.index("Regime/V")
-            local_start = line.index("Local de Trabalho")
+    for line in lines:
+        regime_header = _REGIME_HEADER.search(line)
+        next_column = _REGIME_NEXT_COLUMN.search(line)
+        if regime_header is not None and next_column is not None:
+            regime_start = regime_header.start()
+            local_start = next_column.start()
             if regime_start >= local_start:
                 raise PayrollReportContractError(
                     "colunas de regime/vínculo não reconhecidas"
@@ -357,16 +445,26 @@ def parse_payroll_report_regime_breakdown(
             continue
         if _EMPLOYEE_IDENTIFIER.match(line[: amounts.start()]) is None:
             continue
-        if header_positions is None:
+        if without_regime_column:
+            code: PayrollRegimeCode = "not_reported"
+        elif header_positions is None:
             raise PayrollReportContractError(
                 "linha funcional encontrada antes do cabeçalho de regime/vínculo"
             )
-        regime_start, local_start = header_positions
-        if len(line) < local_start:
-            raise PayrollReportContractError(
-                "linha funcional truncada antes do regime/vínculo"
-            )
-        code = _regime_code(line[regime_start:local_start])
+        else:
+            regime_start, local_start = header_positions
+            if len(line) < local_start:
+                raise PayrollReportContractError(
+                    "linha funcional truncada antes do regime/vínculo"
+                )
+            # O cabeçalho pode estar deslocado em relação à linha; recua até o
+            # início da palavra para não cortar a primeira letra do vínculo. Se
+            # o cargo colar no vínculo sem espaço, o rótulo fica desconhecido e
+            # o documento é rejeitado, nunca adivinhado.
+            label_start = regime_start
+            while label_start > 0 and not line[label_start - 1].isspace():
+                label_start -= 1
+            code = _regime_code(line[label_start:local_start])
         gross = _amount(amounts.group("gross"))
         deduction = _amount(amounts.group("deduction"))
         net = _amount(amounts.group("net"))

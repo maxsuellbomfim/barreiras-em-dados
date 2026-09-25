@@ -1,0 +1,2 @@
+try { runMostrarEsconderGif(null, 'PTP', 7910, [true, '', '']); } catch(e) { handleException(e); }
+try { $c('PAGAMENTO').setTotalRows(2); } catch(e) { handleException(e); }

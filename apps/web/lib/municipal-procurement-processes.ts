@@ -13,11 +13,17 @@ export {
 export type MunicipalProcurementProcessesResult =
   | Readonly<{
       state: "available";
+      page: number;
+      hasMore: boolean;
       processes: readonly MunicipalProcurementProcess[];
     }>
   | Readonly<{ state: "unavailable" }>;
 
-export async function getPublicMunicipalProcurementProcesses(): Promise<
+const PAGE_SIZE = 24;
+
+export async function getPublicMunicipalProcurementProcesses(
+  page = 1,
+): Promise<
   MunicipalProcurementProcessesResult
 > {
   const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
@@ -40,7 +46,11 @@ export async function getPublicMunicipalProcurementProcesses(): Promise<
           "Content-Profile": "api",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ page_size: 100 }),
+        // Uma linha a mais revela se há próxima página sem consulta de contagem.
+        body: JSON.stringify({
+          page_size: PAGE_SIZE + 1,
+          page_offset: (page - 1) * PAGE_SIZE,
+        }),
         next: { revalidate: 300 },
         signal: AbortSignal.timeout(5_000),
       },
@@ -50,7 +60,12 @@ export async function getPublicMunicipalProcurementProcesses(): Promise<
       await response.json(),
     );
     if (processes === null) return { state: "unavailable" };
-    return { state: "available", processes };
+    return {
+      state: "available",
+      page,
+      hasMore: processes.length > PAGE_SIZE,
+      processes: processes.slice(0, PAGE_SIZE),
+    };
   } catch {
     return { state: "unavailable" };
   }

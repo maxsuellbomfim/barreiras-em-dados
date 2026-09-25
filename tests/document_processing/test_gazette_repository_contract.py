@@ -96,16 +96,15 @@ class GazetteRepositoryContractTests(unittest.TestCase):
 
         self.assertEqual(artifacts[0].edition, 4707)
         query = self.connection.queries[0][0]
+        self.assertIn("min(page.page_number) as first_page", query)
         self.assertIn(
-            "min(page.page_number) = 1",
+            "count(distinct page.page_number) as pages_with_text "
+            "from raw.document_pages as page",
             query,
         )
-        self.assertIn(
-            "count(distinct page.page_number) "
-            "filter (where page.text_content is not null) "
-            "= max(page.page_number)",
-            query,
-        )
+        self.assertIn("and page.text_content is not null", query)
+        self.assertIn("stats.first_page = 1", query)
+        self.assertIn("stats.pages_with_text = stats.last_page", query)
         self.assertIn(
             "order by edition.edition_year desc, edition.edition desc,",
             query,
@@ -124,26 +123,50 @@ class GazetteRepositoryContractTests(unittest.TestCase):
             query,
         )
 
-    def test_pending_artifacts_bounds_automatic_scan_and_skips_versioned_artifacts(
+    def test_pending_artifacts_reopens_editions_with_pages_newer_than_version(
         self,
     ) -> None:
+        # OCR posterior à primeira publicação precisa chegar ao site; antes a
+        # fila só escolhia edições sem nenhuma versão e o texto novo ficava
+        # preso no acervo bruto.
         self.repository.pending_artifacts(7)
 
         query, params = self.connection.queries[0]
         self.assertIn(
+            "stats.newest_page_at > coalesce(( select max(version.created_at) "
+            "from editorial.gazette_document_versions as version "
+            "where version.raw_artifact_id = edition.id ), '-infinity'::timestamptz)",
+            query,
+        )
+        self.assertNotIn(
             "not exists ( select 1 from editorial.gazette_document_versions",
             query,
         )
-        self.assertIn("where version.raw_artifact_id = edition.id", query)
         self.assertIn("limit %s ) select", query)
         self.assertEqual(params, (None, None, None, None, None, None, 7))
+
+    def test_pending_artifacts_retries_recorded_failure_only_after_new_pages(
+        self,
+    ) -> None:
+        self.repository.pending_artifacts(7)
+
+        query, _params = self.connection.queries[0]
+        self.assertIn(
+            "and stats.newest_page_at > coalesce(( select max(job.updated_at) "
+            "from raw.extraction_jobs as job "
+            "where job.raw_artifact_id = edition.id "
+            "and job.job_type = 'integral_gazette_documents' "
+            "and job.status = 'failed' ), '-infinity'::timestamptz)",
+            query,
+        )
 
     def test_pending_artifacts_keeps_explicit_edition_replay_available(self) -> None:
         self.repository.pending_artifacts(2, edition=4706, edition_year=2026)
 
         query, params = self.connection.queries[0]
         self.assertIn(
-            "(%s::integer is not null and %s::integer is not null) or not exists",
+            "(%s::integer is not null and %s::integer is not null) or ( "
+            "stats.newest_page_at >",
             query,
         )
         self.assertEqual(params, (4706, 4706, 2026, 2026, 4706, 2026, 2))

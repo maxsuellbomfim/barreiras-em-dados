@@ -1,0 +1,14 @@
+try { runMostrarEsconderGif(null, 'PTP', 7901, [true, '', '']); } catch(e) { handleException(e); }
+try { runFunValidarPeriodoAnual(null, 'PTP', 7901, [new Date(2026, 7, 1, 0, 0, 0), new Date(2026, 7, 31, 0, 0, 0)]); } catch(e) { handleException(e); }
+try { $c('DESPESAS').setTotalRows(3); } catch(e) { handleException(e); }
+try { $c('DESPESAS').clearDataSelected($c('DESPESAS').getSelectedRow()); } catch(e) { handleException(e); }
+try { $c('DESPESAS').paging.navigationAction(null, null, 'first');
+ $c('DESPESAS').noRefresh=true; } catch(e) { handleException(e); }
+try { $mainform().ebfFormChangeComponentValue('{0C662D36-DFDC-4EA0-9393-38F22D676436}','MakerLabel14','TOTAL DE REGISTROS: 2,313'); } catch(e) { handleException(e); }
+try { $mainform().ebfFormChangeComponentValue('{0C662D36-DFDC-4EA0-9393-38F22D676436}','MakerLabel9','VALOR TOTAL: 61,190,500.52'); } catch(e) { handleException(e); }
+try { $mainform().ebfFormChangeComponentValue('{0C662D36-DFDC-4EA0-9393-38F22D676436}','MakerLabel13','Período do Empenho de: 01/08/2026 à 31/08/2026'); } catch(e) { handleException(e); }
+try { runMostrarEsconderGif(null, 'PTP', 7901, [false, '', '']); } catch(e) { handleException(e); }
+try { runGerAcessibilidadeAoEntrar(null, 'PTP', 7901, []); } catch(e) { handleException(e); }
+$mainform().document._ruleReturn = '';
+$mainform().hideWait();
+var messagesAsAlert = false;

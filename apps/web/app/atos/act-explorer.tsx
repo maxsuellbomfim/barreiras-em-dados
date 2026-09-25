@@ -93,8 +93,17 @@ function ActCard({ act }: Readonly<{ act: ApprovedGazetteAct }>) {
       <p className="act-review-mode">
         {act.reviewMode === "human"
           ? "Revisado por uma pessoa antes de publicar."
-          : "Publicação automática: dados conferidos por código contra o documento oficial. Sujeita a correção — e toda correção fica registrada."}
+          : act.textSource === "ocr_transcription"
+            ? "Publicação automática: dados conferidos por código contra a transcrição por OCR do documento oficial. Sujeita a correção — e toda correção fica registrada."
+            : "Publicação automática: dados conferidos por código contra o documento oficial. Sujeita a correção — e toda correção fica registrada."}
       </p>
+      {act.textSource === "ocr_transcription" ? (
+        <p className="act-ocr-note" role="note">
+          Esta edição do Diário foi publicada escaneada: o texto foi obtido por
+          reconhecimento óptico (OCR) e nomes ou números podem ter erro de
+          leitura. Confira no documento oficial antes de citar.
+        </p>
+      ) : null}
     </article>
   );
 }

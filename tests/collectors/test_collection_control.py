@@ -199,6 +199,22 @@ class CollectionControlTests(unittest.TestCase):
         self.assertNotIn("123", str(failure["error_detail"]))
         self.assertEqual(failure["retryable"], True)
 
+    def test_permanent_source_error_is_not_scheduled_for_retry(self) -> None:
+        from barreiras_collectors.connectors.querido_diario import (
+            PermanentHttpError,
+            SourceUnavailableError,
+        )
+
+        for error, expected in (
+            (PermanentHttpError("HTTP 404", status_code=404), False),
+            (SourceUnavailableError("timeout TLS"), True),
+        ):
+            self.repository.failed.clear()
+            with self.assertRaises(type(error)):
+                with self.make_control():
+                    raise error
+            self.assertEqual(self.repository.failed[0]["retryable"], expected)
+
     def test_empty_is_a_successful_explicit_outcome(self) -> None:
         control = self.make_control()
 

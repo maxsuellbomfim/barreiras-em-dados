@@ -13,6 +13,9 @@ export type ApprovedGazetteAct = Readonly<{
   approvedAt: string;
   artifactSha256: string;
   reviewMode: "human" | "automated";
+  // Versões anteriores à 1.7.0 não informam a origem: "unknown", nunca
+  // presumir texto embutido.
+  textSource: "embedded_text" | "ocr_transcription" | "unknown";
   methodologyVersion: string;
 }>;
 
@@ -33,6 +36,7 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const SUPPORTED_APPROVED_ACTS_METHODOLOGY_VERSIONS = new Set([
   "approved-gazette-acts/1.5.0",
   "approved-gazette-acts/1.6.0",
+  "approved-gazette-acts/1.7.0",
 ]);
 
 function optionalString(value: unknown): string | null {
@@ -59,7 +63,10 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     (gazetteDate !== null && !ISO_DATE.test(gazetteDate)) ||
     (gazetteUrl !== null && !gazetteUrl.startsWith("https://")) ||
     methodologyVersion === null ||
-    !SUPPORTED_APPROVED_ACTS_METHODOLOGY_VERSIONS.has(methodologyVersion)
+    !SUPPORTED_APPROVED_ACTS_METHODOLOGY_VERSIONS.has(methodologyVersion) ||
+    (row.text_source !== undefined &&
+      row.text_source !== "embedded_text" &&
+      row.text_source !== "ocr_transcription")
   ) {
     return null;
   }
@@ -79,6 +86,10 @@ function parseAct(row: ActRow): ApprovedGazetteAct | null {
     approvedAt,
     artifactSha256,
     reviewMode,
+    textSource:
+      row.text_source === "embedded_text" || row.text_source === "ocr_transcription"
+        ? row.text_source
+        : "unknown",
     methodologyVersion,
   };
 }

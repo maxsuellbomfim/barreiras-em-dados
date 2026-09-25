@@ -1180,8 +1180,50 @@ try {
         '[
           {"regime_code":"statutory","regime_label":"Estatutários","employee_count":8000,"gross_amount":"5000000.00","deduction_amount":"500000.00","net_amount":"4500000.00"}
         ]'::jsonb,
-        'payroll-regime-breakdown/1.0.0', '2026-08-22 04:30:00+00'
+        'payroll-regime-breakdown/1.2.0', '2026-08-22 04:30:00+00'
       );
+  `);
+  // 1.0.0 e 1.2.0 convivem no mesmo mês; versão desconhecida é recusada e
+  // as categorias novas só entram com o rótulo literal do relatório.
+  await assert.rejects(
+    database.exec(`
+      insert into hr.payroll_report_regime_breakdowns (
+        payroll_report_aggregate_id, categories, parser_version, validated_at
+      ) values (
+        '00000000-0000-0000-0000-000000009008',
+        '[{"regime_code":"statutory","regime_label":"Estatutários","employee_count":8184,"gross_amount":"1.00","deduction_amount":"0.00","net_amount":"1.00"}]'::jsonb,
+        'payroll-regime-breakdown/9.9.9', '2026-08-22 04:31:00+00'
+      )
+    `),
+    /parser version is not publishable/,
+  );
+  await assert.rejects(
+    database.exec(`
+      insert into hr.payroll_report_regime_breakdowns (
+        payroll_report_aggregate_id, categories, parser_version, validated_at
+      ) values (
+        '00000000-0000-0000-0000-000000009008',
+        '[{"regime_code":"other","regime_label":"Conselho tutelar","employee_count":8184,"gross_amount":"1.00","deduction_amount":"0.00","net_amount":"1.00"}]'::jsonb,
+        'payroll-regime-breakdown/1.2.0', '2026-08-22 04:31:00+00'
+      )
+    `),
+    /regime\/vínculo público desconhecido/,
+  );
+  // Rótulos literais aceitos; nada é gravado (rollback).
+  await database.exec(`
+    begin;
+    insert into hr.payroll_report_regime_breakdowns (
+      payroll_report_aggregate_id, categories, parser_version, validated_at
+    ) values (
+      '00000000-0000-0000-0000-000000009008',
+      '[
+        {"regime_code":"other","regime_label":"Outros","employee_count":5,"gross_amount":"20000.00","deduction_amount":"2000.00","net_amount":"18000.00"},
+        {"regime_code":"clt","regime_label":"Celetistas","employee_count":1,"gross_amount":"1971.48","deduction_amount":"982.78","net_amount":"988.70"},
+        {"regime_code":"not_reported","regime_label":"Vínculo não informado no relatório","employee_count":8178,"gross_amount":"34950000.00","deduction_amount":"10420000.00","net_amount":"24530000.00"}
+      ]'::jsonb,
+      'payroll-regime-breakdown/1.2.0', '2026-08-22 04:31:00+00'
+    );
+    rollback;
   `);
   await assert.rejects(
     database.exec(`
@@ -1297,7 +1339,7 @@ try {
         {"band_code":"up_to_1500","band_label":"Até R$ 1.500","employee_count":1000,"gross_amount":"1000000.00"},
         {"band_code":"above_20000","band_label":"Acima de R$ 20 mil","employee_count":7184,"gross_amount":"33971971.48"}
       ]'::jsonb,
-      70000.00, 'payroll-compensation-bands/1.0.0',
+      70000.00, 'payroll-compensation-bands/1.1.0',
       '2026-08-22 04:35:00+00'
     );
   `);
