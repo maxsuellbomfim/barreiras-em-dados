@@ -54,14 +54,40 @@ passam a usá-lo. Na medição de 25/09, foram 4.870 máscaras em 906 documentos
 atuais, sem CPF no formato estrito remanescente. Formas muito quebradas pelo
 OCR, sem rótulo "CPF" próximo, podem escapar da regra.
 
+## Comparação de modelos do Tesseract (25/09)
+
+As 30 páginas foram reprocessadas localmente com Tesseract 5.4, na mesma
+resolução da produção (300 dpi), em quatro configurações. Foram usadas 35
+checagens pontuais tiradas da imagem: valores, datas, nomes, CNPJ e `§`.
+"Modelo rápido" é o `tessdata_fast`, equivalente ao da produção. "Modelo
+preciso" é o `tessdata_best`, 8,2 MB, SHA-256 `711de9db…`.
+
+| Configuração | Tempo | `§` corretos | "art. N, 8Nº" | Letras acentuadas | Checagens |
+|---|---|---|---|---|---|
+| `por`, modelo rápido | 48 s | 0 | 6 | 1.739 | 25/35 |
+| `por`, modelo preciso | 88 s | 0 | 2 | 1.772 | 28/35 |
+| `por+eng`, modelo rápido | 59 s | 1 | 6 | 1.672 | 26/35 |
+| `por+eng`, modelo preciso | 96 s | 8 | 0 | 1.630 | 30/35 |
+
+- O modelo `por` não tem `§` no conjunto de caracteres: nenhuma das duas
+  versões o emite. A precisa às vezes escreve "S4º" no lugar de "84º".
+- O modelo preciso corrigiu "2023"/"2028" (4068 p.9) e "25G" (4147 p.46), sem
+  perda de acentos. Custa cerca de 1,85 vez o tempo.
+- `por+eng` resolve o `§`, mas tira o acento de 112 palavras ("Física" →
+  "Fisica", "SAÚDE" → "SAUDE", "não" → "nao"). Isso prejudica a busca e a
+  fidelidade. Descartado.
+
 ## Recomendações
 
 1. **Privacidade:** feito em 25/09 (PR #829, migration `20260925121627`).
    Confirmado pela API anônima: nenhum CPF completo nas saídas, e a busca
    por CPF volta vazia.
-2. **`§`:** testar a correção antes de aplicar (configuração do Tesseract ou
-   regra determinística versionada restrita a "art. N, 8Nº"). Não corrigir por
-   inferência sem teste de regressão.
+2. **`§` e dígitos:** trocar o modelo não resolve o `§` sem perder acentos.
+   O modelo `por` preciso corrige erros de dígito, e a troca exigiria refazer
+   o OCR das 16.877 páginas como nova versão. É decisão pendente de
+   aprovação. Para o `§`, a alternativa restante é uma regra determinística
+   versionada, restrita a "art. N, [8S]Nº", sem inferência fora desse
+   contexto.
 3. **Tabelas:** não usar o texto OCR para extrair quantidade ou preço
    unitário sem revisão. O aviso de transcrição atual continua necessário.
 4. **Máscara de CPF da fonte:** tratar como ilegível no texto OCR, e não como
