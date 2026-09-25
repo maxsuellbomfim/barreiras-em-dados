@@ -9566,6 +9566,7 @@ footer {
   color: var(--muted);
   font-size: 1.25rem;
   white-space: normal;
+}
 
 @media (max-width: 720px) {
   .representation-jump-nav,
