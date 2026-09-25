@@ -205,9 +205,8 @@ export default async function IntegralDiaryPage({
           <span className="eyebrow">Fonte oficial, texto extraído</span>
           <h1 id="integral-diary-title">Diário Oficial organizado</h1>
           <p>
-            Consulte o texto extraído dos arquivos preservados, organizado por
-            edição e documento. Não substituímos os atos por resumos. A extração
-            pode ter falhas; consulte as limitações abaixo antes de usar os dados.
+            As edições do Diário Oficial de Barreiras, organizadas por
+            documento, com busca no texto e o PDF oficial de cada uma.
           </p>
           {latestCatalogCollectedAt ? (
             <p className="source-freshness" role="status">
@@ -255,16 +254,6 @@ export default async function IntegralDiaryPage({
         </form>
 
         <DiaryExtractionNotice />
-        <DiaryCoverageSummary
-          collectionStatus={collectionStatus}
-          catalogCount={catalogCount}
-          pageCount={integralResult.state === "available" ? editions.length : null}
-        />
-        {catalogCount === null ? (
-          <p role="status">O catálogo oficial não pôde ser consultado agora. Sua contagem não foi apurada; não é zero.</p>
-        ) : null}
-        <DiaryCoverageDetails result={coverageResult} />
-
         {listState === "catalog_only" ? (
           <CatalogPendingNotice entries={catalogEntries} />
         ) : emptyNotice ? (
@@ -307,6 +296,16 @@ export default async function IntegralDiaryPage({
             ) : null}
           </>
         )}
+
+        <DiaryCoverageSummary
+          collectionStatus={collectionStatus}
+          catalogCount={catalogCount}
+          pageCount={integralResult.state === "available" ? editions.length : null}
+        />
+        {catalogCount === null ? (
+          <p role="status">O catálogo oficial não pôde ser consultado agora. Sua contagem não foi apurada; não é zero.</p>
+        ) : null}
+        <DiaryCoverageDetails result={coverageResult} />
 
         <p className="hero-note">
           Cada documento mantém o texto extraído, a edição, as páginas, a

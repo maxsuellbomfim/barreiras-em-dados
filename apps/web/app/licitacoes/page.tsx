@@ -755,13 +755,14 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
           <span className="eyebrow">Quem ganhou, por quanto</span>
           <h1 id="procurements-title">Licitações e contratações</h1>
           <p>
-            As contratações de Barreiras registradas no Portal Nacional de
-            Contratações Públicas (PNCP), com objeto, valores oficiais e o
-            fornecedor vencedor de cada item homologado. Registro público
-            espelhado da fonte — não é avaliação sobre empresas ou pessoas.
+            O que a Prefeitura comprou, de quem e por quanto, com o registro
+            oficial do Portal Nacional de Contratações Públicas (PNCP). É um
+            espelho da fonte, não uma avaliação sobre empresas ou pessoas.
           </p>
         </div>
 
+        <details className="procurement-filter-details" open={hasFilters}>
+          <summary>Filtrar por fornecedor, ano, palavra ou órgão</summary>
         <form className="procurement-filter-form" method="get" aria-label="Filtrar contratações">
           <label>
             Fornecedor ou CNPJ
@@ -811,6 +812,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
           Use este único painel para pesquisar. Os resultados abaixo já vêm filtrados pela consulta
           oficial preservada do PNCP.
         </p>
+        </details>
 
         {hasFilters ? (
           <p className="procurement-filter-active" role="status">

@@ -9438,3 +9438,119 @@ footer {
 .section-heading.compact p {
   font-size: 1rem;
 }
+
+/* Avisos de cobertura recolhidos: o conteúdo vem primeiro, a explicação
+   continua a um toque de distância. */
+.coverage-details {
+  padding: 0;
+}
+
+.coverage-details > summary {
+  min-height: 3rem;
+  padding: 0.85rem 1.4rem;
+  display: flex;
+  align-items: center;
+  color: var(--blue-dark);
+  font-size: 0.95rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.coverage-details > :not(summary) {
+  margin: 0 1.4rem 1.2rem;
+}
+
+.diary-extraction-notice {
+  margin: 1rem 0 1.5rem;
+  border: 1px solid rgba(180, 120, 20, 0.28);
+  border-radius: 1rem;
+  background: #fff8ea;
+}
+
+.diary-extraction-notice summary {
+  min-height: 3rem;
+  padding: 0.8rem 1.1rem;
+  display: flex;
+  align-items: center;
+  color: #6b4a07;
+  font-size: 0.95rem;
+  font-weight: 620;
+  cursor: pointer;
+}
+
+.diary-extraction-notice p {
+  margin: 0 1.1rem 0.9rem;
+  color: #5b4a2a;
+  font-size: 0.92rem;
+}
+
+/* Compras: filtros recolhidos (abrem sozinhos quando há filtro ativo) e
+   campos com acabamento; fonte de 16px evita zoom automático no iPhone. */
+.procurement-filter-details {
+  margin: 1.25rem 0 1.75rem;
+  border: 1px solid rgba(55, 91, 232, 0.14);
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.procurement-filter-details > summary {
+  min-height: 3rem;
+  padding: 0.85rem 1.1rem;
+  display: flex;
+  align-items: center;
+  color: var(--blue-dark);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.procurement-filter-details .procurement-filter-form {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid rgba(55, 91, 232, 0.1);
+  border-radius: 0 0 1.1rem 1.1rem;
+  background: transparent;
+}
+
+.procurement-filter-details .procurement-filter-note {
+  margin: 0 1.1rem 1rem;
+}
+
+.procurement-filter-form label {
+  font-size: 0.82rem;
+}
+
+.procurement-filter-form input {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(24, 33, 52, 0.18);
+  border-radius: 0.65rem;
+  background: #fff;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.procurement-filter-form input:focus-visible {
+  outline: 3px solid rgba(23, 105, 224, 0.3);
+  border-color: var(--blue);
+}
+
+.procurement-filter-actions button {
+  min-height: 2.75rem;
+  padding: 0 1.3rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #111827;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .procurement-filter-form {
+    grid-template-columns: 1fr;
+  }
+
+  .procurement-filter-form .procurement-filter-query {
+    grid-column: auto;
+  }
+}
