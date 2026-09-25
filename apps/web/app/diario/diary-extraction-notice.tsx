@@ -1,8 +1,11 @@
 export function DiaryExtractionNotice() {
   return (
-    <aside className="collection-unavailable" aria-label="Limitações do texto extraído">
-      <div>
-        <strong>A extração do texto está em revisão</strong>
+    <aside className="diary-extraction-notice" aria-label="Limitações do texto extraído">
+      <details>
+        <summary>
+          O texto foi extraído automaticamente e pode ter erros. Confira sempre o
+          documento oficial.
+        </summary>
         <p>
           Identificamos páginas do acervo com texto incompleto. A leitura automática
           também pode errar nomes, números e tabelas. O texto disponível não substitui
@@ -14,7 +17,7 @@ export function DiaryExtractionNotice() {
           O hash identifica o arquivo ou texto preservado; não comprova que a
           extração está completa ou correta.
         </p>
-      </div>
+      </details>
     </aside>
   );
 }

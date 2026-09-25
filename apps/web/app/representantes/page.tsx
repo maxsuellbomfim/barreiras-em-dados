@@ -722,17 +722,14 @@ export default async function RepresentativesPage({
           <span className="eyebrow">Registro público, não avaliação</span>
           <h1 id="people-title">Quem representa Barreiras</h1>
           <p>
-            Perfis construídos apenas com registros oficiais, campo a campo
-            com fonte e data. Não há nota ou julgamento: a comparação financeira
-            fica na página de Recursos e usa critérios objetivos e explicados; quando um
-            dado não foi coletado, está escrito &ldquo;não coletado&rdquo; —
-            ausência de informação nunca é apresentada como elogio ou
-            defeito.
+            Prefeito, vereadores e deputados, com os dados oficiais de cada um
+            e a fonte ao lado. Sem notas nem julgamentos: quando um dado não foi
+            coletado, está escrito &ldquo;não coletado&rdquo;.
           </p>
         </div>
 
-        <div className="coverage-note" role="note">
-          <strong>Cobertura desta página, hoje</strong>
+        <details className="coverage-note coverage-details">
+          <summary>O que esta página cobre (e o que ainda não)</summary>
           <ul>
             <li>
               <strong>Prefeitura</strong>: atos aprovados de nomeação e
@@ -765,7 +762,7 @@ export default async function RepresentativesPage({
               em painéis separados, com números e fontes oficiais.
             </li>
           </ul>
-        </div>
+        </details>
 
         <nav className="representation-jump-nav" aria-label="Ir para uma seção">
           <a href="#executivo">Executivo</a>

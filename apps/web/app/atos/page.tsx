@@ -39,10 +39,8 @@ export default async function ApprovedActsPage() {
           <span className="eyebrow">Linha do tempo oficial, ligada à fonte</span>
           <h1 id="acts-title">Atos públicos</h1>
           <p>
-            Consulte nomeações, exonerações e outros atos de pessoal em uma
-            linha do tempo pesquisável. Cada registro mantém o trecho do
-            documento, a edição preservada e um resumo assistido por IA
-            separado do texto oficial. Isto é um registro de atos — não uma
+            Quem foi nomeado ou exonerado na Prefeitura, com o trecho do Diário
+            Oficial que comprova cada ato. É um registro de atos, não uma
             avaliação sobre pessoas.
           </p>
           {result.state === "available" && result.acts.length > 0 ? (
