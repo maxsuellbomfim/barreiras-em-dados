@@ -47,8 +47,11 @@ representante de empresa. Em seguida foi medida a projeção pública
 
 Isso contraria a regra "não publicar CPF completo" (`CLAUDE.md`,
 `docs/COMPLIANCE_GATES.md`). A correção exige mascarar CPF em todas as saídas
-públicas do Diário, incluindo a busca, sem alterar o bruto. Fica registrada
-como pendência prioritária para decisão e PR próprio.
+públicas do Diário, incluindo a busca, sem alterar o bruto. Correção em PR
+próprio: `editorial.mask_cpf_v1` gera `public_full_text`, e as RPCs públicas
+passam a usá-lo. Na medição de 25/09, foram 4.870 máscaras em 906 documentos
+atuais, sem CPF no formato estrito remanescente. Formas muito quebradas pelo
+OCR, sem rótulo "CPF" próximo, podem escapar da regra.
 
 ## Recomendações
 

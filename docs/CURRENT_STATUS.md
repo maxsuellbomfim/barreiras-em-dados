@@ -43,8 +43,11 @@ amplas.
    25/09 mediu 3.093 sequências no formato `000.000.000-00` em 712 documentos
    atuais (260 edições), servidas pelas RPCs públicas do Diário, incluindo a
    busca. A maior parte vem de texto embutido publicado pela prefeitura.
-   Contraria a regra de não publicar CPF completo; a correção (mascarar na
-   projeção pública, sem alterar o bruto) aguarda PR próprio
+   Contraria a regra de não publicar CPF completo. Correção: coluna gerada
+   `public_full_text` com `editorial.mask_cpf_v1` (cpf-mask/1.0.0), usada por
+   edição, lista, busca, atos e resumos. O texto literal e o hash seguem
+   intactos. Migration `diario_public_cpf_mask` aplicada só depois do deploy
+   do site que aceita as versões novas
    ([`reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md`](reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md)).
 1. **Texto do Diário: fila de OCR zerada em 24/09.** A auditoria de 22/09
    achou ~15 mil páginas publicadas cuja extração era só o número da página.
