@@ -380,10 +380,9 @@ export default async function FinancesPage() {
           <span className="eyebrow">Dinheiro público</span>
           <h1 id="finances-title">Finanças públicas, sem esconder a conta.</h1>
           <p>
-            Acompanhe receitas já normalizadas e os documentos oficiais que
-            registram arrecadação, despesas, transferências e relatórios fiscais.
-            Quando um valor ainda estiver em um PDF, mostramos o documento e
-            deixamos explícito que a extração numérica ainda não foi validada.
+            Quanto a Prefeitura arrecada, quanto paga e quanto gasta com a folha,
+            com o documento oficial de cada valor. Quando um número ainda não pôde
+            ser conferido, a página diz isso em vez de mostrar zero.
           </p>
           <ShareLink
             path="/financas"
@@ -391,7 +390,50 @@ export default async function FinancesPage() {
           />
         </div>
 
-        <section className="finance-guide" aria-labelledby="finance-guide-title">
+        <section className="finance-at-a-glance" aria-labelledby="finance-glance-title">
+          <div className="section-heading compact">
+            <span className="eyebrow">Resumo para começar</span>
+            <h2 id="finance-glance-title">Quanto entrou, quanto saiu e quanto devemos</h2>
+            <p>
+              Este painel mostra o último fechamento mensal disponível. “Diferença
+              operacional” não é saldo bancário nem dívida: é apenas receita
+              declarada menos pagamentos do mesmo período.
+            </p>
+          </div>
+          <div className="finance-at-a-glance-grid">
+            <article className="finance-glance-card finance-positive-card">
+              <span>Entrou no último mês</span>
+              <strong>{formatAmount(latestClosure?.revenueReportAmount ?? null)}</strong>
+              <small>{latestClosure ? formatMonthTitle(latestClosure.periodEnd) : "Fechamento ainda não disponível"}</small>
+            </article>
+            <article className="finance-glance-card finance-negative-card">
+              <span>Saiu no último mês</span>
+              <strong>{formatAmount(latestClosure?.expensePaidAmount ?? null)}</strong>
+              <small>Pagamentos efetivados no período</small>
+            </article>
+            <article className="finance-glance-card finance-debt-card">
+              <span>Dívida registrada</span>
+              <strong>
+                {obligationDocuments.length > 0
+                  ? `${obligationDocuments.length.toLocaleString("pt-BR")} documentos em apuração`
+                  : "Fontes em integração"}
+              </strong>
+              <small>Nenhum total é publicado antes da reconciliação das obrigações.</small>
+            </article>
+          </div>
+        </section>
+
+        <section className="finance-status-panel" aria-labelledby="finance-status-title">
+          <div>
+            <span className="eyebrow">Resultado das contas</span>
+            <h2 id="finance-status-title">{financeStatusHeading(latestClosure)}</h2>
+            <p>{financeStatusDescription(latestClosure)}</p>
+          </div>
+          <span className="finance-status-pill">{financeStatusPill(latestClosure)}</span>
+        </section>
+
+        <details className="finance-guide finance-guide-details">
+          <summary>Entenda os termos: reservado, conferido e pago</summary>
           <div className="section-heading compact">
             <span className="eyebrow">Em palavras simples</span>
             <h2 id="finance-guide-title">O que cada número quer dizer</h2>
@@ -429,71 +471,12 @@ export default async function FinancesPage() {
             A versão anterior permanece no histórico de auditoria; ausência de
             valor nunca significa arrecadação ou gasto zero.
           </p>
-        </section>
-
-        <FinanceFamilyCoverageMap families={financeFamilies} />
-
-        <section className="finance-status-panel" aria-labelledby="finance-coverage-hub-title">
-          <div>
-            <span className="eyebrow">Cobertura completa</span>
-            <h2 id="finance-coverage-hub-title">Confira cada período e cada documento</h2>
-            <p>
-              A auditoria separa receitas e despesas, folha, restos a pagar,
-              documentos mensais, RREO e RGF. Os calendários mostram desde 2021 o
-              que foi preservado, o que está em validação e o que não foi localizado.
-            </p>
-          </div>
-          <a className="finance-month-link" href="/financas/cobertura">
-            Abrir cobertura completa por período →
-          </a>
-        </section>
+        </details>
 
         <FinanceSiconfiAnnualTotals
           years={siconfiAnnualYears}
           reconciliationYears={siconfiReconciliationYears}
         />
-
-        <section className="finance-status-panel" aria-labelledby="finance-status-title">
-          <div>
-            <span className="eyebrow">Resultado das contas</span>
-            <h2 id="finance-status-title">{financeStatusHeading(latestClosure)}</h2>
-            <p>{financeStatusDescription(latestClosure)}</p>
-          </div>
-          <span className="finance-status-pill">{financeStatusPill(latestClosure)}</span>
-        </section>
-
-        <section className="finance-at-a-glance" aria-labelledby="finance-glance-title">
-          <div className="section-heading compact">
-            <span className="eyebrow">Resumo para começar</span>
-            <h2 id="finance-glance-title">Quanto entrou, quanto saiu e quanto devemos</h2>
-            <p>
-              Este painel mostra o último fechamento mensal disponível. “Diferença
-              operacional” não é saldo bancário nem dívida: é apenas receita
-              declarada menos pagamentos do mesmo período.
-            </p>
-          </div>
-          <div className="finance-at-a-glance-grid">
-            <article className="finance-glance-card finance-positive-card">
-              <span>Entrou no último mês</span>
-              <strong>{formatAmount(latestClosure?.revenueReportAmount ?? null)}</strong>
-              <small>{latestClosure ? formatMonthTitle(latestClosure.periodEnd) : "Fechamento ainda não disponível"}</small>
-            </article>
-            <article className="finance-glance-card finance-negative-card">
-              <span>Saiu no último mês</span>
-              <strong>{formatAmount(latestClosure?.expensePaidAmount ?? null)}</strong>
-              <small>Pagamentos efetivados no período</small>
-            </article>
-            <article className="finance-glance-card finance-debt-card">
-              <span>Dívida registrada</span>
-              <strong>
-                {obligationDocuments.length > 0
-                  ? `${obligationDocuments.length.toLocaleString("pt-BR")} documentos em apuração`
-                  : "Fontes em integração"}
-              </strong>
-              <small>Nenhum total é publicado antes da reconciliação das obrigações.</small>
-            </article>
-          </div>
-        </section>
 
         <section
           className="finance-payroll-section"
@@ -1315,6 +1298,23 @@ export default async function FinancesPage() {
             </details>
           </section>
         ) : null}
+
+        <section className="finance-status-panel" aria-labelledby="finance-coverage-hub-title">
+          <div>
+            <span className="eyebrow">Cobertura completa</span>
+            <h2 id="finance-coverage-hub-title">Confira cada período e cada documento</h2>
+            <p>
+              A auditoria separa receitas e despesas, folha, restos a pagar,
+              documentos mensais, RREO e RGF. Os calendários mostram desde 2021 o
+              que foi preservado, o que está em validação e o que não foi localizado.
+            </p>
+          </div>
+          <a className="finance-month-link" href="/financas/cobertura">
+            Abrir cobertura completa por período →
+          </a>
+        </section>
+
+        <FinanceFamilyCoverageMap families={financeFamilies} />
 
         <p className="hero-note">
           Metodologia: empenho, liquidação, pagamento e receita são estágios
