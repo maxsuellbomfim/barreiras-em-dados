@@ -9,6 +9,7 @@ import { getOfficialDiaryCatalog } from "../../../../lib/official-diary-catalog"
 import ShareLink from "../../../share-link";
 import { IntegralGazetteExplorer } from "../../integral-gazette-explorer";
 import { DiaryExtractionNotice } from "../../diary-extraction-notice";
+import { ReviewedDiaryIndex } from "../../reviewed-diary-index";
 
 export const revalidate = 300;
 
@@ -121,6 +122,7 @@ export default async function GazetteEditionPage({ params }: EditionPageParams) 
         </div>
 
         <DiaryExtractionNotice />
+        {edition ? <ReviewedDiaryIndex edition={edition} /> : null}
         {result.state === "unavailable" ? (
           <div className="collection-unavailable" role="status">
             <div>

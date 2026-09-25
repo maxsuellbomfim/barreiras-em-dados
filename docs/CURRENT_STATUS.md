@@ -32,6 +32,10 @@ amplas.
   tentativa agendada" (PR #791).
 - **Sitemap:** de 16 para ~1.050 URLs, com edições, contratações, fornecedores
   pessoa jurídica e meses financeiros completos (PR #792).
+- **Diário 4310/2024:** índice de 15 documentos (páginas 1–137) conferido
+  visualmente, exibido só para o PDF de hash `424488a81d36041e...`. Os links
+  abrem o original na página inicial; não publica OCR nem PDFs derivados e não
+  comprova pagamentos (PR #787).
 
 ## Pendências abertas, por prioridade
 
