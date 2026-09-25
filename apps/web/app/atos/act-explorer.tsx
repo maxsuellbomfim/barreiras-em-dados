@@ -131,6 +131,8 @@ function searchableText(act: ApprovedGazetteAct) {
     .toLocaleLowerCase("pt-BR");
 }
 
+const ACTS_PER_STEP = 20;
+
 export function ActExplorer({
   acts,
 }: Readonly<{ acts: readonly ApprovedGazetteAct[] }>) {
@@ -188,6 +190,11 @@ export function ActExplorer({
       return true;
     });
   }, [acts, from, organization, query, to, type]);
+
+  // Mostra os atos aos poucos; a contagem volta ao início quando um filtro muda.
+  const filterKey = [query, type, organization, from, to].join("|");
+  const [shown, setShown] = useState({ key: filterKey, count: ACTS_PER_STEP });
+  const visibleCount = shown.key === filterKey ? shown.count : ACTS_PER_STEP;
 
   function clearFilters() {
     setQuery("");
@@ -252,11 +259,25 @@ export function ActExplorer({
       </div>
 
       {filtered.length > 0 ? (
+        <>
         <div className="track-grid">
-          {filtered.map((act) => (
+          {filtered.slice(0, visibleCount).map((act) => (
             <ActCard key={act.actId} act={act} />
           ))}
         </div>
+        {filtered.length > visibleCount ? (
+          <button
+            type="button"
+            className="acts-show-more"
+            onClick={() =>
+              setShown({ key: filterKey, count: visibleCount + ACTS_PER_STEP })
+            }
+          >
+            Mostrar mais {Math.min(ACTS_PER_STEP, filtered.length - visibleCount)} de{" "}
+            {(filtered.length - visibleCount).toLocaleString("pt-BR")} restantes
+          </button>
+        ) : null}
+        </>
       ) : (
         <div className="collection-unavailable" role="status">
           <div>

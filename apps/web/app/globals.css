@@ -5056,7 +5056,8 @@ footer {
 .finance-coverage-jump-nav {
   position: sticky;
   z-index: 4;
-  top: 0.8rem;
+  /* Abaixo do cabeçalho fixo; com 0.8rem a barra ficava escondida sob ele. */
+  top: 5.4rem;
   display: flex;
   gap: 0.35rem;
   margin: 1.25rem 0 0;
@@ -9565,4 +9566,58 @@ footer {
   color: var(--muted);
   font-size: 1.25rem;
   white-space: normal;
+
+@media (max-width: 720px) {
+  .representation-jump-nav,
+  .finance-coverage-jump-nav {
+    top: 4.6rem;
+  }
+}
+
+/* Âncoras não ficam escondidas sob o cabeçalho fixo. */
+[id] {
+  scroll-margin-top: 8rem;
+}
+
+/* Compras: cartões mais curtos; o título completo fica na página da
+   contratação. */
+.digest-card .procurement-object {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.procurement-more {
+  margin-top: 1.25rem;
+}
+
+.procurement-more > summary {
+  min-height: 3rem;
+  padding: 0.8rem 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(24, 33, 52, 0.14);
+  border-radius: 0.85rem;
+  background: #fff;
+  color: var(--blue-dark);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.procurement-more[open] > summary {
+  margin-bottom: 1.25rem;
+}
+
+.acts-show-more {
+  min-height: 3rem;
+  margin-top: 1.25rem;
+  padding: 0 1.3rem;
+  border: 1px solid rgba(24, 33, 52, 0.14);
+  border-radius: 0.85rem;
+  background: #fff;
+  color: var(--blue-dark);
+  font-size: 0.95rem;
+  font-weight: 650;
+  cursor: pointer;
 }
