@@ -278,7 +278,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         modalidade=arguments.modalidade,
         window_coverage_status="partial" if scoped_backfill else summary.outcome.value,
     )
-    return 1 if scoped_backfill or summary.outcome is CollectionOutcome.PARTIAL else 0
+    if summary.outcome is CollectionOutcome.PARTIAL:
+        return 1
+    # Modalidade isolada respondeu por completo, mas a janela geral continua
+    # parcial até a verificação integral: aviso, não falha técnica.
+    return 2 if scoped_backfill else 0
 
 
 def _build_cloud_service(

@@ -591,6 +591,26 @@ class PncpContratacoesMainExitTests(unittest.TestCase):
             ].endswith(":modality:11")
         )
         self.assertEqual(log.call_args.kwargs["window_coverage_status"], "partial")
+        self.assertEqual(result, 2)
+
+    def test_backfill_isolated_retry_failure_still_exits_one(self):
+        from datetime import date
+
+        summary = PncpContratacoesCollectionSummary(
+            0, 0, 0, (), failed_modalities=(11,)
+        )
+        result, _, _, log, _, _ = self.run_main(
+            summary,
+            horizon_reached=True,
+            partial=(date(2024, 3, 15), date(2024, 4, 13)),
+            checkpoint={
+                "failed_modalities": [11],
+                "deferred_modalities": [],
+                "truncated_modalities": [],
+            },
+            retry_modality=11,
+        )
+        self.assertEqual(log.call_args.kwargs["window_coverage_status"], "partial")
         self.assertEqual(result, 1)
 
     def test_pending_checkpoint_is_strict_and_deterministic(self):

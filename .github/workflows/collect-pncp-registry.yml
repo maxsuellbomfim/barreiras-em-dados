@@ -131,9 +131,16 @@ jobs:
         id: collect_backfill
         continue-on-error: true
         if: github.event.schedule == '43 5 * * *' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'full' || inputs.mode == 'backfill'))
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_pncp_contratacoes
-          --backfill
+        run: |
+          status=0
+          python -B -m barreiras_collectors.commands.collect_pncp_contratacoes --backfill || status=$?
+          if [ "$status" = "2" ]; then
+            echo "::warning::Modalidade pendente consultada por completo; a janela retroativa segue parcial até a verificação integral."
+            echo "### PNCP: modalidade pendente consultada, janela ainda parcial" >> "$GITHUB_STEP_SUMMARY"
+            echo "A modalidade selecionada respondeu por completo nesta execução. A janela só fecha quando todas as modalidades pendentes forem consultadas e a janela inteira for verificada de novo; isso não comprova cobertura completa." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          exit "$status"
 
       - name: Reprocessar janela PNCP
         id: collect_replay
