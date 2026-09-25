@@ -120,8 +120,12 @@ class PostgresExtractionRepository:
                         or (
                           artifact.metadata ->> 'schema_name'
                             = 'gazette-direct-edition'
+                          -- octet_length lê o tamanho sem descompactar o texto;
+                          -- numeração isolada nunca passa de poucos bytes.
                           and page.extraction_method <> 'ocr'
-                          and btrim(page.text_content) = page.page_number::text
+                          and case when octet_length(page.text_content) <= 64
+                            then btrim(page.text_content) = page.page_number::text
+                            else false end
                         )
                       )
                       and not exists (
@@ -132,8 +136,10 @@ class PostgresExtractionRepository:
                           and supplemental.text_content is not null
                           and (
                             supplemental.extraction_method = 'ocr'
-                            or btrim(supplemental.text_content)
-                              <> supplemental.page_number::text
+                            or case when octet_length(supplemental.text_content) > 64
+                              then true
+                              else btrim(supplemental.text_content)
+                                <> supplemental.page_number::text end
                           )
                       )
                   )
@@ -1089,7 +1095,10 @@ class PostgresExtractionRepository:
                           = 'gazette-direct-edition'
                       and artifact.content_type = 'application/pdf'
                       and page.extraction_method <> 'ocr'
-                      and btrim(page.text_content) = page.page_number::text
+                      -- octet_length lê o tamanho sem descompactar o texto.
+                      and case when octet_length(page.text_content) <= 64
+                        then btrim(page.text_content) = page.page_number::text
+                        else false end
                     )
                   )
                   and not exists (
@@ -1102,7 +1111,11 @@ class PostgresExtractionRepository:
                       and (
                         page.text_content is null
                         or supplemental.extraction_method = 'ocr'
-                        or btrim(supplemental.text_content) <> page.page_number::text
+                        or case when octet_length(supplemental.text_content) > 64
+                          then true
+                          else btrim(supplemental.text_content)
+                            <> page.page_number::text
+                          end
                       )
                   )
                 order by
