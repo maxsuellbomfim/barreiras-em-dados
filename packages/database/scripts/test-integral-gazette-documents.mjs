@@ -39,7 +39,7 @@ const withdrawnVersionId = "00000000-0000-0000-0000-000000000910";
 const shaA = "a".repeat(64);
 const originalText = "PORTARIA N 261\nTexto integral oficial.";
 const correctedText = "PORTARIA N 261\nTexto integral corrigido.";
-const secondText = "DECRETO N 1\nTexto integral do segundo documento.";
+const secondText = "DECRETO N 1\nTexto integral do segundo documento. CPF nº 123.456.789-09.";
 const hybridText = "Página híbrida preservada.";
 const originalMixedText = `${originalText}\n\n${hybridText}`;
 const latePageOneText = "Trecho tardio da primeira página.";
@@ -345,6 +345,35 @@ try {
       "page_end", "page_start", "publication_status", "text_sha256",
     ]);
   }
+  assert.equal(projection.rows[0].methodology_version, "integral-gazette-documents/1.1.0");
+  const masked = projection.rows[0].documents[1];
+  assert.equal(
+    masked.full_text,
+    "DECRETO N 1\nTexto integral do segundo documento. CPF nº ***.***.***-**.",
+  );
+  assert.equal(masked.text_sha256, secondTextSha);
+  const searchByCpf = await database.query(
+    "select * from api.search_integral_gazette_editions('123.456.789-09', 20, 0)",
+  );
+  assert.equal(searchByCpf.rows.length, 0);
+  const maskCases = await database.query(`
+    select editorial.mask_cpf_v1(input) as output from (values
+      ('CPF/MF sob o nº 123.456.789-' || chr(10) || '09, conforme'),
+      ('inscrito no CIN nº 12345678909'),
+      ('CPF/CNPJ nº 12.345.678/0001-90'),
+      ('CPF Ofertada 12.345.678,90'),
+      ('cinco 123.456.789 unidades'),
+      ('CPF: ***.456.789-**')
+    ) as cases(input)
+  `);
+  assert.deepEqual(maskCases.rows.map((row) => row.output), [
+    "CPF/MF sob o nº ***.***.***-**, conforme",
+    "inscrito no CIN nº ***.***.***-**",
+    "CPF/CNPJ nº 12.345.678/0001-90",
+    "CPF Ofertada 12.345.678,90",
+    "cinco 123.456.789 unidades",
+    "CPF: ***.456.789-**",
+  ]);
   const document = projection.rows[0].documents[0];
   assert.equal(document.document_id, currentVersionId);
   assert.equal(document.publication_status, "validated");

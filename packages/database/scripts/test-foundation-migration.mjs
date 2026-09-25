@@ -1211,7 +1211,7 @@ try {
       gazette_url: null,
       excerpt: "NOMEAR FULANO DE TAL",
       text_source: "embedded_text",
-      methodology_version: "approved-gazette-acts/1.7.0",
+      methodology_version: "approved-gazette-acts/1.8.0",
     },
   ]);
 

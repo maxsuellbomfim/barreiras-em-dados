@@ -37,6 +37,7 @@ const SUPPORTED_APPROVED_ACTS_METHODOLOGY_VERSIONS = new Set([
   "approved-gazette-acts/1.5.0",
   "approved-gazette-acts/1.6.0",
   "approved-gazette-acts/1.7.0",
+  "approved-gazette-acts/1.8.0",
 ]);
 
 function optionalString(value: unknown): string | null {

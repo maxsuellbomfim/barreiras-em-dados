@@ -65,7 +65,8 @@ function DocumentDetails({
         ) : null}
         <pre className="integral-document-text">{document.fullText}</pre>
         <p className="integral-document-evidence">
-          Texto extraído preservado · hash {formatHash(document.textSha256)}
+          CPF mascarado na exibição · hash do texto extraído preservado{" "}
+          {formatHash(document.textSha256)}
         </p>
       </div>
     </details>
