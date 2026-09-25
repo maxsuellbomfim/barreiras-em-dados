@@ -78,17 +78,22 @@ test("replay de descoberta isolada não executa itens, contratos ou normalizaç�
     assert.equal(enabled(name, {mode:"discovery_only"}), false, name);
 });
 
-test("contratos convertem somente código 2 em aviso, sem ocultar falha técnica", () => {
-  const script = step(contracts).split(/\r?\n        run: \|\r?\n/)[1]
-    .split(/\r?\n/).map(line => line.replace(/^          /, "")).join("\n");
+test("contratos e backfill convertem somente código 2 em aviso, sem ocultar falha técnica", () => {
   const bash = process.platform === "win32" ? "C:\\Program Files\\Git\\bin\\bash.exe" : "bash";
-  for (const code of [0, 1, 2, 124, 137]) {
-    const result = spawnSync(bash, ["--noprofile", "--norc", "-c",
-      `set -e; python() { return ${code}; }; export GITHUB_STEP_SUMMARY=/dev/null;\n${script}`], {encoding:"utf8"});
-    assert.equal(result.status, code === 2 ? 0 : code);
-    assert.equal(result.stdout.includes("::warning::"), code === 2);
+  for (const [name, wording] of [
+    [contracts, /cobertura completa nem inexistência/],
+    [backfill, /--backfill[\s\S]*não comprova cobertura completa/],
+  ]) {
+    const script = step(name).split(/\r?\n        run: \|\r?\n/)[1]
+      .split(/\r?\n/).map(line => line.replace(/^          /, "")).join("\n");
+    for (const code of [0, 1, 2, 124, 137]) {
+      const result = spawnSync(bash, ["--noprofile", "--norc", "-c",
+        `set -e; python() { return ${code}; }; export GITHUB_STEP_SUMMARY=/dev/null;\n${script}`], {encoding:"utf8"});
+      assert.equal(result.status, code === 2 ? 0 : code, `${name}: ${code}`);
+      assert.equal(result.stdout.includes("::warning::"), code === 2, `${name}: ${code}`);
+    }
+    assert.match(script, wording);
   }
-  assert.match(script,/cobertura completa nem inexistência/);
 });
 
 test("consulta por publicação fica isolada e transmite inputs somente pelo ambiente", () => {

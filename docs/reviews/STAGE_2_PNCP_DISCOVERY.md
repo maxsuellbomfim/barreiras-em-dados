@@ -7,9 +7,11 @@ adiadas ou truncadas. O seletor consulta uma por execução, em ordem de tentati
 mais antiga (sem tentativa primeiro). Só deixa de repetir uma modalidade se sua
 partição possui conclusão consistente, execução bem-sucedida posterior à tentativa
 geral, mesmas datas e nenhuma falha/adiamento/truncamento. O checkpoint geral não
-é reescrito por essa seleção. A execução mantém saída 1 e registra
+é reescrito por essa seleção. A execução registra
 `window_coverage_status=partial`, mesmo quando a modalidade isolada termina vazia
-ou completa. Ao resolver as pendências, a próxima execução verifica a janela
+ou completa. Nesse caso sai com código 2, que o workflow mostra como aviso (mesmo
+padrão dos contratos); se a própria modalidade isolada falhar, trunca ou é adiada,
+a saída continua 1 e o workflow falha. Ao resolver as pendências, a próxima execução verifica a janela
 integral, em vez de somar resultados antigos e inferir cobertura completa.
 Sem checkpoint válido, usa a consulta integral existente. Não muda o cron.
 
