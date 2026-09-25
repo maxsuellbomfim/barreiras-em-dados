@@ -714,6 +714,12 @@ export default async function RepresentativesPage({
         )
       : [];
 
+  // Prefeito e vice ficam visíveis; as secretarias, recolhidas.
+  const executiveProfiles =
+    executiveProfilesResult.state === "available" ? executiveProfilesResult.profiles : [];
+  const executiveLeaders = executiveProfiles.filter((profile) => profile.role !== "secretario");
+  const executiveSecretaries = executiveProfiles.filter((profile) => profile.role === "secretario");
+
   return (
     <main>
 
@@ -805,19 +811,46 @@ export default async function RepresentativesPage({
               </p>
             </div>
             {executiveProfilesResult.state === "available" && executiveProfilesResult.profiles.length > 0 ? (
-              <div className="person-grid">
-                {executiveProfilesResult.profiles.map((profile) => (
-                  <ExecutiveProfileCard
-                    key={profile.profileKey}
-                    profile={profile}
-                    voteLinks={votesForRepresentative(
-                      representativeVotes,
-                      "executive",
-                      profile.profileKey,
-                    )}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="person-grid">
+                  {executiveLeaders.map((profile) => (
+                    <ExecutiveProfileCard
+                      key={profile.profileKey}
+                      profile={profile}
+                      voteLinks={votesForRepresentative(
+                        representativeVotes,
+                        "executive",
+                        profile.profileKey,
+                      )}
+                    />
+                  ))}
+                </div>
+                {executiveSecretaries.length > 0 ? (
+                  <details className="representation-collapsible representation-directory-collapsible">
+                    <summary>
+                      <span>
+                        <strong>Ver as secretarias</strong>
+                      </span>
+                      <span className="representation-collapsible-meta">
+                        {executiveSecretaries.length.toLocaleString("pt-BR")} perfis · abrir
+                      </span>
+                    </summary>
+                    <div className="person-grid">
+                      {executiveSecretaries.map((profile) => (
+                        <ExecutiveProfileCard
+                          key={profile.profileKey}
+                          profile={profile}
+                          voteLinks={votesForRepresentative(
+                            representativeVotes,
+                            "executive",
+                            profile.profileKey,
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
+              </>
             ) : (
               <div className="collection-unavailable" role="status">
                 <div>
