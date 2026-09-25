@@ -1,3 +1,4 @@
+import { splitProcurementTitle } from "../../lib/procurement-title.mjs";
 import type { Procurement } from "../../lib/pncp-procurements";
 import { pncpProcurementSourceUrl } from "../../lib/pncp-source-url";
 
@@ -66,6 +67,7 @@ export function ProcurementCard({
     interrupted: "Consulta interrompida",
     unavailable: "Estado da consulta temporariamente indisponível",
   };
+  const title = splitProcurementTitle(procurement.objeto);
   return (
     <article className="digest-card" aria-label="Contratação pública">
       <div className="track-top">
@@ -79,13 +81,17 @@ export function ProcurementCard({
           {procurement.situacao ?? "situação no PNCP"}
         </span>
       </div>
-      <h2 className="procurement-object">
+      {title.platform ? (
+        <span className="procurement-platform">via {title.platform}</span>
+      ) : null}
+      <h2
+        className={title.allCaps ? "procurement-object is-all-caps" : "procurement-object"}
+        title={procurement.objeto ?? undefined}
+      >
         {compact ? (
-          <a href={procurementDetailPath(procurement.controlNumber)}>
-            {procurement.objeto}
-          </a>
+          <a href={procurementDetailPath(procurement.controlNumber)}>{title.text}</a>
         ) : (
-          procurement.objeto
+          title.text
         )}
       </h2>
       <dl className="procurement-values">

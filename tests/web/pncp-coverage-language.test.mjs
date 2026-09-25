@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import test from "node:test";
+import * as procurementTitle from "../../apps/web/lib/procurement-title.mjs";
 
 const requireWeb = createRequire(new URL("../../apps/web/package.json", import.meta.url));
 const ts = requireWeb("typescript");
@@ -18,7 +19,10 @@ new Function("module", "exports", ts.transpileModule(urlSource, { compilerOption
   module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
 }}).outputText)(urlMod, urlMod.exports);
 new Function("require", "module", "exports", compiled)(
-  id => id === "../../lib/pncp-source-url" ? urlMod.exports : requireWeb(id), mod, mod.exports,
+  id => id === "../../lib/pncp-source-url" ? urlMod.exports
+    : id === "../../lib/procurement-title.mjs" ? procurementTitle
+    : requireWeb(id),
+  mod, mod.exports,
 );
 const { ProcurementExplorer, ProcurementCard } = mod.exports;
 const fixture = state => ({

@@ -8632,3 +8632,23 @@ footer {
     padding: 0.6rem 0.75rem;
   }
 }
+
+/* Compras: prefixo de plataforma como etiqueta e títulos em caixa alta com
+   peso e tamanho menores (o texto do PNCP não é alterado). */
+.procurement-platform {
+  display: inline-block;
+  margin-top: 0.6rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: #eef1f6;
+  color: #5b667a;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.procurement-object.is-all-caps {
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+}
