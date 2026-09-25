@@ -12,13 +12,23 @@ export type GazetteDocument = Readonly<{
   publicationStatus: "validated" | "edition_fallback";
 }>;
 
+// 1.1.0: texto público com CPF mascarado (cpf-mask/1.0.0); o hash continua
+// sendo o do texto literal preservado. Aceitar as duas evita página vazia se
+// o banco e o deploy do site não mudarem no mesmo instante.
+const INTEGRAL_GAZETTE_METHODOLOGY_VERSIONS = [
+  "integral-gazette-documents/1.0.0",
+  "integral-gazette-documents/1.1.0",
+] as const;
+type IntegralGazetteMethodologyVersion =
+  (typeof INTEGRAL_GAZETTE_METHODOLOGY_VERSIONS)[number];
+
 export type IntegralGazetteEdition = Readonly<{
   edition: number;
   editionYear: number;
   editionDate: string | null;
   artifactSha256: string;
   documents: readonly GazetteDocument[];
-  methodologyVersion: "integral-gazette-documents/1.0.0";
+  methodologyVersion: IntegralGazetteMethodologyVersion;
   officialPublicationUrl: string | null;
   catalogUrl: string | null;
   catalogDate: string | null;
@@ -117,7 +127,9 @@ function parseIntegralGazetteEdition(
       (typeof editionDate !== "string" || !ISO_DATE.test(editionDate))) ||
     typeof artifactSha256 !== "string" ||
     !SHA256.test(artifactSha256) ||
-    row.methodology_version !== "integral-gazette-documents/1.0.0" ||
+    !INTEGRAL_GAZETTE_METHODOLOGY_VERSIONS.includes(
+      row.methodology_version as IntegralGazetteMethodologyVersion,
+    ) ||
     !Array.isArray(row.documents) ||
     row.documents.length === 0
   ) {
@@ -145,7 +157,7 @@ function parseIntegralGazetteEdition(
     editionDate,
     artifactSha256,
     documents,
-    methodologyVersion: "integral-gazette-documents/1.0.0",
+    methodologyVersion: row.methodology_version as IntegralGazetteMethodologyVersion,
     officialPublicationUrl: null,
     catalogUrl: null,
     catalogDate: null,

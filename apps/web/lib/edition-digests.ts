@@ -155,7 +155,8 @@ function parseDigest(row: Record<string, unknown>): EditionDigest | null {
     items.length === 0 ||
     row.methodology_version !== "edition-digests/1.0.0" &&
     row.methodology_version !== "edition-digests/1.1.0" &&
-    row.methodology_version !== "edition-digests/1.2.0"
+    row.methodology_version !== "edition-digests/1.2.0" &&
+    row.methodology_version !== "edition-digests/1.3.0"
   ) {
     return null;
   }
