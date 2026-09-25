@@ -122,10 +122,13 @@ type ProcurementsPageProps = {
     orgao?: string;
     contratos?: string;
     processos?: string;
+    pagina?: string;
   }>;
 };
 
 type PageQuery = Readonly<Record<string, string | undefined>>;
+
+const PROCUREMENTS_PER_PAGE = 20;
 
 function parsePanelPage(value: string | undefined): number {
   const page = Number.parseInt(value ?? "1", 10);
@@ -687,6 +690,7 @@ function MunicipalContractsPanel({
 
 export default async function ProcurementsPage({ searchParams }: ProcurementsPageProps) {
   const params = await searchParams;
+  const procurementPage = parsePanelPage(params.pagina);
   const filters: ProcurementFilters = {
     supplierKey: cleanFilter(params.fornecedor, 200),
     fiscalYear: parseYear(params.ano),
@@ -711,7 +715,11 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
     municipalProcessesResult,
     supplierSanctionsResult,
   ] = await Promise.all([
-    getPncpProcurements(filters),
+    getPncpProcurements(
+      filters,
+      PROCUREMENTS_PER_PAGE + 1,
+      (procurementPage - 1) * PROCUREMENTS_PER_PAGE,
+    ),
     hasFilters
       ? Promise.resolve({ state: "available" as const, suppliers: [] as const })
       : getPublicSupplierConcentration(),
@@ -889,7 +897,17 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
               </section>
             ) : null}
             <div id="procurements-list">
-              <ProcurementExplorer procurements={result.procurements} />
+              <ProcurementExplorer
+                procurements={result.procurements.slice(0, PROCUREMENTS_PER_PAGE)}
+              />
+              <PanelPagination
+                query={params}
+                param="pagina"
+                page={procurementPage}
+                hasMore={result.procurements.length > PROCUREMENTS_PER_PAGE}
+                anchor="procurements-list"
+                label="contratações"
+              />
             </div>
           </>
         )}

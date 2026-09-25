@@ -8591,26 +8591,8 @@ footer {
   -webkit-line-clamp: 3;
 }
 
-.procurement-more {
-  margin-top: 1.25rem;
-}
 
-.procurement-more > summary {
-  min-height: 3rem;
-  padding: 0.8rem 1.2rem;
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(24, 33, 52, 0.14);
-  border-radius: 0.85rem;
-  background: #fff;
-  color: var(--blue-dark);
-  font-weight: 650;
-  cursor: pointer;
-}
 
-.procurement-more[open] > summary {
-  margin-bottom: 1.25rem;
-}
 
 .acts-show-more {
   min-height: 3rem;

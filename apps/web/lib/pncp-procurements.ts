@@ -553,6 +553,8 @@ export async function getPncpProcurement(
 export async function getPncpProcurements(
   filters: ProcurementFilters & Readonly<{ controlNumber?: string }> = {},
   pageSize = 60,
+  // Com offset, usa a RPC paginada; sem ele, a consulta original.
+  offset: number | null = null,
 ): Promise<ProcurementsResult> {
   const supabaseUrl = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
   const publishableKey =
@@ -568,7 +570,7 @@ export async function getPncpProcurements(
 
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_pncp_procurements_normalized`,
+      `${supabaseUrl}/rest/v1/rpc/${offset === null ? "get_pncp_procurements_normalized" : "get_pncp_procurements_page"}`,
       {
         method: "POST",
         headers: {
@@ -580,6 +582,7 @@ export async function getPncpProcurements(
         },
         body: JSON.stringify({
           page_size: pageSize,
+          ...(offset === null ? {} : { page_offset: offset }),
           ...(filters.controlNumber
             ? { control_number_filter: filters.controlNumber }
             : {}),
