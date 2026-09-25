@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 import io
 import shutil
+import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from unittest.mock import patch
 
 from barreiras_docproc.ocr import (
@@ -95,10 +97,41 @@ class OcrPageTests(unittest.TestCase):
         ):
             engine = TesseractEngine(page_segmentation_mode=6)
 
-        self.assertEqual(
-            engine.parser_version,
-            f"{OCR_PARSER_VERSION}+tesseract-psm6",
-        )
+        # Sem o modelo fixado, a versão continua sendo a do tessdata_fast.
+        self.assertEqual(engine.parser_version, "gazette-ocr-text/1.0.0+tesseract-psm6")
+
+    def test_pinned_model_is_verified_and_versioned(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch(
+                "barreiras_docproc.ocr.shutil.which",
+                return_value="/usr/bin/tesseract",
+            ),
+        ):
+            model = Path(directory) / "por.traineddata"
+            model.write_bytes(b"modelo")
+            digest = hashlib.sha256(b"modelo").hexdigest()
+            engine = TesseractEngine(
+                tessdata_dir=directory, expected_model_sha256=digest
+            )
+            self.assertEqual(
+                engine.parser_version, f"{OCR_PARSER_VERSION}+tesseract-psm3"
+            )
+            self.assertEqual(OCR_PARSER_VERSION, "gazette-ocr-text/1.1.0")
+            with self.assertRaisesRegex(OcrError, "hash fixado"):
+                TesseractEngine(tessdata_dir=directory, expected_model_sha256="0" * 64)
+            with self.assertRaisesRegex(OcrError, "juntos"):
+                TesseractEngine(tessdata_dir=directory)
+
+    def test_gazette_command_requires_pinned_model(self) -> None:
+        from barreiras_docproc.commands.ocr_gazette_pages import build_engine
+
+        with patch(
+            "barreiras_docproc.ocr.shutil.which", return_value="/usr/bin/tesseract"
+        ):
+            with self.assertRaisesRegex(OcrError, "GAZETTE_TESSDATA_DIR"):
+                build_engine("querido-diario", {})
+            self.assertIsNone(build_engine("tcm-ba", {}).tessdata_dir)
 
     def test_stored_parser_version_distinguishes_tcm_ba_from_gazettes(self) -> None:
         self.assertEqual(
@@ -110,6 +143,7 @@ class OcrPageTests(unittest.TestCase):
             TCM_BA_OCR_PARSER_VERSION,
         )
         self.assertNotIn("gazette", TCM_BA_OCR_PARSER_VERSION)
+
 
 @unittest.skipUnless(
     shutil.which("tesseract"),

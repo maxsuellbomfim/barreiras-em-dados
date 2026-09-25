@@ -65,7 +65,9 @@ amplas.
    por dia (suficiente para as ~700 páginas novas diárias do backfill).
    Auditoria por amostragem (25/09, 30 páginas): texto corrido e valores
    monetários conferidos fiéis, mas `§` vira `8` de forma sistemática (2.163
-   páginas), tabelas perdem colunas e há erros de dígito isolados
+   páginas), tabelas perdem colunas e há erros de dígito isolados. Desde 25/09, páginas
+   novas usam o modelo tessdata_best (`gazette-ocr-text/1.1.0`), que corrige
+   parte dos dígitos; as já lidas não foram refeitas
    ([`reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md`](reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md)).
 2. **Rastro do dinheiro ponta a ponta (gate 4), contrato → empenho →
    liquidação → pagamento no ar:** empenhos e liquidações individuais do sistema

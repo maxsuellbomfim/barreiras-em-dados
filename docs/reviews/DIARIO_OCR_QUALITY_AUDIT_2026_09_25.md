@@ -82,12 +82,11 @@ preciso" é o `tessdata_best`, 8,2 MB, SHA-256 `711de9db…`.
 1. **Privacidade:** feito em 25/09 (PR #829, migration `20260925121627`).
    Confirmado pela API anônima: nenhum CPF completo nas saídas, e a busca
    por CPF volta vazia.
-2. **`§` e dígitos:** trocar o modelo não resolve o `§` sem perder acentos.
-   O modelo `por` preciso corrige erros de dígito, e a troca exigiria refazer
-   o OCR das 16.877 páginas como nova versão. É decisão pendente de
-   aprovação. Para o `§`, a alternativa restante é uma regra determinística
-   versionada, restrita a "art. N, [8S]Nº", sem inferência fora desse
-   contexto.
+2. **`§` e dígitos (decidido em 25/09):** o OCR do Diário passa a usar o
+   modelo `por` preciso (tessdata_best, commit `9ddc24e7`, SHA-256
+   `711de9db…`), gravado como `gazette-ocr-text/1.1.0`, mas só nas páginas
+   ainda não lidas. As 16.877 páginas já lidas continuam na versão 1.0.0. O
+   `§` fica apenas documentado; não há correção por regra.
 3. **Tabelas:** não usar o texto OCR para extrair quantidade ou preço
    unitário sem revisão. O aviso de transcrição atual continua necessário.
 4. **Máscara de CPF da fonte:** tratar como ilegível no texto OCR, e não como
