@@ -82,6 +82,7 @@ function compact(value: string): string {
 }
 
 type GlanceCard = Readonly<{
+  unavailable?: boolean;
   question: string;
   value: string;
   exact: string | null;
@@ -90,6 +91,104 @@ type GlanceCard = Readonly<{
   linkLabel: string;
 }>;
 
+type Loaded<T> = T extends Promise<infer R> ? R : never;
+
+// Falha de consulta não some da página nem vira zero: o cartão continua,
+// com o aviso e o caminho para a seção.
+function unavailable(question: string, href: string): GlanceCard {
+  return {
+    unavailable: true,
+    question,
+    value: "Temporariamente indisponível",
+    exact: null,
+    context:
+      "Falha ao consultar a fonte agora, não ausência de dados. Tente de novo em alguns minutos.",
+    href,
+    linkLabel: "Abrir a seção",
+  };
+}
+
+function annualCard(
+  annual: Loaded<ReturnType<typeof getPublicSiconfiAnnualTotals>>,
+): GlanceCard | null {
+  if (annual.state !== "available") return null;
+  const year = [...annual.years]
+    .sort((left, right) => right.fiscalYear - left.fiscalYear)
+    .find((item) =>
+      item.metrics.some((metric) => metric.metricKey === "gross_revenue_realized"),
+    );
+  const revenue = year?.metrics.find(
+    (metric) => metric.metricKey === "gross_revenue_realized",
+  );
+  if (!year || !revenue) return null;
+  const paid = year.metrics.find((metric) => metric.metricKey === "expense_paid");
+  return {
+    question: `Quanto a Prefeitura arrecadou em ${year.fiscalYear}?`,
+    value: compact(revenue.amount),
+    exact: formatBrlDecimal(revenue.amount),
+    context: paid
+      ? `Pagou ${compact(paid.amount)} no mesmo ano. Números do ano fechado, declarados ao Tesouro Nacional.`
+      : "Número do ano fechado, declarado ao Tesouro Nacional.",
+    href: `/financas/ano/${year.fiscalYear}`,
+    linkLabel: `Ver o ano de ${year.fiscalYear}`,
+  };
+}
+
+function monthlyCard(
+  monthly: Loaded<ReturnType<typeof getPublicMonthlyFinanceClosures>>,
+): GlanceCard | null {
+  if (monthly.state !== "available") return null;
+  const latest = [...monthly.closures]
+    .filter((closure) => closure.revenueReportAmount && closure.expensePaidAmount)
+    .sort((left, right) => right.periodEnd.localeCompare(left.periodEnd))[0];
+  if (!latest?.revenueReportAmount || !latest.expensePaidAmount) return null;
+  return {
+    question: `Quanto entrou e quanto saiu em ${monthLabel(latest.periodStart)}?`,
+    value: compact(latest.revenueReportAmount),
+    exact: `Entrou ${formatBrlDecimal(latest.revenueReportAmount)}`,
+    context: `Saíram ${compact(latest.expensePaidAmount)} em pagamentos no mesmo mês. A diferença não é saldo bancário.`,
+    href: monthlyFinanceHref(latest.periodStart),
+    linkLabel: "Ver o mês",
+  };
+}
+
+function payrollCard(
+  payroll: Loaded<ReturnType<typeof getPublicPayrollMonths>>,
+): GlanceCard | null {
+  if (payroll.state !== "available") return null;
+  const latest = [...payroll.months].sort((left, right) =>
+    right.referenceMonth.localeCompare(left.referenceMonth),
+  )[0];
+  if (!latest) return null;
+  return {
+    question: `Quanto custou a folha de ${monthLabel(latest.referenceMonth)}?`,
+    value: compact(latest.grossAmount),
+    exact: `${formatBrlDecimal(latest.grossAmount)} brutos`,
+    context: `${latest.employeeCount.toLocaleString("pt-BR")} vínculos na folha regular da Prefeitura, sem nomes nem salários individuais.`,
+    href: payrollMonthHref(latest.referenceMonth),
+    linkLabel: "Ver a folha do mês",
+  };
+}
+
+function diaryCard(
+  diary: Loaded<ReturnType<typeof getOfficialDiaryCatalog>>,
+): GlanceCard | null {
+  if (diary.state !== "available") return null;
+  const latest = [...diary.entries].sort(
+    (left, right) =>
+      right.editionDate.localeCompare(left.editionDate) || right.edition - left.edition,
+  )[0];
+  if (!latest) return null;
+  return {
+    question: "O que saiu no Diário Oficial?",
+    value: `Edição ${latest.edition}`,
+    exact: null,
+    context: `Publicada em ${fullDate.format(new Date(`${latest.editionDate}T12:00:00-03:00`))}. Texto organizado por documento, com o PDF oficial ao lado.`,
+    href: `/diario/${latest.editionYear}/${latest.edition}`,
+    linkLabel: "Abrir a edição",
+  };
+}
+
 async function loadGlance(): Promise<readonly GlanceCard[]> {
   const [annual, monthly, payroll, diary] = await Promise.all([
     getPublicSiconfiAnnualTotals(),
@@ -97,82 +196,15 @@ async function loadGlance(): Promise<readonly GlanceCard[]> {
     getPublicPayrollMonths(3),
     getOfficialDiaryCatalog(),
   ]);
-  const cards: GlanceCard[] = [];
-
-  if (annual.state === "available") {
-    const year = [...annual.years]
-      .sort((left, right) => right.fiscalYear - left.fiscalYear)
-      .find((item) =>
-        item.metrics.some((metric) => metric.metricKey === "gross_revenue_realized"),
-      );
-    const revenue = year?.metrics.find(
-      (metric) => metric.metricKey === "gross_revenue_realized",
-    );
-    const paid = year?.metrics.find((metric) => metric.metricKey === "expense_paid");
-    if (year && revenue) {
-      cards.push({
-        question: `Quanto a Prefeitura arrecadou em ${year.fiscalYear}?`,
-        value: compact(revenue.amount),
-        exact: formatBrlDecimal(revenue.amount),
-        context: paid
-          ? `Pagou ${compact(paid.amount)} no mesmo ano. Números do ano fechado, declarados ao Tesouro Nacional.`
-          : "Número do ano fechado, declarado ao Tesouro Nacional.",
-        href: `/financas/ano/${year.fiscalYear}`,
-        linkLabel: `Ver o ano de ${year.fiscalYear}`,
-      });
-    }
-  }
-
-  if (monthly.state === "available") {
-    const latest = [...monthly.closures]
-      .filter((closure) => closure.revenueReportAmount && closure.expensePaidAmount)
-      .sort((left, right) => right.periodEnd.localeCompare(left.periodEnd))[0];
-    if (latest?.revenueReportAmount && latest.expensePaidAmount) {
-      cards.push({
-        question: `Quanto entrou e quanto saiu em ${monthLabel(latest.periodStart)}?`,
-        value: compact(latest.revenueReportAmount),
-        exact: `Entrou ${formatBrlDecimal(latest.revenueReportAmount)}`,
-        context: `Saíram ${compact(latest.expensePaidAmount)} em pagamentos no mesmo mês. A diferença não é saldo bancário.`,
-        href: monthlyFinanceHref(latest.periodStart),
-        linkLabel: "Ver o mês",
-      });
-    }
-  }
-
-  if (payroll.state === "available") {
-    const latest = [...payroll.months].sort((left, right) =>
-      right.referenceMonth.localeCompare(left.referenceMonth),
-    )[0];
-    if (latest) {
-      cards.push({
-        question: `Quanto custou a folha de ${monthLabel(latest.referenceMonth)}?`,
-        value: compact(latest.grossAmount),
-        exact: `${formatBrlDecimal(latest.grossAmount)} brutos`,
-        context: `${latest.employeeCount.toLocaleString("pt-BR")} vínculos na folha regular da Prefeitura, sem nomes nem salários individuais.`,
-        href: payrollMonthHref(latest.referenceMonth),
-        linkLabel: "Ver a folha do mês",
-      });
-    }
-  }
-
-  if (diary.state === "available") {
-    const latest = [...diary.entries].sort(
-      (left, right) =>
-        right.editionDate.localeCompare(left.editionDate) || right.edition - left.edition,
-    )[0];
-    if (latest) {
-      cards.push({
-        question: "O que saiu no Diário Oficial?",
-        value: `Edição ${latest.edition}`,
-        exact: null,
-        context: `Publicada em ${fullDate.format(new Date(`${latest.editionDate}T12:00:00-03:00`))}. Texto organizado por documento, com o PDF oficial ao lado.`,
-        href: `/diario/${latest.editionYear}/${latest.edition}`,
-        linkLabel: "Abrir a edição",
-      });
-    }
-  }
-
-  return cards;
+  return [
+    annualCard(annual) ??
+      unavailable("Quanto a Prefeitura arrecadou no último ano fechado?", "/financas"),
+    monthlyCard(monthly) ??
+      unavailable("Quanto entrou e quanto saiu no último mês?", "/financas"),
+    payrollCard(payroll) ??
+      unavailable("Quanto custou a folha no último mês?", "/financas#finance-payroll-title"),
+    diaryCard(diary) ?? unavailable("O que saiu no Diário Oficial?", "/diario"),
+  ];
 }
 
 export default async function HomePage() {
@@ -193,32 +225,23 @@ export default async function HomePage() {
         <h2 id="glance-title" className="sr-only">
           Barreiras em números
         </h2>
-        {glance.length > 0 ? (
-          <div className="glance-grid">
-            {glance.map((card) => (
-              <a className="glance-card" href={card.href} key={card.href}>
-                <span className="glance-question">{card.question}</span>
-                <strong className="glance-value">{card.value}</strong>
-                {card.exact ? <span className="glance-exact">{card.exact}</span> : null}
-                <span className="glance-context">{card.context}</span>
-                <span className="glance-link">
-                  {card.linkLabel} <span aria-hidden="true">→</span>
-                </span>
-              </a>
-            ))}
-          </div>
-        ) : (
-          <div className="collection-unavailable" role="status">
-            <span className="collection-signal collection-signal-muted" />
-            <div>
-              <strong>Os números estão temporariamente indisponíveis</strong>
-              <p>
-                É uma falha de consulta, não ausência de dados. Os atalhos abaixo
-                continuam funcionando.
-              </p>
-            </div>
-          </div>
-        )}
+        <div className="glance-grid">
+          {glance.map((card) => (
+            <a
+              className={card.unavailable ? "glance-card glance-card-unavailable" : "glance-card"}
+              href={card.href}
+              key={card.question}
+            >
+              <span className="glance-question">{card.question}</span>
+              <strong className="glance-value">{card.value}</strong>
+              {card.exact ? <span className="glance-exact">{card.exact}</span> : null}
+              <span className="glance-context">{card.context}</span>
+              <span className="glance-link">
+                {card.linkLabel} <span aria-hidden="true">→</span>
+              </span>
+            </a>
+          ))}
+        </div>
       </section>
 
       <section className="section section-quick-access" id="dados" aria-labelledby="data-title">
