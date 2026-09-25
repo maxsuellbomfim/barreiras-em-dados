@@ -30,12 +30,18 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
         repository = PostgresExtractionRepository(lambda: connection)
         repository.pending_ocr_pages(30)
         query = connection.queries[0]
-        self.assertIn("btrim(page.text_content) = page.page_number::text", query)
+        self.assertIn(
+            "case when octet_length(page.text_content) <= 64 "
+            "then btrim(page.text_content) = page.page_number::text else false end",
+            query,
+        )
         self.assertIn("artifact.content_type = 'application/pdf'", query)
         self.assertIn("page.extraction_method <> 'ocr'", query)
         self.assertIn("supplemental.extraction_method = 'ocr'", query)
         self.assertIn(
-            "btrim(supplemental.text_content) <> page.page_number::text", query
+            "case when octet_length(supplemental.text_content) > 64 then true "
+            "else btrim(supplemental.text_content) <> page.page_number::text end",
+            query,
         )
 
     def test_candidate_queue_reopens_editions_after_ocr_text(self) -> None:
@@ -67,14 +73,16 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
         query = connection.queries[0]
         self.assertIn(
             "and page.extraction_method <> 'ocr' "
-            "and btrim(page.text_content) = page.page_number::text",
+            "and case when octet_length(page.text_content) <= 64 "
+            "then btrim(page.text_content) = page.page_number::text else false end",
             query,
         )
         # Página em branco com OCR não pode travar a edição para sempre.
         self.assertIn(
             "supplemental.extraction_method = 'ocr' "
-            "or btrim(supplemental.text_content) "
-            "<> supplemental.page_number::text",
+            "or case when octet_length(supplemental.text_content) > 64 "
+            "then true else btrim(supplemental.text_content) "
+            "<> supplemental.page_number::text end",
             query,
         )
 
