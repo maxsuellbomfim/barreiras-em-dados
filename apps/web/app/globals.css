@@ -8606,3 +8606,29 @@ footer {
   font-weight: 650;
   cursor: pointer;
 }
+
+/* Quem decide no celular: cartões mais enxutos (foto menor, menos
+   espaçamento) para a lista de vereadores não parecer interminável. */
+@media (max-width: 720px) {
+  .person-grid {
+    gap: 0.75rem;
+  }
+
+  .person-card {
+    padding: 1rem;
+    border-radius: 1.1rem;
+  }
+
+  .person-photo {
+    width: 3.5rem;
+    height: 4.6rem;
+  }
+
+  .person-trajectory {
+    margin: 0.6rem 0;
+  }
+
+  .person-trajectory > summary {
+    padding: 0.6rem 0.75rem;
+  }
+}
