@@ -63,7 +63,7 @@ amplas.
    seguem no bruto, fora das filas. Atos de edições com OCR exibem aviso de
    transcrição. Pendências: o agendador do GitHub dispara o dreno só ~5 vezes
    por dia (suficiente para as ~700 páginas novas diárias do backfill).
-   Auditoria por amostragem (25/09, 29 páginas): texto corrido e valores
+   Auditoria por amostragem (25/09, 30 páginas): texto corrido e valores
    monetários conferidos fiéis, mas `§` vira `8` de forma sistemática (2.163
    páginas), tabelas perdem colunas e há erros de dígito isolados
    ([`reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md`](reviews/DIARIO_OCR_QUALITY_AUDIT_2026_09_25.md)).
