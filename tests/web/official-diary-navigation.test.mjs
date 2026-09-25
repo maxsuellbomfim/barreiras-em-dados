@@ -4,7 +4,7 @@ import test from "node:test";
 import * as index from "../../apps/web/lib/integral-gazette-index.mjs";
 
 test("navegação promete Diário Oficial literal, não tradução ou resumo", async () => {
-  for (const path of ["page.tsx", "atos/page.tsx", "licitacoes/page.tsx", "representantes/page.tsx"]) {
+  for (const path of ["page.tsx", "site-nav.tsx"]) {
     const content = await readFile(new URL(`../../apps/web/app/${path}`, import.meta.url), "utf8");
     assert.doesNotMatch(content, /Diário traduzido/i, path);
     assert.match(content, /Diário Oficial/, path);

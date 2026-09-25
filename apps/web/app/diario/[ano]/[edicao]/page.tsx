@@ -87,17 +87,9 @@ export default async function GazetteEditionPage({ params }: EditionPageParams) 
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/diario" aria-label="Diário Oficial organizado">
-            <span>← Diário Oficial</span>
-          </a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/atos">Atos públicos</a>
-            <a href="/representantes">Quem decide</a>
-          </nav>
-        </div>
-      </header>
+      <nav className="page-back" aria-label="Voltar">
+        <a href="/diario">← Diário Oficial</a>
+      </nav>
 
       <section className="section" aria-labelledby="edition-title">
         <div className="section-heading">
@@ -152,23 +144,6 @@ export default async function GazetteEditionPage({ params }: EditionPageParams) 
         </p>
       </section>
 
-      <footer>
-        <div className="footer-inner">
-          <div>
-            <a className="brand brand-footer" href="/">
-              <span>Barreiras 360</span>
-            </a>
-            <p>
-              Informação pública de Barreiras para acompanhar a cidade com
-              clareza.
-            </p>
-          </div>
-          <div className="footer-status">
-            <span className="status-dot" />
-            Texto extraído de documentos oficiais
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }

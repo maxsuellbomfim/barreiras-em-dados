@@ -34,18 +34,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 function PageShell({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/financas#finance-payroll-title">
-            <span>← Folha em Finanças</span>
-          </a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/financas">Finanças</a>
-            <a href="/financas/cobertura">Cobertura</a>
-            <a href="/licitacoes">Compras</a>
-          </nav>
-        </div>
-      </header>
+      <nav className="page-back" aria-label="Voltar">
+        <a href="/financas#finance-payroll-title">← Folha em Finanças</a>
+      </nav>
       {children}
     </main>
   );
