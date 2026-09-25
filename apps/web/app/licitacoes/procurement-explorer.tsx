@@ -386,6 +386,10 @@ export function ProcurementCard({
   );
 }
 
+// ponytail: as demais contratações ficam recolhidas, sem nova consulta;
+// paginar no banco exigiria offset na RPC get_pncp_procurements_normalized.
+const FIRST_VISIBLE = 15;
+
 export function ProcurementExplorer({
   procurements,
 }: Readonly<{ procurements: readonly Procurement[] }>) {
@@ -414,15 +418,33 @@ export function ProcurementExplorer({
         </p>
       ) : null}
       {procurements.length > 0 ? (
-        <div className="digest-grid">
-          {procurements.map((procurement) => (
-            <ProcurementCard
-              key={procurement.controlNumber}
-              procurement={procurement}
-              compact
-            />
-          ))}
-        </div>
+        <>
+          <div className="digest-grid">
+            {procurements.slice(0, FIRST_VISIBLE).map((procurement) => (
+              <ProcurementCard
+                key={procurement.controlNumber}
+                procurement={procurement}
+                compact
+              />
+            ))}
+          </div>
+          {procurements.length > FIRST_VISIBLE ? (
+            <details className="procurement-more">
+              <summary>
+                Ver mais {procurements.length - FIRST_VISIBLE} contratações
+              </summary>
+              <div className="digest-grid">
+                {procurements.slice(FIRST_VISIBLE).map((procurement) => (
+                  <ProcurementCard
+                    key={procurement.controlNumber}
+                    procurement={procurement}
+                    compact
+                  />
+                ))}
+              </div>
+            </details>
+          ) : null}
+        </>
       ) : (
         <div className="collection-unavailable" role="status">
           <div>

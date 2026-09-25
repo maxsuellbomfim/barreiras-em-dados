@@ -761,6 +761,13 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
           </p>
         </div>
 
+        <nav className="representation-jump-nav" aria-label="Ir para uma parte da página">
+          <a href="#procurements-list">Licitações no PNCP</a>
+          <a href="#municipal-contracts-title">Contratos da Prefeitura</a>
+          <a href="#municipal-processes-title">Processos licitatórios</a>
+          <a href="#supplier-sanctions-title">Fornecedores sancionados</a>
+        </nav>
+
         <details className="procurement-filter-details" open={hasFilters}>
           <summary>Filtrar por fornecedor, ano, palavra ou órgão</summary>
         <form className="procurement-filter-form" method="get" aria-label="Filtrar contratações">
@@ -881,7 +888,9 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
                 </div>
               </section>
             ) : null}
-            <ProcurementExplorer procurements={result.procurements} />
+            <div id="procurements-list">
+              <ProcurementExplorer procurements={result.procurements} />
+            </div>
           </>
         )}
 
