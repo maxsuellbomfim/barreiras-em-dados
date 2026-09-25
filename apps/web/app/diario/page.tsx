@@ -199,17 +199,6 @@ export default async function IntegralDiaryPage({
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/" aria-label="Barreiras 360">
-            <span>← Barreiras 360</span>
-          </a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/atos">Atos públicos</a>
-            <a href="/representantes">Quem decide</a>
-          </nav>
-        </div>
-      </header>
 
       <section className="section" aria-labelledby="integral-diary-title">
         <div className="section-heading">
@@ -333,23 +322,6 @@ export default async function IntegralDiaryPage({
         </p>
       </section>
 
-      <footer>
-        <div className="footer-inner">
-          <div>
-            <a className="brand brand-footer" href="/">
-              <span>Barreiras 360</span>
-            </a>
-            <p>
-              Informação pública de Barreiras para acompanhar a cidade com
-              clareza.
-            </p>
-          </div>
-          <div className="footer-status">
-            <span className="status-dot" />
-            Texto extraído de documentos oficiais
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }

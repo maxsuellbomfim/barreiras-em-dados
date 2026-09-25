@@ -2720,18 +2720,6 @@ export default async function ParliamentaryResourcesPage({
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/" aria-label="Barreiras 360">
-            <span>← Barreiras 360</span>
-          </a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/financas">Finanças</a>
-            <a href="/representantes">Quem decide</a>
-            <a href="/licitacoes">Compras</a>
-          </nav>
-        </div>
-      </header>
 
       <section className="section" aria-labelledby="resources-title">
         <div className="section-heading">

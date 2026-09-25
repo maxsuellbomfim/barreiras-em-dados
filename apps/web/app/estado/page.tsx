@@ -58,16 +58,6 @@ export default async function PublicSourceStatusPage() {
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/">← Barreiras 360</a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/diario">Diário</a>
-            <a href="/financas">Finanças</a>
-            <a href="/representantes">Quem decide</a>
-          </nav>
-        </div>
-      </header>
 
       <section className="section source-status-page" aria-labelledby="source-status-title">
         <div className="source-status-intro">

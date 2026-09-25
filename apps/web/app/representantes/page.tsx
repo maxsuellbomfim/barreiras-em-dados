@@ -716,19 +716,6 @@ export default async function RepresentativesPage({
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/" aria-label="Barreiras 360">
-            <span>← Barreiras 360</span>
-          </a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/diario">Diário Oficial</a>
-            <a href="/recursos">Recursos</a>
-            <a href="/licitacoes">Licitações</a>
-            <a href="/atos">Atos</a>
-          </nav>
-        </div>
-      </header>
 
       <section className="section section-representatives" aria-labelledby="people-title">
         <div className="section-heading">
@@ -1191,23 +1178,6 @@ export default async function RepresentativesPage({
         </p>
       </section>
 
-      <footer>
-        <div className="footer-inner">
-          <div>
-            <a className="brand brand-footer" href="/">
-              <span>Barreiras 360</span>
-            </a>
-            <p>
-              Informação pública de Barreiras para acompanhar a cidade com
-              clareza.
-            </p>
-          </div>
-          <div className="footer-status">
-            <span className="status-dot" />
-            Perfis com fonte por campo e rankings financeiros com metodologia
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }

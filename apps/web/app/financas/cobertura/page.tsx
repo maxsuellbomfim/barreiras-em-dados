@@ -40,18 +40,9 @@ export default async function FinanceCoveragePage() {
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/financas" aria-label="Voltar para Finanças">
-            <span>← Finanças</span>
-          </a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/licitacoes">Compras</a>
-            <a href="/representantes">Quem decide</a>
-            <a href="/atos">Atos</a>
-          </nav>
-        </div>
-      </header>
+      <nav className="page-back" aria-label="Voltar">
+        <a href="/financas">← Finanças</a>
+      </nav>
 
       <section className="section" aria-labelledby="finance-coverage-page-title">
         <div className="section-heading">

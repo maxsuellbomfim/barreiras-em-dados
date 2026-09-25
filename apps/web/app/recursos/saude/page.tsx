@@ -19,7 +19,9 @@ export default async function HealthResourcesPage({searchParams}:{searchParams:P
   const validYear=Number.isInteger(year)&&year>=2021&&year<=2100;
   const validScope=validYear&&Number.isInteger(page)&&page>=1&&page<=401&&validPharmacySelection(selection);
   const years=Array.from(new Set([...Array.from({length:new Date().getUTCFullYear()-2020},(_,i)=>2021+i),validYear?year:2025])).sort((a,b)=>b-a);
-  return <main><header className="site-header"><a href="/recursos">← Recursos de Barreiras</a></header>
+  return <main><nav className="page-back" aria-label="Voltar">
+  <a href="/recursos">← Recursos de Barreiras</a>
+</nav>
     <PharmacyPayments publication={publication} coverage={coverage} filtered={selection!==null}
       firstPageHref={validScope?pharmacyHref(year,{establishment:selection}):undefined} filters={<>
       <form className="transfer-year-filter" action="/recursos/saude" method="get" aria-label="Filtrar pagamentos por ano">

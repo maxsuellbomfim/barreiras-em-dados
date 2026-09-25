@@ -139,16 +139,6 @@ const evidenceSteps = [
   },
 ] as const;
 
-function BrandMark() {
-  return (
-    <span className="brand-mark" aria-hidden="true">
-      <span />
-      <span />
-      <span />
-    </span>
-  );
-}
-
 function ExternalArrow() {
   return (
     <svg
@@ -342,26 +332,6 @@ export default async function HomePage() {
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="#inicio" aria-label="Barreiras 360">
-            <BrandMark />
-            <span>Barreiras 360</span>
-          </a>
-
-          <nav className="nav-links" aria-label="Navegação principal">
-            <a href="/atos">Atos</a>
-            <a href="/licitacoes">Licitações</a>
-            <a href="/recursos">Recursos</a>
-            <a href="/representantes">Representantes</a>
-            <a href="/camara">Leis da Câmara</a>
-          </nav>
-
-          <a className="nav-cta" href="/diario">
-            Diário Oficial
-          </a>
-        </div>
-      </header>
 
       <section className="hero" id="inicio" aria-labelledby="hero-title">
         <div className="ambient ambient-one" />
@@ -594,25 +564,6 @@ export default async function HomePage() {
         </div>
       </details>
 
-      <footer>
-        <div className="footer-inner">
-          <div>
-            <a className="brand brand-footer" href="#inicio">
-              <BrandMark />
-              <span>Barreiras 360</span>
-            </a>
-            <p>
-              Informação pública de Barreiras para acompanhar a cidade com
-              clareza.
-            </p>
-          </div>
-
-          <div className="footer-status">
-            <span className="status-dot" />
-            Pré-lançamento — coleta ativa, registros ainda em revisão
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }

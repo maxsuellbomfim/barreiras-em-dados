@@ -26,17 +26,9 @@ export default async function MunicipalControlDocumentPage({ params }: PageProps
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/financas/base-legal" aria-label="Voltar para a base legal">
-            <span>← Base legal</span>
-          </a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/financas">Finanças</a>
-            <a href="/sobre">Como verificamos</a>
-          </nav>
-        </div>
-      </header>
+      <nav className="page-back" aria-label="Voltar">
+        <a href="/financas/base-legal">← Base legal</a>
+      </nav>
 
       <section className="section legal-document-page" aria-labelledby="legal-document-title">
         {result.state === "unavailable" ? (

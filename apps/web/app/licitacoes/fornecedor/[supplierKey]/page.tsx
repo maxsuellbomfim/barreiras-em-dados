@@ -102,17 +102,9 @@ export default async function SupplierHistoryPage({ params }: SupplierHistoryPag
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/licitacoes" aria-label="Voltar para licitações">
-            <span>← Licitações</span>
-          </a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/financas">Finanças</a>
-            <a href="/representantes">Quem decide</a>
-          </nav>
-        </div>
-      </header>
+      <nav className="page-back" aria-label="Voltar">
+        <a href="/licitacoes">← Licitações</a>
+      </nav>
 
       <section className="section" aria-labelledby="supplier-history-title">
         <div className="section-heading">

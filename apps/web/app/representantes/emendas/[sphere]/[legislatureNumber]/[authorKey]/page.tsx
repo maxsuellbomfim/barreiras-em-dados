@@ -199,13 +199,9 @@ export default async function ParliamentaryContributionProfilePage({
   if (result.state !== "available") {
     return (
       <main>
-        <header className="site-header">
-          <div className="nav-shell">
-            <a className="brand" href="/recursos?origem=legislaturas#emendas-por-legislatura">
-              <span>← Emendas por legislatura</span>
-            </a>
-          </div>
-        </header>
+        <nav className="page-back" aria-label="Voltar">
+          <a href="/recursos?origem=legislaturas#emendas-por-legislatura">← Emendas por legislatura</a>
+        </nav>
         <section className="section parliamentary-contribution-empty">
           <span className="eyebrow">Rastro do recurso</span>
           <h1>
@@ -230,17 +226,9 @@ export default async function ParliamentaryContributionProfilePage({
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/recursos?origem=legislaturas#emendas-por-legislatura">
-            <span>← Emendas por legislatura</span>
-          </a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/recursos">Recursos</a>
-            <a href="/financas">Finanças</a>
-          </nav>
-        </div>
-      </header>
+      <nav className="page-back" aria-label="Voltar">
+        <a href="/recursos?origem=legislaturas#emendas-por-legislatura">← Emendas por legislatura</a>
+      </nav>
 
       <section className="section parliamentary-contribution-profile" aria-labelledby="contribution-title">
         <div className="section-heading">

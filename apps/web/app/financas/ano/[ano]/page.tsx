@@ -153,16 +153,9 @@ export default async function AnnualFinancePage({ params }: PageProps) {
 
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/financas"><span>← Finanças</span></a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/licitacoes">Compras</a>
-            <a href="/representantes">Quem decide</a>
-            <a href="/atos">Atos</a>
-          </nav>
-        </div>
-      </header>
+      <nav className="page-back" aria-label="Voltar">
+        <a href="/financas">← Finanças</a>
+      </nav>
 
       <section className="section finance-year-page" aria-labelledby="finance-year-title">
         <div className="section-heading">

@@ -16,18 +16,6 @@ const REPOSITORY_URL = "https://github.com/maxsuellbomfim/barreiras-em-dados";
 export default function AboutPage() {
   return (
     <main>
-      <header className="site-header">
-        <div className="nav-shell">
-          <a className="brand" href="/" aria-label="Barreiras 360">
-            <span>← Barreiras 360</span>
-          </a>
-          <nav className="nav-links" aria-label="Páginas públicas">
-            <a href="/financas">Finanças</a>
-            <a href="/recursos">Recursos</a>
-            <a href="/representantes">Quem decide</a>
-          </nav>
-        </div>
-      </header>
 
       <section className="section" aria-labelledby="about-title">
         <div className="section-heading">
@@ -87,7 +75,7 @@ export default function AboutPage() {
         </ol>
 
         <div className="section-heading">
-          <h2>Encontrou um erro? Conteste.</h2>
+          <h2 id="contestar">Encontrou um erro? Conteste.</h2>
           <p>
             Qualquer pessoa pode contestar qualquer registro — inclusive quem é
             citado nele. Correções geram uma nova versão pública; o histórico
