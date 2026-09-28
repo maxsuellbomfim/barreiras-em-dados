@@ -357,6 +357,49 @@ class ControlledPncpDependentResourcesTests(unittest.TestCase):
         self.assertEqual(summary.next_offset, 0)
         self.assertEqual(summary.outcome.value, "partial")
 
+    def test_two_consecutive_unavailable_controls_stop_the_batch(self) -> None:
+        from barreiras_collectors.connectors.pncp import PncpUnavailable
+
+        controls = [
+            (f"13654405000195-1-{index:06d}/2025", 2025, index) for index in range(1, 6)
+        ]
+        repository = SimpleNamespace(
+            pncp_pending_itens=lambda **_kwargs: controls,
+            pncp_itens_com_resultado=lambda _control: set(),
+        )
+        with patch(
+            "barreiras_collectors.commands.collect_pncp_itens.collect_itens_batch",
+            side_effect=PncpUnavailable("O PNCP ficou indisponível."),
+        ) as fetch:
+            summary = _collect_pending(
+                service=SimpleNamespace(),  # type: ignore[arg-type]
+                repository=repository,  # type: ignore[arg-type]
+                logger=logging.getLogger("test"),
+                start_offset=0,
+            )
+        # Sem esgotar a fila inteira com a fonte fora do ar.
+        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual(len(summary.failed_controls), 2)
+        self.assertTrue(summary.source_unavailable)
+        self.assertEqual(summary.next_offset, 0)
+
+    def test_contract_failure_is_never_source_unavailable(self) -> None:
+        repository = SimpleNamespace(
+            pncp_pending_itens=lambda **_kwargs: [(CONTROL, 2025, 9)],
+            pncp_itens_com_resultado=lambda _control: set(),
+        )
+        with patch(
+            "barreiras_collectors.commands.collect_pncp_itens.collect_itens_batch",
+            side_effect=PncpError("resposta fora do contrato"),
+        ):
+            summary = _collect_pending(
+                service=SimpleNamespace(),  # type: ignore[arg-type]
+                repository=repository,  # type: ignore[arg-type]
+                logger=logging.getLogger("test"),
+                start_offset=0,
+            )
+        self.assertFalse(summary.source_unavailable)
+
     def test_pending_fund_passes_owner_to_items_and_results(self) -> None:
         control = "13250888000162-1-000003/2026"
         page = SimpleNamespace(items=[{"numeroItem": 1, "temResultado": True}])

@@ -43,6 +43,11 @@ contagem nunca fechava.
    resposta que chega e não fecha (contagem divergente, inconclusiva) continua
    vermelha. As falhas de 21 a 25/09 eram janelas retroativas parciais, não
    indisponibilidade, e continuam vermelhas.
+7. **PNCP, cadastro e itens (28/09):** o cadastro (`registry-api`, prazo 216 h)
+   e os itens/resultados (`compras-api`, 48 h) seguem a mesma regra. A coleta
+   de itens para depois de duas contratações seguidas sem resposta: sem esse
+   freio, cada contratação esgotava as novas tentativas e o job era cancelado
+   aos 20 minutos, deixando a execução como `running`.
 
 ## Consequências
 
