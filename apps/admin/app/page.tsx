@@ -3,6 +3,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ActQualityReview } from "./act-quality-review";
 import { AdminMfaGate } from "./admin-mfa-gate";
 import { CommitmentLinkReview, type RpcCall } from "./commitment-link-review";
 import {
@@ -86,6 +87,7 @@ type AdminView =
   | "financas"
   | "aliases"
   | "ligacoes"
+  | "qualidade"
   | "saude";
 
 type FinanceInventoryItem = Readonly<{
@@ -1632,6 +1634,14 @@ export default function ReviewQueuePage() {
             </button>
             <button
               type="button"
+              className={view === "qualidade" ? "tab tab-active" : "tab"}
+              aria-current={view === "qualidade" ? "page" : undefined}
+              onClick={() => setView("qualidade")}
+            >
+              Qualidade dos atos
+            </button>
+            <button
+              type="button"
               className={view === "saude" ? "tab tab-active" : "tab"}
               aria-current={view === "saude" ? "page" : undefined}
               onClick={() => setView("saude")}
@@ -1660,6 +1670,7 @@ export default function ReviewQueuePage() {
           {view !== "financas" &&
           view !== "aliases" &&
           view !== "ligacoes" &&
+          view !== "qualidade" &&
           view !== "saude" ? <div className="toolbar">
             <input
               type="search"
@@ -1700,6 +1711,8 @@ export default function ReviewQueuePage() {
 
           {view === "ligacoes" ? (
             <CommitmentLinkReview rpc={rpc} />
+          ) : view === "qualidade" ? (
+            <ActQualityReview rpc={rpc} />
           ) : view === "saude" ? (
             <CollectionHealth
               state={collectionHealth}
