@@ -26,6 +26,7 @@ from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
 from ..persistence.service import PNCP_COLLECTOR_VERSION, PncpComprasPersistenceService
 from ..settings import CollectorSettings, PersistenceSettings
+from ..source_availability import SourceUnavailable, unavailable_exit_code
 from .pncp_runtime import (
     build_authenticated_object_store,
     resolve_checkpoint_offset,
@@ -38,6 +39,9 @@ REFRESH_WINDOW_DAYS = 120
 # e é sempre registrado em log — nunca truncamos em silêncio.
 MAX_CONTRATACOES_PER_RUN = 50
 MAX_ITENS_PAGES = 30
+# Com o PNCP fora do ar, cada contratação esgota as novas tentativas; duas
+# seguidas bastam para parar e deixar o resto para a próxima execução.
+MAX_CONSECUTIVE_UNAVAILABLE_CONTROLS = 2
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
 
@@ -57,6 +61,16 @@ class PncpItensCollectionSummary:
     start_offset: int
     next_offset: int
     failed_controls: tuple[str, ...] = ()
+    failures_only_unavailable: bool = False
+
+    @property
+    def source_unavailable(self) -> bool:
+        """Parcial só porque o PNCP não respondeu (ADR 0089)."""
+        return (
+            bool(self.failed_controls)
+            and self.failures_only_unavailable
+            and not self.item_pages_truncated_controls
+        )
 
     @property
     def observed_records(self) -> int:
@@ -239,6 +253,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         next_offset=summary.next_offset,
         coverage_status=summary.outcome.value,
     )
+    if summary.source_unavailable:
+        # ADR 0089: aviso dentro do prazo de compras-api; além dele, falha.
+        return unavailable_exit_code(
+            repository.source_freshness(
+                source_code=SOURCE_CODE, endpoint_code="compras-api"
+            ),
+            now=datetime.now(MUNICIPAL_TIMEZONE),
+        )
     return 0
 
 
@@ -270,7 +292,27 @@ def _collect_pending(
     resultados_inserted = 0
     item_pages_truncated_controls: list[str] = []
     failed_controls: list[str] = []
+    failures_only_unavailable = True
+    consecutive_unavailable = 0
+
+    def record_failure(error: PncpError) -> None:
+        nonlocal failures_only_unavailable, consecutive_unavailable
+        if isinstance(error, SourceUnavailable):
+            consecutive_unavailable += 1
+        else:
+            failures_only_unavailable = False
+            consecutive_unavailable = 0
+
     for control, ano, sequencial in pending:
+        if consecutive_unavailable >= MAX_CONSECUTIVE_UNAVAILABLE_CONTROLS:
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_pncp_itens_source_unavailable",
+                source=SOURCE_CODE,
+                consecutive_controls=consecutive_unavailable,
+            )
+            break
         itens: list[dict] = []
         try:
             identity = re.fullmatch(r"([0-9]{14})-1-([0-9]{1,12})/([0-9]{4})", control)
@@ -289,6 +331,7 @@ def _collect_pending(
             )
         except PncpError as error:
             failed_controls.append(control)
+            record_failure(error)
             log_event(
                 logger,
                 logging.WARNING,
@@ -333,6 +376,7 @@ def _collect_pending(
                 )
             except PncpError as error:
                 failed_controls.append(control)
+                record_failure(error)
                 control_failed = True
                 log_event(
                     logger,
@@ -355,6 +399,7 @@ def _collect_pending(
 
         if control_failed:
             continue
+        consecutive_unavailable = 0
         contratacoes_processed += 1
         log_event(
             logger,
@@ -380,6 +425,7 @@ def _collect_pending(
             else 0
         ),
         failed_controls=tuple(failed_controls),
+        failures_only_unavailable=failures_only_unavailable,
     )
 
 

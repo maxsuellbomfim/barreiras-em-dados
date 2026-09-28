@@ -93,8 +93,15 @@ jobs:
         id: collect_registry
         if: github.event.schedule != '43 5 * * *' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'full' || inputs.mode == 'registry_only')
         continue-on-error: true
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_pncp_registry
+        # ADR 0089: 75 = PNCP fora do ar dentro do prazo; falha registrada.
+        run: |
+          status=0
+          python -B -m barreiras_collectors.commands.collect_pncp_registry || status=$?
+          if [ "$status" = "75" ]; then
+            echo "::warning title=Fonte indisponível::O cadastro do PNCP não respondeu, ainda dentro do prazo de atualização. A falha foi registrada e a próxima execução tenta de novo."
+            exit 0
+          fi
+          exit "$status"
 
       - name: Preservar vínculo municipal privado
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'municipal_link_evidence'
@@ -190,8 +197,16 @@ jobs:
         id: collect_items
         if: github.event_name != 'workflow_dispatch' || (inputs.mode != 'contracts_only' && inputs.mode != 'registry_only' && inputs.mode != 'municipal_link_evidence' && inputs.mode != 'publication_evidence' && inputs.mode != 'discovery_only')
         continue-on-error: true
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_pncp_itens
+        # ADR 0089: 75 = PNCP fora do ar dentro do prazo; o lote para depois de
+        # duas contratações seguidas sem resposta e o resto fica para depois.
+        run: |
+          status=0
+          python -B -m barreiras_collectors.commands.collect_pncp_itens || status=$?
+          if [ "$status" = "75" ]; then
+            echo "::warning title=Fonte indisponível::O PNCP não respondeu para itens e resultados, ainda dentro do prazo de atualização. As contratações pendentes ficam para a próxima execução."
+            exit 0
+          fi
+          exit "$status"
 
       - name: Preservar contratos e empenhos das contratações
         id: collect_contracts
