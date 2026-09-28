@@ -163,6 +163,7 @@ amplas.
 
 ## Próximo fluxo vertical
 
-Classificar no próprio coletor os estados de espera que hoje viram falha
-(competência do TCM ainda não publicada, contratos do PNCP com leitura
-pendente), para que falha aberta signifique só problema real de fonte.
+Estender o ADR 0089 (fonte externa indisponível como falha tratada dentro do
+prazo; piloto nas sanções da CGU) ao catálogo estadual de emendas da Bahia
+(7 dias) e à consulta de contratações do PNCP (48 h, só indisponibilidade de
+transporte), para que a contagem de prontidão meça apenas falhas não tratadas.

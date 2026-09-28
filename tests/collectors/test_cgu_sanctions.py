@@ -6,11 +6,13 @@ from dataclasses import asdict
 
 from barreiras_collectors.connectors.cgu_sanctions import (
     CGUSanctionError,
+    CGUSanctionUnavailable,
     fetch_cgu_supplier_sanctions,
     parse_cgu_sanctions_bundle,
 )
 from barreiras_collectors.http import HttpResponse
 from barreiras_collectors.resilience import RetryPolicy
+from barreiras_collectors.source_availability import SourceUnavailable
 
 API_KEY = "chave-de-teste-nunca-preservada"
 CNPJ = "44493204000187"
@@ -276,6 +278,38 @@ class CGUSanctionFetchTests(unittest.TestCase):
                 sleep=lambda _s: None,
                 request_interval_seconds=0,
             )
+
+    def test_5xx_after_retries_is_source_unavailable_but_401_is_not(self) -> None:
+        class ServerDown:
+            def get(self, url, *, headers, timeout_seconds, max_body_bytes):
+                del headers, timeout_seconds, max_body_bytes
+                return HttpResponse(status=503, headers={}, body=b"", final_url=url)
+
+        with self.assertRaises(CGUSanctionUnavailable):
+            fetch_cgu_supplier_sanctions(
+                cnpjs=(CNPJ,),
+                api_key=API_KEY,
+                transport=ServerDown(),
+                retry_policy=RetryPolicy(max_attempts=2),
+                sleep=lambda _s: None,
+                request_interval_seconds=0,
+            )
+
+        class Unauthorized:
+            def get(self, url, *, headers, timeout_seconds, max_body_bytes):
+                del headers, timeout_seconds, max_body_bytes
+                return HttpResponse(status=401, headers={}, body=b"{}", final_url=url)
+
+        with self.assertRaises(CGUSanctionError) as raised:
+            fetch_cgu_supplier_sanctions(
+                cnpjs=(CNPJ,),
+                api_key=API_KEY,
+                transport=Unauthorized(),
+                retry_policy=RetryPolicy(max_attempts=1),
+                sleep=lambda _s: None,
+                request_interval_seconds=0,
+            )
+        self.assertNotIsInstance(raised.exception, SourceUnavailable)
 
     def test_bundle_round_trip_matches_items(self) -> None:
         transport = MappedTransport({CNEP_URL: [company_sanction(777)]})

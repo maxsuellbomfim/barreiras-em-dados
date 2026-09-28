@@ -28,6 +28,7 @@ from ..http import (
 )
 from ..logging import log_event
 from ..resilience import CircuitBreaker, RetryPolicy
+from ..source_availability import SourceUnavailable
 
 SOURCE_CODE = "cgu-portal-transparencia"
 ENDPOINT_CODE = "sanctions-api"
@@ -53,6 +54,10 @@ _CNPJ = re.compile(r"^\d{14}$")
 
 class CGUSanctionError(RuntimeError):
     """Falha explícita de contrato, autenticação ou disponibilidade."""
+
+
+class CGUSanctionUnavailable(CGUSanctionError, SourceUnavailable):
+    """A API não respondeu depois das novas tentativas (ADR 0089)."""
 
 
 @dataclass(frozen=True)
@@ -429,7 +434,7 @@ def _fetch_page(
             if attempt < policy.max_attempts:
                 sleep(policy.delay(attempt, random_value()))
                 continue
-            raise CGUSanctionError(
+            raise CGUSanctionUnavailable(
                 "A API de sanções da CGU ficou indisponível."
             ) from error
         log_event(
@@ -467,4 +472,4 @@ def _fetch_page(
         breaker.record_failure()
         if attempt < policy.max_attempts:
             sleep(policy.delay(attempt, random_value()))
-    raise CGUSanctionError("A API de sanções da CGU ficou indisponível.")
+    raise CGUSanctionUnavailable("A API de sanções da CGU ficou indisponível.")
