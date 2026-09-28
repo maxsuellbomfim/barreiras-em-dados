@@ -28,7 +28,9 @@ from ..persistence.service import (
     CGU_SANCTION_PARSER_VERSION,
     CGUSanctionPersistenceService,
 )
+from ..resilience import CircuitOpenError
 from ..settings import CollectorSettings, PersistenceSettings
+from ..source_availability import SourceUnavailable, unavailable_exit_code
 from .pncp_runtime import build_authenticated_object_store
 
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
@@ -214,10 +216,29 @@ def main(argv: Sequence[str] | None = None) -> int:
             next_after_cnpj=batch.next_after_cnpj,
         )
 
-    summary = execute_controlled_sanction_collection(
-        control=control,
-        operation=operation,
-    )
+    try:
+        summary = execute_controlled_sanction_collection(
+            control=control,
+            operation=operation,
+        )
+    except (SourceUnavailable, CircuitOpenError) as error:
+        # A falha já foi gravada pelo controle; só decide se ainda está no prazo.
+        exit_code = unavailable_exit_code(
+            repository.source_freshness(
+                source_code=SOURCE_CODE,
+                endpoint_code=ENDPOINT_CODE,
+            ),
+            now=datetime.now(MUNICIPAL_TIMEZONE),
+        )
+        log_event(
+            logging.getLogger(__name__),
+            logging.WARNING,
+            "collector_source_unavailable",
+            source=SOURCE_CODE,
+            error_type=type(error).__name__,
+            exit_code=exit_code,
+        )
+        return exit_code
     log_event(
         logging.getLogger(__name__),
         logging.INFO,

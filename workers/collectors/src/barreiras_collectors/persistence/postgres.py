@@ -14,6 +14,7 @@ from typing import Any, Protocol
 from ..connectors.direct_diary import DirectEditionTarget
 from ..connectors.official_diary_catalog import ALLOWED_HOSTS as CATALOG_ALLOWED_HOSTS
 from ..http import validate_https_url
+from ..source_availability import SourceFreshness
 from ..tcm_ba_limits import MAX_TCM_BA_DOCUMENTS_PER_BATCH
 from .models import (
     DirectEditionBatch,
@@ -247,6 +248,51 @@ class PostgresCollectionRepository:
             return dict(row["checkpoint"])
         finally:
             connection.close()
+
+    def source_freshness(
+        self,
+        *,
+        source_code: str,
+        endpoint_code: str,
+    ) -> SourceFreshness:
+        """Última coleta que gravou dados e o prazo da fonte (ADR 0089).
+
+        Lote parcial conta: ele preservou dados válidos da fonte.
+        """
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select
+                  endpoint.freshness_policy_kind,
+                  endpoint.freshness_expected_hours,
+                  endpoint.freshness_grace_hours,
+                  (
+                    select max(run.completed_at)
+                    from source.collection_runs as run
+                    where run.source_endpoint_id = endpoint.id
+                      and run.status in ('succeeded', 'partial')
+                  ) as last_valid_at
+                from source.source_endpoints as endpoint
+                join source.data_sources as source
+                  on source.id = endpoint.data_source_id
+                where source.slug = %s
+                  and endpoint.slug = %s
+                """,
+                (source_code, endpoint_code),
+            ).fetchone()
+        finally:
+            connection.close()
+        if row is None:
+            raise PersistenceContractError("Endpoint de coleta inexistente.")
+        scheduled = row["freshness_policy_kind"] == "scheduled"
+        return SourceFreshness(
+            last_valid_at=row["last_valid_at"],
+            expected_hours=(
+                int(row["freshness_expected_hours"]) if scheduled else None
+            ),
+            grace_hours=int(row["freshness_grace_hours"] or 0),
+        )
 
     def tcm_ba_monthly_catalog_complete(self, *, competence: str) -> bool:
         """Evita repetir um catálogo mensal já fechado com evidência positiva."""
