@@ -102,8 +102,11 @@ amplas.
 5. **Autoria legislativa:** coautorias chegam num campo só ("A e B", "A / B") e
    geram a maior parte das novas sugestões de alias; suplentes em exercício e
    autoria do Executivo ainda não têm perfil próprio.
-6. **Qualidade medida:** a amostra anotada para precisão e revocação da extração
-   de atos segue pendente.
+6. **Qualidade medida:** amostra anotada criada em 28/09
+   (`act-quality-sample/1.0.0`: 120 páginas de 90 edições, 6 estratos, 65 atos;
+   ver [`reviews/ACT_EXTRACTION_QUALITY_SAMPLE.md`](reviews/ACT_EXTRACTION_QUALITY_SAMPLE.md)).
+   Falta a conferência humana na aba "Qualidade dos atos" do admin; as métricas
+   ponderadas saem de `api.get_act_quality_metrics` (act-quality-metrics/1.0.0).
 
 ## O que já está disponível no portal
 
