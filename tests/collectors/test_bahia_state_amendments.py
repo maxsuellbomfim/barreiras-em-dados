@@ -14,12 +14,14 @@ from pathlib import Path
 from barreiras_collectors.connectors.bahia_state_amendments import (
     EXPECTED_MEMBER_COLUMNS,
     BahiaStateAmendmentArchiveError,
+    BahiaStateAmendmentUnavailable,
     fetch_state_amendment_archive,
     fetch_state_amendment_catalog,
     parse_state_amendment_archive,
 )
 from barreiras_collectors.http import HttpResponse, UrllibTransport
 from barreiras_collectors.resilience import RetryPolicy
+from barreiras_collectors.source_availability import SourceUnavailable
 
 RELATIONSHIP_DIAGRAM_URL = (
     "https://dados.ba.gov.br/dataset/"
@@ -397,6 +399,30 @@ class BahiaStateAmendmentArchiveTests(unittest.TestCase):
         self.assertEqual(snapshot.catalog_sha256, catalog.body_sha256)
         self.assertNotIn("x-api-key", snapshot.response_headers)
         self.assertEqual(transport.requests[1], (download_url, len(archive)))
+
+    def test_503_after_retries_is_source_unavailable_but_404_is_not(self) -> None:
+        def transport_answering(status: int):
+            class Transport:
+                def get(self, url, **_values):
+                    return HttpResponse(
+                        status=status, headers={}, body=b"", final_url=url
+                    )
+
+            return Transport()
+
+        with self.assertRaises(BahiaStateAmendmentUnavailable):
+            fetch_state_amendment_catalog(
+                transport=transport_answering(503),
+                retry_policy=RetryPolicy(max_attempts=2),
+                sleep=lambda _seconds: None,
+            )
+        with self.assertRaises(BahiaStateAmendmentArchiveError) as raised:
+            fetch_state_amendment_catalog(
+                transport=transport_answering(404),
+                retry_policy=RetryPolicy(max_attempts=2),
+                sleep=lambda _seconds: None,
+            )
+        self.assertNotIsInstance(raised.exception, SourceUnavailable)
 
     def test_rejects_unofficial_download_url(self) -> None:
         archive = archive_bytes()

@@ -25,6 +25,7 @@ from ..http import (
 )
 from ..logging import log_event
 from ..resilience import PacedRateLimiter, RetryPolicy
+from ..source_availability import SourceUnavailable
 
 SOURCE_CODE = "pncp"
 ENDPOINT_CODE = "registry-api"
@@ -48,7 +49,11 @@ class PncpError(RuntimeError):
     """Falha explícita ao consultar o PNCP."""
 
 
-class PncpRateLimitError(PncpError):
+class PncpUnavailable(PncpError, SourceUnavailable):
+    """O PNCP não respondeu depois das novas tentativas (ADR 0089)."""
+
+
+class PncpRateLimitError(PncpUnavailable):
     """Limite de requisições persistiu após as tentativas permitidas."""
 
 
@@ -162,7 +167,9 @@ def fetch_contratacoes_page(
             if attempt < policy.max_attempts:
                 sleep(policy.delay(attempt, 0.5))
                 continue
-            raise PncpError("O PNCP ficou indisponível para contratações.") from error
+            raise PncpUnavailable(
+                "O PNCP ficou indisponível para contratações."
+            ) from error
         received_at = datetime.now(UTC).isoformat()
         log_event(
             log,
@@ -248,7 +255,7 @@ def fetch_contratacoes_page(
                 retry_after = RATE_LIMIT_MIN_DELAY_SECONDS
             sleep(max(policy.delay(attempt, 0.5), retry_after or 0.0))
 
-    raise PncpError("O PNCP ficou indisponível para contratações.")
+    raise PncpUnavailable("O PNCP ficou indisponível para contratações.")
 
 
 def _retry_after_seconds(headers: Mapping[str, str]) -> float | None:
@@ -421,7 +428,9 @@ def _fetch_compras_array(
             if attempt < policy.max_attempts:
                 sleep(policy.delay(attempt, 0.5))
                 continue
-            raise PncpError(f"O PNCP ficou indisponível para {schema_name}.") from error
+            raise PncpUnavailable(
+                f"O PNCP ficou indisponível para {schema_name}."
+            ) from error
         received_at = datetime.now(UTC).isoformat()
         log_event(
             log,
@@ -573,7 +582,7 @@ def _fetch_compras_array(
         if attempt < policy.max_attempts:
             sleep(policy.delay(attempt, 0.5))
 
-    raise PncpError(f"O PNCP ficou indisponível para {schema_name}.")
+    raise PncpUnavailable(f"O PNCP ficou indisponível para {schema_name}.")
 
 
 def _contract_not_found_reason(body: bytes, url: str, final_url: str) -> str:
@@ -692,7 +701,9 @@ def fetch_registry_snapshot(
             if attempt < policy.max_attempts:
                 sleep(policy.delay(attempt, 0.5))
                 continue
-            raise PncpError(f"O PNCP ficou indisponível para {resource}.") from error
+            raise PncpUnavailable(
+                f"O PNCP ficou indisponível para {resource}."
+            ) from error
         log_event(
             log,
             logging.INFO,
@@ -726,6 +737,6 @@ def fetch_registry_snapshot(
         if attempt < policy.max_attempts:
             sleep(policy.delay(attempt, 0.5))
 
-    raise PncpError(
+    raise PncpUnavailable(
         f"O PNCP ficou indisponível para {resource} (último HTTP {last_status})."
     )

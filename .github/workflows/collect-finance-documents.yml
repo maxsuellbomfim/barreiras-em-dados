@@ -591,21 +591,37 @@ jobs:
           echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
           | sha256sum --check --strict
 
+      # ADR 0089: 75 = fonte estadual fora do ar dentro do prazo (7 dias). A
+      # falha fica registrada; sem retrato novo, normalizar e conferir não
+      # têm o que verificar.
       - name: Preservar catálogo e ZIP estaduais
+        id: state_collect
         shell: bash
         run: |
+          set +e
           set -o pipefail
           python -B -m \
             barreiras_collectors.commands.collect_bahia_state_amendments \
             2>&1 | tee "$RUNNER_TEMP/bahia-state-collector.jsonl"
+          code=$?
+          set -e
+          if [ "$code" -eq 75 ]; then
+            echo "availability=unavailable" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Fonte indisponível::O catálogo estadual de emendas está fora do ar, ainda dentro do prazo de atualização. A falha foi registrada e a próxima execução tenta de novo."
+            exit 0
+          fi
+          echo "availability=available" >> "$GITHUB_OUTPUT"
+          exit "$code"
 
       - name: Normalizar execução estadual agregada
+        if: steps.state_collect.outputs.availability == 'available'
         run: >-
           python -B -m
           barreiras_normalization.commands.process_bahia_state_execution
           --limit "1"
 
       - name: Confirmar publicação da cobertura estadual
+        if: steps.state_collect.outputs.availability == 'available'
         run: >-
           node scripts/verify-public-state-resource-projections.mjs
           --scope state-execution
