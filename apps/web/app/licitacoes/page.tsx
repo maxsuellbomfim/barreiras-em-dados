@@ -42,6 +42,10 @@ import {
   getPublicSupplierSanctions,
   type SupplierSanction,
 } from "../../lib/supplier-sanctions";
+import {
+  procurementExportHref,
+  procurementFiltersFromParams,
+} from "../../lib/procurement-filters.mjs";
 import { ProcurementExplorer } from "./procurement-explorer";
 
 export const revalidate = 300;
@@ -63,17 +67,6 @@ function formatShare(value: string): string {
   return Number.isFinite(numeric)
     ? `${(numeric * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`
     : "não calculado";
-}
-
-function cleanFilter(value: string | undefined, maxLength: number): string | undefined {
-  const normalized = value?.trim();
-  return normalized && normalized.length <= maxLength ? normalized : undefined;
-}
-
-function parseYear(value: string | undefined): number | undefined {
-  if (!value || !/^\d{4}$/.test(value)) return undefined;
-  const year = Number(value);
-  return year >= 1900 && year <= 2200 ? year : undefined;
 }
 
 function optionsFor(
@@ -691,14 +684,7 @@ function MunicipalContractsPanel({
 export default async function ProcurementsPage({ searchParams }: ProcurementsPageProps) {
   const params = await searchParams;
   const procurementPage = parsePanelPage(params.pagina);
-  const filters: ProcurementFilters = {
-    supplierKey: cleanFilter(params.fornecedor, 200),
-    fiscalYear: parseYear(params.ano),
-    query: cleanFilter(params.q, 120),
-    modality: cleanFilter(params.modalidade, 120),
-    status: cleanFilter(params.situacao, 120),
-    unit: cleanFilter(params.orgao, 160),
-  };
+  const filters: ProcurementFilters = procurementFiltersFromParams(params);
   const hasFilters = Boolean(
     filters.supplierKey ||
       filters.fiscalYear ||
@@ -897,6 +883,16 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
               </section>
             ) : null}
             <div id="procurements-list">
+              <p className="procurement-export">
+                <a href={procurementExportHref(filters)} download>
+                  Baixar {hasFilters ? "esta seleção" : "todas as contratações"} em CSV
+                </a>{" "}
+                <span className="meta">
+                  Todas as páginas, com link do PNCP, valores exatos e aviso de
+                  cobertura. Abra como UTF-8, separador ponto e vírgula, vírgula
+                  decimal.
+                </span>
+              </p>
               <ProcurementExplorer
                 procurements={result.procurements.slice(0, PROCUREMENTS_PER_PAGE)}
               />
