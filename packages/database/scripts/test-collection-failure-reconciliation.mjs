@@ -143,6 +143,14 @@ try {
   const lateSnapFailed = add(run(catalog, "retry_scheduled", "2026-09-20T10:00:00Z"));
   statements.push(failure(catalog, lateSnapFailed, "catalog-snapshot:2026-09-20", "2026-09-20T10:00:00Z"));
 
+  // Regra 4: janela coberta por outra janela maior do mesmo endpoint,
+  // coletada depois com sucesso.
+  const windowFailed = add(run(qd, "retry_scheduled", "2026-09-09T10:00:00Z"));
+  statements.push(partition(qd, "published:2026-06-10:2026-06-12", "2026-06-10", "2026-06-12", "failed", windowFailed, "2026-09-09T10:00:00Z"));
+  statements.push(failure(qd, windowFailed, "published:2026-06-10:2026-06-12", "2026-09-09T10:00:00Z"));
+  const windowOk = add(run(qd, "succeeded", "2026-09-10T10:00:00Z"));
+  statements.push(partition(qd, "published:2026-06-01:2026-06-30", "2026-06-01", "2026-06-30", "complete", windowOk, "2026-09-10T10:00:00Z"));
+
   await database.exec(statements.join("\n"));
 
   const privileges = await database.query(`
@@ -156,7 +164,12 @@ try {
   const first = await database.query("select * from source.reconcile_collection_failures()");
   assert.deepEqual(
     Object.fromEntries(first.rows.map((row) => [row.rule, row.resolved_count])),
-    { same_partition_recovered: 1, snapshot_superseded: 1, covered_by_primary_source: 2 },
+    {
+      same_partition_recovered: 1,
+      snapshot_superseded: 1,
+      covered_by_primary_source: 2,
+      covered_by_later_window: 1,
+    },
   );
 
   const closed = await database.query(`
@@ -171,6 +184,7 @@ try {
       [snapFailed, snapOk, "snapshot_superseded", null],
       [qdFailed, sameOk, "covered_by_primary_source", null],
       [qdPermanent, sameOk, "covered_by_primary_source", null],
+      [windowFailed, windowOk, "covered_by_later_window", null],
     ],
   );
 
@@ -189,7 +203,8 @@ try {
   `);
   assert.equal(audit.rows.length, 1);
   assert.equal(audit.rows[0].actor_type, "worker");
-  assert.equal(audit.rows[0].metadata.version, "collection-failure-reconciliation/1.0.0");
+  assert.equal(audit.rows[0].metadata.version, "collection-failure-reconciliation/1.1.0");
+  assert.equal(audit.rows[0].after_state.covered_by_later_window, 1);
   assert.equal(audit.rows[0].metadata.records_deleted, false);
   assert.equal(audit.rows[0].after_state.covered_by_primary_source, 2);
 

@@ -218,7 +218,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 partition_key=key,
             )
             pending = pending_discovery_modalities(checkpoint)
-            if pending:
+            # Todas pendentes = o PNCP caiu inteiro naquele dia; refazer uma
+            # modalidade por dia levaria 13 execuções. A janela inteira de uma
+            # vez é a mesma verificação integral que a fecharia no fim.
+            if pending and len(pending) < len(CONTRATACAO_MODALIDADES):
                 arguments.modalidade = repository.pncp_next_discovery_modality(
                     partition_key=key, modalities=pending
                 )
