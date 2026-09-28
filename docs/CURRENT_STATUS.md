@@ -89,10 +89,16 @@ amplas.
 3. **Dados abertos:** `apps/public-api` está vazio e a única exportação CSV é a
    da Farmácia Popular. A visão prevê downloads e API com os mesmos estados da
    interface.
-4. **Executor de novas tentativas:** `next_retry_at` é exibido, mas nenhum
-   componente repete as coletas vencidas. As 111 falhas de indisponibilidade da
-   API complementar do Querido Diário (TLS, desde agosto) precisam de executor ou
-   de estado próprio de fonte opcional.
+4. **Novas tentativas de coleta:** não há executor genérico; cada coletor
+   volta a tentar pelo próprio agendamento. Desde 27/09 a função versionada
+   `source.reconcile_collection_failures` (collection-failure-reconciliation/1.0.0)
+   fecha, com motivo, execução de evidência e auditoria, só falhas já superadas:
+   mesma partição recuperada, retrato datado substituído por outro posterior e
+   semana do Querido Diário coberta pelo catálogo oficial da Prefeitura. Roda ao
+   fim do workflow do Diário. Na medição de 27/09 fecharia 154 de 211 falhas
+   abertas; as demais são pendências reais ou estados de espera que o próprio
+   coletor ainda registra como falha (mês do TCM não publicado, contratos do
+   PNCP com leitura pendente).
 5. **Autoria legislativa:** coautorias chegam num campo só ("A e B", "A / B") e
    geram a maior parte das novas sugestões de alias; suplentes em exercício e
    autoria do Executivo ainda não têm perfil próprio.
@@ -157,9 +163,6 @@ amplas.
 
 ## Próximo fluxo vertical
 
-Recuperar o texto do Diário nas páginas com extração vazia: reprocessar o OCR
-das 14.832 páginas pela fila já preparada, comparar com a extração anterior sem
-sobrescrever versões publicadas e republicar apenas por nova versão auditada.
-Em seguida, o primeiro elo individual do rastro do dinheiro: um contrato do PNCP
-ligado aos seus empenhos e pagamentos por chave oficial, com a mesma disciplina
-de estágios separados.
+Classificar no próprio coletor os estados de espera que hoje viram falha
+(competência do TCM ainda não publicada, contratos do PNCP com leitura
+pendente), para que falha aberta signifique só problema real de fonte.
