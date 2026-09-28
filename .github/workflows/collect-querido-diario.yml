@@ -271,6 +271,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # Não há executor genérico de novas tentativas: fecha, com motivo e
+      # auditoria, só falhas cuja recuperação já está comprovada no banco.
+      - name: Reconciliar falhas de coleta superadas
+        if: always()
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.reconcile_collection_failures
+
       - name: Sinalizar falha obrigatória das fontes
         if: >-
           always() &&
