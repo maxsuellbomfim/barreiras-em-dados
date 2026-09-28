@@ -86,9 +86,11 @@ amplas.
    2026-08 (32 meses, 53.731 pagamentos). Faltam os meses anteriores a
    2024, que a série histórica da fonte não entrega
    ([`sources/PREFEITURA_DESPESAS_WEBRUN.md`](sources/PREFEITURA_DESPESAS_WEBRUN.md)).
-3. **Dados abertos:** `apps/public-api` está vazio e a única exportação CSV é a
-   da Farmácia Popular. A visão prevê downloads e API com os mesmos estados da
-   interface.
+3. **Dados abertos:** `apps/public-api` segue vazio. Downloads CSV: Farmácia
+   Popular e, desde 28/09, contratações do PNCP em `/licitacoes/exportar`
+   (`pncp-procurements-csv/1.0.0`: mesmos filtros da página, todas as páginas,
+   valores com o decimal exato do banco, link oficial, aviso de cobertura e
+   estados próprios para seleção vazia, grande demais ou indisponível).
 4. **Novas tentativas de coleta:** não há executor genérico; cada coletor
    volta a tentar pelo próprio agendamento. Desde 27/09 a função versionada
    `source.reconcile_collection_failures` (collection-failure-reconciliation/1.0.0)
