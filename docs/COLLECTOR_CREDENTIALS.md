@@ -83,6 +83,13 @@ ALTER ROLE collector_querido_diario LOGIN CONNECTION LIMIT 2;
 COMMIT;
 ```
 
+Em 28/09/2026 o limite passou a 8 (migration
+`20260928152448_collector_connection_limit`, decisão do titular): a mesma
+identidade atende ~15 workflows e as tarefas locais da Farmácia Popular e do
+TCM-BA, e o limite de 2 recusava conexões nos horários em que elas coincidem.
+Uma identidade separada para a máquina local continua sendo a evolução mais
+isolada.
+
 O comando `\password` solicita a nova senha sem exibi-la. Gere outra senha única
 de pelo menos 24 caracteres e salve-a como
 `Barreiras em Dados — PostgreSQL — Querido Diário`.

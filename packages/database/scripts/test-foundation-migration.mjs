@@ -373,7 +373,7 @@ try {
     inherits: true,
     superuser: false,
     bypasses_rls: false,
-    connection_limit: 2,
+    connection_limit: 8,
     is_worker_member: true,
   });
 
