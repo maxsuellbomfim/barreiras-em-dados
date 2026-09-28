@@ -21,6 +21,7 @@ from ..connectors.tcm_ba import (
     ENDPOINT_CODE,
     SOURCE_CODE,
     TcmBaContractError,
+    TcmBaSubmissionPending,
     TcmBaMonthlyCatalog,
     TcmBaPublicAccountsClient,
 )
@@ -114,6 +115,8 @@ def previous_closed_month(collected_on: date) -> tuple[int, int]:
 
 
 def _unpublished_competence(error: TcmBaContractError) -> str | None:
+    if isinstance(error, TcmBaSubmissionPending):
+        return error.competence
     match = re.fullmatch(
         r"Opção '((?:0[1-9]|1[0-2])/\d{4})' ausente no campo "
         r"consultaPublicaTabPanel:consultaPublicaPCSearchForm:"
@@ -141,7 +144,10 @@ def execute_controlled_tcm_month(
                 checkpoint={"competence": competence},
                 metrics={"documents_catalogued": 0, "artifacts_preserved": 0},
                 block_reason=(
-                    "O e-TCM ainda não disponibilizou a competência mensal "
+                    "O e-TCM ainda não lista a prestação desta competência "
+                    "na consulta pública."
+                    if isinstance(error, TcmBaSubmissionPending)
+                    else "O e-TCM ainda não disponibilizou a competência mensal "
                     "no catálogo público."
                 ),
             )

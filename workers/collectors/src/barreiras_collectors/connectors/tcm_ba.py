@@ -58,6 +58,16 @@ class TcmBaContractError(TcmBaError):
     """A página recebida diverge do contrato observado e não é confiável."""
 
 
+class TcmBaSubmissionPending(TcmBaContractError):
+    """A consulta pública respondeu vazia: a prestação ainda não é listada."""
+
+    def __init__(self, competence: str) -> None:
+        super().__init__(
+            f"O e-TCM ainda não lista prestação para a competência {competence}."
+        )
+        self.competence = competence
+
+
 class TcmBaSessionTransport(Protocol):
     def get(
         self,
@@ -1034,7 +1044,14 @@ def _parse_submission(
     if tbody is None:
         raise TcmBaContractError("Tabela de prestações do e-TCM não encontrada.")
     matches: list[tuple[TcmBaSubmission, str]] = []
-    for row in _direct_children(tbody, "tr"):
+    rows = _direct_children(tbody, "tr")
+    # Só a linha de "nenhum registro" do PrimeFaces conta como espera; qualquer
+    # outro formato continua sendo quebra de contrato.
+    if len(rows) == 1 and "ui-datatable-empty-message" in rows[0].attrs.get(
+        "class", ""
+    ).split():
+        raise TcmBaSubmissionPending(expected_competence)
+    for row in rows:
         cells = _direct_children(row, "td")
         if len(cells) < 6:
             continue

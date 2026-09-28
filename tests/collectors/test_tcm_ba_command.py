@@ -16,7 +16,11 @@ from barreiras_collectors.commands.collect_tcm_ba_monthly_catalog import (
     month_range,
     previous_closed_month,
 )
-from barreiras_collectors.connectors.tcm_ba import TcmBaContractError, TcmBaError
+from barreiras_collectors.connectors.tcm_ba import (
+    TcmBaContractError,
+    TcmBaError,
+    TcmBaSubmissionPending,
+)
 
 
 class FakeControl:
@@ -74,6 +78,44 @@ class TcmBaMonthlyCatalogCommandTests(unittest.TestCase):
         self.assertEqual(completion["outcome"], CollectionOutcome.BLOCKED)
         self.assertEqual(completion["observed_records"], 0)
         self.assertIn("não disponibilizou", completion["block_reason"])
+
+    def test_submission_not_listed_yet_is_blocked_not_failure(self) -> None:
+        control = FakeControl()
+
+        def pending_operation():
+            raise TcmBaSubmissionPending("08/2026")
+
+        self.assertIsNone(
+            execute_controlled_tcm_month(control=control, operation=pending_operation)
+        )
+        completion = control.completions[0]
+        self.assertEqual(completion["outcome"], CollectionOutcome.BLOCKED)
+        self.assertEqual(completion["checkpoint"], {"competence": "08/2026"})
+        self.assertIn("ainda não lista a prestação", completion["block_reason"])
+
+    def test_pending_submission_is_not_retried(self) -> None:
+        calls = []
+
+        class PendingClient:
+            def __init__(self, **_kwargs) -> None:
+                pass
+
+            def fetch_monthly_catalog(self, **_kwargs):
+                calls.append(1)
+                raise TcmBaSubmissionPending("08/2026")
+
+        with patch(
+            "barreiras_collectors.commands.collect_tcm_ba_monthly_catalog."
+            "TcmBaPublicAccountsClient",
+            PendingClient,
+        ), self.assertRaises(TcmBaSubmissionPending):
+            fetch_tcm_ba_monthly_catalog_with_contract_retry(
+                year=2026,
+                month=8,
+                requests_per_minute=600,
+                logger=logging.getLogger("test"),
+            )
+        self.assertEqual(len(calls), 1)
 
     def test_retries_one_contract_failure_with_fresh_client_and_sanitized_warning(
         self,

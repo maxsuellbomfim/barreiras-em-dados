@@ -9,6 +9,7 @@ from barreiras_collectors.connectors.tcm_ba import (
     TcmBaContractError,
     TcmBaDocument,
     TcmBaPublicAccountsClient,
+    TcmBaSubmissionPending,
     validate_tcm_ba_catalog,
     validate_tcm_ba_document_download,
 )
@@ -572,6 +573,52 @@ class TcmBaPublicAccountsTests(unittest.TestCase):
                 transport=transport,
                 requests_per_minute=600,
             ).fetch_monthly_catalog(year=2023, month=4)
+
+    def _search_with(self, search: bytes) -> SequenceSessionTransport:
+        return SequenceSessionTransport(
+            [
+                _form(monthly=False, year=False, city=False),
+                _state_only("period-preflight-state"),
+                _partial(_form(monthly=True, year=False, city=False), "period-state"),
+                _state_only("year-preflight-state"),
+                _partial(_form(monthly=True, year=True, city=False), "year-state"),
+                _state_only("city-preflight-state"),
+                _partial(_form(monthly=True, year=True, city=True), "city-state"),
+                _state_only("unit-preflight-state"),
+                _partial(
+                    _form(monthly=True, year=True, city=False, unit=True),
+                    "unit-state",
+                ),
+                _partial(search, "search-state"),
+            ]
+        )
+
+    def test_empty_search_means_submission_not_listed_yet(self) -> None:
+        empty = (
+            b'<tbody id="consultaPublicaTabPanel:consultaPublicaDataTable:tb">'
+            b'<tr class="ui-widget-content ui-datatable-empty-message">'
+            b'<td colspan="6">Nenhum registro encontrado.</td></tr></tbody>'
+            b'<input name="javax.faces.ViewState" value="search-state" />'
+        )
+        with self.assertRaises(TcmBaSubmissionPending) as raised:
+            TcmBaPublicAccountsClient(
+                transport=self._search_with(empty),
+                requests_per_minute=600,
+            ).fetch_monthly_catalog(year=2023, month=4)
+        self.assertEqual(raised.exception.competence, "04/2023")
+
+    def test_unknown_empty_layout_stays_contract_error(self) -> None:
+        odd = (
+            b'<tbody id="consultaPublicaTabPanel:consultaPublicaDataTable:tb">'
+            b'<tr><td colspan="6">?</td></tr></tbody>'
+            b'<input name="javax.faces.ViewState" value="search-state" />'
+        )
+        with self.assertRaises(TcmBaContractError) as raised:
+            TcmBaPublicAccountsClient(
+                transport=self._search_with(odd),
+                requests_per_minute=600,
+            ).fetch_monthly_catalog(year=2023, month=4)
+        self.assertNotIsInstance(raised.exception, TcmBaSubmissionPending)
 
     def test_rejects_out_of_scope_month_or_year_before_network(self) -> None:
         transport = SequenceSessionTransport([])
