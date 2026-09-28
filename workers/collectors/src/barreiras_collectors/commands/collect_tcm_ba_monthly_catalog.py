@@ -21,9 +21,9 @@ from ..connectors.tcm_ba import (
     ENDPOINT_CODE,
     SOURCE_CODE,
     TcmBaContractError,
-    TcmBaSubmissionPending,
     TcmBaMonthlyCatalog,
     TcmBaPublicAccountsClient,
+    TcmBaSubmissionPending,
 )
 from ..logging import log_event
 from ..persistence.postgres import PostgresCollectionRepository
