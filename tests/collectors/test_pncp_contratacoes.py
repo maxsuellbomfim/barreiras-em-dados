@@ -638,6 +638,30 @@ class PncpContratacoesMainExitTests(unittest.TestCase):
         self.assertEqual(log.call_args.kwargs["window_coverage_status"], "partial")
         self.assertEqual(result, 2)
 
+    def test_backfill_with_every_modality_pending_retries_whole_window(self):
+        from datetime import date
+
+        summary = PncpContratacoesCollectionSummary(0, 0, 0, ())
+        result, repository, _, log, _, collect = self.run_main(
+            summary,
+            horizon_reached=True,
+            partial=(date(2026, 8, 24), date(2026, 8, 31)),
+            checkpoint={
+                "failed_modalities": [1, 2],
+                "deferred_modalities": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+                "truncated_modalities": [],
+            },
+            retry_modality=1,
+        )
+        repository.pncp_next_discovery_modality.assert_not_called()
+        self.assertIsNone(collect.call_args.kwargs["modalidade"])
+        self.assertEqual(
+            repository.complete_controlled_run.call_args.kwargs["partition_key"],
+            "published:2026-08-24:2026-08-31",
+        )
+        self.assertEqual(log.call_args.kwargs["window_coverage_status"], "empty")
+        self.assertEqual(result, 0)
+
     def test_backfill_isolated_retry_failure_still_exits_one(self):
         from datetime import date
 

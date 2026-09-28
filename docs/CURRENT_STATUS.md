@@ -163,8 +163,9 @@ amplas.
 
 ## Próximo fluxo vertical
 
-Acompanhar a contagem de prontidão com o ADR 0089 aplicado às sanções da CGU,
-ao catálogo estadual de emendas da Bahia e à descoberta de contratações do
-PNCP. As janelas retroativas parciais do PNCP continuam vermelhas por decisão
-(não são indisponibilidade); o próximo fluxo é fechá-las ou classificá-las
-como espera explícita.
+Acompanhar o fechamento das janelas parciais do PNCP: com todas as
+modalidades pendentes (queda total no dia da coleta), o backfill refaz a
+janela inteira de uma vez; com poucas pendentes, segue uma modalidade por
+execução e uma verificação integral no fim. Falhas de janela cobertas por
+janela maior posterior fecham pela regra 4 da reconciliação
+(collection-failure-reconciliation/1.1.0).
