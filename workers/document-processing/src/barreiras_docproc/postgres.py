@@ -1045,12 +1045,39 @@ class PostgresExtractionRepository:
         try:
             rows = connection.execute(
                 """
+                -- Primeiro só pelos índices parciais de candidatas e de OCR
+                -- pronto (migration 20260928135142): sobra o pouco que falta.
+                -- As regras completas abaixo continuam valendo para esse resto.
+                with unresolved as materialized (
+                  select distinct candidate.raw_artifact_id, candidate.page_number
+                  from raw.document_pages as candidate
+                  where (
+                      candidate.text_content is null
+                      or (
+                        candidate.extraction_method <> 'ocr'
+                        and octet_length(candidate.text_content) <= 64
+                        and btrim(candidate.text_content)
+                          = candidate.page_number::text
+                      )
+                    )
+                    and not exists (
+                      select 1
+                      from raw.document_pages as ocr
+                      where ocr.raw_artifact_id = candidate.raw_artifact_id
+                        and ocr.page_number = candidate.page_number
+                        and ocr.extraction_method = 'ocr'
+                        and ocr.text_content is not null
+                    )
+                )
                 select
                   artifact.id::text as id,
                   artifact.sha256,
                   artifact.object_key,
                   page.page_number
-                from raw.document_pages as page
+                from unresolved
+                join raw.document_pages as page
+                  on page.raw_artifact_id = unresolved.raw_artifact_id
+                 and page.page_number = unresolved.page_number
                 join raw.raw_artifacts as artifact
                   on artifact.id = page.raw_artifact_id
                 cross join (
