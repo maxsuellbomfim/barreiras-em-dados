@@ -29,6 +29,7 @@ from ..persistence.service import (
 )
 from ..resilience import PacedRateLimiter, RetryPolicy
 from ..settings import CollectorSettings, PersistenceSettings
+from ..source_availability import SourceUnavailable, unavailable_exit_code
 from .pncp_runtime import build_authenticated_object_store
 
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
@@ -50,6 +51,17 @@ class PncpContratacoesCollectionSummary:
     truncated_modalities: tuple[int, ...]
     failed_modalities: tuple[int, ...] = ()
     deferred_modalities: tuple[int, ...] = ()
+    # Toda modalidade que falhou falhou por indisponibilidade (ADR 0089).
+    failures_only_unavailable: bool = False
+
+    @property
+    def source_unavailable(self) -> bool:
+        """Parcial só porque o PNCP não respondeu, sem truncamento nem contrato."""
+        return (
+            bool(self.failed_modalities)
+            and self.failures_only_unavailable
+            and not self.truncated_modalities
+        )
 
     @property
     def observed_records(self) -> int:
@@ -279,6 +291,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         window_coverage_status="partial" if scoped_backfill else summary.outcome.value,
     )
     if summary.outcome is CollectionOutcome.PARTIAL:
+        if summary.source_unavailable:
+            # ADR 0089: aviso dentro do prazo da fonte; além dele, falha.
+            return unavailable_exit_code(
+                repository.source_freshness(
+                    source_code=SOURCE_CODE,
+                    endpoint_code="consulta-contratacoes",
+                ),
+                now=datetime.now(MUNICIPAL_TIMEZONE),
+            )
         return 1
     # Modalidade isolada respondeu por completo, mas a janela geral continua
     # parcial até a verificação integral: aviso, não falha técnica.
@@ -315,6 +336,7 @@ def _collect_window(
     truncated_modalities: list[int] = []
     failed_modalities: list[int] = []
     deferred_modalities: list[int] = []
+    failures_only_unavailable = True
     consecutive_failures = 0
     rate_limiter = PacedRateLimiter(DISCOVERY_REQUESTS_PER_MINUTE)
     for index, modalidade in enumerate(modalities):
@@ -329,6 +351,9 @@ def _collect_window(
             )
         except PncpError as error:
             failed_modalities.append(modalidade)
+            failures_only_unavailable = failures_only_unavailable and isinstance(
+                error, SourceUnavailable
+            )
             consecutive_failures += 1
             log_event(
                 logger,
@@ -380,6 +405,7 @@ def _collect_window(
         truncated_modalities=tuple(truncated_modalities),
         failed_modalities=tuple(failed_modalities),
         deferred_modalities=tuple(deferred_modalities),
+        failures_only_unavailable=failures_only_unavailable,
     )
 
 

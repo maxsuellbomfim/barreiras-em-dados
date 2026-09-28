@@ -124,8 +124,15 @@ jobs:
         id: collect_weekly
         continue-on-error: true
         if: github.event.schedule != '43 5 * * *' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'full')
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_pncp_contratacoes
+        # ADR 0089: 75 = PNCP fora do ar dentro do prazo; falha registrada.
+        run: |
+          status=0
+          python -B -m barreiras_collectors.commands.collect_pncp_contratacoes || status=$?
+          if [ "$status" = "75" ]; then
+            echo "::warning title=Fonte indisponível::O PNCP não respondeu, ainda dentro do prazo de atualização. A janela fica parcial e a próxima execução tenta de novo."
+            exit 0
+          fi
+          exit "$status"
 
       - name: Backfill retroativo de contratações
         id: collect_backfill
@@ -138,6 +145,10 @@ jobs:
             echo "::warning::Modalidade pendente consultada por completo; a janela retroativa segue parcial até a verificação integral."
             echo "### PNCP: modalidade pendente consultada, janela ainda parcial" >> "$GITHUB_STEP_SUMMARY"
             echo "A modalidade selecionada respondeu por completo nesta execução. A janela só fecha quando todas as modalidades pendentes forem consultadas e a janela inteira for verificada de novo; isso não comprova cobertura completa." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$status" = "75" ]; then
+            echo "::warning title=Fonte indisponível::O PNCP não respondeu, ainda dentro do prazo de atualização. A janela retroativa segue parcial e a próxima execução tenta de novo."
             exit 0
           fi
           exit "$status"

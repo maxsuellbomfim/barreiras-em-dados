@@ -428,6 +428,51 @@ class ControlledPncpContratacoesTests(unittest.TestCase):
         self.assertEqual(summary.deferred_modalities, (3, 4))
         self.assertEqual(summary.outcome.value, "partial")
 
+    def test_partial_only_by_unavailability_is_source_unavailable(self) -> None:
+        from barreiras_collectors.connectors.pncp import PncpUnavailable
+
+        def run(error_for_modality_2: Exception):
+            def fetch_page(**values):
+                if values["modalidade"] == 2:
+                    raise error_for_modality_2
+                return SimpleNamespace(total_paginas=1)
+
+            class ServiceProbe:
+                def persist(self, _page):
+                    return SimpleNamespace(inserted_records=1, existing_records=0)
+
+            with (
+                patch.object(command, "CONTRATACAO_MODALIDADES", (1, 2, 3)),
+                patch.object(
+                    command, "fetch_contratacoes_page", side_effect=fetch_page
+                ),
+            ):
+                return _collect_window(
+                    service=ServiceProbe(),  # type: ignore[arg-type]
+                    since="20260101",
+                    until="20260131",
+                    logger=logging.getLogger("test-pncp-unavailable"),
+                )
+
+        unavailable = run(PncpUnavailable("O PNCP ficou indisponível."))
+        self.assertEqual(unavailable.outcome.value, "partial")
+        self.assertTrue(unavailable.source_unavailable)
+        # Resposta que chegou fora do contrato continua falha não tratada.
+        contract = run(PncpError("O PNCP respondeu fora do contrato."))
+        self.assertEqual(contract.outcome.value, "partial")
+        self.assertFalse(contract.source_unavailable)
+
+    def test_truncated_window_is_never_source_unavailable(self) -> None:
+        summary = PncpContratacoesCollectionSummary(
+            pages=1,
+            inserted_records=1,
+            existing_records=0,
+            truncated_modalities=(1,),
+            failed_modalities=(2,),
+            failures_only_unavailable=True,
+        )
+        self.assertFalse(summary.source_unavailable)
+
     def test_control_starts_before_external_setup(self) -> None:
         events: list[str] = []
 

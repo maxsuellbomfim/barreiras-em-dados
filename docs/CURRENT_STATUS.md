@@ -163,7 +163,8 @@ amplas.
 
 ## Próximo fluxo vertical
 
-Estender o ADR 0089 (fonte externa indisponível como falha tratada dentro do
-prazo; piloto nas sanções da CGU) ao catálogo estadual de emendas da Bahia
-(7 dias) e à consulta de contratações do PNCP (48 h, só indisponibilidade de
-transporte), para que a contagem de prontidão meça apenas falhas não tratadas.
+Acompanhar a contagem de prontidão com o ADR 0089 aplicado às sanções da CGU,
+ao catálogo estadual de emendas da Bahia e à descoberta de contratações do
+PNCP. As janelas retroativas parciais do PNCP continuam vermelhas por decisão
+(não são indisponibilidade); o próximo fluxo é fechá-las ou classificá-las
+como espera explícita.

@@ -31,13 +31,18 @@ contagem nunca fechava.
    outro código mantém o job vermelho.
 4. **Prazo.** O prazo é o da política de atualização do endpoint
    (`freshness_expected_hours + freshness_grace_hours`), medido desde a
-   última execução que gravou dados (`succeeded` ou `partial`). Além do prazo,
+   última execução `succeeded` do endpoint (execução `partial` não conta: o
+   PNCP fora do ar termina parcial e esconderia uma queda longa). Além do prazo,
    ou sem política `scheduled`, a indisponibilidade sai com 1: vira falha
    não tratada e quebra a contagem de prontidão.
 5. **Prazos acordados:** sanções da CGU 72 h (24 + 48); catálogo estadual de
    emendas da Bahia 7 dias; PNCP 48 h.
-6. **PNCP:** só a indisponibilidade de transporte vira aviso; resposta que
-   chega e não fecha (contagem divergente, inconclusiva) continua vermelha.
+6. **PNCP:** a coleta de contratações termina `partial` quando modalidades
+   falham. Só vira aviso quando **todas** as falhas foram indisponibilidade
+   (`PncpUnavailable`, incluindo HTTP 429) e nenhuma modalidade foi truncada;
+   resposta que chega e não fecha (contagem divergente, inconclusiva) continua
+   vermelha. As falhas de 21 a 25/09 eram janelas retroativas parciais, não
+   indisponibilidade, e continuam vermelhas.
 
 ## Consequências
 

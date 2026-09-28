@@ -255,9 +255,10 @@ class PostgresCollectionRepository:
         source_code: str,
         endpoint_code: str,
     ) -> SourceFreshness:
-        """Última coleta que gravou dados e o prazo da fonte (ADR 0089).
+        """Última coleta bem-sucedida e o prazo da fonte (ADR 0089).
 
-        Lote parcial conta: ele preservou dados válidos da fonte.
+        Só `succeeded` conta: o PNCP fora do ar termina `partial`, e contar
+        parcial esconderia uma queda longa.
         """
         connection = self.connection_factory()
         try:
@@ -271,7 +272,7 @@ class PostgresCollectionRepository:
                     select max(run.completed_at)
                     from source.collection_runs as run
                     where run.source_endpoint_id = endpoint.id
-                      and run.status in ('succeeded', 'partial')
+                      and run.status = 'succeeded'
                   ) as last_valid_at
                 from source.source_endpoints as endpoint
                 join source.data_sources as source

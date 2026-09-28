@@ -33,6 +33,7 @@ from ..http import (
 )
 from ..logging import log_event
 from ..resilience import CircuitBreaker, RetryPolicy
+from ..source_availability import SourceUnavailable
 
 SOURCE_CODE = "bahia-open-data"
 ENDPOINT_CODE = "state-parliamentary-amendments"
@@ -145,6 +146,12 @@ PAYMENT_RECORD = re.compile(
 
 class BahiaStateAmendmentArchiveError(RuntimeError):
     """A fonte estadual não permite preservação segura neste retrato."""
+
+
+class BahiaStateAmendmentUnavailable(
+    BahiaStateAmendmentArchiveError, SourceUnavailable
+):
+    """A fonte estadual não respondeu depois das novas tentativas (ADR 0089)."""
 
 
 @dataclass(frozen=True)
@@ -659,7 +666,7 @@ def _request(
             if attempt < policy.max_attempts:
                 sleep(policy.delay(attempt, random_value()))
                 continue
-            raise BahiaStateAmendmentArchiveError(unavailable_message) from error
+            raise BahiaStateAmendmentUnavailable(unavailable_message) from error
         received_at = now().isoformat()
         log_event(
             log,
@@ -681,7 +688,7 @@ def _request(
         breaker.record_failure()
         if attempt < policy.max_attempts:
             sleep(policy.delay(attempt, random_value()))
-    raise BahiaStateAmendmentArchiveError(unavailable_message)
+    raise BahiaStateAmendmentUnavailable(unavailable_message)
 
 
 def parse_state_amendment_catalog(body: bytes) -> dict[str, object]:

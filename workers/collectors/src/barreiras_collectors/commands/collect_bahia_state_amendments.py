@@ -30,7 +30,9 @@ from ..persistence.service import (
     BahiaStateAmendmentCatalogPersistenceService,
     BahiaStateAmendmentRelationshipPersistenceService,
 )
+from ..resilience import CircuitOpenError
 from ..settings import CollectorSettings, PersistenceSettings
+from ..source_availability import SourceUnavailable, unavailable_exit_code
 from .pncp_runtime import build_authenticated_object_store
 
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
@@ -219,10 +221,29 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
         )
 
-    summary = execute_controlled_state_amendments(
-        control=control,
-        operation=operation,
-    )
+    try:
+        summary = execute_controlled_state_amendments(
+            control=control,
+            operation=operation,
+        )
+    except (SourceUnavailable, CircuitOpenError) as error:
+        # ADR 0089: a falha já foi gravada; só decide se ainda está no prazo.
+        exit_code = unavailable_exit_code(
+            repository.source_freshness(
+                source_code=SOURCE_CODE,
+                endpoint_code=ENDPOINT_CODE,
+            ),
+            now=datetime.now(MUNICIPAL_TIMEZONE),
+        )
+        log_event(
+            logging.getLogger(__name__),
+            logging.WARNING,
+            "collector_source_unavailable",
+            source=SOURCE_CODE,
+            error_type=type(error).__name__,
+            exit_code=exit_code,
+        )
+        return exit_code
     log_event(
         logging.getLogger(__name__),
         logging.INFO,
