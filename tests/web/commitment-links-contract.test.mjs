@@ -40,6 +40,8 @@ test("o site só aceita empenhos orçamentários ligados pela regra ou por revis
   assert.equal(parsed.reviewMode, "automated");
   const [human] = parseCommitmentLinkRows([{ ...row, review_mode: "human" }]);
   assert.equal(human.reviewMode, "human");
+  const [byKey] = parseCommitmentLinkRows([{ ...row, review_mode: "creditor_key" }]);
+  assert.equal(byKey.reviewMode, "creditor_key");
   for (const broken of [
     { commitment_key: "E-57409" },
     { review_mode: "sugerida" },

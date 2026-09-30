@@ -3,7 +3,7 @@ const COMMITMENT_KEY = /^O-\d+$/;
 const DATE_TEXT = /^\d{2}\/\d{2}\/\d{4}$/;
 const METHODOLOGY = "commitment-contract-links/1.0.0";
 const RULE = /^commitment-contract-link\/\d+\.\d+\.\d+$/;
-const REVIEW_MODES = new Set(["automated", "human"]);
+const REVIEW_MODES = new Set(["automated", "human", "creditor_key"]);
 
 function text(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -30,7 +30,7 @@ function parseLinkRow(row) {
   };
   if (
     Object.values(link).some((value) => value === null) ||
-    // Só empenho orçamentário, ligado pela regra ou por revisão humana.
+    // Só empenho orçamentário, ligado pela regra, por chave oficial ou por revisão humana.
     !COMMITMENT_KEY.test(link.commitmentKey) ||
     !REVIEW_MODES.has(link.reviewMode) ||
     !DATE_TEXT.test(link.issueDateText) ||

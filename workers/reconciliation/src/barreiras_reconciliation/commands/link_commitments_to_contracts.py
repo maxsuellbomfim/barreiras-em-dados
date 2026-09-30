@@ -73,10 +73,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise SystemExit("DATABASE_URL é obrigatório.")
-    summary = link_pending(
-        CommitmentLinkRepository.from_dsn(database_url),
-        max_commitments=args.max_commitments,
-    )
+    repository = CommitmentLinkRepository.from_dsn(database_url)
+    summary = link_pending(repository, max_commitments=args.max_commitments)
+    # ADR 0090: citações divergentes resolvidas por chave oficial saem da fila
+    # humana; as demais continuam pendentes.
+    summary["creditor_key_decisions"] = repository.confirm_by_creditor_key()
     json.dump(summary, sys.stdout, ensure_ascii=False, indent=2)
     print()
     return 0
