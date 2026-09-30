@@ -130,6 +130,8 @@ amplas.
    edição com OCR voltava à fila de atos em toda execução (a chave do job
    inclui o hash do texto; o job agora grava `extractor_version`) e a extração
    estourava o tempo do workflow e pulava a publicação (`--max-seconds`).
+   A amostra seguinte (só a régua 2.4.0) é criada sozinha pelo workflow diário
+   quando o reprocessamento termina (`editorial.ensure_act_quality_sample`).
 
 ## O que já está disponível no portal
 

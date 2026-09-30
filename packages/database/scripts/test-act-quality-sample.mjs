@@ -19,6 +19,8 @@ assert.ok(
 const sha = (text) => createHash("sha256").update(text, "utf8").digest("hex");
 const q = (text) => text.replaceAll("'", "''");
 const reviewer = "27b3add6-f788-48e5-bf6f-50dfbd8cf198";
+const ruleset = "gazette-act-candidates/9.9.9";
+const oldRuleset = "gazette-act-candidates/9.9.8";
 
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
 try {
@@ -73,7 +75,7 @@ try {
   let counter = 0;
   const uuid = () => `00000000-0000-4000-b000-${String(++counter).padStart(12, "0")}`;
   const statements = [];
-  function artifact(edition, pages, acts) {
+  function artifact(edition, pages, acts, version = ruleset) {
     const id = uuid();
     const artifactSha = sha(`pdf-${edition}`);
     statements.push(`insert into raw.raw_artifacts (id, collection_run_id, source_endpoint_id,
@@ -103,8 +105,8 @@ try {
     const canonical = parts.join("\n\n");
     const job = uuid();
     statements.push(`insert into raw.extraction_jobs (id, raw_artifact_id, job_type,
-      idempotency_key, status) values ('${job}', '${id}', 'gazette_acts',
-      '${sha(`job-${edition}`)}', 'succeeded');`);
+      idempotency_key, status, extractor_version) values ('${job}', '${id}',
+      'gazette_act_candidates', '${sha(`job-${edition}`)}', 'succeeded', '${version}');`);
     const results = {};
     for (const act of acts) {
       const resultId = uuid();
@@ -121,10 +123,10 @@ try {
       };
       statements.push(`insert into raw.extraction_results (id, extraction_job_id,
         candidate_type, extractor_version, validator_version, result_payload, validation_status)
-        values ('${resultId}', '${job}', '${act.type}', 'x/1', 'v/1',
+        values ('${resultId}', '${job}', '${act.type}', '${act.version ?? version}', 'v/1',
         '${q(JSON.stringify(payload))}', 'valid');`);
     }
-    return { id, results };
+    return { id, results, sha: artifactSha };
   }
 
   const withActs = artifact(
@@ -137,9 +139,11 @@ try {
     [
       { trigger: "NOMEAR Fulano", type: "nomeacao", person: "Fulano de Tal" },
       { trigger: "EXONERAR Beltrano", type: "exoneracao", person: "Beltrano" },
+      // Resultado de régua antiga sobre o mesmo texto: fica fora da amostra.
+      { trigger: "NOMEAR", type: "nomeacao", person: null, version: oldRuleset },
     ],
   );
-  artifact(
+  const plain = artifact(
     101,
     [
       { number: 1, embedded: "Ficou registrada a nomeação da comissão" },
@@ -151,7 +155,7 @@ try {
 
   const sampleId = (
     await database.query(`select editorial.create_act_quality_sample(
-      'act-quality-sample/9.9.9', 'semente-de-teste', 5) as id`)
+      'act-quality-sample/9.9.9', 'semente-de-teste', 5, '${ruleset}') as id`)
   ).rows[0].id;
   assert.ok(sampleId);
 
@@ -174,6 +178,15 @@ try {
   ).rows[0].strata;
   assert.deepEqual(strata.other_embedded, { population: 2, sampled: 2 });
   assert.deepEqual(strata._excluded, { unverified_artifacts: 0, unmapped_acts: 0 });
+
+  // Criação automática: espera enquanto houver edição só com régua anterior.
+  const ensure = async (version) =>
+    (await database.query(`select editorial.ensure_act_quality_sample('${version}') as s`))
+      .rows[0].s;
+  assert.deepEqual(await ensure(ruleset), {
+    status: "current",
+    sample_version: "act-quality-sample/9.9.9",
+  });
 
   // A amostra congelada não pode ser alterada.
   await assert.rejects(
@@ -269,6 +282,36 @@ try {
     has_function_privilege('authenticated',
       'editorial.record_ai_act_quality_annotation(uuid,jsonb,integer,integer,text,text)', 'EXECUTE') as reviewer`);
   assert.deepEqual(workerAccess.rows[0], { worker: true, reviewer: false });
+
+  // Por último, porque a amostra nova passa a ser a atual.
+  const nextRuleset = "gazette-act-candidates/9.10.0";
+  assert.deepEqual(await ensure(nextRuleset), { status: "waiting", pending: 2, processed: 0 });
+  await database.exec(`
+    insert into raw.extraction_jobs (raw_artifact_id, job_type, idempotency_key, status,
+      extractor_version)
+    values ('${withActs.id}', 'gazette_act_candidates', '${sha("ocr-key-100")}', 'succeeded',
+      '${nextRuleset}');`);
+  assert.deepEqual(await ensure(nextRuleset), { status: "waiting", pending: 1, processed: 1 });
+  // A segunda edição conclui pela chave histórica (sem OCR), sem a coluna.
+  await database.exec(`
+    insert into raw.extraction_jobs (raw_artifact_id, job_type, idempotency_key, status)
+    values ('${plain.id}', 'gazette_act_candidates',
+      encode(sha256(convert_to('gazette-acts:${plain.sha}:${nextRuleset}', 'UTF8')), 'hex'),
+      'succeeded');`);
+  // Três amostras já existem: a 1.0.0 da migration, a do teste e a nova.
+  const created = await ensure(nextRuleset);
+  assert.equal(created.status, "created");
+  assert.equal(created.sample_version, "act-quality-sample/1.2.0");
+  assert.deepEqual(await ensure(nextRuleset), {
+    status: "current",
+    sample_version: "act-quality-sample/1.2.0",
+  });
+  const ensureAccess = await database.query(`select
+    has_function_privilege('collector_worker',
+      'editorial.ensure_act_quality_sample(text)', 'EXECUTE') as worker,
+    has_function_privilege('authenticated',
+      'editorial.ensure_act_quality_sample(text)', 'EXECUTE') as reviewer`);
+  assert.deepEqual(ensureAccess.rows[0], { worker: true, reviewer: false });
 } finally {
   await database.close();
 }
