@@ -56,8 +56,17 @@ como nomeações perdidas, o que não é nomeação para cargo.
 ("PORTARIA Nº373, 08 DE ABRIL DE 2024") deixava o ato dentro do bloco da
 portaria anterior — sumia ou herdava número e data errados; a troca e→c do
 OCR ("Nomcar", "Exoncrar") escondia o verbo; e "Sr."/"Sra." com ponto não
-marcava o nome. A amostra 1.0.0 mede a régua 2.3.0; medir a 2.4.0 exige nova
-versão da amostra.
+marcava o nome.
+
+**Uma amostra por régua.** A 1.0.0 mede a régua 2.3.0 e ainda juntava atos de
+réguas anteriores sobre o mesmo texto (o mesmo ato repetido, às vezes sem
+nome), o que puxa a precisão medida para baixo. A partir de 30/09/2026 cada
+amostra mede uma régua só (`act_quality_samples.ruleset_version`).
+`editorial.ensure_act_quality_sample(régua)`, chamada pelo workflow diário,
+cria a amostra seguinte (`act-quality-sample/1.N.0`, semente
+`barreiras-act-quality-<régua>`, 20 páginas por estrato) quando toda edição já
+processada por régua anterior tiver job da régua vigente; até lá responde
+`waiting` com a contagem. As amostras anteriores e suas anotações permanecem.
 
 ## Métricas (act-quality-metrics/1.1.0)
 

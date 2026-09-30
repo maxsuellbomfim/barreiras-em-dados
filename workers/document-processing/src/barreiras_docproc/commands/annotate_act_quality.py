@@ -25,6 +25,7 @@ from ..act_quality_ai import (
     response_sha256,
 )
 from ..assist import UrllibJsonCaller
+from ..candidates import RULESET_VERSION
 from ..ocr import rasterize_page
 from ..postgres import PostgresExtractionRepository
 
@@ -127,6 +128,21 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     connection = connect()
     try:
+        # Régua nova com o acervo já reprocessado ganha amostra própria; a
+        # criação remonta o texto de cada edição, daí o prazo maior.
+        with connection.transaction():
+            connection.execute("set local statement_timeout = '15min'")
+            sample_state = connection.execute(
+                "select editorial.ensure_act_quality_sample(%s) as state",
+                (RULESET_VERSION,),
+            ).fetchone()["state"]
+        log_event(
+            logger,
+            logging.INFO,
+            "act_quality_sample_state",
+            ruleset_version=RULESET_VERSION,
+            **sample_state,
+        )
         pages = connection.execute(
             "select * from editorial.get_act_quality_pages_for_ai(%s, %s)",
             (PROMPT_VERSION, arguments.limit),
