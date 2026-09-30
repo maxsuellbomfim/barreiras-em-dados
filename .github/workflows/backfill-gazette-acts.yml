@@ -87,7 +87,7 @@ jobs:
           PROCESS_LIMIT: ${{ inputs.limit || '100' }}
         run: >-
           python -B -m barreiras_docproc.commands.process_gazette_acts
-          --limit "${PROCESS_LIMIT}"
+          --limit "${PROCESS_LIMIT}" --max-seconds 1080
 
       - name: Sugerir leitura em cascata
         continue-on-error: true
