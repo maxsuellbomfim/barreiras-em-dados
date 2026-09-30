@@ -117,6 +117,12 @@ amplas.
    "Qualidade dos atos" continua possível e prevalece. As métricas ponderadas
    saem de `api.get_act_quality_metrics('any'|'human'|'ai')`
    (act-quality-metrics/1.1.0) e, vindas da IA, são estimativa rotulada.
+   Primeira medição da IA (30/09, 119 de 120 páginas, sem ponderação): dos 63
+   atos julgados, 43 certos, 9 incompletos e 11 errados (≈68% estrita, ≈83%
+   ampla); 31 nomeações/exonerações não extraídas, 19 delas nas páginas OCR
+   com "nomea/exonera" sem ato — o maior buraco de revocação está no OCR.
+   Modelos: `gemini-flash-lite-latest` e `gemini-flash-latest` (2.0/2.5 foram
+   aposentados pelo provedor).
 
 ## O que já está disponível no portal
 
