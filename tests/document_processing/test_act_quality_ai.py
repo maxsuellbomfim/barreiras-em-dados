@@ -7,7 +7,11 @@ from barreiras_docproc.act_quality_ai import (
     build_payload,
     parse_annotation,
 )
-from barreiras_docproc.commands.annotate_act_quality import annotate_page
+from barreiras_docproc.commands.annotate_act_quality import (
+    QUOTA_RETRY_SECONDS,
+    QuotaExhausted,
+    annotate_page,
+)
 
 ACTS = [
     {
@@ -111,6 +115,27 @@ class AnnotatePageTests(unittest.TestCase):
                 acts=ACTS,
                 sleep=lambda _s: None,
             )
+
+    def test_quota_on_every_model_waits_once_then_stops_the_batch(self) -> None:
+        class Caller:
+            calls = 0
+
+            def post(self, url, headers, payload):
+                Caller.calls += 1
+                return 429, b'{"error": "quota"}'
+
+        slept = []
+        with self.assertRaises(QuotaExhausted) as raised:
+            annotate_page(
+                caller=Caller(),
+                api_key="k",
+                image_uri="data:x",
+                acts=ACTS,
+                sleep=slept.append,
+            )
+        self.assertEqual(Caller.calls, 6)
+        self.assertIn(QUOTA_RETRY_SECONDS, slept)
+        self.assertIn("HTTP 429", str(raised.exception))
 
 
 if __name__ == "__main__":

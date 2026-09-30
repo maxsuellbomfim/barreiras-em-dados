@@ -30,6 +30,13 @@ from ..postgres import PostgresExtractionRepository
 
 # Cota gratuita do Gemini: ~10 requisições por minuto.
 SECONDS_BETWEEN_CALLS = 7.0
+# Todos os modelos em 429: espera uma janela de minuto antes de concluir que
+# a cota do dia acabou.
+QUOTA_RETRY_SECONDS = 65.0
+
+
+class QuotaExhausted(RuntimeError):
+    """Todos os modelos recusaram por cota (HTTP 429)."""
 
 
 def annotate_page(
@@ -42,22 +49,37 @@ def annotate_page(
 ):
     """Tenta os modelos em ordem; resposta fora do contrato passa ao próximo."""
     expected = [str(act["result_id"]) for act in acts]
-    last_error = "sem modelo"
-    for model in GEMINI_MODELS:
-        status, body = caller.post(
-            GEMINI_URL,
-            {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            build_payload(model, image_uri, acts),
-        )
-        sleep(SECONDS_BETWEEN_CALLS)
-        if status != 200:
-            last_error = f"HTTP {status}"
-            continue
-        try:
-            return model, parse_annotation(body, expected), response_sha256(body)
-        except (ValueError, KeyError, IndexError, TypeError) as error:
-            last_error = type(error).__name__
-    raise RuntimeError(f"Nenhum modelo respondeu dentro do contrato ({last_error}).")
+    for attempt in range(2):
+        errors: list[str] = []
+        for model in GEMINI_MODELS:
+            try:
+                status, body = caller.post(
+                    GEMINI_URL,
+                    {
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    build_payload(model, image_uri, acts),
+                )
+            except OSError as error:
+                status, body = None, b""
+                errors.append(f"{model}: {type(error).__name__}")
+            sleep(SECONDS_BETWEEN_CALLS)
+            if status is None:
+                continue
+            if status != 200:
+                detail = body[:120].decode("utf-8", errors="replace")
+                errors.append(f"{model}: HTTP {status} {detail}")
+                continue
+            try:
+                return model, parse_annotation(body, expected), response_sha256(body)
+            except (ValueError, KeyError, IndexError, TypeError) as error:
+                errors.append(f"{model}: {type(error).__name__}")
+        if not all(": HTTP 429" in error for error in errors):
+            raise RuntimeError("; ".join(errors))
+        if attempt == 0:
+            sleep(QUOTA_RETRY_SECONDS)
+    raise QuotaExhausted("; ".join(errors))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -145,6 +167,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             finally:
                 connection.close()
             recorded += 1
+        except QuotaExhausted as error:
+            # ponytail: cota do dia acabou; as páginas restantes ficam para a
+            # próxima execução, sem gastar tentativas.
+            log_event(
+                logger,
+                logging.WARNING,
+                "act_quality_ai_quota_exhausted",
+                page=str(page["sample_page_id"]),
+                detail=str(error)[:500],
+            )
+            break
         except Exception as error:
             failed += 1
             log_event(
@@ -153,6 +186,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "act_quality_ai_page_failed",
                 page=str(page["sample_page_id"]),
                 error_type=type(error).__name__,
+                detail=str(error)[:500],
             )
     log_event(
         logger,
