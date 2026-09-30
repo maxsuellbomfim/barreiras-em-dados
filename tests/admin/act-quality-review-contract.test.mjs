@@ -59,3 +59,16 @@ test("aba do admin usa as RPCs e trata acesso negado", () => {
   assert.match(page, /<ActQualityReview rpc=\{rpc\} \/>/);
   assert.match(page, /Qualidade dos atos/);
 });
+
+test("anotação por IA (ADR 0091) é só do worker, validada e rotulada", async () => {
+  const aiName = (await readdir(migrations)).find((name) =>
+    name.endsWith("_act_quality_ai_annotation.sql"),
+  );
+  const ai = await readFile(new URL(aiName, migrations), "utf8");
+  assert.match(ai, /grant execute on function editorial\.record_ai_act_quality_annotation\([^)]*\)\s+to collector_worker;/);
+  assert.match(ai, /revoke all on function editorial\.record_ai_act_quality_annotation\([^)]*\)\s+from public, anon, authenticated, service_role;/);
+  assert.doesNotMatch(ai, /editorial_reviews/, "a IA mede qualidade, não decide publicação");
+  assert.match(ai, /'act-quality-metrics\/1\.1\.0'/);
+  assert.match(component, /estimativa automática por IA/);
+  assert.match(component, /p_source: "ai"/);
+});
