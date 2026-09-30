@@ -13,7 +13,9 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date
 
-FIELDSET_VERSION = "gazette-act-fields/1.5.0"
+from .candidates import EXONERACAO_VERB, NOMEACAO_VERB, PORTARIA_WORD
+
+FIELDSET_VERSION = "gazette-act-fields/1.6.0"
 # O ato inteiro cabe na janela: os diários quebram a frase em várias linhas
 # e o nome costuma vir depois de apostos ("a servidora ...", "o (a) ...").
 FIELD_WINDOW = 1200
@@ -85,7 +87,7 @@ _NAME = (
 # maiúscula, senão "o servidor conforme documento" viraria nome.
 _PERSON_MARKED_PATTERN = re.compile(
     r"(?i:servidor|servidora|candidato|candidata|senhor|senhora|"
-    r"sr|sra|srª)\s*\(?\s*(?i:a)?\s*\)?\s*[,:]?\s+"
+    r"sr|sra|srª)\.?\s*\(?\s*(?i:a)?\s*\)?\s*[,:]?\s+"
     rf"({_NAME})",
 )
 _NUMBERED_PERSON_PATTERN = re.compile(
@@ -94,7 +96,7 @@ _NUMBERED_PERSON_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _PERSON_BEFORE_POSITION_PATTERN = re.compile(
-    rf"(?:^\s*|\b(?:NOMEAR|NOMEIA|NOMEIO|EXONERAR|EXONERA|EXONERO)\s+"
+    rf"(?:^\s*|(?:{NOMEACAO_VERB}|{EXONERACAO_VERB})\s+"
     rf"|\be\s+|[;,]\s*)({_NAME})"
     rf"(?=\s*,?\s+(?:para|no|do)\s+o?\s*cargo\b)",
     re.IGNORECASE,
@@ -130,8 +132,8 @@ _ORGANIZATION_STOP = re.compile(
     re.IGNORECASE,
 )
 _HEADING_PATTERN = re.compile(
-    r"PORTARIA\s+N\s*[°ºo.]*\s*([\d./-]{1,20})\s*,?\s*"
-    r"DE\s+(\d{1,2})\s+DE\s+([A-ZÀ-Üa-zà-ü]+)\s+DE\s+(\d{4})",
+    PORTARIA_WORD + r"\s+N\s*[°ºo.]*\s*([\d./-]{1,20})\s*,?\s*"
+    r"(?:DE\s+)?(\d{1,2})\s+DE\s+([A-ZÀ-Üa-zà-ü]+)\s+DE\s+(\d{4})",
     re.IGNORECASE,
 )
 

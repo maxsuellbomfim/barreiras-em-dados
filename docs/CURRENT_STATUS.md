@@ -122,7 +122,10 @@ amplas.
    ampla); 31 nomeações/exonerações não extraídas, 19 delas nas páginas OCR
    com "nomea/exonera" sem ato — o maior buraco de revocação está no OCR.
    Modelos: `gemini-flash-lite-latest` e `gemini-flash-latest` (2.0/2.5 foram
-   aposentados pelo provedor).
+   aposentados pelo provedor). Das 19 perdas no OCR, 14 eram conselheiros de
+   uma só página (fora do escopo; prompt 1.1.0 corrige a contagem) e as demais
+   vinham de cabeçalho sem "DE" antes do dia e da troca e→c do OCR — corrigidas
+   na régua `gazette-act-candidates/2.4.0`, que reprocessa o acervo.
 
 ## O que já está disponível no portal
 

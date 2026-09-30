@@ -137,6 +137,55 @@ class ActCandidateTests(unittest.TestCase):
         )
         self.assertEqual(find_candidates(text), candidates)
 
+    def test_ocr_heading_without_de_and_e_to_c_swap_open_their_own_acts(
+        self,
+    ) -> None:
+        # Trechos reais do OCR (edições 4136, 4098 e 4329 de 2024-2025),
+        # apontados pela amostra conferida por IA (ADR 0091).
+        text = (
+            "PORTARIA Nº 372, DE 08 DE ABRIL DE 2024\n"
+            "Art. 1º Nomear a Sra. Ana Paula Souza Lima, para o cargo de "
+            "Diretora.\n"
+            "PORTARIA Nº373, 08 DE ABRIL DE 2024\n"
+            "Art. 1º Nomear o Sr. Mikael Oliveira dos Santos, para o cargo de "
+            "Assistente de Setor.\n"
+            "PORTARIA Nº102, DE 08 DE FEVEREIRO DE 2024\n"
+            "Art. 1º Exoncrar a pedido, o servidor Emerson Erbete Cardoso "
+            "Macedo, do cargo de Secretário.\n"
+            "PORTARIA Nº 60, DE 10 DE JANEIRO DE 2025\n"
+            "Art. 1º Nomcar o Sr. Celso Luís Lessa, para o cargo de Assessor.\n"
+        )
+
+        candidates = find_candidates(text)
+
+        self.assertEqual(
+            [(c.act_type, c.match_text) for c in candidates],
+            [
+                ("nomeacao", "Nomear"),
+                ("nomeacao", "Nomear"),
+                ("exoneracao", "Exoncrar"),
+                ("nomeacao", "Nomcar"),
+            ],
+        )
+
+    def test_heading_split_by_embedded_text_still_opens_a_block(self) -> None:
+        # Edição 4728/2026: o texto embutido traz "P\nORTARIA".
+        text = (
+            "PORTARIA Nº 267, DE 01 DE SETEMBRO DE 2026\n"
+            "Art. 1º Exonerar o (a) servidor (a) ANA LIMA, do cargo de Diretora.\n"
+            "P\nORTARIA Nº 268, DE 01 DE SETEMBRO DE 2026 \n"
+            "Art. 1º Exonerar o (a) servidor (a) KELVIN VINICIUS PEREIRA, do \n"
+            "cargo de Assessor Técnico I.\n"
+        )
+
+        candidates = find_candidates(text)
+
+        self.assertEqual([c.act_type for c in candidates], ["exoneracao"] * 2)
+        self.assertTrue(candidates[1].excerpt.startswith("PORTARIA Nº 268"))
+
+    def test_e_to_c_swap_is_accepted_only_in_the_verb_position(self) -> None:
+        self.assertEqual(find_candidates("NOMCIAR, EXONCRADO e NOMEAÇÃO."), ())
+
 
 if __name__ == "__main__":
     unittest.main()
