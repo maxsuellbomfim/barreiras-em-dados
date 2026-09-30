@@ -3,7 +3,7 @@ const COMMITMENT_KEY = /^O-\d+$/;
 const DATE_TEXT = /^\d{2}\/\d{2}\/\d{4}$/;
 const METHODOLOGY = "commitment-contract-links/1.0.0";
 const RULE = /^commitment-contract-link\/\d+\.\d+\.\d+$/;
-const REVIEW_MODES = new Set(["automated", "human", "creditor_key"]);
+const REVIEW_MODES = new Set(["automated", "human", "creditor_key", "registry_name"]);
 
 function text(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
