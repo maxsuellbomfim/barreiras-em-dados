@@ -269,6 +269,57 @@ class ActFieldExtractionTests(unittest.TestCase):
         self.assertEqual(person["status"], "matched")
         self.assertEqual(person["rule_id"], "person-uppercase-after-verb")
 
+    def test_ocr_heading_without_de_and_abbreviated_title(self) -> None:
+        # Edição 4133/2024: cabeçalho sem "DE" antes do dia e "Sra." com ponto.
+        text = (
+            "PORTARIA Nº 316, DE 02 DE ABRIL DE 2024\n"
+            "Art. 1º Exonerar a servidora MARIA DA SILVA, do cargo de Diretora.\n"
+            "PORTARIA Nº317, 03 DE ABRIL DE 2024.\n"
+            "Art. 1º Exonerar a Sra. Valquíria Maria de Alcântara Souza, do "
+            "cargo de\nSubdiretora, da Secretaria Municipal de Indústria.\n"
+        )
+
+        fields = fields_for(text, index=1)
+
+        self.assertEqual(fields.person_name.value, "Valquíria Maria de Alcântara Souza")
+        self.assertEqual(fields.position.value, "Subdiretora")
+        self.assertEqual(fields.act_number.value, "317")
+        self.assertEqual(fields.act_date.value, "2024-04-03")
+
+    def test_title_with_ordinal_and_dot_marks_the_person(self) -> None:
+        # Edições 4732 e 4692 de 2026: sem aceitar o ponto, o nome vinha de
+        # outro ato ("UCAÇÃO PROCESSO SELETIVO SIMPLIFICADO") ou faltava.
+        for heading, verb_clause, expected in (
+            (
+                "PORTARIA Nº 276, DE 09 DE SETEMBRO DE 2026\n",
+                "Art. 1º Nomear a Srª. Quelle Cristina Menezes, para o cargo de "
+                "Secretária\n",
+                "Quelle Cristina Menezes",
+            ),
+            (
+                "PORTARIA Nº 250, DE 15 DE JULHO DE 2026\n",
+                "Art. 1º Nomear o (a) Sr. (a) Arlean Rodrigues Chagas dos Santos, "
+                "para o \ncargo de Vice-Diretora\n",
+                "Arlean Rodrigues Chagas dos Santos",
+            ),
+        ):
+            with self.subTest(expected=expected):
+                fields = fields_for(
+                    heading + verb_clause + "EDUCAÇÃO PROCESSO SELETIVO SIMPLIFICADO\n"
+                )
+                self.assertEqual(fields.person_name.value, expected)
+
+    def test_person_before_position_accepts_ocr_verb(self) -> None:
+        text = (
+            "PORTARIA Nº 60, DE 10 DE JANEIRO DE 2025\n"
+            "Art. 1º Nomcar Celso Luís Lessa, para o cargo de Assessor.\n"
+        )
+
+        fields = fields_for(text)
+
+        self.assertEqual(fields.person_name.value, "Celso Luís Lessa")
+        self.assertEqual(fields.fieldset_version, FIELDSET_VERSION)
+
 
 if __name__ == "__main__":
     unittest.main()

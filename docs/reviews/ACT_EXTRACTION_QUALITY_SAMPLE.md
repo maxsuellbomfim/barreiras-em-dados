@@ -47,6 +47,17 @@ envia a imagem da página do PDF oficial e a lista de atos a um modelo de visão
 (`act-quality-prompt/1.0.0`). A resposta só é gravada se passar na validação
 do contrato; o autor fica `ai:<modelo>:<versão do prompt>`, com o SHA-256 da
 resposta. Uma anotação humana posterior na mesma página prevalece.
+O prompt 1.1.0 exclui composição de conselhos e comissões da contagem de
+não extraídos: a 1.0.0 contou 14 conselheiros do CAE (edição 4115/2024)
+como nomeações perdidas, o que não é nomeação para cargo.
+
+**O que a primeira conferência corrigiu** (`gazette-act-candidates/2.4.0`,
+`gazette-act-fields/1.6.0`): cabeçalho de Portaria sem "DE" antes do dia
+("PORTARIA Nº373, 08 DE ABRIL DE 2024") deixava o ato dentro do bloco da
+portaria anterior — sumia ou herdava número e data errados; a troca e→c do
+OCR ("Nomcar", "Exoncrar") escondia o verbo; e "Sr."/"Sra." com ponto não
+marcava o nome. A amostra 1.0.0 mede a régua 2.3.0; medir a 2.4.0 exige nova
+versão da amostra.
 
 ## Métricas (act-quality-metrics/1.1.0)
 

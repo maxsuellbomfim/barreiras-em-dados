@@ -19,30 +19,39 @@ from dataclasses import dataclass
 # A chave de idempotência do job inclui esta versão. 2.3.0 força o acervo a
 # passar novamente pela extração após a detecção de listas e várias cláusulas
 # de cargo, evitando que resultados antigos mantenham só o primeiro nome.
-RULESET_VERSION = "gazette-act-candidates/2.3.0"
+# 2.4.0: cabeçalho sem "DE" antes do dia e verbo com a troca e→c do OCR
+# (amostra conferida por IA, ADR 0091).
+RULESET_VERSION = "gazette-act-candidates/2.4.0"
 EXCERPT_RADIUS = 400
 # Um ato de pessoal cabe folgado nisto; o corte só age em bloco anômalo.
 MAX_EXCERPT_CHARS = 2600
 
-# Cabeçalho que abre um ato no Diário de Barreiras.
+# Cabeçalho que abre um ato no Diário de Barreiras. O "DE" antes do dia
+# falta em parte das portarias ("PORTARIA Nº373, 08 DE ABRIL DE 2024"); sem
+# ele o ato era engolido pelo bloco da portaria anterior. O texto embutido
+# também parte a palavra no começo ("P\nORTARIA").
+PORTARIA_WORD = r"P\s?O\s?R\s?TARIA"
 _HEADING_PATTERN = re.compile(
-    r"PORTARIA\s+N\s*[°ºo.]*\s*[\d./-]{1,20}\s*,?\s*"
-    r"DE\s+\d{1,2}\s+DE\s+[A-ZÀ-Üa-zà-ü]+\s+DE\s+\d{4}",
+    PORTARIA_WORD + r"\s+N\s*[°ºo.]*\s*[\d./-]{1,20}\s*,?\s*"
+    r"(?:DE\s+)?\d{1,2}\s+DE\s+[A-ZÀ-Üa-zà-ü]+\s+DE\s+\d{4}",
     re.IGNORECASE,
 )
 
 # Somente formas dispositivas: "Exonerar", "Nomeia". O substantivo
-# ("exoneração") é menção e não abre ato.
+# ("exoneração") é menção e não abre ato. O OCR troca "e" por "c"
+# ("Nomcar", "Exoncrar"); a troca só é aceita nessa posição.
+NOMEACAO_VERB = r"\bNOM[EC](?:AR|IA|IO)\b"
+EXONERACAO_VERB = r"\bEXON[EC]R(?:AR|A|O)\b"
 _RULES: tuple[tuple[str, str, re.Pattern[str]], ...] = (
     (
         "nomeacao-verbo-dispositivo",
         "nomeacao",
-        re.compile(r"\bNOMEAR\b|\bNOMEIA\b|\bNOMEIO\b", re.IGNORECASE),
+        re.compile(NOMEACAO_VERB, re.IGNORECASE),
     ),
     (
         "exoneracao-verbo-dispositivo",
         "exoneracao",
-        re.compile(r"\bEXONERAR\b|\bEXONERA\b|\bEXONERO\b", re.IGNORECASE),
+        re.compile(EXONERACAO_VERB, re.IGNORECASE),
     ),
 )
 

@@ -17,7 +17,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-PROMPT_VERSION = "act-quality-prompt/1.0.0"
+# 1.1.0: composição de conselho não conta como nomeação perdida (a 1.0.0
+# contou 14 conselheiros do CAE numa só página, edição 4115/2024).
+PROMPT_VERSION = "act-quality-prompt/1.1.0"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 # Só aliases "-latest": nomes com versão são aposentados sem aviso (2.0 e 2.5
 # responderam 404 em 30/09/2026). Cada alias tem cota gratuita própria.
@@ -38,8 +40,10 @@ Para cada ato da lista, responda:
   (nomeação no lugar de exoneração ou o contrário).
 
 Depois conte as NOMEAÇÕES e as EXONERAÇÕES presentes na página que NÃO estão
-na lista (cada pessoa nomeada ou exonerada conta uma vez). Designações,
-cessões, férias, licenças e outros atos não contam.
+na lista (cada pessoa nomeada ou exonerada conta uma vez). Só conta nomeação
+ou exoneração de CARGO ou FUNÇÃO pública. Não contam: composição de
+conselhos, comissões e comitês (conselheiros, membros titulares ou
+suplentes), designações, cessões, férias, licenças e outros atos.
 
 Responda somente com JSON neste formato, sem texto fora dele:
 {"acts": {"<result_id>": "correct|partial|incorrect"},
