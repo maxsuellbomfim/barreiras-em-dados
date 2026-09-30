@@ -28,7 +28,7 @@ from .models import (
     TcmBaDocumentReference,
 )
 
-TCM_BA_COLLECTOR_VERSION = "tcm-ba-monthly-catalog-collector/1.0.2"
+TCM_BA_COLLECTOR_VERSION = "tcm-ba-monthly-catalog-collector/1.0.3"
 TCM_BA_PARSER_VERSION = "tcm-ba-monthly-catalog/1.0.0"
 TCM_BA_DOCUMENT_COLLECTOR_VERSION = "tcm-ba-monthly-document-collector/1.0.0"
 
