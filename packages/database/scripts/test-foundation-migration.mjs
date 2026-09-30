@@ -1701,8 +1701,8 @@ try {
       (select count(*)::integer from storage.buckets where not public) as private_buckets
   `);
   assert.deepEqual(seeded.rows[0], {
-    sources: 21,
-    endpoints: 43,
+    sources: 22,
+    endpoints: 44,
     private_buckets: 1,
   });
   const renewalEndpoint = await database.query(`
