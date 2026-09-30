@@ -375,7 +375,11 @@ function CommitmentLinksList({
               Empenho {link.commitmentNumber} · {link.issueDateText}
             </strong>{" "}
             · {link.noteType} · valor publicado {link.amountText}
-            {link.reviewMode === "human" ? " · confirmada por revisão humana" : ""}
+            {link.reviewMode === "human"
+              ? " · confirmada por revisão humana"
+              : link.reviewMode === "creditor_key"
+                ? " · confirmada por chave oficial (código do credor e CNPJ)"
+                : ""}
             <br />
             {link.publicBody} → {link.creditorName}
             <br />

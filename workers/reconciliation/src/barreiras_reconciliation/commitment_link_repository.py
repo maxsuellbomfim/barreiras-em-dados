@@ -190,6 +190,19 @@ class CommitmentLinkRepository:
             for row in rows
         )
 
+    def confirm_by_creditor_key(self) -> dict[str, int]:
+        """ADR 0090: decide por chave oficial (código do credor -> CNPJ)."""
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                rows = connection.execute(
+                    "select decision, decided"
+                    " from finance.confirm_commitment_links_by_creditor_key()"
+                ).fetchall()
+        finally:
+            connection.close()
+        return {str(row["decision"]): int(row["decided"]) for row in rows}
+
     def record_candidates(
         self, candidates: tuple[tuple[str, MunicipalContract], ...]
     ) -> int:
