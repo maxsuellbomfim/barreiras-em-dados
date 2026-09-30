@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import time
 from collections.abc import Sequence
 
 from barreiras_collectors.logging import log_event
@@ -29,9 +30,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     )
     parser.add_argument("--limit", type=int, default=20)
+    # Orçamento de tempo: ao estourar, o lote para de pegar documentos e o
+    # workflow ainda chega à publicação; o resto fica para a próxima rodada.
+    parser.add_argument("--max-seconds", type=int, default=0)
     arguments = parser.parse_args(argv)
     if not 1 <= arguments.limit <= 200:
         parser.error("--limit deve estar entre 1 e 200.")
+    if arguments.max_seconds < 0:
+        parser.error("--max-seconds não pode ser negativo.")
 
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
@@ -97,7 +103,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     candidates_queued = 0
     failed = 0
     deferred = 0
+    deadline = (
+        time.monotonic() + arguments.max_seconds if arguments.max_seconds else None
+    )
+    stopped_by_deadline = False
     for artifact in pending:
+        if deadline is not None and time.monotonic() >= deadline:
+            stopped_by_deadline = True
+            break
         try:
             result = service.process(artifact)
         except CanonicalTextError as error:
@@ -187,6 +200,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         deferred_awaiting_ocr=deferred,
         jobs_created=jobs_created,
         candidates_queued=candidates_queued,
+        stopped_by_deadline=stopped_by_deadline,
     )
     return 0
 

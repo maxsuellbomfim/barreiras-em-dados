@@ -18,6 +18,6 @@ test("workflow de atos processa acervo preservado e mantém publicação segura"
   assert.match(workflow, /tesseract-ocr-por/);
   assert.match(workflow, /cron: "17 23 \* \* \*"/);
   assert.match(workflow, /PROCESS_LIMIT: \$\{\{ inputs\.limit \|\| '100' \}\}/);
-  assert.match(workflow, /--limit "\$\{PROCESS_LIMIT\}"/);
+  assert.match(workflow, /--limit "\$\{PROCESS_LIMIT\}" --max-seconds 1080/);
   assert.doesNotMatch(workflow, /--limit "\$\{\{ inputs\./);
 });
