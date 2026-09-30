@@ -135,6 +135,11 @@ amplas.
 
 ## O que já está disponível no portal
 
+- dívida da Prefeitura (`/financas/divida`, desde 30/09/2026, ADR 0092): Dívida
+  Consolidada, deduções e Dívida Consolidada Líquida como declaradas no
+  RGF-Anexo 02 do SICONFI, por quadrimestre desde 2019, com composição completa
+  e hash da página preservada; nenhuma soma da plataforma. DCL declarada: R$ 253
+  mi (fim de 2019) → R$ 999 mi (fim de 2025);
 - aluguéis de imóveis da Prefeitura (`/financas/alugueis`, desde 30/09/2026):
   empenhos com subelemento oficial "locação de imóveis", por locador e contrato,
   com empenhado e pago em soma exata, histórico literal (endereço e uso do

@@ -1702,7 +1702,7 @@ try {
   `);
   assert.deepEqual(seeded.rows[0], {
     sources: 21,
-    endpoints: 42,
+    endpoints: 43,
     private_buckets: 1,
   });
   const renewalEndpoint = await database.query(`

@@ -459,6 +459,12 @@ jobs:
           barreiras_collectors.commands.collect_siconfi_dca
           --year-from "2021"
 
+      - name: Preservar RGF-Anexo 02 (dívida consolidada) de Barreiras
+        run: >-
+          python -B -m
+          barreiras_collectors.commands.collect_siconfi_rgf
+          --year-from "2019"
+
       - name: Materializar totais anuais literais do SICONFI
         run: >-
           python -B -m
