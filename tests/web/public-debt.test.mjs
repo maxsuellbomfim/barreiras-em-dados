@@ -34,6 +34,12 @@ test("demonstrativo válido mantém valores declarados em texto e contas ausente
   assert.equal(statement.consolidatedDebt, null);
   assert.equal(statement.composition[0].code, "DividaConsolidada");
   assert.deepEqual(parseDebtStatementRows([]), []);
+  const ordered = parseDebtStatementRows([
+    { ...row, fiscal_year: 2021, period: 1 },
+    row,
+    { ...row, fiscal_year: 2024, period: 2 },
+  ]);
+  assert.deepEqual(ordered.map((s) => [s.fiscalYear, s.period]), [[2024, 3], [2024, 2], [2021, 1]]);
 });
 
 test("linha fora do contrato derruba o conjunto", () => {

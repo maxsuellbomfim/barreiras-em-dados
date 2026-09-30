@@ -78,7 +78,10 @@ export function parseDebtStatementRows(rows) {
       sourceUrl,
     });
   }
-  return statements;
+  // O mais recente primeiro, sem depender da ordem da resposta.
+  return statements.sort(
+    (left, right) => right.fiscalYear - left.fiscalYear || right.period - left.period,
+  );
 }
 
 function publicDataConfig() {
