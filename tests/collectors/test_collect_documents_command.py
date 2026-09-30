@@ -6,6 +6,7 @@ import secrets
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from barreiras_collectors.commands import collect_querido_diario
@@ -274,7 +275,9 @@ class ControlledQueridoDiarioTests(unittest.TestCase):
             patch.object(
                 collect_querido_diario.PostgresCollectionRepository,
                 "from_dsn",
-                return_value=object(),
+                return_value=SimpleNamespace(
+                    endpoint_run_times=lambda **_values: (None, None)
+                ),
             ),
             patch.object(
                 collect_querido_diario,
@@ -291,6 +294,44 @@ class ControlledQueridoDiarioTests(unittest.TestCase):
             captured["collector_version"],
             "querido-diario-collector/0.1.0",
         )
+
+    def test_paused_optional_api_exits_three_without_opening_a_run(self) -> None:
+        from datetime import UTC, datetime, timedelta
+
+        now = datetime.now(UTC)
+        repository = SimpleNamespace(
+            endpoint_run_times=lambda **_values: (
+                now - timedelta(days=40),
+                now - timedelta(days=1),
+            )
+        )
+        with (
+            patch.object(
+                collect_querido_diario.CollectorSettings,
+                "from_env",
+                return_value=SimpleNamespace(log_level="INFO"),
+            ),
+            patch.object(
+                collect_querido_diario.PersistenceSettings,
+                "from_env",
+                return_value=SimpleNamespace(
+                    mode="postgres-supabase", database_url="postgresql://x"
+                ),
+            ),
+            patch.object(
+                collect_querido_diario.PostgresCollectionRepository,
+                "from_dsn",
+                return_value=repository,
+            ),
+            patch.object(
+                collect_querido_diario, "execute_controlled_querido_diario"
+            ) as execute,
+        ):
+            exit_code = collect_querido_diario.main(
+                ["--since", "2026-02-04", "--until", "2026-02-10"]
+            )
+        self.assertEqual(exit_code, collect_querido_diario.PAUSED_EXIT_CODE)
+        execute.assert_not_called()
 
     def test_starts_before_setup_and_records_complete_window(self) -> None:
         events: list[str] = []

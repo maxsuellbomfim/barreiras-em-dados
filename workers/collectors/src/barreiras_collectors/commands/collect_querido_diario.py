@@ -6,7 +6,7 @@ import argparse
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 
 from ..collection_control import (
     CollectionControl,
@@ -31,8 +31,12 @@ from ..persistence.storage import (
 )
 from ..resilience import CircuitOpenError, RetryPolicy
 from ..settings import CollectorSettings, PersistenceSettings
+from ..source_availability import optional_source_paused
 
 MAX_WINDOW_DAYS = 7
+# A API é complementar: o catálogo e os PDFs da Prefeitura são a fonte
+# principal. Em pausa, o comando sai com este código sem abrir execução.
+PAUSED_EXIT_CODE = 3
 
 
 @dataclass(frozen=True)
@@ -114,6 +118,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         repository = PostgresCollectionRepository.from_dsn(
             persistence_settings.database_url
         )
+        last_success_at, last_attempt_at = repository.endpoint_run_times(
+            source_code="querido-diario", endpoint_code="gazettes-api"
+        )
+        if optional_source_paused(
+            last_success_at=last_success_at,
+            last_attempt_at=last_attempt_at,
+            now=datetime.now(UTC),
+        ):
+            log_event(
+                logger,
+                logging.INFO,
+                "collector_optional_source_paused",
+                source="querido-diario",
+                last_success_at=(
+                    last_success_at.isoformat() if last_success_at else None
+                ),
+                last_attempt_at=(
+                    last_attempt_at.isoformat() if last_attempt_at else None
+                ),
+            )
+            return PAUSED_EXIT_CODE
 
     def operation() -> QueridoDiarioCollectionSummary:
         service = _build_persistence_service(

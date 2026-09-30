@@ -101,6 +101,11 @@ amplas.
    abertas; as demais são pendências reais ou estados de espera que o próprio
    coletor ainda registra como falha (mês do TCM não publicado, contratos do
    PNCP com leitura pendente).
+   Desde 30/09 a API complementar do Querido Diário (sem sucesso desde 29/08,
+   144 tentativas em 30 dias) fica em pausa: sem sucesso há 14 dias, tenta só
+   uma vez por semana e volta ao ritmo diário no primeiro sucesso; a fonte
+   principal é o catálogo e os PDFs da Prefeitura. Execuções órfãs (sem sinal
+   de vida há 24 h) são encerradas com motivo e auditoria.
 5. **Autoria legislativa:** coautorias chegam num campo só ("A e B", "A / B") e
    geram a maior parte das novas sugestões de alias; suplentes em exercício e
    autoria do Executivo ainda não têm perfil próprio.
