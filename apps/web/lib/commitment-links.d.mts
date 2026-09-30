@@ -13,7 +13,7 @@ export type CommitmentLink = Readonly<{
   gridArtifactSha256: string;
   gridRetrievedAt: string;
   sourcePageUrl: string;
-  reviewMode: "automated" | "human" | "creditor_key";
+  reviewMode: "automated" | "human" | "creditor_key" | "registry_name";
 }>;
 
 export function parseCommitmentLinkRows(

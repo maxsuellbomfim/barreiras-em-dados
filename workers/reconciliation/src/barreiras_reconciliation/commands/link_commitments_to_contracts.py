@@ -78,6 +78,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     # ADR 0090: citações divergentes resolvidas por chave oficial saem da fila
     # humana; as demais continuam pendentes.
     summary["creditor_key_decisions"] = repository.confirm_by_creditor_key()
+    # ADR 0094: nome fantasia ou razão social conferidos no cadastro da Receita.
+    summary["registry_name_decisions"] = repository.confirm_by_registry_name()
     json.dump(summary, sys.stdout, ensure_ascii=False, indent=2)
     print()
     return 0

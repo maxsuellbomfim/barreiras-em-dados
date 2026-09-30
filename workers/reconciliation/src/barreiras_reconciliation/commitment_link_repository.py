@@ -203,6 +203,19 @@ class CommitmentLinkRepository:
             connection.close()
         return {str(row["decision"]): int(row["decided"]) for row in rows}
 
+    def confirm_by_registry_name(self) -> dict[str, int]:
+        """ADR 0094: nome do credor igual ao cadastro da Receita do contrato."""
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                rows = connection.execute(
+                    "select decision, decided"
+                    " from finance.confirm_commitment_links_by_registry_name()"
+                ).fetchall()
+        finally:
+            connection.close()
+        return {str(row["decision"]): int(row["decided"]) for row in rows}
+
     def record_candidates(
         self, candidates: tuple[tuple[str, MunicipalContract], ...]
     ) -> int:
