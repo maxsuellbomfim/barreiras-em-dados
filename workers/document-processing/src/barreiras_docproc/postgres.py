@@ -71,11 +71,17 @@ class PostgresExtractionRepository:
                       from raw.extraction_jobs as job
                       where job.raw_artifact_id = artifact.id
                         and job.job_type = 'gazette_act_candidates'
-                        and job.idempotency_key = encode(
-                          sha256(
-                            ('gazette-acts:' || artifact.sha256 || ':' || %s)::bytea
-                          ),
-                          'hex'
+                        and (
+                          job.idempotency_key = encode(
+                            sha256(
+                              ('gazette-acts:' || artifact.sha256 || ':' || %s)::bytea
+                            ),
+                            'hex'
+                          )
+                          -- Com OCR a chave inclui o hash do texto e não dá
+                          -- para recalculá-la aqui; sem a versão gravada no
+                          -- job a edição voltava à fila em toda execução.
+                          or job.extractor_version = %s
                         )
                         -- Falhas transitórias (por exemplo, StorageApiError)
                         -- podem ser tentadas novamente até o limite auditável.
@@ -158,7 +164,12 @@ class PostgresExtractionRepository:
                   artifact.created_at
                 limit %s
                 """,
-                (self._ruleset_version(), self._ruleset_version(), limit),
+                (
+                    self._ruleset_version(),
+                    self._ruleset_version(),
+                    self._ruleset_version(),
+                    limit,
+                ),
             )
             artifacts = []
             while True:
@@ -1359,14 +1370,16 @@ class PostgresExtractionRepository:
               job_type,
               idempotency_key,
               status,
-              attempt_count
+              attempt_count,
+              extractor_version
             )
-            values (%s::uuid, %s, %s, 'succeeded', 1)
+            values (%s::uuid, %s, %s, 'succeeded', 1, %s)
             on conflict (idempotency_key) do update set
               status = 'succeeded',
               attempt_count = raw.extraction_jobs.attempt_count + 1,
               last_error_code = null,
               last_error_detail = null,
+              extractor_version = excluded.extractor_version,
               updated_at = statement_timestamp()
             where raw.extraction_jobs.status = 'failed'
               and raw.extraction_jobs.last_error_code = 'processing_error'
@@ -1377,6 +1390,7 @@ class PostgresExtractionRepository:
                 batch.artifact.raw_artifact_id,
                 batch.job_type,
                 batch.job_idempotency_key,
+                batch.ruleset_version,
             ),
         ).fetchone()
         if row is None:
