@@ -112,8 +112,11 @@ amplas.
 6. **Qualidade medida:** amostra anotada criada em 28/09
    (`act-quality-sample/1.0.0`: 120 páginas de 90 edições, 6 estratos, 65 atos;
    ver [`reviews/ACT_EXTRACTION_QUALITY_SAMPLE.md`](reviews/ACT_EXTRACTION_QUALITY_SAMPLE.md)).
-   Falta a conferência humana na aba "Qualidade dos atos" do admin; as métricas
-   ponderadas saem de `api.get_act_quality_metrics` (act-quality-metrics/1.0.0).
+   A conferência é feita por IA sobre a imagem da página oficial (ADR 0091,
+   workflow diário `annotate-act-quality.yml`); revisão humana na aba
+   "Qualidade dos atos" continua possível e prevalece. As métricas ponderadas
+   saem de `api.get_act_quality_metrics('any'|'human'|'ai')`
+   (act-quality-metrics/1.1.0) e, vindas da IA, são estimativa rotulada.
 
 ## O que já está disponível no portal
 

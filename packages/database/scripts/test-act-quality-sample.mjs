@@ -225,10 +225,50 @@ try {
   assert.equal(Number(byScope["total:overall"].recall_estimate), 0.3333);
   assert.equal(Number(byScope["total:nomeacao"].precision_strict), 1);
   assert.equal(Number(byScope["total:exoneracao"].precision_strict), 0);
-  assert.equal(byScope["total:overall"].methodology_version, "act-quality-metrics/1.0.0");
+  assert.equal(byScope["total:overall"].methodology_version, "act-quality-metrics/1.1.0");
   const annotated = await database.query(
     "select count(*)::integer as n from editorial.act_quality_annotations");
   assert.equal(annotated.rows[0].n, 3);
+
+  // ADR 0091: anotação por IA, rotulada, gravada só pelo worker.
+  const pending = await database.query(`select sample_page_id::text as id, acts
+    from editorial.get_act_quality_pages_for_ai('act-quality-prompt/1.0.0', 50)`);
+  assert.equal(pending.rows.length, 5, "a amostra da versão 9.9.9 é a atual");
+  const aiPage = pending.rows.find((row) => row.id === firstPage.sample_page_id);
+  assert.equal(aiPage.acts.length, 1);
+  await assert.rejects(
+    database.query(`select editorial.record_ai_act_quality_annotation(
+      '${firstPage.sample_page_id}', '{"${nomeacao}":"correct"}'::jsonb, 0, 0,
+      'humano-disfarcado', '${"a".repeat(64)}')`),
+    /anotador de IA inválido/,
+  );
+  await database.query(`select editorial.record_ai_act_quality_annotation(
+    '${firstPage.sample_page_id}', '{"${nomeacao}":"partial"}'::jsonb, 0, 0,
+    'ai:gemini-2.5-flash:act-quality-prompt/1.0.0', '${"a".repeat(64)}')`);
+  const stillPending = await database.query(`select count(*)::integer as n
+    from editorial.get_act_quality_pages_for_ai('act-quality-prompt/1.0.0', 50)`);
+  assert.equal(stillPending.rows[0].n, 4, "página anotada pela IA sai da fila da IA");
+  const aiMetrics = Object.fromEntries(
+    (await database.query("select * from api.get_act_quality_metrics('ai')")).rows
+      .map((row) => [row.scope, row]),
+  );
+  assert.equal(aiMetrics["total:overall"].acts_judged, 1);
+  assert.equal(Number(aiMetrics["total:overall"].precision_lenient), 1);
+  assert.equal(aiMetrics["total:overall"].methodology_version, "act-quality-metrics/1.1.0");
+  const humanMetrics = Object.fromEntries(
+    (await database.query("select * from api.get_act_quality_metrics('human')")).rows
+      .map((row) => [row.scope, row]),
+  );
+  assert.equal(humanMetrics["total:overall"].acts_judged, 2, "a IA não entra na conta humana");
+  const reloaded = await database.query("select * from api.get_act_quality_sample()");
+  const aiAnnotated = reloaded.rows.find((row) => row.sample_page_id === firstPage.sample_page_id);
+  assert.equal(aiAnnotated.latest_annotation.annotator, "ai:gemini-2.5-flash:act-quality-prompt/1.0.0");
+  const workerAccess = await database.query(`select
+    has_function_privilege('collector_worker',
+      'editorial.record_ai_act_quality_annotation(uuid,jsonb,integer,integer,text,text)', 'EXECUTE') as worker,
+    has_function_privilege('authenticated',
+      'editorial.record_ai_act_quality_annotation(uuid,jsonb,integer,integer,text,text)', 'EXECUTE') as reviewer`);
+  assert.deepEqual(workerAccess.rows[0], { worker: true, reviewer: false });
 } finally {
   await database.close();
 }

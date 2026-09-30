@@ -42,7 +42,16 @@ extraídas. A anotação fica em `editorial.act_quality_annotations`
 (append-only; a mais recente de cada página vale) e **não** altera
 `editorial.editorial_reviews`, ou seja, não muda o que está publicado.
 
-## Métricas (act-quality-metrics/1.0.0)
+**Conferência por IA (ADR 0091).** O workflow `annotate-act-quality.yml`
+envia a imagem da página do PDF oficial e a lista de atos a um modelo de visão
+(`act-quality-prompt/1.0.0`). A resposta só é gravada se passar na validação
+do contrato; o autor fica `ai:<modelo>:<versão do prompt>`, com o SHA-256 da
+resposta. Uma anotação humana posterior na mesma página prevalece.
+
+## Métricas (act-quality-metrics/1.1.0)
+
+`api.get_act_quality_metrics(p_source)` aceita `any` (padrão), `human` ou
+`ai`. Números vindos da IA são **estimativa automática, não revisão humana**.
 
 Cada página conferida representa `universo / conferidas` páginas do seu estrato.
 

@@ -42,6 +42,9 @@ por chave oficial. Não abra uma fase ampla com base apenas no histórico de
 - Achados de anomalia e conteúdo interpretativo além do registro oficial
   não são publicados sem revisão humana registrada; registros fiéis de
   atos oficiais seguem o ADR 0012 com revisão humana por exceção.
+- A amostra de qualidade da extração de atos pode ser conferida por IA
+  (ADR 0091): anotação validada por código, métricas calculadas por código
+  e rótulo "estimativa automática por IA, não revisão humana".
 - Não publicar CPF completo, descontos pessoais ou dados sensíveis
   desnecessários.
 - Correções criam novas versões; histórico não é alterado ou apagado em

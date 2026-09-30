@@ -21,6 +21,7 @@ type Annotation = Readonly<{
   missed_exoneracoes: number;
   note: string | null;
   created_at: string;
+  annotator: string;
 }>;
 
 type SamplePage = Readonly<{
@@ -53,7 +54,12 @@ type LoadState =
   | Readonly<{ kind: "loading" }>
   | Readonly<{ kind: "denied" }>
   | Readonly<{ kind: "error"; message: string }>
-  | Readonly<{ kind: "ready"; pages: readonly SamplePage[]; metrics: readonly Metric[] }>;
+  | Readonly<{
+      kind: "ready";
+      pages: readonly SamplePage[];
+      metrics: readonly Metric[];
+      aiMetrics: readonly Metric[];
+    }>;
 
 const ACT_LABELS: Readonly<Record<SampleAct["act_type"], string>> = {
   nomeacao: "Nomeação",
@@ -75,6 +81,13 @@ const STRATUM_LABELS: Readonly<Record<string, string>> = {
   other_ocr: "demais páginas · OCR",
 };
 
+// ADR 0091: "ai:<modelo>:<versão do prompt>" ou "human".
+function annotatorLabel(annotator: string): string {
+  if (!annotator.startsWith("ai:")) return "revisão humana";
+  const [, model, prompt] = annotator.split(":");
+  return `estimativa automática por IA (${model}, ${prompt}), não revisão humana`;
+}
+
 function percent(value: number | string | null): string {
   if (value === null) return "—";
   return `${(Number(value) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
@@ -84,11 +97,12 @@ export function ActQualityReview({ rpc }: Readonly<{ rpc: RpcCall }>) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
 
   const load = useCallback(async () => {
-    const [sample, metrics] = await Promise.all([
+    const [sample, metrics, aiMetrics] = await Promise.all([
       rpc("get_act_quality_sample", {}),
-      rpc("get_act_quality_metrics", {}),
+      rpc("get_act_quality_metrics", { p_source: "human" }),
+      rpc("get_act_quality_metrics", { p_source: "ai" }),
     ]);
-    const error = sample.error ?? metrics.error;
+    const error = sample.error ?? metrics.error ?? aiMetrics.error;
     if (error) {
       setState(
         error.message.includes("revisores ativos")
@@ -101,6 +115,7 @@ export function ActQualityReview({ rpc }: Readonly<{ rpc: RpcCall }>) {
       kind: "ready",
       pages: (sample.data ?? []) as SamplePage[],
       metrics: (metrics.data ?? []) as Metric[],
+      aiMetrics: (aiMetrics.data ?? []) as Metric[],
     });
   }, [rpc]);
 
@@ -148,7 +163,6 @@ export function ActQualityReview({ rpc }: Readonly<{ rpc: RpcCall }>) {
     );
   }
   const done = state.pages.filter((page) => page.latest_annotation !== null).length;
-  const totals = state.metrics.filter((metric) => metric.scope.startsWith("total:"));
   return (
     <section aria-labelledby="act-quality-title">
       <div className="section-heading-admin">
@@ -169,39 +183,55 @@ export function ActQualityReview({ rpc }: Readonly<{ rpc: RpcCall }>) {
           {state.pages[0] ? ` · ${state.pages[0].sample_version}` : ""}.
         </p>
       </div>
-      {totals.length > 0 && done > 0 ? (
-        <table>
-          <caption>Estimativas ponderadas pelos estratos (páginas conferidas até agora)</caption>
-          <thead>
-            <tr>
-              <th scope="col">Recorte</th>
-              <th scope="col">Atos julgados</th>
-              <th scope="col">Precisão (certo)</th>
-              <th scope="col">Precisão (certo + incompleto)</th>
-              <th scope="col">Revocação estimada</th>
-            </tr>
-          </thead>
-          <tbody>
-            {totals.map((metric) => (
-              <tr key={metric.scope}>
-                <th scope="row">
-                  {metric.scope === "total:overall"
-                    ? "Todos os atos"
-                    : ACT_LABELS[metric.scope.replace("total:", "") as SampleAct["act_type"]]}
-                </th>
-                <td>{metric.acts_judged}</td>
-                <td>{percent(metric.precision_strict)}</td>
-                <td>{percent(metric.precision_lenient)}</td>
-                <td>{percent(metric.recall_estimate)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
+      <MetricsTable
+        metrics={state.metrics}
+        caption="Revisão humana: estimativas ponderadas pelos estratos"
+      />
+      <MetricsTable
+        metrics={state.aiMetrics}
+        caption="Estimativa automática por IA, não revisão humana (ADR 0091)"
+      />
       {state.pages.map((page) => (
         <QualityPageCard key={page.sample_page_id} page={page} onSave={save} />
       ))}
     </section>
+  );
+}
+
+function MetricsTable({
+  metrics,
+  caption,
+}: Readonly<{ metrics: readonly Metric[]; caption: string }>) {
+  const totals = metrics.filter((metric) => metric.scope.startsWith("total:"));
+  if (!totals.some((metric) => metric.annotated > 0)) return null;
+  return (
+    <table>
+      <caption>{caption}</caption>
+      <thead>
+        <tr>
+          <th scope="col">Recorte</th>
+          <th scope="col">Atos julgados</th>
+          <th scope="col">Precisão (certo)</th>
+          <th scope="col">Precisão (certo + incompleto)</th>
+          <th scope="col">Revocação estimada</th>
+        </tr>
+      </thead>
+      <tbody>
+        {totals.map((metric) => (
+          <tr key={metric.scope}>
+            <th scope="row">
+              {metric.scope === "total:overall"
+                ? "Todos os atos"
+                : ACT_LABELS[metric.scope.replace("total:", "") as SampleAct["act_type"]]}
+            </th>
+            <td>{metric.acts_judged}</td>
+            <td>{percent(metric.precision_strict)}</td>
+            <td>{percent(metric.precision_lenient)}</td>
+            <td>{percent(metric.recall_estimate)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -249,6 +279,9 @@ function QualityPageCard({
           {previous ? "conferida" : "pendente"} · {STRATUM_LABELS[page.stratum] ?? page.stratum}
         </span>
       </div>
+      {previous ? (
+        <p className="meta">Última conferência: {annotatorLabel(previous.annotator ?? "human")}.</p>
+      ) : null}
       <p className="meta">
         <a href={page.pdf_page_url} target="_blank" rel="noreferrer">
           Abrir a página {page.page_number} no PDF oficial

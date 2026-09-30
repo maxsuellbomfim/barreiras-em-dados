@@ -1,0 +1,67 @@
+name: Conferir amostra de atos por IA
+
+# ADR 0091: a IA olha a imagem da página do PDF oficial e julga os atos
+# extraídos da amostra de qualidade; a resposta é validada por código e
+# gravada como anotação rotulada de IA. Só páginas ainda sem anotação desta
+# versão do prompt são enviadas, então repetir a execução não duplica nada.
+
+on:
+  schedule:
+    - cron: "23 7 * * *"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Máximo de páginas nesta execução (1 a 500)"
+        required: false
+        default: "120"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: annotate-act-quality
+  cancel-in-progress: false
+
+jobs:
+  annotate:
+    name: Anotar páginas pendentes da amostra
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: workers/collectors/src:workers/document-processing/src
+      PERSISTENCE_MODE: postgres-supabase
+      DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+      SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_WORKLOAD_EMAIL: ${{ secrets.QUERIDO_DIARIO_SUPABASE_WORKLOAD_EMAIL }}
+      SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.QUERIDO_DIARIO_SUPABASE_WORKLOAD_PASSWORD }}
+      SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências fixadas
+        run: python -m pip install --disable-pip-version-check ".[postgres,storage,pdf,ocr]"
+
+      - name: Verificar CA oficial do Supabase
+        run: >-
+          echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
+          | sha256sum --check --strict
+
+      - name: Anotar por IA
+        env:
+          LIMIT: ${{ inputs.limit || '120' }}
+        run: >-
+          python -B -m barreiras_docproc.commands.annotate_act_quality
+          --limit "$LIMIT"
