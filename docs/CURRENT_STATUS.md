@@ -140,6 +140,14 @@ amplas.
   RGF-Anexo 02 do SICONFI, por quadrimestre desde 2019, com composição completa
   e hash da página preservada; nenhuma soma da plataforma. DCL declarada: R$ 253
   mi (fim de 2019) → R$ 999 mi (fim de 2025);
+- identidade dos contratados pelo cadastro CNPJ oficial da Receita (ADR 0093,
+  coleta semanal local porque a Receita recusa os servidores do GitHub): 590
+  dos 622 CNPJs de contratos e PNCP encontrados em 30/09/2026; os 32 restantes
+  têm dígito verificador inválido na própria fonte. Citações de contrato em
+  empenhos com o nome do credor igual à razão social ou ao nome fantasia do
+  CNPJ citado são confirmadas e publicadas com rótulo próprio (ADR 0094):
+  1.807 na régua 1.0.0; a 1.1.0 aceita diferença só de grafia (plural,
+  preposição, espaço entre iniciais);
 - aluguéis de imóveis da Prefeitura (`/financas/alugueis`, desde 30/09/2026):
   empenhos com subelemento oficial "locação de imóveis", por locador e contrato,
   com empenhado e pago em soma exata, histórico literal (endereço e uso do
