@@ -221,6 +221,40 @@ try {
       where collection_run_id = '${qdUncovered}'`),
     /collection_failures_resolution_reason_check/,
   );
+
+  // Execuções órfãs: só as sem sinal de vida há mais de 24 h são encerradas.
+  await database.exec(`
+    insert into source.collection_runs (id, source_endpoint_id, idempotency_key,
+      collector_version, parser_version, status, attempt_count, started_at, heartbeat_at)
+    values
+      ('00000000-0000-4000-9000-00000000aa01', '${catalog}', '${"c".repeat(64)}',
+       'test/1', 'parser/1', 'running', 1, now() - interval '2 days', now() - interval '2 days'),
+      ('00000000-0000-4000-9000-00000000aa02', '${catalog}', '${"d".repeat(64)}',
+       'test/1', 'parser/1', 'running', 1, now() - interval '2 hours', now() - interval '2 hours');
+  `);
+  const orphansClosed = await database.query("select source.close_orphaned_collection_runs() as n");
+  assert.equal(orphansClosed.rows[0].n, 1);
+  const runStates = await database.query(`
+    select id::text as id, status, error_code from source.collection_runs
+    where id in ('00000000-0000-4000-9000-00000000aa01', '00000000-0000-4000-9000-00000000aa02')
+    order by id`);
+  assert.deepEqual(runStates.rows, [
+    { id: "00000000-0000-4000-9000-00000000aa01", status: "cancelled", error_code: "OrphanedRun" },
+    { id: "00000000-0000-4000-9000-00000000aa02", status: "running", error_code: null },
+  ]);
+  assert.equal(
+    (await database.query("select source.close_orphaned_collection_runs() as n")).rows[0].n,
+    0,
+  );
+  const orphanAudit = await database.query(`
+    select after_state, metadata from audit.audit_events
+    where action = 'collection_runs.orphans_closed'`);
+  assert.equal(orphanAudit.rows.length, 1);
+  assert.equal(orphanAudit.rows[0].after_state.count, 1);
+  assert.equal(orphanAudit.rows[0].metadata.version, "orphaned-collection-runs/1.0.0");
+  const workerCanClose = await database.query(`select has_function_privilege(
+    'collector_worker', 'source.close_orphaned_collection_runs()', 'EXECUTE') as ok`);
+  assert.equal(workerCanClose.rows[0].ok, true);
 } finally {
   await database.close();
 }

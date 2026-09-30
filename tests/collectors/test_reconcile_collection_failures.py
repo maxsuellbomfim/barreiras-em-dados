@@ -17,6 +17,8 @@ class FakeConnection:
         return self
 
     def fetchall(self):
+        if "close_orphaned_collection_runs" in self.sql[-1]:
+            return [{"closed": 42}]
         return [
             {"rule": "same_partition_recovered", "resolved_count": 0},
             {"rule": "covered_by_primary_source", "resolved_count": 143},
@@ -40,10 +42,17 @@ class ReconcileCollectionFailuresTest(unittest.TestCase):
         counts = reconcile(repository)  # type: ignore[arg-type]
         self.assertEqual(
             counts,
-            {"same_partition_recovered": 0, "covered_by_primary_source": 143},
+            {
+                "same_partition_recovered": 0,
+                "covered_by_primary_source": 143,
+                "orphaned_runs_closed": 42,
+            },
         )
         self.assertIn(
             "source.reconcile_collection_failures()", repository.connection.sql[0]
+        )
+        self.assertIn(
+            "source.close_orphaned_collection_runs()", repository.connection.sql[1]
         )
         self.assertTrue(repository.connection.closed)
 
