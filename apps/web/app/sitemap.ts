@@ -29,6 +29,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { route: "/financas/cobertura", changeFrequency: "daily", priority: 0.8 },
     { route: "/financas/base-legal", changeFrequency: "daily", priority: 0.8 },
     { route: "/financas/alugueis", changeFrequency: "daily", priority: 0.8 },
+    { route: "/financas/divida", changeFrequency: "daily", priority: 0.9 },
     { route: "/licitacoes", changeFrequency: "daily", priority: 0.9 },
     { route: "/recursos", changeFrequency: "daily", priority: 0.9 },
     { route: "/recursos/saude", changeFrequency: "weekly", priority: 0.7 },

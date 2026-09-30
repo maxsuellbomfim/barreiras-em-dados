@@ -22,6 +22,7 @@ import {
 import { monthlyFinanceHref } from "../../lib/monthly-finance-detail.mjs";
 import { summarizeAnnualFinances } from "../../lib/annual-finance-summary.mjs";
 import ShareLink from "../share-link";
+import { getPublicDebtStatements } from "../../lib/public-debt.mjs";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
 import { getPublicFinanceCoverage } from "../../lib/finance-coverage";
 import {
@@ -227,6 +228,7 @@ export default async function FinancesPage() {
     balanceteDocumentsResult,
     revenueDocumentsResult,
     expenseDocumentsResult,
+    debtResult,
   ] = await Promise.all([
     getPublicExpenseReports(),
     getPublicRevenues(),
@@ -247,7 +249,10 @@ export default async function FinancesPage() {
     getPublicFinanceDocuments("balancetes"),
     getPublicFinanceDocuments("pdc-resumo-execucao-da-receita"),
     getPublicFinanceDocuments("pdc-resumo-execucao-da-despesa"),
+    getPublicDebtStatements(),
   ]);
+  const latestDebt =
+    debtResult.state === "available" ? (debtResult.statements[0] ?? null) : null;
   const expenseReports =
     expensesResult.state === "available" ? expensesResult.reports : [];
   const sortedExpenseReports = [...expenseReports].sort((left, right) =>
@@ -412,13 +417,22 @@ export default async function FinancesPage() {
               <small>Pagamentos efetivados no período</small>
             </article>
             <article className="finance-glance-card finance-debt-card">
-              <span>Dívida registrada</span>
+              <span>Dívida consolidada líquida</span>
               <strong>
-                {obligationDocuments.length > 0
-                  ? `${obligationDocuments.length.toLocaleString("pt-BR")} documentos em apuração`
-                  : "Fontes em integração"}
+                {latestDebt?.netConsolidatedDebt
+                  ? formatBrlDecimal(latestDebt.netConsolidatedDebt)
+                  : "Relatório fiscal ainda não coletado"}
               </strong>
-              <small>Nenhum total é publicado antes da reconciliação das obrigações.</small>
+              <small>
+                {latestDebt ? (
+                  <a href="/financas/divida">
+                    Declarada pela Prefeitura no {latestDebt.period}º quadrimestre de{" "}
+                    {latestDebt.fiscalYear} · ver composição e série →
+                  </a>
+                ) : (
+                  "Sem demonstrativo preservado, nenhum valor é mostrado."
+                )}
+              </small>
             </article>
           </div>
           <p>

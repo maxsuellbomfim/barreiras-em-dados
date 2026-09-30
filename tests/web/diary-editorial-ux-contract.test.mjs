@@ -59,5 +59,6 @@ test("compras explicam valores ausentes e começam com detalhes recolhidos", () 
 test("finanças mostram resumo cidadão e ordenam fechamentos recentes", () => {
   assert.match(finance, /Quanto entrou, quanto saiu e quanto devemos/);
   assert.match(finance, /sortedMonthlyClosures/);
-  assert.match(finance, /Dívida registrada/);
+  assert.match(finance, /Dívida consolidada líquida/);
+  assert.match(finance, /href="\/financas\/divida"/);
 });
