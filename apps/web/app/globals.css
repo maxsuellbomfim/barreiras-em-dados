@@ -8652,3 +8652,28 @@ footer {
   letter-spacing: 0.01em;
   line-height: 1.4;
 }
+
+/* Anos da página de aluguéis: mesmos alvos de toque do resto do site. */
+.rentals-years {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.25rem 0 1.5rem;
+}
+
+.rentals-years a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0 1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--blue-dark);
+  font-weight: 650;
+}
+
+.rentals-years a[aria-current="page"] {
+  background: var(--blue-dark);
+  border-color: var(--blue-dark);
+  color: #fff;
+}

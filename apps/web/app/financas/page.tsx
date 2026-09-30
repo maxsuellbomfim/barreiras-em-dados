@@ -421,6 +421,11 @@ export default async function FinancesPage() {
               <small>Nenhum total é publicado antes da reconciliação das obrigações.</small>
             </article>
           </div>
+          <p>
+            <a href="/financas/alugueis">
+              Imóveis alugados pela Prefeitura: quem aluga, onde, para quê e quanto →
+            </a>
+          </p>
         </section>
 
         <section className="finance-status-panel" aria-labelledby="finance-status-title">
