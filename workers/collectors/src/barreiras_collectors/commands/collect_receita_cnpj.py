@@ -192,6 +192,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     requested_at = datetime.now(UTC).isoformat()
     remote = latest_complete_month()
     month = remote[NATUREZAS_FILE].month
+    # Mesmo mês e mesmos alvos já preservados: não baixa 7 GB de novo.
+    targets_sha256 = hashlib.sha256("\n".join(sorted(targets)).encode()).hexdigest()
+    connection = repository.connection_factory()
+    try:
+        already = connection.execute(
+            """
+            select 1
+            from raw.raw_artifacts as artifact
+            where artifact.metadata ->> 'schema_name' = 'receita-cnpj-registry-extract'
+              and artifact.metadata -> 'cursor' ->> 'month' = %s
+              and artifact.metadata -> 'cursor' ->> 'targets_sha256' = %s
+            limit 1
+            """,
+            (month, targets_sha256),
+        ).fetchone()
+    finally:
+        connection.close()
+    if already:
+        log_event(
+            logger,
+            logging.INFO,
+            "receita_cnpj_skipped",
+            source=SOURCE_CODE,
+            month=month,
+            targets=len(targets),
+            reason="month_and_targets_already_preserved",
+        )
+        return 0
     today = datetime.now(UTC).date()
     control = CollectionControl(
         repository=repository,

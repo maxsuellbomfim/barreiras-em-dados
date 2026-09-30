@@ -1,13 +1,13 @@
 name: Coletar cadastro CNPJ da Receita
 
-# ADR 0093: uma vez por mês, depois que a Receita publica a base aberta do
-# CNPJ, preserva razão social, nome fantasia, natureza jurídica e situação dos
-# CNPJs que aparecem em contratos e licitações de Barreiras. A base inteira
+# ADR 0093: preserva razão social, nome fantasia, natureza jurídica e situação
+# dos CNPJs que aparecem em contratos e licitações de Barreiras. A base inteira
 # (~7 GB) é baixada arquivo por arquivo, com SHA-256, e descartada.
+# O compartilhamento da Receita fecha a conexão dos servidores do GitHub (fora
+# do Brasil, 30/09/2026): a rotina agendada roda localmente
+# (scripts/install-receita-cnpj-schedule.ps1); aqui fica só o disparo manual.
 
 on:
-  schedule:
-    - cron: "41 6 20 * *"
   workflow_dispatch:
 
 permissions:
