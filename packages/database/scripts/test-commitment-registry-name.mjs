@@ -65,6 +65,19 @@ try {
     e: null,
   });
 
+  const spelling = (
+    await database.query(`select
+      finance.company_name_spelling_key('J S COMERCIO LTDA') = finance.company_name_spelling_key('JS COMERCIO LTDA') as initials,
+      finance.company_name_spelling_key('COOPERATIVA DE MANDIOCULTORES') = finance.company_name_spelling_key('COOPERATIVA DOS MANDIOCULTORES') as preposition,
+      finance.company_name_spelling_key('MCS ATACADISTAS EIRELI') = finance.company_name_spelling_key('MCS ATACADISTA LTDA') as plural,
+      finance.company_name_spelling_key('CASA CENTRO MATERIAS') = finance.company_name_spelling_key('CASA CENTRO MATERIAIS') as typo,
+      finance.company_name_spelling_key('EFRAIM COMERCIO') = finance.company_name_spelling_key('R CRUZ COMERCIO') as other,
+      finance.company_name_spelling_key(' LTDA ') as empty`)
+  ).rows[0];
+  assert.deepEqual(spelling, {
+    initials: true, preposition: true, plural: true, typo: false, other: false, empty: null,
+  });
+
   const run = "00000000-0000-4000-a000-000000000003";
   const artifact = "00000000-0000-4000-a000-000000000004";
   await database.exec(`
@@ -124,16 +137,19 @@ try {
   contract(104, "47.879.385/0001-72", "CARTUCHO EXPRESS");
   contract(105, "22.222.222/0001-22", "DUPLA LTDA");
   contract(106, "22.222.222/0001-22", "DUPLA LTDA - ADITIVO");
+  contract(107, "16.403.297/0001-76", "CASA CENTRO");
   registry(201, "44493204000187", "GSV MAIS ALIMENTOS LTDA", "COMERCIAL E PAPELARIA VALOIS");
   registry(202, "11260603000149", "COMERCIAL MAPEL LTDA", "ATACADAO VITORIA");
   registry(203, "14770671000146", "ORTOCLINICA LTDA", "CENTRO MEDICO OESTE");
   registry(204, "47879385000172", "CARTUCHO EXPRESS COMERCIO DE INFORMATICA LTDA", "");
   registry(205, "22222222000122", "DUPLA LTDA", "");
+  registry(206, "16403297000176", "CASA CENTRO MATERIAIS DE CONSTRUCAO LTDA", "CASA CENTRO");
   commitment(1, "GSV MAIS ALIMENTOS LTDA");
   commitment(2, "COMERCIAL MAPEL EIRELI ATACADAO VITORIA");
   commitment(3, "CENTRO MÉDICO OESTE");
   commitment(4, "CARTUCHOS EXPRESS COMERCIO DE INFORMATICA LTDA");
   commitment(5, "DUPLA LTDA");
+  commitment(6, "CASA CENTRO MATERIAS DE CONSTRUCÃO LTDA");
   link(301, 1, "favorecido_divergente"); candidate(301, 101, "P101", "COMERCIAL VALOIS LTDA");
   link(302, 2, "favorecido_divergente"); candidate(302, 102, "P102", "COMERCIAL MAPEL LTDA");
   link(303, 3, "favorecido_divergente"); candidate(303, 103, "P103", "ORTOCLINICA LTD");
@@ -141,11 +157,12 @@ try {
   link(305, 5, "varios_contratos");
   candidate(305, 105, "P105", "DUPLA LTDA");
   candidate(305, 106, "P106", "DUPLA LTDA - ADITIVO");
+  link(306, 6, "favorecido_divergente"); candidate(306, 107, "P107", "CASA CENTRO");
   await database.exec(statements.join("\n"));
 
   const result = await database.query(
     "select * from finance.confirm_commitment_links_by_registry_name()");
-  assert.deepEqual(result.rows, [{ decision: "approved", decided: 3 }]);
+  assert.deepEqual(result.rows, [{ decision: "approved", decided: 4 }]);
   const reviews = await database.query(`
     select target_id::text as link, reviewer_subject, checklist ->> 'matched_field' as field,
       checklist ->> 'cnpj' as cnpj, checklist ->> 'contract_portal_id' as portal
@@ -157,7 +174,13 @@ try {
       field: "razao_social_e_nome_fantasia", cnpj: "11260603000149", portal: "P102" },
     { link: uuid(303), reviewer_subject: "automated:commitment-registry-name",
       field: "nome_fantasia", cnpj: "14770671000146", portal: "P103" },
-  ], "erro de grafia e dois contratos possíveis continuam pendentes");
+    { link: uuid(304), reviewer_subject: "automated:commitment-registry-name",
+      field: "razao_social_grafia", cnpj: "47879385000172", portal: "P104" },
+  ], "letra trocada e dois contratos possíveis continuam pendentes");
+
+  const version = await database.query(`
+    select distinct checklist ->> 'key_rule_version' as v from editorial.editorial_reviews`);
+  assert.deepEqual(version.rows, [{ v: "commitment-registry-name/1.1.0" }]);
 
   const again = await database.query(
     "select sum(decided)::integer as n from finance.confirm_commitment_links_by_registry_name()");
