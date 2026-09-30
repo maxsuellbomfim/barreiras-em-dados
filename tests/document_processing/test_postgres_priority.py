@@ -61,8 +61,12 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
             query,
         )
         self.assertIn("and job.idempotency_key <> encode(", query)
-        self.assertEqual(len(params), 3)
+        # Edição com OCR tem chave própria: só a versão gravada no job a tira
+        # da fila (sem isso ela voltava em toda execução).
+        self.assertIn("or job.extractor_version = %s ) --", query)
+        self.assertEqual(len(params), 4)
         self.assertEqual(params[0], params[1])
+        self.assertEqual(params[1], params[2])
 
     def test_candidate_queue_waits_ocr_for_page_number_only_text(self) -> None:
         connection = RecordingConnection()

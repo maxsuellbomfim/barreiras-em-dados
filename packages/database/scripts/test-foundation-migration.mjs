@@ -1362,13 +1362,20 @@ try {
         'collector_worker',
         'raw.extraction_jobs',
         'DELETE'
-      ) as jobs_delete
+      ) as jobs_delete,
+      has_column_privilege(
+        'collector_worker',
+        'raw.extraction_jobs',
+        'extractor_version',
+        'UPDATE'
+      ) as jobs_extractor_version
   `);
   assert.deepEqual(extractionPrivileges.rows[0], {
     pages_insert: true,
     results_insert: true,
     results_update: false,
     jobs_delete: false,
+    jobs_extractor_version: true,
   });
 
   const coveragePrivileges = await database.query(`
