@@ -295,6 +295,37 @@ class PostgresCollectionRepository:
             grace_hours=int(row["freshness_grace_hours"] or 0),
         )
 
+    def endpoint_run_times(
+        self,
+        *,
+        source_code: str,
+        endpoint_code: str,
+    ) -> tuple[datetime | None, datetime | None]:
+        """Último sucesso e última tentativa do endpoint."""
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                select
+                  max(run.completed_at) filter (where run.status = 'succeeded')
+                    as last_success_at,
+                  max(run.started_at) as last_attempt_at
+                from source.collection_runs as run
+                join source.source_endpoints as endpoint
+                  on endpoint.id = run.source_endpoint_id
+                join source.data_sources as source
+                  on source.id = endpoint.data_source_id
+                where source.slug = %s
+                  and endpoint.slug = %s
+                """,
+                (source_code, endpoint_code),
+            ).fetchone()
+        finally:
+            connection.close()
+        if row is None:
+            return None, None
+        return row["last_success_at"], row["last_attempt_at"]
+
     def tcm_ba_monthly_catalog_complete(self, *, competence: str) -> bool:
         """Evita repetir um catálogo mensal já fechado com evidência positiva."""
         if re.fullmatch(r"(?:0[1-9]|1[0-2])/\d{4}", competence) is None:

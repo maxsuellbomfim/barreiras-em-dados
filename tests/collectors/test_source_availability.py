@@ -5,6 +5,7 @@ from barreiras_collectors.source_availability import (
     SOURCE_UNAVAILABLE_EXIT_CODE,
     UNHANDLED_FAILURE_EXIT_CODE,
     SourceFreshness,
+    optional_source_paused,
     unavailable_exit_code,
 )
 
@@ -41,6 +42,39 @@ class UnavailableExitCodeTests(unittest.TestCase):
         )
         self.assertEqual(
             unavailable_exit_code(freshness(None), now=NOW), UNHANDLED_FAILURE_EXIT_CODE
+        )
+
+
+class OptionalSourcePauseTests(unittest.TestCase):
+    def ago(self, days: float) -> datetime:
+        return NOW - timedelta(days=days)
+
+    def test_pauses_after_14_days_without_success_until_weekly_probe(self) -> None:
+        self.assertTrue(
+            optional_source_paused(
+                last_success_at=self.ago(40), last_attempt_at=self.ago(1), now=NOW
+            )
+        )
+        # Uma semana depois da última tentativa, tenta de novo.
+        self.assertFalse(
+            optional_source_paused(
+                last_success_at=self.ago(40), last_attempt_at=self.ago(7), now=NOW
+            )
+        )
+
+    def test_recent_success_or_no_history_never_pauses(self) -> None:
+        self.assertFalse(
+            optional_source_paused(
+                last_success_at=self.ago(13), last_attempt_at=self.ago(0.1), now=NOW
+            )
+        )
+        self.assertFalse(
+            optional_source_paused(last_success_at=None, last_attempt_at=None, now=NOW)
+        )
+        self.assertTrue(
+            optional_source_paused(
+                last_success_at=None, last_attempt_at=self.ago(2), now=NOW
+            )
         )
 
 

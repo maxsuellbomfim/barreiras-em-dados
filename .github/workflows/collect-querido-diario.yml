@@ -138,6 +138,11 @@ jobs:
           set -e
           if [ "${api_exit_code}" -eq 0 ]; then
             echo "availability=available" >> "${GITHUB_OUTPUT}"
+          elif [ "${api_exit_code}" -eq 3 ]; then
+            # Sem sucesso há 14 dias: tenta só uma vez por semana; o
+            # primeiro sucesso volta ao ritmo normal. Não é falha nova.
+            echo "availability=paused" >> "${GITHUB_OUTPUT}"
+            echo "::notice title=API complementar em pausa::O Querido Diário não responde há mais de 14 dias; a próxima tentativa acontece em até 7 dias. As fontes oficiais seguem normalmente."
           else
             echo "availability=unavailable" >> "${GITHUB_OUTPUT}"
             echo "::warning title=API complementar indisponível::O Querido Diário falhou com código ${api_exit_code}; as fontes oficiais continuam e a ocorrência será preservada na DLQ."
