@@ -30,13 +30,14 @@ from ..postgres import PostgresExtractionRepository
 
 # Cota gratuita do Gemini: ~10 requisições por minuto.
 SECONDS_BETWEEN_CALLS = 7.0
-# Todos os modelos em 429: espera uma janela de minuto antes de concluir que
-# a cota do dia acabou.
+# Nenhum modelo disponível (cota, sobrecarga ou modelo aposentado): espera
+# uma janela de minuto antes de concluir que o provedor não atende hoje.
 QUOTA_RETRY_SECONDS = 65.0
+UNAVAILABLE_STATUSES = (": HTTP 429 ", ": HTTP 503 ", ": HTTP 404 ")
 
 
 class QuotaExhausted(RuntimeError):
-    """Todos os modelos recusaram por cota (HTTP 429)."""
+    """Nenhum modelo atendeu (HTTP 429, 503 ou 404) nem após a espera."""
 
 
 def annotate_page(
@@ -75,7 +76,9 @@ def annotate_page(
                 return model, parse_annotation(body, expected), response_sha256(body)
             except (ValueError, KeyError, IndexError, TypeError) as error:
                 errors.append(f"{model}: {type(error).__name__}")
-        if not all(": HTTP 429" in error for error in errors):
+        if not all(
+            any(status in error for status in UNAVAILABLE_STATUSES) for error in errors
+        ):
             raise RuntimeError("; ".join(errors))
         if attempt == 0:
             sleep(QUOTA_RETRY_SECONDS)
@@ -133,6 +136,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     caller = UrllibJsonCaller(timeout_seconds=120.0)
     recorded = failed = 0
+    quota_stopped = False
     pdf_cache: dict[str, bytes] = {}
     for page in pages:
         try:
@@ -177,6 +181,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 page=str(page["sample_page_id"]),
                 detail=str(error)[:500],
             )
+            quota_stopped = True
             break
         except Exception as error:
             failed += 1
@@ -197,7 +202,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         failed=failed,
         prompt_version=PROMPT_VERSION,
     )
-    return 0
+    # Cota esgotada é estado tratado; falhar todas as páginas por outro motivo
+    # não é "zero anotações" — o job fica vermelho.
+    return 1 if failed and not recorded and not quota_stopped else 0
 
 
 if __name__ == "__main__":

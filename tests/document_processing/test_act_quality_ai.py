@@ -77,12 +77,12 @@ class PayloadTests(unittest.TestCase):
 
 
 class AnnotatePageTests(unittest.TestCase):
-    def test_falls_back_to_next_model_on_quota_or_bad_json(self) -> None:
+    def test_falls_back_to_next_model_on_bad_json(self) -> None:
         good = envelope(
             '{"acts": {"a1": "correct", "b2": "partial"},'
             ' "missed_nomeacoes": 0, "missed_exoneracoes": 2}'
         )
-        responses = [(429, b"{}"), (200, envelope("texto livre")), (200, good)]
+        responses = [(200, envelope("texto livre")), (200, good)]
         models = []
 
         class Caller:
@@ -97,17 +97,17 @@ class AnnotatePageTests(unittest.TestCase):
             acts=ACTS,
             sleep=lambda _s: None,
         )
-        self.assertEqual(len(models), 3)
+        self.assertEqual(models, ["gemini-flash-latest", "gemini-flash-lite-latest"])
         self.assertEqual(model, models[-1])
         self.assertEqual(annotation.missed_exoneracoes, 2)
         self.assertRegex(raw_sha, r"^[a-f0-9]{64}$")
 
-    def test_all_models_failing_raises_without_recording(self) -> None:
+    def test_contract_failure_raises_without_stopping_the_batch(self) -> None:
         class Caller:
             def post(self, url, headers, payload):
-                return 503, b""
+                return 200, envelope("não sei")
 
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(RuntimeError) as raised:
             annotate_page(
                 caller=Caller(),
                 api_key="k",
@@ -115,6 +115,7 @@ class AnnotatePageTests(unittest.TestCase):
                 acts=ACTS,
                 sleep=lambda _s: None,
             )
+        self.assertNotIsInstance(raised.exception, QuotaExhausted)
 
     def test_quota_on_every_model_waits_once_then_stops_the_batch(self) -> None:
         class Caller:
@@ -122,7 +123,10 @@ class AnnotatePageTests(unittest.TestCase):
 
             def post(self, url, headers, payload):
                 Caller.calls += 1
-                return 429, b'{"error": "quota"}'
+                # Cota num alias, modelo aposentado no outro.
+                if payload["model"] == "gemini-flash-latest":
+                    return 429, b'{"error": "quota"}'
+                return 404, b'{"error": "gone"}'
 
         slept = []
         with self.assertRaises(QuotaExhausted) as raised:
@@ -133,7 +137,7 @@ class AnnotatePageTests(unittest.TestCase):
                 acts=ACTS,
                 sleep=slept.append,
             )
-        self.assertEqual(Caller.calls, 6)
+        self.assertEqual(Caller.calls, 4)
         self.assertIn(QUOTA_RETRY_SECONDS, slept)
         self.assertIn("HTTP 429", str(raised.exception))
 
