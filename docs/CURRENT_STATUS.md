@@ -126,6 +126,10 @@ amplas.
    uma só página (fora do escopo; prompt 1.1.0 corrige a contagem) e as demais
    vinham de cabeçalho sem "DE" antes do dia e da troca e→c do OCR — corrigidas
    na régua `gazette-act-candidates/2.4.0`, que reprocessa o acervo.
+   O reprocessamento expôs dois defeitos operacionais, corrigidos em 30/09:
+   edição com OCR voltava à fila de atos em toda execução (a chave do job
+   inclui o hash do texto; o job agora grava `extractor_version`) e a extração
+   estourava o tempo do workflow e pulava a publicação (`--max-seconds`).
 
 ## O que já está disponível no portal
 
