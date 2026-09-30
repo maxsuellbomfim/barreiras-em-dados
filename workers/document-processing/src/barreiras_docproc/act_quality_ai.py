@@ -19,7 +19,9 @@ from typing import Any
 
 PROMPT_VERSION = "act-quality-prompt/1.0.0"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-GEMINI_MODELS = ("gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash")
+# Só aliases "-latest": nomes com versão são aposentados sem aviso (2.0 e 2.5
+# responderam 404 em 30/09/2026). Cada alias tem cota gratuita própria.
+GEMINI_MODELS = ("gemini-flash-latest", "gemini-flash-lite-latest")
 MAX_IMAGE_SIDE = 2000
 VERDICTS = frozenset({"correct", "partial", "incorrect"})
 
