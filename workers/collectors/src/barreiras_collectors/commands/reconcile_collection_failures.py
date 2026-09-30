@@ -1,4 +1,4 @@
-"""Fecha falhas de coleta que já têm evidência de recuperação.
+"""Fecha falhas de coleta já recuperadas e execuções órfãs.
 
 A decisão é da função SQL versionada ``source.reconcile_collection_failures``;
 este comando só a executa no agendamento e registra o resultado.
@@ -22,9 +22,14 @@ def reconcile(repository: PostgresCollectionRepository) -> dict[str, int]:
                 "select rule, resolved_count"
                 " from source.reconcile_collection_failures()"
             ).fetchall()
+            orphans = connection.execute(
+                "select source.close_orphaned_collection_runs() as closed"
+            ).fetchall()
     finally:
         connection.close()
-    return {str(row["rule"]): int(row["resolved_count"]) for row in rows}
+    counts = {str(row["rule"]): int(row["resolved_count"]) for row in rows}
+    counts["orphaned_runs_closed"] = int(orphans[0]["closed"])
+    return counts
 
 
 def main(argv: Sequence[str] | None = None) -> int:
