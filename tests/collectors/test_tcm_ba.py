@@ -596,8 +596,9 @@ class TcmBaPublicAccountsTests(unittest.TestCase):
     def test_empty_search_means_submission_not_listed_yet(self) -> None:
         empty = (
             b'<tbody id="consultaPublicaTabPanel:consultaPublicaDataTable:tb">'
-            b'<tr class="ui-widget-content ui-datatable-empty-message">'
-            b'<td colspan="6">Nenhum registro encontrado.</td></tr></tbody>'
+            b'<tr class="rf-dt-nd"><td colspan="6" class="rf-dt-nd-c">'
+            b"<div>Nao foram encontrados resultados para a pesquisa.</div>"
+            b"</td></tr></tbody>"
             b'<input name="javax.faces.ViewState" value="search-state" />'
         )
         with self.assertRaises(TcmBaSubmissionPending) as raised:

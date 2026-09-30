@@ -1045,11 +1045,10 @@ def _parse_submission(
         raise TcmBaContractError("Tabela de prestações do e-TCM não encontrada.")
     matches: list[tuple[TcmBaSubmission, str]] = []
     rows = _direct_children(tbody, "tr")
-    # Só a linha de "nenhum registro" do PrimeFaces conta como espera; qualquer
-    # outro formato continua sendo quebra de contrato.
-    if len(rows) == 1 and "ui-datatable-empty-message" in rows[0].attrs.get(
-        "class", ""
-    ).split():
+    # Só a linha de "sem resultados" do RichFaces (observada no e-TCM em
+    # 29/09/2026 para 08/2026) conta como espera; qualquer outro formato
+    # continua sendo quebra de contrato.
+    if len(rows) == 1 and "rf-dt-nd" in rows[0].attrs.get("class", "").split():
         raise TcmBaSubmissionPending(expected_competence)
     for row in rows:
         cells = _direct_children(row, "td")
