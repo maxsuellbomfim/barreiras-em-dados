@@ -1,0 +1,307 @@
+import type { Metadata } from "next";
+
+import { formatBrlCompact } from "../../../lib/compact-money.mjs";
+import {
+  FIRST_PAYMENT_YEAR,
+  getPublicPaymentRecipients,
+  paymentYear,
+} from "../../../lib/payment-recipients.mjs";
+import type { PaymentRecipient } from "../../../lib/payment-recipients.mjs";
+import { formatBrlDecimal } from "../../../lib/revenues";
+
+export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "Quem recebe o dinheiro | Finanças",
+  description:
+    "Para quem a Prefeitura de Barreiras pagou em cada ano: soma exata das ordens de pagamento por grupo de despesa, por órgão e por credor, com a fonte oficial.",
+};
+
+type PageProps = Readonly<{ searchParams: Promise<{ ano?: string }> }>;
+
+function formatDate(iso: string): string {
+  const [year, month, day] = iso.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function formatDateTime(iso: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Bahia",
+  }).format(new Date(iso));
+}
+
+function plural(value: number, singular: string, pluralForm: string): string {
+  return `${value.toLocaleString("pt-BR")} ${value === 1 ? singular : pluralForm}`;
+}
+
+function RecipientCard({
+  recipient,
+  sourcePageUrl,
+}: Readonly<{ recipient: PaymentRecipient; sourcePageUrl: string }>) {
+  return (
+    <li className="legal-result-card">
+      <h3>
+        {recipient.creditorName ??
+          `Pessoas físicas e credores sem forma jurídica no nome (${plural(
+            recipient.creditors,
+            "credor",
+            "credores",
+          )})`}
+      </h3>
+      <p>
+        <strong>{formatBrlDecimal(recipient.paidAmount)}</strong> ·{" "}
+        {plural(recipient.payments, "pagamento", "pagamentos")} de{" "}
+        {formatDate(recipient.firstPaymentDate)} a {formatDate(recipient.lastPaymentDate)}
+      </p>
+      {recipient.mainNature ? (
+        <p className="legal-result-excerpt">
+          Natureza mais frequente: {recipient.mainNature.toLowerCase()}
+        </p>
+      ) : null}
+      <p className="act-evidence">
+        <a href={sourcePageUrl} target="_blank" rel="noreferrer">
+          Portal da Transparência
+        </a>{" "}
+        · grade preservada, hash {recipient.gridArtifactSha256.slice(0, 12)}…
+      </p>
+    </li>
+  );
+}
+
+export default async function PaymentRecipientsPage({ searchParams }: PageProps) {
+  const currentYear = new Date().getFullYear();
+  const year = paymentYear((await searchParams).ano, currentYear);
+  const result = await getPublicPaymentRecipients(year);
+  const years = Array.from(
+    { length: currentYear - FIRST_PAYMENT_YEAR + 1 },
+    (_, index) => currentYear - index,
+  );
+
+  return (
+    <main>
+      <nav className="page-back" aria-label="Voltar">
+        <a href="/financas">← Finanças</a>
+      </nav>
+
+      <section className="section" aria-labelledby="recipients-title">
+        <div className="section-heading">
+          <span className="eyebrow">Ordens de pagamento oficiais</span>
+          <h1 id="recipients-title">Quem recebe o dinheiro da Prefeitura</h1>
+          <p>
+            Cada pagamento orçamentário publicado no Portal da Transparência, somado por credor
+            e agrupado pela natureza da despesa escrita pela própria Prefeitura. Empresas e
+            instituições aparecem pelo nome; pessoas físicas, como servidores e beneficiários,
+            entram só no total.
+          </p>
+        </div>
+
+        <nav className="rentals-years" aria-label="Ano dos pagamentos">
+          {years.map((option) => (
+            <a
+              key={option}
+              href={`/financas/quem-recebe?ano=${option}`}
+              aria-current={option === year ? "page" : undefined}
+            >
+              {option}
+            </a>
+          ))}
+        </nav>
+
+        {result.state === "unavailable" ? (
+          <div className="collection-unavailable" role="status">
+            <div>
+              <strong>Pagamentos temporariamente indisponíveis</strong>
+              <p>A falha é de consulta; ela não significa que não houve pagamentos.</p>
+            </div>
+          </div>
+        ) : result.groups.length === 0 || result.summary === null ? (
+          <div className="collection-unavailable" role="status">
+            <div>
+              <strong>Nenhuma grade de pagamentos de {year} processada</strong>
+              <p>Sem grade preservada não há total; isso não significa que nada foi pago.</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="glance-grid">
+              <article className="glance-card">
+                <span className="glance-question">Pago em {year}</span>
+                <span className="glance-value">{formatBrlCompact(result.summary.paidAmount)}</span>
+                <span className="glance-exact">{formatBrlDecimal(result.summary.paidAmount)}</span>
+                <span className="glance-context">
+                  {plural(result.summary.payments, "ordem de pagamento", "ordens de pagamento")}.
+                </span>
+              </article>
+              <article className="glance-card">
+                <span className="glance-question">De empenhos de anos anteriores</span>
+                <span className="glance-value">
+                  {formatBrlCompact(result.summary.priorCommitmentAmount)}
+                </span>
+                <span className="glance-exact">
+                  {formatBrlDecimal(result.summary.priorCommitmentAmount)}
+                </span>
+                <span className="glance-context">
+                  {result.summary.uncollectedCommitmentAmount === "0.00"
+                    ? `Restos a pagar: despesas empenhadas antes de ${year} e pagas neste ano.`
+                    : `Restos a pagar identificados. Outros ${formatBrlDecimal(
+                        result.summary.uncollectedCommitmentAmount,
+                      )} pagaram empenhos fora da coleta (anteriores a 2024), sem ano identificável.`}
+                </span>
+              </article>
+              <article className="glance-card">
+                <span className="glance-question">Meses coletados</span>
+                <span className="glance-value">{result.summary.gridMonths} de 12</span>
+                <span className="glance-context">
+                  Atualizado em {formatDateTime(result.summary.refreshedAt)}.
+                </span>
+              </article>
+            </div>
+
+            <div
+              className="territorial-table-wrap"
+              role="region"
+              aria-label="Pagamentos por grupo"
+              tabIndex={0}
+            >
+              <table className="territorial-table recipients-table">
+                <caption>Pagamentos de {year} por grupo de despesa</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Grupo</th>
+                    <th scope="col">Pago</th>
+                    <th scope="col">Pagamentos</th>
+                    <th scope="col">Credores</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.groups.map((group) => (
+                    <tr key={group.key}>
+                      <th scope="row">
+                        <a href={`#grupo-${group.key}`}>{group.label}</a>
+                      </th>
+                      <td className="territorial-table-number">
+                        {formatBrlDecimal(group.paidAmount)}
+                      </td>
+                      <td className="territorial-table-number">
+                        {group.payments.toLocaleString("pt-BR")}
+                      </td>
+                      <td className="territorial-table-number">
+                        {group.creditors.toLocaleString("pt-BR")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              className="territorial-table-wrap"
+              role="region"
+              aria-label="Pagamentos por órgão"
+              tabIndex={0}
+            >
+              <table className="territorial-table recipients-table">
+                <caption>Quem pagou: órgão ou fundo municipal</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Órgão</th>
+                    <th scope="col">Pago</th>
+                    <th scope="col">Pagamentos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.summary.bodies.map((body) => (
+                    <tr key={body.publicBody}>
+                      <th scope="row">{body.publicBody}</th>
+                      <td className="territorial-table-number">
+                        {formatBrlDecimal(body.paidAmount)}
+                      </td>
+                      <td className="territorial-table-number">
+                        {body.payments.toLocaleString("pt-BR")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {result.groups.map((group) => (
+              <details
+                key={group.key}
+                id={`grupo-${group.key}`}
+                className="recipients-group"
+                open={group.key === "compras_servicos"}
+              >
+                <summary>
+                  <strong>{group.label}</strong> · {formatBrlDecimal(group.paidAmount)} ·{" "}
+                  {plural(group.creditors, "credor", "credores")}
+                  {group.recipients.length > 0 &&
+                  group.recipients.length + (group.others?.creditors ?? 0) < group.creditors
+                    ? ` (os ${group.recipients.length} com nome que mais receberam)`
+                    : ""}
+                </summary>
+                <ol className="legal-result-list">
+                  {group.recipients.map((recipient) => (
+                    <RecipientCard
+                      key={recipient.creditorName}
+                      recipient={recipient}
+                      sourcePageUrl={result.summary?.sourcePageUrl ?? ""}
+                    />
+                  ))}
+                  {group.others ? (
+                    <RecipientCard
+                      recipient={group.others}
+                      sourcePageUrl={result.summary?.sourcePageUrl ?? ""}
+                    />
+                  ) : null}
+                </ol>
+              </details>
+            ))}
+
+            <ul className="hero-note">
+              <li>
+                Soma das ordens de pagamento orçamentárias publicadas no portal da Prefeitura,
+                pela data do pagamento; não é a “despesa paga” do RREO nem a despesa com pessoal
+                da LRF.
+              </li>
+              <li>
+                Inclui pagamentos de restos a pagar, isto é, despesas empenhadas em anos
+                anteriores.
+              </li>
+              <li>
+                Não entram pagamentos extraorçamentários, como o repasse de retenções e
+                consignações; por isso o valor por credor pode diferir do valor bruto da nota.
+              </li>
+              <li>
+                Parte da folha aparece como pagamento à própria Prefeitura ou a fundos municipais
+                (FOPAG), que repassam os salários; servidores e beneficiários não são
+                identificados.
+              </li>
+              <li>
+                Os grupos seguem a descrição da natureza informada pela Prefeitura, por regra
+                automática versionada, e não indicam irregularidade.
+              </li>
+              {result.summary.unreadableRows + result.summary.excludedRows > 0 ? (
+                <li>
+                  {plural(result.summary.unreadableRows, "linha", "linhas")} com valor ilegível
+                  e {plural(result.summary.excludedRows, "linha", "linhas")} fora do escopo
+                  (extraorçamentária ou de outro ano) ficaram fora da soma.
+                </li>
+              ) : null}
+            </ul>
+          </>
+        )}
+
+        <p className="hero-note">
+          Metodologia municipal-payment-recipients/1.0.0 (ADR 0095): grade mais recente de cada
+          mês do sistema de despesas da Prefeitura; só ordens orçamentárias; grupo por regra
+          fixa sobre a descrição da natureza; credor com nome apenas quando o nome traz forma
+          jurídica ou é ente público, nunca com CPF; até 150 nomes por grupo. Nenhum valor é
+          estimado.
+        </p>
+      </section>
+    </main>
+  );
+}

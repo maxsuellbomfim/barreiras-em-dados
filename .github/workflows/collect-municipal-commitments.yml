@@ -101,6 +101,7 @@ jobs:
 
       # ADR 0086: decide a ligação empenho -> contrato só para empenhos ainda
       # sem decisão desta versão da regra; grava append-only e não publica.
+      # ADR 0095: em seguida recalcula a projeção "quem recebe o dinheiro".
       - name: Ligar empenhos a contratos pela regra determinística
         run: >-
           python -B -m barreiras_reconciliation.commands.link_commitments_to_contracts

@@ -216,6 +216,20 @@ class CommitmentLinkRepository:
             connection.close()
         return {str(row["decision"]): int(row["decided"]) for row in rows}
 
+    def refresh_payment_recipients(self) -> int:
+        """Recalcula a projeção pública "quem recebe" a partir dos pagamentos."""
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                # Cada ano leva ~10 s sobre a grade bruta; o limite do papel é 15 s.
+                connection.execute("set local statement_timeout = '10min'")
+                row = connection.execute(
+                    "select finance.refresh_payment_recipients() as refreshed"
+                ).fetchone()
+        finally:
+            connection.close()
+        return int(row["refreshed"])
+
     def record_candidates(
         self, candidates: tuple[tuple[str, MunicipalContract], ...]
     ) -> int:
