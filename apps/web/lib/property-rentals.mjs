@@ -1,6 +1,10 @@
-// Aluguéis de imóveis por locador e contrato (municipal-property-rentals/1.2.0).
+// Aluguéis de imóveis por locador e contrato (municipal-property-rentals/1.3.0).
 // Valores chegam como decimal em texto e continuam texto: nenhuma conta aqui.
-const METHODOLOGY = "municipal-property-rentals/1.2.0";
+// 1.3.0 acrescenta endereço e uso como trechos literais do histórico.
+const METHODOLOGIES = new Set([
+  "municipal-property-rentals/1.2.0",
+  "municipal-property-rentals/1.3.0",
+]);
 const DECIMAL = /^-?\d+\.\d{2}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -41,6 +45,8 @@ export function parsePropertyRentalRows(rows) {
       firstCommitmentDate: isoDate(row.first_commitment_date),
       lastCommitmentDate: isoDate(row.last_commitment_date),
       description: text(row.description),
+      addressText: row.address_text == null ? null : text(row.address_text),
+      useText: row.use_text == null ? null : text(row.use_text),
       latestCommitmentKey: text(row.latest_commitment_key),
       gridArtifactSha256: text(row.grid_artifact_sha256),
       sourcePageUrl: text(row.source_page_url),
@@ -60,7 +66,7 @@ export function parsePropertyRentalRows(rows) {
       !SHA256.test(rental.gridArtifactSha256) ||
       rental.sourcePageUrl === null ||
       !rental.sourcePageUrl.startsWith("https://") ||
-      row.methodology_version !== METHODOLOGY
+      !METHODOLOGIES.has(row.methodology_version)
     ) {
       return null;
     }
@@ -71,8 +77,10 @@ export function parsePropertyRentalRows(rows) {
       paidAmount: decimal(row.year_paid_amount),
       gridMonths: count(row.year_grid_months),
     };
+    const addresses = row.year_addresses == null ? null : count(row.year_addresses);
     if (Object.values(rowSummary).some((value) => value === null)) return null;
-    summary ??= rowSummary;
+    if (row.year_addresses != null && addresses === null) return null;
+    summary ??= { ...rowSummary, addresses };
     rentals.push(rental);
   }
   return { summary, rentals };
