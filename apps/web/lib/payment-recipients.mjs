@@ -1,9 +1,11 @@
 // Quem recebe o dinheiro da Prefeitura (municipal-payment-recipients/1.2.0).
 // Valores chegam como decimal em texto e continuam texto: nenhuma conta aqui.
 // 1.2.0: todos os credores com nome e pessoas físicas agregadas por natureza.
+// 1.3.0: valor liquidado no ano; credor só com liquidação tem pago zero.
 const METHODOLOGIES = new Set([
   "municipal-payment-recipients/1.1.0",
   "municipal-payment-recipients/1.2.0",
+  "municipal-payment-recipients/1.3.0",
 ]);
 const CNPJ = /^\d{14}$/;
 const MONTH = /^\d{4}-\d{2}$/;
@@ -93,6 +95,9 @@ export function parsePaymentRecipientRows(rows) {
       creditors: count(row.creditors),
       payments: count(row.payments),
       paidAmount: decimal(row.paid_amount),
+      // Ausentes antes da 1.3.0.
+      liquidations: row.liquidations == null ? null : count(row.liquidations),
+      liquidatedAmount: row.liquidated_amount == null ? null : decimal(row.liquidated_amount),
       firstPaymentDate: isoDate(row.first_payment_date),
       lastPaymentDate: isoDate(row.last_payment_date),
       mainNature: text(row.main_nature),
@@ -103,10 +108,14 @@ export function parsePaymentRecipientRows(rows) {
       (row.creditor_name !== null && creditorName === null) ||
       !recipient.creditors ||
       (creditorName !== null && recipient.creditors !== 1) ||
-      !recipient.payments ||
+      recipient.payments === null ||
       recipient.paidAmount === null ||
-      recipient.firstPaymentDate === null ||
-      recipient.lastPaymentDate === null ||
+      (row.liquidations != null && recipient.liquidations === null) ||
+      (row.liquidated_amount != null && recipient.liquidatedAmount === null) ||
+      // Toda linha tem pagamento ou liquidação no ano.
+      (!recipient.payments && !recipient.liquidations) ||
+      (recipient.payments > 0 &&
+        (recipient.firstPaymentDate === null || recipient.lastPaymentDate === null)) ||
       recipient.gridArtifactSha256 === null ||
       !SHA256.test(recipient.gridArtifactSha256) ||
       recipient.registry === undefined ||
@@ -120,6 +129,8 @@ export function parsePaymentRecipientRows(rows) {
       payments: count(row.group_payments),
       creditors: count(row.group_creditors),
       paidAmount: decimal(row.group_paid_amount),
+      liquidatedAmount:
+        row.group_liquidated_amount == null ? null : decimal(row.group_liquidated_amount),
     };
     if (group.payments === null || group.creditors === null || group.paidAmount === null) {
       return null;
@@ -143,7 +154,20 @@ export function parsePaymentRecipientRows(rows) {
     ) {
       return null;
     }
-    summary ??= rowSummary;
+    const liquidation = {
+      liquidations: row.year_liquidations == null ? null : count(row.year_liquidations),
+      liquidatedAmount:
+        row.year_liquidated_amount == null ? null : decimal(row.year_liquidated_amount),
+      liquidationGridMonths:
+        row.year_liquidation_grid_months == null ? null : count(row.year_liquidation_grid_months),
+    };
+    if (
+      (row.year_liquidated_amount != null && liquidation.liquidatedAmount === null) ||
+      (row.group_liquidated_amount != null && group.liquidatedAmount === null)
+    ) {
+      return null;
+    }
+    summary ??= { ...rowSummary, ...liquidation };
     if (!groups.has(group.key)) groups.set(group.key, { ...group, recipients: [], others: [] });
     const target = groups.get(group.key);
     if (creditorName === null) {

@@ -39,7 +39,10 @@ function plural(value: number, singular: string, pluralForm: string): string {
   return `${value.toLocaleString("pt-BR")} ${value === 1 ? singular : pluralForm}`;
 }
 
-function RecipientRow({ recipient }: Readonly<{ recipient: PaymentRecipient }>) {
+function RecipientRow({
+  recipient,
+  showLiquidated,
+}: Readonly<{ recipient: PaymentRecipient; showLiquidated: boolean }>) {
   return (
     <tr>
       <th scope="row">
@@ -59,9 +62,16 @@ function RecipientRow({ recipient }: Readonly<{ recipient: PaymentRecipient }>) 
         <small>grade preservada, hash {recipient.gridArtifactSha256.slice(0, 12)}…</small>
       </th>
       <td className="territorial-table-number">{formatBrlDecimal(recipient.paidAmount)}</td>
+      {showLiquidated ? (
+        <td className="territorial-table-number">
+          {recipient.liquidatedAmount ? formatBrlDecimal(recipient.liquidatedAmount) : "—"}
+        </td>
+      ) : null}
       <td className="territorial-table-number">{recipient.payments.toLocaleString("pt-BR")}</td>
       <td>
-        {formatDate(recipient.firstPaymentDate)} a {formatDate(recipient.lastPaymentDate)}
+        {recipient.firstPaymentDate && recipient.lastPaymentDate
+          ? `${formatDate(recipient.firstPaymentDate)} a ${formatDate(recipient.lastPaymentDate)}`
+          : "sem pagamento no ano"}
       </td>
       <td>{recipient.mainNature?.toLowerCase() ?? "—"}</td>
     </tr>
@@ -83,6 +93,9 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
     declaredYear?.metrics.find((metric) => metric.metricKey === key);
   const declaredPaid = declaredMetric("expense_paid");
   const declaredCommitted = declaredMetric("expense_committed");
+  const declaredLiquidated = declaredMetric("expense_liquidated");
+  const showLiquidated =
+    result.state === "available" && result.summary?.liquidatedAmount != null;
   const years = Array.from(
     { length: currentYear - FIRST_PAYMENT_YEAR + 1 },
     (_, index) => currentYear - index,
@@ -143,6 +156,23 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
                   {plural(result.summary.payments, "ordem de pagamento", "ordens de pagamento")}.
                 </span>
               </article>
+              {result.summary.liquidatedAmount ? (
+                <article className="glance-card">
+                  <span className="glance-question">Liquidado em {year}</span>
+                  <span className="glance-value">
+                    {formatBrlCompact(result.summary.liquidatedAmount)}
+                  </span>
+                  <span className="glance-exact">
+                    {formatBrlDecimal(result.summary.liquidatedAmount)}
+                  </span>
+                  <span className="glance-context">
+                    Despesa reconhecida (serviço prestado ou bem entregue) em{" "}
+                    {plural(result.summary.liquidations ?? 0, "liquidação", "liquidações")};{" "}
+                    {result.summary.liquidationGridMonths ?? 0} de 12 meses coletados. Liquidado e
+                    pago são somas independentes do ano.
+                  </span>
+                </article>
+              ) : null}
               <article className="glance-card">
                 <span className="glance-question">De empenhos de anos anteriores</span>
                 <span className="glance-value">
@@ -196,6 +226,22 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
                   está disponível agora; sem ele não há comparação.
                 </p>
               )}
+              {declaredLiquidated && result.summary.liquidatedAmount
+                ? (() => {
+                    const comparison = compareWithDeclared(
+                      result.summary.liquidatedAmount,
+                      declaredLiquidated.amount,
+                    );
+                    return (
+                      <p>
+                        Liquidado: {formatBrlDecimal(declaredLiquidated.amount)} declarados ao
+                        Tesouro e {formatBrlDecimal(result.summary.liquidatedAmount)} nas
+                        liquidações publicadas no portal
+                        {comparison ? ` (${comparison.coveragePercent}% do declarado)` : ""}.
+                      </p>
+                    );
+                  })()
+                : null}
               <p className="hero-note">
                 Esta página não soma empenhos: o portal não publica as anulações de empenho, então
                 somar os empenhos emitidos superestimaria o valor empenhado
@@ -218,6 +264,7 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
                   <tr>
                     <th scope="col">Grupo</th>
                     <th scope="col">Pago</th>
+                    {showLiquidated ? <th scope="col">Liquidado</th> : null}
                     <th scope="col">Pagamentos</th>
                     <th scope="col">Credores</th>
                   </tr>
@@ -231,6 +278,11 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
                       <td className="territorial-table-number">
                         {formatBrlDecimal(group.paidAmount)}
                       </td>
+                      {showLiquidated ? (
+                        <td className="territorial-table-number">
+                          {group.liquidatedAmount ? formatBrlDecimal(group.liquidatedAmount) : "—"}
+                        </td>
+                      ) : null}
                       <td className="territorial-table-number">
                         {group.payments.toLocaleString("pt-BR")}
                       </td>
@@ -302,17 +354,26 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
                         <tr>
                           <th scope="col">Credor</th>
                           <th scope="col">Pago</th>
+                          {showLiquidated ? <th scope="col">Liquidado</th> : null}
                           <th scope="col">Pagamentos</th>
-                          <th scope="col">Período</th>
+                          <th scope="col">Período dos pagamentos</th>
                           <th scope="col">Natureza mais frequente</th>
                         </tr>
                       </thead>
                       <tbody>
                         {group.recipients.map((recipient) => (
-                          <RecipientRow key={recipient.creditorName} recipient={recipient} />
+                          <RecipientRow
+                            key={recipient.creditorName}
+                            recipient={recipient}
+                            showLiquidated={showLiquidated}
+                          />
                         ))}
                         {group.others.map((other) => (
-                          <RecipientRow key={`pf|${other.mainNature ?? ""}`} recipient={other} />
+                          <RecipientRow
+                            key={`pf|${other.mainNature ?? ""}`}
+                            recipient={other}
+                            showLiquidated={showLiquidated}
+                          />
                         ))}
                       </tbody>
                     </table>
@@ -356,7 +417,7 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
         )}
 
         <p className="hero-note">
-          Metodologia municipal-payment-recipients/1.2.0 (ADR 0095): grade mais recente de cada
+          Metodologia municipal-payment-recipients/1.3.0 (ADR 0095): grade mais recente de cada
           mês do sistema de despesas da Prefeitura; só ordens orçamentárias; grupo por regra
           fixa sobre a descrição da natureza; credor com nome apenas quando o nome traz forma
           jurídica ou é ente público, nunca com CPF; pessoas físicas somadas por natureza da
