@@ -82,6 +82,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     summary["registry_name_decisions"] = repository.confirm_by_registry_name()
     # Quem recebe o dinheiro: projeção materializada das ordens de pagamento.
     summary["payment_recipient_rows"] = repository.refresh_payment_recipients()
+    # Aluguéis: endereço que o empenho não cita, pelo extrato do Diário Oficial.
+    summary["rental_gazette_addresses"] = repository.refresh_rental_gazette_addresses()
     json.dump(summary, sys.stdout, ensure_ascii=False, indent=2)
     print()
     return 0

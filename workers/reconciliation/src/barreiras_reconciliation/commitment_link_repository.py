@@ -230,6 +230,20 @@ class CommitmentLinkRepository:
             connection.close()
         return int(row["refreshed"])
 
+    def refresh_rental_gazette_addresses(self) -> int:
+        """Endereço de aluguel ausente no empenho, lido do Diário Oficial."""
+        connection = self.connection_factory()
+        try:
+            with connection.transaction():
+                # A busca varre o texto das edições do Diário (~35 s).
+                connection.execute("set local statement_timeout = '10min'")
+                row = connection.execute(
+                    "select finance.refresh_rental_gazette_addresses() as refreshed"
+                ).fetchone()
+        finally:
+            connection.close()
+        return int(row["refreshed"])
+
     def record_candidates(
         self, candidates: tuple[tuple[str, MunicipalContract], ...]
     ) -> int:
