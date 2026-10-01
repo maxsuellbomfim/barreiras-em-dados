@@ -49,6 +49,12 @@ export default async function PropertyRentalsPage({ searchParams }: PageProps) {
           </p>
         </div>
 
+        <p>
+          <a href={`/financas/alugueis/exportar?ano=${year}`} download>
+            Baixar planilha de {year} (CSV)
+          </a>
+        </p>
+
         <nav className="rentals-years" aria-label="Ano dos empenhos">
           {years.map((option) => (
             <a
@@ -149,6 +155,19 @@ export default async function PropertyRentalsPage({ searchParams }: PageProps) {
                   <p>
                     <strong>Endereço:</strong>{" "}
                     {rental.addressText ?? "não informado no histórico do empenho"}
+                    {rental.addressGazette ? (
+                      <>
+                        {" "}
+                        (do{" "}
+                        <a
+                          href={`/diario/${rental.addressGazette.year}/${rental.addressGazette.edition}`}
+                        >
+                          Diário Oficial nº {rental.addressGazette.edition}/
+                          {rental.addressGazette.year}, p. {rental.addressGazette.page}
+                        </a>
+                        , porque o empenho não cita o endereço)
+                      </>
+                    ) : null}
                     {rental.useText ? (
                       <>
                         {" "}
@@ -173,10 +192,12 @@ export default async function PropertyRentalsPage({ searchParams }: PageProps) {
         )}
 
         <p className="hero-note">
-          Metodologia municipal-property-rentals/1.3.0: empenhos do sistema de despesas da
+          Metodologia municipal-property-rentals/1.4.0: empenhos do sistema de despesas da
           Prefeitura com subelemento “locação de imóveis”, na grade mais recente de cada mês;
           contrato lido do histórico quando citado (“Contrato nº …”); endereço e uso são trechos
-          literais do histórico (“situado à …”, “funcionamento da …”), sem correção; CPF
+          literais do histórico (“situado à …”, “funcionamento da …”), sem correção; quando
+          o empenho não cita o endereço, ele vem do extrato do Diário Oficial com o nome do
+          locador, se houver um único endereço; CPF
           mascarado. Locação de
           veículos, máquinas e softwares fica de fora.
         </p>

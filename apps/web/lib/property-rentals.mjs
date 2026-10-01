@@ -1,10 +1,13 @@
-// Aluguéis de imóveis por locador e contrato (municipal-property-rentals/1.3.0).
+// Aluguéis de imóveis por locador e contrato (municipal-property-rentals/1.4.0).
 // Valores chegam como decimal em texto e continuam texto: nenhuma conta aqui.
 // 1.3.0 acrescenta endereço e uso como trechos literais do histórico.
+// 1.4.0: endereço ausente no empenho pode vir do extrato no Diário Oficial.
 const METHODOLOGIES = new Set([
   "municipal-property-rentals/1.2.0",
   "municipal-property-rentals/1.3.0",
+  "municipal-property-rentals/1.4.0",
 ]);
+const ADDRESS_SOURCES = new Set(["historico_empenho", "diario_oficial"]);
 const DECIMAL = /^-?\d+\.\d{2}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -47,6 +50,15 @@ export function parsePropertyRentalRows(rows) {
       description: text(row.description),
       addressText: row.address_text == null ? null : text(row.address_text),
       useText: row.use_text == null ? null : text(row.use_text),
+      addressSource: row.address_source == null ? null : text(row.address_source),
+      addressGazette:
+        row.address_gazette_edition == null
+          ? null
+          : {
+              year: count(row.address_gazette_year),
+              edition: count(row.address_gazette_edition),
+              page: count(row.address_gazette_page),
+            },
       latestCommitmentKey: text(row.latest_commitment_key),
       gridArtifactSha256: text(row.grid_artifact_sha256),
       sourcePageUrl: text(row.source_page_url),
@@ -66,7 +78,13 @@ export function parsePropertyRentalRows(rows) {
       !SHA256.test(rental.gridArtifactSha256) ||
       rental.sourcePageUrl === null ||
       !rental.sourcePageUrl.startsWith("https://") ||
-      !METHODOLOGIES.has(row.methodology_version)
+      !METHODOLOGIES.has(row.methodology_version) ||
+      (rental.addressSource !== null &&
+        (!ADDRESS_SOURCES.has(rental.addressSource) || rental.addressText === null)) ||
+      // Endereço do Diário sempre aponta a edição e a página; o do empenho, não.
+      (rental.addressSource === "diario_oficial") !== (rental.addressGazette !== null) ||
+      (rental.addressGazette !== null &&
+        Object.values(rental.addressGazette).some((value) => !value))
     ) {
       return null;
     }
@@ -124,4 +142,59 @@ export async function getPublicPropertyRentals(year) {
   } catch {
     return { state: "unavailable" };
   }
+}
+
+const quote = (value) => `"${value.replaceAll('"', '""')}"`;
+
+// Aspas delimitam o CSV, mas não impedem a planilha de executar fórmula nem
+// de converter identificadores numéricos: prefixa apóstrofo nesses casos.
+function textCell(value) {
+  const raw = value ?? "";
+  const guarded =
+    /^[\s\uFEFF]*[=+\-@\uFF1D\uFF0B\uFF0D\uFF20]/u.test(raw) ||
+    /^\s*\d+(?:[.,]\d+)?(?:[eE][+-]?\d+)?\s*$/.test(raw)
+      ? `'${raw}`
+      : raw;
+  return quote(guarded);
+}
+
+const amountCell = (value) => quote(value.replace(".", ","));
+
+/** Planilha dos aluguéis do ano: ponto e vírgula, vírgula decimal, UTF-8 com BOM. */
+export function serializePropertyRentalsCsv(year, result, exportedAt = new Date().toISOString()) {
+  if (result?.state !== "available" || !Number.isSafeInteger(year)) {
+    throw new Error("Aluguéis indisponíveis para exportação.");
+  }
+  const header = [
+    "ano", "locador", "orgao", "contrato", "endereco", "origem_endereco", "diario_oficial",
+    "uso", "empenhos", "empenhado_brl", "pago_brl", "primeiro_empenho", "ultimo_empenho",
+    "empenho_mais_recente", "historico_mais_recente", "sha256_grade", "fonte", "extraido_em_utc",
+  ];
+  const lines = [header.map(quote).join(";")];
+  for (const rental of result.rentals) {
+    const gazette = rental.addressGazette
+      ? `nº ${rental.addressGazette.edition}/${rental.addressGazette.year}, p. ${rental.addressGazette.page}`
+      : "";
+    lines.push([
+      quote(String(year)),
+      textCell(rental.landlordName),
+      textCell(rental.publicBody),
+      textCell(rental.contractText),
+      textCell(rental.addressText),
+      quote(rental.addressSource ?? ""),
+      textCell(gazette),
+      textCell(rental.useText),
+      quote(String(rental.commitments)),
+      amountCell(rental.committedAmount),
+      amountCell(rental.paidAmount),
+      quote(rental.firstCommitmentDate),
+      quote(rental.lastCommitmentDate),
+      textCell(rental.latestCommitmentKey),
+      textCell(rental.description),
+      textCell(rental.gridArtifactSha256),
+      quote(rental.sourcePageUrl),
+      quote(exportedAt),
+    ].join(";"));
+  }
+  return `\uFEFF${lines.join("\r\n")}\r\n`;
 }

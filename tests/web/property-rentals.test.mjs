@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   parsePropertyRentalRows,
+  serializePropertyRentalsCsv,
   rentalYear,
 } from "../../apps/web/lib/property-rentals.mjs";
 
@@ -97,7 +98,8 @@ test("página separa empenhado de pago e diz quando a consulta falhou", () => {
   assert.match(page, /Pago aos locadores/);
   assert.match(page, /Empenhado/);
   assert.match(page, /não significa que não haja aluguéis/);
-  assert.match(page, /municipal-property-rentals\/1\.3\.0/);
+  assert.match(page, /municipal-property-rentals\/1\.4\.0/);
+  assert.match(page, /Baixar planilha/);
   assert.doesNotMatch(page, /contrato não citado/, "ausência de número não é ausência de contrato");
 });
 
@@ -117,4 +119,41 @@ test("1.3.0 traz endereço e uso literais e endereços distintos do ano", () => 
   assert.equal(parsePropertyRentalRows([row]).summary.addresses, null, "1.2.0 não tem a contagem");
   assert.equal(parsePropertyRentalRows([{ ...located, year_addresses: -1 }]), null);
   assert.match(page, /não informado no histórico do empenho/);
+});
+
+test("1.4.0: endereço do Diário Oficial sempre aponta edição e página", () => {
+  const gazette = {
+    ...row,
+    methodology_version: "municipal-property-rentals/1.4.0",
+    address_text: "Rua Vasco da Gama, nº360, Vila Regina, Barreiras - BA",
+    use_text: "Secretaria Municipal de Saúde",
+    address_source: "diario_oficial",
+    address_gazette_year: 2024,
+    address_gazette_edition: 4195,
+    address_gazette_page: 27,
+    year_addresses: 1,
+  };
+  const parsed = parsePropertyRentalRows([gazette]);
+  assert.deepEqual(parsed.rentals[0].addressGazette, { year: 2024, edition: 4195, page: 27 });
+  assert.equal(parsed.rentals[0].addressSource, "diario_oficial");
+  assert.equal(parsePropertyRentalRows([{ ...gazette, address_gazette_edition: null }]), null);
+  assert.equal(parsePropertyRentalRows([{ ...gazette, address_source: "outra" }]), null);
+  assert.equal(
+    parsePropertyRentalRows([{ ...gazette, address_source: "historico_empenho" }]),
+    null,
+    "endereço do empenho não traz edição do Diário",
+  );
+});
+
+test("planilha: BOM, ponto e vírgula, vírgula decimal e proteção contra fórmula", () => {
+  const parsed = parsePropertyRentalRows([
+    { ...row, landlord_name: "=HIPERLINK(1)", contract_text: "0242/2020" },
+  ]);
+  const csv = serializePropertyRentalsCsv(2025, { state: "available", ...parsed },
+    "2026-10-01T00:00:00.000Z");
+  assert.ok(csv.startsWith("\uFEFF\"ano\";\"locador\""));
+  const [, line] = csv.trim().split("\r\n");
+  assert.match(line, /"'=HIPERLINK\(1\)"/, "fórmula vira texto");
+  assert.match(line, /"5898,92";"5460,45"/);
+  assert.throws(() => serializePropertyRentalsCsv(2025, { state: "unavailable" }));
 });
