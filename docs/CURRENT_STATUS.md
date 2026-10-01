@@ -158,8 +158,9 @@ amplas.
 - aluguéis de imóveis da Prefeitura (`/financas/alugueis`, desde 30/09/2026):
   empenhos com subelemento oficial "locação de imóveis", por locador e contrato,
   com empenhado e pago em soma exata, histórico literal (endereço e uso do
-  imóvel) com CPF mascarado (`municipal-property-rentals/1.2.0`); 2024: 49
-  locadores, R$ 5,44 mi empenhados e R$ 3,06 mi pagos;
+  imóvel) com CPF mascarado; desde a régua 1.3.0, endereço e uso como trechos
+  literais do histórico (2025: 51 de 52 aluguéis com endereço, 49 endereços
+  distintos); 2024: 49 locadores, R$ 5,44 mi empenhados e R$ 3,06 mi pagos;
 - Diário Oficial com busca global, paginação, edição permanente, texto extraído
   por documento, páginas, fonte e hashes;
 - atos oficiais aprovados com evidência e canal público de correção;

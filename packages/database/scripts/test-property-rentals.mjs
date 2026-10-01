@@ -11,7 +11,7 @@ const migrationsUrl = new URL("../../../supabase/migrations/", import.meta.url);
 const migrationNames = (await readdir(fileURLToPath(migrationsUrl)))
   .filter((name) => name.endsWith(".sql"))
   .sort();
-assert.ok(migrationNames.some((name) => name.endsWith("_public_property_rentals.sql")));
+assert.ok(migrationNames.some((name) => name.endsWith("_property_rentals_location.sql")));
 
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
@@ -149,7 +149,28 @@ try {
       first.year_paid_amount, first.year_grid_months],
     [4, 5, "8898.92", "5460.45", 1],
   );
-  assert.equal(first.methodology_version, "municipal-property-rentals/1.2.0");
+  assert.equal(first.methodology_version, "municipal-property-rentals/1.3.0");
+  assert.equal(first.address_text, "Rua A, 93");
+  assert.equal(first.use_text, "UBS");
+  assert.equal(first.year_addresses, 1, "só o histórico da UBS cita endereço");
+  assert.equal(rows[1].address_text, null, "sem 'situado' não há endereço inventado");
+
+  const located = (await database.query(`select
+      finance.rental_address_v1(h) as address, finance.rental_use_v1(h) as use
+    from (values
+      ('Locação de um imóvel, situado a av. Barão do Rio Branco, 149 vila rica Barreiras/ba com adequação necessária para o funcionamento da sala do empreendedor, Secretaria'),
+      ('Locação de imóvel situado à Pça. Landulfo Alves, 99 - Centro Histórico - Barreiras-BA, CEP 47.800-140, com adequação necessária para funcionamento da Secretaria de Esporte, Juventude'),
+      ('Referente a Locação de um imóvel, situado Rua do Funrural, 104 Morada Nobre Barreiras/Ba, com adequação necessária para funcionamento da GESTÃO E DEPÓSITO DA MERENDA ESCOLAR, na sede'),
+      ('Locação de Imóvel para sediar as instalações da UBS Adolfina Araújo Vieira, situado na Avenida Principal, N° 367, Mocambo de Cima, CEP: 47.800-000, Zona Rural'),
+      ('O contrato tem por objeto a locação de um imóvel para funcionamento da Secretaria Municipal de Saúde, na sede deste município.')
+    ) as t(h)`)).rows;
+  assert.deepEqual(located, [
+    { address: "av. Barão do Rio Branco, 149 vila rica Barreiras/ba", use: "sala do empreendedor" },
+    { address: "Pça. Landulfo Alves, 99 - Centro Histórico - Barreiras-BA", use: "Secretaria de Esporte" },
+    { address: "Rua do Funrural, 104 Morada Nobre Barreiras/Ba", use: "GESTÃO E DEPÓSITO DA MERENDA ESCOLAR" },
+    { address: "Avenida Principal, N° 367, Mocambo de Cima", use: "UBS Adolfina Araújo Vieira" },
+    { address: null, use: "Secretaria Municipal de Saúde" },
+  ]);
   assert.match(first.grid_artifact_sha256, /^[0-9a-f]{64}$/);
 
   assert.equal(
