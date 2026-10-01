@@ -146,7 +146,8 @@ amplas.
   2025: R$ 807,2 mi em 19.201 ordens, R$ 19,0 mi de restos a pagar; todos os
   credores com nome listados (248 com CNPJ do cadastro da Receita, por contrato
   confirmado ou código oficial do credor) e pessoas físicas somadas por natureza;
-  a soma das linhas fecha com o total do ano;
+  a soma das linhas fecha com o total do ano; desde 1.3.0 também o liquidado por
+  credor e a comparação com a DCA (2025: pago no portal = 84,9% do declarado);
 - identidade dos contratados pelo cadastro CNPJ oficial da Receita (ADR 0093,
   coleta semanal local porque a Receita recusa os servidores do GitHub): 590
   dos 622 CNPJs de contratos e PNCP encontrados em 30/09/2026; os 32 restantes

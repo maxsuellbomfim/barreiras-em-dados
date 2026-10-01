@@ -11,7 +11,7 @@ const migrationsUrl = new URL("../../../supabase/migrations/", import.meta.url);
 const migrationNames = (await readdir(fileURLToPath(migrationsUrl)))
   .filter((name) => name.endsWith(".sql"))
   .sort();
-assert.ok(migrationNames.some((name) => name.endsWith("_payment_recipients_complete.sql")));
+assert.ok(migrationNames.some((name) => name.endsWith("_payment_recipients_liquidated.sql")));
 
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
@@ -64,7 +64,7 @@ try {
 
   const statements = [];
   let artifactCount = 0;
-  function grid(month, retrievedAt) {
+  function grid(month, retrievedAt, schema = "municipal-payments-webrun-grid") {
     artifactCount += 1;
     const id = `00000000-0000-4000-b000-${String(artifactCount).padStart(12, "0")}`;
     statements.push(`insert into raw.raw_artifacts (id, collection_run_id, source_endpoint_id,
@@ -74,7 +74,7 @@ try {
       '${sha(`idem-${id}`)}', 'http_response', 'https://barreiras.ba.gov.br/grid',
       '${retrievedAt}', 200, 'application/json', 2, '${sha(`grid-${id}`)}',
       'grid/${id}.json', 'test/1',
-      '{"schema_name":"municipal-payments-webrun-grid","cursor":{"month":"${month}"}}');`);
+      '{"schema_name":"${schema}","cursor":{"month":"${month}"}}');`);
     return id;
   }
   let recordCount = 0;
@@ -90,6 +90,18 @@ try {
       record_type, record_index, payload, payload_sha256, parser_version, idempotency_key,
       collected_at) values ('${artifact}', 'pagamento:${recordCount}', 'municipal_payment_webrun',
       ${recordCount}, '${JSON.stringify(payload).replaceAll("'", "''")}',
+      '${sha(`p${recordCount}`)}', 'parser/1', '${sha(`i${recordCount}`)}', now());`);
+  }
+  function liquidation(artifact, date, amount, creditor, nature, key = "O-500") {
+    recordCount += 1;
+    const payload = {
+      field1089483: date, field1089487: key, field1089488: amount,
+      field1135672: nature, field1144939: creditor,
+    };
+    statements.push(`insert into raw.raw_records (raw_artifact_id, source_record_key,
+      record_type, record_index, payload, payload_sha256, parser_version, idempotency_key,
+      collected_at) values ('${artifact}', 'liquidacao:${recordCount}',
+      'municipal_liquidation_webrun', ${recordCount}, '${JSON.stringify(payload).replaceAll("'", "''")}',
       '${sha(`p${recordCount}`)}', 'parser/1', '${sha(`i${recordCount}`)}', now());`);
   }
   function commitmentSql(key, date, code) {
@@ -185,6 +197,13 @@ try {
     field1082594: "Extra-orçamentária", field1082596: "E-9",
   });
   payment(august, "31/12/2024", "70", "OUTRA DATA LTDA", services);            // O-10
+  const liquidationJuly = grid("2025-07", "2025-09-01T00:00:00Z",
+    "municipal-liquidations-webrun-grid");
+  liquidation(liquidationJuly, "09/07/2025", "400000", "RODE BEM LTDA", services);
+  liquidation(liquidationJuly, "10/07/2025", "50", "NOVA EMPRESA LTDA", services);
+  liquidation(liquidationJuly, "11/07/2025", "10", "CARLA SERVIDORA", salary);
+  liquidation(liquidationJuly, "31/12/2024", "999", "OUTRO ANO LTDA", services);
+  liquidation(liquidationJuly, "12/07/2025", "7", "EXTRA LTDA", services, "E-1");
   // Recoleta antiga do mesmo mês: não conta em dobro.
   payment(oldJuly, "10/07/2025", "333200", "RODE BEM LTDA", services);
   payment(july2024, "10/07/2024", "10", "OUTRO ANO LTDA", services);          // O-12
@@ -256,7 +275,7 @@ try {
     "sem atualização, nada é publicado");
   const refreshed = (await database.query(
     "select finance.refresh_payment_recipients() as n")).rows[0].n;
-  assert.equal(refreshed, 8, "2025 (5 linhas) e 2024 (3 linhas)");
+  assert.equal(refreshed, 9, "2025 (6 linhas) e 2024 (3 linhas)");
   const people2024 = (await database.query(`select payment_group, main_nature, creditors,
       paid_amount from finance.payment_recipient_snapshots
     where fiscal_year = 2024 and creditor_name is null order by row_order`)).rows;
@@ -284,10 +303,10 @@ try {
     order by occurred_at, id`)).rows;
   const latest = audit.at(-1).after_state;
   assert.ok(audit.length >= 2, "as migrations e esta atualização ficam auditadas");
-  assert.equal(latest.row_count, 8);
+  assert.equal(latest.row_count, 9);
   assert.match(latest.content_sha256, /^[0-9a-f]{64}$/);
   assert.equal((await database.query(
-    "select finance.refresh_payment_recipients() as n")).rows[0].n, 8, "atualizar de novo não duplica");
+    "select finance.refresh_payment_recipients() as n")).rows[0].n, 9, "atualizar de novo não duplica");
 
   const rows = (await database.query(
     "select * from api.get_public_payment_recipients(2025)")).rows;
@@ -295,25 +314,34 @@ try {
   assert.deepEqual(
     rows.map((row) => [
       row.payment_group, row.creditor_name, row.creditors, row.payments, row.paid_amount,
+      row.liquidations, row.liquidated_amount,
     ]),
     [
-      ["compras_servicos", "RODE BEM LTDA", 1, 2, "334200.50"],
-      ["compras_servicos", null, 2, 2, "299.99"],
-      ["pessoal", "PREFEITURA MUNICIPAL DE BARREIRAS", 1, 1, "7000.00"],
-      ["pessoal", null, 1, 1, "5000.00"],
-      ["restituicoes", "MINISTERIO DAS CIDADES", 1, 1, "1000.00"],
+      ["compras_servicos", "RODE BEM LTDA", 1, 2, "334200.50", 1, "400000.00"],
+      ["compras_servicos", "NOVA EMPRESA LTDA", 1, 0, "0.00", 1, "50.00"],
+      ["compras_servicos", null, 2, 2, "299.99", 0, "0.00"],
+      ["pessoal", "PREFEITURA MUNICIPAL DE BARREIRAS", 1, 1, "7000.00", 0, "0.00"],
+      ["pessoal", null, 2, 1, "5000.00", 1, "10.00"],
+      ["restituicoes", "MINISTERIO DAS CIDADES", 1, 1, "1000.00", 0, "0.00"],
     ],
   );
   assert.ok(rows.every((row) => !/123\.456|JOANA|MARIA/.test(row.creditor_name ?? "")),
     "pessoa física e CPF nunca saem pelo nome");
   const [first] = rows;
+  assert.equal(rows[1].first_payment_date, null, "só liquidação: sem data de pagamento");
+  assert.deepEqual(
+    [first.year_liquidations, first.year_liquidated_amount, first.year_liquidation_grid_months,
+      first.group_liquidated_amount],
+    [3, "400060.00", 1, "400050.00"],
+    "liquidação de outro ano e extraorçamentária ficam fora",
+  );
   assert.equal(first.main_nature, "OUTROS SERVIÇOS DE TERCEIROS - PESSOA JURÍDICA");
   assert.equal(first.first_payment_date.toISOString().slice(0, 10), "2025-07-10");
   assert.equal(first.last_payment_date.toISOString().slice(0, 10), "2025-08-05");
   assert.match(first.grid_artifact_sha256, /^[0-9a-f]{64}$/);
   assert.deepEqual(
     [first.group_payments, first.group_creditors, first.group_paid_amount],
-    [4, 3, "334500.49"],
+    [4, 4, "334500.49"],
   );
   assert.deepEqual(
     [first.year_payments, first.year_paid_amount, first.year_grid_months,
@@ -329,7 +357,7 @@ try {
     { public_body: "PREFEITURA MUNICIPAL DE BARREIRAS", payments: 6, paid_amount: "340500.49" },
     { public_body: "CÂMARA MUNICIPAL DE BARREIRAS", payments: 1, paid_amount: "7000.00" },
   ]);
-  assert.equal(first.methodology_version, "municipal-payment-recipients/1.2.0");
+  assert.equal(first.methodology_version, "municipal-payment-recipients/1.3.0");
 
   await assert.rejects(
     database.query("select * from api.get_public_payment_recipients(2023)"),
