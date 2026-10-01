@@ -11,7 +11,7 @@ const migrationsUrl = new URL("../../../supabase/migrations/", import.meta.url);
 const migrationNames = (await readdir(fileURLToPath(migrationsUrl)))
   .filter((name) => name.endsWith(".sql"))
   .sort();
-assert.ok(migrationNames.some((name) => name.endsWith("_property_rentals_location.sql")));
+assert.ok(migrationNames.some((name) => name.endsWith("_property_rentals_gazette_address.sql")));
 
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
@@ -123,7 +123,32 @@ try {
   payment(payJuly, "O-1", "4460,45");
   payment(payJuly, "O-2", "1000");
   payment(oldPayJuly, "O-1", "4460,45");
+  // Diário Oficial: JOSE tem um único endereço; ANA aparece com dois (ambíguo).
+  const gazette = "00000000-0000-4000-b000-000000000099";
+  statements.push(`insert into raw.raw_artifacts (id, collection_run_id, source_endpoint_id,
+    idempotency_key, artifact_kind, source_url, retrieved_at, http_status, content_type,
+    byte_size, sha256, object_key, collector_version, metadata)
+    values ('${gazette}', '${run}', '00000000-0000-4000-a000-000000000002',
+    '${sha("idem-gazette")}', 'http_response', 'https://barreiras.ba.gov.br/diario.pdf',
+    now(), 200, 'application/pdf', 2, '${sha("gazette")}', 'diario/x.pdf', 'test/1',
+    '{"schema_name":"gazette-direct-edition","year":2024,"edition":4195}');`);
+  const gazettePage = (number, text) => statements.push(`insert into raw.document_pages
+    (raw_artifact_id, page_number, parser_version, extraction_method, text_content)
+    values ('${gazette}', ${number}, 'test/1', 'embedded_text', '${text.replaceAll("'", "''")}');`);
+  gazettePage(27, "EXTRATO DO 3º TERMO ADITIVO AO CONTRATO Nº 002-FMS/2023 Locador: JOSE LOCADOR, "
+    + "CPF 123.456.789-09. Objeto: locação de imóvel situado à Rua das Flores, 10, Centro, para "
+    + "funcionamento da Casa de Passagem. EXTRATO DO CONTRATO Nº 7/2024 Locador: OUTRA PESSOA. "
+    + "Objeto: locação de imóvel situado à Rua Errada, 99, para depósito.");
+  gazettePage(28, "EXTRATO Locador: ANA LOCADORA. Objeto: locação de imóvel situado à Rua Um, 1, "
+    + "para depósito. EXTRATO Locador: ANA LOCADORA. Objeto: locação de imóvel situado à "
+    + "Rua Dois, 2, para arquivo.");
+  gazettePage(29, "Locador: ANA LOCADORA. Objeto: locação de imóvel situado à Rua Dois, 2, para arquivo.");
   await database.exec(statements.join("\n"));
+  assert.equal(
+    (await database.query("select finance.refresh_rental_gazette_addresses() as n")).rows[0].n,
+    1,
+    "só JOSE: ANA tem dois endereços diferentes no Diário",
+  );
 
   const rows = (await database.query(
     "select * from api.get_public_property_rentals(2025)")).rows;
@@ -149,11 +174,21 @@ try {
       first.year_paid_amount, first.year_grid_months],
     [4, 5, "8898.92", "5460.45", 1],
   );
-  assert.equal(first.methodology_version, "municipal-property-rentals/1.3.0");
+  assert.equal(first.methodology_version, "municipal-property-rentals/1.4.0");
   assert.equal(first.address_text, "Rua A, 93");
   assert.equal(first.use_text, "UBS");
-  assert.equal(first.year_addresses, 1, "só o histórico da UBS cita endereço");
-  assert.equal(rows[1].address_text, null, "sem 'situado' não há endereço inventado");
+  assert.equal(first.year_addresses, 2, "UBS pelo empenho e JOSE pelo Diário");
+  assert.equal(first.address_source, "historico_empenho");
+  assert.equal(first.address_gazette_edition, null);
+  assert.deepEqual(
+    [rows[1].landlord_name, rows[1].address_text, rows[1].address_source,
+      rows[1].address_gazette_year, rows[1].address_gazette_edition, rows[1].address_gazette_page],
+    ["JOSE LOCADOR", "Rua das Flores, 10, Centro", "diario_oficial", 2024, 4195, 27],
+    "endereço do Diário, cortado antes do extrato seguinte",
+  );
+  assert.equal(rows[2].landlord_name, "ANA LOCADORA");
+  assert.equal(rows[2].address_text, null, "endereço ambíguo no Diário não é publicado");
+  assert.equal(rows[2].address_source, null);
 
   const located = (await database.query(`select
       finance.rental_address_v1(h) as address, finance.rental_use_v1(h) as use
