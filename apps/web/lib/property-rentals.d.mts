@@ -11,6 +11,9 @@ export type PropertyRental = Readonly<{
   /** Trecho literal do histórico; null quando o histórico não cita endereço. */
   addressText: string | null;
   useText: string | null;
+  /** 1.4.0: de onde veio o endereço; null nas versões anteriores. */
+  addressSource: "historico_empenho" | "diario_oficial" | null;
+  addressGazette: Readonly<{ year: number; edition: number; page: number }> | null;
   latestCommitmentKey: string;
   gridArtifactSha256: string;
   sourcePageUrl: string;
@@ -43,3 +46,9 @@ export function parsePropertyRentalRows(
 export function rentalYear(value: string | undefined, currentYear: number): number;
 
 export function getPublicPropertyRentals(year: number): Promise<PropertyRentalResult>;
+
+export function serializePropertyRentalsCsv(
+  year: number,
+  result: PropertyRentalResult,
+  exportedAt?: string,
+): string;
