@@ -194,3 +194,31 @@ export async function getPublicPaymentRecipients(year) {
     return { state: "unavailable" };
   }
 }
+
+function cents(value) {
+  const match = /^(-?)(\d+)\.(\d{2})$/.exec(value ?? "");
+  if (!match) return null;
+  const amount = BigInt(match[2]) * 100n + BigInt(match[3]);
+  return match[1] ? -amount : amount;
+}
+
+function fromCents(value) {
+  const sign = value < 0n ? "-" : "";
+  const absolute = value < 0n ? -value : value;
+  return `${sign}${absolute / 100n}.${String(absolute % 100n).padStart(2, "0")}`;
+}
+
+/**
+ * Compara o pago nas ordens do portal com o pago declarado ao Tesouro (DCA).
+ * Conta em centavos inteiros; a cobertura é truncada em uma casa decimal.
+ */
+export function compareWithDeclared(portalPaid, declaredPaid) {
+  const portal = cents(portalPaid);
+  const declared = cents(declaredPaid);
+  if (portal === null || declared === null || declared <= 0n) return null;
+  const tenths = (portal * 1000n) / declared;
+  return {
+    differenceAmount: fromCents(declared - portal),
+    coveragePercent: `${tenths / 10n},${tenths % 10n}`,
+  };
+}

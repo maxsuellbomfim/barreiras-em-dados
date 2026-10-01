@@ -78,6 +78,11 @@ export function parsePaymentRecipientRows(
 
 export function formatCnpj(cnpj: string): string;
 
+export function compareWithDeclared(
+  portalPaid: string,
+  declaredPaid: string,
+): Readonly<{ differenceAmount: string; coveragePercent: string }> | null;
+
 export function paymentYear(value: string | undefined, currentYear: number): number;
 
 export function getPublicPaymentRecipients(year: number): Promise<PaymentRecipientResult>;

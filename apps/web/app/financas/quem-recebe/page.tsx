@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { formatBrlCompact } from "../../../lib/compact-money.mjs";
 import {
+  compareWithDeclared,
   FIRST_PAYMENT_YEAR,
   formatCnpj,
   getPublicPaymentRecipients,
@@ -9,6 +10,7 @@ import {
 } from "../../../lib/payment-recipients.mjs";
 import type { PaymentRecipient } from "../../../lib/payment-recipients.mjs";
 import { formatBrlDecimal } from "../../../lib/revenues";
+import { getPublicSiconfiAnnualTotals } from "../../../lib/siconfi-annual-totals";
 
 export const revalidate = 300;
 
@@ -69,7 +71,18 @@ function RecipientRow({ recipient }: Readonly<{ recipient: PaymentRecipient }>) 
 export default async function PaymentRecipientsPage({ searchParams }: PageProps) {
   const currentYear = new Date().getFullYear();
   const year = paymentYear((await searchParams).ano, currentYear);
-  const result = await getPublicPaymentRecipients(year);
+  const [result, declared] = await Promise.all([
+    getPublicPaymentRecipients(year),
+    getPublicSiconfiAnnualTotals(),
+  ]);
+  const declaredYear =
+    declared.state === "available"
+      ? declared.years.find((entry) => entry.fiscalYear === year)
+      : undefined;
+  const declaredMetric = (key: string) =>
+    declaredYear?.metrics.find((metric) => metric.metricKey === key);
+  const declaredPaid = declaredMetric("expense_paid");
+  const declaredCommitted = declaredMetric("expense_committed");
   const years = Array.from(
     { length: currentYear - FIRST_PAYMENT_YEAR + 1 },
     (_, index) => currentYear - index,
@@ -154,6 +167,44 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
                 </span>
               </article>
             </div>
+
+            <section className="recipients-declared" aria-labelledby="declared-title">
+              <h2 id="declared-title">Comparação com o declarado ao Tesouro</h2>
+              {declaredPaid ? (
+                (() => {
+                  const comparison = compareWithDeclared(
+                    result.summary.paidAmount,
+                    declaredPaid.amount,
+                  );
+                  return (
+                    <p>
+                      A Prefeitura declarou ao Tesouro Nacional (SICONFI, {declaredPaid.officialAnnex},
+                      “{declaredPaid.officialColumnLabel}”) {formatBrlDecimal(declaredPaid.amount)}{" "}
+                      pagos em {year}. As ordens de pagamento publicadas no portal somam{" "}
+                      {formatBrlDecimal(result.summary.paidAmount)}
+                      {comparison
+                        ? ` (${comparison.coveragePercent}% do declarado). A diferença de ${formatBrlDecimal(
+                            comparison.differenceAmount,
+                          )} não aparece nas ordens de pagamento do portal; a plataforma não sabe a causa e não a estima.`
+                        : "."}
+                    </p>
+                  );
+                })()
+              ) : (
+                <p>
+                  O demonstrativo anual (DCA) de {year} ainda não foi publicado no SICONFI ou não
+                  está disponível agora; sem ele não há comparação.
+                </p>
+              )}
+              <p className="hero-note">
+                Esta página não soma empenhos: o portal não publica as anulações de empenho, então
+                somar os empenhos emitidos superestimaria o valor empenhado
+                {declaredCommitted
+                  ? ` (o empenhado oficial declarado em ${year} é ${formatBrlDecimal(declaredCommitted.amount)})`
+                  : ""}
+                .
+              </p>
+            </section>
 
             <div
               className="territorial-table-wrap"
