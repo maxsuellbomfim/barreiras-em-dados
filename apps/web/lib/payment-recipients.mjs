@@ -1,6 +1,8 @@
-// Quem recebe o dinheiro da Prefeitura (municipal-payment-recipients/1.0.0).
+// Quem recebe o dinheiro da Prefeitura (municipal-payment-recipients/1.1.0).
 // Valores chegam como decimal em texto e continuam texto: nenhuma conta aqui.
-const METHODOLOGY = "municipal-payment-recipients/1.0.0";
+const METHODOLOGY = "municipal-payment-recipients/1.1.0";
+const CNPJ = /^\d{14}$/;
+const MONTH = /^\d{4}-\d{2}$/;
 const DECIMAL = /^-?\d+\.\d{2}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -51,6 +53,26 @@ function parseBodies(value) {
   return bodies;
 }
 
+/** CNPJ do cadastro da Receita (ADR 0093) quando há contrato confirmado; undefined = inválido. */
+function parseRegistry(row) {
+  if (row.registry_cnpj === null || row.registry_cnpj === undefined) {
+    return row.registry_legal_name == null ? null : undefined;
+  }
+  const registry = {
+    cnpj: typeof row.registry_cnpj === "string" && CNPJ.test(row.registry_cnpj)
+      ? row.registry_cnpj : null,
+    legalName: text(row.registry_legal_name),
+    legalNature: text(row.registry_legal_nature),
+    month: typeof row.registry_month === "string" && MONTH.test(row.registry_month)
+      ? row.registry_month : null,
+  };
+  return Object.values(registry).some((value) => value === null) ? undefined : registry;
+}
+
+export function formatCnpj(cnpj) {
+  return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+}
+
 /** Linhas inválidas derrubam o conjunto: número pela metade não é publicado. */
 export function parsePaymentRecipientRows(rows) {
   if (!Array.isArray(rows)) return null;
@@ -71,6 +93,7 @@ export function parsePaymentRecipientRows(rows) {
       lastPaymentDate: isoDate(row.last_payment_date),
       mainNature: text(row.main_nature),
       gridArtifactSha256: text(row.grid_artifact_sha256),
+      registry: parseRegistry(row),
     };
     if (
       (row.creditor_name !== null && creditorName === null) ||
@@ -81,7 +104,9 @@ export function parsePaymentRecipientRows(rows) {
       recipient.firstPaymentDate === null ||
       recipient.lastPaymentDate === null ||
       recipient.gridArtifactSha256 === null ||
-      !SHA256.test(recipient.gridArtifactSha256)
+      !SHA256.test(recipient.gridArtifactSha256) ||
+      recipient.registry === undefined ||
+      (creditorName === null && recipient.registry !== null)
     ) {
       return null;
     }

@@ -143,7 +143,8 @@ amplas.
 - quem recebe o dinheiro (`/financas/quem-recebe`, desde 01/10/2026, ADR 0095):
   ordens de pagamento orçamentárias por grupo de natureza, órgão pagador e
   credor, com restos a pagar explícitos; pessoa física só no agregado sem nome.
-  2025: R$ 807,2 mi em 19.201 ordens, R$ 19,0 mi de restos a pagar;
+  2025: R$ 807,2 mi em 19.201 ordens, R$ 19,0 mi de restos a pagar; credor com
+  contrato confirmado mostra CNPJ e razão social do cadastro da Receita;
 - identidade dos contratados pelo cadastro CNPJ oficial da Receita (ADR 0093,
   coleta semanal local porque a Receita recusa os servidores do GitHub): 590
   dos 622 CNPJs de contratos e PNCP encontrados em 30/09/2026; os 32 restantes
