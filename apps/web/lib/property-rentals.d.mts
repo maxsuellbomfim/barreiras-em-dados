@@ -8,6 +8,9 @@ export type PropertyRental = Readonly<{
   firstCommitmentDate: string;
   lastCommitmentDate: string;
   description: string | null;
+  /** Trecho literal do histórico; null quando o histórico não cita endereço. */
+  addressText: string | null;
+  useText: string | null;
   latestCommitmentKey: string;
   gridArtifactSha256: string;
   sourcePageUrl: string;
@@ -19,6 +22,8 @@ export type PropertyRentalSummary = Readonly<{
   committedAmount: string;
   paidAmount: string;
   gridMonths: number;
+  /** Endereços distintos citados nos históricos do ano (1.3.0). */
+  addresses: number | null;
 }>;
 
 export type PropertyRentalResult =

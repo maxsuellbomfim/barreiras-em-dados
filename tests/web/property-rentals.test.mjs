@@ -49,6 +49,7 @@ test("linhas válidas viram aluguéis e resumo do ano, com valores em texto", ()
     committedAmount: "8398.92",
     paidAmount: "5460.45",
     gridMonths: 12,
+    addresses: null,
   });
   assert.deepEqual(parsePropertyRentalRows([]), { summary: null, rentals: [] });
 });
@@ -96,6 +97,24 @@ test("página separa empenhado de pago e diz quando a consulta falhou", () => {
   assert.match(page, /Pago aos locadores/);
   assert.match(page, /Empenhado/);
   assert.match(page, /não significa que não haja aluguéis/);
-  assert.match(page, /municipal-property-rentals\/1\.2\.0/);
+  assert.match(page, /municipal-property-rentals\/1\.3\.0/);
   assert.doesNotMatch(page, /contrato não citado/, "ausência de número não é ausência de contrato");
+});
+
+test("1.3.0 traz endereço e uso literais e endereços distintos do ano", () => {
+  const located = {
+    ...row,
+    methodology_version: "municipal-property-rentals/1.3.0",
+    address_text: "Rua A, 93",
+    use_text: "UBS",
+    year_addresses: 1,
+  };
+  const parsed = parsePropertyRentalRows([located, { ...located, address_text: null }]);
+  assert.equal(parsed.rentals[0].addressText, "Rua A, 93");
+  assert.equal(parsed.rentals[0].useText, "UBS");
+  assert.equal(parsed.rentals[1].addressText, null);
+  assert.equal(parsed.summary.addresses, 1);
+  assert.equal(parsePropertyRentalRows([row]).summary.addresses, null, "1.2.0 não tem a contagem");
+  assert.equal(parsePropertyRentalRows([{ ...located, year_addresses: -1 }]), null);
+  assert.match(page, /não informado no histórico do empenho/);
 });

@@ -83,6 +83,9 @@ export default async function PropertyRentalsPage({ searchParams }: PageProps) {
                 <span className="glance-value">{result.summary.landlords}</span>
                 <span className="glance-context">
                   {result.summary.commitments.toLocaleString("pt-BR")} empenhos em {year}
+                  {result.summary.addresses !== null
+                    ? ` · ${result.summary.addresses} endereços distintos citados`
+                    : ""}
                 </span>
               </article>
               <article className="glance-card">
@@ -143,6 +146,16 @@ export default async function PropertyRentalsPage({ searchParams }: PageProps) {
                     {formatDate(rental.firstCommitmentDate)} a{" "}
                     {formatDate(rental.lastCommitmentDate)}
                   </p>
+                  <p>
+                    <strong>Endereço:</strong>{" "}
+                    {rental.addressText ?? "não informado no histórico do empenho"}
+                    {rental.useText ? (
+                      <>
+                        {" "}
+                        · <strong>Uso:</strong> {rental.useText}
+                      </>
+                    ) : null}
+                  </p>
                   {rental.description ? (
                     <p className="legal-result-excerpt">“{rental.description}”</p>
                   ) : null}
@@ -160,9 +173,11 @@ export default async function PropertyRentalsPage({ searchParams }: PageProps) {
         )}
 
         <p className="hero-note">
-          Metodologia municipal-property-rentals/1.2.0: empenhos do sistema de despesas da
+          Metodologia municipal-property-rentals/1.3.0: empenhos do sistema de despesas da
           Prefeitura com subelemento “locação de imóveis”, na grade mais recente de cada mês;
-          contrato lido do histórico quando citado (“Contrato nº …”); CPF mascarado. Locação de
+          contrato lido do histórico quando citado (“Contrato nº …”); endereço e uso são trechos
+          literais do histórico (“situado à …”, “funcionamento da …”), sem correção; CPF
+          mascarado. Locação de
           veículos, máquinas e softwares fica de fora.
         </p>
       </section>
