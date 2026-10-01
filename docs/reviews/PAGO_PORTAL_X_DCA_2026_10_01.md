@@ -58,19 +58,28 @@ Sondagem da consulta de pagamentos do portal (formulário 7910, 01/10/2026):
   dezembro/2025: o portal não publica pagamentos extraorçamentários, embora a
   consulta de empenhos traga empenhos extraorçamentários de retenção da folha.
 
-Folha de pagamento publicada pela plataforma (`api.get_public_payroll_months_page`,
-documentos mensais do TCM-BA; 2025 tem fevereiro a dezembro, janeiro ausente
-na coleta):
+Folha de pagamento dos servidores municipais (PDF oficial "Listagem Sintética
+E-TCM" publicado no portal mtransparente da Prefeitura):
 
-| 2025 (11 meses) | Valor |
-|---|---:|
-| Bruto | R$ 407.147.687 |
-| Descontos | R$ 138.065.416 |
-| Líquido | R$ 269.082.271 |
+- fevereiro a dezembro/2025 vêm da projeção pública
+  (`api.get_public_payroll_months_page`);
+- janeiro/2025 tem um único PDF oficial que traz `1-Normal, 4-Adiant. 13º` no
+  mesmo documento (SHA-256 `d2345bdb…5190ac9`). Pelo ADR 0074 ele fica fora da
+  página da folha (não é folha regular separável), mas seus totais foram
+  extraídos e validados pela aritmética do próprio documento
+  (`hr.payroll_report_aggregates`, parser 1.2.0, invalidação
+  `mixed_payroll_cycle_header`). Para uma soma **anual**, que já inclui o 13º,
+  o documento inteiro conta.
+
+| 2025 | Fev–dez | Janeiro (documento misto) | Ano |
+|---|---:|---:|---:|
+| Bruto | R$ 407.147.687 | R$ 25.196.820,48 | R$ 432.344.508 |
+| Descontos | R$ 138.065.416 | R$ 8.788.468,04 | R$ 146.853.884 |
+| Líquido | R$ 269.082.271 | R$ 16.408.352,44 | R$ 285.490.623 |
 
 Para comparação, no mesmo ano: DCA "Vencimentos" + "Contratação por Tempo
-Determinado" = R$ 418.797.817 (12 meses); ordens de pagamento do portal com as
-naturezas de vencimentos e de contratação temporária = R$ 282.708.740 (12 meses).
+Determinado" = R$ 418.797.817; ordens de pagamento do portal com as naturezas
+de vencimentos e de contratação temporária = R$ 282.708.740.
 
 ## Inferência (não publicada)
 
@@ -80,12 +89,17 @@ demais despesas ficam dentro de ±R$ 8 mi. A correspondência entre os textos de
 natureza do portal e os códigos da DCA é aproximada (o portal usa plano local),
 por isso esta leitura é inferência e não fato.
 
-A folha reforça a leitura: as ordens de folha do portal ficam próximas do
-**líquido** da folha (R$ 282,7 mi em 12 meses × R$ 269,1 mi em 11 meses), a
-DCA fica próxima do **bruto** (R$ 418,8 mi × R$ 407,1 mi em 11 meses) e os
-descontos da folha (R$ 138,1 mi em 11 meses) têm a ordem de grandeza da
-diferença em pessoal (~R$ 133 mi). São fontes e recortes diferentes (meses,
-órgãos, naturezas), então a correspondência não é exata.
+A folha do ano inteiro reforça a leitura:
+
+- as ordens de folha do portal (R$ 282,7 mi) ficam a **1%** do **líquido** da
+  folha (R$ 285,5 mi);
+- a DCA (R$ 418,8 mi) fica a 3% do **bruto** da folha (R$ 432,3 mi);
+- os descontos da folha (R$ 146,9 mi) têm a ordem de grandeza da diferença em
+  pessoal (~R$ 133 mi).
+
+São fontes e recortes diferentes (o PDF da folha cobre os servidores
+municipais; a DCA usa elementos de despesa; o portal, naturezas locais), então
+a correspondência não é exata e continua sendo inferência.
 
 ## Hipótese (não publicada; exige revisão e, idealmente, pergunta à Prefeitura)
 
@@ -100,8 +114,8 @@ e não foram ligados um a um à folha.
 
 1. ~~Coletar a grade de pagamentos extraorçamentários do portal~~ — feito: o
    filtro existe, mas a fonte declara zero pagamentos extraorçamentários.
-2. ~~Conferir a folha bruta mensal~~ — feito com a folha do TCM-BA (acima);
-   falta preservar janeiro/2025 para fechar o ano.
+2. ~~Conferir a folha bruta mensal~~ — feito com os PDFs oficiais da folha,
+   ano inteiro de 2025 (janeiro pelo documento misto, só na soma anual).
 3. Pedido via LAI/ouvidoria (texto abaixo), que é o único caminho para
    transformar a hipótese em fato declarado pela Prefeitura.
 
