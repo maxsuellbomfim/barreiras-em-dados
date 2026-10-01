@@ -8677,3 +8677,25 @@ footer {
   border-color: var(--blue-dark);
   color: #fff;
 }
+
+.recipients-table {
+  min-width: 36rem;
+}
+
+.recipients-group {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.recipients-group > summary {
+  cursor: pointer;
+  min-height: 2.75rem;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.recipients-group > ol {
+  padding-left: 0;
+  list-style: none;
+}

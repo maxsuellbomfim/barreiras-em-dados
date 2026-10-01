@@ -436,6 +436,11 @@ export default async function FinancesPage() {
             </article>
           </div>
           <p>
+            <a href="/financas/quem-recebe">
+              Quem recebe o dinheiro: pagamentos por credor e por grupo de despesa →
+            </a>
+          </p>
+          <p>
             <a href="/financas/alugueis">
               Imóveis alugados pela Prefeitura: quem aluga, onde, para quê e quanto →
             </a>

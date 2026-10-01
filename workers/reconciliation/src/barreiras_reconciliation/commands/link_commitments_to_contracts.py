@@ -80,6 +80,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     summary["creditor_key_decisions"] = repository.confirm_by_creditor_key()
     # ADR 0094: nome fantasia ou razão social conferidos no cadastro da Receita.
     summary["registry_name_decisions"] = repository.confirm_by_registry_name()
+    # Quem recebe o dinheiro: projeção materializada das ordens de pagamento.
+    summary["payment_recipient_rows"] = repository.refresh_payment_recipients()
     json.dump(summary, sys.stdout, ensure_ascii=False, indent=2)
     print()
     return 0
