@@ -37,44 +37,32 @@ function plural(value: number, singular: string, pluralForm: string): string {
   return `${value.toLocaleString("pt-BR")} ${value === 1 ? singular : pluralForm}`;
 }
 
-function RecipientCard({
-  recipient,
-  sourcePageUrl,
-}: Readonly<{ recipient: PaymentRecipient; sourcePageUrl: string }>) {
+function RecipientRow({ recipient }: Readonly<{ recipient: PaymentRecipient }>) {
   return (
-    <li className="legal-result-card">
-      <h3>
+    <tr>
+      <th scope="row">
         {recipient.creditorName ??
           `Pessoas físicas e credores sem forma jurídica no nome (${plural(
             recipient.creditors,
             "credor",
             "credores",
           )})`}
-      </h3>
-      <p>
-        <strong>{formatBrlDecimal(recipient.paidAmount)}</strong> ·{" "}
-        {plural(recipient.payments, "pagamento", "pagamentos")} de{" "}
+        {recipient.registry ? (
+          <small>
+            CNPJ {formatCnpj(recipient.registry.cnpj)} · {recipient.registry.legalName} ·{" "}
+            {recipient.registry.legalNature.toLowerCase()} (cadastro da Receita de{" "}
+            {recipient.registry.month.split("-").reverse().join("/")})
+          </small>
+        ) : null}
+        <small>grade preservada, hash {recipient.gridArtifactSha256.slice(0, 12)}…</small>
+      </th>
+      <td className="territorial-table-number">{formatBrlDecimal(recipient.paidAmount)}</td>
+      <td className="territorial-table-number">{recipient.payments.toLocaleString("pt-BR")}</td>
+      <td>
         {formatDate(recipient.firstPaymentDate)} a {formatDate(recipient.lastPaymentDate)}
-      </p>
-      {recipient.registry ? (
-        <p>
-          CNPJ {formatCnpj(recipient.registry.cnpj)} · {recipient.registry.legalName} ·{" "}
-          {recipient.registry.legalNature.toLowerCase()} (cadastro da Receita de{" "}
-          {recipient.registry.month.split("-").reverse().join("/")}, pelo contrato confirmado)
-        </p>
-      ) : null}
-      {recipient.mainNature ? (
-        <p className="legal-result-excerpt">
-          Natureza mais frequente: {recipient.mainNature.toLowerCase()}
-        </p>
-      ) : null}
-      <p className="act-evidence">
-        <a href={sourcePageUrl} target="_blank" rel="noreferrer">
-          Portal da Transparência
-        </a>{" "}
-        · grade preservada, hash {recipient.gridArtifactSha256.slice(0, 12)}…
-      </p>
-    </li>
+      </td>
+      <td>{recipient.mainNature?.toLowerCase() ?? "—"}</td>
+    </tr>
   );
 }
 
@@ -235,38 +223,52 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
               </table>
             </div>
 
-            {result.groups.map((group) => (
-              <details
-                key={group.key}
-                id={`grupo-${group.key}`}
-                className="recipients-group"
-                open={group.key === "compras_servicos"}
-              >
-                <summary>
-                  <strong>{group.label}</strong> · {formatBrlDecimal(group.paidAmount)} ·{" "}
-                  {plural(group.creditors, "credor", "credores")}
-                  {group.recipients.length > 0 &&
-                  group.recipients.length + (group.others?.creditors ?? 0) < group.creditors
-                    ? ` (os ${group.recipients.length} com nome que mais receberam)`
-                    : ""}
-                </summary>
-                <ol className="legal-result-list">
-                  {group.recipients.map((recipient) => (
-                    <RecipientCard
-                      key={recipient.creditorName}
-                      recipient={recipient}
-                      sourcePageUrl={result.summary?.sourcePageUrl ?? ""}
-                    />
-                  ))}
-                  {group.others ? (
-                    <RecipientCard
-                      recipient={group.others}
-                      sourcePageUrl={result.summary?.sourcePageUrl ?? ""}
-                    />
-                  ) : null}
-                </ol>
-              </details>
-            ))}
+            {result.groups.map((group) => {
+              const namedTotal =
+                group.creditors - group.others.reduce((sum, other) => sum + other.creditors, 0);
+              return (
+                <details
+                  key={group.key}
+                  id={`grupo-${group.key}`}
+                  className="recipients-group"
+                  open={group.key === "compras_servicos"}
+                >
+                  <summary>
+                    <strong>{group.label}</strong> · {formatBrlDecimal(group.paidAmount)} ·{" "}
+                    {plural(group.creditors, "credor", "credores")}
+                    {group.recipients.length < namedTotal
+                      ? ` (mostrando os ${group.recipients.length} com nome que mais receberam)`
+                      : ""}
+                  </summary>
+                  <div
+                    className="territorial-table-wrap"
+                    role="region"
+                    aria-label={`Credores: ${group.label}`}
+                    tabIndex={0}
+                  >
+                    <table className="territorial-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Credor</th>
+                          <th scope="col">Pago</th>
+                          <th scope="col">Pagamentos</th>
+                          <th scope="col">Período</th>
+                          <th scope="col">Natureza mais frequente</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.recipients.map((recipient) => (
+                          <RecipientRow key={recipient.creditorName} recipient={recipient} />
+                        ))}
+                        {group.others.map((other) => (
+                          <RecipientRow key={`pf|${other.mainNature ?? ""}`} recipient={other} />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              );
+            })}
 
             <ul className="hero-note">
               <li>
@@ -303,12 +305,13 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
         )}
 
         <p className="hero-note">
-          Metodologia municipal-payment-recipients/1.1.0 (ADR 0095): grade mais recente de cada
+          Metodologia municipal-payment-recipients/1.2.0 (ADR 0095): grade mais recente de cada
           mês do sistema de despesas da Prefeitura; só ordens orçamentárias; grupo por regra
           fixa sobre a descrição da natureza; credor com nome apenas quando o nome traz forma
-          jurídica ou é ente público, nunca com CPF; CNPJ do cadastro da Receita só quando o
-          empenho pago está ligado a contrato confirmado e todas as ligações do credor apontam o
-          mesmo CNPJ; até 150 nomes por grupo. Nenhum valor é estimado.
+          jurídica ou é ente público, nunca com CPF; pessoas físicas somadas por natureza da
+          despesa; CNPJ do cadastro da Receita só por contrato confirmado do pagamento ou pelo
+          código oficial do credor já ligado a um único CNPJ, e só quando tudo aponta o mesmo
+          CNPJ. Todos os credores aparecem. Nenhum valor é estimado.
         </p>
       </section>
     </main>

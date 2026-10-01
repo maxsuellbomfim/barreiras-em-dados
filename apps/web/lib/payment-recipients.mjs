@@ -1,6 +1,10 @@
-// Quem recebe o dinheiro da Prefeitura (municipal-payment-recipients/1.1.0).
+// Quem recebe o dinheiro da Prefeitura (municipal-payment-recipients/1.2.0).
 // Valores chegam como decimal em texto e continuam texto: nenhuma conta aqui.
-const METHODOLOGY = "municipal-payment-recipients/1.1.0";
+// 1.2.0: todos os credores com nome e pessoas físicas agregadas por natureza.
+const METHODOLOGIES = new Set([
+  "municipal-payment-recipients/1.1.0",
+  "municipal-payment-recipients/1.2.0",
+]);
 const CNPJ = /^\d{14}$/;
 const MONTH = /^\d{4}-\d{2}$/;
 const DECIMAL = /^-?\d+\.\d{2}$/;
@@ -81,7 +85,7 @@ export function parsePaymentRecipientRows(rows) {
   for (const row of rows) {
     if (!row || typeof row !== "object") return null;
     const label = PAYMENT_GROUPS[row.payment_group];
-    if (!label || row.methodology_version !== METHODOLOGY) return null;
+    if (!label || !METHODOLOGIES.has(row.methodology_version)) return null;
     // Nome nulo é o agregado de pessoas físicas e credores sem forma jurídica.
     const creditorName = row.creditor_name === null ? null : text(row.creditor_name);
     const recipient = {
@@ -140,11 +144,10 @@ export function parsePaymentRecipientRows(rows) {
       return null;
     }
     summary ??= rowSummary;
-    if (!groups.has(group.key)) groups.set(group.key, { ...group, recipients: [], others: null });
+    if (!groups.has(group.key)) groups.set(group.key, { ...group, recipients: [], others: [] });
     const target = groups.get(group.key);
     if (creditorName === null) {
-      if (target.others) return null;
-      target.others = recipient;
+      target.others.push(recipient);
     } else {
       target.recipients.push(recipient);
     }
