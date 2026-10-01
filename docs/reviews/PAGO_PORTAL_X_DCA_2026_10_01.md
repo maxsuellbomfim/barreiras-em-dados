@@ -1,7 +1,7 @@
 # Diferença entre o pago no portal e o pago declarado na DCA
 
-Data: 2026-10-01. Situação: **fatos publicados; inferência e hipótese aguardam
-revisão humana** (CLAUDE.md: conteúdo interpretativo além do registro oficial
+Data: 2026-10-01 (teste mensal na mesma noite). Situação: **fatos
+publicados; inferência e hipótese aguardam revisão humana** (CLAUDE.md: conteúdo interpretativo além do registro oficial
 não é publicado sem revisão registrada).
 
 ## Pergunta
@@ -81,6 +81,55 @@ Para comparação, no mesmo ano: DCA "Vencimentos" + "Contratação por Tempo
 Determinado" = R$ 418.797.817; ordens de pagamento do portal com as naturezas
 de vencimentos e de contratação temporária = R$ 282.708.740.
 
+Mês a mês (teste de 01/10/2026, noite). "Pago no portal" = ordens
+orçamentárias com data de pagamento no mês e natureza `3.7.6.8.0 VENCIMENTOS E
+SALÁRIOS`, `3.7.6.2.0 OUTRAS CONTRATAÇÕES POR TEMPO DETERMINADO` ou `3.7.5.6.0
+SALÁRIO CONTRATO TEMPORÁRIO`; bruto e líquido da folha regular do mesmo mês
+(`api.get_public_payroll_months_page`). Valores em R$ milhões:
+
+| Mês | Bruto | Líquido | Pago no portal | Portal ÷ líquido | Portal ÷ bruto |
+|---|---:|---:|---:|---:|---:|
+| fev/2025 | 28,24 | 18,73 | 21,37 | 1,14 | 0,76 |
+| mar/2025 | 30,45 | 20,44 | 21,79 | 1,07 | 0,72 |
+| abr/2025 | 33,17 | 22,46 | 23,04 | 1,03 | 0,69 |
+| mai/2025 | 32,77 | 22,21 | 23,00 | 1,04 | 0,70 |
+| jun/2025 | 44,92 | 34,13 | 22,93 | 0,67 | 0,51 |
+| jul/2025 | 32,51 | 21,77 | 22,51 | 1,03 | 0,69 |
+| ago/2025 | 33,60 | 22,69 | 22,59 | 1,00 | 0,67 |
+| set/2025 | 35,47 | 24,01 | 23,79 | 0,99 | 0,67 |
+| out/2025 | 35,22 | 23,78 | 23,00 | 0,97 | 0,65 |
+| nov/2025 | 35,48 | 23,89 | 24,25 | 1,02 | 0,68 |
+| dez/2025 | 65,33 | 34,98 | 35,47 | 1,01 | 0,54 |
+| jan/2026 | 36,93 | 25,08 | 24,75 | 0,99 | 0,67 |
+| fev/2026 | 33,78 | 22,99 | 22,84 | 0,99 | 0,68 |
+| mar/2026 | 35,80 | 24,42 | 24,04 | 0,98 | 0,67 |
+| abr/2026 | 37,12 | 25,91 | 22,15 | 0,86 | 0,60 |
+| mai/2026 | 36,55 | 25,41 | 22,52 | 0,89 | 0,62 |
+| jun/2026 | 34,83 | 24,26 | 25,80 | 1,06 | 0,74 |
+| jul/2026 | 34,97 | 24,55 | 25,11 | 1,02 | 0,72 |
+
+Agosto/2026 ficou fora: a grade de pagamentos de setembro ainda está
+incompleta e a folha de agosto é paga parte em setembro.
+
+Empenhos **extraorçamentários** de 2025 na grade de empenhos do portal
+(classificação aproximada pelo texto do histórico e pelo credor; estornos são
+linhas negativas separadas):
+
+| Grupo (pelo histórico) | Linhas | Soma |
+|---|---:|---:|
+| Retenção da folha repassada a bancos (consignados) | 808 | R$ 40.605.842,48 |
+| INSS do servidor retido na folha | 1.456 | R$ 33.062.979,06 |
+| Proventos/salário-família lançados como extraorçamentários | 963 | R$ 14.316.129,64 |
+| Retenções de fornecedores (INSS/DARF de notas fiscais) | 623 | R$ 12.952.543,95 |
+| Outras retenções da folha | 521 | R$ 3.042.191,57 |
+| Contribuição sindical retida na folha | 377 | R$ 2.566.533,25 |
+| Demais | 864 | R$ 1.992.422,33 |
+| Estornos | 252 | −R$ 3.595.852,06 |
+
+Ou seja: as retenções da folha **aparecem como empenhos** extraorçamentários
+(cerca de R$ 79 mi em 2025 nos quatro grupos de folha), mas nenhuma ordem de
+**pagamento** extraorçamentária é publicada (filtro `P_4=E` devolve zero).
+
 ## Inferência (não publicada)
 
 Comparando grupo a grupo, a diferença fica quase inteira em **pessoal**
@@ -101,14 +150,26 @@ São fontes e recortes diferentes (o PDF da folha cobre os servidores
 municipais; a DCA usa elementos de despesa; o portal, naturezas locais), então
 a correspondência não é exata e continua sendo inferência.
 
+O teste mensal torna a leitura **forte**: em 12 de 18 meses o pago no portal
+fica a ±4% do líquido da folha, no mesmo mês (inclusive dezembro, com 13º), e
+em nenhum mês chega perto do bruto (51% a 76%). Seis meses fogem do padrão sem
+explicação nos dados: fev–mar/2025 acima do líquido (talvez resíduo do ciclo
+misto de janeiro), jun/2025 abaixo (adiantamento de 13º possivelmente pago por
+outra via, como os "proventos" extraorçamentários), abr–mai/2026 abaixo e
+jun/2026 acima.
+
 ## Hipótese (não publicada; exige revisão e, idealmente, pergunta à Prefeitura)
 
-As ordens orçamentárias de folha no portal podem registrar o salário **líquido**,
-enquanto as retenções (INSS do servidor, IR, consignações, pensão) seguem por
-lançamentos extraorçamentários, ao passo que a DCA declara a folha **bruta**.
-A ordem de grandeza dos empenhos extraorçamentários (~R$ 105 mi em 2025) é
-compatível com parte da diferença, mas eles misturam retenções de fornecedores
-e não foram ligados um a um à folha.
+As ordens orçamentárias de folha no portal registram o salário **líquido**;
+as retenções seguem por empenhos extraorçamentários (visíveis no portal); a
+DCA declara a folha **bruta**. Os empenhos de retenção da folha (~R$ 79 mi) não
+cobrem todos os descontos da folha (R$ 146,9 mi); o restante pode incluir o IR
+retido na fonte, que pertence ao próprio Município (CF, art. 158, I) e por isso
+não é repassado a terceiros, e a pensão alimentícia. Isso não foi verificado.
+
+O ponto que os dados públicos **não** respondem: se os empenhos de retenção
+foram efetivamente pagos (repassados ao INSS, aos bancos e aos sindicatos), e
+quando, porque o portal não publica ordens de pagamento extraorçamentárias.
 
 ## Como confirmar (próximos passos sem acusação)
 
@@ -116,36 +177,39 @@ e não foram ligados um a um à folha.
    filtro existe, mas a fonte declara zero pagamentos extraorçamentários.
 2. ~~Conferir a folha bruta mensal~~ — feito com os PDFs oficiais da folha,
    ano inteiro de 2025 (janeiro pelo documento misto, só na soma anual).
-3. Pedido via LAI/ouvidoria (texto abaixo), que é o único caminho para
-   transformar a hipótese em fato declarado pela Prefeitura.
+3. ~~Testar mês a mês~~ — feito: o portal acompanha o líquido (ver tabela).
+4. Pedido via LAI/ouvidoria (texto abaixo). Já não é preciso perguntar se o
+   portal publica bruto ou líquido; a pergunta útil é **se e quando as
+   retenções foram repassadas**, o que os dados públicos não mostram.
 
 ## Pedido de informação (LAI) — texto pronto para o titular enviar
 
 Canal: e-SIC/ouvidoria da Prefeitura Municipal de Barreiras (Lei 12.527/2011).
 
-> Assunto: Ordens de pagamento de folha no Portal da Transparência
+> Assunto: Repasse das retenções da folha de pagamento em 2025
 >
-> Com base na Lei nº 12.527/2011 (Lei de Acesso à Informação), solicito as
-> seguintes informações sobre a despesa com pessoal publicada no Portal da
-> Transparência do Município (consulta de despesas — pagamentos):
+> Com base na Lei nº 12.527/2011 (Lei de Acesso à Informação), solicito
+> informações sobre as retenções da folha de pagamento dos servidores
+> municipais no exercício de 2025.
 >
-> 1. As ordens de pagamento orçamentárias referentes à folha (natureza
->    "Vencimentos e Salários" e "Contratação por Tempo Determinado") são
->    publicadas pelo valor bruto ou pelo valor líquido pago aos servidores?
-> 2. As retenções da folha (contribuição previdenciária do servidor, imposto de
->    renda retido, consignações em favor de bancos, pensão alimentícia e
->    contribuições sindicais) são registradas e publicadas como lançamentos
->    extraorçamentários? Em qual consulta do Portal da Transparência elas podem
->    ser vistas? Observo que a consulta de pagamentos tem o filtro "Tipo da
->    Despesa: Extra - Orçamentária", mas ela não retorna nenhum pagamento em
->    dezembro de 2025 nem em agosto de 2026.
-> 3. Em 2025, a Prefeitura declarou ao Tesouro Nacional, na DCA (Anexo I-D),
->    R$ 328.961.134,90 pagos no elemento 3.1.90.11 (Vencimentos e Vantagens
->    Fixas – Pessoal Civil). Qual é o valor total, no mesmo exercício, das
->    ordens de pagamento publicadas no portal para esse elemento, e qual é o
->    valor total das retenções correspondentes?
-> 4. Há outras despesas pagas em 2025 que constam da DCA mas não são publicadas
->    na consulta de pagamentos do portal? Se houver, quais e por quê?
+> No Portal da Transparência, a consulta de empenhos traz empenhos do tipo
+> "Extra-Orçamentária" com histórico de retenção da folha (contribuição
+> previdenciária do segurado ao INSS, consignações em favor de bancos e
+> contribuições sindicais). Já a consulta de pagamentos, com o filtro "Tipo da
+> Despesa: Extra - Orçamentária", não retorna nenhum pagamento (por exemplo,
+> em dezembro de 2025 e em agosto de 2026). Por isso solicito:
+>
+> 1. Os valores efetivamente repassados em 2025, mês a mês, ao INSS
+>    (contribuição do segurado retida na folha), a cada instituição
+>    financeira (consignações) e a cada entidade sindical, com a data de cada
+>    repasse.
+> 2. O valor total do imposto de renda retido na fonte sobre a folha em 2025,
+>    mês a mês, e a forma como ele foi contabilizado.
+> 3. Em qual consulta do Portal da Transparência os pagamentos
+>    extraorçamentários (repasses de retenções) podem ser vistos e, se não
+>    forem publicados, o motivo.
+> 4. A confirmação de que as ordens de pagamento orçamentárias da folha
+>    publicadas no portal correspondem ao valor líquido pago aos servidores.
 >
 > Peço que a resposta seja enviada em formato eletrônico e, se possível, com
 > os dados em planilha aberta (CSV ou XLSX).
@@ -156,3 +220,5 @@ Canal: e-SIC/ouvidoria da Prefeitura Municipal de Barreiras (Lei 12.527/2011).
   DCA (cobertura e diferença, sem causa); tabela literal da DCA por grupo de
   natureza (`api.get_public_dca_expense_groups`), com aviso de que os grupos
   do portal não usam o mesmo código.
+- A tabela mensal e a leitura "portal = líquido" **não** foram publicadas:
+  aguardam revisão humana registrada.
