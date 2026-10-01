@@ -94,3 +94,21 @@ export function compareWithDeclared(
 export function paymentYear(value: string | undefined, currentYear: number): number;
 
 export function getPublicPaymentRecipients(year: number): Promise<PaymentRecipientResult>;
+
+export type DcaExpenseGroup = Readonly<{
+  accountCode: string;
+  accountLabel: string;
+  paidAmount: string | null;
+  liquidatedAmount: string | null;
+  artifactSha256: string;
+  sourceUrl: string;
+}>;
+
+export function parseDcaExpenseGroups(rows: unknown): DcaExpenseGroup[] | null;
+
+export function getPublicDcaExpenseGroups(
+  year: number,
+): Promise<
+  | Readonly<{ state: "available"; groups: readonly DcaExpenseGroup[] }>
+  | Readonly<{ state: "unavailable" }>
+>;

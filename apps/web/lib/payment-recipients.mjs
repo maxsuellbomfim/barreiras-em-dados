@@ -246,3 +246,61 @@ export function compareWithDeclared(portalPaid, declaredPaid) {
     coveragePercent: `${tenths / 10n},${tenths % 10n}`,
   };
 }
+
+const DCA_METHODOLOGY = "siconfi-dca-expense-groups/1.0.0";
+
+/** Pago e liquidado por grupo de natureza declarados na DCA (literais). */
+export function parseDcaExpenseGroups(rows) {
+  if (!Array.isArray(rows)) return null;
+  const groups = [];
+  for (const row of rows) {
+    const group = {
+      accountCode: text(row?.account_code),
+      accountLabel: text(row?.account_label),
+      paidAmount: row?.paid_amount == null ? null : decimal(row.paid_amount),
+      liquidatedAmount: row?.liquidated_amount == null ? null : decimal(row.liquidated_amount),
+      artifactSha256: text(row?.artifact_sha256),
+      sourceUrl: text(row?.source_url),
+    };
+    if (
+      group.accountCode === null ||
+      group.accountLabel === null ||
+      (row.paid_amount != null && group.paidAmount === null) ||
+      (row.liquidated_amount != null && group.liquidatedAmount === null) ||
+      group.artifactSha256 === null ||
+      !SHA256.test(group.artifactSha256) ||
+      group.sourceUrl === null ||
+      !group.sourceUrl.startsWith("https://") ||
+      row.methodology_version !== DCA_METHODOLOGY
+    ) {
+      return null;
+    }
+    groups.push(group);
+  }
+  return groups;
+}
+
+export async function getPublicDcaExpenseGroups(year) {
+  const config = publicDataConfig();
+  if (!config) return { state: "unavailable" };
+  try {
+    const response = await fetch(`${config.url}/rest/v1/rpc/get_public_dca_expense_groups`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Profile": "api",
+        apikey: config.key,
+        "Content-Profile": "api",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_year: year }),
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) return { state: "unavailable" };
+    const groups = parseDcaExpenseGroups(await response.json());
+    return groups ? { state: "available", groups } : { state: "unavailable" };
+  } catch {
+    return { state: "unavailable" };
+  }
+}

@@ -5,6 +5,7 @@ import {
   compareWithDeclared,
   FIRST_PAYMENT_YEAR,
   formatCnpj,
+  getPublicDcaExpenseGroups,
   getPublicPaymentRecipients,
   paymentYear,
 } from "../../../lib/payment-recipients.mjs";
@@ -81,9 +82,10 @@ function RecipientRow({
 export default async function PaymentRecipientsPage({ searchParams }: PageProps) {
   const currentYear = new Date().getFullYear();
   const year = paymentYear((await searchParams).ano, currentYear);
-  const [result, declared] = await Promise.all([
+  const [result, declared, dcaGroups] = await Promise.all([
     getPublicPaymentRecipients(year),
     getPublicSiconfiAnnualTotals(),
+    getPublicDcaExpenseGroups(year),
   ]);
   const declaredYear =
     declared.state === "available"
@@ -242,6 +244,50 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
                     );
                   })()
                 : null}
+              {dcaGroups.state === "available" && dcaGroups.groups.length > 0 ? (
+                <div
+                  className="territorial-table-wrap"
+                  role="region"
+                  aria-label="Pago por grupo de natureza na DCA"
+                  tabIndex={0}
+                >
+                  <table className="territorial-table recipients-table">
+                    <caption>
+                      Como a Prefeitura declarou ao Tesouro, por grupo de natureza da despesa
+                      (DCA, Anexo I-D)
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Grupo (código oficial)</th>
+                        <th scope="col">Pago</th>
+                        <th scope="col">Liquidado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dcaGroups.groups.map((group) => (
+                        <tr key={group.accountCode}>
+                          <th scope="row">{group.accountLabel}</th>
+                          <td className="territorial-table-number">
+                            {group.paidAmount ? formatBrlDecimal(group.paidAmount) : "—"}
+                          </td>
+                          <td className="territorial-table-number">
+                            {group.liquidatedAmount ? formatBrlDecimal(group.liquidatedAmount) : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="hero-note">
+                    Valores literais do demonstrativo, hash{" "}
+                    {dcaGroups.groups[0].artifactSha256.slice(0, 12)}… (
+                    <a href={dcaGroups.groups[0].sourceUrl} target="_blank" rel="noreferrer">
+                      SICONFI
+                    </a>
+                    ). Os grupos do portal, mais abaixo, seguem a descrição da natureza escrita pela
+                    Prefeitura e não usam o mesmo código; compare com cuidado.
+                  </p>
+                </div>
+              ) : null}
               <p className="hero-note">
                 Esta página não soma empenhos: o portal não publica as anulações de empenho, então
                 somar os empenhos emitidos superestimaria o valor empenhado
