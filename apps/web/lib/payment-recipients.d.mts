@@ -15,8 +15,12 @@ export type PaymentRecipient = Readonly<{
   creditors: number;
   payments: number;
   paidAmount: string;
-  firstPaymentDate: string;
-  lastPaymentDate: string;
+  /** 1.3.0: liquidado no ano; null em versões anteriores. */
+  liquidations: number | null;
+  liquidatedAmount: string | null;
+  /** null quando o credor só tem liquidação no ano. */
+  firstPaymentDate: string | null;
+  lastPaymentDate: string | null;
   mainNature: string | null;
   gridArtifactSha256: string;
   /** Cadastro da Receita, só quando o empenho pago tem contrato confirmado. */
@@ -36,6 +40,7 @@ export type PaymentGroup = Readonly<{
   payments: number;
   creditors: number;
   paidAmount: string;
+  liquidatedAmount: string | null;
   recipients: readonly PaymentRecipient[];
   /** Pessoas físicas e credores sem forma jurídica, agregados por natureza. */
   others: readonly PaymentRecipient[];
@@ -58,6 +63,9 @@ export type PaymentRecipientSummary = Readonly<{
   excludedRows: number;
   sourcePageUrl: string;
   refreshedAt: string;
+  liquidations: number | null;
+  liquidatedAmount: string | null;
+  liquidationGridMonths: number | null;
 }>;
 
 export type PaymentRecipientResult =

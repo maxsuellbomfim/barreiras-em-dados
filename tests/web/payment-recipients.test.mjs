@@ -115,7 +115,8 @@ test("página traz as ressalvas e distingue falha de ausência", () => {
   assert.match(page, /Inclui pagamentos de restos a pagar/);
   assert.match(page, /Não entram pagamentos extraorçamentários/);
   assert.match(page, /não indicam irregularidade/);
-  assert.match(page, /municipal-payment-recipients\/1\.2\.0/);
+  assert.match(page, /municipal-payment-recipients\/1\.3\.0/);
+  assert.match(page, /sem pagamento no ano/);
   assert.match(page, /Todos os credores aparecem/);
   assert.match(page, /a plataforma não sabe a causa e não a estima/);
   assert.match(page, /Esta página não soma empenhos/);
@@ -132,4 +133,42 @@ test("comparação com a DCA é exata em centavos", () => {
   });
   assert.equal(compareWithDeclared("1.0", "2.00"), null);
   assert.equal(compareWithDeclared("1.00", "0.00"), null);
+});
+
+test("1.3.0: credor só com liquidação no ano entra com pago zero", () => {
+  const liquidatedOnly = {
+    ...supplier,
+    methodology_version: "municipal-payment-recipients/1.3.0",
+    creditor_name: "NOVA EMPRESA LTDA",
+    registry_cnpj: null,
+    registry_legal_name: null,
+    registry_legal_nature: null,
+    registry_month: null,
+    payments: 0,
+    paid_amount: "0.00",
+    liquidations: 1,
+    liquidated_amount: "50.00",
+    first_payment_date: null,
+    last_payment_date: null,
+    group_liquidated_amount: "400050.00",
+    year_liquidations: 3,
+    year_liquidated_amount: "400060.00",
+    year_liquidation_grid_months: 1,
+  };
+  const parsed = parsePaymentRecipientRows([liquidatedOnly]);
+  assert.equal(parsed.groups[0].recipients[0].liquidatedAmount, "50.00");
+  assert.equal(parsed.groups[0].recipients[0].firstPaymentDate, null);
+  assert.equal(parsed.groups[0].liquidatedAmount, "400050.00");
+  assert.equal(parsed.summary.liquidatedAmount, "400060.00");
+  assert.equal(
+    parsePaymentRecipientRows([{ ...liquidatedOnly, liquidations: 0 }]),
+    null,
+    "linha sem pagamento e sem liquidação não existe",
+  );
+  assert.equal(
+    parsePaymentRecipientRows([{ ...liquidatedOnly, liquidated_amount: "50" }]),
+    null,
+  );
+  assert.equal(parsePaymentRecipientRows([supplier]).summary.liquidatedAmount, null,
+    "1.2.0 não traz liquidado");
 });
