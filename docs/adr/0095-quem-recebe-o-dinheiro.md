@@ -86,3 +86,24 @@ conflito de CNPJ.
 - Antes de 2024 o portal devolve meses parciais com erro da própria fonte
   (ADR 0086); esse período fica fora até a fonte corrigir ou outra fonte
   oficial cobrir.
+
+## Revisão 1.3.0 (01/10/2026): liquidado por credor e comparação com a DCA
+
+- Cada credor ganha o valor **liquidado** no ano (data da liquidação, grade
+  mais recente do mês, chave O-), com a mesma regra de grupo e de nome do pago.
+  Credor só com liquidação no ano aparece com pago zero. Liquidado e pago são
+  somas independentes do ano; não se calcula "a pagar" porque o pago inclui
+  restos a pagar.
+- **Empenhado não é somado:** o portal não publica anulações de empenho; em
+  2025 a soma bruta dos empenhos emitidos (R$ 1,49 bi) passa o empenhado
+  oficial da DCA (R$ 1,00 bi). A página explica e mostra o oficial.
+- A página compara pago e liquidado do portal com a DCA do SICONFI (Anexo I-D),
+  em centavos inteiros e sem atribuir causa. 2025: pago R$ 807,2 mi no portal
+  contra R$ 950,1 mi declarados (84,9%); liquidado R$ 826,5 mi contra R$ 990,0
+  mi.
+- Desempenho: as linhas de pagamento e de liquidação saem de funções plpgsql
+  com `ROWS 25000` (o planejador estimava 8 linhas e escolhia laços aninhados)
+  e as junções por natureza/credor passaram a ser por igualdade (hash). Cálculo
+  de um ano: 91 s → 16,5 s.
+- Conferência: em 2024, 2025 e 2026 a soma das linhas é igual ao pago e ao
+  liquidado do ano.
