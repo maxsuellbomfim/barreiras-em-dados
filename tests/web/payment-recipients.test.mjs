@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   compareWithDeclared,
+  parseDcaExpenseGroups,
   formatCnpj,
   parsePaymentRecipientRows,
   paymentYear,
@@ -171,4 +172,22 @@ test("1.3.0: credor só com liquidação no ano entra com pago zero", () => {
   );
   assert.equal(parsePaymentRecipientRows([supplier]).summary.liquidatedAmount, null,
     "1.2.0 não traz liquidado");
+});
+
+test("grupos da DCA: valores literais, recusa linha inválida", () => {
+  const row = {
+    account_code: "DO3.1.00.00.00.00",
+    account_label: "3.1.00.00.00 - Pessoal e Encargos Sociais",
+    paid_amount: "499801753.51",
+    liquidated_amount: "506552657.56",
+    artifact_sha256: "b".repeat(64),
+    source_url: "https://apidatalake.tesouro.gov.br/ords/siconfi/tt/dca",
+    methodology_version: "siconfi-dca-expense-groups/1.0.0",
+  };
+  assert.deepEqual(parseDcaExpenseGroups([row])[0].paidAmount, "499801753.51");
+  assert.equal(parseDcaExpenseGroups([{ ...row, liquidated_amount: null }])[0].liquidatedAmount, null);
+  assert.equal(parseDcaExpenseGroups([{ ...row, paid_amount: "1" }]), null);
+  assert.equal(parseDcaExpenseGroups([{ ...row, methodology_version: "x" }]), null);
+  assert.equal(parseDcaExpenseGroups([{ ...row, source_url: "http://x" }]), null);
+  assert.match(page, /compare com cuidado/);
 });
