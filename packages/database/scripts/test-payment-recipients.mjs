@@ -11,7 +11,7 @@ const migrationsUrl = new URL("../../../supabase/migrations/", import.meta.url);
 const migrationNames = (await readdir(fileURLToPath(migrationsUrl)))
   .filter((name) => name.endsWith(".sql"))
   .sort();
-assert.ok(migrationNames.some((name) => name.endsWith("_payment_recipients_registry.sql")));
+assert.ok(migrationNames.some((name) => name.endsWith("_payment_recipients_complete.sql")));
 
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
@@ -92,12 +92,14 @@ try {
       ${recordCount}, '${JSON.stringify(payload).replaceAll("'", "''")}',
       '${sha(`p${recordCount}`)}', 'parser/1', '${sha(`i${recordCount}`)}', now());`);
   }
-  function commitmentSql(key, date) {
+  function commitmentSql(key, date, code) {
     recordCount += 1;
+    const payload = { field1144631: key, field1082407: date };
+    if (code) payload.field1144633 = code;
     return `insert into raw.raw_records (raw_artifact_id, source_record_key,
       record_type, record_index, payload, payload_sha256, parser_version, idempotency_key,
       collected_at) values ('${july2024Grid}', 'empenho:${recordCount}', 'municipal_commitment_webrun',
-      ${recordCount}, '${JSON.stringify({ field1144631: key, field1082407: date })}',
+      ${recordCount}, '${JSON.stringify(payload)}',
       '${sha(`p${recordCount}`)}', 'parser/1', '${sha(`i${recordCount}`)}', now());`;
   }
   let july2024Grid = null;
@@ -187,6 +189,9 @@ try {
   payment(oldJuly, "10/07/2025", "333200", "RODE BEM LTDA", services);
   payment(july2024, "10/07/2024", "10", "OUTRO ANO LTDA", services);          // O-12
   payment(july2024, "11/07/2024", "5", "OUTRO ANO LTDA", services);           // O-13
+  payment(july2024, "12/07/2024", "3", "JOSE PEREIRA", salary);
+  payment(july2024, "15/07/2024", "4", "ANA LIMA", "OUTROS SERVIÇOS DE TERCEIROS - PESSOA FÍSICA");
+  payment(july2024, "16/07/2024", "6", "BRUNO COSTA", "OUTROS SERVIÇOS DE TERCEIROS - PESSOA FÍSICA");
   commitment(july2024, "O-1", "02/12/2024");
   commitment(july, "O-2", "01/07/2025");
   commitment(july, "O-5", "01/07/2025");
@@ -216,6 +221,15 @@ try {
       natureza_juridica: "2062", natureza_juridica_descricao: "Sociedade Empresária Limitada",
       registry_month: "2026-09",
     }),
+    insertRecord("municipal_transparency_contratos", "contrato:C3",
+      { id: "C3", documento: "77.888.999/0001-00" }),
+    insertRecord("receita_cnpj_registry", "receita:3", {
+      cnpj: "77888999000100", razao_social: "UNIAO - MINISTERIO DAS CIDADES",
+      natureza_juridica: "1015", natureza_juridica_descricao: "Órgão Público do Poder Executivo Federal",
+      registry_month: "2026-09",
+    }),
+    commitmentSql("O-7", "01/08/2025", "777"),
+    commitmentSql("O-99", "01/03/2025", "777"),
     insertRecord("receita_cnpj_registry", "receita:2", {
       cnpj: "44555666000199", razao_social: "OUTRA EMPRESA LTDA",
       natureza_juridica: "2062", natureza_juridica_descricao: "Sociedade Empresária Limitada",
@@ -234,6 +248,7 @@ try {
       from finance.commitment_contract_links where commitment_key = 'O-2';`,
     link("O-12", "ligado", "", "C1"),
     link("O-13", "ligado", "", "C2"),
+    link("O-99", "ligado", "", "C3"),
   ].join("\n"));
 
   assert.equal((await database.query(
@@ -241,7 +256,16 @@ try {
     "sem atualização, nada é publicado");
   const refreshed = (await database.query(
     "select finance.refresh_payment_recipients() as n")).rows[0].n;
-  assert.equal(refreshed, 6, "2025 (5 linhas) e 2024 (1 linha)");
+  assert.equal(refreshed, 8, "2025 (5 linhas) e 2024 (3 linhas)");
+  const people2024 = (await database.query(`select payment_group, main_nature, creditors,
+      paid_amount from finance.payment_recipient_snapshots
+    where fiscal_year = 2024 and creditor_name is null order by row_order`)).rows;
+  assert.deepEqual(people2024, [
+    { payment_group: "compras_servicos", main_nature: "OUTROS SERVIÇOS DE TERCEIROS - PESSOA FÍSICA",
+      creditors: 2, paid_amount: "10.00" },
+    { payment_group: "pessoal", main_nature: "VENCIMENTOS E SALÁRIOS", creditors: 1,
+      paid_amount: "3.00" },
+  ], "pessoas físicas agregadas por natureza, sem nome");
   const registry = (await database.query(`select fiscal_year, creditor_name, registry_cnpj,
       registry_legal_name, registry_legal_nature, registry_month
     from finance.payment_recipient_snapshots where registry_cnpj is not null`)).rows;
@@ -249,17 +273,21 @@ try {
     fiscal_year: 2025, creditor_name: "RODE BEM LTDA", registry_cnpj: "11222333000181",
     registry_legal_name: "RODE BEM LOCACAO DE MAQUINAS LTDA",
     registry_legal_nature: "Sociedade Empresária Limitada", registry_month: "2026-09",
-  }], "2024: duas ligações com CNPJs diferentes não dão CNPJ");
+  }, {
+    fiscal_year: 2025, creditor_name: "MINISTERIO DAS CIDADES", registry_cnpj: "77888999000100",
+    registry_legal_name: "UNIAO - MINISTERIO DAS CIDADES",
+    registry_legal_nature: "Órgão Público do Poder Executivo Federal", registry_month: "2026-09",
+  }], "pelo código do credor; 2024: duas ligações com CNPJs diferentes não dão CNPJ");
   const audit = (await database.query(`select after_state from audit.audit_events
     where action = 'source_snapshot.refreshed'
       and target_type = 'finance.payment_recipient_snapshots'
     order by occurred_at, id`)).rows;
   const latest = audit.at(-1).after_state;
   assert.ok(audit.length >= 2, "as migrations e esta atualização ficam auditadas");
-  assert.equal(latest.row_count, 6);
+  assert.equal(latest.row_count, 8);
   assert.match(latest.content_sha256, /^[0-9a-f]{64}$/);
   assert.equal((await database.query(
-    "select finance.refresh_payment_recipients() as n")).rows[0].n, 6, "atualizar de novo não duplica");
+    "select finance.refresh_payment_recipients() as n")).rows[0].n, 8, "atualizar de novo não duplica");
 
   const rows = (await database.query(
     "select * from api.get_public_payment_recipients(2025)")).rows;
@@ -296,12 +324,12 @@ try {
     .values()].reduce((sum, value) => sum + Math.round(Number(value) * 100), 0);
   assert.equal(groupSum, 34750049, "grupos somam o total do ano");
   assert.equal(first.year_prior_commitment_amount, "333200.00", "restos a pagar de 2024");
-  assert.equal(first.year_uncollected_commitment_amount, "8299.99");
+  assert.equal(first.year_uncollected_commitment_amount, "7299.99");
   assert.deepEqual(first.year_bodies, [
     { public_body: "PREFEITURA MUNICIPAL DE BARREIRAS", payments: 6, paid_amount: "340500.49" },
     { public_body: "CÂMARA MUNICIPAL DE BARREIRAS", payments: 1, paid_amount: "7000.00" },
   ]);
-  assert.equal(first.methodology_version, "municipal-payment-recipients/1.1.0");
+  assert.equal(first.methodology_version, "municipal-payment-recipients/1.2.0");
 
   await assert.rejects(
     database.query("select * from api.get_public_payment_recipients(2023)"),

@@ -65,3 +65,24 @@ e todas as ligações do credor apontam o mesmo CNPJ. Nada é inferido pelo nome
 credor com ligações a CNPJs diferentes fica sem CNPJ. Na primeira atualização,
 2025 teve 97 dos 210 credores listados com CNPJ (R$ 186,4 mi), sem nenhum
 conflito de CNPJ.
+
+## Revisão 1.2.0 (01/10/2026): nada fica de fora
+
+- Todos os credores com nome aparecem (fim do limite de 150 por grupo).
+- Pessoas físicas e credores sem forma jurídica são somados **por natureza da
+  despesa** (ex.: locação de imóveis, serviços de terceiros PF), sem nomes.
+- CNPJ também pelo código oficial do credor no sistema da Prefeitura (ADR 0090):
+  quando esse código já está ligado, por contratos confirmados, a um único CNPJ
+  do cadastro, os demais pagamentos do mesmo código herdam o CNPJ; continua
+  exigido que tudo aponte o mesmo CNPJ.
+- Conferência: a soma de todas as linhas publicadas é igual ao total do ano em
+  2024, 2025 e 2026. 2025: 502 linhas nomeadas (248 com CNPJ, R$ 202,7 mi) e 44
+  agregados de pessoas físicas por natureza.
+- Sem CNPJ continuam os credores sem nenhum contrato confirmado (repasses de
+  folha, INSS, Receita Federal, Caixa, concessionárias); não há campo de
+  CNPJ no empenho nem no pagamento do portal.
+- A atualização leva ~4–5 min (três anos); roda no workflow de empenhos com
+  limite de 10 min.
+- Antes de 2024 o portal devolve meses parciais com erro da própria fonte
+  (ADR 0086); esse período fica fora até a fonte corrigir ou outra fonte
+  oficial cobrir.
