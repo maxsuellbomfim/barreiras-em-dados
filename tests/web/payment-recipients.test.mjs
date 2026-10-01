@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  compareWithDeclared,
   formatCnpj,
   parsePaymentRecipientRows,
   paymentYear,
@@ -116,4 +117,19 @@ test("página traz as ressalvas e distingue falha de ausência", () => {
   assert.match(page, /não indicam irregularidade/);
   assert.match(page, /municipal-payment-recipients\/1\.2\.0/);
   assert.match(page, /Todos os credores aparecem/);
+  assert.match(page, /a plataforma não sabe a causa e não a estima/);
+  assert.match(page, /Esta página não soma empenhos/);
+});
+
+test("comparação com a DCA é exata em centavos", () => {
+  assert.deepEqual(compareWithDeclared("807188271.59", "950096510.57"), {
+    differenceAmount: "142908238.98",
+    coveragePercent: "84,9",
+  });
+  assert.deepEqual(compareWithDeclared("100.00", "100.00"), {
+    differenceAmount: "0.00",
+    coveragePercent: "100,0",
+  });
+  assert.equal(compareWithDeclared("1.0", "2.00"), null);
+  assert.equal(compareWithDeclared("1.00", "0.00"), null);
 });
