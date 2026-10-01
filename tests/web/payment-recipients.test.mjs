@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  formatCnpj,
   parsePaymentRecipientRows,
   paymentYear,
 } from "../../apps/web/lib/payment-recipients.mjs";
@@ -33,12 +34,24 @@ const base = {
   year_unreadable_rows: 1,
   year_excluded_rows: 2,
   source_page_url: "https://portaldatransparencia.barreiras.ba.gov.br/despesas-geral",
-  methodology_version: "municipal-payment-recipients/1.0.0",
+  methodology_version: "municipal-payment-recipients/1.1.0",
   refreshed_at: "2026-10-01T01:39:49.591643+00:00",
 };
-const supplier = { ...base, payment_group: "compras_servicos", creditor_name: "RODE BEM LTDA" };
+const supplier = {
+  ...base,
+  payment_group: "compras_servicos",
+  creditor_name: "RODE BEM LTDA",
+  registry_cnpj: "11222333000181",
+  registry_legal_name: "RODE BEM LOCACAO DE MAQUINAS LTDA",
+  registry_legal_nature: "Sociedade Empresária Limitada",
+  registry_month: "2026-09",
+};
 const people = {
   ...base,
+  registry_cnpj: null,
+  registry_legal_name: null,
+  registry_legal_nature: null,
+  registry_month: null,
   payment_group: "compras_servicos",
   creditor_name: null,
   creditors: 2,
@@ -54,6 +67,22 @@ test("separa credores com nome do agregado sem nome e mantém decimais como text
   assert.equal(group.label, "Compras, obras, serviços e demais despesas");
   assert.deepEqual(group.recipients.map((row) => row.creditorName), ["RODE BEM LTDA"]);
   assert.equal(group.others.creditors, 2);
+  assert.deepEqual(group.recipients[0].registry, {
+    cnpj: "11222333000181", legalName: "RODE BEM LOCACAO DE MAQUINAS LTDA",
+    legalNature: "Sociedade Empresária Limitada", month: "2026-09",
+  });
+  assert.equal(group.others.registry, null);
+  assert.equal(formatCnpj("11222333000181"), "11.222.333/0001-81");
+});
+
+test("cadastro incompleto ou em agregado sem nome derruba o conjunto", () => {
+  assert.equal(parsePaymentRecipientRows([{ ...supplier, registry_cnpj: "123" }]), null);
+  assert.equal(parsePaymentRecipientRows([{ ...supplier, registry_legal_name: null }]), null);
+  assert.equal(parsePaymentRecipientRows([{ ...people, registry_cnpj: "11222333000181",
+    registry_legal_name: "X", registry_legal_nature: "Y", registry_month: "2026-09" }]), null);
+  assert.equal(parsePaymentRecipientRows([{ ...supplier, registry_cnpj: null,
+    registry_legal_name: null, registry_legal_nature: null, registry_month: null }])
+    .groups[0].recipients[0].registry, null);
 });
 
 test("linha inválida derruba o conjunto", () => {
@@ -83,5 +112,5 @@ test("página traz as ressalvas e distingue falha de ausência", () => {
   assert.match(page, /Inclui pagamentos de restos a pagar/);
   assert.match(page, /Não entram pagamentos extraorçamentários/);
   assert.match(page, /não indicam irregularidade/);
-  assert.match(page, /municipal-payment-recipients\/1\.0\.0/);
+  assert.match(page, /municipal-payment-recipients\/1\.1\.0/);
 });

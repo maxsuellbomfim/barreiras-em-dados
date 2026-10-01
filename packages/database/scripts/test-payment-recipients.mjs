@@ -11,7 +11,7 @@ const migrationsUrl = new URL("../../../supabase/migrations/", import.meta.url);
 const migrationNames = (await readdir(fileURLToPath(migrationsUrl)))
   .filter((name) => name.endsWith(".sql"))
   .sort();
-assert.ok(migrationNames.some((name) => name.endsWith("_payment_recipients_snapshot.sql")));
+assert.ok(migrationNames.some((name) => name.endsWith("_payment_recipients_registry.sql")));
 
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
@@ -92,6 +92,15 @@ try {
       ${recordCount}, '${JSON.stringify(payload).replaceAll("'", "''")}',
       '${sha(`p${recordCount}`)}', 'parser/1', '${sha(`i${recordCount}`)}', now());`);
   }
+  function commitmentSql(key, date) {
+    recordCount += 1;
+    return `insert into raw.raw_records (raw_artifact_id, source_record_key,
+      record_type, record_index, payload, payload_sha256, parser_version, idempotency_key,
+      collected_at) values ('${july2024Grid}', 'empenho:${recordCount}', 'municipal_commitment_webrun',
+      ${recordCount}, '${JSON.stringify({ field1144631: key, field1082407: date })}',
+      '${sha(`p${recordCount}`)}', 'parser/1', '${sha(`i${recordCount}`)}', now());`;
+  }
+  let july2024Grid = null;
   function commitment(artifact, key, date) {
     recordCount += 1;
     statements.push(`insert into raw.raw_records (raw_artifact_id, source_record_key,
@@ -159,6 +168,7 @@ try {
   const july = grid("2025-07", "2025-09-01T00:00:00Z");
   const august = grid("2025-08", "2025-09-01T00:00:00Z");
   const july2024 = grid("2024-07", "2024-08-01T00:00:00Z");
+  july2024Grid = july2024;
   payment(july, "10/07/2025", "333200", "RODE BEM LTDA", services);            // O-1
   payment(august, "05/08/2025", "1.000,50", "RODE BEM LTDA", services);        // O-2
   payment(july, "11/07/2025", "99,99", "PRESTADOR 123.456.789-09", services); // O-3
@@ -175,11 +185,56 @@ try {
   payment(august, "31/12/2024", "70", "OUTRA DATA LTDA", services);            // O-10
   // Recoleta antiga do mesmo mês: não conta em dobro.
   payment(oldJuly, "10/07/2025", "333200", "RODE BEM LTDA", services);
-  payment(july2024, "10/07/2024", "10", "OUTRO ANO LTDA", services);
+  payment(july2024, "10/07/2024", "10", "OUTRO ANO LTDA", services);          // O-12
+  payment(july2024, "11/07/2024", "5", "OUTRO ANO LTDA", services);           // O-13
   commitment(july2024, "O-1", "02/12/2024");
   commitment(july, "O-2", "01/07/2025");
   commitment(july, "O-5", "01/07/2025");
   await database.exec(statements.join("\n"));
+
+  // Contratos, cadastro da Receita e ligações confirmadas (ADR 0086/0093/0094).
+  const recordId = (type, field, value) => `(select id from raw.raw_records
+    where record_type = '${type}' and payload ->> '${field}' = '${value}' limit 1)`;
+  const insertRecord = (type, key, payload) => `insert into raw.raw_records (raw_artifact_id,
+    source_record_key, record_type, record_index, payload, payload_sha256, parser_version,
+    idempotency_key, collected_at) values ('${july}', '${key}', '${type}', ${(recordCount += 1)},
+    '${JSON.stringify(payload)}', '${sha(key)}', 'parser/1', '${sha(`i-${key}`)}', now());`;
+  const link = (commitmentKey, state, reason, contractPortal) => `insert into
+    finance.commitment_contract_links (commitment_raw_record_id, commitment_key, state, reason,
+      contract_raw_record_id, contract_portal_id, rule_version)
+    values (${recordId("municipal_commitment_webrun", "field1144631", commitmentKey)},
+      '${commitmentKey}', '${state}', '${reason}',
+      ${contractPortal ? recordId("municipal_transparency_contratos", "id", contractPortal) : "null"},
+      ${contractPortal ? `'${contractPortal}'` : "null"}, 'commitment-contract-link/1.0.0');`;
+  await database.exec([
+    insertRecord("municipal_transparency_contratos", "contrato:C1",
+      { id: "C1", documento: "11.222.333/0001-81" }),
+    insertRecord("municipal_transparency_contratos", "contrato:C2",
+      { id: "C2", documento: "44.555.666/0001-99" }),
+    insertRecord("receita_cnpj_registry", "receita:1", {
+      cnpj: "11222333000181", razao_social: "RODE BEM LOCACAO DE MAQUINAS LTDA",
+      natureza_juridica: "2062", natureza_juridica_descricao: "Sociedade Empresária Limitada",
+      registry_month: "2026-09",
+    }),
+    insertRecord("receita_cnpj_registry", "receita:2", {
+      cnpj: "44555666000199", razao_social: "OUTRA EMPRESA LTDA",
+      natureza_juridica: "2062", natureza_juridica_descricao: "Sociedade Empresária Limitada",
+      registry_month: "2026-09",
+    }),
+    commitmentSql("O-12", "01/07/2024"),
+    commitmentSql("O-13", "01/07/2024"),
+    link("O-1", "ligado", "", "C1"),
+    link("O-2", "citacao_sem_confirmacao", "favorecido_divergente", null),
+    `insert into editorial.editorial_reviews (target_type, target_id, reviewer_subject,
+      review_type, decision, rationale, checklist)
+      select 'finance.commitment_contract_links', id, 'automated:commitment-registry-name',
+        'data_quality', 'approved', 'teste',
+        jsonb_build_object('contract_raw_record_id',
+          ${recordId("municipal_transparency_contratos", "id", "C1")}::text)
+      from finance.commitment_contract_links where commitment_key = 'O-2';`,
+    link("O-12", "ligado", "", "C1"),
+    link("O-13", "ligado", "", "C2"),
+  ].join("\n"));
 
   assert.equal((await database.query(
     "select count(*)::integer as n from api.get_public_payment_recipients(2025)")).rows[0].n, 0,
@@ -187,6 +242,14 @@ try {
   const refreshed = (await database.query(
     "select finance.refresh_payment_recipients() as n")).rows[0].n;
   assert.equal(refreshed, 6, "2025 (5 linhas) e 2024 (1 linha)");
+  const registry = (await database.query(`select fiscal_year, creditor_name, registry_cnpj,
+      registry_legal_name, registry_legal_nature, registry_month
+    from finance.payment_recipient_snapshots where registry_cnpj is not null`)).rows;
+  assert.deepEqual(registry, [{
+    fiscal_year: 2025, creditor_name: "RODE BEM LTDA", registry_cnpj: "11222333000181",
+    registry_legal_name: "RODE BEM LOCACAO DE MAQUINAS LTDA",
+    registry_legal_nature: "Sociedade Empresária Limitada", registry_month: "2026-09",
+  }], "2024: duas ligações com CNPJs diferentes não dão CNPJ");
   const audit = (await database.query(`select after_state from audit.audit_events
     where action = 'source_snapshot.refreshed'
       and target_type = 'finance.payment_recipient_snapshots'
@@ -238,7 +301,7 @@ try {
     { public_body: "PREFEITURA MUNICIPAL DE BARREIRAS", payments: 6, paid_amount: "340500.49" },
     { public_body: "CÂMARA MUNICIPAL DE BARREIRAS", payments: 1, paid_amount: "7000.00" },
   ]);
-  assert.equal(first.methodology_version, "municipal-payment-recipients/1.0.0");
+  assert.equal(first.methodology_version, "municipal-payment-recipients/1.1.0");
 
   await assert.rejects(
     database.query("select * from api.get_public_payment_recipients(2023)"),

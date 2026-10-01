@@ -55,3 +55,13 @@ FOPAG (repasse de folha), o INSS, a Receita Federal e a Caixa (dívida).
   sempre aparecem).
 - Pendente: ligar cada credor nomeado ao CNPJ do cadastro da Receita quando o
   empenho estiver ligado a contrato confirmado.
+
+## Revisão 1.1.0 (01/10/2026)
+
+Credor nomeado ganha CNPJ, razão social e natureza jurídica do cadastro da
+Receita (ADR 0093) quando o empenho pago está ligado a contrato confirmado
+(regra automática do ADR 0086 ou decisão aprovada vigente dos ADRs 0090/0094)
+e todas as ligações do credor apontam o mesmo CNPJ. Nada é inferido pelo nome;
+credor com ligações a CNPJs diferentes fica sem CNPJ. Na primeira atualização,
+2025 teve 97 dos 210 credores listados com CNPJ (R$ 186,4 mi), sem nenhum
+conflito de CNPJ.

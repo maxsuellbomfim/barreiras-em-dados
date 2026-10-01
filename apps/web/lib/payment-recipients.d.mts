@@ -19,6 +19,15 @@ export type PaymentRecipient = Readonly<{
   lastPaymentDate: string;
   mainNature: string | null;
   gridArtifactSha256: string;
+  /** Cadastro da Receita, só quando o empenho pago tem contrato confirmado. */
+  registry: PaymentRegistry | null;
+}>;
+
+export type PaymentRegistry = Readonly<{
+  cnpj: string;
+  legalName: string;
+  legalNature: string;
+  month: string;
 }>;
 
 export type PaymentGroup = Readonly<{
@@ -65,6 +74,8 @@ export const PAYMENT_GROUPS: Readonly<Record<PaymentGroupKey, string>>;
 export function parsePaymentRecipientRows(
   rows: unknown,
 ): { summary: PaymentRecipientSummary | null; groups: PaymentGroup[] } | null;
+
+export function formatCnpj(cnpj: string): string;
 
 export function paymentYear(value: string | undefined, currentYear: number): number;
 

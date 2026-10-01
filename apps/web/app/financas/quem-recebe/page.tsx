@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { formatBrlCompact } from "../../../lib/compact-money.mjs";
 import {
   FIRST_PAYMENT_YEAR,
+  formatCnpj,
   getPublicPaymentRecipients,
   paymentYear,
 } from "../../../lib/payment-recipients.mjs";
@@ -55,6 +56,13 @@ function RecipientCard({
         {plural(recipient.payments, "pagamento", "pagamentos")} de{" "}
         {formatDate(recipient.firstPaymentDate)} a {formatDate(recipient.lastPaymentDate)}
       </p>
+      {recipient.registry ? (
+        <p>
+          CNPJ {formatCnpj(recipient.registry.cnpj)} · {recipient.registry.legalName} ·{" "}
+          {recipient.registry.legalNature.toLowerCase()} (cadastro da Receita de{" "}
+          {recipient.registry.month.split("-").reverse().join("/")}, pelo contrato confirmado)
+        </p>
+      ) : null}
       {recipient.mainNature ? (
         <p className="legal-result-excerpt">
           Natureza mais frequente: {recipient.mainNature.toLowerCase()}
@@ -295,11 +303,12 @@ export default async function PaymentRecipientsPage({ searchParams }: PageProps)
         )}
 
         <p className="hero-note">
-          Metodologia municipal-payment-recipients/1.0.0 (ADR 0095): grade mais recente de cada
+          Metodologia municipal-payment-recipients/1.1.0 (ADR 0095): grade mais recente de cada
           mês do sistema de despesas da Prefeitura; só ordens orçamentárias; grupo por regra
           fixa sobre a descrição da natureza; credor com nome apenas quando o nome traz forma
-          jurídica ou é ente público, nunca com CPF; até 150 nomes por grupo. Nenhum valor é
-          estimado.
+          jurídica ou é ente público, nunca com CPF; CNPJ do cadastro da Receita só quando o
+          empenho pago está ligado a contrato confirmado e todas as ligações do credor apontam o
+          mesmo CNPJ; até 150 nomes por grupo. Nenhum valor é estimado.
         </p>
       </section>
     </main>
