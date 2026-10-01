@@ -37,7 +37,8 @@ export type PaymentGroup = Readonly<{
   creditors: number;
   paidAmount: string;
   recipients: readonly PaymentRecipient[];
-  others: PaymentRecipient | null;
+  /** Pessoas físicas e credores sem forma jurídica, agregados por natureza. */
+  others: readonly PaymentRecipient[];
 }>;
 
 export type PaymentBody = Readonly<{

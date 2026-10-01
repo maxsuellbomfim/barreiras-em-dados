@@ -39,6 +39,7 @@ const base = {
 };
 const supplier = {
   ...base,
+  methodology_version: "municipal-payment-recipients/1.2.0",
   payment_group: "compras_servicos",
   creditor_name: "RODE BEM LTDA",
   registry_cnpj: "11222333000181",
@@ -66,12 +67,12 @@ test("separa credores com nome do agregado sem nome e mantém decimais como text
   const [group] = parsed.groups;
   assert.equal(group.label, "Compras, obras, serviços e demais despesas");
   assert.deepEqual(group.recipients.map((row) => row.creditorName), ["RODE BEM LTDA"]);
-  assert.equal(group.others.creditors, 2);
+  assert.equal(group.others[0].creditors, 2);
   assert.deepEqual(group.recipients[0].registry, {
     cnpj: "11222333000181", legalName: "RODE BEM LOCACAO DE MAQUINAS LTDA",
     legalNature: "Sociedade Empresária Limitada", month: "2026-09",
   });
-  assert.equal(group.others.registry, null);
+  assert.equal(group.others[0].registry, null);
   assert.equal(formatCnpj("11222333000181"), "11.222.333/0001-81");
 });
 
@@ -93,7 +94,8 @@ test("linha inválida derruba o conjunto", () => {
   assert.equal(parsePaymentRecipientRows([{ ...supplier, creditors: 2 }]), null, "nome é um credor");
   assert.equal(parsePaymentRecipientRows([{ ...supplier, year_bodies: [] }]), null);
   assert.equal(parsePaymentRecipientRows([{ ...supplier, refreshed_at: "ontem" }]), null);
-  assert.equal(parsePaymentRecipientRows([people, people]), null, "um agregado por grupo");
+  assert.equal(parsePaymentRecipientRows([people, { ...people, main_nature: "LOCAÇÃO DE IMÓVEIS" }])
+    .groups[0].others.length, 2, "um agregado por natureza");
   assert.equal(parsePaymentRecipientRows("x"), null);
   assert.deepEqual(parsePaymentRecipientRows([]), { summary: null, groups: [] });
 });
@@ -112,5 +114,6 @@ test("página traz as ressalvas e distingue falha de ausência", () => {
   assert.match(page, /Inclui pagamentos de restos a pagar/);
   assert.match(page, /Não entram pagamentos extraorçamentários/);
   assert.match(page, /não indicam irregularidade/);
-  assert.match(page, /municipal-payment-recipients\/1\.1\.0/);
+  assert.match(page, /municipal-payment-recipients\/1\.2\.0/);
+  assert.match(page, /Todos os credores aparecem/);
 });
