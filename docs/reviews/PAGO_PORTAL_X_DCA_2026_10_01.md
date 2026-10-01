@@ -47,6 +47,40 @@ Somas do portal:
   pensão alimentícia); a grade de pagamentos coletada não traz nenhuma linha
   extraorçamentária (todas as 53.731 linhas de 2024–2026 são "Orçamentária").
 
+Sondagem da consulta de pagamentos do portal (formulário 7910, 01/10/2026):
+
+- o formulário tem o filtro "Tipo da Despesa" com as opções
+  "Extra - Orçamentária" (E) e "Orçamentária" (O), enviado à regra
+  `TRP_TRANSP_PAGAMENTO_MODIFICAR_CONSULTA` no parâmetro `P_4`;
+- com `P_4=O`, agosto/2026 devolve as mesmas 1.799 ordens (R$ 46.118.304,88)
+  da consulta sem filtro;
+- com `P_4=E`, a fonte declara **zero** pagamentos em agosto/2026 e em
+  dezembro/2025: o portal não publica pagamentos extraorçamentários, embora a
+  consulta de empenhos traga empenhos extraorçamentários de retenção da folha.
+
+Folha de pagamento dos servidores municipais (PDF oficial "Listagem Sintética
+E-TCM" publicado no portal mtransparente da Prefeitura):
+
+- fevereiro a dezembro/2025 vêm da projeção pública
+  (`api.get_public_payroll_months_page`);
+- janeiro/2025 tem um único PDF oficial que traz `1-Normal, 4-Adiant. 13º` no
+  mesmo documento (SHA-256 `d2345bdb…5190ac9`). Pelo ADR 0074 ele fica fora da
+  página da folha (não é folha regular separável), mas seus totais foram
+  extraídos e validados pela aritmética do próprio documento
+  (`hr.payroll_report_aggregates`, parser 1.2.0, invalidação
+  `mixed_payroll_cycle_header`). Para uma soma **anual**, que já inclui o 13º,
+  o documento inteiro conta.
+
+| 2025 | Fev–dez | Janeiro (documento misto) | Ano |
+|---|---:|---:|---:|
+| Bruto | R$ 407.147.687 | R$ 25.196.820,48 | R$ 432.344.508 |
+| Descontos | R$ 138.065.416 | R$ 8.788.468,04 | R$ 146.853.884 |
+| Líquido | R$ 269.082.271 | R$ 16.408.352,44 | R$ 285.490.623 |
+
+Para comparação, no mesmo ano: DCA "Vencimentos" + "Contratação por Tempo
+Determinado" = R$ 418.797.817; ordens de pagamento do portal com as naturezas
+de vencimentos e de contratação temporária = R$ 282.708.740.
+
 ## Inferência (não publicada)
 
 Comparando grupo a grupo, a diferença fica quase inteira em **pessoal**
@@ -54,6 +88,18 @@ Comparando grupo a grupo, a diferença fica quase inteira em **pessoal**
 demais despesas ficam dentro de ±R$ 8 mi. A correspondência entre os textos de
 natureza do portal e os códigos da DCA é aproximada (o portal usa plano local),
 por isso esta leitura é inferência e não fato.
+
+A folha do ano inteiro reforça a leitura:
+
+- as ordens de folha do portal (R$ 282,7 mi) ficam a **1%** do **líquido** da
+  folha (R$ 285,5 mi);
+- a DCA (R$ 418,8 mi) fica a 3% do **bruto** da folha (R$ 432,3 mi);
+- os descontos da folha (R$ 146,9 mi) têm a ordem de grandeza da diferença em
+  pessoal (~R$ 133 mi).
+
+São fontes e recortes diferentes (o PDF da folha cobre os servidores
+municipais; a DCA usa elementos de despesa; o portal, naturezas locais), então
+a correspondência não é exata e continua sendo inferência.
 
 ## Hipótese (não publicada; exige revisão e, idealmente, pergunta à Prefeitura)
 
@@ -66,12 +112,43 @@ e não foram ligados um a um à folha.
 
 ## Como confirmar (próximos passos sem acusação)
 
-1. Coletar a grade de **pagamentos extraorçamentários** do portal, se existir,
-   e somar por mês as retenções de folha.
-2. Conferir no RREO (Anexo 1/2) e nos documentos mensais do TCM-BA já
-   coletados se a folha bruta mensal bate com a DCA.
-3. Pedido via LAI/ouvidoria: "as ordens de pagamento de folha publicadas no
-   portal são pelo valor líquido?".
+1. ~~Coletar a grade de pagamentos extraorçamentários do portal~~ — feito: o
+   filtro existe, mas a fonte declara zero pagamentos extraorçamentários.
+2. ~~Conferir a folha bruta mensal~~ — feito com os PDFs oficiais da folha,
+   ano inteiro de 2025 (janeiro pelo documento misto, só na soma anual).
+3. Pedido via LAI/ouvidoria (texto abaixo), que é o único caminho para
+   transformar a hipótese em fato declarado pela Prefeitura.
+
+## Pedido de informação (LAI) — texto pronto para o titular enviar
+
+Canal: e-SIC/ouvidoria da Prefeitura Municipal de Barreiras (Lei 12.527/2011).
+
+> Assunto: Ordens de pagamento de folha no Portal da Transparência
+>
+> Com base na Lei nº 12.527/2011 (Lei de Acesso à Informação), solicito as
+> seguintes informações sobre a despesa com pessoal publicada no Portal da
+> Transparência do Município (consulta de despesas — pagamentos):
+>
+> 1. As ordens de pagamento orçamentárias referentes à folha (natureza
+>    "Vencimentos e Salários" e "Contratação por Tempo Determinado") são
+>    publicadas pelo valor bruto ou pelo valor líquido pago aos servidores?
+> 2. As retenções da folha (contribuição previdenciária do servidor, imposto de
+>    renda retido, consignações em favor de bancos, pensão alimentícia e
+>    contribuições sindicais) são registradas e publicadas como lançamentos
+>    extraorçamentários? Em qual consulta do Portal da Transparência elas podem
+>    ser vistas? Observo que a consulta de pagamentos tem o filtro "Tipo da
+>    Despesa: Extra - Orçamentária", mas ela não retorna nenhum pagamento em
+>    dezembro de 2025 nem em agosto de 2026.
+> 3. Em 2025, a Prefeitura declarou ao Tesouro Nacional, na DCA (Anexo I-D),
+>    R$ 328.961.134,90 pagos no elemento 3.1.90.11 (Vencimentos e Vantagens
+>    Fixas – Pessoal Civil). Qual é o valor total, no mesmo exercício, das
+>    ordens de pagamento publicadas no portal para esse elemento, e qual é o
+>    valor total das retenções correspondentes?
+> 4. Há outras despesas pagas em 2025 que constam da DCA mas não são publicadas
+>    na consulta de pagamentos do portal? Se houver, quais e por quê?
+>
+> Peço que a resposta seja enviada em formato eletrônico e, se possível, com
+> os dados em planilha aberta (CSV ou XLSX).
 
 ## O que foi publicado
 
