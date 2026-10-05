@@ -445,6 +445,12 @@ export default async function FinancesPage() {
               Imóveis alugados pela Prefeitura: quem aluga, onde, para quê e quanto →
             </a>
           </p>
+          <p>
+            <a href="/financas/retencoes">
+              Retenções da folha: INSS, consignados, sindicatos e pensões descontados dos
+              servidores →
+            </a>
+          </p>
         </section>
 
         <section className="finance-status-panel" aria-labelledby="finance-status-title">
