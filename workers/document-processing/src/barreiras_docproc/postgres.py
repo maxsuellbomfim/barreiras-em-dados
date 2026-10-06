@@ -461,6 +461,7 @@ class PostgresExtractionRepository:
             )
         finally:
             connection.close()
+
     def persist_extraction(
         self,
         batch: ExtractionBatch,
@@ -789,9 +790,7 @@ class PostgresExtractionRepository:
         for artifact in found:
             if len(pending) >= limit:
                 break
-            if not self._digest_job_exists(
-                prompt_idempotency(artifact["sha256"])
-            ):
+            if not self._digest_job_exists(prompt_idempotency(artifact["sha256"])):
                 pending.append(artifact)
         return tuple(pending)
 
@@ -1192,8 +1191,7 @@ class PostgresExtractionRepository:
                     )
                 grouped[artifact_id][1].append(int(row["page_number"]))
             return tuple(
-                (artifact, tuple(pages))
-                for artifact, pages in grouped.values()
+                (artifact, tuple(pages)) for artifact, pages in grouped.values()
             )
         finally:
             connection.close()
@@ -1394,6 +1392,20 @@ class PostgresExtractionRepository:
             ),
         ).fetchone()
         if row is None:
+            # A chave inclui a régua (e o hash do OCR): o job existente é esta
+            # mesma extração. Jobs anteriores à gravação da versão ficavam sem
+            # ela e voltavam à fila para sempre, segurando a amostra de
+            # qualidade da régua.
+            connection.execute(
+                """
+                update raw.extraction_jobs
+                set extractor_version = %s, updated_at = statement_timestamp()
+                where idempotency_key = %s
+                  and extractor_version is null
+                  and status = 'succeeded'
+                """,
+                (batch.ruleset_version, batch.job_idempotency_key),
+            )
             return None
         return str(row["id"])
 
