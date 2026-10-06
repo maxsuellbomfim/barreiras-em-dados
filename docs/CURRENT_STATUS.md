@@ -184,8 +184,12 @@ amplas.
 ## Limitações que permanecem explícitas
 
 - o gate de sete dias exige vinte sondagens **agendadas** por dia encerrado;
-  disparos manuais não preenchem essa cobertura e atrasos do GitHub Actions
-  aparecem como cobertura insuficiente, não como disponibilidade comprovada;
+  disparos manuais não preenchem essa cobertura. O GitHub Actions entrega só
+  ~4–5 das 24 execuções horárias, então desde 06/10/2026 o próprio banco sonda
+  as mesmas 8 rotas a cada hora (pg_cron + pg_net,
+  `public-availability-probe-pg/1.0.0`, mesmo contrato) e o gate
+  (`collection-health/1.9.0`) conta as duas origens; resposta ausente em 5
+  minutos é falha de transporte, nunca sucesso;
 - cobertura histórica varia por fonte; período não classificado não pode ser
   apresentado como vazio;
 - parte da execução estadual antiga não possui chave oficial suficiente para
