@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 
-import type { CamaraLegislativeAuthorSummary, CamaraLegislativeFilters, CamaraLegislativeItem } from "../../lib/camara-legislative";
+import type { CamaraFormerAuthorSummary, CamaraLegislativeAuthorSummary, CamaraLegislativeFilters, CamaraLegislativeItem } from "../../lib/camara-legislative";
 
 function formatDate(value: string | null): string {
   if (!value || Number.isNaN(Date.parse(value))) return "data não informada";
@@ -39,13 +39,14 @@ function LegislativeCard({ item }: Readonly<{ item: CamaraLegislativeItem }>) {
   );
 }
 
-export function CamaraLawsExplorer({ items, totalCount, page, pageSize, initialFilters, authorSummary }: Readonly<{
+export function CamaraLawsExplorer({ items, totalCount, page, pageSize, initialFilters, authorSummary, formerAuthorSummary = [] }: Readonly<{
   items: readonly CamaraLegislativeItem[];
   totalCount: number;
   page: number;
   pageSize: number;
   initialFilters: CamaraLegislativeFilters;
   authorSummary: readonly CamaraLegislativeAuthorSummary[];
+  formerAuthorSummary?: readonly CamaraFormerAuthorSummary[];
 }>) {
   const [query, setQuery] = useState(initialFilters.query ?? "");
   const [year, setYear] = useState(initialFilters.year?.toString() ?? "");
@@ -54,6 +55,7 @@ export function CamaraLawsExplorer({ items, totalCount, page, pageSize, initialF
   const filtered = items;
   const visibleAuthors = authorSummary.slice(0, 19);
   const authoredCount = visibleAuthors.reduce((total, summary) => total + summary.itemCount, 0);
+  const formerCount = formerAuthorSummary.reduce((total, summary) => total + summary.itemCount, 0);
   function filterQuery(targetPage?: number): string {
     const params = new URLSearchParams();
     const normalizedQuery = query.trim().slice(0, 200);
@@ -83,7 +85,8 @@ export function CamaraLawsExplorer({ items, totalCount, page, pageSize, initialF
         <button type="button" className="filter-clear" onClick={clearFilters}>Limpar filtros</button>
       </form>
       <div className="acts-filter-summary" aria-live="polite"><strong>{filtered.length.toLocaleString("pt-BR")} nesta página · {totalCount.toLocaleString("pt-BR")} no recorte filtrado</strong><span>Os filtros são aplicados no servidor sobre todo o acervo. A página mostra até {pageSize} registros por vez.</span></div>
-      {visibleAuthors.length > 0 ? <section className="legislative-author-summary" aria-label="Registros por vereador da legislatura atual"><div><strong>Autoria publicada pelos vereadores atuais</strong><span>Somente os 19 nomes da composição atual · contagem global no recorte atual</span></div><div className="legislative-kpis" aria-label="Indicadores do recorte atual"><div><b>{visibleAuthors.length} de 19</b><span>vereadores com autoria encontrada</span></div><div><b>{authoredCount.toLocaleString("pt-BR")}</b><span>registros atribuídos</span></div><div><b>{visibleAuthors[0].authorName}</b><span>maior quantidade no recorte</span></div></div><div className="legislative-author-bars">{visibleAuthors.map((summary) => <button type="button" key={summary.authorName} onClick={() => { setAuthor(summary.authorName); window.location.assign(authorQuery(summary.authorName)); }} title={`Filtrar por ${summary.authorName}`}><span>{summary.authorName}</span><b style={{ "--bar-size": `${Math.max(8, Math.round((summary.itemCount / visibleAuthors[0].itemCount) * 100))}%` } as CSSProperties}>{summary.itemCount.toLocaleString("pt-BR")}</b></button>)}</div><p className="act-review-mode">Clique no nome para ver leis e indicações. Grafia, caixa alta e aliases aprovados são agrupados no filtro, mas a fonte original continua visível em cada registro. Autores históricos continuam no acervo e podem ser pesquisados, mas não entram neste gráfico por enquanto.</p></section> : null}
+      {visibleAuthors.length > 0 ? <section className="legislative-author-summary" aria-label="Registros por vereador da legislatura atual"><div><strong>Autoria publicada pelos vereadores atuais</strong><span>Somente os 19 nomes da composição atual · contagem global no recorte atual</span></div><div className="legislative-kpis" aria-label="Indicadores do recorte atual"><div><b>{visibleAuthors.length} de 19</b><span>vereadores com autoria encontrada</span></div><div><b>{authoredCount.toLocaleString("pt-BR")}</b><span>registros atribuídos</span></div><div><b>{visibleAuthors[0].authorName}</b><span>maior quantidade no recorte</span></div></div><div className="legislative-author-bars">{visibleAuthors.map((summary) => <button type="button" key={summary.authorName} onClick={() => { setAuthor(summary.authorName); window.location.assign(authorQuery(summary.authorName)); }} title={`Filtrar por ${summary.authorName}`}><span>{summary.authorName}</span><b style={{ "--bar-size": `${Math.max(8, Math.round((summary.itemCount / visibleAuthors[0].itemCount) * 100))}%` } as CSSProperties}>{summary.itemCount.toLocaleString("pt-BR")}</b></button>)}</div><p className="act-review-mode">Clique no nome para ver leis e indicações. Grafia, caixa alta e aliases aprovados são agrupados no filtro, mas a fonte original continua visível em cada registro. Vereadores de legislaturas anteriores aparecem no quadro seguinte.</p></section> : null}
+      {formerAuthorSummary.length > 0 ? <section className="legislative-author-summary" aria-label="Registros por vereador de legislaturas anteriores"><div><strong>Autoria de vereadores de legislaturas anteriores</strong><span>Mandatos encerrados, pelo resultado oficial do TSE · contagem global no recorte atual</span></div><div className="legislative-kpis" aria-label="Indicadores das legislaturas anteriores"><div><b>{formerAuthorSummary.length}</b><span>ex-vereadores com autoria vinculada</span></div><div><b>{formerCount.toLocaleString("pt-BR")}</b><span>registros atribuídos</span></div><div><b>{formerAuthorSummary[0].authorName}</b><span>maior quantidade no recorte</span></div></div><div className="legislative-author-bars">{formerAuthorSummary.map((summary) => <button type="button" key={summary.authorName} onClick={() => { setAuthor(summary.authorName); window.location.assign(authorQuery(summary.authorName)); }} title={`Filtrar por ${summary.authorName} (mandato ${summary.electedTerms})`}><span>{summary.authorName} <small>· {summary.electedTerms}</small></span><b style={{ "--bar-size": `${Math.max(8, Math.round((summary.itemCount / formerAuthorSummary[0].itemCount) * 100))}%` } as CSSProperties}>{summary.itemCount.toLocaleString("pt-BR")}</b></button>)}</div><p className="act-review-mode">Vínculo só quando a autoria publicada pela Câmara é idêntica ao nome oficial do vereador eleito (ignorando acento, caixa, pontuação e tratamento) e o item é do período do mandato. Grafias diferentes, apelidos e suplentes em exercício ficam fora desta contagem, mas continuam no acervo. Fonte do mandato: <a href={formerAuthorSummary[0].sourceUrl} target="_blank" rel="noreferrer">resultado oficial do TSE</a>.</p></section> : null}
       {filtered.length > 0 ? <div className="digest-grid">{filtered.map((item) => <LegislativeCard key={`${item.itemKind}-${item.itemId}`} item={item} />)}</div> : <div className="collection-unavailable" role="status"><div><strong>Nenhum registro neste recorte</strong><p>Altere os filtros ou limpe a busca para consultar todo o acervo.</p></div><button type="button" className="filter-clear" onClick={clearFilters}>Limpar filtros</button></div>}
       {totalCount > pageSize ? <nav className="legislative-pagination" aria-label="Paginação da atividade legislativa">{page > 1 ? <a className="filter-clear" href={filterQuery(page - 1)}>← Mais recentes</a> : <span />}{<span>Página {page} de {Math.ceil(totalCount / pageSize).toLocaleString("pt-BR")}</span>}{page * pageSize < totalCount ? <a className="filter-clear" href={filterQuery(page + 1)}>Registros anteriores →</a> : <span />}</nav> : null}
     </div>

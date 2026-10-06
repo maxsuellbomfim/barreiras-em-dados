@@ -31,6 +31,14 @@ export type CamaraLegislativeAuthorSummary = Readonly<{
   itemCount: number;
 }>;
 
+/** Vereador de legislatura encerrada, vinculado pelo nome oficial do TSE. */
+export type CamaraFormerAuthorSummary = Readonly<{
+  authorName: string;
+  electedTerms: string;
+  itemCount: number;
+  sourceUrl: string;
+}>;
+
 export type CamaraLegislativeFilters = Readonly<{
   query?: string | null;
   kind?: "lei" | "indicacao" | null;
@@ -177,6 +185,63 @@ export async function getCamaraLegislativeAuthorSummary(filters: CamaraLegislati
 
 export async function getCamaraCurrentAuthorSummary(filters: CamaraLegislativeFilters = {}): Promise<readonly CamaraLegislativeAuthorSummary[]> {
   return getAuthorSummary("get_camara_current_author_summary", filters);
+}
+
+/** Linha inválida devolve lista vazia: contagem pela metade não é exibida. */
+export function parseFormerAuthorSummary(payload: unknown): readonly CamaraFormerAuthorSummary[] {
+  if (!Array.isArray(payload)) return [];
+  const summaries: CamaraFormerAuthorSummary[] = [];
+  for (const row of payload) {
+    const record = row as Record<string, unknown>;
+    const authorName = optionalString(record.author_name);
+    const electedTerms = optionalString(record.elected_terms);
+    const sourceUrl = optionalString(record.source_url);
+    const rawCount = record.item_count;
+    const itemCount = typeof rawCount === "number" || typeof rawCount === "string" ? Number(rawCount) : NaN;
+    if (
+      !authorName ||
+      !electedTerms ||
+      !/^\d{4}–\d{4}(, \d{4}–\d{4})*$/.test(electedTerms) ||
+      !sourceUrl?.startsWith("https://") ||
+      !Number.isSafeInteger(itemCount) ||
+      itemCount < 1 ||
+      record.methodology_version !== "council-former-authors/1.0.0"
+    ) {
+      return [];
+    }
+    summaries.push({ authorName, electedTerms, itemCount, sourceUrl });
+  }
+  return summaries;
+}
+
+export async function getCamaraFormerAuthorSummary(
+  filters: CamaraLegislativeFilters = {},
+): Promise<readonly CamaraFormerAuthorSummary[]> {
+  const config = publicConfig();
+  if (!config) return [];
+  try {
+    const response = await fetch(`${config.url}/rest/v1/rpc/get_camara_former_author_summary`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Profile": "api",
+        apikey: config.key,
+        "Content-Profile": "api",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        item_kind_filter: filters.kind ?? null,
+        year_filter: filters.year ?? null,
+        query_filter: filters.query?.trim() || null,
+      }),
+      next: { revalidate: 900 },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return [];
+    return parseFormerAuthorSummary(await response.json());
+  } catch {
+    return [];
+  }
 }
 
 export async function getCamaraLegislativeItems(): Promise<CamaraLegislativeResult> {
