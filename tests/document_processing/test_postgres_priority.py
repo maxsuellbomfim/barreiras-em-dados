@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 
 from barreiras_docproc.postgres import PostgresExtractionRepository
 
@@ -103,8 +104,7 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
             query,
         )
         self.assertIn(
-            "then (artifact.metadata ->> 'edition')::integer "
-            "end desc nulls last",
+            "then (artifact.metadata ->> 'edition')::integer end desc nulls last",
             query,
         )
 
@@ -121,8 +121,7 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
             query,
         )
         self.assertIn(
-            "then (artifact.metadata ->> 'edition')::integer "
-            "end desc nulls last",
+            "then (artifact.metadata ->> 'edition')::integer end desc nulls last",
             query,
         )
 
@@ -238,8 +237,7 @@ class PendingActsIndexContractTests(unittest.TestCase):
         )
         self.assertIn("where extraction_method = 'ocr';", migration)
         self.assertIn(
-            "where ocr.raw_artifact_id = artifact.id"
-            " and ocr.extraction_method = 'ocr'",
+            "where ocr.raw_artifact_id = artifact.id and ocr.extraction_method = 'ocr'",
             query,
         )
 
@@ -298,6 +296,35 @@ class SegmenterPageStatsIndexTests(unittest.TestCase):
             "on raw.document_pages (raw_artifact_id, page_number)"
             " where text_content is not null;",
             migration,
+        )
+
+
+class ExistingJobVersionTests(unittest.TestCase):
+    def test_existing_succeeded_job_gets_the_ruleset_version(self) -> None:
+        # Job da mesma chave já concluído (anterior à gravação da versão): não
+        # gera resultados de novo, mas passa a ter a régua e sai da fila.
+        connection = RecordingConnection()
+        batch = SimpleNamespace(
+            artifact=SimpleNamespace(raw_artifact_id="a"),
+            job_type="gazette_act_candidates",
+            job_idempotency_key="k" * 64,
+            ruleset_version="gazette-act-candidates/2.4.0",
+        )
+
+        job_id = PostgresExtractionRepository._extraction_job(connection, batch)  # type: ignore[arg-type]
+
+        self.assertIsNone(job_id)
+        self.assertEqual(len(connection.queries), 2)
+        self.assertIn(
+            "update raw.extraction_jobs set extractor_version = %s",
+            connection.queries[1],
+        )
+        self.assertIn(
+            "and extractor_version is null and status = 'succeeded'",
+            connection.queries[1],
+        )
+        self.assertEqual(
+            connection.params[1], ("gazette-act-candidates/2.4.0", "k" * 64)
         )
 
 
