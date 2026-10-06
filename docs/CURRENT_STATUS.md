@@ -108,7 +108,15 @@ amplas.
    de vida há 24 h) são encerradas com motivo e auditoria.
 5. **Autoria legislativa:** coautorias chegam num campo só ("A e B", "A / B") e
    geram a maior parte das novas sugestões de alias; suplentes em exercício e
-   autoria do Executivo ainda não têm perfil próprio.
+   autoria do Executivo ainda não têm perfil próprio. Desde 06/10/2026, a
+   votação oficial do TSE de 2012, 2016 e 2020 está preservada (coleta local:
+   o CDN do TSE recusa o GitHub) e `/camara` mostra a autoria de 30
+   ex-vereadores (2.169 leis e indicações, `council-former-authors/1.0.0`):
+   vínculo só quando a autoria publicada é idêntica ao nome oficial do eleito
+   (sem acento, caixa, pontuação e tratamento; "JR" = "JUNIOR") e o item é do
+   mandato encerrado. A lista e os resumos leem `political.camara_legislative_items`,
+   mantida por gatilho na chegada do bruto (o resumo atual levava 9 s e o
+   gráfico sumia do site).
 6. **Qualidade medida:** amostra anotada criada em 28/09
    (`act-quality-sample/1.0.0`: 120 páginas de 90 edições, 6 estratos, 65 atos;
    ver [`reviews/ACT_EXTRACTION_QUALITY_SAMPLE.md`](reviews/ACT_EXTRACTION_QUALITY_SAMPLE.md)).

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { getCamaraCurrentAuthorSummary, getCamaraLegislativePage, type CamaraLegislativeFilters } from "../../lib/camara-legislative";
+import { getCamaraCurrentAuthorSummary, getCamaraFormerAuthorSummary, getCamaraLegislativePage, type CamaraLegislativeFilters } from "../../lib/camara-legislative";
 import { CamaraLawsExplorer } from "./laws-explorer";
 
 export const revalidate = 900;
@@ -40,9 +40,10 @@ export default async function CamaraPage({
   const params = await searchParams;
   const page = pageNumber(params.page);
   const filters = legislativeFilters(params);
-  const [result, authorSummary] = await Promise.all([
+  const [result, authorSummary, formerAuthorSummary] = await Promise.all([
     getCamaraLegislativePage(page, 50, filters),
     getCamaraCurrentAuthorSummary(filters),
+    getCamaraFormerAuthorSummary(filters),
   ]);
   return (
     <main>
@@ -57,10 +58,13 @@ export default async function CamaraPage({
           </p>
           <p className="hero-note">
             A maior parte das leis pode não trazer autoria individual na fonte.
-            Quando há autoria, reproduzimos o texto como publicado. Caixa alta,
-            nome de urna, coautorias e grafias diferentes podem representar
-            registros distintos; por isso não consolidamos pessoas
-            automaticamente.
+            Quando há autoria, reproduzimos o texto como publicado. Grafias
+            diferentes só são agrupadas por alias aprovado (vereadores atuais) ou,
+            para legislaturas anteriores, quando o nome publicado é idêntico ao
+            nome oficial do vereador eleito no TSE — ignorando só acento, caixa,
+            pontuação e tratamento como “Vereador” ou “Dr.” — e o item é do
+            período do mandato. Apelidos, coautorias e suplentes continuam sem
+            vínculo.
           </p>
         </div>
         {!result ? (
@@ -85,6 +89,7 @@ export default async function CamaraPage({
             pageSize={result.pageSize}
             initialFilters={filters}
             authorSummary={authorSummary}
+            formerAuthorSummary={formerAuthorSummary}
           />
         )}
         <p className="hero-note">
