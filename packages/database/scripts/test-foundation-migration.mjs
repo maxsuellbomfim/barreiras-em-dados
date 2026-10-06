@@ -189,8 +189,8 @@ try {
   // the commitment -> contract link decisions (ADR 0086) and their review
   // candidates (ADR 0088), the act-quality annotated sample (4 tables) and
   // the payment-recipient snapshot (ADR 0095) and the rental addresses read
-  // from the gazette (rentals 1.4.0).
-  assert.equal(relations.rows[0].count, 78);
+  // from the gazette (rentals 1.4.0) and the pg_net availability probe requests.
+  assert.equal(relations.rows[0].count, 79);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -206,7 +206,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 78);
+  assert.equal(rlsRelations.rows[0].count, 79);
   const queryStatusAccess = await database.query(`select
     has_table_privilege('anon','source.pncp_contract_query_status','SELECT') as anon_read,
     has_table_privilege('collector_worker','source.pncp_contract_query_status','INSERT') as worker_write`);
