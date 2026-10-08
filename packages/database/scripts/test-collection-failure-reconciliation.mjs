@@ -76,17 +76,23 @@ try {
   assert.ok(qd && catalog, "endpoints semeados ausentes");
 
   let sequence = 0;
-  const run = (endpoint, status, at) => {
+  const run = (endpoint, status, at, version = "test/1") => {
     sequence += 1;
     const id = `00000000-0000-4000-9000-${String(sequence).padStart(12, "0")}`;
     return {
       id,
       sql: `insert into source.collection_runs (id, source_endpoint_id, idempotency_key,
         collector_version, parser_version, status, attempt_count, started_at, completed_at)
-        values ('${id}', '${endpoint}', '${String(sequence).padStart(64, "a")}', 'test/1',
+        values ('${id}', '${endpoint}', '${String(sequence).padStart(64, "a")}', '${version}',
         'parser/1', '${status}', 1, '${at}', '${at}');`,
     };
   };
+  // Erro de invocação: o coletor recusou os próprios argumentos, sem chamar a fonte.
+  const valueError = (endpoint, runId, key, at) =>
+    `insert into source.collection_failures (collection_run_id, source_endpoint_id, partition_key,
+      status, error_type, error_detail, attempt_count, retryable, next_retry_at, failed_at)
+      values ('${runId}', '${endpoint}', '${key}', 'open', 'ValueError',
+      'limit deve estar entre 1 e 5.', 1, false, null, '${at}');`;
   const partition = (endpoint, key, start, end, status, runId, at) =>
     `insert into source.collection_partitions (source_endpoint_id, partition_key, period_start,
       period_end, status, observed_records, collection_run_id, last_attempted_at, completed_at)
@@ -151,6 +157,17 @@ try {
   const windowOk = add(run(qd, "succeeded", "2026-09-10T10:00:00Z"));
   statements.push(partition(qd, "published:2026-06-01:2026-06-30", "2026-06-01", "2026-06-30", "complete", windowOk, "2026-09-10T10:00:00Z"));
 
+  // Regra 5: erro de invocação de uma versão do coletor já substituída por
+  // execução posterior (parcial basta) de versão maior no mesmo endpoint.
+  const oldVersionFailed = add(run(catalog, "failed", "2026-09-11T10:00:00Z", "tcm-docs/1.0.0"));
+  statements.push(valueError(catalog, oldVersionFailed, "documents:2021-01", "2026-09-11T10:00:00Z"));
+  const newVersionRun = add(run(catalog, "partial", "2026-09-12T10:00:00Z", "tcm-docs/1.1.0"));
+  // Mesma versão depois, ou outro coletor, não resolve.
+  const sameVersionFailed = add(run(qd, "failed", "2026-09-13T10:00:00Z", "qd-weeks/2.0.0"));
+  statements.push(valueError(qd, sameVersionFailed, "published:2026-05-01:2026-05-07", "2026-09-13T10:00:00Z"));
+  add(run(qd, "succeeded", "2026-09-14T10:00:00Z", "qd-weeks/2.0.0"));
+  add(run(qd, "succeeded", "2026-09-14T11:00:00Z", "other-collector/9.0.0"));
+
   await database.exec(statements.join("\n"));
 
   const privileges = await database.query(`
@@ -169,6 +186,7 @@ try {
       snapshot_superseded: 1,
       covered_by_primary_source: 2,
       covered_by_later_window: 1,
+      collector_version_superseded: 1,
     },
   );
 
@@ -185,6 +203,7 @@ try {
       [qdFailed, sameOk, "covered_by_primary_source", null],
       [qdPermanent, sameOk, "covered_by_primary_source", null],
       [windowFailed, windowOk, "covered_by_later_window", null],
+      [oldVersionFailed, newVersionRun, "collector_version_superseded", null],
     ],
   );
 
@@ -194,7 +213,7 @@ try {
   `);
   assert.deepEqual(
     stillOpen.rows.map((row) => row.run),
-    [qdUncovered, archiveFailed, partialRun, lateSnapFailed],
+    [qdUncovered, archiveFailed, partialRun, lateSnapFailed, sameVersionFailed],
   );
 
   const audit = await database.query(`
@@ -203,8 +222,9 @@ try {
   `);
   assert.equal(audit.rows.length, 1);
   assert.equal(audit.rows[0].actor_type, "worker");
-  assert.equal(audit.rows[0].metadata.version, "collection-failure-reconciliation/1.1.0");
+  assert.equal(audit.rows[0].metadata.version, "collection-failure-reconciliation/1.2.0");
   assert.equal(audit.rows[0].after_state.covered_by_later_window, 1);
+  assert.equal(audit.rows[0].after_state.collector_version_superseded, 1);
   assert.equal(audit.rows[0].metadata.records_deleted, false);
   assert.equal(audit.rows[0].after_state.covered_by_primary_source, 2);
 

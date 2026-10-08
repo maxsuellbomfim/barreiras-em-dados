@@ -100,7 +100,14 @@ amplas.
    fim do workflow do Diário. Na medição de 27/09 fecharia 154 de 211 falhas
    abertas; as demais são pendências reais ou estados de espera que o próprio
    coletor ainda registra como falha (mês do TCM não publicado, contratos do
-   PNCP com leitura pendente).
+   PNCP com leitura pendente). Desde 08/10 (regra 5, versão 1.2.0), erro de
+   invocação (`ValueError`, sem chamada à fonte) de uma versão do coletor já
+   substituída por execução posterior de versão maior também fecha: em
+   04/09 o dreno documental do TCM-BA 1.0.0 recusou um lote maior que cinco
+   (o teto passou a dez sem mudar a versão) e, como a falha não era
+   retentável, o planejador pulou a competência 01/2021 por um mês (150 de
+   1.441 documentos); o coletor passou a 1.1.0 e a falha fecha na próxima
+   reconciliação.
    Desde 30/09 a API complementar do Querido Diário (sem sucesso desde 29/08,
    144 tentativas em 30 dias) fica em pausa: sem sucesso há 14 dias, tenta só
    uma vez por semana e volta ao ritmo diário no primeiro sucesso; a fonte
@@ -246,4 +253,7 @@ modalidades pendentes (queda total no dia da coleta), o backfill refaz a
 janela inteira de uma vez; com poucas pendentes, segue uma modalidade por
 execução e uma verificação integral no fim. Falhas de janela cobertas por
 janela maior posterior fecham pela regra 4 da reconciliação
-(collection-failure-reconciliation/1.1.0).
+(collection-failure-reconciliation/1.2.0). Depois: conferir que o dreno
+documental do TCM-BA retomou 01/2021 e que as partições já cobertas (PNCP
+2025-04-09..23 e as duas modalidades de 2024-03-15..04-13) deixam de contar
+como pendência no admin.
