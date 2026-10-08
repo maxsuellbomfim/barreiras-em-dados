@@ -23,6 +23,7 @@ type SampleRow = Readonly<{
   portal_contracts_url: string;
   current_decision: string | null;
   current_reviewed_at: string | null;
+  current_review_kind: "human" | "automated" | null;
   methodology_version: string;
 }>;
 
@@ -121,7 +122,11 @@ export function ContractCitationReview({ rpc }: Readonly<{ rpc: RpcCall }>) {
           {current?.current_decision
             ? `${DECISION_LABELS[current.current_decision] ?? current.current_decision} em ${new Date(
                 current.current_reviewed_at ?? "",
-              ).toLocaleString("pt-BR")}`
+              ).toLocaleString("pt-BR")}${
+                current.current_review_kind === "automated"
+                  ? " (conferência automática por agente, não revisão humana; sua decisão aqui prevalece)"
+                  : ""
+              }`
             : "nenhuma conferência registrada — página pública sem dados"}
         </p>
       </div>

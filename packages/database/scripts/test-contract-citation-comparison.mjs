@@ -11,7 +11,7 @@ const migrationsUrl = new URL("../../../supabase/migrations/", import.meta.url);
 const migrationNames = (await readdir(fileURLToPath(migrationsUrl)))
   .filter((name) => name.endsWith(".sql"))
   .sort();
-assert.ok(migrationNames.some((name) => name.endsWith("_contract_citation_comparison.sql")));
+assert.ok(migrationNames.some((name) => name.endsWith("_contract_citation_snapshot.sql")));
 
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
@@ -150,6 +150,9 @@ try {
   const relinked = cited("O-8", "17/07/2025", FMS, "GRAFICA ZETA LTDA", "contrato 009/2025");
   link(relinked, "O-8", "sem_citacao", "", "", "2026-10-01T12:00:00Z");
   await database.exec(statements.join("\n"));
+  assert.equal((await database.query(
+    "select finance.refresh_contract_citation_snapshot() as n")).rows[0].n, 6,
+    "o instantâneo guarda uma linha por empenho comparado, de todos os anos");
 
   const comparison = (await database.query(`select commitment_key, creditor_is_entity,
     cited_number, cited_excerpt, list_read_on::text, paid_amount::text, payments,
@@ -220,17 +223,65 @@ try {
   assert.equal(aggregate.cited_excerpt, null);
   assert.equal(aggregate.latest_commitment_key, null);
 
+  assert.ok(approved.every((row) => row.review_kind === "human"));
+
   await review("withdrawn", "Retirada para nova conferência.", 0);
   assert.equal((await publicRows())[0].review_state, "awaiting_review");
 
+  // Conferência automática por agente: a decisão sai da evidência, por código.
+  const evidence = (outcomes) => ({
+    check_version: "contract-citation-agent-check/1.0.0",
+    read_at: "2026-10-08T15:00:00Z",
+    portal_contracts: 1517,
+    counts: {},
+    cases: [
+      ...outcomes.map((outcome, index) => ({ order: index + 1, cited_number: `${index}/2025`, outcome })),
+      { order: 98, cited_number: "338/2020", outcome: "ausente_da_lista" },
+      { order: 99, cited_number: "308/2023", outcome: "ausente_da_lista" },
+    ],
+  });
+  const agentCheck = (value) => database.query(
+    "select * from finance.record_contract_citation_agent_check($1::jsonb)", [JSON.stringify(value)]);
+  const absent = Array.from({ length: 18 }, () => "ausente_da_lista");
+  await assert.rejects(agentCheck({ ...evidence(absent), portal_contracts: 50 }), /inválida/,
+    "lista pela metade não serve de evidência");
+  await assert.rejects(agentCheck(evidence(absent.slice(0, 5))), /incompleta/);
+  await assert.rejects(agentCheck(evidence([...absent, "sei lá"])), /incompleta/);
+  const flagged = (await agentCheck(evidence([...absent, "presente_com_outro_sufixo"]))).rows[0];
+  assert.equal(flagged.decision, "changes_requested", "caso presente na lista trava a publicação");
+  assert.equal((await publicRows())[0].review_state, "awaiting_review");
+  const agentApproved = (await agentCheck(evidence(absent))).rows[0];
+  assert.equal(agentApproved.decision, "approved");
+  assert.equal(agentApproved.checked_cases, 20);
+  const automated = await publicRows();
+  assert.equal(automated.length, 3);
+  assert.ok(automated.every((row) => row.review_state === "approved" && row.review_kind === "automated"));
+  const recorded = (await database.query(`select reviewer_subject, rationale, checklist ->> 'label' as label
+    from editorial.editorial_reviews where target_type = 'finance.contract_citation_comparison'
+    order by reviewed_at desc, created_at desc limit 1`)).rows[0];
+  assert.equal(recorded.reviewer_subject, "automated:contract-citation-agent-check/1.0.0");
+  assert.match(recorded.rationale, /não revisão humana/);
+  assert.equal(recorded.label, "conferência automática por agente, não revisão humana");
+  // Decisão humana posterior prevalece sobre a automática.
+  await review("withdrawn", "Retirada após a conferência automática.", 0);
+  assert.equal((await publicRows())[0].review_state, "awaiting_review");
+  assert.equal((await database.query(
+    "select current_review_kind from api.get_contract_citation_review_sample() limit 1")).rows[0]
+    .current_review_kind, "human");
+
   const access = await database.query(`select
+    has_table_privilege('anon', 'finance.contract_citation_snapshot', 'SELECT') as snapshot,
+    has_function_privilege('anon', 'finance.refresh_contract_citation_snapshot()', 'EXECUTE') as refresh,
+    has_function_privilege('anon', 'finance.record_contract_citation_agent_check(jsonb)', 'EXECUTE') as agent,
+    has_function_privilege('authenticated', 'finance.record_contract_citation_agent_check(jsonb)', 'EXECUTE') as agent_auth,
     has_function_privilege('anon', 'api.get_public_contract_citations(integer)', 'EXECUTE') as public,
     has_function_privilege('anon', 'api.get_contract_citation_review_sample()', 'EXECUTE') as sample,
     has_function_privilege('anon', 'api.review_contract_citation_comparison(text, text, integer)', 'EXECUTE') as review,
     has_function_privilege('anon', 'finance.contract_citation_comparison_v1(integer)', 'EXECUTE') as internal,
     has_function_privilege('authenticated', 'finance.contract_citation_comparison_v1(integer)', 'EXECUTE') as internal_auth`);
   assert.deepEqual(access.rows[0],
-    { public: true, sample: false, review: false, internal: false, internal_auth: false });
+    { snapshot: false, refresh: false, agent: false, agent_auth: false, public: true, sample: false, review: false,
+      internal: false, internal_auth: false });
 } finally {
   await database.close();
 }
