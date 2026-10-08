@@ -269,12 +269,19 @@ amplas.
 
 ## Próximo fluxo vertical
 
-Acompanhar o fechamento das janelas parciais do PNCP: com todas as
-modalidades pendentes (queda total no dia da coleta), o backfill refaz a
-janela inteira de uma vez; com poucas pendentes, segue uma modalidade por
-execução e uma verificação integral no fim. Falhas de janela cobertas por
-janela maior posterior fecham pela regra 4 da reconciliação
-(collection-failure-reconciliation/1.2.0). Depois: conferir que o dreno
-documental do TCM-BA retomou 01/2021 e que as partições já cobertas (PNCP
-2025-04-09..23 e as duas modalidades de 2024-03-15..04-13) deixam de contar
-como pendência no admin.
+Feito em 08/10: o painel do admin (`api.get_collection_health_v9`,
+collection-health/1.10.0) desconta de parciais/falhas as partições cobertas
+por janela posterior completa ou vazia — mesmas leituras das regras 2 e 4 da
+reconciliação de falhas (retrato datado substituído por retrato posterior;
+janela publicada coberta por janela maior; subpartição por modalidade coberta
+pela verificação integral que não a deixou pendente) — e as mostra como
+"cobertas por janela posterior" (17 em produção, entre elas PNCP
+2025-04-09..23 e as modalidades 9 e 11 de 2024-03-15..04-13). O histórico
+das partições não muda. O dreno documental do TCM-BA retomou 01/2021 pelo
+agendador local (10 documentos a cada 15 min).
+
+Próximo: acompanhar o OCR local das 634 edições de 2021–2022
+(`scripts/run-gazette-ocr.ps1`, ~1.100 páginas/hora) até as edições
+aparecerem no índice integral do Diário; depois, as 150 janelas falhas da
+API complementar do Querido Diário (fonte parada desde junho) precisam de
+uma regra explícita de encerramento ou de um aviso público de cobertura.

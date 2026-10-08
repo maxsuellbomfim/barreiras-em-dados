@@ -39,6 +39,8 @@ export type CollectionHealthItem = Readonly<{
   partial_partitions: number;
   failed_partitions: number;
   blocked_partitions: number;
+  // v9: parciais/falhas cobertas por janela posterior completa ou vazia.
+  superseded_partitions?: number;
   unresolved_failures: number;
   latest_failure_status: string | null;
   latest_failure_type: string | null;
@@ -374,6 +376,9 @@ function CollectionHealthCard({
         {item.partial_partitions.toLocaleString("pt-BR")} parciais ·{" "}
         {item.failed_partitions.toLocaleString("pt-BR")} falhas ·{" "}
         {item.blocked_partitions.toLocaleString("pt-BR")} bloqueadas
+        {item.superseded_partitions
+          ? ` · ${item.superseded_partitions.toLocaleString("pt-BR")} cobertas por janela posterior`
+          : ""}
       </p>
       {workProgress ? (
         <section
