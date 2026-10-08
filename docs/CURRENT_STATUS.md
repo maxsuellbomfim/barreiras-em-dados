@@ -69,7 +69,12 @@ amplas.
    08/10 o workflow `backfill-direct-diary.yml` preserva até 15 por execução
    (partição `backfill:3353-3988`, números sem PDF em nenhum ano ficam no
    checkpoint) — ~13 MB cada, cerca de 8 GB a mais no Storage; depois o OCR
-   dessas ~30 mil páginas leva semanas no ritmo atual.
+   dessas ~30 mil páginas leva semanas no ritmo atual. Como o cron do GitHub
+   pulou as primeiras janelas, o mesmo backfill roda pelo executor local
+   (`scripts/run-direct-diary-backfill.ps1`, identidade
+   `barreiras-diario-local-collector`; tarefa horária por
+   `scripts/install-direct-diary-backfill-schedule.ps1`); as edições 3353 e
+   3354 (2021) foram as primeiras preservadas em 08/10.
    Auditoria por amostragem (25/09, 30 páginas): texto corrido e valores
    monetários conferidos fiéis, mas `§` vira `8` de forma sistemática (2.163
    páginas), tabelas perdem colunas e há erros de dígito isolados. Desde 25/09, páginas
