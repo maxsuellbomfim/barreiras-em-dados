@@ -157,6 +157,12 @@ amplas.
    estourava o tempo do workflow e pulava a publicação (`--max-seconds`).
    A amostra seguinte (só a régua 2.4.0) é criada sozinha pelo workflow diário
    quando o reprocessamento termina (`editorial.ensure_act_quality_sample`).
+   Segunda medição (amostra `act-quality-sample/1.1.0`, criada em 06/10 e
+   anotada pela IA até 08/10, 120 de 120 páginas, sem ponderação): 49 atos
+   julgados, 43 certos, 2 incompletos e 4 errados (≈88% estrita, ≈92% ampla);
+   5 não extraídos, todos em páginas OCR. Comparação completa em
+   [`reviews/ACT_EXTRACTION_QUALITY_SAMPLE.md`](reviews/ACT_EXTRACTION_QUALITY_SAMPLE.md).
+   O que resta é o OCR; o texto embutido ficou com 1 erro em 29 atos.
 7. **Contratos citados sem correspondência (ADR 0096):** desde 08/10/2026,
    `contract-citation-comparison/1.0.0` compara 6.817 empenhos orçamentários
    de 2024–2026 (fora a Câmara) cujo contrato citado não está na lista do
