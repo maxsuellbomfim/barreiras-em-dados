@@ -170,6 +170,25 @@ try {
     version_blocks: "editorial.gazette_document_version_blocks",
   }]);
 
+  // A cobertura diária pública conta a edição direta (PDF oficial) datada
+  // pelo documento integral, mesmo sem janela da API do Querido Diário.
+  const directCoverage = await database.query(`
+    select coverage.coverage_status,
+           coverage.preserved_editions::integer as preserved_editions,
+           coverage.preserved_documents::integer as preserved_documents,
+           daily.attempted_by_recorded_window
+    from api.get_public_querido_diario_coverage(366, 0) as coverage
+    join source.querido_diario_daily_coverage as daily
+      on daily.day = coverage.coverage_day
+    where coverage.coverage_day = date '2026-08-08'
+  `);
+  assert.deepEqual(directCoverage.rows, [{
+    coverage_status: "complete",
+    preserved_editions: 1,
+    preserved_documents: 1,
+    attempted_by_recorded_window: false,
+  }]);
+
   const rls = await database.query(`
     select
       (select relrowsecurity from pg_class where oid = 'raw.document_blocks'::regclass) as blocks_rls,

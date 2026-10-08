@@ -82,7 +82,7 @@ function DiaryCoverageSummary({
   return (
     <dl className="diary-coverage-summary" aria-label="Resumo da cobertura do Diário">
       <div>
-        <dt>Edições preservadas</dt>
+        <dt>Edições preservadas pela API</dt>
         <dd>
           {collectionStatus.state === "available"
             ? collectionStatus.data.preservedEditionCount.toLocaleString("pt-BR")
@@ -106,15 +106,16 @@ function DiaryCoverageDetails({
 }: Readonly<{ result: PublicDiaryCoverageResult }>) {
   if (result.state !== "available" || result.items.length === 0) return null;
   const labels = {
-    complete: "janela coletada com edição preservada",
-    empty: "janela coletada sem edição retornada",
+    complete: "edição preservada (API ou PDF oficial)",
+    empty: "janela da API coletada sem edição retornada",
     unclassified: "sem janela de coleta classificável",
   } as const;
   return (
     <details className="diary-coverage-detail">
       <summary>Ver classificação diária recente</summary>
       <p>
-        A classificação abaixo usa somente janelas registradas pelo coletor.
+        A classificação abaixo conta as edições preservadas pela API do
+        Querido Diário e pelo PDF oficial direto; “janela” é só a da API.
         “Sem classificação” não significa que o Diário não exista.
       </p>
       <ul>
