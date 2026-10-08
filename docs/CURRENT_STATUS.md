@@ -63,6 +63,13 @@ amplas.
    seguem no bruto, fora das filas. Atos de edições com OCR exibem aviso de
    transcrição. Pendências: o agendador do GitHub dispara o dreno só ~5 vezes
    por dia (suficiente para as ~700 páginas novas diárias do backfill).
+   **Edições de 2021–2022 (3353–3988, ~636 PDFs) nunca foram buscadas**: a
+   sonda direta só anda para a frente a partir do cursor e começou em 3989;
+   os PDFs existem no site da Prefeitura (pastas 2021, 2022 e 2023). Desde
+   08/10 o workflow `backfill-direct-diary.yml` preserva até 15 por execução
+   (partição `backfill:3353-3988`, números sem PDF em nenhum ano ficam no
+   checkpoint) — ~13 MB cada, cerca de 8 GB a mais no Storage; depois o OCR
+   dessas ~30 mil páginas leva semanas no ritmo atual.
    Auditoria por amostragem (25/09, 30 páginas): texto corrido e valores
    monetários conferidos fiéis, mas `§` vira `8` de forma sistemática (2.163
    páginas), tabelas perdem colunas e há erros de dígito isolados. Desde 25/09, páginas

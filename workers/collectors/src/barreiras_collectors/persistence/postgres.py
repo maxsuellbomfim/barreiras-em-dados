@@ -1618,6 +1618,68 @@ class PostgresCollectionRepository:
             )
         return int(row["next_edition"])
 
+    def missing_direct_editions(
+        self,
+        *,
+        first_edition: int,
+        last_edition: int,
+        partition_key: str,
+        limit: int,
+    ) -> tuple[tuple[int, ...], tuple[int, ...]]:
+        """Números do intervalo sem PDF preservado, e os já dados como
+        inexistentes na origem pelo checkpoint da partição de backfill."""
+        if first_edition < 1 or last_edition < first_edition:
+            raise ValueError("Intervalo de edições inválido.")
+        if limit < 1:
+            raise ValueError("O limite deve ser positivo.")
+        connection = self.connection_factory()
+        try:
+            known_missing_rows = connection.execute(
+                """
+                select (missing.value)::integer as edition
+                from source.collection_partitions as partition
+                join source.source_endpoints as endpoint
+                  on endpoint.id = partition.source_endpoint_id
+                join source.data_sources as source
+                  on source.id = endpoint.data_source_id
+                cross join jsonb_array_elements_text(
+                  coalesce(partition.checkpoint -> 'missing_editions', '[]'::jsonb)
+                ) as missing(value)
+                where source.slug = 'barreiras-diario-oficial'
+                  and endpoint.slug = 'pdf-direto'
+                  and partition.partition_key = %s
+                  and missing.value ~ '^[0-9]+$'
+                order by 1
+                """,
+                (partition_key,),
+            )
+            known_missing: list[int] = []
+            while (row := known_missing_rows.fetchone()) is not None:
+                known_missing.append(int(row["edition"]))
+            candidate_rows = connection.execute(
+                """
+                select candidate.edition
+                from generate_series(%s, %s) as candidate(edition)
+                where not exists (
+                    select 1
+                    from raw.raw_artifacts as artifact
+                    where artifact.metadata ->> 'schema_name'
+                        = 'gazette-direct-edition'
+                      and artifact.metadata ->> 'edition' = candidate.edition::text
+                  )
+                  and candidate.edition <> all(%s::integer[])
+                order by candidate.edition
+                limit %s
+                """,
+                (first_edition, last_edition, known_missing, limit),
+            )
+            candidates: list[int] = []
+            while (row := candidate_rows.fetchone()) is not None:
+                candidates.append(int(row["edition"]))
+            return tuple(candidates), tuple(known_missing)
+        finally:
+            connection.close()
+
     def pending_direct_catalog_editions(
         self,
         limit: int,

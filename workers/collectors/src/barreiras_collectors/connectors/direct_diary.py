@@ -48,10 +48,7 @@ class DirectEditionTarget:
 
 
 def edition_url(year: int, edition_number: int) -> str:
-    return (
-        "https://barreiras.ba.gov.br/diario/pdf/"
-        f"{year}/diario{edition_number}.pdf"
-    )
+    return f"https://barreiras.ba.gov.br/diario/pdf/{year}/diario{edition_number}.pdf"
 
 
 # "diario4310.pdf", "diario4704-edicaoextra.pdf". Mesmo padrão da consulta de
@@ -72,8 +69,22 @@ def fetch_edition(
     today: date,
 ) -> DirectEdition:
     """Tenta o ano corrente e o anterior (virada de ano) antes de desistir."""
+    return fetch_edition_in_years(
+        client, edition_number, years=(today.year, today.year - 1)
+    )
+
+
+def fetch_edition_in_years(
+    client: GazetteDocumentClient,
+    edition_number: int,
+    *,
+    years: tuple[int, ...],
+) -> DirectEdition:
+    """A pasta do PDF é o ano de publicação; a numeração não revela o ano."""
+    if not years:
+        raise ValueError("Informe ao menos um ano candidato.")
     last_error: PermanentHttpError | None = None
-    for year in (today.year, today.year - 1):
+    for year in years:
         try:
             document = client.fetch(
                 edition_url(year, edition_number),
@@ -141,6 +152,70 @@ def collect_editions(
             artifact_hash=edition.document.body_sha256,
         )
     return persisted, False
+
+
+@dataclass(frozen=True)
+class BackfillResult:
+    persisted: int
+    # Números sem PDF em nenhum ano candidato: numeração não publicada ou
+    # retirada do site; ficam registrados para não serem sondados de novo.
+    not_found: tuple[int, ...]
+    # Indisponibilidade transitória interrompeu a janela antes do fim.
+    deferred: bool
+
+
+def collect_missing_editions(
+    client: GazetteDocumentClient,
+    persist: Callable[[DirectEdition], object],
+    *,
+    editions: tuple[int, ...],
+    years: tuple[int, ...],
+    logger: logging.Logger,
+) -> BackfillResult:
+    """Backfill: números faltantes de um intervalo antigo, sem cursor.
+
+    Diferente da sonda para a frente, um 404 não encerra a janela: a
+    numeração do Diário tem buracos e o próximo número pode existir.
+    """
+    persisted = 0
+    not_found: list[int] = []
+    for edition_number in editions:
+        try:
+            edition = fetch_edition_in_years(client, edition_number, years=years)
+        except EditionNotFoundError:
+            not_found.append(edition_number)
+            log_event(
+                logger,
+                logging.INFO,
+                "collector_direct_diary_backfill_not_found",
+                source=SOURCE_CODE,
+                edition=edition_number,
+                years=list(years),
+            )
+            continue
+        except SourceUnavailableError as error:
+            log_event(
+                logger,
+                logging.WARNING,
+                "collector_direct_diary_backfill_deferred",
+                source=SOURCE_CODE,
+                edition=edition_number,
+                persisted=persisted,
+                error_type=type(error).__name__,
+            )
+            return BackfillResult(persisted, tuple(not_found), True)
+        persist(edition)
+        persisted += 1
+        log_event(
+            logger,
+            logging.INFO,
+            "collector_direct_edition_persisted",
+            source=SOURCE_CODE,
+            edition=edition.edition_number,
+            year=edition.year,
+            artifact_hash=edition.document.body_sha256,
+        )
+    return BackfillResult(persisted, tuple(not_found), False)
 
 
 def collect_catalog_editions(
