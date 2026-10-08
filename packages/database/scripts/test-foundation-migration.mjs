@@ -2323,6 +2323,88 @@ try {
     reviewer_can_execute: true,
   });
 
+  // v9 (collection-health/1.10.0): parciais e falhas cobertas por janela
+  // posterior completa ou vazia saem da pendência; a subpartição por
+  // modalidade só sai quando a janela integral não a deixou pendente.
+  await database.exec(`
+    insert into source.collection_partitions (
+      source_endpoint_id, partition_key, period_start, period_end, status,
+      observed_records, last_attempted_at, completed_at, checkpoint
+    )
+    select
+      endpoint.id, candidate.key, candidate.starts, candidate.ends,
+      candidate.status, 0, candidate.at,
+      case when candidate.status in ('complete', 'empty') then candidate.at end,
+      candidate.checkpoint::jsonb
+    from source.source_endpoints as endpoint
+    cross join (values
+      ('day:2026-09-21', date '2026-09-21', date '2026-09-21', 'partial',
+        timestamptz '2026-09-21 12:00:00+00', '{}'),
+      ('day:2026-09-22', date '2026-09-22', date '2026-09-22', 'complete',
+        timestamptz '2026-09-22 12:00:00+00', '{}'),
+      ('published:2025-04-09:2025-04-23', date '2025-04-09', date '2025-04-23',
+        'failed', timestamptz '2026-08-13 12:00:00+00', '{}'),
+      ('published:2025-04-09:2025-05-08', date '2025-04-09', date '2025-05-08',
+        'complete', timestamptz '2026-08-17 12:00:00+00',
+        '{"failed_modalities":[]}'),
+      ('published:2024-03-15:2024-04-13:modality:9', date '2024-03-15',
+        date '2024-04-13', 'partial', timestamptz '2026-09-22 12:00:00+00',
+        '{"failed_modalities":[9]}'),
+      ('published:2024-03-15:2024-04-13:modality:11', date '2024-03-15',
+        date '2024-04-13', 'partial', timestamptz '2026-09-22 12:00:00+00',
+        '{"failed_modalities":[11]}'),
+      ('published:2024-03-15:2024-04-13', date '2024-03-15', date '2024-04-13',
+        'empty', timestamptz '2026-09-25 12:00:00+00',
+        '{"failed_modalities":[11],"deferred_modalities":[],"truncated_modalities":[]}'),
+      ('published:2023-01-01:2023-01-31', date '2023-01-01', date '2023-01-31',
+        'failed', timestamptz '2026-09-01 12:00:00+00', '{}')
+    ) as candidate(key, starts, ends, status, at, checkpoint)
+    where endpoint.slug = 'critical-public-pages';
+  `);
+  const supersededHealth = await database.query(`
+    select
+      (previous.partial_partitions - current.partial_partitions)::integer
+        as partial_removed,
+      (previous.failed_partitions - current.failed_partitions)::integer
+        as failed_removed,
+      current.superseded_partitions::integer as superseded,
+      current.methodology_version
+    from api.get_collection_health_v9(200, date '2026-09-04') as current
+    join api.get_collection_health_v8(200, date '2026-09-04') as previous
+      on previous.endpoint_id = current.endpoint_id
+    where current.source_slug = 'barreiras-360'
+      and current.endpoint_slug = 'critical-public-pages'
+  `);
+  assert.deepEqual(supersededHealth.rows, [{
+    partial_removed: 2,
+    failed_removed: 1,
+    superseded: 3,
+    methodology_version: "collection-health/1.10.0",
+  }]);
+  const supersededPrivileges = await database.query(`
+    select
+      has_function_privilege(
+        'anon', 'api.get_collection_health_v9(integer,date)', 'execute'
+      ) as anon_can_execute,
+      has_function_privilege(
+        'authenticated', 'api.get_collection_health_v9(integer,date)', 'execute'
+      ) as reviewer_can_execute
+  `);
+  assert.deepEqual(supersededPrivileges.rows[0], {
+    anon_can_execute: false,
+    reviewer_can_execute: true,
+  });
+  await database.exec(`
+    delete from source.collection_partitions as partition
+    using source.source_endpoints as endpoint
+    where endpoint.id = partition.source_endpoint_id
+      and endpoint.slug = 'critical-public-pages'
+      and (
+        partition.partition_key like 'day:2026-09-2_'
+        or partition.partition_key like 'published:%'
+      );
+  `);
+
   // Corredores por fonte: a mesma identidade pode receber um segundo
   // prefixo autorizado, sem ganhar acesso fora da lista fechada.
   await database.exec(`

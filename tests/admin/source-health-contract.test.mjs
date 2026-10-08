@@ -202,3 +202,30 @@ test("painel mede sete dias de sondagens públicas sem confundir amostra com tr�
   assert.match(component, /Disponibilidade pública observada/);
   assert.match(component, /availability\.limitation/);
 });
+
+test("partições cobertas por janela posterior saem das pendências", async () => {
+  const migrationsDirectory = new URL("../../supabase/migrations/", import.meta.url);
+  const migrationName = (await readdir(migrationsDirectory)).find((name) =>
+    name.endsWith("_collection_health_superseded_partitions.sql"),
+  );
+  assert.ok(migrationName, "a migration das partições cobertas deve existir");
+  const supersededMigration = await readFile(
+    new URL(migrationName, migrationsDirectory),
+    "utf8",
+  );
+
+  assert.match(supersededMigration, /create function api\.get_collection_health_v9\(/);
+  assert.match(supersededMigration, /superseded_partitions bigint/);
+  assert.match(supersededMigration, /catalog-snapshot\|archive-snapshot\|day/);
+  assert.match(supersededMigration, /:modality:\(\[0-9\]\+\)\$/);
+  assert.match(supersededMigration, /failed_modalities/);
+  assert.match(supersededMigration, /collection-health\/1\.10\.0/);
+  assert.match(
+    supersededMigration,
+    /revoke all on function api\.get_collection_health_v9\(integer, date\)\s+from public, anon/,
+  );
+  assert.match(page, /get_collection_health_v9/);
+  assert.match(page, /get_collection_health_v8/);
+  assert.match(component, /superseded_partitions/);
+  assert.match(component, /cobertas por janela posterior/);
+});
