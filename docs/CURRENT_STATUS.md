@@ -144,9 +144,13 @@ amplas.
    `contract-citation-comparison/1.0.0` compara 6.817 empenhos orçamentários
    de 2024–2026 (fora a Câmara) cujo contrato citado não está na lista do
    portal; só o pago, PNCP à parte, pessoa física sem nome. A página
-   `/financas/contratos-citados` existe sem link e fora do índice e mostra
-   "aguardando conferência" até um revisor conferir a amostra de 22 casos na
-   aba "Ligações" do admin e aprovar. Depois: ligar em `/financas` e no sitemap.
+   `/financas/contratos-citados` só mostra dados com aprovação registrada. A
+   conferência foi feita por agente (`scripts/check-contract-citations.mjs`:
+   lista do portal lida ao vivo, 22 casos da amostra ausentes), gravada com o
+   rótulo "conferência automática por agente, não revisão humana"; a aba
+   "Ligações" do admin permite a um revisor retirar ou substituir a decisão.
+   A página lê `finance.contract_citation_snapshot`, refeito de hora em hora
+   pelo pg_cron (recalcular a cada chamada passava do limite anon de 3 s).
 
 ## O que já está disponível no portal
 

@@ -21,7 +21,13 @@ export type ContractCitationGroup = Readonly<{
 }>;
 
 export type ContractCitationResult =
-  | Readonly<{ state: "approved"; approvedAt: string; groups: readonly ContractCitationGroup[] }>
+  | Readonly<{
+      state: "approved";
+      approvedAt: string;
+      /** automated = conferência automática por agente, não revisão humana. */
+      reviewKind: "human" | "automated";
+      groups: readonly ContractCitationGroup[];
+    }>
   | Readonly<{ state: "awaiting_review" }>
   | Readonly<{ state: "unavailable" }>;
 

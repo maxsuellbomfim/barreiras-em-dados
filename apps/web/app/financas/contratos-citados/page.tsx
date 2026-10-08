@@ -10,13 +10,10 @@ import { formatBrlDecimal } from "../../../lib/revenues";
 
 export const revalidate = 300;
 
-// ponytail: fora do índice e sem link até a conferência registrada (ADR 0096);
-// ao publicar, tirar o robots e ligar em /financas e no sitemap.
 export const metadata: Metadata = {
   title: "Citações de contrato em empenhos | Finanças",
   description:
     "Comparação entre os contratos citados nos empenhos da Prefeitura de Barreiras e a lista de contratos publicada no Portal da Transparência.",
-  robots: { index: false, follow: false },
 };
 
 type PageProps = Readonly<{ searchParams: Promise<{ ano?: string }> }>;
@@ -177,7 +174,16 @@ export default async function ContractCitationsPage({ searchParams }: PageProps)
               groups={result.groups.filter((group) => group.category === "publicado_no_pncp")}
             />
             <p className="hero-note">
-              Conferência humana registrada em {formatDate(result.approvedAt.slice(0, 10))}.
+              {result.reviewKind === "automated" ? (
+                <>
+                  <strong>Conferência automática por agente, não revisão humana</strong>, registrada
+                  em {formatDate(result.approvedAt.slice(0, 10))}: um programa leu a lista de
+                  contratos do portal inteira e procurou cada caso de uma amostra fixa de 22
+                  grupos (ADR 0096); nenhum estava na lista.
+                </>
+              ) : (
+                <>Conferência humana registrada em {formatDate(result.approvedAt.slice(0, 10))}.</>
+              )}{" "}
               Fonte dos empenhos e pagamentos:{" "}
               <a href={result.groups[0]?.sourcePageUrl} target="_blank" rel="noreferrer">
                 Portal da Transparência

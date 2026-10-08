@@ -6,6 +6,8 @@ const DECIMAL = /^-?\d+\.\d{2}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const KEY = /^O-\d+$/;
 const CATEGORIES = new Set(["sem_correspondencia", "publicado_no_pncp"]);
+// "automated" = conferência automática por agente, não revisão humana (ADR 0091).
+const REVIEW_KINDS = new Set(["human", "automated"]);
 
 export const FIRST_CITATION_YEAR = 2024;
 
@@ -32,6 +34,7 @@ export function parseContractCitationRows(rows) {
   }
   const groups = [];
   let approvedAt = null;
+  let reviewKind = null;
   for (const row of rows) {
     if (!row || typeof row !== "object" || row.review_state !== "approved") return null;
     const person = row.row_kind === "pf_aggregate";
@@ -73,14 +76,16 @@ export function parseContractCitationRows(rows) {
         !group.pncpUrl?.startsWith("https://pncp.gov.br/")) ||
       !group.sourcePageUrl?.startsWith("https://") ||
       typeof row.approved_at !== "string" ||
+      !REVIEW_KINDS.has(row.review_kind) ||
       !METHODOLOGIES.has(row.methodology_version)
     ) {
       return null;
     }
     approvedAt ??= row.approved_at;
+    reviewKind ??= row.review_kind;
     groups.push(group);
   }
-  return { state: "approved", approvedAt, groups };
+  return { state: "approved", approvedAt, reviewKind, groups };
 }
 
 export function citationYear(value, currentYear) {

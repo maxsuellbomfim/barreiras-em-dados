@@ -57,6 +57,30 @@ regra, não texto literal) com risco reputacional para fornecedores nomeados.
 8. Canal público de correção e direito de resposta da Prefeitura e dos
    fornecedores na página.
 
+## Emenda de 08/10/2026 — conferência automática por agente
+
+O titular decidiu não depender de conferência manual. A amostra pode ser
+conferida por agente: `scripts/check-contract-citations.mjs` lê a lista de
+contratos do portal inteira ao vivo e, para cada caso, procura o número
+citado (exato, com outro sufixo ou letra, como aditivo, e os demais contratos
+do mesmo fornecedor). A evidência por caso vai para
+`finance.record_contract_citation_agent_check(jsonb)`, que calcula a decisão
+por código — qualquer caso presente na lista bloqueia a publicação
+(`changes_requested`) — e grava em `editorial.editorial_reviews` com
+`reviewer_subject = 'automated:contract-citation-agent-check/1.0.0'` e o
+rótulo do ADR 0091: "conferência automática por agente, não revisão humana".
+A página pública exibe esse rótulo (`review_kind`). Uma decisão humana
+posterior prevalece, porque vale sempre a mais recente.
+
+Primeira execução, 08/10/2026: 1.517 contratos lidos em 31 páginas; os 22
+casos da amostra ausentes; aprovada e publicada.
+
+Desempenho: recalcular a comparação a cada chamada levava 2,4–4,6 s fria
+(7 mil leituras do bruto com descompressão do payload; limite anon de 3 s).
+As funções públicas leem `finance.contract_citation_snapshot`, refeito de
+hora em hora pelo pg_cron (`finance.refresh_contract_citation_snapshot`,
+minuto 35); a página responde em menos de 50 ms.
+
 ## Falsos positivos declarados
 
 Sufixo de órgão escrito de outro jeito; erro de digitação no histórico;

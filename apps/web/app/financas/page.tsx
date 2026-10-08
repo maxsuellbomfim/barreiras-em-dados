@@ -451,6 +451,11 @@ export default async function FinancesPage() {
               servidores →
             </a>
           </p>
+          <p>
+            <a href="/financas/contratos-citados">
+              Contratos citados em empenhos que não constam da lista de contratos do portal →
+            </a>
+          </p>
         </section>
 
         <section className="finance-status-panel" aria-labelledby="finance-status-title">

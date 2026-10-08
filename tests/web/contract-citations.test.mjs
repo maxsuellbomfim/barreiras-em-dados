@@ -10,6 +10,7 @@ import {
 const base = {
   review_state: "approved",
   approved_at: "2026-10-09T12:00:00+00:00",
+  review_kind: "automated",
   category: "sem_correspondencia",
   public_body: "FUNDO MUNICIPAL DE SAÚDE DE BARREIRAS",
   commitments: 2,
@@ -51,6 +52,10 @@ test("antes da conferência só o estado chega à página", () => {
 test("aprovado publica empresas e o agregado de pessoas físicas sem nome", () => {
   const parsed = parseContractCitationRows([entity, person]);
   assert.equal(parsed.state, "approved");
+  assert.equal(parsed.reviewKind, "automated");
+  assert.equal(parseContractCitationRows([{ ...entity, review_kind: "human" }]).reviewKind, "human");
+  assert.equal(parseContractCitationRows([{ ...entity, review_kind: "guess" }]), null,
+    "o tipo de conferência precisa ser conhecido para ser rotulado");
   assert.deepEqual(parsed.groups.map((group) => [group.kind, group.creditorName]), [
     ["entity", "CLINICA SANTA LTDA"],
     ["pf_aggregate", null],
@@ -72,13 +77,14 @@ test("ano fora do intervalo cai no ano corrente", () => {
   assert.equal(citationYear(undefined, 2026), 2026);
 });
 
-test("página fica fora do índice e sem link até a publicação", async () => {
+test("página avisa que não é acusação e rotula a conferência automática", async () => {
   const page = await readFile(
     new URL("../../apps/web/app/financas/contratos-citados/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /robots: \{ index: false, follow: false \}/);
   assert.match(page, /Não indica irregularidade/);
+  assert.match(page, /Conferência automática por agente, não revisão humana/);
   const finance = await readFile(new URL("../../apps/web/app/financas/page.tsx", import.meta.url),
     "utf8");
   const sitemap = await readFile(new URL("../../apps/web/app/sitemap.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(finance + sitemap, /contratos-citados/);
+  assert.match(finance, /href="\/financas\/contratos-citados"/);
+  assert.match(sitemap, /\/financas\/contratos-citados/);
 });
