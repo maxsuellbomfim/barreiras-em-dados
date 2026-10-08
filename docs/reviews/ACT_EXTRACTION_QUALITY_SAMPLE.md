@@ -89,3 +89,21 @@ Cada página conferida representa `universo / conferidas` páginas do seu estrat
   cessão) não entram na medição.
 - Só 5 dos 65 atos da amostra estão publicados hoje; a medida é da extração,
   não só do que está no ar.
+
+## Medições registradas (IA, sem ponderação; estimativa, não revisão humana)
+
+Contagens brutas das últimas anotações de cada página, consultadas nas
+tabelas em 08/10/2026 (`act_verdicts` por ato; `missed_*` por página).
+
+| Amostra | Régua | Páginas | Atos julgados | Certos | Incompletos | Errados | Não extraídos | Precisão estrita | Precisão ampla |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1.0.0 (28/09) | 2.3.0 (+ réguas antigas) | 120/120 | 65 | 44 | 10 | 11 | 19 | 67,7% | 83,1% |
+| 1.1.0 (06/10) | 2.4.0 | 120/120 | 49 | 43 | 2 | 4 | 5 | 87,8% | 91,8% |
+
+Por estrato na 1.1.0: `act_embedded` 29 atos, 27 certos, 1 incompleto,
+1 errado, 0 perdidos; `act_ocr` 20 atos, 16 certos, 1 incompleto, 3 errados,
+3 perdidos; `keyword_ocr` 2 perdidos; demais estratos sem ato e sem perda.
+A queda de 65 para 49 atos julgados vem da amostra medir uma régua só (sem os
+repetidos das réguas antigas) e de a 2.4.0 descartar candidatos sem nome. O
+buraco restante é o OCR (3 errados e 5 perdidos em 40 páginas OCR, contra
+1 errado e 0 perdidos nas 40 com texto embutido).
