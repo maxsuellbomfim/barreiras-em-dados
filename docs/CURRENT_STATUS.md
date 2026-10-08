@@ -72,7 +72,12 @@ amplas.
    (2021: 233, 2022: 242, 2023: 159); 3454 e 3980 não existem em nenhuma
    pasta de ano (404 em 2020–2024) e ficaram no checkpoint. O dreno de OCR
    processa edições diretas da mais nova para a mais antiga, então essas
-   ~30 mil páginas entram por último e levam semanas no ritmo atual.
+   ~30 mil páginas entram por último; no GitHub levariam semanas, por isso
+   o mesmo dreno (texto embutido → OCR → reorganização → candidatos) também
+   roda nesta máquina por `scripts/run-gazette-ocr.ps1` (Tesseract local,
+   modelo `tessdata_best` fixado em `data/tessdata_best/`, mesma versão
+   `gazette-ocr-text/1.1.0`, páginas OCR idempotentes por artefato, página e
+   versão — rodar junto com o GitHub não duplica).
    Auditoria por amostragem (25/09, 30 páginas): texto corrido e valores
    monetários conferidos fiéis, mas `§` vira `8` de forma sistemática (2.163
    páginas), tabelas perdem colunas e há erros de dígito isolados. Desde 25/09, páginas
