@@ -140,6 +140,13 @@ amplas.
    estourava o tempo do workflow e pulava a publicação (`--max-seconds`).
    A amostra seguinte (só a régua 2.4.0) é criada sozinha pelo workflow diário
    quando o reprocessamento termina (`editorial.ensure_act_quality_sample`).
+7. **Contratos citados sem correspondência (ADR 0096):** desde 08/10/2026,
+   `contract-citation-comparison/1.0.0` compara 6.817 empenhos orçamentários
+   de 2024–2026 (fora a Câmara) cujo contrato citado não está na lista do
+   portal; só o pago, PNCP à parte, pessoa física sem nome. A página
+   `/financas/contratos-citados` existe sem link e fora do índice e mostra
+   "aguardando conferência" até um revisor conferir a amostra de 22 casos na
+   aba "Ligações" do admin e aprovar. Depois: ligar em `/financas` e no sitemap.
 
 ## O que já está disponível no portal
 

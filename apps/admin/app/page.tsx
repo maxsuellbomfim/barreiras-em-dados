@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActQualityReview } from "./act-quality-review";
 import { AdminMfaGate } from "./admin-mfa-gate";
 import { CommitmentLinkReview, type RpcCall } from "./commitment-link-review";
+import { ContractCitationReview } from "./contract-citation-review";
 import {
   CollectionHealth,
   type CollectionHealthItem,
@@ -1710,7 +1711,10 @@ export default function ReviewQueuePage() {
           </div> : null}
 
           {view === "ligacoes" ? (
-            <CommitmentLinkReview rpc={rpc} />
+            <>
+              <ContractCitationReview rpc={rpc} />
+              <CommitmentLinkReview rpc={rpc} />
+            </>
           ) : view === "qualidade" ? (
             <ActQualityReview rpc={rpc} />
           ) : view === "saude" ? (
