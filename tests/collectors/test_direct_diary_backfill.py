@@ -134,6 +134,11 @@ class MissingEditionsRepositoryTests(unittest.TestCase):
         self.assertEqual(connection.calls[0][1], ("backfill:3353-3988",))
         self.assertEqual(connection.calls[1][1], (3353, 3988, [3354, 3360], 3))
         self.assertIn("'gazette-direct-edition'", connection.calls[1][0])
+        # psycopg envia inteiros pequenos como smallint; sem o cast o Postgres
+        # não escolhe entre generate_series(int) e (bigint).
+        self.assertIn(
+            "generate_series(%s::integer, %s::integer)", connection.calls[1][0]
+        )
         self.assertTrue(connection.closed)
         with self.assertRaises(ValueError):
             repository.missing_direct_editions(

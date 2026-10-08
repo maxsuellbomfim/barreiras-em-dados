@@ -1659,7 +1659,7 @@ class PostgresCollectionRepository:
             candidate_rows = connection.execute(
                 """
                 select candidate.edition
-                from generate_series(%s, %s) as candidate(edition)
+                from generate_series(%s::integer, %s::integer) as candidate(edition)
                 where not exists (
                     select 1
                     from raw.raw_artifacts as artifact
