@@ -22,7 +22,10 @@ test("os índices espelham os predicados da linhagem financeira vigente", () => 
   assert.ok(lineage, "a função de linhagem precisa existir nas migrations");
   // Sem este par, cada documento municipal lê a página inteira de registros.
   assert.match(indexes, /on raw\.raw_records \(raw_artifact_id, source_record_key\)/);
-  assert.match(lineage, /document\.metadata ->> 'source_record_key'\s*= origin\.source_record_key/);
+  assert.match(
+    lineage,
+    /document\.metadata ->> 'source_record_key'\s*= origin\.source_record_key|origin\.source_record_key = document\.metadata ->> 'source_record_key'/,
+  );
   // Sem este predicado, a linhagem TCM-BA varre os 177 mil registros do catálogo.
   for (const predicate of [
     /record_type = 'tcm_ba_monthly_document'/,
