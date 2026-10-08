@@ -126,6 +126,57 @@ class GazetteDocumentRepository:
                   ) as record on true
                   where artifact.metadata ->> 'document_role' = 'txt'
                     and artifact.metadata ? 'source_record_key'
+                ), page_freshness as (
+                  -- Só a página mais nova por edição: uma sonda no índice
+                  -- document_pages_artifact_created_idx por candidata.
+                  select
+                    candidate.id as raw_artifact_id,
+                    newest.created_at as newest_page_at
+                  from candidate_editions as candidate
+                  join lateral (
+                    select page.created_at
+                    from raw.document_pages as page
+                    where page.raw_artifact_id = candidate.id
+                    order by page.created_at desc
+                    limit 1
+                  ) as newest on true
+                ), fresh_editions as (
+                  -- Primeiro a edição com página mais nova que a última versão
+                  -- ou falha; a contagem de páginas com texto (a parte cara,
+                  -- ordenação em disco com 58 mil páginas) só roda para essas.
+                  -- Com todas as edições, passava do statement_timeout de 15 s
+                  -- do coletor depois do backfill de 2021-2022.
+                  select
+                    edition.id,
+                    edition.sha256,
+                    edition.edition,
+                    edition.edition_year,
+                    edition.edition_date,
+                    edition.source_priority,
+                    edition.created_at,
+                    stats.newest_page_at
+                  from candidate_editions as edition
+                  join page_freshness as stats
+                    on stats.raw_artifact_id = edition.id
+                  where (%s::integer is null or edition.edition = %s::integer)
+                    and (%s::integer is null or edition.edition_year = %s::integer)
+                    and (
+                      (%s::integer is not null and %s::integer is not null)
+                      or (
+                        stats.newest_page_at > coalesce((
+                          select max(version.created_at)
+                          from editorial.gazette_document_versions as version
+                          where version.raw_artifact_id = edition.id
+                        ), '-infinity'::timestamptz)
+                        and stats.newest_page_at > coalesce((
+                          select max(job.updated_at)
+                          from raw.extraction_jobs as job
+                          where job.raw_artifact_id = edition.id
+                            and job.job_type = 'integral_gazette_documents'
+                            and job.status = 'failed'
+                        ), '-infinity'::timestamptz)
+                      )
+                    )
                 ), page_numbering as (
                   -- Duas agregações respondidas só pelos índices
                   -- document_pages_artifact_page_created_idx e
@@ -134,11 +185,10 @@ class GazetteDocumentRepository:
                   select
                     page.raw_artifact_id,
                     min(page.page_number) as first_page,
-                    max(page.page_number) as last_page,
-                    max(page.created_at) as newest_page_at
+                    max(page.page_number) as last_page
                   from raw.document_pages as page
                   where page.raw_artifact_id in (
-                    select candidate.id from candidate_editions as candidate
+                    select fresh.id from fresh_editions as fresh
                   )
                   group by page.raw_artifact_id
                 ), text_pages as (
@@ -147,7 +197,7 @@ class GazetteDocumentRepository:
                     count(distinct page.page_number) as pages_with_text
                   from raw.document_pages as page
                   where page.raw_artifact_id in (
-                    select candidate.id from candidate_editions as candidate
+                    select fresh.id from fresh_editions as fresh
                   )
                     and page.text_content is not null
                   group by page.raw_artifact_id
@@ -156,8 +206,7 @@ class GazetteDocumentRepository:
                     numbering.raw_artifact_id,
                     numbering.first_page,
                     numbering.last_page,
-                    coalesce(with_text.pages_with_text, 0) as pages_with_text,
-                    numbering.newest_page_at
+                    coalesce(with_text.pages_with_text, 0) as pages_with_text
                   from page_numbering as numbering
                   left join text_pages as with_text
                     on with_text.raw_artifact_id = numbering.raw_artifact_id
@@ -170,30 +219,11 @@ class GazetteDocumentRepository:
                   edition.edition_date,
                   edition.source_priority,
                   edition.created_at::text as created_at
-                from candidate_editions as edition
+                from fresh_editions as edition
                 join page_stats as stats
                   on stats.raw_artifact_id = edition.id
-                where (%s::integer is null or edition.edition = %s::integer)
-                  and (%s::integer is null or edition.edition_year = %s::integer)
-                  and stats.first_page = 1
+                where stats.first_page = 1
                   and stats.pages_with_text = stats.last_page
-                  and (
-                    (%s::integer is not null and %s::integer is not null)
-                    or (
-                      stats.newest_page_at > coalesce((
-                        select max(version.created_at)
-                        from editorial.gazette_document_versions as version
-                        where version.raw_artifact_id = edition.id
-                      ), '-infinity'::timestamptz)
-                      and stats.newest_page_at > coalesce((
-                        select max(job.updated_at)
-                        from raw.extraction_jobs as job
-                        where job.raw_artifact_id = edition.id
-                          and job.job_type = 'integral_gazette_documents'
-                          and job.status = 'failed'
-                      ), '-infinity'::timestamptz)
-                    )
-                  )
                 order by edition.edition_year desc, edition.edition desc,
                   edition.source_priority asc, edition.created_at desc
                 limit %s
