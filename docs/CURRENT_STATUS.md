@@ -77,7 +77,14 @@ amplas.
    roda nesta máquina por `scripts/run-gazette-ocr.ps1` (Tesseract local,
    modelo `tessdata_best` fixado em `data/tessdata_best/`, mesma versão
    `gazette-ocr-text/1.1.0`, páginas OCR idempotentes por artefato, página e
-   versão — rodar junto com o GitHub não duplica).
+   versão — rodar junto com o GitHub não duplica). A classificação diária
+   pública (`api.get_public_querido_diario_coverage`) contava só a API do
+   Querido Diário: 42 dias de julho a setembro de 2026 apareciam como "0
+   edições" com edição direta preservada e a série parava em 28/09. Desde
+   08/10 a cobertura diária soma as edições diretas datadas pelo documento
+   integral e o dia com edição preservada é "complete" sem depender de
+   janela da API; o bloco "Edições preservadas pela API" continua restrito
+   à API, com rótulo explícito.
    Auditoria por amostragem (25/09, 30 páginas): texto corrido e valores
    monetários conferidos fiéis, mas `§` vira `8` de forma sistemática (2.163
    páginas), tabelas perdem colunas e há erros de dígito isolados. Desde 25/09, páginas
