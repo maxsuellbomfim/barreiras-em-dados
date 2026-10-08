@@ -1,0 +1,83 @@
+name: Backfill do Diário direto (2021–2022)
+
+on:
+  schedule:
+    # O GitHub executa só uma parte dos crons horários; cada execução cobre
+    # até 15 edições e a partição guarda o que já foi sondado.
+    - cron: "37 * * * *"
+  workflow_dispatch:
+    inputs:
+      first_edition:
+        description: Primeira edição do intervalo
+        required: false
+        default: "3353"
+        type: string
+      last_edition:
+        description: Última edição do intervalo
+        required: false
+        default: "3988"
+        type: string
+      limit:
+        description: Máximo de edições nesta execução (1–50)
+        required: false
+        default: "15"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backfill-direct-diary-production
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    name: Preservar edições antigas por número
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: workers/collectors/src
+      PERSISTENCE_MODE: postgres-supabase
+      DATABASE_URL: ${{ secrets.QUERIDO_DIARIO_DATABASE_URL }}
+      SUPABASE_URL: ${{ vars.QUERIDO_DIARIO_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.QUERIDO_DIARIO_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_WORKLOAD_EMAIL: ${{ secrets.QUERIDO_DIARIO_SUPABASE_WORKLOAD_EMAIL }}
+      SUPABASE_WORKLOAD_PASSWORD: ${{ secrets.QUERIDO_DIARIO_SUPABASE_WORKLOAD_PASSWORD }}
+      SUPABASE_RAW_ARTIFACTS_BUCKET: raw-artifacts
+      QUERIDO_DIARIO_TERRITORY_ID: "2903201"
+      QUERIDO_DIARIO_REQUESTS_PER_MINUTE: "30"
+      QUERIDO_DIARIO_MAX_DOCUMENT_BYTES: "268435456"
+      QUERIDO_DIARIO_MAX_DOCUMENTS_PER_RUN: "40"
+      QUERIDO_DIARIO_BACKFILL_HORIZON: "2021-01-01"
+      BARREIRAS_DIARIO_MAX_EDITIONS_PER_RUN: ${{ inputs.limit || '15' }}
+      HTTP_CONNECT_TIMEOUT_SECONDS: "5"
+      HTTP_READ_TIMEOUT_SECONDS: "60"
+      HTTP_MAX_ATTEMPTS: "5"
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências fixadas
+        run: python -m pip install --disable-pip-version-check ".[postgres,storage]"
+
+      - name: Verificar CA oficial do Supabase
+        run: >-
+          echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
+          | sha256sum --check --strict
+
+      - name: Preservar edições faltantes
+        run: >-
+          python -B -m barreiras_collectors.commands.collect_direct_diary_backfill
+          --first-edition "${{ inputs.first_edition || '3353' }}"
+          --last-edition "${{ inputs.last_edition || '3988' }}"
+          --years "2021,2022,2023"
