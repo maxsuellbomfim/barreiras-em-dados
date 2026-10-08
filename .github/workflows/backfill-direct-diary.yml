@@ -1,10 +1,9 @@
 name: Backfill do Diário direto (2021–2022)
 
 on:
-  schedule:
-    # O GitHub executa só uma parte dos crons horários; cada execução cobre
-    # até 15 edições e a partição guarda o que já foi sondado.
-    - cron: "37 * * * *"
+  # O intervalo 3353–3988 foi concluído pelo executor local em 08/10/2026
+  # (634 edições; 3454 e 3980 não existem em nenhuma pasta de ano). Sem cron:
+  # execução manual só para um novo intervalo.
   workflow_dispatch:
     inputs:
       first_edition:
