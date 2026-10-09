@@ -222,10 +222,14 @@ class PostgresExtractionRepository:
                   and (
                     %s::text is not null
                     or not exists (
+                      -- Páginas de um PDF são gravadas numa transação e
+                      -- numeradas a partir de 1: basta a página 1, uma
+                      -- entrada por PDF em document_pages_embedded_first_page_idx.
                       select 1
                       from raw.document_pages as page
                       where page.raw_artifact_id = artifact.id
                         and page.parser_version = %s
+                        and page.page_number = 1
                     )
                   )
                 order by artifact.created_at, artifact.id
