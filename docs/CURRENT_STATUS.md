@@ -300,10 +300,22 @@ filtro de ano refeito de hora em hora pelo pg_cron, com cálculo ao vivo
 quando o filtro ainda não tem instantâneo (2,2 s → 6 ms), e fila de PDFs
 do TCM-BA sem texto por índice de primeira página (9,4 s → 0,96 s).
 
-Próximo: acompanhar o OCR local das 634 edições de 2021–2022
-(`scripts/run-gazette-ocr.ps1`, ~1.100 páginas/hora) até as edições
-aparecerem no índice integral do Diário e conferir que a sonda volta a
-"ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não
+Diário 2021–2022 no ar em 09/10: o OCR local zerou a fila e as 634 edições
+do backfill estão no índice integral (1.138 de 1.140 edições diretas
+organizadas). Faltava a data: 662 edições diretas não tinham data nos
+metadados (o catálogo da plataforma nova não cobre esses anos). A regra
+`gazette-edition-header-date/1.0.0` lê a data impressa no cabeçalho de cada
+página ("Edição 3460 - 17 de Junho de 2021"), só aceita ocorrências com o
+número da própria edição e o ano da pasta oficial, e exige que todas
+concordem; guarda página e trecho como evidência em
+`editorial.gazette_edition_header_dates` (pg_cron a cada 20 min para edições
+novas). Resultado: 983 datas, 415 de 415 iguais à data do catálogo onde as
+duas existem, zero inversões na ordem das edições, nenhuma ambígua; 157
+edições seguem sem data (cabeçalho não legível ou, na plataforma de 2026,
+ausente no texto). Índice, busca, edição e cobertura usam essa data só
+quando o documento não tem a própria.
+
+Próximo: conferir que a sonda volta a "ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não
 compensa agora: só 38 itens têm mais de um autor e 16 seriam resolvidos
 por regra estrita. As 150 janelas falhas da API complementar do Querido
 Diário (fonte parada desde junho) ainda pedem regra explícita de

@@ -189,6 +189,87 @@ try {
     attempted_by_recorded_window: false,
   }]);
 
+  // gazette-edition-header-date/1.0.0: data lida do cabeçalho impresso,
+  // só quando o número da edição bate e todas as ocorrências concordam.
+  const headerDateFixture = [
+    ["4710", "Barreiras-Bahia - Edição 4710 - 12 de Agosto de 2026 - ANO 20 PORTARIA Nº 1 citada na Edição 4706 - 08 de Agosto de 2026 - ANO 20 texto"],
+    ["4711", "Barreiras-Bahia - Edição 4711 - 13 de Agosto de 2026 - ANO 20 e, adiante, Barreiras-Bahia - Edição 4711 - 14 de Agosto de 2026 - ANO 20"],
+    ["4712", "PORTARIA Nº 2, DE 13 DE AGOSTO DE 2026, texto sem cabeçalho de edição algum aqui"],
+    ["4713", "Barreiras-Bahia - Edição 4713 - 31 de Fevereiro de 2026 - ANO 20 data impossível no cabeçalho"],
+  ];
+  for (const [edition, text] of headerDateFixture) {
+    await database.query(`
+      with artifact as (
+        insert into raw.raw_artifacts (
+          id, collection_run_id, source_endpoint_id, idempotency_key, artifact_kind,
+          source_url, retrieved_at, byte_size, sha256, object_key, collector_version,
+          metadata
+        ) values (
+          ('00000000-0000-0000-0000-00000000' || $1)::uuid,
+          '00000000-0000-0000-0000-000000000706',
+          '00000000-0000-4000-8000-000000000101',
+          'header-date-fixture-' || $1, 'document',
+          'https://barreiras.ba.gov.br/diario/pdf/2026/diario' || $1 || '.pdf',
+          statement_timestamp(), 18, repeat('b', 60) || $1,
+          'fixtures/gazette-' || $1 || '.pdf', 'test/1',
+          jsonb_build_object('schema_name', 'gazette-direct-edition',
+            'edition', $1, 'year', '2026')
+        ) returning id
+      )
+      insert into raw.document_pages (
+        raw_artifact_id, page_number, parser_version, extraction_method,
+        text_content, text_sha256
+      )
+      select artifact.id, 1, 'ocr/1', 'ocr', $2::text,
+        encode(digest($2::text, 'sha256'), 'hex')
+      from artifact
+    `, [edition, text]);
+  }
+  const derivedHeaderDates = await database.query(`
+    select editorial.derive_gazette_edition_header_dates(20) as processed
+  `);
+  assert.equal(derivedHeaderDates.rows[0].processed, 4);
+  const headerDates = await database.query(`
+    select edition, status, edition_date::text as edition_date,
+           evidence_excerpt, matching_pages, rule_version
+    from editorial.gazette_edition_header_dates
+    order by edition
+  `);
+  assert.deepEqual(headerDates.rows, [
+    {
+      edition: 4710, status: "derived", edition_date: "2026-08-12",
+      evidence_excerpt: "Edição 4710 - 12 de Agosto de 2026", matching_pages: 1,
+      rule_version: "gazette-edition-header-date/1.0.0",
+    },
+    {
+      edition: 4711, status: "ambiguous", edition_date: null,
+      evidence_excerpt: null, matching_pages: 1,
+      rule_version: "gazette-edition-header-date/1.0.0",
+    },
+    {
+      edition: 4712, status: "not_found", edition_date: null,
+      evidence_excerpt: null, matching_pages: 0,
+      rule_version: "gazette-edition-header-date/1.0.0",
+    },
+    {
+      edition: 4713, status: "not_found", edition_date: null,
+      evidence_excerpt: null, matching_pages: 0,
+      rule_version: "gazette-edition-header-date/1.0.0",
+    },
+  ]);
+  // A edição com metadado de data (4706) não entra; nada é reavaliado sem
+  // páginas novas.
+  const rerunHeaderDates = await database.query(`
+    select editorial.derive_gazette_edition_header_dates(20) as processed
+  `);
+  assert.equal(rerunHeaderDates.rows[0].processed, 0);
+  const headerDatePrivileges = await database.query(`
+    select
+      has_table_privilege('anon', 'editorial.gazette_edition_header_dates', 'SELECT') as anon_read,
+      has_function_privilege('anon', 'editorial.derive_gazette_edition_header_dates(integer)', 'EXECUTE') as anon_derive
+  `);
+  assert.deepEqual(headerDatePrivileges.rows[0], { anon_read: false, anon_derive: false });
+
   const rls = await database.query(`
     select
       (select relrowsecurity from pg_class where oid = 'raw.document_blocks'::regclass) as blocks_rls,
