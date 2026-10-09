@@ -1054,6 +1054,38 @@ try {
     calculation_methodology: "monthly-finance-closure/1.1.0",
   }]);
 
+  // Instantâneo do fechamento mensal: sem estado a função calcula ao vivo;
+  // depois do refresh lê do instantâneo e devolve o mesmo resultado.
+  const liveClosures = await database.query(`
+    select md5(string_agg(closure::text, '|')) as signature
+    from api.get_public_monthly_finance_closures(24, 2026::smallint) as closure
+  `);
+  const refreshedClosures = await database.query(`
+    select finance.refresh_monthly_finance_closure_snapshot() as refreshed
+  `);
+  assert.ok(refreshedClosures.rows[0].refreshed >= 1);
+  const snapshotClosures = await database.query(`
+    select md5(string_agg(closure::text, '|')) as signature
+    from api.get_public_monthly_finance_closures(24, 2026::smallint) as closure
+  `);
+  assert.equal(snapshotClosures.rows[0].signature, liveClosures.rows[0].signature);
+  const closureSnapshotState = await database.query(`
+    select row_count from finance.monthly_finance_closure_snapshot_state
+    where filter_year = 2026
+  `);
+  assert.ok(closureSnapshotState.rows[0].row_count >= 1);
+  const closureSnapshotPrivileges = await database.query(`
+    select
+      has_table_privilege('anon', 'finance.monthly_finance_closure_snapshot', 'SELECT') as anon_snapshot,
+      has_table_privilege('anon', 'finance.monthly_finance_closure_snapshot_state', 'SELECT') as anon_state,
+      has_function_privilege('anon', 'finance.refresh_monthly_finance_closure_snapshot()', 'EXECUTE') as anon_refresh
+  `);
+  assert.deepEqual(closureSnapshotPrivileges.rows[0], {
+    anon_snapshot: false,
+    anon_state: false,
+    anon_refresh: false,
+  });
+
   await database.exec("set role anon");
   const publicMonthlyDetail = await database.query(`
     select

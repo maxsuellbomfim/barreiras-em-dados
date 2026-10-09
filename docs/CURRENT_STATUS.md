@@ -287,8 +287,24 @@ pela verificação integral que não a deixou pendente) — e as mostra como
 das partições não muda. O dreno documental do TCM-BA retomou 01/2021 pelo
 agendador local (10 documentos a cada 15 min).
 
+Gate 6 em 09/10: os dias 06 e 07/10 falharam na sonda pública (5xx antes
+da sonda sequencial, #895); 08/10 fechou com todas as sondas válidas e sem
+5xx, então a sequência de sete dias começa nele. Sob a carga do OCR local,
+quatro consultas passavam do limite (anônimo 3 s, coletor 15 s) na janela
+da sonda e deixavam o `/api/health` "degraded"; corrigidas sem mudar
+resultado (assinaturas md5 idênticas antes e depois):
+cobertura diária do Diário por índice da chave de origem (0,6–2,9 s →
+0,13 s), índice integral sem materializar o texto de todos os documentos
+(1,3 s → 0,07 s), fechamento mensal de finanças servido de instantâneo por
+filtro de ano refeito de hora em hora pelo pg_cron, com cálculo ao vivo
+quando o filtro ainda não tem instantâneo (2,2 s → 6 ms), e fila de PDFs
+do TCM-BA sem texto por índice de primeira página (9,4 s → 0,96 s).
+
 Próximo: acompanhar o OCR local das 634 edições de 2021–2022
 (`scripts/run-gazette-ocr.ps1`, ~1.100 páginas/hora) até as edições
-aparecerem no índice integral do Diário; depois, as 150 janelas falhas da
-API complementar do Querido Diário (fonte parada desde junho) precisam de
-uma regra explícita de encerramento ou de um aviso público de cobertura.
+aparecerem no índice integral do Diário e conferir que a sonda volta a
+"ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não
+compensa agora: só 38 itens têm mais de um autor e 16 seriam resolvidos
+por regra estrita. As 150 janelas falhas da API complementar do Querido
+Diário (fonte parada desde junho) ainda pedem regra explícita de
+encerramento.

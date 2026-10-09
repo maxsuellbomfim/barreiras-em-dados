@@ -163,6 +163,8 @@ class RecentDirectEditionPriorityTests(unittest.TestCase):
         )
         self.assertIn("from raw.document_pages as page", query)
         self.assertIn("page.parser_version =", query)
+        # Uma entrada por PDF no índice document_pages_embedded_first_page_idx.
+        self.assertIn("and page.page_number = 1", query)
         self.assertIn("order by artifact.created_at, artifact.id", query)
 
     def test_tcm_ba_queue_can_target_one_exact_pdf_hash(self) -> None:
