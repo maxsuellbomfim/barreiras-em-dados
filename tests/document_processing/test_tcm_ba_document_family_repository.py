@@ -43,7 +43,7 @@ class RecordingConnection:
     def execute(self, query, params=None):
         normalized = " ".join(query.split())
         self.queries.append((normalized, params))
-        if "with preserved_documents as" in normalized:
+        if "with queue as materialized" in normalized:
             return Cursor(rows=self.pending_rows)
         if "where pdf.sha256 = %s" in normalized:
             return Cursor(rows=self.lineage_rows)
@@ -104,6 +104,9 @@ class TcmBaDocumentFamilyRepositoryTests(unittest.TestCase):
             query,
         )
         self.assertIn("job.status in ('succeeded', 'dead_lettered')", query)
+        # Fila limitada antes dos joins, pelo índice de fila (10/10/2026).
+        self.assertLess(query.index("limit %s"), query.index("join raw.raw_records"))
+        self.assertIn("pdf.object_key like 'tcm-ba/monthly-documents/%%/pdf/%%'", query)
 
     def test_pending_documents_can_be_scoped_to_one_exact_hash(self) -> None:
         artifact_sha256 = "d" * 64

@@ -56,32 +56,21 @@ class TcmBaDocumentFamilyExtractionRepository:
         try:
             rows = connection.execute(
                 """
-                with preserved_documents as (
-                  select
-                    pdf.id::text as artifact_id,
-                    pdf.sha256,
-                    pdf.object_key,
-                    record.source_record_key,
-                    record.payload ->> 'category' as official_category,
-                    pdf.created_at
+                -- Fila pelo raw_artifacts_tcm_ba_pdf_queue_idx antes dos
+                -- joins: com 20 mil PDFs, juntar tudo e ordenar no fim
+                -- passava do limite de 15 s (10/10/2026). ponytail: um PDF
+                -- sem preparo/catálogo ocupa uma vaga do lote até ser
+                -- corrigido; ele já aparecia como "missing" na cobertura.
+                with queue as materialized (
+                  select pdf.id, pdf.created_at
                   from raw.raw_artifacts as pdf
-                  join raw.raw_artifacts as prepare
-                    on prepare.id = pdf.parent_artifact_id
-                  join raw.raw_artifacts as catalog
-                    on catalog.id = prepare.parent_artifact_id
-                  join raw.raw_records as record
-                    on record.raw_artifact_id = catalog.id
-                   and record.source_record_key =
-                     pdf.metadata ->> 'source_record_key'
                   where pdf.artifact_kind = 'document'
                     and pdf.metadata ->> 'schema_name' =
                       'tcm-ba-monthly-document'
+                    and pdf.object_key like 'tcm-ba/monthly-documents/%%/pdf/%%'
                     and pdf.content_type = 'application/pdf'
                     and pdf.http_status between 200 and 299
                     and (%s::text is null or pdf.sha256 = %s)
-                    and prepare.metadata ->> 'schema_name' =
-                      'tcm-ba-document-download-prepare'
-                    and record.record_type = 'tcm_ba_monthly_document'
                     and not exists (
                       select 1
                       from raw.extraction_jobs as job
@@ -99,10 +88,26 @@ class TcmBaDocumentFamilyExtractionRepository:
                   order by pdf.created_at, pdf.id
                   limit %s
                 )
-                select artifact_id, sha256, object_key, source_record_key,
-                  official_category
-                from preserved_documents
-                order by created_at, artifact_id
+                select
+                  pdf.id::text as artifact_id,
+                  pdf.sha256,
+                  pdf.object_key,
+                  record.source_record_key,
+                  record.payload ->> 'category' as official_category
+                from queue
+                join raw.raw_artifacts as pdf on pdf.id = queue.id
+                join raw.raw_artifacts as prepare
+                  on prepare.id = pdf.parent_artifact_id
+                join raw.raw_artifacts as catalog
+                  on catalog.id = prepare.parent_artifact_id
+                join raw.raw_records as record
+                  on record.raw_artifact_id = catalog.id
+                 and record.source_record_key =
+                   pdf.metadata ->> 'source_record_key'
+                where prepare.metadata ->> 'schema_name' =
+                    'tcm-ba-document-download-prepare'
+                  and record.record_type = 'tcm_ba_monthly_document'
+                order by queue.created_at, queue.id
                 """,
                 (
                     artifact_sha256,
