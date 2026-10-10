@@ -7,6 +7,12 @@ export type PncpQueryStatus = Readonly<{
 const states = new Set(["unknown", "pending", "query_complete", "empty_confirmed", "inconclusive", "partial", "interrupted", "awaiting_source_publication"]);
 const controlPattern = /^13654405000195-1-([0-9]{1,12})\/([0-9]{4})$/;
 
+/** Estado de quem a consulta não cobre (outro órgão): "unknown", não falha. */
+export function missingPncpQueryStatus(control: string): PncpQueryStatus {
+  const covered = controlPattern.exec(control)?.[0] === control;
+  return { state: covered ? "unavailable" : "unknown", checkedAt: null, sourceUrl: null };
+}
+
 export async function fetchPncpQueryStatuses(
   baseUrl: string, publishableKey: string, controls: readonly string[], fetcher: typeof fetch = fetch,
 ): Promise<ReadonlyMap<string, PncpQueryStatus>> {

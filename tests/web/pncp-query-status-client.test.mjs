@@ -7,7 +7,7 @@ const ts=requireWeb("typescript");
 let source=""; try {source=readFileSync(new URL("../../apps/web/lib/pncp-query-status.ts",import.meta.url),"utf8");} catch(e){if(e.code!=="ENOENT")throw e;}
 const mod={exports:{fetchPncpQueryStatuses:async()=>new Map()}};
 if(source)new Function("require","module","exports",ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(requireWeb,mod,mod.exports);
-const {fetchPncpQueryStatuses}=mod.exports;
+const {fetchPncpQueryStatuses,missingPncpQueryStatus}=mod.exports;
 const key="13654405000195-1-000027/2026";
 const row={control_number:key,state:"query_complete",checked_at:"2026-09-15T20:00:00Z",source_url:"https://pncp.gov.br/app/editais/13654405000195/2026/27"};
 test("compra de fundo municipal não apaga estados das compras da Prefeitura",async()=>{
@@ -53,4 +53,9 @@ test("falha de consulta não impede os contratos existentes de serem exibidos",a
     const result=await fetchPncpQueryStatuses("https://example.supabase.co","sb_publishable_test",[key],fetcher);
     assert.equal(result.size,0);
   }
+});
+
+test("compra de outro órgão fica sem verificação, não 'indisponível'",()=>{
+  assert.equal(missingPncpQueryStatus("13250888000162-1-000003/2026").state,"unknown");
+  assert.equal(missingPncpQueryStatus(key).state,"unavailable");
 });

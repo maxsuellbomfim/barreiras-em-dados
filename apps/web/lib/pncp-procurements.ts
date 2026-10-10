@@ -1,4 +1,4 @@
-import { fetchPncpQueryStatuses, type PncpQueryStatus } from "./pncp-query-status";
+import { fetchPncpQueryStatuses, missingPncpQueryStatus, type PncpQueryStatus } from "./pncp-query-status";
 
 export type ProcurementResult = Readonly<{
   numeroItem: number;
@@ -618,7 +618,7 @@ export async function getPncpProcurements(
     ]);
     return { state: "available", procurements: attachPriceContexts(procurements, contexts).map(item => ({
       ...item,
-      queryStatus: statuses.get(item.controlNumber) ?? { state: "unavailable", checkedAt: null, sourceUrl: null },
+      queryStatus: statuses.get(item.controlNumber) ?? missingPncpQueryStatus(item.controlNumber),
     })) };
   } catch {
     return { state: "unavailable" };
