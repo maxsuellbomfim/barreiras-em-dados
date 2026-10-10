@@ -1238,7 +1238,9 @@ try {
     if ($ocrExitCode -ne 0) {
         throw "O OCR TCM-BA terminou com código $ocrExitCode."
     }
-    Invoke-TcmBaDocumentProcessingReport -Python $python -ProjectRoot $projectRoot
+    # O relatório global (todas as páginas de todos os PDFs) fica só no
+    # -ReportOnly: com 20 mil PDFs ele passava do limite de 15 s em toda
+    # execução e o throw travava famílias, contratos e empenhos (09/10/2026).
     $familyCatchUpLimit = Get-TcmBaDocumentFamilyCatchUpLimit `
         -MaxDocuments $MaxDocuments
     Invoke-TcmBaDocumentFamilyInventory `
