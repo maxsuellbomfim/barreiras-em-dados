@@ -107,7 +107,8 @@ class TcmBaContractDocumentRepositoryTests(unittest.TestCase):
         query = self.connection.queries[0][0]
         self.assertIn("result_payload ->> 'family' = 'contracts_and_amendments'", query)
         self.assertIn("result.extractor_version = %s", query)
-        self.assertIn("bool_and(page.text_sha256 is not null)", query)
+        self.assertIn("base.text_content is null", query)
+        self.assertIn("ocr.text_sha256 is not null", query)
 
     def test_page_without_verified_hash_is_rejected(self) -> None:
         self.connection.pending_rows = [

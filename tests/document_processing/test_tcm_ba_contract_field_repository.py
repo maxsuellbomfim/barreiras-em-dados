@@ -113,7 +113,8 @@ class TcmBaContractFieldRepositoryTests(unittest.TestCase):
         self.assertIn("'tcm_ba_contract_document_segment'", query)
         self.assertIn("segment.extractor_version = %s", query)
         self.assertIn("segment.validation_status = 'needs_review'", query)
-        self.assertIn("bool_and(page.text_sha256 is not null)", query)
+        self.assertIn("base.text_content is null", query)
+        self.assertIn("ocr.text_sha256 is not null", query)
 
     def test_page_without_verified_hash_is_rejected(self) -> None:
         self.connection.pending_rows = [

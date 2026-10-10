@@ -571,3 +571,40 @@ function Read-TcmBaCommitmentAmountBenchmarkEvent {
     }
     return $events[0]
 }
+
+function Assert-TcmBaCoverageIntegrity {
+    param(
+        [object[]]$Output,
+        [int]$ExitCode,
+        [string]$Label
+    )
+
+    # Pendência (atraso, PDF sem classificação conhecida) não trava as etapas
+    # seguintes, que só leem o que já foi processado; duplicata, resultado
+    # inválido, falha aberta ou relatório sem contadores travam (10/10/2026).
+    if ($ExitCode -eq 0) {
+        return
+    }
+    $coverage = $null
+    foreach ($line in $Output) {
+        try {
+            $candidate = "$line" | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+        if ($null -ne $candidate.PSObject.Properties["open_failures"]) {
+            $coverage = $candidate
+        }
+    }
+    if (
+        $null -ne $coverage -and
+        [int]$coverage.duplicate_results -eq 0 -and
+        [int]$coverage.invalid_results -eq 0 -and
+        [int]$coverage.open_failures -eq 0
+    ) {
+        Write-Host "TCM_BA_COVERAGE_PENDING $Label"
+        return
+    }
+    throw "A cobertura $Label TCM-BA foi bloqueada."
+}

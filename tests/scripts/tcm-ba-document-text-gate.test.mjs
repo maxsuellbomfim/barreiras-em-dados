@@ -280,3 +280,33 @@ test("wrapper oferece auditoria física somente leitura sem iniciar o coletor", 
   assert.ok(collector > auditCall);
   assert.match(wrapper, /TCM_BA_DOCUMENT_AUDIT_ONLY/);
 });
+
+function coverageGate(lines, exitCode) {
+  const helperPath = helper.replaceAll("'", "''");
+  const payload = JSON.stringify(lines).replaceAll("'", "''");
+  return spawnSync(
+    process.env.PWSH_PATH ?? "pwsh",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      `$ErrorActionPreference = 'Stop'; . '${helperPath}'; ` +
+        `$lines = @(ConvertFrom-Json '${payload}' | ForEach-Object { $_ }); ` +
+        `Assert-TcmBaCoverageIntegrity -Output $lines -ExitCode ${exitCode} -Label 'teste'`,
+    ],
+    { encoding: "utf8" },
+  );
+}
+
+test("pendência de cobertura não trava a cadeia; integridade trava", () => {
+  const coverage = (overrides) =>
+    JSON.stringify({ event: "x", gate: "BLOCK", missing_artifacts: 231,
+      duplicate_results: 0, invalid_results: 0, open_failures: 0, ...overrides });
+  const pending = coverageGate(["log", coverage({})], 1);
+  assert.equal(pending.status, 0, pending.stderr);
+  assert.match(pending.stdout, /TCM_BA_COVERAGE_PENDING teste/);
+  assert.notEqual(coverageGate([coverage({ duplicate_results: 1 })], 1).status, 0);
+  assert.notEqual(coverageGate([coverage({ open_failures: 2 })], 1).status, 0);
+  assert.notEqual(coverageGate(["Traceback: QueryCanceled"], 1).status, 0);
+  assert.equal(coverageGate([], 0).status, 0);
+});
