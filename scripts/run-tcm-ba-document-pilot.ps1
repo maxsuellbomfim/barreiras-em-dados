@@ -1324,9 +1324,10 @@ try {
         -Python $python `
         -ProjectRoot $projectRoot `
         -Minutes 10
-    Invoke-TcmBaDocumentFamilyCoverage `
-        -Python $python `
-        -ProjectRoot $projectRoot
+    # Auditoria completa das famílias fica no -ReportOnly: ler as 20 mil
+    # classificações espalhadas no heap passava dos 15 s com cache frio
+    # (10/10/2026). Cada lote já valida o que grava e falha se der errado, e
+    # as etapas seguintes só leem classificações válidas.
     Invoke-TcmBaContractDocumentProcessing -Python $python -ProjectRoot $projectRoot -Limit $MaxDocuments
     Invoke-TcmBaContractDocumentCoverage -Python $python -ProjectRoot $projectRoot
     Invoke-TcmBaContractFieldProcessing -Python $python -ProjectRoot $projectRoot -Limit $MaxDocuments
