@@ -192,7 +192,7 @@ try {
   // from the gazette (rentals 1.4.0), the pg_net availability probe requests
   // the monthly finance closure snapshot (2 tables, read cache) and the
   // gazette edition dates read from the printed header.
-  assert.equal(relations.rows[0].count, 83);
+  assert.equal(relations.rows[0].count, 85);
 
   const rlsRelations = await database.query(`
     select count(*)::integer as count
@@ -208,7 +208,7 @@ try {
     )
       and relation.relrowsecurity
   `);
-  assert.equal(rlsRelations.rows[0].count, 83);
+  assert.equal(rlsRelations.rows[0].count, 85);
   const queryStatusAccess = await database.query(`select
     has_table_privilege('anon','source.pncp_contract_query_status','SELECT') as anon_read,
     has_table_privilege('collector_worker','source.pncp_contract_query_status','INSERT') as worker_write`);
