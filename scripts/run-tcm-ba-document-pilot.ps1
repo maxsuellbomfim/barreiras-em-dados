@@ -400,6 +400,62 @@ function Invoke-TcmBaDocumentFamilyCoverage {
         throw "A cobertura das famílias TCM-BA foi bloqueada."
     }
 }
+function Invoke-TcmBaDocumentFamilyBacklogDrain {
+    param(
+        [string]$Python,
+        [string]$ProjectRoot,
+        [int]$Minutes
+    )
+
+    # Atraso acumulado (11,7 mil documentos em 10/10/2026) bloqueava o gate
+    # de famílias por dias. Só "missing" é drenado aqui; duplicata, resultado
+    # inválido ou falha aberta continuam bloqueando no gate seguinte.
+    $deadline = (Get-Date).AddMinutes($Minutes)
+    while ((Get-Date) -lt $deadline) {
+        Push-Location $ProjectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $coverageOutput = @(
+                    & $Python -B -m barreiras_docproc.commands.report_tcm_ba_document_families 2>&1
+                )
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $coverage = $null
+        foreach ($line in $coverageOutput) {
+            try {
+                $candidate = "$line" | ConvertFrom-Json
+            }
+            catch {
+                continue
+            }
+            if ($candidate.event -eq "tcm_ba_document_family_coverage") {
+                $coverage = $candidate
+            }
+        }
+        if (
+            $null -eq $coverage -or
+            [int]$coverage.missing_documents -eq 0 -or
+            [int]$coverage.duplicate_results -ne 0 -or
+            [int]$coverage.invalid_results -ne 0 -or
+            [int]$coverage.open_failures -ne 0
+        ) {
+            return
+        }
+        Write-Host "TCM_BA_DOCUMENT_FAMILY_BACKLOG missing=$($coverage.missing_documents)"
+        Invoke-TcmBaDocumentFamilyInventory `
+            -Python $Python `
+            -ProjectRoot $ProjectRoot `
+            -Limit 50
+    }
+}
 function Invoke-TcmBaContractDocumentProcessing {
     param(
         [string]$Python,
@@ -1247,6 +1303,10 @@ try {
         -Python $python `
         -ProjectRoot $projectRoot `
         -Limit $familyCatchUpLimit
+    Invoke-TcmBaDocumentFamilyBacklogDrain `
+        -Python $python `
+        -ProjectRoot $projectRoot `
+        -Minutes 10
     Invoke-TcmBaDocumentFamilyCoverage `
         -Python $python `
         -ProjectRoot $projectRoot
