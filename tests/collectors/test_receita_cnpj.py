@@ -129,6 +129,8 @@ class ParsingTests(unittest.TestCase):
         self.assertEqual(
             row["natureza_juridica_descricao"], "Sociedade Empresária Limitada"
         )
+        self.assertEqual(row["data_inicio_atividade"], "20100101")
+        self.assertEqual(row["cnae_fiscal_principal"], "4711302")
         self.assertNotIn("telefone", str(row))
         self.assertNotIn("mail@x.com", str(row))
         self.assertNotIn("SEM NOME", str(row))

@@ -228,6 +228,11 @@ def scan_estabelecimentos(
                 "nome_fantasia": row[4].strip(),
                 "situacao_cadastral": row[5].strip(),
                 "data_situacao_cadastral": row[6].strip(),
+                # 1.1.0: abertura e atividade principal (dados públicos da
+                # empresa, sem dado pessoal) para a verificação de empresa
+                # recém-aberta (ADR 0097).
+                "data_inicio_atividade": row[10].strip(),
+                "cnae_fiscal_principal": row[11].strip(),
                 "uf": row[19].strip(),
                 "municipio_receita": row[20].strip(),
             }
