@@ -371,7 +371,13 @@ Atraso, ou PDF classificado só como "desconhecido", registra
 `TCM_BA_COVERAGE_PENDING` e a cadeia segue. Duplicata, resultado inválido,
 falha aberta ou relatório sem contadores travam. Antes, os 231 contratos
 pendentes e 1 PDF "desconhecido" travavam campos e empenhos, que não
-dependem deles.
+dependem deles. A auditoria completa das famílias (20 mil classificações
+espalhadas em 407 MB) também saiu da cadeia agendada (#927); fica no
+`-ReportOnly`. Em 10/10, a cadeia completa voltou a terminar em
+`TCM_BA_DOCUMENT_PILOT_APPROVED`, pela primeira vez desde setembro.
+O atraso de famílias zerou. Pendências: contratos 324/830, campos
+2.794/5.001 segmentos, empenhos 4.787/18.987. Elas avançam 10, 10 e 50
+por execução.
 
 Próximo: conferir que a sonda volta a "ok" nas janelas :17 e que
 contratos e empenhos do TCM-BA voltam a andar quando o atraso de famílias
