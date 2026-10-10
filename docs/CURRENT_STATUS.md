@@ -324,6 +324,19 @@ concorrente: sem dado no PNCP; empresa recém-aberta: falta a data de início
 de atividade no extrato da Receita. O cartão de sanção passou a dizer o
 alcance legal de cada sanção (`supplier-sanction-scope/1.0.0`).
 
+Cadeia documental do TCM-BA destravada em 10/10/2026 (#918, #919): o
+relatório global de páginas (20,8 mil PDFs) passava do limite de 15 s em
+toda execução, e o `throw` interrompia tudo depois do texto. Famílias
+estavam paradas desde 22/09, contratos desde 16/09 e empenhos desde 08/09.
+O relatório saiu da cadeia agendada (fica no `-ReportOnly`). A fila de
+famílias passou a usar índice (8 s → 1,1 s), e o atraso de 11,7 mil
+documentos é drenado por até 10 min por execução (~650 por vez), só quando
+a única pendência é "missing". Índice do Diário: escolha do lote por
+índices enxutos (#917, 3 s → 36 ms), uma das causas da sonda "degradada".
+O extrato da Receita 1.1.0 falhou no upload por JWT vencido após 2 h de
+download (#920 abre a sessão depois do download); a regra de empresa
+recém-aberta aguarda essa coleta.
+
 Próximo: conferir que a sonda volta a "ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não
 compensa agora: só 38 itens têm mais de um autor e 16 seriam resolvidos
 por regra estrita. As 150 janelas falhas da API complementar do Querido
