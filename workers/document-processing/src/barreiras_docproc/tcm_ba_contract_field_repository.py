@@ -72,7 +72,9 @@ class TcmBaContractFieldExtractionRepository:
                     and segment.result_payload ->> 'segment_text_sha256' is not null
                     and job.status = 'succeeded'
                 ),
-                tcm_artifacts as (
+                -- Candidatos escolhidos antes de ler texto (fila de 9-14 s
+                -- com cache frio, 10/10/2026); prontidão como nos empenhos.
+                candidates as materialized (
                   select artifact.id, artifact.sha256, artifact.object_key,
                     artifact.created_at
                   from raw.raw_artifacts as artifact
@@ -83,6 +85,45 @@ class TcmBaContractFieldExtractionRepository:
                       'tcm-ba-monthly-document'
                     and artifact.content_type = 'application/pdf'
                     and artifact.http_status between 200 and 299
+                    and exists (
+                      select 1
+                      from raw.document_pages as page
+                      where page.raw_artifact_id = artifact.id
+                        and page.parser_version = %s
+                        and page.page_number = 1
+                    )
+                    and not exists (
+                      select 1
+                      from raw.document_pages as base
+                      where base.raw_artifact_id = artifact.id
+                        and base.parser_version = %s
+                        and base.text_content is null
+                        and not exists (
+                          select 1
+                          from raw.document_pages as ocr
+                          where ocr.raw_artifact_id = base.raw_artifact_id
+                            and ocr.page_number = base.page_number
+                            and ocr.parser_version = %s
+                            and ocr.text_content is not null
+                            and ocr.text_sha256 is not null
+                        )
+                    )
+                    and not exists (
+                      select 1
+                      from raw.extraction_jobs as job
+                      where job.raw_artifact_id = artifact.id
+                        and job.job_type = %s
+                        and job.idempotency_key = encode(
+                          sha256(
+                            ('tcm-ba-contract-fields:' || artifact.sha256 || ':' ||
+                              %s || ':' || %s)::bytea
+                          ),
+                          'hex'
+                        )
+                        and job.status in ('succeeded', 'dead_lettered')
+                    )
+                  order by artifact.created_at, artifact.id
+                  limit %s
                 ),
                 resolved_pages as (
                   select
@@ -98,8 +139,8 @@ class TcmBaContractFieldExtractionRepository:
                       as text_content,
                     coalesce(base.text_sha256, ocr.text_sha256) as text_sha256
                   from raw.document_pages as base
-                  join tcm_artifacts as artifact
-                    on artifact.id = base.raw_artifact_id
+                  join candidates as candidate
+                    on candidate.id = base.raw_artifact_id
                   left join lateral (
                     select supplemental.parser_version,
                       supplemental.extraction_method,
@@ -114,36 +155,6 @@ class TcmBaContractFieldExtractionRepository:
                     limit 1
                   ) as ocr on true
                   where base.parser_version = %s
-                ),
-                ready_artifacts as (
-                  select page.raw_artifact_id
-                  from resolved_pages as page
-                  group by page.raw_artifact_id
-                  having count(*) > 0
-                    and bool_and(page.text_content is not null)
-                    and bool_and(page.text_sha256 is not null)
-                ),
-                candidates as (
-                  select artifact.*
-                  from tcm_artifacts as artifact
-                  join ready_artifacts as ready
-                    on ready.raw_artifact_id = artifact.id
-                  where not exists (
-                    select 1
-                    from raw.extraction_jobs as job
-                    where job.raw_artifact_id = artifact.id
-                      and job.job_type = %s
-                      and job.idempotency_key = encode(
-                        sha256(
-                          ('tcm-ba-contract-fields:' || artifact.sha256 || ':' ||
-                            %s || ':' || %s)::bytea
-                        ),
-                        'hex'
-                      )
-                      and job.status in ('succeeded', 'dead_lettered')
-                  )
-                  order by artifact.created_at, artifact.id
-                  limit %s
                 )
                 select candidate.id::text as artifact_id,
                   candidate.sha256, candidate.object_key,
@@ -156,12 +167,15 @@ class TcmBaContractFieldExtractionRepository:
                 """,
                 (
                     SEGMENT_EXTRACTOR_VERSION,
-                    TCM_BA_OCR_PARSER_VERSION,
                     PDF_PARSER_VERSION,
+                    PDF_PARSER_VERSION,
+                    TCM_BA_OCR_PARSER_VERSION,
                     JOB_TYPE,
                     SEGMENT_EXTRACTOR_VERSION,
                     EXTRACTOR_VERSION,
                     limit,
+                    TCM_BA_OCR_PARSER_VERSION,
+                    PDF_PARSER_VERSION,
                 ),
             ).fetchall()
             grouped: dict[str, tuple[TextArtifact, list[PageInput]]] = {}
@@ -247,13 +261,22 @@ class TcmBaContractFieldExtractionRepository:
                       'tcm_ba_contract_field_candidate'
                     and result.extractor_version = %s
                 ),
-                valid_results as (
+                -- Só colunas estreitas e casamento por "in" (hash): o join
+                -- de payloads inteiros era quadrático (6 s, 10/10/2026).
+                valid_results as materialized (
                   select field.raw_artifact_id, field.id,
                     (field.result_payload ->> 'source_segment_ordinal')::integer
                       as segment_ordinal,
                     field.result_payload ->> 'source_segment_text_sha256'
                       as segment_text_sha256,
-                    field.result_payload
+                    field.result_payload ->> 'candidate_status'
+                      as candidate_status,
+                    (
+                      select count(*)
+                      from jsonb_object_keys(
+                        field.result_payload -> 'source_anchors'
+                      )
+                    ) as anchor_count
                   from field_results as field
                   join raw.raw_artifacts as artifact
                     on artifact.id = field.raw_artifact_id
@@ -276,15 +299,18 @@ class TcmBaContractFieldExtractionRepository:
                       'fields_observed', 'no_fields_observed'
                     )
                 ),
-                matched as (
-                  select eligible.raw_artifact_id, eligible.segment_ordinal,
-                    valid.id, valid.result_payload
-                  from eligible_segments as eligible
-                  join valid_results as valid
-                    on valid.raw_artifact_id = eligible.raw_artifact_id
-                    and valid.segment_ordinal = eligible.segment_ordinal
-                    and valid.segment_text_sha256 =
+                matched as materialized (
+                  select valid.raw_artifact_id, valid.segment_ordinal,
+                    valid.id, valid.candidate_status, valid.anchor_count
+                  from valid_results as valid
+                  where (
+                    valid.raw_artifact_id, valid.segment_ordinal,
+                    valid.segment_text_sha256
+                  ) in (
+                    select eligible.raw_artifact_id, eligible.segment_ordinal,
                       eligible.segment_text_sha256
+                    from eligible_segments as eligible
+                  )
                 ),
                 metrics as (
                   select
@@ -297,14 +323,10 @@ class TcmBaContractFieldExtractionRepository:
                     (select count(distinct (raw_artifact_id, segment_ordinal))
                       from matched)::integer as processed_segments,
                     coalesce((
-                      select count(*)
-                      from matched,
-                      lateral jsonb_object_keys(
-                        matched.result_payload -> 'source_anchors'
-                      ) as source_anchor(field_name)
+                      select sum(matched.anchor_count) from matched
                     ), 0)::integer as observed_fields,
-                    (select count(*) from matched where result_payload ->>
-                      'candidate_status' = 'no_fields_observed')::integer
+                    (select count(*) from matched where candidate_status
+                      = 'no_fields_observed')::integer
                       as no_fields_observed,
                     ((select count(*) from eligible_segments) -
                       (select count(distinct (

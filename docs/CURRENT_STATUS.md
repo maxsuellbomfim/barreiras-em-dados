@@ -340,8 +340,44 @@ download (#920 abre a sessão depois do download). Recoletado em 10/10
 (credenciamento médico, MEI artístico, advocacia individual). A lista não
 foi publicada; ela depende de revisão humana registrada (ADR 0097).
 
-Próximo: conferir que a sonda volta a "ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não
-compensa agora: só 38 itens têm mais de um autor e 16 seriam resolvidos
-por regra estrita. As 150 janelas falhas da API complementar do Querido
-Diário (fonte parada desde junho) ainda pedem regra explícita de
-encerramento.
+Ainda em 10/10: a cobertura de famílias passou do limite de 15 s com cache
+frio (33 vezes em 8 h) e parava a drenagem. Com um índice de jobs atuais e
+o resultado estreito, caiu de 4 s para 0,37 s (contadores idênticos); a
+drenagem agora se guia pelo próprio lote (#923). A cobertura de estagiários
+e terceirizados (3,4 s) virou instantâneo de hora em hora, com hashes
+idênticos para 1, 24 e 120 meses (#924). Em `/licitacoes`, compras de
+outros órgãos diziam "consulta temporariamente indisponível" em toda
+visita; agora dizem "verificação individual ainda não disponível", porque
+a consulta só cobre o CNPJ da Prefeitura (#925).
+
+As etapas seguintes do TCM-BA tinham a mesma armadilha, medida antes de
+travarem. Para escolher 5 a 50 PDFs, elas resolviam o texto de todos:
+
+| Consulta | Antes | Depois |
+| --- | --- | --- |
+| fila de empenhos | mais de 2 min | 1,1 s |
+| cobertura de empenhos | 107 s | 2,1 s |
+| fila de contratos | 12 s | 0,96 s |
+
+A prontidão agora sai de índices: a primeira página embutida existe, e o
+PDF não está entre os poucos com página sem texto e sem OCR (360 páginas).
+A cobertura de contratos e a de campos deixaram de usar nested loops
+quadráticos. Os contadores antigos e novos são idênticos em produção.
+O `set local statement_timeout` dos empenhos não valia em autocommit e
+virou `set`.
+
+Os gates de cobertura passaram a distinguir pendência de integridade.
+Atraso, ou PDF classificado só como "desconhecido", registra
+`TCM_BA_COVERAGE_PENDING` e a cadeia segue. Duplicata, resultado inválido,
+falha aberta ou relatório sem contadores travam. Antes, os 231 contratos
+pendentes e 1 PDF "desconhecido" travavam campos e empenhos, que não
+dependem deles.
+
+Próximo: conferir que a sonda volta a "ok" nas janelas :17 e que
+contratos e empenhos do TCM-BA voltam a andar quando o atraso de famílias
+zerar. A autoria em coautoria (item 5) foi medida e não compensa agora:
+só 38 itens têm mais de um autor e 16 seriam resolvidos por regra estrita.
+A API complementar do Querido Diário (parada desde junho; 150 janelas
+falhas) já tem regra explícita no coletor: após 14 dias sem sucesso, fica
+"em pausa" e só é testada uma vez por semana, para detectar se a cobertura
+de Barreiras volta. O Diário segue pela fonte oficial direta.

@@ -339,9 +339,8 @@ function Invoke-TcmBaCommitmentCandidateCoverage {
         Pop-Location
     }
     $coverageOutput | ForEach-Object { Write-Host $_ }
-    if ($coverageExitCode -ne 0) {
-        throw "A cobertura dos candidatos de empenho TCM-BA foi bloqueada."
-    }
+    Assert-TcmBaCoverageIntegrity -Output $coverageOutput `
+        -ExitCode $coverageExitCode -Label "dos candidatos de empenho"
 }
 function Invoke-TcmBaDocumentFamilyInventory {
     param(
@@ -396,9 +395,8 @@ function Invoke-TcmBaDocumentFamilyCoverage {
         Pop-Location
     }
     $coverageOutput | ForEach-Object { Write-Host $_ }
-    if ($coverageExitCode -ne 0) {
-        throw "A cobertura das famílias TCM-BA foi bloqueada."
-    }
+    Assert-TcmBaCoverageIntegrity -Output $coverageOutput `
+        -ExitCode $coverageExitCode -Label "das famílias"
 }
 function Invoke-TcmBaDocumentFamilyBacklogDrain {
     param(
@@ -485,15 +483,24 @@ function Invoke-TcmBaContractDocumentCoverage {
 
     Push-Location $ProjectRoot
     try {
-        & $Python -B -m barreiras_docproc.commands.report_tcm_ba_contract_documents
-        $exitCode = $LASTEXITCODE
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $coverageOutput = @(
+                & $Python -B -m barreiras_docproc.commands.report_tcm_ba_contract_documents 2>&1
+            )
+            $exitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
     }
     finally {
         Pop-Location
     }
-    if ($exitCode -ne 0) {
-        throw "A cobertura privada dos contratos TCM-BA foi bloqueada."
-    }
+    $coverageOutput | ForEach-Object { Write-Host $_ }
+    Assert-TcmBaCoverageIntegrity -Output $coverageOutput `
+        -ExitCode $exitCode -Label "privada dos contratos"
 }
 function Invoke-TcmBaContractFieldProcessing {
     param(
@@ -523,15 +530,24 @@ function Invoke-TcmBaContractFieldCoverage {
 
     Push-Location $ProjectRoot
     try {
-        & $Python -B -m barreiras_docproc.commands.report_tcm_ba_contract_fields
-        $exitCode = $LASTEXITCODE
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $coverageOutput = @(
+                & $Python -B -m barreiras_docproc.commands.report_tcm_ba_contract_fields 2>&1
+            )
+            $exitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
     }
     finally {
         Pop-Location
     }
-    if ($exitCode -ne 0) {
-        throw "A cobertura privada dos campos contratuais TCM-BA foi bloqueada."
-    }
+    $coverageOutput | ForEach-Object { Write-Host $_ }
+    Assert-TcmBaCoverageIntegrity -Output $coverageOutput `
+        -ExitCode $exitCode -Label "privada dos campos contratuais"
 }
 $exclusiveModes = @(@(
     $ReportOnly,

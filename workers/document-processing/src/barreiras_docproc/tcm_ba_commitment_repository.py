@@ -63,15 +63,68 @@ class TcmBaCommitmentExtractionRepository:
         try:
             rows = connection.execute(
                 """
-                with tcm_artifacts as (
-                  select artifact.id, artifact.sha256, artifact.object_key,
-                    artifact.created_at
-                  from raw.raw_artifacts as artifact
-                  where artifact.artifact_kind = 'document'
-                    and artifact.metadata ->> 'schema_name'
-                        = 'tcm-ba-monthly-document'
-                    and artifact.content_type = 'application/pdf'
-                    and artifact.http_status between 200 and 299
+                -- Fila pelos índices antes de ler texto: a versão anterior
+                -- resolvia as páginas dos 21 mil PDFs (~611 MB) para escolher
+                -- 50 e não terminava (10/10/2026). Pronto = há primeira página
+                -- embutida e toda página sem texto tem OCR com texto e hash
+                -- (página sem hash ainda é recusada abaixo). "offset 0" mantém
+                -- a fila antes da prontidão.
+                with candidates as materialized (
+                  select queue.id, queue.sha256, queue.object_key,
+                    queue.created_at
+                  from (
+                    select artifact.id, artifact.sha256, artifact.object_key,
+                      artifact.created_at
+                    from raw.raw_artifacts as artifact
+                    where artifact.artifact_kind = 'document'
+                      and artifact.metadata ->> 'schema_name'
+                          = 'tcm-ba-monthly-document'
+                      and artifact.object_key
+                          like 'tcm-ba/monthly-documents/%%/pdf/%%'
+                      and artifact.content_type = 'application/pdf'
+                      and artifact.http_status between 200 and 299
+                      and not exists (
+                        select 1
+                        from raw.extraction_jobs as job
+                        where job.raw_artifact_id = artifact.id
+                          and job.job_type = %s
+                          and job.idempotency_key = encode(
+                            sha256(
+                              ('tcm-ba-commitments:' || artifact.sha256 || ':' ||
+                                %s)::bytea
+                            ),
+                            'hex'
+                          )
+                          and job.status in ('succeeded', 'dead_lettered')
+                      )
+                    order by artifact.created_at, artifact.id
+                    offset 0
+                  ) as queue
+                  where exists (
+                      select 1
+                      from raw.document_pages as page
+                      where page.raw_artifact_id = queue.id
+                        and page.parser_version = %s
+                        and page.page_number = 1
+                    )
+                    and not exists (
+                      select 1
+                      from raw.document_pages as base
+                      where base.raw_artifact_id = queue.id
+                        and base.parser_version = %s
+                        and base.text_content is null
+                        and not exists (
+                          select 1
+                          from raw.document_pages as ocr
+                          where ocr.raw_artifact_id = base.raw_artifact_id
+                            and ocr.page_number = base.page_number
+                            and ocr.parser_version = %s
+                            and ocr.text_content is not null
+                            and ocr.text_sha256 is not null
+                        )
+                    )
+                  order by queue.created_at, queue.id
+                  limit %s
                 ),
                 resolved_pages as (
                   select
@@ -87,8 +140,8 @@ class TcmBaCommitmentExtractionRepository:
                       as text_content,
                     coalesce(base.text_sha256, ocr.text_sha256) as text_sha256
                   from raw.document_pages as base
-                  join tcm_artifacts as artifact
-                    on artifact.id = base.raw_artifact_id
+                  join candidates as candidate
+                    on candidate.id = base.raw_artifact_id
                   left join lateral (
                     select supplemental.parser_version,
                       supplemental.extraction_method,
@@ -103,36 +156,6 @@ class TcmBaCommitmentExtractionRepository:
                     limit 1
                   ) as ocr on true
                   where base.parser_version = %s
-                ),
-                ready_artifacts as (
-                  select page.raw_artifact_id
-                  from resolved_pages as page
-                  group by page.raw_artifact_id
-                  having count(*) > 0
-                    and bool_and(page.text_content is not null)
-                    and bool_and(page.text_sha256 is not null)
-                ),
-                candidates as (
-                  select artifact.*
-                  from tcm_artifacts as artifact
-                  join ready_artifacts as ready
-                    on ready.raw_artifact_id = artifact.id
-                  where not exists (
-                    select 1
-                    from raw.extraction_jobs as job
-                    where job.raw_artifact_id = artifact.id
-                      and job.job_type = %s
-                      and job.idempotency_key = encode(
-                        sha256(
-                          ('tcm-ba-commitments:' || artifact.sha256 || ':' ||
-                            %s)::bytea
-                        ),
-                        'hex'
-                      )
-                      and job.status in ('succeeded', 'dead_lettered')
-                  )
-                  order by artifact.created_at, artifact.id
-                  limit %s
                 )
                 select candidate.id::text as artifact_id,
                   candidate.sha256, candidate.object_key,
@@ -144,11 +167,14 @@ class TcmBaCommitmentExtractionRepository:
                 order by candidate.created_at, candidate.id, page.page_number
                 """,
                 (
-                    TCM_BA_OCR_PARSER_VERSION,
-                    PDF_PARSER_VERSION,
                     JOB_TYPE,
                     EXTRACTOR_VERSION,
+                    PDF_PARSER_VERSION,
+                    PDF_PARSER_VERSION,
+                    TCM_BA_OCR_PARSER_VERSION,
                     limit,
+                    TCM_BA_OCR_PARSER_VERSION,
+                    PDF_PARSER_VERSION,
                 ),
             ).fetchall()
             grouped: dict[str, tuple[TextArtifact, list[PageInput]]] = {}
@@ -718,50 +744,41 @@ class TcmBaCommitmentExtractionRepository:
     def commitment_coverage(self) -> TcmBaCommitmentCoverage:
         connection = self.connection_factory()
         try:
-            connection.execute("set local statement_timeout = '30s'")
+            # Autocommit: "set local" não valeria fora de transação.
+            connection.execute("set statement_timeout = '30s'")
             row = connection.execute(
                 """
-                with tcm_artifacts as (
-                  select artifact.id, artifact.sha256
+                -- Prontidão pelos índices, sem ler o texto das 367 mil
+                -- páginas (107 s em 10/10/2026): tem primeira página
+                -- embutida e não está entre os poucos PDFs com página sem
+                -- texto e sem OCR (document_pages_embedded_missing_text_idx).
+                with commitment_coverage_eligible as materialized (
+                  select artifact.id as raw_artifact_id, artifact.sha256
                   from raw.raw_artifacts as artifact
+                  join raw.document_pages as first_page
+                    on first_page.raw_artifact_id = artifact.id
+                   and first_page.parser_version = %s
+                   and first_page.page_number = 1
                   where artifact.artifact_kind = 'document'
                     and artifact.metadata ->> 'schema_name'
                         = 'tcm-ba-monthly-document'
                     and artifact.content_type = 'application/pdf'
                     and artifact.http_status between 200 and 299
-                ),
-                resolved_pages as (
-                  select base.raw_artifact_id,
-                    coalesce(base.text_content, ocr.text_content)
-                      as text_content,
-                    coalesce(base.text_sha256, ocr.text_sha256) as text_sha256
-                  from raw.document_pages as base
-                  join tcm_artifacts as artifact
-                    on artifact.id = base.raw_artifact_id
-                  left join lateral (
-                    select supplemental.text_content,
-                      supplemental.text_sha256
-                    from raw.document_pages as supplemental
-                    where supplemental.raw_artifact_id = base.raw_artifact_id
-                      and supplemental.page_number = base.page_number
-                      and supplemental.parser_version = %s
-                      and supplemental.text_content is not null
-                    order by supplemental.created_at desc
-                    limit 1
-                  ) as ocr on true
-                  where base.parser_version = %s
-                ),
-                commitment_coverage_eligible as (
-                  select artifact.id as raw_artifact_id, artifact.sha256
-                  from tcm_artifacts as artifact
-                  join (
-                    select page.raw_artifact_id
-                    from resolved_pages as page
-                    group by page.raw_artifact_id
-                    having count(*) > 0
-                      and bool_and(page.text_content is not null)
-                      and bool_and(page.text_sha256 is not null)
-                  ) as ready on ready.raw_artifact_id = artifact.id
+                    and artifact.id not in (
+                      select base.raw_artifact_id
+                      from raw.document_pages as base
+                      where base.parser_version = %s
+                        and base.text_content is null
+                        and not exists (
+                          select 1
+                          from raw.document_pages as ocr
+                          where ocr.raw_artifact_id = base.raw_artifact_id
+                            and ocr.page_number = base.page_number
+                            and ocr.parser_version = %s
+                            and ocr.text_content is not null
+                            and ocr.text_sha256 is not null
+                        )
+                    )
                 ),
                 current_jobs as (
                   select job.id, job.raw_artifact_id, job.status
@@ -885,8 +902,9 @@ class TcmBaCommitmentExtractionRepository:
                   on counts.raw_artifact_id = eligible.raw_artifact_id
                 """,
                 (
-                    TCM_BA_OCR_PARSER_VERSION,
                     PDF_PARSER_VERSION,
+                    PDF_PARSER_VERSION,
+                    TCM_BA_OCR_PARSER_VERSION,
                     JOB_TYPE,
                     EXTRACTOR_VERSION,
                     EXTRACTOR_VERSION,
@@ -927,7 +945,8 @@ class TcmBaCommitmentExtractionRepository:
     ) -> TcmBaCommitmentFieldBreakdown:
         connection = self.connection_factory()
         try:
-            connection.execute("set local statement_timeout = '30s'")
+            # Autocommit: "set local" não valeria fora de transação.
+            connection.execute("set statement_timeout = '30s'")
             rows = connection.execute(
                 """
                 with tcm_artifacts as (

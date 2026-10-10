@@ -70,7 +70,11 @@ class TcmBaContractDocumentExtractionRepository:
                       'contracts_and_amendments'
                     and job.status = 'succeeded'
                 ),
-                tcm_artifacts as (
+                -- Candidatos escolhidos antes de ler texto: a versão
+                -- anterior resolvia as páginas de todos os contratos (12 s,
+                -- 10/10/2026). Prontidão como nos empenhos: primeira página
+                -- embutida e nenhuma página sem texto e sem OCR.
+                candidates as materialized (
                   select artifact.id, artifact.sha256, artifact.object_key,
                     artifact.created_at
                   from raw.raw_artifacts as artifact
@@ -81,6 +85,45 @@ class TcmBaContractDocumentExtractionRepository:
                       'tcm-ba-monthly-document'
                     and artifact.content_type = 'application/pdf'
                     and artifact.http_status between 200 and 299
+                    and exists (
+                      select 1
+                      from raw.document_pages as page
+                      where page.raw_artifact_id = artifact.id
+                        and page.parser_version = %s
+                        and page.page_number = 1
+                    )
+                    and not exists (
+                      select 1
+                      from raw.document_pages as base
+                      where base.raw_artifact_id = artifact.id
+                        and base.parser_version = %s
+                        and base.text_content is null
+                        and not exists (
+                          select 1
+                          from raw.document_pages as ocr
+                          where ocr.raw_artifact_id = base.raw_artifact_id
+                            and ocr.page_number = base.page_number
+                            and ocr.parser_version = %s
+                            and ocr.text_content is not null
+                            and ocr.text_sha256 is not null
+                        )
+                    )
+                    and not exists (
+                      select 1
+                      from raw.extraction_jobs as job
+                      where job.raw_artifact_id = artifact.id
+                        and job.job_type = %s
+                        and job.idempotency_key = encode(
+                          sha256(
+                            ('tcm-ba-contract-segments:' || artifact.sha256 || ':' ||
+                              %s)::bytea
+                          ),
+                          'hex'
+                        )
+                        and job.status in ('succeeded', 'dead_lettered')
+                    )
+                  order by artifact.created_at, artifact.id
+                  limit %s
                 ),
                 resolved_pages as (
                   select
@@ -96,8 +139,8 @@ class TcmBaContractDocumentExtractionRepository:
                       as text_content,
                     coalesce(base.text_sha256, ocr.text_sha256) as text_sha256
                   from raw.document_pages as base
-                  join tcm_artifacts as artifact
-                    on artifact.id = base.raw_artifact_id
+                  join candidates as candidate
+                    on candidate.id = base.raw_artifact_id
                   left join lateral (
                     select supplemental.parser_version,
                       supplemental.extraction_method,
@@ -112,36 +155,6 @@ class TcmBaContractDocumentExtractionRepository:
                     limit 1
                   ) as ocr on true
                   where base.parser_version = %s
-                ),
-                ready_artifacts as (
-                  select page.raw_artifact_id
-                  from resolved_pages as page
-                  group by page.raw_artifact_id
-                  having count(*) > 0
-                    and bool_and(page.text_content is not null)
-                    and bool_and(page.text_sha256 is not null)
-                ),
-                candidates as (
-                  select artifact.*
-                  from tcm_artifacts as artifact
-                  join ready_artifacts as ready
-                    on ready.raw_artifact_id = artifact.id
-                  where not exists (
-                    select 1
-                    from raw.extraction_jobs as job
-                    where job.raw_artifact_id = artifact.id
-                      and job.job_type = %s
-                      and job.idempotency_key = encode(
-                        sha256(
-                          ('tcm-ba-contract-segments:' || artifact.sha256 || ':' ||
-                            %s)::bytea
-                        ),
-                        'hex'
-                      )
-                      and job.status in ('succeeded', 'dead_lettered')
-                  )
-                  order by artifact.created_at, artifact.id
-                  limit %s
                 )
                 select candidate.id::text as artifact_id,
                   candidate.sha256, candidate.object_key,
@@ -154,11 +167,14 @@ class TcmBaContractDocumentExtractionRepository:
                 """,
                 (
                     FAMILY_EXTRACTOR_VERSION,
-                    TCM_BA_OCR_PARSER_VERSION,
                     PDF_PARSER_VERSION,
+                    PDF_PARSER_VERSION,
+                    TCM_BA_OCR_PARSER_VERSION,
                     JOB_TYPE,
                     EXTRACTOR_VERSION,
                     limit,
+                    TCM_BA_OCR_PARSER_VERSION,
+                    PDF_PARSER_VERSION,
                 ),
             ).fetchall()
             grouped: dict[str, tuple[TextArtifact, list[PageInput]]] = {}
@@ -214,7 +230,8 @@ class TcmBaContractDocumentExtractionRepository:
                     and family_job.status = 'succeeded'
                 ),
                 current_jobs as (
-                  select job.id, job.raw_artifact_id, job.status
+                  select job.id, job.raw_artifact_id, job.status,
+                    eligible.sha256 as source_artifact_sha256
                   from raw.extraction_jobs as job
                   join eligible
                     on eligible.raw_artifact_id = job.raw_artifact_id
@@ -227,13 +244,13 @@ class TcmBaContractDocumentExtractionRepository:
                       'hex'
                     )
                 ),
+                -- O hash vem do job: a segunda junção com eligible virava um
+                -- nested loop de 2,6 milhões de linhas (8 s, 10/10/2026).
                 current_results as (
                   select job.raw_artifact_id,
-                    eligible.sha256 as source_artifact_sha256,
+                    job.source_artifact_sha256,
                     result.validation_status, result.result_payload
                   from current_jobs as job
-                  join eligible
-                    on eligible.raw_artifact_id = job.raw_artifact_id
                   join raw.extraction_results as result
                     on result.extraction_job_id = job.id
                   where result.candidate_type =

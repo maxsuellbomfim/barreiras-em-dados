@@ -65,7 +65,7 @@ class RecordingConnection:
             return Cursor(rows=self.issue_date_target_rows)
         if "commitment_coverage_eligible" in normalized:
             return Cursor(row=self.coverage_row)
-        if "with tcm_artifacts as" in normalized:
+        if "with candidates as materialized" in normalized:
             return Cursor(rows=self.pending_rows)
         if "insert into raw.extraction_jobs" in normalized:
             return Cursor(row=self.job_row)
@@ -199,7 +199,7 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
         statements = [query for query, _params in self.connection.queries]
         self.assertEqual(
             statements[0],
-            "set local statement_timeout = '30s'",
+            "set statement_timeout = '30s'",
         )
 
     def test_missing_field_breakdown_is_aggregate_and_version_scoped(self) -> None:
@@ -286,7 +286,7 @@ class TcmBaCommitmentRepositoryTests(unittest.TestCase):
         statements = [query for query, _params in self.connection.queries]
         self.assertEqual(
             statements[0],
-            "set local statement_timeout = '30s'",
+            "set statement_timeout = '30s'",
         )
 
     def test_creditor_layout_targets_are_version_scoped_and_bounded(self) -> None:
