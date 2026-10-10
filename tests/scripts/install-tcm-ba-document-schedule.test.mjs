@@ -14,8 +14,9 @@ test("tarefa local usa DPAPI, seleção automática e limites fechados", () => {
   assert.match(script, /"-WindowStyle Hidden"/);
   assert.match(script, /-ExecutionOrigin windows_scheduler/);
   assert.match(script, /-MaxDocuments 10/);
-  assert.match(script, /\[ValidateRange\(15, 1440\)\]/);
-  assert.match(script, /\[int\]\$IntervalMinutes = 15/);
+  // Execuções levam ~5 min; IgnoreNew impede sobreposição (#913).
+  assert.match(script, /\[ValidateRange\(5, 1440\)\]/);
+  assert.match(script, /\[int\]\$IntervalMinutes = 5/);
   assert.match(
     script,
     /-RepetitionInterval \(New-TimeSpan -Minutes \$IntervalMinutes\)/,
