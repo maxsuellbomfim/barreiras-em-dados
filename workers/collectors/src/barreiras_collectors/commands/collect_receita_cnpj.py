@@ -42,7 +42,7 @@ from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import build_authenticated_object_store
 
 COLLECTOR_VERSION = "receita-cnpj-collector/1.0.0"
-PARSER_VERSION = "receita-cnpj-extract/1.0.0"
+PARSER_VERSION = "receita-cnpj-extract/1.1.0"
 
 
 @dataclass(frozen=True)
@@ -192,7 +192,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     requested_at = datetime.now(UTC).isoformat()
     remote = latest_complete_month()
     month = remote[NATUREZAS_FILE].month
-    # Mesmo mês e mesmos alvos já preservados: não baixa 7 GB de novo.
+    # Mesmo mês, mesmos alvos e mesma versão do extrato já preservados: não
+    # baixa 7 GB de novo. Versão nova do extrato força uma coleta.
     targets_sha256 = hashlib.sha256("\n".join(sorted(targets)).encode()).hexdigest()
     connection = repository.connection_factory()
     try:
@@ -203,9 +204,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             where artifact.metadata ->> 'schema_name' = 'receita-cnpj-registry-extract'
               and artifact.metadata -> 'cursor' ->> 'month' = %s
               and artifact.metadata -> 'cursor' ->> 'targets_sha256' = %s
+              and artifact.parser_version = %s
             limit 1
             """,
-            (month, targets_sha256),
+            (month, targets_sha256, PARSER_VERSION),
         ).fetchone()
     finally:
         connection.close()
