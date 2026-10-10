@@ -112,8 +112,9 @@ test("wrapper processa texto somente depois da auditoria física", () => {
   assert.ok(processor > audit);
   assert.ok(textGate > processor);
   assert.ok(ocr > textGate);
-  assert.ok(report > ocr);
-  assert.ok(families > report);
+  // Relatório global só no -ReportOnly, antes do coletor (09/10/2026).
+  assert.ok(report >= 0 && report < ocr);
+  assert.ok(families > ocr);
   assert.ok(familyCoverage > families);
   assert.ok(contractDocuments > familyCoverage);
   assert.ok(contractCoverage > contractDocuments);
