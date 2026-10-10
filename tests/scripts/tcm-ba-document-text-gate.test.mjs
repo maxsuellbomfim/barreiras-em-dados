@@ -115,8 +115,10 @@ test("wrapper processa texto somente depois da auditoria física", () => {
   // Relatório global só no -ReportOnly, antes do coletor (09/10/2026).
   assert.ok(report >= 0 && report < ocr);
   assert.ok(families > ocr);
-  assert.ok(familyCoverage > families);
-  assert.ok(contractDocuments > familyCoverage);
+  // Auditoria completa de famílias só no -ReportOnly e na recuperação
+  // dirigida, nunca depois do inventário agendado (10/10/2026).
+  assert.ok(familyCoverage >= 0 && familyCoverage < families);
+  assert.ok(contractDocuments > families);
   assert.ok(contractCoverage > contractDocuments);
   assert.ok(contractFields > contractCoverage);
   assert.ok(contractFieldCoverage > contractFields);
