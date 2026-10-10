@@ -222,5 +222,17 @@ class DownloadTests(unittest.TestCase):
             )
 
 
+class StorageSessionTests(unittest.TestCase):
+    def test_storage_session_opens_after_the_long_download(self) -> None:
+        # O JWT do Storage dura 1 h; o download leva mais (10/10/2026).
+        import barreiras_collectors.commands.collect_receita_cnpj as command
+
+        source = Path(command.__file__).read_text(encoding="utf-8")
+        self.assertGreater(
+            source.index("build_authenticated_object_store(persistence)"),
+            source.index("scan_estabelecimentos(downloaded.path"),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

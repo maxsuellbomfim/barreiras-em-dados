@@ -176,7 +176,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     if persistence.mode != "postgres-supabase" or persistence.database_url is None:
         raise RuntimeError("O cadastro CNPJ requer PERSISTENCE_MODE=postgres-supabase.")
     repository = PostgresCollectionRepository.from_dsn(persistence.database_url)
-    object_store = build_authenticated_object_store(persistence)
 
     connection = repository.connection_factory()
     try:
@@ -279,6 +278,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         digest = extract.body_sha256
         object_key = f"receita/cnpj/{month}/sha256/{digest[:2]}/{digest}.json"
+        # Sessão do Storage aberta só agora: o JWT dura 1 h e o download de
+        # 7 GB leva mais que isso (upload recusado em 10/10/2026).
+        object_store = build_authenticated_object_store(persistence)
         stored = object_store.put_if_absent(
             object_key=object_key,
             body=extract.raw_body,
