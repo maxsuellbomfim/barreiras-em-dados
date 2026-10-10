@@ -76,9 +76,37 @@ plataforma de pregão, que é fonte nova a pesquisar. **Não executada.**
 
 ### 2. Empresa recém-aberta
 
-O extrato do cadastro da Receita (ADR 0093) não guarda a data de início de
-atividade. A verificação depende de ampliar esse extrato com o campo, dado
-público da própria Receita, sem dado pessoal. **Pendente da próxima coleta.**
+O extrato do cadastro da Receita passou a guardar a data de início de
+atividade (`receita-cnpj-extract/1.1.0`, coleta de 10/10/2026, mês 2026-09:
+596 de 628 CNPJs encontrados).
+
+Regra medida em 10/10/2026: início do contrato (vigência no portal da
+Prefeitura, assinatura no PNCP) até 180 dias depois da abertura do CNPJ.
+O limite de 180 dias é parâmetro desta medição, não critério legal: abrir
+empresa e contratar com o poder público logo depois é lícito.
+
+Resultado: de 1.732 contratos (1.405 com data de abertura conhecida), **6
+contratos de 6 empresas**, cerca de R$ 2,25 milhões. Um deles está no portal
+e no PNCP e foi contado uma vez. Perfil dos objetos:
+
+- credenciamento de serviços médicos;
+- consultoria por sociedade individual de advocacia;
+- show artístico pago a MEI;
+- palestra;
+- extintores;
+- materiais de limpeza: o maior, R$ 1,0 milhão, contratado 174 dias após a
+  abertura.
+
+A maioria corresponde a formas comuns de contratação de pessoa física por
+meio de PJ.
+
+Decisão: não publicar a lista. Estes são achados de anomalia sobre empresas
+nomeadas e exigem revisão humana registrada (regra do projeto). Uma das
+razões sociais de MEI contém CPF, que não pode ser publicado. Os casos não
+são listados aqui porque o repositório é público.
+
+Qualidade de dado observada: 5 contratos do portal têm data de vigência
+impossível (por exemplo "31/09/2023") e ficaram fora da medição.
 
 ## Consequências
 

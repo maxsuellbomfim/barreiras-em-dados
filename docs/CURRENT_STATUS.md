@@ -334,8 +334,11 @@ documentos é drenado por até 10 min por execução (~650 por vez), só quando
 a única pendência é "missing". Índice do Diário: escolha do lote por
 índices enxutos (#917, 3 s → 36 ms), uma das causas da sonda "degradada".
 O extrato da Receita 1.1.0 falhou no upload por JWT vencido após 2 h de
-download (#920 abre a sessão depois do download); a regra de empresa
-recém-aberta aguarda essa coleta.
+download (#920 abre a sessão depois do download). Recoletado em 10/10
+(596/628 CNPJs). Regra de empresa recém-aberta (≤180 dias até o contrato):
+6 contratos de 6 empresas (~R$ 2,25 mi), em maioria formas comuns de PJ
+(credenciamento médico, MEI artístico, advocacia individual). A lista não
+foi publicada; ela depende de revisão humana registrada (ADR 0097).
 
 Próximo: conferir que a sonda volta a "ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não
 compensa agora: só 38 itens têm mais de um autor e 16 seriam resolvidos
