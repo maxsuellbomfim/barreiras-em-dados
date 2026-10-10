@@ -1,5 +1,5 @@
 param(
-    [ValidateRange(15, 1440)]
+    [ValidateRange(5, 1440)]
     [int]$IntervalMinutes = 5,
     [switch]$StartNow
 )
