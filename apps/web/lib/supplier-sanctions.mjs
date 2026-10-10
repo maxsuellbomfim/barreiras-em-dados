@@ -84,3 +84,79 @@ export function sanctionPortalUrl(cnpj) {
   // A consulta oficial cobre todos os cadastros para o documento informado.
   return `https://portaldatransparencia.gov.br/sancoes/consulta?cpfCnpj=${cnpj}`;
 }
+
+// supplier-sanction-scope/1.0.0: alcance legal da sanção, por tipo e órgão,
+// para o leitor não confundir impedimento em outro órgão com proibição de
+// contratar com Barreiras. Classificação conservadora; quando o tipo não é
+// reconhecido, diz que o alcance não foi classificado.
+function normalizedText(value) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+export function sanctionLegalScope(sanction) {
+  const type = normalizedText(sanction.sanctionType);
+  const body = normalizedText(sanction.sanctioningBody);
+  const appliedByBarreiras =
+    /\bbarreiras\b/.test(body) &&
+    normalizedText(sanction.sanctioningBodySphere) === "municipal";
+  if (sanction.registry === "cepim") {
+    return {
+      kind: "transferencias_federais",
+      appliesToBarreiras: false,
+      text: "Impede a entidade de firmar convênios e receber transferências da União; não trata de contratos com o município.",
+    };
+  }
+  if (sanction.registry === "leniencia") {
+    return {
+      kind: "sem_proibicao",
+      appliesToBarreiras: false,
+      text: "Acordo de leniência: não proíbe a empresa de contratar com o poder público.",
+    };
+  }
+  if (type.includes("inidone")) {
+    return {
+      kind: "toda_administracao",
+      appliesToBarreiras: true,
+      text: "Declaração de inidoneidade: impede licitar e contratar com toda a administração pública, em qualquer esfera.",
+    };
+  }
+  if (type.includes("proibicao de contratar com o poder publico") ||
+      type.includes("proibicao de receber")) {
+    return {
+      kind: "decisao_judicial",
+      appliesToBarreiras: null,
+      text: "Proibição imposta por decisão judicial: o alcance está definido na própria decisão.",
+    };
+  }
+  if (type.includes("impedimento") || type.includes("suspens")) {
+    if (appliedByBarreiras) {
+      return {
+        kind: "ente_aplicador",
+        appliesToBarreiras: true,
+        text: "Aplicada por órgão de Barreiras: alcança licitações e contratos do próprio município.",
+      };
+    }
+    return {
+      kind: "ente_aplicador",
+      appliesToBarreiras: false,
+      text: type.includes("suspens")
+        ? "Suspensão: vale para o órgão que a aplicou (entendimento do TCU); não proíbe contratar com Barreiras."
+        : "Impedimento: vale só para o ente federativo que o aplicou (Lei 14.133, art. 156, § 4º); não proíbe contratar com Barreiras.",
+    };
+  }
+  if (type.includes("multa") || type.includes("publicacao extraordinaria")) {
+    return {
+      kind: "sem_proibicao",
+      appliesToBarreiras: false,
+      text: "Multa ou publicação da condenação: não proíbe a empresa de contratar com o poder público.",
+    };
+  }
+  return {
+    kind: "nao_classificado",
+    appliesToBarreiras: null,
+    text: "Alcance não classificado automaticamente: consulte o órgão sancionador.",
+  };
+}

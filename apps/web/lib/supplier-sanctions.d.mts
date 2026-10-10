@@ -33,3 +33,17 @@ export function formatSanctionCnpj(cnpj: string): string;
 export function sanctionRegistryLabel(registry: SanctionRegistry): string;
 
 export function sanctionPortalUrl(cnpj: string): string;
+
+export type SanctionLegalScope = Readonly<{
+  kind:
+    | "toda_administracao"
+    | "ente_aplicador"
+    | "decisao_judicial"
+    | "sem_proibicao"
+    | "transferencias_federais"
+    | "nao_classificado";
+  appliesToBarreiras: boolean | null;
+  text: string;
+}>;
+
+export function sanctionLegalScope(sanction: SupplierSanction): SanctionLegalScope;

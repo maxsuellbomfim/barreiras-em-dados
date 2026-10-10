@@ -1,5 +1,6 @@
 import {
   formatSanctionCnpj,
+  sanctionLegalScope,
   sanctionPortalUrl,
   sanctionRegistryLabel,
   type SupplierSanction,
@@ -8,6 +9,7 @@ import {
 export function SupplierSanctionCard({
   sanction,
 }: Readonly<{ sanction: SupplierSanction }>) {
+  const scope = sanctionLegalScope(sanction);
   return (
     <article className="digest-card">
       <div className="track-top">
@@ -38,6 +40,10 @@ export function SupplierSanctionCard({
         <div>
           <dt>Início informado</dt>
           <dd>{sanction.startDateText ?? "não informado"}</dd>
+        </div>
+        <div>
+          <dt>Alcance legal</dt>
+          <dd>{scope.text}</dd>
         </div>
         {sanction.processNumber ? (
           <div>

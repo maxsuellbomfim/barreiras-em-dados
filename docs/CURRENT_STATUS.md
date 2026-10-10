@@ -315,6 +315,15 @@ edições seguem sem data (cabeçalho não legível ou, na plataforma de 2026,
 ausente no texto). Índice, busca, edição e cobertura usam essa data só
 quando o documento não tem a própria.
 
+Verificações de alerta (ADR 0097, 09/10/2026): pagamento a fornecedor com
+sanção válida para Barreiras: nenhum (13 pagamentos, ~R$ 7,6 mil, a 5
+empresas impedidas só por outros órgãos, sanções que não alcançam o
+município); compra fracionada nas 38 dispensas do PNCP: nenhuma (o único
+candidato era a mesma dispensa publicada duas vezes); licitação com único
+concorrente: sem dado no PNCP; empresa recém-aberta: falta a data de início
+de atividade no extrato da Receita. O cartão de sanção passou a dizer o
+alcance legal de cada sanção (`supplier-sanction-scope/1.0.0`).
+
 Próximo: conferir que a sonda volta a "ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não
 compensa agora: só 38 itens têm mais de um autor e 16 seriam resolvidos
 por regra estrita. As 150 janelas falhas da API complementar do Querido

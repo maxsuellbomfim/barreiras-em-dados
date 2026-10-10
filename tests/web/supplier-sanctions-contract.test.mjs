@@ -170,3 +170,47 @@ test("a página do fornecedor liga o CNPJ às sanções com estados explícitos"
   );
   assert.match(supplierPage, /sanction\.supplierCnpj === cnpj/);
 });
+
+test("alcance legal separa inidoneidade de impedimento em outro órgão", async () => {
+  const { sanctionLegalScope } = await import("../../apps/web/lib/supplier-sanctions.mjs");
+  const base = {
+    registry: "ceis",
+    sanctioningBodySphere: "MUNICIPAL",
+    sanctioningBody: "MGO-PREFEITURA MUNICIPAL DE RIO VERDE",
+  };
+  const elsewhere = sanctionLegalScope({
+    ...base,
+    sanctionType: "Impedimento/proibição de contratar com prazo determinado",
+  });
+  assert.equal(elsewhere.kind, "ente_aplicador");
+  assert.equal(elsewhere.appliesToBarreiras, false);
+  assert.match(elsewhere.text, /não proíbe contratar com Barreiras/);
+
+  const local = sanctionLegalScope({
+    ...base,
+    sanctioningBody: "PREFEITURA MUNICIPAL DE BARREIRAS",
+    sanctionType: "Suspensão",
+  });
+  assert.equal(local.appliesToBarreiras, true);
+
+  const nationwide = sanctionLegalScope({
+    ...base,
+    sanctioningBodySphere: "FEDERAL",
+    sanctionType: "Declaração de Inidoneidade sem prazo determinado",
+  });
+  assert.equal(nationwide.kind, "toda_administracao");
+  assert.equal(nationwide.appliesToBarreiras, true);
+
+  assert.equal(
+    sanctionLegalScope({ registry: "cnep", sanctionType: "Multa" }).kind,
+    "sem_proibicao",
+  );
+  assert.equal(sanctionLegalScope({ registry: "cepim" }).kind, "transferencias_federais");
+  assert.equal(sanctionLegalScope({ registry: "leniencia" }).kind, "sem_proibicao");
+  assert.equal(
+    sanctionLegalScope({ registry: "ceis", sanctionType: "Outra coisa" }).kind,
+    "nao_classificado",
+  );
+  assert.match(sanctionCard, /Alcance legal/);
+  assert.match(sanctionCard, /sanctionLegalScope\(sanction\)/);
+});
