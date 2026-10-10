@@ -31,9 +31,10 @@ $arguments = @(
     "-RequestsPerMinute 30"
     "-ExecutionOrigin windows_scheduler"
 ) -join " "
-$action = New-ScheduledTaskAction `
-    -Execute $powerShellPath `
-    -Argument $arguments `
+. (Join-Path $PSScriptRoot "lib/hidden-task-action.ps1")
+$action = New-HiddenPowerShellTaskAction `
+    -PowerShellPath $powerShellPath `
+    -Arguments $arguments `
     -WorkingDirectory $projectRoot
 $trigger = New-ScheduledTaskTrigger `
     -Once `

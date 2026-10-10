@@ -30,9 +30,10 @@ $arguments = @(
     "-AutomaticClosedMonth"
     "-RequestsPerMinute 30"
 ) -join " "
-$action = New-ScheduledTaskAction `
-    -Execute $powerShellPath `
-    -Argument $arguments `
+. (Join-Path $PSScriptRoot "lib/hidden-task-action.ps1")
+$action = New-HiddenPowerShellTaskAction `
+    -PowerShellPath $powerShellPath `
+    -Arguments $arguments `
     -WorkingDirectory $projectRoot
 $trigger = New-ScheduledTaskTrigger -Daily -At $DailyAt
 $settings = New-ScheduledTaskSettingsSet `
