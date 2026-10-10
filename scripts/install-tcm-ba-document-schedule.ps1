@@ -1,6 +1,6 @@
 param(
     [ValidateRange(15, 1440)]
-    [int]$IntervalMinutes = 15,
+    [int]$IntervalMinutes = 5,
     [switch]$StartNow
 )
 $ErrorActionPreference = "Stop"
