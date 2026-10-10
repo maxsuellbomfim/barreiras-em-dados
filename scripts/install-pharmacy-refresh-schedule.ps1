@@ -22,7 +22,8 @@ $arguments="-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypa
 if($HistoricalYear){$arguments += " -Year $HistoricalYear"}
 $powerShellPath=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
 if(-not (Test-Path -LiteralPath $powerShellPath)){throw 'Windows PowerShell unavailable'}
-$action=New-ScheduledTaskAction -Execute $powerShellPath -Argument $arguments -WorkingDirectory $projectRoot
+. (Join-Path $PSScriptRoot 'lib/hidden-task-action.ps1')
+$action=New-HiddenPowerShellTaskAction -PowerShellPath $powerShellPath -Arguments $arguments -WorkingDirectory $projectRoot
 $trigger=New-ScheduledTaskTrigger -Daily -At $DailyAt
 if($HistoricalYear){$trigger=New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 -DaysOfWeek $DayOfWeek -At $DailyAt}
 $settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -WakeToRun -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 15)
