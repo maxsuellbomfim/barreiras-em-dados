@@ -242,10 +242,13 @@ class TcmBaDocumentFamilyExtractionRepository:
                       'hex'
                     )
                 ),
-                current_results as (
+                -- Só os campos usados: com o payload inteiro a ordenação ia
+                -- para o disco e a cobertura passava de 15 s (10/10/2026).
+                current_results as materialized (
                   select job.raw_artifact_id, job.status as job_status,
                     result.validation_status,
-                    result.result_payload
+                    result.result_payload ->> 'family' as family,
+                    result.result_payload ->> 'schema_name' as schema_name
                   from current_jobs as job
                   join raw.extraction_results as result
                     on result.extraction_job_id = job.id
@@ -256,23 +259,22 @@ class TcmBaDocumentFamilyExtractionRepository:
                   select raw_artifact_id, count(*) as result_count,
                     count(*) filter (
                       where validation_status = 'valid'
-                        and result_payload ->> 'family' <> 'unknown'
+                        and family <> 'unknown'
                     ) as classified_count,
                     count(*) filter (
                       where validation_status = 'needs_review'
-                        and result_payload ->> 'family' = 'unknown'
+                        and family = 'unknown'
                     ) as unknown_count,
                     count(*) filter (
-                      where result_payload ->> 'schema_name'
-                          <> 'tcm-ba-document-family'
-                         or result_payload ->> 'family' is null
+                      where schema_name <> 'tcm-ba-document-family'
+                         or family is null
                          or validation_status = 'invalid'
                          or (
-                           result_payload ->> 'family' = 'unknown'
+                           family = 'unknown'
                            and validation_status <> 'needs_review'
                          )
                          or (
-                           result_payload ->> 'family' <> 'unknown'
+                           family <> 'unknown'
                            and validation_status <> 'valid'
                          )
                     ) as invalid_count

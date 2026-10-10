@@ -408,8 +408,10 @@ function Invoke-TcmBaDocumentFamilyBacklogDrain {
     )
 
     # Atraso acumulado (11,7 mil documentos em 10/10/2026) bloqueava o gate
-    # de famílias por dias. Só "missing" é drenado aqui; duplicata, resultado
-    # inválido ou falha aberta continuam bloqueando no gate seguinte.
+    # de famílias por dias. Lotes de 50 até a fila esvaziar ou o tempo
+    # acabar; o lote informa quantos pendentes achou, sem consultar a
+    # cobertura a cada volta. Duplicata, resultado inválido ou falha aberta
+    # continuam bloqueando no gate de cobertura seguinte.
     $deadline = (Get-Date).AddMinutes($Minutes)
     while ((Get-Date) -lt $deadline) {
         Push-Location $ProjectRoot
@@ -417,9 +419,10 @@ function Invoke-TcmBaDocumentFamilyBacklogDrain {
             $previousErrorActionPreference = $ErrorActionPreference
             try {
                 $ErrorActionPreference = "Continue"
-                $coverageOutput = @(
-                    & $Python -B -m barreiras_docproc.commands.report_tcm_ba_document_families 2>&1
+                $familyOutput = @(
+                    & $Python -B -m barreiras_docproc.commands.process_tcm_ba_document_families --limit 50 2>&1
                 )
+                $familyExitCode = $LASTEXITCODE
             }
             finally {
                 $ErrorActionPreference = $previousErrorActionPreference
@@ -428,32 +431,30 @@ function Invoke-TcmBaDocumentFamilyBacklogDrain {
         finally {
             Pop-Location
         }
-        $coverage = $null
-        foreach ($line in $coverageOutput) {
+        $familyOutput | ForEach-Object { Write-Host $_ }
+        if ($familyExitCode -ne 0) {
+            throw "O inventário de famílias TCM-BA terminou com código $familyExitCode."
+        }
+        $batch = $null
+        foreach ($line in $familyOutput) {
             try {
                 $candidate = "$line" | ConvertFrom-Json
             }
             catch {
                 continue
             }
-            if ($candidate.event -eq "tcm_ba_document_family_coverage") {
-                $coverage = $candidate
+            if ($candidate.event -eq "tcm_ba_document_family_batch_completed") {
+                $batch = $candidate
             }
         }
         if (
-            $null -eq $coverage -or
-            [int]$coverage.missing_documents -eq 0 -or
-            [int]$coverage.duplicate_results -ne 0 -or
-            [int]$coverage.invalid_results -ne 0 -or
-            [int]$coverage.open_failures -ne 0
+            $null -eq $batch -or
+            [int]$batch.pending_found -lt 50 -or
+            [int]$batch.failed -ne 0
         ) {
             return
         }
-        Write-Host "TCM_BA_DOCUMENT_FAMILY_BACKLOG missing=$($coverage.missing_documents)"
-        Invoke-TcmBaDocumentFamilyInventory `
-            -Python $Python `
-            -ProjectRoot $ProjectRoot `
-            -Limit 50
+        Write-Host "TCM_BA_DOCUMENT_FAMILY_BACKLOG processed=$($batch.processed)"
     }
 }
 function Invoke-TcmBaContractDocumentProcessing {
