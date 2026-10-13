@@ -398,6 +398,63 @@ function Invoke-TcmBaDocumentFamilyCoverage {
     Assert-TcmBaCoverageIntegrity -Output $coverageOutput `
         -ExitCode $coverageExitCode -Label "das famílias"
 }
+function Invoke-TcmBaDocumentTextBacklogDrain {
+    param(
+        [string]$Python,
+        [string]$ProjectRoot,
+        [int]$Minutes
+    )
+
+    # A coleta trazia ~800 PDFs/dia e o texto saía só para 10 por execução:
+    # 2,8 mil PDFs sem texto em 13/10/2026, invisíveis para contratos e
+    # empenhos. Lotes de 10 com a mesma aprovação do lote principal, até a
+    # fila esvaziar ou o tempo acabar.
+    $deadline = (Get-Date).AddMinutes($Minutes)
+    while ((Get-Date) -lt $deadline) {
+        Push-Location $ProjectRoot
+        try {
+            $previousErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $textOutput = @(
+                    & $Python -B -m barreiras_docproc.commands.process_tcm_ba_documents --limit 10 2>&1
+                )
+                $textExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $textOutput | ForEach-Object { Write-Host $_ }
+        $textEvents = @(Read-TextEvents -Output $textOutput)
+        $batch = @(
+            $textEvents | Where-Object {
+                $_.event -eq "tcm_ba_document_text_batch_completed"
+            }
+        )
+        # Fila vazia sai com código 1 no comando; aqui é o fim da drenagem.
+        if (
+            $batch.Count -eq 1 -and
+            [int]$batch[0].pending_found -eq 0 -and
+            [int]$batch[0].failed -eq 0
+        ) {
+            return
+        }
+        if ($textExitCode -ne 0) {
+            throw "O processador de texto terminou com código $textExitCode."
+        }
+        $null = Assert-TcmBaDocumentTextApproval `
+            -Events $textEvents `
+            -MaxDocuments 10
+        Write-Host "TCM_BA_DOCUMENT_TEXT_BACKLOG processed=$($batch[0].processed)"
+        if ([int]$batch[0].pending_found -lt 10) {
+            return
+        }
+    }
+}
 function Invoke-TcmBaDocumentFamilyBacklogDrain {
     param(
         [string]$Python,
@@ -1290,6 +1347,10 @@ try {
         Write-Host "TCM_BA_DOCUMENT_CATEGORY_RECOVERY_APPROVED" -ForegroundColor Green
         return
     }
+    Invoke-TcmBaDocumentTextBacklogDrain `
+        -Python $python `
+        -ProjectRoot $projectRoot `
+        -Minutes 8
     Push-Location $projectRoot
     try {
         $previousErrorActionPreference = $ErrorActionPreference
