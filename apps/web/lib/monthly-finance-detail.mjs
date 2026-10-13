@@ -247,6 +247,12 @@ export function parseMonthlyFinanceDetail(row) {
   const expenseDocuments = parseArray(row.expense_documents, parseExpenseDocument);
   const status = row.closure_status;
   const fiscalYear = row.fiscal_year;
+  const methodology = row.calculation_methodology;
+  // 1.2.0 (13/10/2026): o mesmo demonstrativo publicado no portal e no TCM-BA
+  // conta uma vez, mas os dois documentos seguem listados como evidência.
+  const documentsMatch = (documents, count) => methodology === "monthly-finance-closure/1.2.0"
+    ? documents.length >= count
+    : documents.length === count;
 
   if (
     !closureId
@@ -263,10 +269,11 @@ export function parseMonthlyFinanceDetail(row) {
     || expenseReportCount === null
     || !revenueDocuments
     || !expenseDocuments
-    || revenueDocuments.length !== revenueReportCount
-    || expenseDocuments.length !== expenseReportCount
+    || !documentsMatch(revenueDocuments, revenueReportCount)
+    || !documentsMatch(expenseDocuments, expenseReportCount)
     || (status !== "operational" && status !== "needs_data" && status !== "needs_review")
-    || row.calculation_methodology !== "monthly-finance-closure/1.1.0"
+    || (methodology !== "monthly-finance-closure/1.1.0"
+      && methodology !== "monthly-finance-closure/1.2.0")
     || row.evidence_methodology !== "public-monthly-finance-detail/1.0.0"
   ) {
     return null;
@@ -310,7 +317,7 @@ export function parseMonthlyFinanceDetail(row) {
     operationalDifferenceAmount,
     closureStatus: status,
     coverageNote,
-    calculationMethodology: "monthly-finance-closure/1.1.0",
+    calculationMethodology: methodology,
     revenueDocuments,
     expenseDocuments,
     evidenceMethodology: "public-monthly-finance-detail/1.0.0",

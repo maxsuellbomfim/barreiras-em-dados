@@ -247,3 +247,25 @@ test("não liga linhas quando há versões concorrentes ou mais de um relatório
     null,
   );
 });
+
+test("1.2.0 conta o demonstrativo uma vez e mantém os dois documentos", () => {
+  const reconciled = {
+    ...validRow,
+    revenue_report_count: 1,
+    expense_report_count: 1,
+    operational_difference_amount: "1500.00",
+    closure_status: "operational",
+    calculation_methodology: "monthly-finance-closure/1.2.0",
+  };
+  const detail = parseMonthlyFinanceDetail(reconciled);
+  assert.equal(detail?.calculationMethodology, "monthly-finance-closure/1.2.0");
+  assert.equal(detail?.revenueDocuments.length, 2);
+  assert.equal(detail?.expenseDocuments.length, 2);
+  // 1.1.0 continua exigindo um documento por relatório contado.
+  assert.equal(
+    parseMonthlyFinanceDetail({ ...reconciled, calculation_methodology: "monthly-finance-closure/1.1.0" }),
+    null,
+  );
+  // Menos documentos que demonstrativos nunca passa.
+  assert.equal(parseMonthlyFinanceDetail({ ...reconciled, revenue_documents: [] }), null);
+});

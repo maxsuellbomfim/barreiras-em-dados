@@ -45,7 +45,8 @@ function parsePeriod(row, startYear) {
     typeof row.publicBodyName !== "string" ||
     typeof row.coverageNote !== "string" ||
     !row.coverageNote.trim() ||
-    row.calculationMethodology !== "finance-coverage/1.1.0" ||
+    (row.calculationMethodology !== "finance-coverage/1.1.0" &&
+      row.calculationMethodology !== "finance-coverage/1.2.0") ||
     !Number.isSafeInteger(row.revenueReportCount) ||
     row.revenueReportCount < 0 ||
     !Number.isSafeInteger(row.expenseReportCount) ||
