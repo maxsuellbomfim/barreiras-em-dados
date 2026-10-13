@@ -8,12 +8,16 @@ const indexes = await readFile(
   "utf8",
 );
 
-// A definição vigente da função é a da migration mais recente que a cria.
+// A regra vigente é a da migration mais recente que define o cálculo; desde
+// 13/10/2026 a função pública só lê um instantâneo desse cálculo.
 const files = (await readdir(migrationsDir)).sort();
 let lineage = "";
 for (const file of files) {
   const sql = await readFile(new URL(file, migrationsDir), "utf8");
-  if (sql.includes("function finance.get_exact_document_lineage_pairs()")) {
+  if (
+    sql.includes("function finance.get_exact_document_lineage_pairs()") &&
+    sql.includes("tcm_ba_lineage")
+  ) {
     lineage = sql;
   }
 }
