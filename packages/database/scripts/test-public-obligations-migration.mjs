@@ -1051,7 +1051,7 @@ try {
     expense_paid_amount: "1200.00",
     expense_report_count: 2,
     closure_status: "needs_review",
-    calculation_methodology: "monthly-finance-closure/1.1.0",
+    calculation_methodology: "monthly-finance-closure/1.2.0",
   }]);
 
   // Instantâneo do fechamento mensal: sem estado a função calcula ao vivo;
@@ -1146,7 +1146,7 @@ try {
     revenue_report_count: 2,
     expense_report_count: 2,
     coverage_status: "needs_review",
-    calculation_methodology: "finance-coverage/1.1.0",
+    calculation_methodology: "finance-coverage/1.2.0",
   }]);
 
   const aggregateFinanceDefinitions = await database.query(`
@@ -1169,9 +1169,12 @@ try {
       /finance\.has_exact_document_lineage\s*\(/,
       `${row.proname} não pode validar linhagem linha a linha`,
     );
+    // Desde a cobertura 1.2.0 (13/10/2026) ela herda a linhagem do fechamento.
     assert.match(
       row.definition,
-      /finance\.get_exact_document_lineage_pairs\s*\(/,
+      row.proname === "get_public_finance_coverage_calculated"
+        ? /api\.get_public_monthly_finance_closures\s*\(/
+        : /finance\.get_exact_document_lineage_pairs\s*\(/,
       `${row.proname} deve usar a projeção set-based de linhagem`,
     );
   }
