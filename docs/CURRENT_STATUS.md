@@ -379,9 +379,28 @@ O atraso de famílias zerou. Pendências: contratos 324/830, campos
 2.794/5.001 segmentos, empenhos 4.787/18.987. Elas avançam 10, 10 e 50
 por execução.
 
-Próximo: conferir que a sonda volta a "ok" nas janelas :17 e que
-contratos e empenhos do TCM-BA voltam a andar quando o atraso de famílias
-zerar. A autoria em coautoria (item 5) foi medida e não compensa agora:
+Em 13/10/2026:
+
+- **Texto dos PDFs do TCM-BA.** A coleta trazia ~800 PDFs/dia e o texto saía
+  para 10 por execução; 2.818 PDFs sem texto ficavam invisíveis para
+  contratos e empenhos. A drenagem de texto processa ~200 por execução
+  (#930). Os campos contratuais estão completos (659/659 PDFs) e os empenhos
+  em 12.037/20.627.
+- **Fechamento 1.2.0 (ADR 0098, #931, #932).** Com o TCM-BA em 2022, cada
+  mês passou a ter dois demonstrativos oficiais e caía em "revisão", com a
+  receita somada em dobro. A receita das duas fontes coincide ao centavo.
+  Na despesa, o portal é consolidado (inclui a Câmara) e o TCM-BA é só o
+  Executivo: sem o órgão 01, os dois conferem ao centavo. O fechamento conta
+  o demonstrativo uma vez e diz o escopo de cada mês. 2021 e abril de 2023
+  são só do Executivo. Zero meses em revisão.
+- **Instantâneos para páginas lentas.** Pares de linhagem documental (a
+  consulta pública mais cancelada, #929) e retenções da folha (4,4 s com
+  cache frio, #933), ambos com hashes idênticos.
+- **PNCP.** Os endpoints `api/pncp/v1/orgaos/...` (cadastro, compras e
+  contratos) não respondem desde ~10/10; a API de consulta responde. As
+  falhas ficam explícitas no painel de coleta.
+
+Próximo: conferir que a sonda volta a "ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não compensa agora:
 só 38 itens têm mais de um autor e 16 seriam resolvidos por regra estrita.
 A API complementar do Querido Diário (parada desde junho; 150 janelas
 falhas) já tem regra explícita no coletor: após 14 dias sem sucesso, fica
