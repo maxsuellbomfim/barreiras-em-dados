@@ -16,7 +16,7 @@ export type PublicMonthlyFinanceClosure = Readonly<{
   operationalDifferenceAmount: string | null;
   closureStatus: "operational" | "needs_data" | "needs_review";
   coverageNote: string;
-  calculationMethodology: "monthly-finance-closure/1.1.0";
+  calculationMethodology: "monthly-finance-closure/1.1.0" | "monthly-finance-closure/1.2.0";
   aiCommentary: string | null;
 }>;
 
@@ -100,7 +100,9 @@ function parseClosure(row: Record<string, unknown>): PublicMonthlyFinanceClosure
     !ISO_DATE.test(periodEnd) ||
     !publicBodyName ||
     !coverageNote ||
-    methodology !== "monthly-finance-closure/1.1.0" ||
+    // 1.2.0 (13/10/2026): mesmo demonstrativo em duas fontes conta uma vez.
+    (methodology !== "monthly-finance-closure/1.1.0" &&
+      methodology !== "monthly-finance-closure/1.2.0") ||
     (status !== "operational" && status !== "needs_data" && status !== "needs_review") ||
     !Number.isSafeInteger(fiscalYear) ||
     revenueReportCount === null ||
@@ -139,7 +141,7 @@ function parseClosure(row: Record<string, unknown>): PublicMonthlyFinanceClosure
     operationalDifferenceAmount,
     closureStatus: status,
     coverageNote,
-    calculationMethodology: "monthly-finance-closure/1.1.0",
+    calculationMethodology: methodology as PublicMonthlyFinanceClosure["calculationMethodology"],
     aiCommentary: null,
   };
 }

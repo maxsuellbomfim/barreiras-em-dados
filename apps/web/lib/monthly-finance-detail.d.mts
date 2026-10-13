@@ -35,7 +35,7 @@ export type PublicMonthlyFinanceDetail = Readonly<{
   operationalDifferenceAmount: string | null;
   closureStatus: MonthlyFinanceStatus;
   coverageNote: string;
-  calculationMethodology: "monthly-finance-closure/1.1.0";
+  calculationMethodology: "monthly-finance-closure/1.1.0" | "monthly-finance-closure/1.2.0";
   revenueDocuments: readonly MonthlyFinanceRevenueDocument[];
   expenseDocuments: readonly MonthlyFinanceExpenseDocument[];
   evidenceMethodology: "public-monthly-finance-detail/1.0.0";

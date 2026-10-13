@@ -8,7 +8,7 @@ export type PublicFinanceCoverageRow = Readonly<{
   expenseReportCount: number;
   coverageStatus: "complete" | "needs_review" | "revenue_only" | "expense_only" | "missing";
   coverageNote: string;
-  calculationMethodology: "finance-coverage/1.1.0";
+  calculationMethodology: "finance-coverage/1.1.0" | "finance-coverage/1.2.0";
 }>;
 
 export type PublicFinanceCoverageResult =
@@ -52,7 +52,9 @@ function parseRow(row: Record<string, unknown>): PublicFinanceCoverageRow | null
     !Number.isSafeInteger(fiscalYear) || revenueReportCount === null ||
     expenseReportCount === null ||
     !["complete", "needs_review", "revenue_only", "expense_only", "missing"].includes(String(coverageStatus)) ||
-    row.calculation_methodology !== "finance-coverage/1.1.0"
+    // 1.2.0 (13/10/2026): conta demonstrativos reconciliados do fechamento.
+    (row.calculation_methodology !== "finance-coverage/1.1.0" &&
+      row.calculation_methodology !== "finance-coverage/1.2.0")
   ) return null;
   return {
     coverageId,
@@ -64,7 +66,7 @@ function parseRow(row: Record<string, unknown>): PublicFinanceCoverageRow | null
     expenseReportCount,
     coverageStatus: coverageStatus as PublicFinanceCoverageRow["coverageStatus"],
     coverageNote,
-    calculationMethodology: "finance-coverage/1.1.0",
+    calculationMethodology: row.calculation_methodology as PublicFinanceCoverageRow["calculationMethodology"],
   };
 }
 
