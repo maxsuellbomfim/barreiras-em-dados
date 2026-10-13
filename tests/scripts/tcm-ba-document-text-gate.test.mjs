@@ -114,6 +114,10 @@ test("wrapper processa texto somente depois da auditoria física", () => {
   assert.ok(ocr > textGate);
   // Relatório global só no -ReportOnly, antes do coletor (09/10/2026).
   assert.ok(report >= 0 && report < ocr);
+  // Atraso de texto drenado depois do lote principal e antes do OCR
+  // (13/10/2026).
+  const textDrain = wrapper.lastIndexOf("Invoke-TcmBaDocumentTextBacklogDrain");
+  assert.ok(textDrain > textGate && textDrain < wrapper.lastIndexOf("--source tcm-ba"));
   assert.ok(families > ocr);
   // Auditoria completa de famílias só no -ReportOnly e na recuperação
   // dirigida, nunca depois do inventário agendado (10/10/2026).
