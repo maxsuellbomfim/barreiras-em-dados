@@ -287,17 +287,18 @@ export default async function FinancesPage() {
   const payrollMonths =
     payrollResult.state === "available" ? payrollResult.months : [];
   const latestPayroll: PublicPayrollMonth | null = payrollMonths[0] ?? null;
-  const payrollRegimeResult = latestPayroll
-    ? await getPublicPayrollRegimeBreakdown(latestPayroll.referenceMonth)
-    : { state: "unavailable" as const };
+  // As duas leituras da folha não dependem uma da outra: em paralelo.
+  const [payrollRegimeResult, payrollCompensationResult] = latestPayroll
+    ? await Promise.all([
+        getPublicPayrollRegimeBreakdown(latestPayroll.referenceMonth),
+        getPublicPayrollCompensationDistribution(latestPayroll.referenceMonth),
+      ])
+    : [{ state: "unavailable" as const }, { state: "unavailable" as const }];
   const payrollRegimeRows =
     payrollRegimeResult.state === "available" &&
     payrollRegimeBreakdownMatchesMonth(payrollRegimeResult.rows, latestPayroll)
       ? payrollRegimeResult.rows
       : [];
-  const payrollCompensationResult = latestPayroll
-    ? await getPublicPayrollCompensationDistribution(latestPayroll.referenceMonth)
-    : { state: "unavailable" as const };
   const payrollCompensationRows =
     payrollCompensationResult.state === "available" &&
     payrollCompensationMatchesMonth(
