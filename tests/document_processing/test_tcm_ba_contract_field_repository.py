@@ -176,6 +176,8 @@ class TcmBaContractFieldRepositoryTests(unittest.TestCase):
         self.assertIn("source_anchors", query)
         self.assertIn("jsonb_object_keys", query)
         self.assertIn("'dead_lettered'", query)
+        # Casamento por janela, sem semi-join que vira nested loop.
+        self.assertIn("bool_or(keyed.is_eligible) over", query)
 
     def test_existing_succeeded_job_does_not_duplicate_candidates(self) -> None:
         self.connection.job_row = None

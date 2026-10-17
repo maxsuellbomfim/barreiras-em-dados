@@ -299,18 +299,34 @@ class TcmBaContractFieldExtractionRepository:
                       'fields_observed', 'no_fields_observed'
                     )
                 ),
-                matched as materialized (
+                -- Casamento sem junção: o "in" virava nested loop pela
+                -- estimativa baixa das CTEs (65 mi de comparações, 20 s
+                -- com 11,4 mil segmentos em 17/10/2026). União + janela
+                -- pela chave dá o mesmo semi-join em uma ordenação.
+                keyed as (
+                  select eligible.raw_artifact_id, eligible.segment_ordinal,
+                    eligible.segment_text_sha256, null::uuid as id,
+                    null::text as candidate_status,
+                    null::bigint as anchor_count, true as is_eligible
+                  from eligible_segments as eligible
+                  union all
                   select valid.raw_artifact_id, valid.segment_ordinal,
-                    valid.id, valid.candidate_status, valid.anchor_count
+                    valid.segment_text_sha256, valid.id,
+                    valid.candidate_status, valid.anchor_count, false
                   from valid_results as valid
-                  where (
-                    valid.raw_artifact_id, valid.segment_ordinal,
-                    valid.segment_text_sha256
-                  ) in (
-                    select eligible.raw_artifact_id, eligible.segment_ordinal,
-                      eligible.segment_text_sha256
-                    from eligible_segments as eligible
-                  )
+                ),
+                matched as materialized (
+                  select flagged.raw_artifact_id, flagged.segment_ordinal,
+                    flagged.id, flagged.candidate_status,
+                    flagged.anchor_count
+                  from (
+                    select keyed.*, bool_or(keyed.is_eligible) over (
+                      partition by keyed.raw_artifact_id,
+                        keyed.segment_ordinal, keyed.segment_text_sha256
+                    ) as has_eligible
+                    from keyed
+                  ) as flagged
+                  where not flagged.is_eligible and flagged.has_eligible
                 ),
                 metrics as (
                   select
