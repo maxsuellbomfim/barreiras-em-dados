@@ -400,6 +400,27 @@ Em 13/10/2026:
   contratos) não respondem desde ~10/10; a API de consulta responde. As
   falhas ficam explícitas no painel de coleta.
 
+Em 17/10/2026, timeouts públicos (3 s do papel anônimo) nas rajadas da sonda
+horária, que regenera várias páginas de uma vez. Todas as correções têm md5
+idêntico antes e depois:
+
+| Consulta | Antes | Depois | PR |
+| --- | --- | --- | --- |
+| detalhe mensal `/financas/AAAA-MM` | 500 (fechamento ao vivo) | 0,1–1,0 s | #936 |
+| catálogo de documentos financeiros | 1,1 s | 10–16 ms | #937 |
+| sinais financeiros | 2,0 s | 15 ms | #938 |
+| relatórios de despesa | 0,8 s | 3 ms | #938 |
+| conflitos de fonte da despesa | 0,5 s | 14 ms | #938 |
+| cobertura da folha | 1,8 s (6,5 s frio) | 21 ms | #939 |
+| receitas sem filtro de ano | 0,7–2,0 s | 0,32 s | #939 |
+| dívida consolidada | 0,85 s | 17 ms | #939 |
+
+O que resta lento só com cache frio (Diário, emendas, deputados, compras:
+1–2 s na primeira chamada, ≤ 0,15 s depois) vem do disco e do
+`shared_buffers` de 224 MB. A cadeia de contratos do TCM-BA não está
+parada: os 885 contratos têm segmentos e os 785 com título reconhecido
+têm campos; nenhum contrato novo foi classificado desde 13/10.
+
 Próximo: conferir que a sonda volta a "ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não compensa agora:
 só 38 itens têm mais de um autor e 16 seriam resolvidos por regra estrita.
 A API complementar do Querido Diário (parada desde junho; 150 janelas
