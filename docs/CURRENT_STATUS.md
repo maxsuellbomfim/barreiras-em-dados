@@ -421,6 +421,16 @@ O que resta lento só com cache frio (Diário, emendas, deputados, compras:
 parada: os 885 contratos têm segmentos e os 785 com título reconhecido
 têm campos; nenhum contrato novo foi classificado desde 13/10.
 
+Depois disso, ainda em 17/10: os timeouts restantes caíam às :20:05 e
+atingiam até consultas de 17 ms. A sonda horária do CI (cron :17, disparada
+por volta das :20) regenera várias páginas ao mesmo tempo e coincidia com o
+refresh da linhagem, que nessa janela ia de ~3 s para 7–9 s. O refresh
+passou para :05, :15, :25... (#942). Na janela das 22:20, a sonda passou
+com zero timeouts públicos. A cobertura do Diário ganhou um índice de
+versões por artefato (#941). A cobertura de campos contratuais do TCM-BA
+passava dos 15 s do coletor (20 s, semi-join quadrático com 11,4 mil
+segmentos) e caiu para 3,1 s com contadores idênticos (#943).
+
 Próximo: conferir que a sonda volta a "ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não compensa agora:
 só 38 itens têm mais de um autor e 16 seriam resolvidos por regra estrita.
 A API complementar do Querido Diário (parada desde junho; 150 janelas
