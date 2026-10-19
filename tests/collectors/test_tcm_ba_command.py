@@ -9,6 +9,7 @@ from unittest.mock import patch
 from barreiras_collectors.collection_control import CollectionOutcome
 from barreiras_collectors.commands.collect_tcm_ba_monthly_catalog import (
     TcmBaMonthlyCollectionSummary,
+    automatic_pending_months,
     execute_controlled_tcm_month,
     execute_tcm_monthly_backfill,
     fetch_tcm_ba_monthly_catalog_with_contract_retry,
@@ -51,9 +52,31 @@ def summary(*, year: int, month: int, documents: int = 1824):
 
 
 class TcmBaMonthlyCatalogCommandTests(unittest.TestCase):
-    def test_automatic_mode_targets_only_the_last_closed_month(self) -> None:
+    def test_previous_closed_month(self) -> None:
         self.assertEqual(previous_closed_month(date(2026, 9, 2)), (2026, 8))
         self.assertEqual(previous_closed_month(date(2026, 1, 1)), (2025, 12))
+
+    def test_automatic_mode_retries_recent_incomplete_months_oldest_first(
+        self,
+    ) -> None:
+        complete = {(2026, 4), (2026, 5), (2026, 6)}
+        self.assertEqual(
+            automatic_pending_months(
+                date(2026, 10, 19), lambda y, m: (y, m) in complete
+            ),
+            ((2026, 7), (2026, 8), (2026, 9)),
+        )
+        # Atravessa a virada do ano e respeita o teto por execução.
+        self.assertEqual(
+            automatic_pending_months(
+                date(2027, 2, 3), lambda y, m: False, limit=2
+            ),
+            ((2026, 8), (2026, 9)),
+        )
+        self.assertEqual(
+            automatic_pending_months(date(2026, 10, 19), lambda y, m: True),
+            (),
+        )
 
     def test_unpublished_month_is_recorded_as_blocked_without_false_empty(self) -> None:
         control = FakeControl()

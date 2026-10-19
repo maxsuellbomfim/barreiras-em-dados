@@ -114,6 +114,32 @@ def previous_closed_month(collected_on: date) -> tuple[int, int]:
     return collected_on.year, collected_on.month - 1
 
 
+AUTOMATIC_LOOKBACK_MONTHS = 6
+AUTOMATIC_MONTHS_PER_RUN = 3
+
+
+def automatic_pending_months(
+    collected_on: date,
+    is_complete: Callable[[int, int], bool],
+    *,
+    lookback: int = AUTOMATIC_LOOKBACK_MONTHS,
+    limit: int = AUTOMATIC_MONTHS_PER_RUN,
+) -> tuple[tuple[int, int], ...]:
+    """Competências encerradas recentes ainda sem catálogo completo.
+
+    O e-TCM publica com atraso: olhar só o mês anterior deixava para trás,
+    sem nova tentativa, a competência que ainda estava bloqueada quando o
+    calendário virou (07 e 08/2026 ficaram assim). Mais antiga primeiro.
+    """
+    year, month = previous_closed_month(collected_on)
+    recent: list[tuple[int, int]] = []
+    for _ in range(lookback):
+        recent.append((year, month))
+        year, month = (year - 1, 12) if month == 1 else (year, month - 1)
+    pending = [ym for ym in reversed(recent) if not is_complete(*ym)]
+    return tuple(pending[:limit])
+
+
 def _unpublished_competence(error: TcmBaContractError) -> str | None:
     if isinstance(error, TcmBaSubmissionPending):
         return error.competence
@@ -259,7 +285,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--automatic-closed-month",
         action="store_true",
-        help="Retoma somente a última competência mensal já encerrada.",
+        help=(
+            "Retoma até três competências encerradas dos últimos seis meses "
+            "ainda sem catálogo completo, da mais antiga para a mais nova."
+        ),
     )
     parser.add_argument("--requests-per-minute", type=int, default=30)
     args = parser.parse_args(argv)
@@ -268,7 +297,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error(
                 "--automatic-closed-month não aceita intervalo mensal explícito."
             )
-        months = (previous_closed_month(collected_on),)
+        months = ()
     else:
         if args.month_from is None or args.month_to is None:
             parser.error("--month-from e --month-to são obrigatórios no modo manual.")
@@ -301,17 +330,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         persistence_settings.database_url
     )
     if args.automatic_closed_month:
-        year, month = months[0]
-        if repository.tcm_ba_monthly_catalog_complete(
-            competence=f"{month:02d}/{year}"
-        ):
+        months = automatic_pending_months(
+            collected_on,
+            lambda year, month: repository.tcm_ba_monthly_catalog_complete(
+                competence=f"{month:02d}/{year}"
+            ),
+        )
+        if not months:
             log_event(
                 logging.getLogger(__name__),
                 logging.INFO,
                 "collector_tcm_ba_month_skipped",
                 source=SOURCE_CODE,
-                competence=f"{month:02d}/{year}",
-                reason="partition_already_complete",
+                competence=None,
+                reason="recent_partitions_already_complete",
             )
             return 0
     object_store = build_authenticated_object_store(persistence_settings)
