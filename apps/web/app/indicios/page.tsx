@@ -6,7 +6,7 @@ import { formatBrlDecimal } from "../../lib/revenues";
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "Indícios para apuração | Barreiras 360",
+  title: "Indícios para apuração",
   description:
     "Padrões em contratos e gastos públicos de Barreiras que merecem apuração, com a regra, o documento oficial e a revisão registrada. Indício não é prova de irregularidade.",
 };
