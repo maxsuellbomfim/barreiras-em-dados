@@ -1220,6 +1220,24 @@ try {
     "o filtro por id deve ocorrer depois de escolher a versão vigente",
   );
 
+  // ADR 0099: sinal sem revisão aprovada não vai ao ar.
+  const unreviewedFinanceSignals = await database.query(`
+    select finding_id from api.get_public_finance_signals(20)
+  `);
+  assert.deepEqual(unreviewedFinanceSignals.rows, []);
+  await database.query(`
+    insert into editorial.editorial_reviews (
+      target_type, target_id, reviewer_subject, review_type, decision,
+      rationale, checklist, reviewed_at
+    )
+    select 'analysis.anomaly_finding', id, 'automated:agent-test', 'data_quality',
+      'approved', 'Conferido contra o documento de teste.', '{}'::jsonb, now()
+    from analysis.anomaly_findings
+    where id in (
+      '00000000-0000-0000-0000-000000008017',
+      '00000000-0000-0000-0000-000000008018'
+    )
+  `);
   const publicFinanceSignals = await database.query(`
     select finding_id from api.get_public_finance_signals(20)
     order by finding_id
