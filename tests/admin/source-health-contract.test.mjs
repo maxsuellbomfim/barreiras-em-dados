@@ -229,3 +229,27 @@ test("partições cobertas por janela posterior saem das pendências", async () 
   assert.match(component, /superseded_partitions/);
   assert.match(component, /cobertas por janela posterior/);
 });
+
+test("frescor aceita execução do plano de controle concluída com sucesso", async () => {
+  const migrationsDirectory = new URL("../../supabase/migrations/", import.meta.url);
+  const names = await readdir(migrationsDirectory);
+  const latestName = names
+    .filter((name) => /_collection_health_v10_/.test(name))
+    .sort()
+    .at(-1);
+  assert.ok(latestName, "a migration da v10 deve existir");
+  const migration = await readFile(new URL(latestName, migrationsDirectory), "utf8");
+
+  assert.match(migration, /function api\.get_collection_health_v10\(/);
+  assert.match(migration, /from api\.get_collection_health_v9\(page_size, observed_on\)/);
+  // Consultas auxiliares não atestam a coleta.
+  assert.match(migration, /run\.status = 'succeeded'/);
+  assert.match(migration, /run\.metrics ->> 'control_plane' = 'true'/);
+  assert.match(migration, /collection-health\/1\.11\.0/);
+  assert.match(
+    migration,
+    /revoke all on function api\.get_collection_health_v10\(integer, date\)\s+from public, anon/,
+  );
+  assert.match(page, /get_collection_health_v10/);
+  assert.match(page, /get_collection_health_v9/);
+});
