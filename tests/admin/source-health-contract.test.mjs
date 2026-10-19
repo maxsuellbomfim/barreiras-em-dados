@@ -243,9 +243,11 @@ test("frescor aceita execução do plano de controle concluída com sucesso", as
   assert.match(migration, /function api\.get_collection_health_v10\(/);
   assert.match(migration, /from api\.get_collection_health_v9\(page_size, observed_on\)/);
   // Consultas auxiliares não atestam a coleta.
-  assert.match(migration, /run\.status = 'succeeded'/);
+  // Parcial sem erro = execução concluída com itens à espera da fonte.
+  assert.match(migration, /run\.status in \('succeeded', 'partial'\)/);
+  assert.match(migration, /run\.error_code is null/);
   assert.match(migration, /run\.metrics ->> 'control_plane' = 'true'/);
-  assert.match(migration, /collection-health\/1\.11\.0/);
+  assert.match(migration, /collection-health\/1\.11\.1/);
   assert.match(
     migration,
     /revoke all on function api\.get_collection_health_v10\(integer, date\)\s+from public, anon/,
