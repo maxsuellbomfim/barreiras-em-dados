@@ -431,6 +431,17 @@ versões por artefato (#941). A cobertura de campos contratuais do TCM-BA
 passava dos 15 s do coletor (20 s, semi-join quadrático com 11,4 mil
 segmentos) e caiu para 3,1 s com contadores idênticos (#943).
 
+Em 19/10/2026: o catálogo mensal automático do TCM-BA coletava só o mês
+anterior à data da execução. Como o e-TCM publica com atraso, a competência
+ainda bloqueada quando o calendário virava nunca era retomada: 07/2026
+(bloqueada desde 26/08) e 08/2026 (desde 30/09) ficaram de fora. O modo
+automático agora retoma até três competências encerradas dos últimos seis
+meses sem catálogo completo (#946). Na mesma madrugada, 07/2026 fechou com
+2.523 documentos e 08/2026 com 2.802; 09/2026 segue bloqueada porque o
+e-TCM ainda não a lista. O índice do Diário (`/diario`) ganhou um índice
+parcial dos lotes publicados: de 1,5 s com cache frio para 62 ms (#945). A
+sonda de disponibilidade completou 7 de 7 dias válidos no painel de coleta.
+
 Próximo: conferir que a sonda volta a "ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não compensa agora:
 só 38 itens têm mais de um autor e 16 seriam resolvidos por regra estrita.
 A API complementar do Querido Diário (parada desde junho; 150 janelas
