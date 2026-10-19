@@ -47,6 +47,7 @@ from ..persistence.service import (
 from ..persistence.storage import SupabaseStorageObjectStore
 from ..resilience import CircuitOpenError
 from ..settings import CollectorSettings, PersistenceSettings
+from ..source_availability import unavailable_exit_code
 
 SOURCE_CONFIG = {
     "prefeitura": (
@@ -745,11 +746,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return summary
 
-    summary = execute_controlled_municipal_transparency(
-        control=control,
-        operation=operation,
-        require_document_match=args.require_document_match,
-    )
+    try:
+        summary = execute_controlled_municipal_transparency(
+            control=control,
+            operation=operation,
+            require_document_match=args.require_document_match,
+        )
+    except (MunicipalTransparencyAvailabilityError, CircuitOpenError) as error:
+        # ADR 0089: a falha já foi gravada pelo controle; só decide se a
+        # fonte fora do ar ainda está dentro do prazo de atualização.
+        exit_code = unavailable_exit_code(
+            repository.source_freshness(
+                source_code=source_code,
+                endpoint_code=endpoint_code,
+            ),
+            now=datetime.now(MUNICIPAL_TIMEZONE),
+        )
+        log_event(
+            logger,
+            logging.WARNING,
+            "collector_source_unavailable",
+            source=source_code,
+            resource=args.resource,
+            error_type=type(error).__name__,
+            exit_code=exit_code,
+        )
+        return exit_code
 
     log_event(
         logger,
