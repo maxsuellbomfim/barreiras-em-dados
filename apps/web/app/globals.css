@@ -2286,6 +2286,24 @@ footer {
   line-height: 1.55;
 }
 
+/* Fatos do indício: rótulo acima do valor, quebra longa no celular. */
+.finance-details-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.8rem 0 0;
+}
+
+.finance-details-list dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #4f5d74;
+}
+
+.finance-details-list dd {
+  margin: 0.1rem 0 0;
+  overflow-wrap: anywhere;
+}
+
 .monthly-closure-card {
   border-color: rgba(55, 91, 232, 0.16);
 }

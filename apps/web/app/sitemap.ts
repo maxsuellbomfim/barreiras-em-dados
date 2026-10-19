@@ -34,6 +34,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { route: "/financas/contratos-citados", changeFrequency: "daily", priority: 0.7 },
     { route: "/financas/divida", changeFrequency: "daily", priority: 0.9 },
     { route: "/licitacoes", changeFrequency: "daily", priority: 0.9 },
+    { route: "/indicios", changeFrequency: "daily", priority: 0.9 },
     { route: "/recursos", changeFrequency: "daily", priority: 0.9 },
     { route: "/recursos/saude", changeFrequency: "weekly", priority: 0.7 },
     { route: "/representantes", changeFrequency: "weekly", priority: 0.8 },
