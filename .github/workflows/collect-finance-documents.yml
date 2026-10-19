@@ -194,20 +194,31 @@ jobs:
           echo "700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7  config/certificates/supabase-prod-ca-2021.crt"
           | sha256sum --check --strict
 
+      # ADR 0089: 75 = portal municipal fora do ar dentro do prazo da fonte
+      # (48 h). A falha fica registrada e vira aviso; além do prazo sai com 1.
       - name: Preservar catálogo municipal
         env:
           COLLECT_LIMIT: >-
             ${{ (matrix.resource == 'balancetes' || matrix.resource == 'servidores') && '500' || inputs.limit || '50' }}
           COVERAGE_ARGUMENTS: >-
             ${{ matrix.resource == 'balancetes' && '--coverage-year-from 2021' || '' }}
-        run: >-
-          python -B -m barreiras_collectors.commands.collect_municipal_transparency
-          --source prefeitura
-          --resource "${{ matrix.resource }}"
-          --limit "$COLLECT_LIMIT"
-          --max-pages "${{ inputs.max_pages || '3' }}"
-          --allow-partial
-          $COVERAGE_ARGUMENTS
+        shell: bash
+        run: |
+          set +e
+          python -B -m barreiras_collectors.commands.collect_municipal_transparency \
+            --source prefeitura \
+            --resource "${{ matrix.resource }}" \
+            --limit "$COLLECT_LIMIT" \
+            --max-pages "${{ inputs.max_pages || '3' }}" \
+            --allow-partial \
+            $COVERAGE_ARGUMENTS
+          code=$?
+          set -e
+          if [ "$code" -eq 75 ]; then
+            echo "::warning title=Fonte indisponível::O portal de transparência da Prefeitura está fora do ar, ainda dentro do prazo de atualização. A falha foi registrada e a próxima execução tenta de novo."
+            exit 0
+          fi
+          exit "$code"
 
       - name: Drenar documentos municipais
         # Processos licitatórios são linhas estruturadas sem URL de PDF; o
@@ -262,6 +273,7 @@ jobs:
               --require-document-match
             )
           fi
+          set +e
           python -B -m barreiras_collectors.commands.collect_municipal_transparency \
             --source prefeitura \
             --resource "${{ matrix.resource }}" \
@@ -271,6 +283,13 @@ jobs:
             --download-documents \
             --allow-partial \
             "${extra_args[@]}"
+          code=$?
+          set -e
+          if [ "$code" -eq 75 ]; then
+            echo "::warning title=Fonte indisponível::O portal de transparência da Prefeitura está fora do ar, ainda dentro do prazo de atualização. A falha foi registrada e a próxima execução tenta de novo."
+            exit 0
+          fi
+          exit "$code"
 
       - name: Processar texto dos DOCX municipais
         if: matrix.resource == 'pdc-contas-anuais'

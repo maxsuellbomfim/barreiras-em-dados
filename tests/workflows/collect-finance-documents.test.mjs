@@ -18,6 +18,25 @@ test("instalacao financeira identica usa tentativas limitadas sem ocultar falhas
   for (const step of steps) assert.doesNotMatch(step, /continue-on-error:/);
 });
 
+test("portal municipal fora do ar dentro do prazo vira aviso (ADR 0089)", async () => {
+  const municipal = /- name: Preservar catálogo municipal\n([\s\S]*?)(?=\n  [a-z_]+:\n|\n      - name: Processar texto)/.exec(workflow)?.[1];
+  assert.ok(municipal, "job do catálogo municipal deve existir");
+  // Catálogo e drenagem tratam 75 como aviso; qualquer outro código propaga.
+  assert.equal([...municipal.matchAll(/if \[ "\$code" -eq 75 \]; then/g)].length, 2);
+  assert.equal([...municipal.matchAll(/exit "\$code"/g)].length, 2);
+  assert.match(municipal, /::warning title=Fonte indisponível::O portal de transparência da Prefeitura/);
+
+  const command = await readFile(
+    new URL(
+      "../../workers/collectors/src/barreiras_collectors/commands/collect_municipal_transparency.py",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(command, /except \(MunicipalTransparencyAvailabilityError, CircuitOpenError\)/);
+  assert.match(command, /unavailable_exit_code\(\s*repository\.source_freshness\(/);
+});
+
 const financeWorkflowGroups = new Map([
   ["collect-finance-documents.yml", "municipal-finance-collection-production"],
   ["collect-municipal-transparency.yml", "municipal-finance-collection-production"],
