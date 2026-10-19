@@ -12,6 +12,7 @@ export const SITE_SECTIONS = [
   { href: "/atos", label: "Nomeações" },
   { href: "/camara", label: "Câmara" },
   { href: "/recursos", label: "Emendas" },
+  { href: "/indicios", label: "Indícios" },
 ] as const;
 
 function isCurrent(pathname: string, href: string): boolean {

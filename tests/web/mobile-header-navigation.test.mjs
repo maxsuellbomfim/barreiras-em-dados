@@ -28,6 +28,7 @@ test("menu tem as mesmas seções, com a página atual marcada", () => {
     ["/atos", "Nomeações"],
     ["/camara", "Câmara"],
     ["/recursos", "Emendas"],
+    ["/indicios", "Indícios"],
   ]) {
     assert.match(nav, new RegExp(`href: "${href}", label: "${label}"`));
   }
