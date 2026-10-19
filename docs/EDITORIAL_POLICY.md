@@ -10,9 +10,9 @@ tribunal, campanha política nem substituto da fonte oficial.
 
 | Tipo | Definição | Pode ser publicado automaticamente? |
 |---|---|---|
-| Fato | Campo sustentado diretamente por fonte citada | não na fase inicial |
-| Inferência | Resultado lógico reprodutível a partir de fatos | não |
-| Anomalia | Regra técnica detectou desvio/condição | nunca |
+| Fato | Campo sustentado diretamente por fonte citada | sim, conferido por código (ADR 0012) |
+| Inferência | Resultado lógico reprodutível a partir de fatos | sim, com regra versionada e revisão automatizada |
+| Indício (anomalia) | Regra técnica detectou desvio/condição que merece apuração | sim, com revisão automatizada registrada (ADR 0099) |
 | Hipótese | Explicação possível ainda não comprovada | nunca |
 
 O tipo deve existir nos dados e na apresentação. Linguagem e design não podem
@@ -30,8 +30,9 @@ Saídas alternativas:
 - `superseded`;
 - `retracted`.
 
-Somente `approved` pode gerar projeção pública. Publicação registra revisor,
-data, versão, evidências e texto aprovado.
+Somente `approved` pode gerar projeção pública. Publicação registra revisor
+(pessoa ou agente automatizado, com modelo e versão do roteiro), data,
+versão, evidências e texto aprovado.
 
 ## Critérios para aprovar um ato
 
@@ -49,15 +50,18 @@ igual à data da publicação.
 
 ## Conteúdo reputacional
 
-Exige revisão humana reforçada quando puder afetar honra, imagem ou expectativa
-de licitude. Regras:
+Pode afetar honra, imagem ou expectativa de licitude, por isso passa por
+revisão automatizada registrada em duas camadas (ADR 0099):
 
-- duas revisões independentes para insight reputacional;
-- consulta a especialista contábil/jurídico conforme o tema;
-- contexto, denominador e limitações exibidos;
-- tentativa documentada de obter esclarecimento quando apropriado;
-- proibição de título acusatório baseado em anomalia;
-- sem publicação automática, mesmo que a regra tenha alta confiança.
+- conferência por código contra o documento oficial preservado;
+- conferência por agente de IA, que procura erro de dado e explicação lícita
+  comum e pode vetar;
+- contexto, denominador, limite de cobertura e explicações lícitas comuns
+  exibidos junto do indício;
+- rótulo "Conferido automaticamente — sem revisão humana";
+- proibição de título, texto ou ordenação que afirme ou insinue crime,
+  fraude, corrupção, desvio ou superfaturamento de pessoa ou empresa
+  identificada. O vocabulário é "indício", "alerta", "merece apuração".
 
 ### Gates adicionais
 
@@ -68,7 +72,7 @@ de licitude. Regras:
 | Declaração eleitoral | eleição e aviso de que o valor é autodeclarado |
 | Processo judicial | papel processual e situação confirmados; revisão jurídica |
 | Grafo | evidência por aresta e ausência de inferência visual de culpa |
-| Exportação reputacional | revisão humana, auditoria e mesmas restrições do portal |
+| Exportação reputacional | revisão automatizada, auditoria e mesmas restrições do portal |
 
 DataJud não será usado para busca automática por nome com o contrato público
 atual. Seu schema documentado não oferece partes e seus termos exigem avaliação
@@ -102,28 +106,32 @@ Correções não apagam o histórico:
 
 ## Direito de resposta e contestação
 
-O portal fornecerá formulário com:
+O portal fornece formulário anônimo, sem login, com:
 
 - registro/URL contestado;
 - descrição objetiva;
-- fonte ou documento de suporte;
-- contato e autorização de publicação;
+- fonte ou documento de suporte (opcional);
+- contato opcional, nunca público;
 - protocolo e estado da análise.
 
-Contestação não altera dados automaticamente e contato pessoal não é público.
+Cada contestação dispara nova conferência automatizada. Se a evidência não
+se sustentar, o item é retirado por nova versão, com nota de correção; o
+histórico é preservado.
 
 ## Uso de IA
 
-Saídas de IA são candidatas auditáveis. A interface de revisão mostra modelo,
-prompt/template, versão, entradas, confiança declarada e evidência. É proibido:
+A IA atua como revisora automatizada (ADR 0099): confere casos contra o
+documento oficial e decide aprovar, rejeitar ou pedir mais evidência. Cada
+decisão registra modelo, versão do roteiro, entradas e evidência. É proibido:
 
-- publicar texto gerado sem revisão;
-- pedir ao modelo conclusão jurídica ou reputacional;
+- publicar o que a conferência por código não validou;
 - usar o modelo para totalizar valores;
+- pedir ao modelo conclusão sobre culpa, crime ou intenção;
 - criar citação não presente no documento;
-- esconder que uma classificação foi sugerida por IA.
+- esconder que uma classificação ou revisão foi feita por IA.
 
 ## Responsabilidade
 
 A política deve ser reavaliada antes do lançamento e por ocasião de nova classe
-de dado ou insight. Casos duvidosos permanecem não publicados.
+de dado ou insight. Casos que a revisão automatizada marcar como duvidosos
+(`needs_more_evidence`) permanecem não publicados.

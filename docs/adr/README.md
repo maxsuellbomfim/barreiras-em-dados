@@ -6,12 +6,13 @@
 | 0002 | Camada bruta append-only por hash | Aceita |
 | 0003 | Schemas internos e projeção pública | Aceita |
 | 0004 | Contratos JSON Schema canônicos | Aceita |
-| 0005 | Regras determinísticas e revisão humana | Aceita |
+| 0005 | Regras determinísticas e revisão humana | Revisão humana superada pelo ADR 0099 |
 | 0006 | Fila durável inicial no PostgreSQL | Aceita |
 | 0007 | Interface calma e centrada em evidências | Aceita |
 | 0008 | PostgreSQL e armazenamento de objetos portáveis | Aceita |
 | 0009 | Observatório territorial e limite reputacional | Aceita |
 | 0010 | Perfis políticos compostos e ETLs raw-first | Aceita |
+| 0099 | Revisão automatizada e indícios públicos | Aceita |
 
 Novas decisões usam o próximo número, registram alternativas e nunca reescrevem
 silenciosamente uma decisão aceita. Uma mudança cria novo ADR que supersede o

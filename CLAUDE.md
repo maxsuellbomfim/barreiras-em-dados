@@ -35,13 +35,19 @@ por chave oficial. Não abra uma fase ampla com base apenas no histórico de
 - Falha de fonte não é “zero resultados”; use estados explícitos de execução.
 - Valores monetários usam decimal exato (`numeric` no PostgreSQL), nunca float.
 - Cálculos financeiros e regras de anomalia são determinísticos e versionados.
-- LLMs não calculam totais e não decidem publicação; publicação automática
-  só existe para conteúdo verificado literalmente por código contra o
-  documento oficial, com rótulo explícito e reversão auditada (ADR 0012).
+- LLMs não calculam totais. Publicação exige conferência por código contra o
+  documento oficial; a IA confere caso a caso e pode vetar ou retirar, mas
+  nunca publica o que o código não validou (ADR 0012, ADR 0099).
 - Fato, inferência, anomalia e hipótese devem ser campos/estados distintos.
-- Achados de anomalia e conteúdo interpretativo além do registro oficial
-  não são publicados sem revisão humana registrada; registros fiéis de
-  atos oficiais seguem o ADR 0012 com revisão humana por exceção.
+- A plataforma é autônoma: não depende de revisão humana. Indícios e
+  conteúdo reputacional são publicados após revisão automatizada registrada
+  (código + agente de IA), com rótulo "Conferido automaticamente — sem
+  revisão humana", regra, parâmetro e documento oficial visíveis (ADR 0099).
+- Indício, nunca acusação: é proibido afirmar ou insinuar que pessoa ou
+  empresa identificada cometeu crime, fraude, corrupção, desvio ou
+  superfaturamento. Use "indício", "alerta", "merece apuração".
+- Contestação é anônima e dispara reconferência automática; item que não se
+  sustenta é retirado por nova versão, sem apagar histórico.
 - A amostra de qualidade da extração de atos pode ser conferida por IA
   (ADR 0091): anotação validada por código, métricas calculadas por código
   e rótulo "estimativa automática por IA, não revisão humana".
