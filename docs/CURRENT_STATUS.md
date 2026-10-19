@@ -441,6 +441,15 @@ meses sem catálogo completo (#946). Na mesma madrugada, 07/2026 fechou com
 e-TCM ainda não a lista. O índice do Diário (`/diario`) ganhou um índice
 parcial dos lotes publicados: de 1,5 s com cache frio para 62 ms (#945). A
 sonda de disponibilidade completou 7 de 7 dias válidos no painel de coleta.
+Painel de coleta: onze fontes agendadas estavam com política "manual" e
+apareciam como "não monitoradas" (WebRun, TCM-BA, SICONFI, CGU, Farmácia
+Popular, Receita); ganharam prazo conforme a cadência observada (#948). A
+v10 (`collection-health/1.11.1`, #949/#950) conta como atualização válida a
+execução do plano de controle concluída sem erro, completa ou parcial
+(parcial = itens aguardando a fonte, como contratação sem contrato publicado
+no PNCP); consultas auxiliares não contam. Sanções da CGU e contratos do
+PNCP deixaram de aparecer como "nunca atualizados"; ficam atrasados só o
+cadastro do PNCP (fora do ar) e a API do Querido Diário (em pausa).
 
 Próximo: conferir que a sonda volta a "ok" nas janelas :17. A autoria em coautoria (item 5) foi medida e não compensa agora:
 só 38 itens têm mais de um autor e 16 seriam resolvidos por regra estrita.
