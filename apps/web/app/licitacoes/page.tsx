@@ -381,7 +381,9 @@ function CommitmentLinksList({
                 ? " · confirmada por chave oficial (código do credor e CNPJ)"
                 : link.reviewMode === "registry_name"
                   ? " · confirmada pelo cadastro da Receita (razão social ou nome fantasia do CNPJ)"
-                  : ""}
+                  : link.reviewMode === "automated"
+                    ? " · conferida automaticamente — sem revisão humana"
+                    : ""}
             <br />
             {link.publicBody} → {link.creditorName}
             <br />
