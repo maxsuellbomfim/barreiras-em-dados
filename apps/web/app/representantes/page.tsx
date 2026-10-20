@@ -1198,7 +1198,7 @@ export default async function RepresentativesPage({
           publicado — o CPF que a fonte oficial divulga não é reproduzido
           aqui. Encontrou um erro?{" "}
           <a
-            href="https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/representantes&labels=correcao"
+            href="/contestar?url=/representantes"
             target="_blank"
             rel="noreferrer"
           >

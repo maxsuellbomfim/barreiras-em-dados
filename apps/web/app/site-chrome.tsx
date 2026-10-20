@@ -35,13 +35,16 @@ export function SiteFooter() {
           </a>
           <p>
             Informação pública de Barreiras com a fonte oficial ao lado de cada
-            número. Encontrou um erro? <a href="/sobre#contestar">Conteste</a>.
+            número. Encontrou um erro? <a href="/contestar">Conteste</a>.
           </p>
         </div>
         <nav className="footer-links" aria-label="Sobre o projeto">
           <a href="/sobre">Como funciona</a>
           <a href="/estado">Estado das fontes</a>
           <a href="/financas/cobertura">Cobertura dos dados</a>
+          <a href="/contestar">Contestar</a>
+          <a href="/privacidade">Privacidade</a>
+          <a href="/termos">Termos de uso</a>
         </nav>
       </div>
     </footer>

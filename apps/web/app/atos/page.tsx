@@ -94,7 +94,7 @@ export default async function ApprovedActsPage() {
         <p className="hero-note">
           Encontrou um erro ou uma informação desatualizada?{" "}
           <a
-            href="https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/atos&labels=correcao"
+            href="/contestar?url=/atos"
             target="_blank"
             rel="noreferrer"
           >

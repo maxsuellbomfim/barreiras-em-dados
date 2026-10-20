@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 const CORRECTION_URL =
-  "https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Contestação%20em%20/indicios&labels=correcao";
+  "/contestar?url=/indicios";
 
 function formatDate(iso: string): string {
   const [year, month, day] = iso.slice(0, 10).split("-");

@@ -88,8 +88,10 @@ export default function AboutPage() {
           <a href={REPOSITORY_URL} rel="noreferrer" target="_blank">
             repositório oficial do projeto ↗
           </a>
-          . Para contestar um dado, abra um relato público no repositório
-          apontando a página e o documento oficial que sustenta a correção.
+          . Para contestar um dado, use o{" "}
+          <a href="/contestar">formulário de contestação</a>: é anônimo, não
+          pede login e gera protocolo para acompanhar. A contestação faz o caso
+          ser conferido de novo contra a fonte oficial.
         </p>
 
         <details className="transfer-methodology">

@@ -134,7 +134,7 @@ export default async function GazetteEditionPage({ params }: EditionPageParams) 
           Endereço permanente desta edição para citação e compartilhamento.
           Encontrou um erro?{" "}
           <a
-            href="https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/diario&labels=correcao"
+            href="/contestar?url=/diario"
             target="_blank"
             rel="noreferrer"
           >

@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 type PageProps = Readonly<{ searchParams: Promise<{ ano?: string }> }>;
 
 const CORRECTION_URL =
-  "https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/financas/contratos-citados&labels=correcao";
+  "/contestar?url=/financas/contratos-citados";
 
 function formatDate(iso: string): string {
   const [year, month, day] = iso.split("-");

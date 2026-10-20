@@ -93,7 +93,7 @@ export default async function CamaraPage({
           />
         )}
         <p className="hero-note">
-          Fonte: <a href="https://portaldatransparencia.cmbarreiras.ba.gov.br/dados-abertos/" target="_blank" rel="noreferrer">Portal de dados abertos da Câmara</a>. Encontrou erro? <a href="https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/camara&labels=correcao" target="_blank" rel="noreferrer">Abra uma correção pública</a>.
+          Fonte: <a href="https://portaldatransparencia.cmbarreiras.ba.gov.br/dados-abertos/" target="_blank" rel="noreferrer">Portal de dados abertos da Câmara</a>. Encontrou erro? <a href="/contestar?url=/camara" target="_blank" rel="noreferrer">Conteste</a>.
         </p>
       </section>
     </main>

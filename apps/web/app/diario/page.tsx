@@ -312,7 +312,7 @@ export default async function IntegralDiaryPage({
           Cada documento mantém o texto extraído, a edição, as páginas, a
           origem e o hash SHA-256 do artefato preservado. Encontrou um erro?{" "}
           <a
-            href="https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/diario&labels=correcao"
+            href="/contestar?url=/diario"
             target="_blank"
             rel="noreferrer"
           >
