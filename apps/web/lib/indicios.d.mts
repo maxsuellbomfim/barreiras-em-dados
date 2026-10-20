@@ -24,6 +24,8 @@ export type Indicio = Readonly<{
   contractSourceUrl: string | null;
   contractArtifactSha256: string;
   registryArtifactSha256: string;
+  /** Há contestação aberta: o caso está em nova conferência. */
+  underContestation: boolean;
 }>;
 
 export type IndiciosResult =
