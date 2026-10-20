@@ -932,7 +932,7 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
           bruto verificável por hash antes de qualquer exibição. CPF de
           pessoa física nunca é exposto. Encontrou um erro?{" "}
           <a
-            href="https://github.com/maxsuellbomfim/barreiras-em-dados/issues/new?title=Correção%20em%20/licitacoes&labels=correcao"
+            href="/contestar?url=/licitacoes"
             target="_blank"
             rel="noreferrer"
           >

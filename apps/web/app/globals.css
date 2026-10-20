@@ -2286,6 +2286,52 @@ footer {
   line-height: 1.55;
 }
 
+/* Formulário de contestação: campos em coluna, alvo de toque de 48px. */
+.contest-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 44rem;
+  margin: 1.5rem 0;
+}
+
+.contest-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.contest-form input,
+.contest-form textarea {
+  min-height: 3rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #c6cfdd;
+  border-radius: 0.6rem;
+  font: inherit;
+  font-weight: 400;
+}
+
+.contest-form button {
+  justify-self: start;
+  min-height: 3rem;
+  padding: 0 1.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: #151b2c;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Campo-isca contra robôs: fora da tela e fora da leitura de tela. */
+.contest-honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 /* Fatos do indício: rótulo acima do valor, quebra longa no celular. */
 .finance-details-list {
   display: grid;
