@@ -26,6 +26,12 @@ function IndicioCard({ item }: Readonly<{ item: Indicio }>) {
         <span>{item.ruleName}</span>
         <span className="finance-signal-badge finance-signal-medium">Indício</span>
       </div>
+      {item.underContestation ? (
+        <p className="finance-signal-explanation" role="status">
+          <strong>Contestado — em nova conferência.</strong> O caso continua visível até a
+          reconferência terminar; se não se sustentar, sai do ar com registro.
+        </p>
+      ) : null}
       <h3 className="procurement-object">
         {item.supplierName}
         <span className="meta"> · CNPJ {formatCnpj(item.supplierCnpj)}</span>
@@ -84,6 +90,11 @@ function IndicioCard({ item }: Readonly<{ item: Indicio }>) {
           cadastro da Receita {item.registryArtifactSha256.slice(0, 12)}…
         </p>
       </details>
+      <p className="act-evidence">
+        <a href={`/contestar?url=${encodeURIComponent(`/indicios?indicio=${item.findingId}`)}`}>
+          Contestar este caso
+        </a>
+      </p>
     </article>
   );
 }

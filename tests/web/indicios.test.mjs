@@ -47,6 +47,14 @@ test("lista vazia é resultado válido; linha fora do contrato derruba o conjunt
   assert.equal(parseIndicioRows(null), null);
 });
 
+test("contestação aberta só aparece com a metodologia 1.1.0 e valor verdadeiro", () => {
+  assert.equal(parseIndicioRows([row])[0].underContestation, false);
+  const [item] = parseIndicioRows([
+    { ...row, methodology_version: "public-indicios/1.1.0", under_contestation: true },
+  ]);
+  assert.equal(item.underContestation, true);
+});
+
 test("CNPJ formatado para leitura", () => {
   assert.equal(formatCnpj("12345678000190"), "12.345.678/0001-90");
 });

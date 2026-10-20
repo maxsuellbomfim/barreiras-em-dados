@@ -1,7 +1,7 @@
 // Indícios publicados após revisão automatizada registrada (ADR 0099,
 // public-indicios/1.0.0). Indício não é prova: a página mostra o fato, a
 // regra e a fonte. Valores chegam como decimal em texto; nenhuma conta aqui.
-const METHODOLOGIES = new Set(["public-indicios/1.0.0"]);
+const METHODOLOGIES = new Set(["public-indicios/1.0.0", "public-indicios/1.1.0"]);
 const RULES = new Set(["supplier-recent-opening"]);
 const REVIEW_KINDS = new Set(["human", "automated"]);
 const SEVERITIES = new Set(["information", "low", "medium", "high"]);
@@ -58,6 +58,8 @@ export function parseIndicioRows(rows) {
       contractSourceUrl: text(row.contract_source_url),
       contractArtifactSha256: text(row.contract_artifact_sha256),
       registryArtifactSha256: text(row.registry_artifact_sha256),
+      // 1.1.0: contestação aberta marca o caso como em nova conferência.
+      underContestation: row.under_contestation === true,
     };
     if (
       item.findingId === null ||
