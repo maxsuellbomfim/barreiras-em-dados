@@ -33,7 +33,7 @@ test("organiza a folha por competência sem transformar ausência em zero", () =
   assert.equal(matrix.years.length, 6);
   assert.equal(matrix.years[0].months[1].status, "processing_pending");
   assert.equal(matrix.years[0].months[2].status, "published");
-  assert.equal(matrix.years[0].months[3].status, "not_due");
+  assert.equal(matrix.years[0].months[3].status, "unclassified");
   assert.equal(matrix.years[1].months[0].status, "unclassified");
   assert.equal(matrix.years[1].months[11].status, "document_not_found");
 });
@@ -56,6 +56,6 @@ test("valida o payload em tempo real e rejeita competência duplicada", () => {
 test("explica os estados da folha por texto", () => {
   assert.deepEqual(
     ["published", "processing_pending", "source_conflict", "document_not_found", "unclassified", "not_due"].map(payrollCoverageStatusLabel),
-    ["Publicado", "Em validação", "Conflito de ciclos", "Documento não localizado", "Não classificado", "Fora do período acompanhado"],
+    ["Publicado", "Em validação", "Conflito de ciclos", "Documento não localizado", "Não classificado", "Mês em andamento ou futuro"],
   );
 });

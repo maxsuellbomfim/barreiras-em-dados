@@ -95,9 +95,10 @@ export async function getPublicFinanceCoverage(): Promise<PublicFinanceCoverageR
     if (!Array.isArray(payload)) return { state: "unavailable" };
     const rows: PublicFinanceCoverageRow[] = [];
     for (const row of payload) {
-      if (typeof row !== "object" || row === null) continue;
+      if (typeof row !== "object" || row === null) return { state: "unavailable" };
       const parsed = parseRow(row as Record<string, unknown>);
-      if (parsed) rows.push(parsed);
+      if (!parsed) return { state: "unavailable" };
+      rows.push(parsed);
     }
     return { state: "available", rows };
   } catch {

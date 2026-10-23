@@ -21,7 +21,7 @@ export type MunicipalFinanceDocumentCoverageResult =
 export type MunicipalFinanceDocumentCoverageStatus =
   | "preserved"
   | "catalogued"
-  | "not_listed"
+  | "unclassified"
   | "not_due";
 
 export const MUNICIPAL_FINANCE_DOCUMENT_FAMILIES: readonly Readonly<{

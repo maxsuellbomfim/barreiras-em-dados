@@ -15,7 +15,7 @@ export type FiscalReportCoverageResult =
 export type FiscalReportCoverageStatus =
   | "preserved"
   | "catalogued"
-  | "not_found"
+  | "unclassified"
   | "not_due";
 
 export function toFiscalCoverageEntry(value: unknown): FiscalReportCoverageEntry | null;

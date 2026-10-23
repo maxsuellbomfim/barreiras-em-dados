@@ -11,20 +11,20 @@ import {
 } from "../../lib/fiscal-report-coverage-matrix.mjs";
 
 const LEGEND: readonly FiscalReportCoverageStatus[] = [
-  "preserved", "catalogued", "not_found", "not_due",
+  "preserved", "catalogued", "unclassified", "not_due",
 ];
 
 function visualStatus(status: FiscalReportCoverageStatus): string {
   if (status === "preserved") return "complete";
   if (status === "catalogued") return "expense_only";
-  if (status === "not_found") return "missing";
+  if (status === "unclassified") return "unclassified";
   return "not_due";
 }
 
 function cellLabel(status: FiscalReportCoverageStatus): string {
   if (status === "preserved") return "Preservado";
   if (status === "catalogued") return "Catálogo";
-  if (status === "not_found") return "Não localizado";
+  if (status === "unclassified") return "Não classificado";
   return "—";
 }
 
@@ -82,9 +82,9 @@ export default function FinanceFiscalReportCoverageMatrix({
   return (
     <div className="finance-coverage-matrix finance-fiscal-report-coverage-matrix">
       <div className="finance-coverage-summary" aria-label="Resumo da cobertura de RREO e RGF">
-        <div><strong>{count("preserved").toLocaleString("pt-BR")}</strong><span>PDFs preservados</span></div>
-        <div><strong>{count("catalogued").toLocaleString("pt-BR")}</strong><span>encontrados; PDF pendente</span></div>
-        <div><strong>{count("not_found").toLocaleString("pt-BR")}</strong><span>períodos vencidos não localizados</span></div>
+        <div><strong>{count("preserved").toLocaleString("pt-BR")}</strong><span>períodos com PDF preservado no recorte</span></div>
+        <div><strong>{count("catalogued").toLocaleString("pt-BR")}</strong><span>períodos encontrados; PDF pendente</span></div>
+        <div><strong>{count("unclassified").toLocaleString("pt-BR")}</strong><span>períodos não classificados nesta consulta</span></div>
       </div>
       <ul className="finance-coverage-legend" aria-label="Legenda do calendário fiscal">
         {LEGEND.map((status) => (
@@ -130,7 +130,10 @@ export default function FinanceFiscalReportCoverageMatrix({
       <p className="finance-coverage-method">
         O calendário considera os prazos de trinta dias após cada período. Barreiras
         tem mais de 50 mil habitantes; por isso o RGF é acompanhado por quadrimestre.
-        “Não localizado” descreve a consulta às fontes, não a inexistência do relatório.
+        “Não classificado” indica que não recebemos um documento para o período
+        nesta lista limitada a 200 registros por tipo de relatório. Isso não
+        comprova ausência na fonte nem atraso na publicação. Os contadores medem
+        períodos por tipo de relatório, não a quantidade total de PDFs.
         Consulte a <a href="https://www.siconfi.tesouro.gov.br/siconfi/pages/public/conteudo/conteudo.jsf?id=585" target="_blank" rel="noreferrer">regra no Siconfi</a>
         {" e a "}<a href="https://www.ibge.gov.br/cidades-e-estados/ba/barreiras.html" target="_blank" rel="noreferrer">população no IBGE</a>.
       </p>

@@ -43,7 +43,7 @@ test("organiza restos a pagar por ano e mês sem preencher lacunas como zero", (
   assert.deepEqual(matrix.years.map((year) => year.year), [2026, 2025, 2024, 2023, 2022, 2021]);
   assert.equal(matrix.years[0].months[1].status, "section_absent");
   assert.equal(matrix.years[0].months[2].status, "published");
-  assert.equal(matrix.years[0].months[3].status, "not_due");
+  assert.equal(matrix.years[0].months[3].status, "unclassified");
   assert.equal(matrix.years[1].months[0].status, "unclassified");
   assert.equal(matrix.years[1].months[11].status, "document_not_found");
 });
@@ -83,7 +83,7 @@ test("explica cada estado sem depender apenas da cor", () => {
       "Documento não localizado",
       "Documento não confirmado",
       "Não classificado",
-      "Fora do período acompanhado",
+      "Mês em andamento ou futuro",
     ],
   );
 });

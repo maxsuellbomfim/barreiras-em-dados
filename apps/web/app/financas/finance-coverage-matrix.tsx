@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { PublicFinanceCoverageResult } from "../../lib/finance-coverage";
 import {
   buildFinanceCoverageMatrix,
+  currentPeriodInBarreiras,
   financeCoverageStatusLabel,
   parseFinanceCoverageApiPayload,
   type FinanceCoverageMatrixStatus,
@@ -33,17 +34,6 @@ function cellLabel(status: FinanceCoverageMatrixStatus): string {
   if (status === "missing") return "Não localizado";
   if (status === "unclassified") return "Não classificado";
   return "Ainda não exigível";
-}
-
-function currentPeriodInBarreiras(): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Bahia",
-    year: "numeric",
-    month: "2-digit",
-  }).formatToParts(new Date());
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  return `${year}-${month}`;
 }
 
 export default function FinanceCoverageMatrix({
@@ -133,7 +123,7 @@ export default function FinanceCoverageMatrix({
       <div className="finance-coverage-summary" aria-label="Resumo da cobertura financeira">
         <div><strong>{comparableMonths.toLocaleString("pt-BR")}</strong><span>meses comparáveis</span></div>
         <div><strong>{missingMonths.toLocaleString("pt-BR")}</strong><span>meses não localizados</span></div>
-        <div><strong>{rows.length.toLocaleString("pt-BR")}</strong><span>meses acompanhados</span></div>
+        <div><strong>{rows.length.toLocaleString("pt-BR")}</strong><span>registros mensais consultados, por órgão</span></div>
       </div>
       <ul className="finance-coverage-legend" aria-label="Legenda da matriz">
         {LEGEND_STATUSES.map((status) => (
@@ -155,7 +145,7 @@ export default function FinanceCoverageMatrix({
           >
             <table>
               <caption>
-                Receitas e despesas municipais validadas, de 2021 a {matrix.latestPeriod?.slice(0, 4)}.
+                Situação consultada de receitas e despesas, de 2021 a {body.years[0].year}.
               </caption>
               <thead>
                 <tr>
@@ -172,7 +162,7 @@ export default function FinanceCoverageMatrix({
                       const evidence = month.status === "not_due"
                         ? month.row
                           ? "O mês ainda está em andamento; a ausência de relatório validado não é tratada como atraso nem valor zero."
-                          : "Mês futuro, ainda fora do período acompanhado."
+                          : "Mês em andamento ou futuro; não representa atraso de publicação."
                         : month.status === "missing" && month.row
                           ? "Não foi localizado relatório validado nas fontes oficiais consultadas para este mês; isso pode refletir atraso de publicação e não significa valor zero nem comprova descumprimento."
                         : month.row
@@ -204,9 +194,10 @@ export default function FinanceCoverageMatrix({
         encontrou relatório validado; pode refletir atraso de publicação e
         não significa valor zero nem comprova descumprimento.{" "}
         “não classificado” indica que o mês não veio na resposta e
-        precisa de diagnóstico. “Mês em andamento ou futuro” não é
+        pode estar fora do limite da consulta. Os contadores descrevem apenas os registros recebidos.
+        “Mês em andamento ou futuro” não é
         contada como lacuna. Nenhum desses estados significa valor zero.{" "}
-        <a href="#document-title">Conferir os documentos publicados</a> ou{" "}
+        <a href="/financas#document-title">Conferir os documentos publicados</a> ou{" "}
         <a
           href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
           target="_blank"

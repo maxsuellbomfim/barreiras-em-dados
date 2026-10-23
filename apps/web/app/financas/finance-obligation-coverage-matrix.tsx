@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import type { PublicObligationCoverageResult } from "../../lib/public-obligations.mjs";
+import { currentPeriodInBarreiras } from "../../lib/finance-coverage-matrix.mjs";
 import {
   buildObligationCoverageMatrix,
   obligationCoverageStatusLabel,
@@ -23,6 +24,7 @@ const LEGEND: readonly ObligationCoverageMatrixStatus[] = [
   "document_not_found",
   "document_not_confirmed",
   "unclassified",
+  "not_due",
 ];
 
 function visualStatus(status: ObligationCoverageMatrixStatus): string {
@@ -95,7 +97,7 @@ export default function FinanceObligationCoverageMatrix({
     );
   }
 
-  const matrix = buildObligationCoverageMatrix(result.rows);
+  const matrix = buildObligationCoverageMatrix(result.rows, 2021, currentPeriodInBarreiras());
   if (!matrix || matrix.years.length === 0) {
     return (
       <div className="collection-unavailable" role="status">
@@ -182,7 +184,9 @@ export default function FinanceObligationCoverageMatrix({
       <p className="finance-coverage-method">
         “Valor publicado” indica que o total mensal passou pelas validações da
         projeção. Os demais estados explicam por que nenhum valor foi mostrado;
-        divergência documental não é prova de irregularidade.
+        divergência documental não é prova de irregularidade. Os contadores
+        descrevem apenas os meses recebidos. “Não classificado” significa que o
+        mês não veio nesta consulta limitada, não que faltou documento na fonte.
       </p>
     </div>
   );

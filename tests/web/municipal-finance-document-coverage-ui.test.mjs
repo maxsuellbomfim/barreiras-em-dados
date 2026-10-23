@@ -41,7 +41,8 @@ test("página consulta as três famílias separadamente e publica a matriz mensa
 });
 
 test("matriz explica ausência, versões e preservação sem chamar lacuna de zero", () => {
-  assert.match(component, /Não localizado no catálogo preservado consultado/);
+  assert.match(component, /Não classificado/);
+  assert.match(component, /200 registros por família/);
   assert.match(component, /não significa valor zero/i);
   assert.match(component, /evidenceCount > 1/);
   assert.match(component, /versões/);

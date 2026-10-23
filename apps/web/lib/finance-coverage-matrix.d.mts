@@ -23,6 +23,7 @@ export type FinanceCoverageMatrix = Readonly<{
   }>[];
 }>;
 
+export function currentPeriodInBarreiras(): string;
 export function financeCoverageStatusLabel(
   status: FinanceCoverageMatrixStatus,
 ): string;

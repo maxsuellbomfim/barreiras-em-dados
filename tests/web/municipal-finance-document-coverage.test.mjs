@@ -56,7 +56,7 @@ test("separa balancete, receita e despesa sem somar nem ocultar versões", () =>
   );
 });
 
-test("distingue prazo aberto de competência não localizada no catálogo consultado", () => {
+test("distingue prazo aberto de competência não classificada na lista limitada", () => {
   const matrix = buildMunicipalFinanceDocumentCoverage([], {
     today: "2026-09-01",
     startYear: 2026,
@@ -64,13 +64,13 @@ test("distingue prazo aberto de competência não localizada no catálogo consul
 
   assert.ok(matrix);
   assert.deepEqual(matrix.years[0].months.map(({ families }) => families[0].status), [
-    "not_listed", "not_listed", "not_listed", "not_listed",
-    "not_listed", "not_listed", "not_listed", "not_due",
+    "unclassified", "unclassified", "unclassified", "unclassified",
+    "unclassified", "unclassified", "unclassified", "not_due",
     "not_due", "not_due", "not_due", "not_due",
   ]);
   assert.equal(
-    municipalFinanceDocumentCoverageStatusLabel("not_listed"),
-    "Não localizado no catálogo consultado",
+    municipalFinanceDocumentCoverageStatusLabel("unclassified"),
+    "Não classificado nesta consulta",
   );
 });
 

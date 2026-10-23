@@ -26,6 +26,7 @@ export function obligationCoverageStatusLabel(
 export function buildObligationCoverageMatrix(
   rows: readonly PublicObligationCoverageRow[],
   startYear?: number,
+  currentPeriod?: string | null,
 ): ObligationCoverageMatrix | null;
 export function parseObligationCoverageApiPayload(
   payload: unknown,

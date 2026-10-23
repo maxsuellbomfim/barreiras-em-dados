@@ -24,7 +24,7 @@ export function payrollCoverageStatusLabel(status) {
   if (status === "source_conflict") return "Conflito de ciclos";
   if (status === "document_not_found") return "Documento não localizado";
   if (status === "unclassified") return "Não classificado";
-  return "Fora do período acompanhado";
+  return "Mês em andamento ou futuro";
 }
 
 function parsePeriod(row, startYear) {
@@ -64,8 +64,9 @@ function parsePeriod(row, startYear) {
     : null;
 }
 
-export function buildPayrollCoverageMatrix(rows, startYear = 2021) {
+export function buildPayrollCoverageMatrix(rows, startYear = 2021, currentPeriod = null) {
   if (!Array.isArray(rows) || !Number.isInteger(startYear) || startYear < 1900 || startYear > 2200) return null;
+  if (currentPeriod !== null && !/^\d{4}-(0[1-9]|1[0-2])$/.test(currentPeriod)) return null;
   if (rows.length === 0) return { latestPeriod: null, years: [] };
   const byPeriod = new Map();
   let latestPeriod = null;
@@ -75,8 +76,7 @@ export function buildPayrollCoverageMatrix(rows, startYear = 2021) {
     byPeriod.set(period.key, row);
     if (latestPeriod === null || period.key > latestPeriod) latestPeriod = period.key;
   }
-  const latestYear = Number(latestPeriod.slice(0, 4));
-  const latestMonth = Number(latestPeriod.slice(5, 7));
+  const latestYear = Number((currentPeriod && currentPeriod > latestPeriod ? currentPeriod : latestPeriod).slice(0, 4));
   return {
     latestPeriod,
     years: Array.from({ length: latestYear - startYear + 1 }, (_, yearIndex) => {
@@ -89,7 +89,7 @@ export function buildPayrollCoverageMatrix(rows, startYear = 2021) {
           const row = byPeriod.get(key) ?? null;
           return {
             month,
-            status: year === latestYear && month > latestMonth
+            status: !row && currentPeriod !== null && key >= currentPeriod
               ? "not_due"
               : row?.coverageStatus ?? "unclassified",
             row,
