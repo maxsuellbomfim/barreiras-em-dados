@@ -19,9 +19,9 @@ const sitemap = await readFile(
   "utf8",
 );
 
-test("visão geral oferece auditoria completa sem renderizar cinco matrizes", () => {
+test("visão geral oferece calendários sem prometer acervo completo nem renderizar cinco matrizes", () => {
   assert.match(overview, /href="\/financas\/cobertura"/);
-  assert.match(overview, /Abrir cobertura completa por período/);
+  assert.match(overview, /Abrir calendários de cobertura por período/);
   for (const component of [
     "FinanceCoverageMatrix",
     "FinancePayrollCoverageMatrix",

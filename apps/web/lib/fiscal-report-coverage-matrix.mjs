@@ -147,7 +147,7 @@ function chooseEvidence(entries) {
 export function fiscalReportCoverageStatusLabel(status) {
   if (status === "preserved") return "PDF preservado";
   if (status === "catalogued") return "Encontrado; PDF pendente";
-  if (status === "not_found") return "Não localizado após o prazo";
+  if (status === "unclassified") return "Não classificado nesta consulta";
   return "Prazo ainda não encerrado";
 }
 
@@ -186,7 +186,7 @@ export function buildFiscalReportCoverageMatrix(entries, options = {}) {
         const status = entry
           ? entry.documentPreserved ? "preserved" : "catalogued"
           : todayTimestamp > dueTimestamp(year, column.referenceMonth)
-            ? "not_found"
+            ? "unclassified"
             : "not_due";
         return { ...column, status, entry, evidenceCount: evidence.length };
       }),

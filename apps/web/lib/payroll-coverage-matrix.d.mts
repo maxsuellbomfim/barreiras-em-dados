@@ -24,5 +24,6 @@ export function payrollCoverageStatusLabel(status: PayrollCoverageMatrixStatus):
 export function buildPayrollCoverageMatrix(
   rows: readonly PublicPayrollCoverageRow[],
   startYear?: number,
+  currentPeriod?: string | null,
 ): PayrollCoverageMatrix | null;
 export function parsePayrollCoverageApiPayload(payload: unknown): PublicPayrollCoverageResult | null;

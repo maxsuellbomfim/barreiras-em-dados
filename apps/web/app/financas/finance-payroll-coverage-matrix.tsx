@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import type { PublicPayrollCoverageResult } from "../../lib/public-payroll.mjs";
+import { currentPeriodInBarreiras } from "../../lib/finance-coverage-matrix.mjs";
 import {
   buildPayrollCoverageMatrix,
   parsePayrollCoverageApiPayload,
@@ -15,7 +16,7 @@ const MONTHS = [
   "Jul", "Ago", "Set", "Out", "Nov", "Dez",
 ] as const;
 const LEGEND: readonly PayrollCoverageMatrixStatus[] = [
-  "published", "processing_pending", "source_conflict", "document_not_found", "unclassified",
+  "published", "processing_pending", "source_conflict", "document_not_found", "unclassified", "not_due",
 ];
 
 function visualStatus(status: PayrollCoverageMatrixStatus): string {
@@ -80,7 +81,7 @@ export default function FinancePayrollCoverageMatrix({
     );
   }
 
-  const matrix = buildPayrollCoverageMatrix(result.rows);
+  const matrix = buildPayrollCoverageMatrix(result.rows, 2021, currentPeriodInBarreiras());
   if (!matrix || matrix.years.length === 0) {
     return (
       <div className="collection-unavailable" role="status">
@@ -107,7 +108,7 @@ export default function FinancePayrollCoverageMatrix({
       </ul>
       <div className="finance-coverage-table-scroll" role="region" aria-label="Cobertura mensal da folha" tabIndex={0}>
         <table>
-          <caption>Folha regular e ciclos adicionais validados mês a mês desde 2021.</caption>
+          <caption>Situação consultada da folha regular e dos ciclos adicionais desde 2021.</caption>
           <thead><tr><th scope="col">Ano</th>{MONTHS.map((month) => <th scope="col" key={month}>{month}</th>)}</tr></thead>
           <tbody>
             {matrix.years.map((year) => (
@@ -136,7 +137,9 @@ export default function FinancePayrollCoverageMatrix({
       </div>
       <p className="finance-coverage-method">
         A matriz cobre a folha agregada. Estagiários e terceirizados permanecem
-        em cobertura separada e nenhum valor pessoal é publicado.
+        em cobertura separada e nenhum valor pessoal é publicado. Os contadores
+        descrevem apenas os meses recebidos. “Não classificado” significa que o
+        mês não veio nesta consulta limitada, não que faltou documento na fonte.
       </p>
     </div>
   );

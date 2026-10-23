@@ -88,7 +88,7 @@ function chooseEvidence(entries) {
 export function municipalFinanceDocumentCoverageStatusLabel(status) {
   if (status === "preserved") return "PDF preservado";
   if (status === "catalogued") return "Encontrado; PDF pendente";
-  if (status === "not_listed") return "Não localizado no catálogo consultado";
+  if (status === "unclassified") return "Não classificado nesta consulta";
   return "Prazo ainda não encerrado";
 }
 
@@ -127,7 +127,7 @@ export function buildMunicipalFinanceDocumentCoverage(entries, options = {}) {
         const status = entry
           ? entry.documentPreserved ? "preserved" : "catalogued"
           : todayTimestamp > dueTimestamp(year, referenceMonth)
-            ? "not_listed"
+            ? "unclassified"
             : "not_due";
         return { ...family, status, entry, evidenceCount: evidence.length };
       });

@@ -32,7 +32,7 @@ test("separa os seis bimestres do RREO dos três quadrimestres do RGF", () => {
     ["rgf", 4], ["rgf", 8], ["rgf", 12],
   ]);
   assert.deepEqual(matrix.years[0].periods.map(({ status }) => status), [
-    "preserved", "not_found", "not_due", "not_due", "not_due", "not_due",
+    "preserved", "unclassified", "not_due", "not_due", "not_due", "not_due",
     "preserved", "not_due", "not_due",
   ]);
 });
@@ -57,14 +57,14 @@ test("falha fechado diante de mês incompatível, URL insegura ou contrato extra
   assert.equal(parseFiscalReportCoverageApiPayload({ state: "available", entries: [{ ...entry(), extra: true }] }), null);
 });
 
-test("payload vazio confirmado gera calendário sem transformar períodos futuros em falta", () => {
+test("payload vazio não comprova ausência e mantém períodos futuros separados", () => {
   const parsed = parseFiscalReportCoverageApiPayload({ state: "available", entries: [] });
   assert.deepEqual(parsed, { state: "available", entries: [] });
   const matrix = buildFiscalReportCoverageMatrix(parsed.entries, { today: "2026-09-01", startYear: 2026 });
   assert.ok(matrix);
   assert.deepEqual(matrix.years[0].periods.map(({ status }) => status), [
-    "not_found", "not_found", "not_found", "not_due", "not_due", "not_due",
-    "not_found", "not_due", "not_due",
+    "unclassified", "unclassified", "unclassified", "not_due", "not_due", "not_due",
+    "unclassified", "not_due", "not_due",
   ]);
 });
 

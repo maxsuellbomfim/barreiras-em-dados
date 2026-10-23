@@ -11,7 +11,7 @@ import {
 } from "../../lib/municipal-finance-document-coverage.mjs";
 
 const LEGEND: readonly MunicipalFinanceDocumentCoverageStatus[] = [
-  "preserved", "catalogued", "not_listed", "not_due",
+  "preserved", "catalogued", "unclassified", "not_due",
 ];
 const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
   month: "short",
@@ -21,14 +21,14 @@ const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
 function visualStatus(status: MunicipalFinanceDocumentCoverageStatus): string {
   if (status === "preserved") return "complete";
   if (status === "catalogued") return "expense_only";
-  if (status === "not_listed") return "missing";
+  if (status === "unclassified") return "unclassified";
   return "not_due";
 }
 
 function cellLabel(status: MunicipalFinanceDocumentCoverageStatus): string {
   if (status === "preserved") return "Preservado";
   if (status === "catalogued") return "Catálogo";
-  if (status === "not_listed") return "Não localizado";
+  if (status === "unclassified") return "Não classificado";
   return "—";
 }
 
@@ -101,10 +101,10 @@ export default function FinanceMunicipalDocumentCoverage({
   return (
     <div className="finance-coverage-matrix finance-municipal-document-coverage">
       <div className="finance-coverage-summary" aria-label="Resumo dos documentos financeiros mensais">
-        <div><strong>{count("preserved").toLocaleString("pt-BR")}</strong><span>PDFs preservados</span></div>
-        <div><strong>{count("catalogued").toLocaleString("pt-BR")}</strong><span>encontrados; PDF pendente</span></div>
-        <div><strong>{count("not_listed").toLocaleString("pt-BR")}</strong><span>meses já vencidos sem documento localizado</span></div>
-        <div><strong>{versionedPeriods.toLocaleString("pt-BR")}</strong><span>meses com mais de uma versão</span></div>
+        <div><strong>{count("preserved").toLocaleString("pt-BR")}</strong><span>referências com PDF preservado no recorte</span></div>
+        <div><strong>{count("catalogued").toLocaleString("pt-BR")}</strong><span>referências encontradas; PDF pendente</span></div>
+        <div><strong>{count("unclassified").toLocaleString("pt-BR")}</strong><span>referências não classificadas nesta consulta</span></div>
+        <div><strong>{versionedPeriods.toLocaleString("pt-BR")}</strong><span>referências com mais de uma versão consultada</span></div>
       </div>
       <ul className="finance-coverage-legend" aria-label="Legenda da cobertura documental mensal">
         {LEGEND.map((status) => (
@@ -152,9 +152,10 @@ export default function FinanceMunicipalDocumentCoverage({
         ))}
       </div>
       <p className="finance-coverage-method">
-        “Não localizado no catálogo preservado consultado” significa apenas que o arquivo
-        não apareceu após o prazo de trinta dias; não significa valor zero nem
-        prova de omissão permanente. Quando há mais de uma versão para o mesmo mês,
+        “Não classificado” significa que o arquivo não veio nesta consulta limitada
+        a 200 registros por família; não significa valor zero nem ausência na fonte.
+        Cada família e mês é uma referência separada: as contagens não representam
+        meses únicos nem o total de PDFs. Quando há mais de uma versão para o mesmo mês,
         nenhuma é somada e a célula informa a quantidade observada.
       </p>
     </div>

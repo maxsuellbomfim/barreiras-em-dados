@@ -40,6 +40,16 @@ do mesmo órgão/mês não pode produzir indicador de cobertura completa. Falhas
 parciais nas consultas de documentos mantêm os resultados válidos com aviso;
 não demonstram ausência do documento na fonte oficial.
 
+Em `/financas/cobertura`, o desenho desde 2021 não afirma que todos os períodos
+foram consultados. As consultas mensais têm limite de 120 registros (folha:
+120 meses); os documentos, 200 por família. Sem documento na lista limitada,
+balancetes/receita/despesa e RREO/RGF ficam **não classificados**, não ausentes.
+As classificações mensais com evidência de documento não localizado continuam
+distintas. Meses passados sem linha, inclusive após o último registro recebido,
+não são tratados como futuros. Quantidades documentais contam referências por
+família e período, não PDFs nem meses únicos. Resposta inválida é indisponível,
+nunca uma lista silenciosamente reduzida.
+
 Listas devem receber somente metadados paginados. O texto grande pertence ao
 detalhe; fechar um `<details>` não reduz o que é enviado ao navegador. A auditoria
 atual identificou payloads maiores que merecem revisão, mas não presumiu que

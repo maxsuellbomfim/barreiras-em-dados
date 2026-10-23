@@ -1387,7 +1387,7 @@ export default async function FinancesPage() {
             </p>
           </div>
           <a className="finance-month-link" href="/financas/cobertura">
-            Abrir cobertura completa por período →
+              Abrir calendários de cobertura por período →
           </a>
         </section>
 

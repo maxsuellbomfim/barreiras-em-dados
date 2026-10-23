@@ -55,7 +55,7 @@ test("matriz não transforma competência ausente da resposta em mês sem relat�
       { month: 4, status: "missing" },
     ],
   );
-  assert.equal(result.bodies[0].years[0].months[4].status, "not_due");
+  assert.equal(result.bodies[0].years[0].months[4].status, "unclassified");
 });
 
 test("competência corrente sem relatório fica em andamento sem ocultar lacuna anterior", () => {

@@ -7,7 +7,7 @@ const COVERAGE_STATUSES = new Set([
 ]);
 
 const PERIOD_START = /^(\d{4})-(\d{2})-01$/;
-const PERIOD_KEY = /^(\d{4})-(\d{2})$/;
+const PERIOD_KEY = /^(\d{4})-(0[1-9]|1[0-2])$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const COVERAGE_ROW_KEYS = new Set([
   "coverageId",
@@ -21,6 +21,13 @@ const COVERAGE_ROW_KEYS = new Set([
   "coverageNote",
   "calculationMethodology",
 ]);
+
+export function currentPeriodInBarreiras() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bahia", year: "numeric", month: "2-digit",
+  }).formatToParts(new Date());
+  return `${parts.find((part) => part.type === "year").value}-${parts.find((part) => part.type === "month").value}`;
+}
 
 export function financeCoverageStatusLabel(status) {
   if (status === "complete") return "Receita e despesa";
@@ -116,8 +123,7 @@ export function buildFinanceCoverageMatrix(
   }
 
   if (latestPeriod === null) return { latestPeriod: null, bodies: [] };
-  const latestYear = Number(latestPeriod.slice(0, 4));
-  const latestMonth = Number(latestPeriod.slice(5, 7));
+  const latestYear = Number((currentPeriod && currentPeriod > latestPeriod ? currentPeriod : latestPeriod).slice(0, 4));
   const bodies = [...byBody.entries()]
     .sort(([left], [right]) => left.localeCompare(right, "pt-BR"))
     .map(([publicBodyName, bodyRows]) => ({
@@ -128,7 +134,6 @@ export function buildFinanceCoverageMatrix(
           year,
           months: Array.from({ length: 12 }, (_, monthIndex) => {
             const month = monthIndex + 1;
-            const afterLatest = year === latestYear && month > latestMonth;
             const key = `${year}-${String(month).padStart(2, "0")}`;
             const row = bodyRows.get(key) ?? null;
             const currentOrFutureWithoutReports =
@@ -137,7 +142,7 @@ export function buildFinanceCoverageMatrix(
               row?.coverageStatus === "missing";
             return {
               month,
-              status: afterLatest || currentOrFutureWithoutReports
+              status: currentOrFutureWithoutReports || (!row && currentPeriod !== null && key >= currentPeriod)
                 ? "not_due"
                 : row?.coverageStatus ?? "unclassified",
               row,

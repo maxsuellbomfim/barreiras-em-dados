@@ -56,6 +56,24 @@ export default async function FinanceCoveragePage() {
           </p>
         </div>
 
+        <aside className="finance-reading" aria-label="Limites dos calendários">
+          <div>
+            <strong>Como ler o alcance desta consulta</strong>
+            <p>
+              Receitas e despesas e restos a pagar consultam até 120 registros
+              mensais por série; a folha, até 120 meses. Os calendários de documentos
+              consultam até 200 registros por família (balancetes, receita, despesa,
+              RREO e RGF). Versões de um mesmo período também ocupam esse limite.
+            </p>
+            <p>
+              Desenhar o calendário desde 2021 não comprova cobertura completa.
+              Um mês sem registro nesta resposta fica não classificado: isso não
+              comprova ausência na fonte. “Documento não localizado” só aparece
+              quando há uma classificação específica da consulta oficial.
+            </p>
+          </div>
+        </aside>
+
         <nav className="finance-coverage-jump-nav" aria-label="Ir para um calendário">
           <a href="#finance-coverage-title">Receitas e despesas</a>
           <a href="#payroll-matrix-title">Folha</a>
