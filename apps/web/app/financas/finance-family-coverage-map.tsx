@@ -7,31 +7,31 @@ const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
 });
 
 function formatPeriod(value: string | null): string {
-  if (!value) return "nenhum período publicado";
+  if (!value) return "não identificado nesta consulta";
   if (/^\d{4}$/.test(value)) return value;
   const parsed = new Date(`${value.slice(0, 10)}T12:00:00-03:00`);
   return Number.isNaN(parsed.getTime()) ? value : monthFormatter.format(parsed);
 }
 
 function statusLabel(family: FinanceFamilyCoverage): string {
-  if (family.state === "unavailable") return "Fonte ainda indisponível";
+  if (family.state === "unavailable") return "Cobertura não disponível nesta consulta";
   if (family.classifiedPeriods === null) {
-    return `${family.observedPeriods.toLocaleString("pt-BR")} período${family.observedPeriods === 1 ? "" : "s"} observado${family.observedPeriods === 1 ? "" : "s"}`;
+    return `${family.observedPeriods.toLocaleString("pt-BR")} referência${family.observedPeriods === 1 ? "" : "s"} no recorte consultado`;
   }
-  if (family.gapPeriods === 0) return "Nenhum período sem dado";
-  return `${family.gapPeriods?.toLocaleString("pt-BR")} ${family.gapPeriods === 1 ? "período sem dado" : "períodos sem dado"}, com o motivo`;
+  if (family.gapPeriods === 0) return "Sem lacunas no recorte consultado";
+  return `${family.gapPeriods?.toLocaleString("pt-BR")} ${family.gapPeriods === 1 ? "registro mensal sem publicação validada" : "registros mensais sem publicação validada"} no recorte consultado`;
 }
 
 function coverageCopy(family: FinanceFamilyCoverage): string {
   if (family.classifiedPeriods === null) {
     return family.observedPeriods === 0
-      ? "Ainda não há período preservado nesta projeção. Isso não significa valor zero."
-      : "A contagem mostra documentos observados; a cobertura esperada desta cadência ainda não foi classificada."
+      ? "Não foi possível apurar períodos nesta consulta. Isso não significa valor zero nem ausência de documentos na fonte."
+      : "Referências distintas por tipo de relatório e período nesta consulta limitada; não é o total do acervo."
   }
   if (family.classifiedPeriods === 0) {
     return "A série ainda não retornou meses classificados. Isso não significa valor zero."
   }
-  return `${family.observedPeriods.toLocaleString("pt-BR")} de ${family.classifiedPeriods.toLocaleString("pt-BR")} meses têm publicação validada.`;
+  return `${family.observedPeriods.toLocaleString("pt-BR")} de ${family.classifiedPeriods.toLocaleString("pt-BR")} registros mensais consultados têm publicação validada. Cada órgão e mês conta separadamente.`;
 }
 
 export default function FinanceFamilyCoverageMap({
@@ -45,7 +45,7 @@ export default function FinanceFamilyCoverageMap({
         <p>
           Cada fonte tem uma periodicidade própria. Por isso, o portal não mistura
           meses, bimestres, quadrimestres e anos numa porcentagem única que pareceria
-          precisa, mas seria enganosa.
+          precisa, mas seria enganosa. O recorte consultado não comprova cobertura histórica completa.
         </p>
       </div>
       <ul className="finance-family-map-list">

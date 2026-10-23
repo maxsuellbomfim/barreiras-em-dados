@@ -27,10 +27,8 @@ export default function FinancePayrollHistory({
       <summary>
         <span>Ver meses anteriores da folha</span>
         <small>
-          {months.length.toLocaleString("pt-BR")} mês
-          {months.length === 1 ? "" : "es"} recente
-          {months.length === 1 ? "" : "s"} de {totalMonths.toLocaleString("pt-BR")} publicado
-          {totalMonths === 1 ? "" : "s"} antes do destaque
+          {months.length.toLocaleString("pt-BR")} {months.length === 1 ? "mês recente" : "meses recentes"}
+          {" "}de {totalMonths.toLocaleString("pt-BR")} consultados neste recorte, antes do destaque
         </small>
       </summary>
       <div className="finance-payroll-history-list">
