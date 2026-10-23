@@ -20,7 +20,7 @@ import {
   type PublicMonthlyFinanceClosure,
 } from "../../lib/monthly-finance";
 import { monthlyFinanceHref } from "../../lib/monthly-finance-detail.mjs";
-import { summarizeAnnualFinances } from "../../lib/annual-finance-summary.mjs";
+import { getPublicAnnualFinanceSummary } from "../../lib/annual-finance-public.mjs";
 import ShareLink from "../share-link";
 import { getPublicDebtStatements } from "../../lib/public-debt.mjs";
 import { getPublicFinanceSignals, type PublicFinanceSignal } from "../../lib/finance-signals";
@@ -213,6 +213,7 @@ export default async function FinancesPage() {
     revenuesResult,
     documentsResult,
     monthlyResult,
+    annualSummaryResult,
     signalsResult,
     coverageResult,
     obligationsResult,
@@ -234,6 +235,7 @@ export default async function FinancesPage() {
     getPublicRevenues(),
     getPublicFinanceDocuments(),
     getPublicMonthlyFinanceClosures(),
+    getPublicAnnualFinanceSummary(),
     getPublicFinanceSignals(),
     getPublicFinanceCoverage(),
     getPublicObligations(),
@@ -368,7 +370,8 @@ export default async function FinancesPage() {
     right.periodEnd.localeCompare(left.periodEnd),
   );
   const recentMonthlyClosures = sortedMonthlyClosures.slice(0, FINANCE_OVERVIEW_LIMIT);
-  const annualFinanceSummaries = summarizeAnnualFinances(sortedMonthlyClosures);
+  const annualFinanceSummaries = annualSummaryResult.state === "available"
+    ? annualSummaryResult.summaries : [];
   const latestRevenue = sortedRevenues[0]?.revenueDate ?? null;
   const latestClosure = sortedMonthlyClosures[0] ?? null;
   const financeFamilies = buildFinanceFamilyCoverage({
@@ -593,7 +596,14 @@ export default async function FinancesPage() {
           />
         </section>
 
-        <FinanceAnnualSummary summaries={annualFinanceSummaries} />
+        {annualSummaryResult.state === "unavailable" ? (
+          <div className="collection-unavailable" role="status">
+            <div>
+              <strong>Resumo anual temporariamente indisponível</strong>
+              <p>Não foi possível consultar todos os meses comparáveis. Isso não significa receita ou despesa zero; os documentos e as consultas por mês continuam acessíveis.</p>
+            </div>
+          </div>
+        ) : <FinanceAnnualSummary summaries={annualFinanceSummaries} />}
 
         {monthlyClosures.length > 0 ? (
           <section aria-labelledby="monthly-closure-title" className="monthly-closure-section">

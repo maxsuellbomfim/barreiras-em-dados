@@ -10,7 +10,9 @@ const componentUrl = new URL(
 
 test("página resume os fechamentos já publicados sem recalcular no JSX", async () => {
   const page = await readFile(pageUrl, "utf8");
-  assert.match(page, /summarizeAnnualFinances\(sortedMonthlyClosures\)/);
+  assert.match(page, /getPublicAnnualFinanceSummary\(\)/);
+  assert.doesNotMatch(page, /summarizeAnnualFinances\(sortedMonthlyClosures\)/);
+  assert.match(page, /Resumo anual temporariamente indisponível/);
   assert.match(page, /FinanceAnnualSummary/);
   assert.doesNotMatch(page, /reduce\s*\([^)]*revenueReportAmount/);
 });

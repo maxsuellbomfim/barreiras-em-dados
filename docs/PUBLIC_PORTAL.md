@@ -57,6 +57,14 @@ amostragem sintética, não de prova sobre todas as requisições dos visitantes
 
 ## Verificação e próximos limites
 
+O resumo anual de Finanças consulta `api.get_public_annual_finance_summary`:
+uma linha por ano, calculada em decimal exato a partir dos fechamentos mensais
+operacionais. Usa os instantâneos de cada ano, não a lista recente (24 meses)
+nem o instantâneo global (limitado a 120 meses). Meses sem cobertura comparável
+não entram na soma; a interface informa quantos meses entraram e separa ano
+completo de recorte parcial. Ano sem instantâneo ou mês operacional inconsistente
+bloqueia o resumo com aviso, sem inventar zero ou substituir pela lista recente.
+
 O [relatório da auditoria de 04/09](reviews/AUDIT_2026_09_04.md) registra bugs
 reproduzidos, correções, falhas ainda abertas e medições pontuais de produção.
 Novos PRs devem manter testes Node/Python, contratos, migrations, typecheck,
