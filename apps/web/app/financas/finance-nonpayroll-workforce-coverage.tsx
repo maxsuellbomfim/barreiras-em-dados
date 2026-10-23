@@ -54,6 +54,7 @@ export default function FinanceNonpayrollWorkforceCoverage({
           {recentDocumentedRows.length === 1 ? " recente" : "s recentes"} de{" "}
           {documentedRows.length.toLocaleString("pt-BR")} documentado
           {documentedRows.length === 1 ? "" : "s"}
+          {" "}neste recorte
         </small>
       </summary>
       <div className="finance-payroll-coverage-list">
@@ -97,7 +98,7 @@ export default function FinanceNonpayrollWorkforceCoverage({
         {notListedCount > 0 ? (
           <p className="finance-payroll-coverage-intro">
             Em {notListedCount.toLocaleString("pt-BR")} combinações de mês e
-            categoria, o catálogo oficial completo não listou documento. Isso
+            categoria deste recorte, o catálogo oficial completo não listou documento. Isso
             não significa ausência de pessoas, serviço ou gasto.
           </p>
         ) : null}

@@ -8,14 +8,21 @@ decisões ficam em `docs/adr/` e o histórico amplo em `docs/ROADMAP.md`.
 
 ## Fase atual
 
-Em implementação em 23/10/2026: correção do resumo anual de `/financas`.
+Publicado em 23/10/2026 (#959): correção do resumo anual de `/financas`.
 A página somava apenas a lista dos últimos 24 meses, ocultando 2021–2023
 e mostrando só três meses de 2024. A consulta independente passa a agregar
 os instantâneos por ano, com centavos exatos e sem repetir o cache global.
 A conferência da base encontrou 12 meses em cada ano de 2021–2025 e nove
 em 2026. Migration aditiva `20261023040301` aplicada e consulta conferida;
 prévia local validada em desktop e celular (390 px), incluindo navegação
-para os 12 meses de 2021. Publicação do frontend depende da entrega deste PR.
+para os 12 meses de 2021. Deploy do commit `9f2e3094` e os seis anos
+confirmados no site público, com checks Node/Python aprovados.
+
+Próxima correção em validação: contagens de listas financeiras são descritas
+como registros consultados, nunca como tamanho completo do acervo. Consultas
+de documentos que falham geram aviso explícito, e cobertura indisponível de
+restos a pagar não vira zero lacunas. O mapa distingue RREO/RGF na mesma data
+e impede que estados conflitantes do mesmo mês produzam cobertura completa.
 
 **Estabilização do pré-lançamento e construção incremental do rastro do
 dinheiro.** O portal está marcado como pré-lançamento até os gates abaixo serem

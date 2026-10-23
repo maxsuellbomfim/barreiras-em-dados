@@ -7,6 +7,7 @@ import {
 } from "../../lib/expenses";
 import {
   financeResourceLabel,
+  getFinanceDocumentConsultationState,
   getPublicFinanceDocuments,
   mergePublicFinanceDocumentResults,
 } from "../../lib/finance-documents";
@@ -263,7 +264,7 @@ export default async function FinancesPage() {
   const latestExpenseReport = sortedExpenseReports[0] ?? null;
   const revenues =
     revenuesResult.state === "available" ? revenuesResult.revenues : [];
-  const documents = mergePublicFinanceDocumentResults(
+  const documentResults = [
     documentsResult,
     rreoDocumentsResult,
     rgfDocumentsResult,
@@ -271,7 +272,9 @@ export default async function FinancesPage() {
     balanceteDocumentsResult,
     revenueDocumentsResult,
     expenseDocumentsResult,
-  );
+  ];
+  const documents = mergePublicFinanceDocumentResults(...documentResults);
+  const financeDocumentConsultationState = getFinanceDocumentConsultationState(...documentResults);
   const monthlyClosures =
     monthlyResult.state === "available" ? monthlyResult.closures : [];
   const financeSignals = signalsResult.state === "available" ? signalsResult.signals : [];
@@ -335,11 +338,9 @@ export default async function FinancesPage() {
     (row) => row.coverageStatus !== "published",
   ).length;
   const latestPublicObligation = publicObligations[0] ?? null;
-  const publishedObligationMonths =
-    publicObligationCoverage.length > 0
-      ? publicObligationCoverage.filter((row) => row.coverageStatus === "published")
-          .length
-      : publicObligations.length;
+  const publishedObligationMonths = publicObligationCoverage.filter(
+    (row) => row.coverageStatus === "published",
+  ).length;
   const obligationSectionAbsentMonths = publicObligationCoverage.filter(
     (row) => row.coverageStatus === "section_absent",
   ).length;
@@ -548,7 +549,7 @@ export default async function FinancesPage() {
               <p className="finance-payroll-month-cta">
                 <a href={payrollMonthHref(latestPayroll.referenceMonth)}>
                   Abrir este mês e navegar por todos os{" "}
-                  {payrollMonths.length.toLocaleString("pt-BR")} meses publicados →
+                  {payrollMonths.length.toLocaleString("pt-BR")} meses consultados neste recorte →
                 </a>
               </p>
 
@@ -564,7 +565,7 @@ export default async function FinancesPage() {
                 >
                   <div>
                     <strong>
-                      {payrollCoverageGapCount.toLocaleString("pt-BR")} meses sem total publicado
+                      {payrollCoverageGapCount.toLocaleString("pt-BR")} meses sem total publicado no recorte consultado
                     </strong>
                     <p>
                       Isso não significa gasto zero. O calendário explica, mês a mês,
@@ -738,8 +739,8 @@ export default async function FinancesPage() {
               <p>
                 Este é o valor efetivamente pago pela Prefeitura no período do
                 relatório. A visão geral mostra {recentExpenseReports.length.toLocaleString("pt-BR")} meses
-                recentes de um total de {sortedExpenseReports.length.toLocaleString("pt-BR")} relatórios;
-                o calendário acima mantém o acesso aos demais meses.
+                recentes entre {sortedExpenseReports.length.toLocaleString("pt-BR")} relatórios consultados neste recorte;
+                essa contagem não é o total do acervo. Consulte a cobertura por período para outros meses.
               </p>
             </div>
             <div className="digest-grid">
@@ -848,7 +849,7 @@ export default async function FinancesPage() {
               <p>
                 O último período disponível é {latestRevenue ? formatDate(latestRevenue) : "não informado"}.
                 A visão geral mostra {recentRevenues.length.toLocaleString("pt-BR")} lançamentos recentes
-                de um total de {sortedRevenues.length.toLocaleString("pt-BR")}; os demais ficam no detalhe
+                entre {sortedRevenues.length.toLocaleString("pt-BR")} lançamentos consultados neste recorte; não é o total do acervo. Outros registros ficam no detalhe
                 mensal para não misturar meses e códigos diferentes.
               </p>
             </div>
@@ -978,13 +979,13 @@ export default async function FinancesPage() {
                 </span>
               </article>
             ) : null}
-            <div
+            {publicObligationCoverage.length > 0 ? <div
               className="finance-coverage-summary"
-              aria-label="Resumo da cobertura de restos a pagar"
+              aria-label="Cobertura de restos a pagar no recorte consultado"
             >
               <div>
                 <strong>{publishedObligationMonths.toLocaleString("pt-BR")}</strong>
-                <span>meses com valor</span>
+                <span>meses com valor no recorte consultado</span>
               </div>
               <div>
                 <strong>{obligationSectionAbsentMonths.toLocaleString("pt-BR")}</strong>
@@ -998,11 +999,18 @@ export default async function FinancesPage() {
                 <strong>{obligationSourceConflictMonths.toLocaleString("pt-BR")}</strong>
                 <span>meses com divergência oficial</span>
               </div>
-            </div>
+            </div> : (
+              <div className="collection-unavailable" role="status">
+                <div>
+                  <strong>Cobertura de restos a pagar não disponível nesta consulta</strong>
+                  <p>Os valores consultados continuam abaixo. Não foi possível apurar quantos meses têm lacunas ou divergências; isso não significa ausência de problemas.</p>
+                </div>
+              </div>
+            )}
             <details className="finance-details finance-obligation-history">
               <summary>
                 Ver histórico mês a mês: {recentPublicObligations.length.toLocaleString("pt-BR")} recentes de{" "}
-                {publicObligations.length.toLocaleString("pt-BR")} meses publicados
+                {publicObligations.length.toLocaleString("pt-BR")} meses consultados neste recorte
               </summary>
               <div className="digest-grid">
                 {recentPublicObligations.map((obligation: PublicObligation) => (
@@ -1084,7 +1092,7 @@ export default async function FinancesPage() {
             <div>
               <span className="eyebrow">Cobertura e lacunas</span>
               <strong>
-                {obligationCoverageGapCount.toLocaleString("pt-BR")} meses sem valor publicado
+                {obligationCoverageGapCount.toLocaleString("pt-BR")} meses sem valor publicado no recorte consultado
               </strong>
               <p>
                 Documento ausente, seção incompleta e divergência entre fontes não
@@ -1101,6 +1109,19 @@ export default async function FinancesPage() {
           </aside>
         ) : null}
 
+        <aside className="finance-reading" aria-label="Alcance das listas de documentos">
+          <div>
+            <strong>Listas de documentos: recortes da consulta</strong>
+            <p>As contagens abaixo descrevem os registros consultados e não representam o acervo completo. As consultas têm limite de resultados; use a cobertura por período para localizar outras competências.</p>
+            {financeDocumentConsultationState === "unavailable" ? (
+              <p role="status">Consulta aos documentos indisponível. Não é possível concluir que faltam documentos na fonte oficial.</p>
+            ) : financeDocumentConsultationState === "partial" ? (
+              <p role="status">Parte das consultas de documentos falhou. Exibimos somente os resultados recebidos, sem tratá-los como lista completa.</p>
+            ) : null}
+            <a href="/financas/cobertura">Consultar cobertura por período →</a>
+          </div>
+        </aside>
+
         <section aria-labelledby="obligation-document-title" className="finance-documents finance-obligation-documents">
           <div className="section-heading compact">
             <span className="eyebrow">Passivos públicos</span>
@@ -1115,11 +1136,11 @@ export default async function FinancesPage() {
           {obligationDocuments.length === 0 ? (
             <div className="collection-unavailable" role="status">
               <div>
-                <strong>Documentos-base ainda não preservados nesta projeção</strong>
+                <strong>Nenhum documento-base neste recorte consultado</strong>
                 <p>
-                  A coleta foi preparada para balancetes e demonstrativos fiscais. Enquanto os
-                  artefatos não forem preservados e validados, o portal não exibirá um
-                  número de dívida sem sustentação.
+                  A ausência nesta lista limitada não prova que o documento não existe
+                  na fonte nem que deixou de ser preservado. Consulte a cobertura por
+                  período e os documentos oficiais antes de concluir sobre a dívida.
                 </p>
                 <a
                   href="https://portaldatransparencia.barreiras.ba.gov.br/dados-abertos/"
@@ -1135,6 +1156,7 @@ export default async function FinancesPage() {
               <summary>
                 Ver {recentObligationDocuments.length.toLocaleString("pt-BR")} documentos-base recentes de{" "}
                 {obligationDocuments.length.toLocaleString("pt-BR")}
+                {" "}consultados neste recorte
               </summary>
               <div className="digest-grid">
                 {recentObligationDocuments.map((document) => (
@@ -1199,7 +1221,7 @@ export default async function FinancesPage() {
             <details className="finance-details">
               <summary>
                 Ver {municipalControlDocuments.length.toLocaleString("pt-BR")} registros
-                da base legal
+                da base legal neste recorte
               </summary>
               <div className="digest-grid">
                 {municipalControlDocuments.map((document) => (
@@ -1234,15 +1256,15 @@ export default async function FinancesPage() {
             <h2 id="document-title">O que a Prefeitura publicou</h2>
             <p>
               {operationalDocuments.length > 0
-                ? `${operationalDocuments.length.toLocaleString("pt-BR")} documentos no catálogo. A lista abaixo mostra os ${recentOperationalDocuments.length.toLocaleString("pt-BR")} mais recentes; a auditoria de cobertura dá acesso por competência.`
-                : "Ainda não há documentos mensais de execução ou arrecadação disponíveis."}
+                ? `${operationalDocuments.length.toLocaleString("pt-BR")} documentos consultados neste recorte. A lista abaixo mostra ${recentOperationalDocuments.length.toLocaleString("pt-BR")} recentes; isso não é o total do catálogo. Consulte a cobertura por competência.`
+                : "A consulta não trouxe documentos mensais para esta lista; isso não comprova ausência na fonte oficial."}
             </p>
           </div>
 
           {operationalDocuments.length === 0 ? (
             <div className="collection-unavailable" role="status">
               <div>
-                <strong>Nenhum documento mensal preservado ainda</strong>
+                <strong>Nenhum documento mensal neste recorte consultado</strong>
                 <p>
                   Isso não significa receita ou despesa zero. Os demonstrativos
                   fiscais RREO/RGF aparecem em uma seção separada porque não são
@@ -1316,6 +1338,7 @@ export default async function FinancesPage() {
               <summary>
                 Ver {recentFiscalDocuments.length.toLocaleString("pt-BR")} demonstrativos fiscais recentes de{" "}
                 {fiscalDocuments.length.toLocaleString("pt-BR")}
+                {" "}consultados neste recorte
               </summary>
               <div className="digest-grid">
                 {recentFiscalDocuments.map((document) => (

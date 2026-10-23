@@ -32,6 +32,14 @@ fonte, período não coletado e zero oficial não são equivalentes. A evidênci
 mostra quando e onde a consulta foi feita; ausência em uma fonte não prova
 inexistência em todas as fontes.
 
+Na visão geral de Finanças, contagens derivadas de listas limitadas identificam
+o recorte consultado, não o total do acervo. Não se aumentam limites para tentar
+simular uma contagem global. O mapa descreve somente os registros recebidos;
+RREO e RGF da mesma data são referências diferentes, e um conflito entre estados
+do mesmo órgão/mês não pode produzir indicador de cobertura completa. Falhas
+parciais nas consultas de documentos mantêm os resultados válidos com aviso;
+não demonstram ausência do documento na fonte oficial.
+
 Listas devem receber somente metadados paginados. O texto grande pertence ao
 detalhe; fechar um `<details>` não reduz o que é enviado ao navegador. A auditoria
 atual identificou payloads maiores que merecem revisão, mas não presumiu que

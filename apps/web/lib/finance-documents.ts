@@ -145,6 +145,15 @@ export function mergePublicFinanceDocumentResults(
   return [...documents.values()];
 }
 
+// Successful limited responses are available, never proof of a complete archive.
+export function getFinanceDocumentConsultationState(
+  ...results: readonly FinanceDocumentsResult[]
+): "available" | "partial" | "unavailable" {
+  const available = results.filter((result) => result.state === "available").length;
+  if (available === 0) return "unavailable";
+  return available === results.length ? "available" : "partial";
+}
+
 export function financeResourceLabel(resource: string): string {
   const labels: Record<string, string> = {
     balancetes: "Balancetes mensais",

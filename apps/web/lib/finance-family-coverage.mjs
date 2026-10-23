@@ -54,7 +54,7 @@ function monthlyFamily(definition, input) {
     const previous = classified.get(key);
     classified.set(
       key,
-      previous === definition.publishedStatus ? previous : status,
+      previous && previous !== status ? "needs_review" : status,
     );
   }
 
@@ -83,8 +83,8 @@ function monthlyFamily(definition, input) {
   };
 }
 
-function observedFamily({ key, title, cadence, href, periods }) {
-  const uniquePeriods = [...new Set(periods.filter(Boolean))];
+function observedFamily({ key, title, cadence, href, periods, keys = periods }) {
+  const uniquePeriods = [...new Set(keys.filter(Boolean))];
   return {
     key,
     title,
@@ -93,7 +93,7 @@ function observedFamily({ key, title, cadence, href, periods }) {
     observedPeriods: uniquePeriods.length,
     classifiedPeriods: null,
     gapPeriods: null,
-    latestObservedPeriod: latest(uniquePeriods),
+    latestObservedPeriod: latest(periods.filter(Boolean)),
     state: uniquePeriods.length > 0 ? "observed" : "unavailable",
   };
 }
@@ -121,6 +121,7 @@ export function buildFinanceFamilyCoverage(input) {
     cadence: "Bimestral e quadrimestral",
     href: "/financas/cobertura#fiscal-report-coverage-title",
     periods: [...uniqueFiscalDocuments.values()],
+    keys: [...uniqueFiscalDocuments.keys()],
   });
 
   const siconfiYears = Array.isArray(safeInput.siconfiYears)

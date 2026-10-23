@@ -51,8 +51,16 @@ test("visão geral limita listas extensas sem reduzir contagens nem acesso à co
   assert.doesNotMatch(page, /<FinancePayrollCoverageMatrix\b/);
   assert.doesNotMatch(page, /<FinancePayrollCoverage\b/);
   assert.doesNotMatch(page, /obligationCoverageGaps\.map/);
-  assert.match(page, /de um total de \{sortedExpenseReports\.length/);
-  assert.match(page, /de um total de \{sortedRevenues\.length/);
+  assert.doesNotMatch(page, /de um total de \{sorted(?:ExpenseReports|Revenues)\.length/);
+  assert.doesNotMatch(page, /documentos no catálogo\./);
+  assert.match(page, /não representam o acervo completo/);
+  assert.match(page, /relatórios consultados neste recorte/);
+  assert.match(page, /lançamentos consultados neste recorte/);
+  assert.doesNotMatch(page, /Nenhum documento mensal preservado ainda/);
+  assert.match(page, /financeDocumentConsultationState === "unavailable"/);
+  assert.match(page, /financeDocumentConsultationState === "partial"/);
+  assert.match(page, /Cobertura de restos a pagar não disponível nesta consulta/);
+  assert.doesNotMatch(page, /:\s*publicObligations\.length;/);
   assert.match(page, /recentPublicObligations\.length\.toLocaleString/);
   assert.match(page, /recentObligationDocuments\.length\.toLocaleString/);
   assert.match(page, /recentFiscalDocuments\.length\.toLocaleString/);

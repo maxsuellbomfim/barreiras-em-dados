@@ -3,6 +3,27 @@ import test from "node:test";
 
 import { buildFinanceFamilyCoverage } from "../../apps/web/lib/finance-family-coverage.mjs";
 
+test("RREO e RGF da mesma data são duas observações, não um único período", () => {
+  const families = buildFinanceFamilyCoverage({ fiscalDocuments: [
+    { sourceResource: "rreo", referenceDate: "2025-12-31", fiscalYear: 2025 },
+    { sourceResource: "rgf", referenceDate: "2025-12-31", fiscalYear: 2025 },
+    { sourceResource: "rgf", referenceDate: "2025-12-31", fiscalYear: 2025 },
+  ] });
+  assert.equal(families[3].observedPeriods, 2);
+  assert.equal(families[3].latestObservedPeriod, "2025-12-31");
+});
+
+test("estados conflitantes do mesmo mês não produzem cobertura completa", () => {
+  for (const statuses of [["complete", "missing"], ["missing", "complete"]]) {
+    const [family] = buildFinanceFamilyCoverage({ financeRows: statuses.map(coverageStatus => ({
+      periodStart: "2025-12-01", coverageStatus,
+    })) });
+    assert.equal(family.state, "partial");
+    assert.equal(family.classifiedPeriods, 1);
+    assert.equal(family.gapPeriods, 1);
+  }
+});
+
 test("resume cada família na sua própria periodicidade sem criar taxa global", () => {
   const families = buildFinanceFamilyCoverage({
     financeRows: [
