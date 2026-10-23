@@ -14,3 +14,5 @@ export type AnnualFinanceSummary = Readonly<{
 export function summarizeAnnualFinances(
   closures: readonly PublicMonthlyFinanceClosure[],
 ): readonly AnnualFinanceSummary[];
+
+export function parseAnnualFinanceSummaries(rows: unknown): readonly AnnualFinanceSummary[] | null;

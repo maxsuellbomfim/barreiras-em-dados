@@ -8,6 +8,15 @@ decisões ficam em `docs/adr/` e o histórico amplo em `docs/ROADMAP.md`.
 
 ## Fase atual
 
+Em implementação em 23/10/2026: correção do resumo anual de `/financas`.
+A página somava apenas a lista dos últimos 24 meses, ocultando 2021–2023
+e mostrando só três meses de 2024. A consulta independente passa a agregar
+os instantâneos por ano, com centavos exatos e sem repetir o cache global.
+A conferência da base encontrou 12 meses em cada ano de 2021–2025 e nove
+em 2026. Migration aditiva `20261023040301` aplicada e consulta conferida;
+prévia local validada em desktop e celular (390 px), incluindo navegação
+para os 12 meses de 2021. Publicação do frontend depende da entrega deste PR.
+
 **Estabilização do pré-lançamento e construção incremental do rastro do
 dinheiro.** O portal está marcado como pré-lançamento até os gates abaixo serem
 comprovados. O trabalho deve fechar fluxos verticais pequenos, não abrir fases
