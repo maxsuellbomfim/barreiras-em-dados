@@ -49,6 +49,28 @@ validada → revisão → finance.revenues → projeção pública
 
 ## Limite atual
 
+### Consulta por ano e paginação — 25/10/2026
+
+`/financas/documentos` usa `api.get_public_finance_document_page`, migration
+aditiva `20261025051028`. A consulta seleciona a versão mais recente de cada
+chave oficial antes do filtro de ano; calcula o total do recorte sem limitar
+o catálogo aos primeiros 200 e só busca o PDF vinculado para a página de 25
+referências. A seleção permite ano e família; anos não informados continuam
+acessíveis em “Todos os anos”. O total é de referências preservadas, não de
+PDFs únicos nem prova de cobertura completa do portal municipal.
+
+Conferência anônima em produção: 2021 retornou 27 referências, distribuídas em
+25 e 2. Teste de banco cobre 210 referências, versão que muda de ano, página
+vazia, filtros inválidos e ausência de acesso anônimo ao bruto. Falha de
+consulta não vira lista vazia; os calendários anteriores mantêm limites
+explícitos e ganham link para esta exploração.
+
+O dry-run da CLI detectou a migration remota histórica `20260923181039`
+(`approved_acts_text_source`) ausente localmente. Não foi reparada/revertida
+nem reescrita. A nova função foi aplicada isoladamente pela integração oficial,
+e o arquivo local recebeu a mesma versão registrada no banco. A reconciliação
+da migration histórica continua separada desta entrega.
+
 ### Instalação e recuperação operacional — 15/09/2026
 
 Na execução `34952573445`, balancetes não chegou à coleta: a instalação não

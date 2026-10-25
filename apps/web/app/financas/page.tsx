@@ -1254,6 +1254,7 @@ export default async function FinancesPage() {
           <div className="section-heading compact">
             <span className="eyebrow">Documentos oficiais</span>
             <h2 id="document-title">O que a Prefeitura publicou</h2>
+            <p><a href="/financas/documentos">Pesquisar documentos por ano e navegar pelas páginas →</a></p>
             <p>
               {operationalDocuments.length > 0
                 ? `${operationalDocuments.length.toLocaleString("pt-BR")} documentos consultados neste recorte. A lista abaixo mostra ${recentOperationalDocuments.length.toLocaleString("pt-BR")} recentes; isso não é o total do catálogo. Consulte a cobertura por competência.`

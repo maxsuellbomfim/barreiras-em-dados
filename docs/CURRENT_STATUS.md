@@ -32,11 +32,19 @@ determinados pelo calendário de Barreiras. Contadores documentais distinguem
 referências por família/período de quantidade de PDFs. Não amplia consultas,
 altera valores financeiros ou substitui evidências de ausência já registradas.
 
-Em validação em 25/10/2026: votação presidencial de Barreiras pelo arquivo BR
-do TSE, sem misturar turnos, eleições ou mandatos atuais. Coleta padrão de 2026
-e instalador da rotina local diária, com falha explícita para arquivo ausente.
-Operação e limites em `docs/POLITICAL_PROFILES.md`. Próximo fluxo: consultar
-documentos financeiros por ano e páginas, sem tratar os primeiros 200 como acervo.
+Publicado em 25/10/2026 (#962): votação presidencial de Barreiras pelo arquivo BR
+do TSE, sem misturar turnos, eleições ou mandatos atuais. A API pública conferiu
+1.142 registros contra o pacote oficial, incluindo 12 candidaturas presidenciais
+do primeiro turno; o segundo ainda ausente no snapshot não virou resultado zero.
+Tarefa local diária `Barreiras360-TseRefresh-2026` instalada às 06:17, silenciosa,
+dependente da máquina/sessão disponíveis. Operação em `docs/POLITICAL_PROFILES.md`.
+
+Em validação: `/financas/documentos` consulta por ano e tipo, com 25 referências
+por página e total calculado no servidor após selecionar versões atuais.
+Migration aditiva `20261025051028` aplicada e papel anônimo conferido: 27
+referências de 2021, em páginas de 25 e 2. Não muda os calendários limitados nem
+afirma integralidade da fonte. Próximo fluxo: calendário documental por ano,
+usando uma consulta agregada independente de páginas.
 
 **Estabilização do pré-lançamento e construção incremental do rastro do
 dinheiro.** O portal está marcado como pré-lançamento até os gates abaixo serem

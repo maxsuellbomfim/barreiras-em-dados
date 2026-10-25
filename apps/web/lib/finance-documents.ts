@@ -25,6 +25,58 @@ export type FinanceDocumentsResult =
 
 const SHA256 = /^[0-9a-f]{64}$/;
 
+export const FINANCE_DOCUMENT_RESOURCES = [
+  "balancetes", "pdc-contas-anuais", "pdc-receita-tributaria",
+  "pdc-recursos-extraordinarios", "pdc-resumo-execucao-da-receita",
+  "pdc-resumo-execucao-da-despesa", "pdc-transferencia",
+  "pdc-emendas-parlamentares-receitas", "pdc-convenios-transferencias-realizadas",
+  "pdc-obras-pdc", "rreo", "rgf",
+] as const;
+export const FINANCE_DOCUMENT_PAGE_SIZE = 25;
+export type FinanceDocumentPageResult =
+  | Readonly<{state: "available"; totalCount: number; availableYears: readonly number[];
+      documents: readonly PublicFinanceDocument[]; page: number}>
+  | Readonly<{state: "unavailable"}>;
+
+export async function getPublicFinanceDocumentPage(
+  year: number | null = null, resource: string | null = null, page = 1,
+): Promise<FinanceDocumentPageResult> {
+  if (!Number.isSafeInteger(page) || page < 1 || page > 100000 ||
+      (year !== null && (!Number.isSafeInteger(year) || year < 1900 || year > 2100)) ||
+      (resource !== null && !FINANCE_DOCUMENT_RESOURCES.some(value => value === resource))) {
+    return {state: "unavailable"};
+  }
+  const url = process.env.PUBLIC_DATA_SUPABASE_URL?.trim();
+  const key = process.env.PUBLIC_DATA_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (!url?.startsWith("https://") || !key?.startsWith("sb_publishable_")) return {state:"unavailable"};
+  try {
+    const response = await fetch(`${url}/rest/v1/rpc/get_public_finance_document_page`, {
+      method:"POST", headers: {apikey:key,"Accept-Profile":"api","Content-Profile":"api","Content-Type":"application/json"},
+      body:JSON.stringify({page_size:FINANCE_DOCUMENT_PAGE_SIZE,page_number:page,year_filter:year,resource_filter:resource}),
+      next:{revalidate:300},signal:AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return {state:"unavailable"};
+    const payload: unknown = await response.json();
+    if (!Array.isArray(payload) || payload.length !== 1) return {state:"unavailable"};
+    const row = payload[0];
+    if (!row || !Number.isSafeInteger(row.total_count) || row.total_count < 0 ||
+        !Array.isArray(row.items) || !Array.isArray(row.available_years) ||
+        !row.available_years.every((value:unknown) => typeof value === "number" && Number.isInteger(value) && value>=1900 && value<=2100) ||
+        row.items.length !== Math.min(FINANCE_DOCUMENT_PAGE_SIZE,Math.max(0,row.total_count-(page-1)*FINANCE_DOCUMENT_PAGE_SIZE))) return {state:"unavailable"};
+    const documents: PublicFinanceDocument[] = [];
+    const ids = new Set<string>();
+    for (const value of row.items) {
+      if (!value || typeof value !== "object") return {state:"unavailable"};
+      const document = parseDocument(value);
+      if (!document || ids.has(document.documentId) ||
+          (year !== null && document.fiscalYear !== year) ||
+          (resource !== null && document.sourceResource !== resource)) return {state:"unavailable"};
+      ids.add(document.documentId); documents.push(document);
+    }
+    return {state:"available",totalCount:row.total_count,availableYears:row.available_years,documents,page};
+  } catch { return {state:"unavailable"}; }
+}
+
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
