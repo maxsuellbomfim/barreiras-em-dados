@@ -59,6 +59,7 @@ export default async function FinanceCoveragePage() {
         <aside className="finance-reading" aria-label="Limites dos calendários">
           <div>
             <strong>Como ler o alcance desta consulta</strong>
+            <p><a href="/financas/documentos">Pesquisar referências por ano e tipo, além dos recortes abaixo →</a></p>
             <p>
               Receitas e despesas e restos a pagar consultam até 120 registros
               mensais por série; a folha, até 120 meses. Os calendários de documentos

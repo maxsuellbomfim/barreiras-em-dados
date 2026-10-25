@@ -1,0 +1,29 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  padding: 1.25rem;
+  margin: 1.5rem 0;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface);
+}
+.filters label { display: grid; gap: .5rem; flex: 1 1 15rem; min-width: 0; }
+.filters input, .filters select, .filters button {
+  min-height: 44px;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+  padding: .6rem;
+  font: inherit;
+  color: var(--ink);
+  background: white;
+}
+.filters button { cursor: pointer; background: var(--blue-dark); color: white; }
+.filters :focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+.catalog article { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .filters { display: grid; grid-template-columns: minmax(0, 1fr); }
+}
