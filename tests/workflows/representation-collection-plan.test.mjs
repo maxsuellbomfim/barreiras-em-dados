@@ -58,3 +58,10 @@ test("escopo desconhecido falha sem executar coletor", () => {
   assert.match(result.stderr, /Escopo de representação inválido/);
   assert.equal(result.stdout, "");
 });
+
+test("rotina semanal de perfis não duplica a coleta eleitoral local diária", () => {
+  const plan = resolvePlan("profiles");
+  assert.equal(plan.profiles.length, 4);
+  assert.equal(plan.collectElections, false);
+  assert.equal(plan.collectPrivateIdentities, false);
+});

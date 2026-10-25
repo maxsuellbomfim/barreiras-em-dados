@@ -24,13 +24,19 @@ de documentos que falham geram aviso explícito, e cobertura indisponível de
 restos a pagar não vira zero lacunas. O mapa distingue RREO/RGF na mesma data
 e impede que estados conflitantes do mesmo mês produzam cobertura completa.
 
-Próxima correção em validação: os calendários detalhados explicitam os limites
+Publicado em 23/10/2026 (#961): os calendários detalhados explicitam os limites
 de 120 registros mensais e 200 documentos por família. Ausência em lista limitada
 não vira documento não localizado. Meses passados posteriores à última linha
 recebida ficam não classificados, inclusive na virada do ano; meses futuros são
 determinados pelo calendário de Barreiras. Contadores documentais distinguem
 referências por família/período de quantidade de PDFs. Não amplia consultas,
 altera valores financeiros ou substitui evidências de ausência já registradas.
+
+Em validação em 25/10/2026: votação presidencial de Barreiras pelo arquivo BR
+do TSE, sem misturar turnos, eleições ou mandatos atuais. Coleta padrão de 2026
+e instalador da rotina local diária, com falha explícita para arquivo ausente.
+Operação e limites em `docs/POLITICAL_PROFILES.md`. Próximo fluxo: consultar
+documentos financeiros por ano e páginas, sem tratar os primeiros 200 como acervo.
 
 **Estabilização do pré-lançamento e construção incremental do rastro do
 dinheiro.** O portal está marcado como pré-lançamento até os gates abaixo serem

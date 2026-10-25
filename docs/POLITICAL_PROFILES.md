@@ -253,6 +253,33 @@ na projeção pública.
 
 ## Primeiro recorte entregável
 
+### Votação de 2026 e atualização presidencial (25/10/2026)
+
+- O CSV `BA` traz os cargos estaduais/federais; os votos de presidente estão
+  no CSV `BR` do mesmo ZIP oficial. Ambos são filtrados pelo código municipal
+  TSE `33634`. O artefato preserva o recorte e os hashes do ZIP e dos dois CSVs.
+- Nas eleições gerais, ausência do CSV presidencial impede declarar a coleta
+  completa. Ano incompatível, turno inválido e votos negativos são rejeitados.
+- A agregação mantém candidatura, ano, cargo e turno separados. A situação
+  eleitoral não atualiza mandatos: os perfis continuam dependentes das fontes
+  institucionais e de suas datas de exercício.
+- O comando passa a coletar 2026 por padrão. Anos anteriores exigem `--ano`;
+  não se baixa todo o histórico diariamente. Arquivo indisponível gera estado
+  bloqueado e saída de erro, não sucesso vazio.
+- `scripts/install-tse-refresh-schedule.ps1` registra a tarefa local diária
+  `Barreiras360-TseRefresh-2026` às 06:17, sem janela, sem execuções sobrepostas,
+  usando o cofre Windows existente. Depende desta máquina ligada e da sessão
+  disponível; `StartWhenAvailable` retoma uma execução perdida. Não é serviço
+  hospedado nem apuração em tempo real. Confirme a instalação operacional.
+- O transporte local usa o curl já instalado, com HTTPS, limite de tamanho,
+  timeout e sem seguir redirects. Credenciais não são enviadas ao TSE.
+- A rotina semanal GitHub coleta os perfis; o CDN do TSE bloqueia os runners.
+  Os escopos manuais `all`/`elections` continuam disponíveis para diagnóstico.
+  Workflow verde de perfis não comprova atualização eleitoral. A confirmação
+  exige execução registrada, artefato preservado e conferência da API pública.
+- A versão do parser é `tse-votacao-munzona/1.1.0`. Não são apagadas versões
+  históricas, somados turnos nem anunciados resultados ainda ausentes no ZIP.
+
 Após estabilizar o fluxo do Querido Diário:
 
 1. cadastrar internamente prefeito, vice, secretários e vereadores a partir de

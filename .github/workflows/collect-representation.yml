@@ -13,6 +13,7 @@ on:
         type: choice
         options:
           - all
+          - profiles
           - federal
           - municipal
           - state
@@ -45,7 +46,9 @@ jobs:
         id: plan
         shell: bash
         env:
-          REQUESTED_SOURCE: ${{ github.event_name == 'workflow_dispatch' && inputs.source || 'all' }}
+          # TSE 2026: rotina local diária (CDN bloqueia runners GitHub).
+          # all/elections continuam disponíveis para diagnóstico manual.
+          REQUESTED_SOURCE: ${{ github.event_name == 'workflow_dispatch' && inputs.source || 'profiles' }}
         run: |
           set -euo pipefail
           PLAN_JSON="$(node .github/scripts/resolve-representation-plan.mjs "$REQUESTED_SOURCE")"
@@ -55,6 +58,7 @@ jobs:
           echo "collect_profiles=$([ "$PROFILE_COUNT" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "collect_elections=$(printf '%s' "$PLAN_JSON" | jq -r '.collectElections')" >> "$GITHUB_OUTPUT"
           echo "collect_private_identities=$(printf '%s' "$PLAN_JSON" | jq -r '.collectPrivateIdentities')" >> "$GITHUB_OUTPUT"
+          echo 'TSE 2026: atualização diária pela tarefa local Barreiras360-TseRefresh-2026; este workflow não comprova cobertura eleitoral.' >> "$GITHUB_STEP_SUMMARY"
 
   collect-profiles:
     name: Preservar ${{ matrix.label }}

@@ -5,7 +5,8 @@ cada candidatura recebeu no município. Sem esse número, chamar alguém de
 "representante da região" seria opinião.
 
 O pacote nacional pode ultrapassar 120 MiB e traz um CSV por UF. Baixamos
-o pacote, extraímos só o arquivo da Bahia e preservamos como artefato o
+o pacote, extraímos a Bahia e, nas eleições gerais, a votação presidencial
+do arquivo BR. Preservamos como artefato somente o
 **recorte de Barreiras** — a plataforma é municipal, e guardar o país
 inteiro seria desproporcional. O hash do pacote e o do CSV estadual ficam
 registrados no artefato, então qualquer pessoa reproduz o recorte a
@@ -45,7 +46,7 @@ TIMEOUT_SECONDS = 120.0
 # normal growth while still bounding memory use for an intentionally large
 # upstream response.
 MAX_PACKAGE_BYTES = 640 * 1024 * 1024
-PARSER_VERSION = "tse-votacao-munzona/1.0.0"
+PARSER_VERSION = "tse-votacao-munzona/1.1.0"
 
 # Colunas exigidas: ausência é falha explícita, não coluna vazia.
 REQUIRED_COLUMNS = (
@@ -77,15 +78,26 @@ def package_url(year: int) -> str:
 
 def extract_state_csv(package: bytes, year: int) -> bytes:
     """CSV da Bahia de dentro do pacote nacional."""
+    return extract_csv(package, year, STATE_CODE)
+
+
+def extract_csv(package: bytes, year: int, region: str) -> bytes:
+    """Exige um único membro oficial; ausência não significa zero votos."""
     try:
-        archive = zipfile.ZipFile(io.BytesIO(package))
+        with zipfile.ZipFile(io.BytesIO(package)) as archive:
+            expected = f"votacao_candidato_munzona_{year}_{region}.csv"
+            members = [
+                name
+                for name in archive.namelist()
+                if name.replace("\\", "/").split("/")[-1].upper() == expected.upper()
+            ]
+            if len(members) != 1:
+                raise TseError(f"O pacote de {year} exige um único arquivo {expected}.")
+            if archive.getinfo(members[0]).file_size > 2 * 1024 * 1024 * 1024:
+                raise TseError("O CSV do TSE excede o limite de extração.")
+            return archive.read(members[0])
     except zipfile.BadZipFile as error:
         raise TseError("O pacote do TSE não é um ZIP válido.") from error
-    expected = f"votacao_candidato_munzona_{year}_{STATE_CODE}.csv"
-    for name in archive.namelist():
-        if name.upper().endswith(expected.upper()):
-            return archive.read(name)
-    raise TseError(f"O pacote de {year} não contém o arquivo da Bahia ({expected}).")
 
 
 def rows_for_barreiras(state_csv: bytes) -> tuple[list[dict], int]:
@@ -126,11 +138,16 @@ def aggregate_by_candidate(rows: list[dict]) -> list[dict]:
     A fonte publica por zona; o número que interessa ao cidadão é o total
     no município. A soma é feita aqui, por código, nunca por nome.
     """
-    grouped: dict[tuple[str, str], dict] = {}
+    grouped: dict[tuple[str, str, str, str], dict] = {}
     for row in rows:
-        key = (row["SQ_CANDIDATO"], row["NR_TURNO"])
+        key = (
+            row["SQ_CANDIDATO"],
+            row["NR_TURNO"],
+            row["ANO_ELEICAO"],
+            row["DS_CARGO"],
+        )
         votes = row["QT_VOTOS_NOMINAIS"]
-        if not votes.lstrip("-").isdigit():
+        if not votes.isdigit():
             raise TseError(
                 f"Votos não numéricos para a candidatura {key[0]}: {votes!r}."
             )
@@ -215,6 +232,31 @@ def fetch_votes(
         if response.status == 200:
             state_csv = extract_state_csv(response.body, year)
             rows, total = rows_for_barreiras(state_csv)
+            provenance = {
+                "x-package-sha256": hashlib.sha256(response.body).hexdigest(),
+                "x-state-csv-sha256": hashlib.sha256(state_csv).hexdigest(),
+            }
+            if year % 4 == 2:
+                presidential_csv = extract_csv(response.body, year, "BR")
+                presidential_rows, _ = rows_for_barreiras(presidential_csv)
+                if any(
+                    row["DS_CARGO"].casefold() != "presidente"
+                    for row in presidential_rows
+                ):
+                    raise TseError("O arquivo BR contém cargo presidencial inesperado.")
+                if any(row["DS_CARGO"].casefold() == "presidente" for row in rows):
+                    raise TseError(
+                        "Votação presidencial repetida nos arquivos BA e BR."
+                    )
+                rows.extend(presidential_rows)
+                provenance["x-presidential-csv-sha256"] = hashlib.sha256(
+                    presidential_csv
+                ).hexdigest()
+            if any(
+                row["ANO_ELEICAO"] != str(year) or row["NR_TURNO"] not in {"1", "2"}
+                for row in rows
+            ):
+                raise TseError("Ano ou turno incompatível com o pleito solicitado.")
             candidates = aggregate_by_candidate(rows)
             recorte = json.dumps(
                 candidates,
@@ -258,11 +300,7 @@ def fetch_votes(
                 body_sha256=hashlib.sha256(recorte).hexdigest(),
                 body_size_bytes=len(recorte),
                 media_type="application/json",
-                response_headers={
-                    # Rastreabilidade até a fonte, sem guardar o país todo.
-                    "x-package-sha256": hashlib.sha256(response.body).hexdigest(),
-                    "x-state-csv-sha256": hashlib.sha256(state_csv).hexdigest(),
-                },
+                response_headers=provenance,
                 cursor={"offset": 0, "size": len(candidates), "ano": year},
                 raw_body=recorte,
                 window_start=None,

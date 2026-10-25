@@ -1,10 +1,10 @@
 param(
     [string]$PythonPath = "",
-    [int[]]$Anos = @(2012, 2016, 2020)
+    [int[]]$Anos = @(2026)
 )
 
 # Acervo eleitoral do TSE: o CDN responde HTTP 403 aos servidores do GitHub,
-# então os pleitos municipais anteriores (2012, 2016, 2020) são preservados
+# então o pleito corrente e os históricos explicitamente solicitados são preservados
 # nesta máquina, com as credenciais protegidas (DPAPI) dos coletores locais.
 
 $ErrorActionPreference = "Stop"
@@ -98,7 +98,7 @@ try {
         try {
             $ErrorActionPreference = "Continue"
             $output = @(
-                & $python -B -m barreiras_collectors.commands.collect_tse_votes @($Anos | ForEach-Object { "--ano"; "$_" }) 2>&1
+                & $python -B -m barreiras_collectors.commands.collect_tse_votes --transport curl @($Anos | ForEach-Object { "--ano"; "$_" }) 2>&1
             )
             $nativeExitCode = $LASTEXITCODE
         }
@@ -118,6 +118,11 @@ try {
     }
     if (-not $terminal) {
         throw "O coletor não produziu o evento final da votação do TSE."
+    }
+    $summary = ($terminal | Select-Object -Last 1).ToString() | ConvertFrom-Json
+    if ($summary.preserved -ne $Anos.Count -or
+        (@($summary.years | Sort-Object) -join ',') -ne (@($Anos | Sort-Object) -join ',')) {
+        throw "A coleta não preservou todos os pleitos solicitados."
     }
     Write-Host "TSE_VOTES_OK" -ForegroundColor Green
 }
