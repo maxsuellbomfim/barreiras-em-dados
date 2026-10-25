@@ -25,7 +25,7 @@ from .representation_control import (
     execute_controlled_representation,
 )
 
-DEFAULT_YEARS = (2024, 2022)
+DEFAULT_YEARS = (2026,)
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
 
@@ -40,9 +40,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--ano",
         type=int,
         action="append",
-        help="Ano do pleito; pode repetir. Padrão: 2024 e 2022.",
+        help="Ano do pleito; pode repetir. Padrão: 2026. Históricos são explícitos.",
     )
+    parser.add_argument("--transport", choices=("urllib", "curl"), default="urllib")
     arguments = parser.parse_args(argv)
+    transport = None
+    if arguments.transport == "curl":
+        from ..connectors.tse_curl import TseCurlTransport
+
+        transport = TseCurlTransport()
     years = tuple(arguments.ano) if arguments.ano else DEFAULT_YEARS
     for year in years:
         if not 1994 <= year <= 2100:
@@ -118,7 +124,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 repository=repository,
             )
-            page = fetch_votes(election_year, logger=logger)
+            page = fetch_votes(election_year, logger=logger, transport=transport)
             if page is None:
                 log_event(
                     logger,
@@ -162,7 +168,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             control=control,
             operation=operation,
         )
-        if summary.outcome in {CollectionOutcome.COMPLETE, CollectionOutcome.EMPTY}:
+        if (
+            summary.outcome == CollectionOutcome.COMPLETE
+            and summary.observed_records > 0
+        ):
             preserved += 1
 
     log_event(
@@ -173,7 +182,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         years=list(years),
         preserved=preserved,
     )
-    return 0
+    return 0 if preserved == len(years) else 1
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@ const profileSources = [
 
 const allowedScopes = new Set([
   "all",
+  "profiles",
   "federal",
   "municipal",
   "state",
@@ -38,7 +39,7 @@ if (!allowedScopes.has(scope)) {
 } else {
   const collectElections = scope === "all" || scope === "elections";
   const profiles =
-    scope === "all"
+    scope === "all" || scope === "profiles"
       ? profileSources
       : profileSources.filter(({ source }) => source === scope);
 

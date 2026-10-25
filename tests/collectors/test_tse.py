@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import unittest
 import zipfile
+from unittest.mock import Mock
 
 from barreiras_collectors.connectors.tse import (
     BARREIRAS_TSE_CODE,
@@ -10,9 +11,11 @@ from barreiras_collectors.connectors.tse import (
     TseError,
     aggregate_by_candidate,
     extract_state_csv,
+    fetch_votes,
     package_url,
     rows_for_barreiras,
 )
+from barreiras_collectors.http import HttpResponse
 
 HEADER = (
     "ANO_ELEICAO;NR_TURNO;CD_MUNICIPIO;NM_MUNICIPIO;NR_ZONA;DS_CARGO;"
@@ -47,6 +50,89 @@ def zip_with(name: str, content: bytes) -> bytes:
 
 
 class PackageTests(unittest.TestCase):
+    def general_package(self, *, include_president: bool = True) -> bytes:
+        state = (
+            linha("BARREIRAS", BARREIRAS_TSE_CODE, "1", "9", "10")
+            .replace("2024;1", "2026;1")
+            .replace("Vereador", "Deputado Federal")
+        )
+        president = (
+            linha("BARREIRAS", BARREIRAS_TSE_CODE, "1", "88", "100")
+            .replace("2024;1", "2026;1")
+            .replace("Vereador", "Presidente")
+        )
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("votacao_candidato_munzona_2026_BA.csv", csv_bytes(state))
+            if include_president:
+                archive.writestr(
+                    "votacao_candidato_munzona_2026_BR.csv",
+                    csv_bytes(
+                        president,
+                        president.replace(";1;Presidente", ";2;Presidente"),
+                        president.replace("2026;1", "2026;2").replace(";100;", ";80;"),
+                        president.replace("33634", "38490"),
+                    ),
+                )
+        return buffer.getvalue()
+
+    def test_general_election_includes_president_with_separate_turns(self) -> None:
+        transport = Mock()
+        transport.get.return_value = HttpResponse(
+            200, {}, self.general_package(), package_url(2026)
+        )
+        page = fetch_votes(2026, transport=transport)
+        self.assertIsNotNone(page)
+        president = [item for item in page.items if item["cargo"] == "Presidente"]
+        self.assertEqual(
+            [(x["turno"], x["votos_em_barreiras"]) for x in president],
+            [("1", 200), ("2", 80)],
+        )
+        self.assertEqual(len(page.items), 3)
+        self.assertIn("x-presidential-csv-sha256", page.response_headers)
+        self.assertNotIn("mandato", president[0])
+
+    def test_missing_presidential_member_blocks_general_election(self) -> None:
+        transport = Mock()
+        transport.get.return_value = HttpResponse(
+            200, {}, self.general_package(include_president=False), package_url(2026)
+        )
+        with self.assertRaises(TseError):
+            fetch_votes(2026, transport=transport)
+
+    def test_municipal_election_does_not_require_presidential_file(self) -> None:
+        transport = Mock()
+        transport.get.return_value = HttpResponse(
+            200,
+            {},
+            zip_with(
+                "votacao_candidato_munzona_2024_BA.csv",
+                csv_bytes(linha("BARREIRAS", BARREIRAS_TSE_CODE, "1", "9", "10")),
+            ),
+            package_url(2024),
+        )
+        page = fetch_votes(2024, transport=transport)
+        self.assertEqual(len(page.items), 1)
+        self.assertNotIn("x-presidential-csv-sha256", page.response_headers)
+
+    def test_wrong_year_is_not_published_under_requested_election(self) -> None:
+        transport = Mock()
+        transport.get.return_value = HttpResponse(
+            200,
+            {},
+            zip_with(
+                "votacao_candidato_munzona_2024_BA.csv",
+                csv_bytes(
+                    linha("BARREIRAS", BARREIRAS_TSE_CODE, "1", "9", "10").replace(
+                        "2024;", "2020;"
+                    )
+                ),
+            ),
+            package_url(2024),
+        )
+        with self.assertRaises(TseError):
+            fetch_votes(2024, transport=transport)
+
     def test_package_limit_covers_current_national_archives(self) -> None:
         self.assertGreaterEqual(MAX_PACKAGE_BYTES, 556_082_886)
 
@@ -118,9 +204,7 @@ class AggregationTests(unittest.TestCase):
         self.assertEqual(aggregated[1]["votos_em_barreiras"], 40)
 
     def test_non_numeric_votes_is_explicit_failure(self) -> None:
-        content = csv_bytes(
-            linha("BARREIRAS", BARREIRAS_TSE_CODE, "1", "9", "muitos")
-        )
+        content = csv_bytes(linha("BARREIRAS", BARREIRAS_TSE_CODE, "1", "9", "muitos"))
         rows, _ = rows_for_barreiras(content)
 
         with self.assertRaises(TseError):
