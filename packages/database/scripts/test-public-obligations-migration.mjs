@@ -578,7 +578,7 @@ try {
          as cloned_report,
       (select count(*)::integer from finance.expense_lines
        where report_id <> '00000000-0000-0000-0000-000000008014'
-         and description = 'Linha com evidÃªncia trocada') as cloned_lines,
+         and description = 'Linha com evidência trocada') as cloned_lines,
       finance.resolve_document_origin(
         '00000000-0000-0000-0000-000000008003',
         '00000000-0000-0000-0000-000000008010'

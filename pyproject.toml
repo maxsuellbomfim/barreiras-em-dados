@@ -26,6 +26,7 @@ pythonpath = [
   "workers/collectors/src",
   "workers/document-processing/src",
   "workers/normalization/src",
+  "workers/reconciliation/src",
 ]
 
 [tool.ruff]

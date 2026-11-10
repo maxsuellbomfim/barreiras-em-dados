@@ -147,9 +147,10 @@ HSTS, proteção contra iframes, `nosniff`, política de referência e bloqueio 
 câmera/microfone/geolocalização já estão ativos. A CSP com nonce permanece um
 gate antes de qualquer script externo, login ou conteúdo gerado por usuário.
 
-O lockfile fixa as versões de produção. A primeira publicação usa overrides
-para `sharp 0.35.0` e `postcss 8.5.18`, versões corrigidas para advisories
-encontrados na auditoria das dependências transitivas do Next. Build e auditoria
+O lockfile fixa as versões de produção. Os overrides ficam em
+`pnpm-workspace.yaml` (o pnpm ignora `overrides` nos `package.json` dos apps):
+`sharp 0.35.0`, `postcss 8.5.23` e `nanoid 3.3.17`, versões corrigidas para
+advisories encontrados na auditoria das dependências transitivas do Next. Build e auditoria
 devem ser repetidos quando o Next incorporar versões compatíveis sem override.
 
 ### Supply chain e CI

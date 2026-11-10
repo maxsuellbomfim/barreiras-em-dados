@@ -251,9 +251,7 @@ Coletores de fontes diferentes podem executar independentemente. As etapas
 posteriores não podem executar “em qualquer ordem”. Nenhum ETL grava diretamente
 na projeção pública.
 
-## Primeiro recorte entregável
-
-### Votação de 2026 e atualização presidencial (25/10/2026)
+## Votação de 2026 e atualização presidencial (25/10/2026)
 
 - O CSV `BA` traz os cargos estaduais/federais; os votos de presidente estão
   no CSV `BR` do mesmo ZIP oficial. Ambos são filtrados pelo código municipal
@@ -279,6 +277,8 @@ na projeção pública.
   exige execução registrada, artefato preservado e conferência da API pública.
 - A versão do parser é `tse-votacao-munzona/1.1.0`. Não são apagadas versões
   históricas, somados turnos nem anunciados resultados ainda ausentes no ZIP.
+
+## Primeiro recorte entregável
 
 Após estabilizar o fluxo do Querido Diário:
 
