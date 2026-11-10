@@ -134,7 +134,7 @@ export default async function GazetteEditionPage({ params }: EditionPageParams) 
           Endereço permanente desta edição para citação e compartilhamento.
           Encontrou um erro?{" "}
           <a
-            href="/contestar?url=/diario"
+            href={`/contestar?url=${encodeURIComponent(path)}`}
             target="_blank"
             rel="noreferrer"
           >

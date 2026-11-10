@@ -3,19 +3,22 @@
 const PROTOCOL = /^C-[0-9A-F]{10}$/;
 const STATUSES = new Set(["received", "under_review", "upheld", "rejected", "withdrawn"]);
 const SITE_HOSTS = new Set(["barreiras-em-dados.vercel.app", "localhost"]);
+// "//host" e "/\host" são lidos pelo navegador como outro site: o protocolo
+// público renderiza este caminho como link e não pode apontar para fora.
+const LOCAL_PATH = /^\/(?![/\\])\S*$/;
 
 /** Aceita caminho ("/indicios") ou endereço completo do próprio site. */
 export function normalizeTargetPath(value) {
   const input = typeof value === "string" ? value.trim() : "";
   if (!input) return null;
   if (input.startsWith("/")) {
-    return /^\/\S*$/.test(input) && input.length <= 300 ? input : null;
+    return LOCAL_PATH.test(input) && input.length <= 300 ? input : null;
   }
   try {
     const url = new URL(input);
     if (!SITE_HOSTS.has(url.hostname)) return null;
     const path = `${url.pathname}${url.search}`;
-    return path.length <= 300 ? path : null;
+    return LOCAL_PATH.test(path) && path.length <= 300 ? path : null;
   } catch {
     return null;
   }
