@@ -31,7 +31,14 @@ function parseRoute(
   if (sphereValue !== "federal" && sphereValue !== "state") return null;
   if (!/^\d{1,3}$/u.test(legislatureValue)) return null;
   const legislatureNumber = Number(legislatureValue);
-  const authorKey = authorKeyValue.trim();
+  // O Next entrega o segmento ainda codificado ("diego%20castro"); a chave
+  // do banco tem espaço e acento, e sem decodificar a consulta volta vazia.
+  let authorKey: string;
+  try {
+    authorKey = decodeURIComponent(authorKeyValue).trim();
+  } catch {
+    return null;
+  }
   if (!authorKey || authorKey.length > 200 || /[\u0000-\u001f\u007f]/u.test(authorKey)) {
     return null;
   }
@@ -173,9 +180,9 @@ function ContributionCard({
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const route = await params;
   const parsed = parseRoute(route.sphere, route.legislatureNumber, route.authorKey);
-  if (!parsed) return { title: "Perfil de emendas inválido | Barreiras 360" };
+  if (!parsed) return { title: "Perfil de emendas inválido" };
   return {
-    title: `Emendas de ${parsed.authorKey} | Barreiras 360`,
+    title: `Emendas de ${parsed.authorKey}`,
     description: "Emendas destinadas ou autorizadas para Barreiras, separadas por estágio financeiro e sustentadas por fontes oficiais.",
   };
 }

@@ -13,7 +13,7 @@ const CNPJ_KEY = /^\d{14}$/;
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "Histórico do fornecedor | Barreiras 360",
+  title: "Histórico do fornecedor",
   description: "Processos e resultados PNCP associados a um fornecedor público.",
 };
 
