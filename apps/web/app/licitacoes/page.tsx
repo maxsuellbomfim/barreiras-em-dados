@@ -839,6 +839,17 @@ export default async function ProcurementsPage({ searchParams }: ProcurementsPag
               </p>
             </div>
           </div>
+        ) : result.procurements.length === 0 && (hasFilters || procurementPage > 1) ? (
+          <div className="collection-unavailable" role="status">
+            <div>
+              <strong>Nenhuma contratação neste recorte</strong>
+              <p>
+                Os filtros ou a página pedida não encontraram registros.
+                Isso não indica ausência de contratações no acervo.{" "}
+                <a href="/licitacoes">Ver todas as contratações</a>.
+              </p>
+            </div>
+          </div>
         ) : result.procurements.length === 0 ? (
           <div className="collection-unavailable" role="status">
             <div>
