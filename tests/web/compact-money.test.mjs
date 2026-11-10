@@ -12,4 +12,8 @@ test("valores grandes viram leitura curta em português", () => {
   assert.equal(formatBrlCompact("812.5"), "R$ 812,50");
   assert.equal(formatBrlCompact("-47598685.94"), "-R$ 47,6 milhões");
   assert.equal(formatBrlCompact("não é número"), null);
+  // A unidade acompanha o número arredondado que aparece na tela.
+  assert.equal(formatBrlCompact("1996000000.00"), "R$ 2 bilhões");
+  assert.equal(formatBrlCompact("999950000.00"), "R$ 1 bilhão");
+  assert.equal(formatBrlCompact("999960.00"), "R$ 1 milhão");
 });
