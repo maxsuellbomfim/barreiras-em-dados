@@ -82,7 +82,7 @@ test("filtros PNCP restringem fornecedor, ano e texto sem recalcular valores", (
   assert.match(migration, /unit_filter/);
   assert.match(migration, /pncp-procurements\/1\.2\.0/);
 });
-test("pÃ¡gina oferece filtros GET e o cliente usa a RPC filtrÃ¡vel", () => {
+test("página oferece filtros GET e o cliente usa a RPC filtrável", () => {
   assert.match(page, /method="get"/);
   assert.match(page, /name="fornecedor"/);
   assert.match(page, /name="ano"/);

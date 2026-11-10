@@ -40,6 +40,10 @@ export default async function CamaraPage({
   const params = await searchParams;
   const page = pageNumber(params.page);
   const filters = legislativeFilters(params);
+  // Busca sem resultado ou página além do fim não é "coleta não começou":
+  // o explorador segue na tela com o aviso do recorte e o botão de limpar.
+  const narrowed =
+    page > 1 || Object.values(filters).some((value) => value !== null);
   const [result, authorSummary, formerAuthorSummary] = await Promise.all([
     getCamaraLegislativePage(page, 50, filters),
     getCamaraCurrentAuthorSummary(filters),
@@ -74,7 +78,7 @@ export default async function CamaraPage({
               <p>Isso indica falha de consulta ou ausência de projeção publicada, não ausência de leis ou indicações.</p>
             </div>
           </div>
-        ) : result.items.length === 0 ? (
+        ) : result.items.length === 0 && !narrowed ? (
           <div className="collection-unavailable" role="status">
             <div>
               <strong>A coleta legislativa ainda não começou</strong>
