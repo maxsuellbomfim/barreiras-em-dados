@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 type PageProps = Readonly<{
-  searchParams: Promise<{ q?: string; pagina?: string }>;
+  searchParams: Promise<{ q?: string | string[]; pagina?: string }>;
 }>;
 
 const PAGE_SIZE = 20;
@@ -33,7 +33,8 @@ function href(query: string, page: number): string {
 
 export default async function MunicipalControlIndexPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const query = (params.q ?? "").trim().slice(0, 100);
+  // `?q=a&q=b` chega como lista; sem a guarda, `.trim()` derrubava a página.
+  const query = typeof params.q === "string" ? params.q.trim().slice(0, 100) : "";
   const page = pageNumber(params.pagina);
   const result = await searchMunicipalControlDocuments({
     query,

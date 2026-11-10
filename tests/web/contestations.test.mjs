@@ -15,6 +15,13 @@ test("página contestada aceita caminho ou endereço do próprio site", () => {
     "/financas/2026-08?x=1",
   );
   assert.equal(normalizeTargetPath("https://outro-site.com/indicios"), null);
+  // Caminhos que o navegador resolve para outro site.
+  assert.equal(normalizeTargetPath("//outro-site.com/indicios"), null);
+  assert.equal(normalizeTargetPath("/\\outro-site.com"), null);
+  assert.equal(
+    normalizeTargetPath("https://barreiras-em-dados.vercel.app//outro-site.com"),
+    null,
+  );
   assert.equal(normalizeTargetPath("indicios"), null);
   assert.equal(normalizeTargetPath("/com espaço"), null);
   assert.equal(normalizeTargetPath(`/${"a".repeat(300)}`), null);
