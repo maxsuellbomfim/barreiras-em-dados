@@ -68,8 +68,8 @@ test("catalogo 1.5.0 publica transferencias concedidas e obras sem somar valores
     /sum\(|::numeric/,
     "o catalogo documental nunca converte ou soma valores",
   );
-  assert.match(client, /"pdc-convenios-transferencias-realizadas": "Transferencias concedidas"/);
-  assert.match(client, /"pdc-obras-pdc": "Obras e prestacao de contas"/);
+  assert.match(client, /"pdc-convenios-transferencias-realizadas": "Transferências concedidas"/);
+  assert.match(client, /"pdc-obras-pdc": "Obras e prestação de contas"/);
 });
 
 test("catalogo 1.6.0 reconhece PDF preservado em replay idempotente", () => {
