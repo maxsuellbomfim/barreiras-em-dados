@@ -20,6 +20,7 @@ jobs:
     name: Node, contratos e aplicações web
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # O painel exige as variáveis públicas durante o prerender. O CI usa
     # placeholders sem acesso a dados; Vercel injeta os valores reais.
     env:
@@ -68,6 +69,7 @@ jobs:
     name: Coletores e processamento de documentos
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Baixar código
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

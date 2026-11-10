@@ -22,4 +22,7 @@ test("tarefa mensal local usa DPAPI e verifica diariamente o mês fechado", () =
   assert.match(script, /-RunLevel Limited/);
   assert.match(script, /Register-ScheduledTask -TaskName \$taskName -InputObject \$task -Force/);
   assert.doesNotMatch(script, /Unregister-ScheduledTask|schtasks.*\/Delete/i);
+  // O host embarcado e o pwsh 7 não têm powershell.exe em $PSHOME.
+  assert.ok(!script.includes("$PSHOME"));
+  assert.ok(script.includes("System32/WindowsPowerShell/v1.0/powershell.exe"));
 });

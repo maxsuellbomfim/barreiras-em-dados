@@ -21,7 +21,10 @@ foreach ($required in @(
     }
 }
 
-$powerShellPath = Join-Path $PSHOME "powershell.exe"
+# A pasta do host em uso (pwsh 7, host embarcado) pode não ter
+# powershell.exe; a tarefa precisa do Windows PowerShell do sistema.
+$powerShellPath = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+if (-not (Test-Path -LiteralPath $powerShellPath)) { throw 'Windows PowerShell unavailable' }
 $arguments = @(
     "-NoProfile"
     "-NonInteractive"
