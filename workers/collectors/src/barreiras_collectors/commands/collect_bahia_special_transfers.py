@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -85,8 +86,7 @@ def execute_controlled_special_transfers(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    if argv:
-        raise SystemExit("Este coletor não aceita argumentos.")
+    argparse.ArgumentParser(description=__doc__).parse_args(argv)
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()
     logging.basicConfig(

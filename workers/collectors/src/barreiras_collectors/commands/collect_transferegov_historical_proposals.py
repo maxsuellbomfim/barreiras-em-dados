@@ -165,8 +165,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     def operation() -> HistoricalProposalCollectionSummary:
         catalog = fetch_download_catalog(logger=logging.getLogger(__name__))
         entry = next(
-            item for item in catalog.items if item.get("name") == ARCHIVE_NAME
+            (item for item in catalog.items if item.get("name") == ARCHIVE_NAME),
+            None,
         )
+        if entry is None:
+            raise RuntimeError(f"O catálogo oficial não publicou {ARCHIVE_NAME}.")
         snapshot = fetch_historical_proposals(
             catalog_entry=entry,
             year_from=args.year_from,

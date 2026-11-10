@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -92,7 +93,7 @@ def execute_controlled_cgu_collection(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    del argv
+    argparse.ArgumentParser(description=__doc__).parse_args(argv)
     collected_on = datetime.now(MUNICIPAL_TIMEZONE).date()
     collector_settings = CollectorSettings.from_env()
     persistence_settings = PersistenceSettings.from_env()

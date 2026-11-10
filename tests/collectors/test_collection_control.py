@@ -10,6 +10,7 @@ from barreiras_collectors.collection_control import (
     CollectionOutcome,
     PartialCollectionFailure,
     build_execution_idempotency_key,
+    sanitize_error_detail,
 )
 
 
@@ -278,6 +279,15 @@ class CollectionControlTests(unittest.TestCase):
                         error_detail="documento indisponível",
                     ),
                 )
+
+
+class SanitizeErrorDetailTests(unittest.TestCase):
+    def test_exception_without_message_still_yields_a_detail(self) -> None:
+        # collection_failures.error_detail exige de 1 a 500 caracteres.
+        for error in (TimeoutError(), KeyboardInterrupt(), SystemExit()):
+            with self.subTest(error=type(error).__name__):
+                self.assertEqual(sanitize_error_detail(error), type(error).__name__)
+        self.assertEqual(sanitize_error_detail(ValueError("x" * 600)), "x" * 500)
 
 
 class ExecutionIdempotencyKeyTests(unittest.TestCase):

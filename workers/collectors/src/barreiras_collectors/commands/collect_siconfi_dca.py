@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
@@ -27,7 +27,6 @@ from ..settings import CollectorSettings, PersistenceSettings
 from .pncp_runtime import build_authenticated_object_store
 
 MUNICIPAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
-EXECUTION_NAMESPACE = "siconfi-dca"
 
 
 @dataclass(frozen=True)
@@ -54,15 +53,6 @@ def resolve_year_range(
         collected_on if year_to == collected_on.year else date(year_to, 12, 31)
     )
     return date(year_from, 1, 1), period_end
-
-
-def build_siconfi_execution_key(
-    *, environment: Mapping[str, str] | None = None
-) -> str:
-    return build_execution_idempotency_key(
-        EXECUTION_NAMESPACE,
-        environment=environment,
-    )
 
 
 def execute_controlled_siconfi_collection(
