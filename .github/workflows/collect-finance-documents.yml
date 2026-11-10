@@ -141,9 +141,9 @@ jobs:
       # O plano gratuito limita as conexões simultâneas da role de coleta.
       # Oito jobs em paralelo faziam todos chegarem ao banco ao mesmo tempo
       # e produziam "too many connections" antes de persistir o documento.
-      # Em execuÃ§Ã£o direcionada, somente um job coleta; os demais podem
-      # verificar a condiÃ§Ã£o em paralelo. No agendamento completo, mantemos
-      # uma conexÃ£o de coleta por vez para respeitar o plano gratuito.
+      # Em execução direcionada, somente um job coleta; os demais podem
+      # verificar a condição em paralelo. No agendamento completo, mantemos
+      # uma conexão de coleta por vez para respeitar o plano gratuito.
       max-parallel: ${{ (inputs.resource == 'all' || inputs.resource == '') && 1 || 8 }}
       matrix:
         # GitHub does not expose `matrix` inside jobs.<job>.if. Build the
@@ -170,8 +170,8 @@ jobs:
       MUNICIPAL_TRANSPARENCY_REQUESTS_PER_MINUTE: "10"
       MUNICIPAL_TRANSPARENCY_MAX_BODY_BYTES: "16777216"
       MUNICIPAL_TRANSPARENCY_DOCUMENT_REQUESTS_PER_MINUTE: "6"
-      # RelatÃ³rios fiscais podem exceder 64 MiB; o limite continua explÃ­cito
-      # e abaixo do mÃ¡ximo defensivo do coletor (256 MiB).
+      # Relatórios fiscais podem exceder 64 MiB; o limite continua explícito
+      # e abaixo do máximo defensivo do coletor (256 MiB).
       MUNICIPAL_TRANSPARENCY_MAX_DOCUMENT_BYTES: "268435456"
       # Limite agregado por execução: controla crescimento do Storage sem
       # impedir progresso quando um único PDF oficial ultrapassa 64 MiB.

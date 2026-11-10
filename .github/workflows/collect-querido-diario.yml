@@ -22,11 +22,11 @@ on:
         default: "300"
         type: string
       integral_edition:
-        description: EdiÃ§Ã£o especÃ­fica para replay integral (opcional)
+        description: Edição específica para replay integral (opcional)
         required: false
         type: string
       integral_year:
-        description: Ano da ediÃ§Ã£o especÃ­fica para replay integral (opcional)
+        description: Ano da edição específica para replay integral (opcional)
         required: false
         type: string
 
@@ -67,7 +67,6 @@ jobs:
       HTTP_CONNECT_TIMEOUT_SECONDS: "5"
       HTTP_READ_TIMEOUT_SECONDS: "30"
       HTTP_MAX_ATTEMPTS: "5"
-      INTEGRAL_LIMIT: ${{ inputs.integral_limit || '6' }}
 
     steps:
       - name: Baixar código
@@ -218,7 +217,6 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: >-
           python -B -m barreiras_docproc.commands.assist_extraction_candidates
           --limit 25
