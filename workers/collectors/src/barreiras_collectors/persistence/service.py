@@ -2241,13 +2241,13 @@ class PncpComprasPersistenceService:
                 compra_controle = item.get("numeroControlePncpCompra")
             if not isinstance(numero_controle, str) or not numero_controle:
                 raise PersistenceContractError(
-                    f"Contrato {index} da contrataÃ§Ã£o {control} sem "
+                    f"Contrato {index} da contratação {control} sem "
                     "numeroControlePNCP."
                 )
             if compra_controle != control:
                 raise PersistenceContractError(
-                    f"Contrato {numero_controle} nÃ£o referencia a "
-                    "contrataÃ§Ã£o esperada."
+                    f"Contrato {numero_controle} não referencia a "
+                    "contratação esperada."
                 )
             records.append(
                 self._record(

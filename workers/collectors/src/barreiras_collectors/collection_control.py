@@ -81,7 +81,9 @@ def sanitize_error_detail(error: BaseException) -> str:
     detail = str(error).replace("\x00", "").replace("\r", " ").replace("\n", " ")
     detail = _SECRET_ASSIGNMENT.sub(r"\1=[REDACTED]", detail)
     detail = _BEARER_TOKEN.sub("Bearer [REDACTED]", detail)
-    return detail[:500]
+    # TimeoutError() e KeyboardInterrupt() não têm texto; o banco exige ao
+    # menos um caractere e, sem isto, o registro da falha era desfeito.
+    return detail[:500] or type(error).__name__
 
 
 def default_execution_origin() -> str:

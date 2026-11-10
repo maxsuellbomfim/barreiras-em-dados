@@ -1,4 +1,7 @@
-"""Consulta sanções CEIS/CNEP para os fornecedores publicados de Barreiras."""
+"""Consulta sanções federais (CEIS, CNEP, CEPIM e leniência) dos fornecedores.
+
+O alvo são os fornecedores publicados de Barreiras.
+"""
 
 from __future__ import annotations
 
