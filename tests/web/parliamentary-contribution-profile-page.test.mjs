@@ -40,6 +40,14 @@ test("explains missing stages as unavailable instead of zero", async () => {
   assert.match(source, /valor destinado ou autorizado não\s+significa dinheiro pago/u);
 });
 
+test("decodes the author key before querying", async () => {
+  // Em produção a chave chegava como "diego%20castro" e toda página de
+  // autor respondia "Nenhuma contribuição encontrada".
+  const source = await readFile(pagePath, "utf8");
+  assert.match(source, /decodeURIComponent\(authorKeyValue\)/u);
+  assert.doesNotMatch(source, /\| Barreiras 360/u);
+});
+
 test("returns from an evidence page to the ranking in Recursos", async () => {
   const source = await readFile(pagePath, "utf8");
   assert.match(
