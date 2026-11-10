@@ -32,9 +32,9 @@ _STOPWORDS = frozenset(
         "DO",
         "DOS",
         "E",
-        # RÃ³tulos editoriais que aparecem antes do nome em indicaÃ§Ãµes e leis.
-        # Eles sÃ£o removidos somente da chave de triagem; a fonte permanece
-        # intacta e o alias continua pendente para revisÃ£o.
+        # Rótulos editoriais que aparecem antes do nome em indicações e leis.
+        # Eles são removidos somente da chave de triagem; a fonte permanece
+        # intacta e o alias continua pendente para revisão.
         "VEREADOR",
         "VEREADORA",
         "DR",
