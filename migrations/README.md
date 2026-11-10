@@ -6,7 +6,7 @@ como ponto de navegação exigido pela estrutura do monorepo.
 
 A fundação inicial está em:
 
-- `supabase/migrations/20260730193814_initial_public_data_foundation.sql`;
+- `supabase/migrations/20260731000705_initial_public_data_foundation.sql`;
 - `supabase/seed.sql`.
 
 Não altere uma migration já aplicada em ambiente compartilhado. Gere uma nova

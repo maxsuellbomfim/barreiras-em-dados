@@ -6,7 +6,8 @@ devem ser criadas no schema `public`.
 As migrations são aplicadas em ordem pelo teste PGlite. A fundação cria
 `collector_worker` sem login e com grants por coluna. A role
 `collector_querido_diario` também nasce sem LOGIN, recebe somente esse papel e
-fica limitada a duas conexões. A senha real não pertence ao Git nem à migration:
+fica limitada a oito conexões (eram duas até
+28/09/2026, migration `20260928152448`). A senha real não pertence ao Git nem à migration:
 deve ser ativada por prompt interativo seguro.
 
 O Storage usa `audit.storage_workload_identities` como allowlist interna de UUID,

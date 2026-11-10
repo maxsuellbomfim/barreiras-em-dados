@@ -1,12 +1,24 @@
 # Estado atual do Barreiras 360
 
-Atualizado em **23/09/2026**. Este é o ponto de entrada operacional: um resumo
+Atualizado em **10/11/2026**. Este é o ponto de entrada operacional: um resumo
 curto do que está no ar, do que está frágil e do próximo fluxo. O registro
 detalhado de cada entrega de agosto e setembro, com evidências e hashes, está em
 [`reviews/STATUS_LOG_2026_08_09.md`](reviews/STATUS_LOG_2026_08_09.md);
 decisões ficam em `docs/adr/` e o histórico amplo em `docs/ROADMAP.md`.
 
 ## Fase atual
+
+Auditoria geral em 10/11/2026 ([`reviews/AUDIT_2026_11_10.md`](reviews/AUDIT_2026_11_10.md)): corrigidas as
+páginas de emendas por autor (vazias em produção por chave não decodificada),
+a revisão de alias pelo painel (nomes de parâmetro divergentes desde 08/08), a
+sugestão semanal de aliases (lote derrubado por autoria com mais de 200
+caracteres), o erro 500 de `/financas/base-legal?q=a&q=b` e o link externo
+aceito no protocolo de contestação, além de limpezas menores. Seguem abertas,
+para decisão do titular, treze pendências de prioridade alta — entre elas
+quatro funções `_calculated` executáveis pelo público, a regra empenho →
+contrato que liga dois nomes vazios e as falhas de consulta que `/financas`
+mostra como "não publicado". Esta página ainda acumula o registro de outubro
+e contradiz o ADR 0099 em alguns trechos; a auditoria lista o que reescrever.
 
 Publicado em 23/10/2026 (#959): correção do resumo anual de `/financas`.
 A página somava apenas a lista dos últimos 24 meses, ocultando 2021–2023
