@@ -125,11 +125,11 @@ type AdminMonthlyClosure = Readonly<{
   period_start: string;
   period_end: string;
   public_body_name: string;
-  revenue_report_amount: string | null;
-  expense_paid_amount: string | null;
+  revenue_report_amount: string | number | null;
+  expense_paid_amount: string | number | null;
   expense_committed_amount: string | null;
   expense_liquidated_amount: string | null;
-  operational_difference_amount: string | null;
+  operational_difference_amount: string | number | null;
   closure_status: "operational" | "needs_data" | "needs_review";
   coverage_note: string;
 }>;
@@ -266,7 +266,10 @@ function formatBytes(value: number): string {
   return `${(value / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
 }
 
-function formatDecimalAmount(value: string | null): string {
+function formatDecimalAmount(raw: string | number | null): string {
+  // PostgREST entrega `numeric` como número JSON; sem a conversão,
+  // `startsWith` lançava e derrubava a aba inteira.
+  const value = raw === null ? null : String(raw);
   if (value === null || !/^-?\d+(?:\.\d{1,2})?$/.test(value)) return "—";
   const negative = value.startsWith("-");
   const unsigned = negative ? value.slice(1) : value;
@@ -1452,9 +1455,9 @@ export default function ReviewQueuePage() {
         const { error } = await supabase.rpc(
           "review_representative_alias_suggestion",
           {
-            suggestion_id: item.id,
-            review_decision: decision,
-            review_note: note,
+            p_suggestion_id: item.id,
+            p_review_decision: decision,
+            p_review_note: note,
           },
         );
         if (error) return `A revisão do alias não foi registrada: ${error.message}`;
