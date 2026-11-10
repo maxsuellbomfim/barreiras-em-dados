@@ -14,6 +14,8 @@ from .alias_assist import (
 )
 
 _NAME_KEY_CALL = re.compile(r"\{name_key\}\(([^()]*)\)")
+# Mesmo teto do check de political.representative_alias_suggestions.
+MAX_OBSERVED_NAME_LENGTH = 200
 
 
 def _with_name_keys(sql: str) -> str:
@@ -49,8 +51,8 @@ class RepresentativeAliasRepository:
     def pending_author_aliases(self, limit: int) -> tuple[dict, ...]:
         connection = self.connection_factory()
         try:
-            # A consulta percorre o acervo histÃ³rico; limite o tempo para
-            # evitar que a fila consuma o workflow inteiro sem diagnÃ³stico.
+            # A consulta percorre o acervo histórico; limite o tempo para
+            # evitar que a fila consuma o workflow inteiro sem diagnóstico.
             connection.execute("set statement_timeout = '30s'")
             rows = connection.execute(
                 _with_name_keys("""
@@ -190,12 +192,19 @@ class RepresentativeAliasRepository:
                         )
                       )
                   )
-                order by authors.item_count desc, authors.author_name
+                -- Nome acima do teto da tabela (em geral coautoria num campo
+                -- só) vai para o fim: o comando o ignora com aviso e ele não
+                -- ocupa a vez de nomes que podem ser sugeridos.
+                order by
+                  (length(authors.author_name) > %s),
+                  authors.item_count desc,
+                  authors.author_name
                 limit %s
                 """),
                 (
                     ALIAS_ASSIST_PROMPT_VERSION,
                     ALIAS_ASSIST_VALIDATOR_VERSION,
+                    MAX_OBSERVED_NAME_LENGTH,
                     limit,
                 ),
             )

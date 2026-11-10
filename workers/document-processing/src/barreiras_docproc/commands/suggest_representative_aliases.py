@@ -17,7 +17,10 @@ from ..alias_assist import (
     rank_candidates,
     run_alias_assistance,
 )
-from ..alias_repository import RepresentativeAliasRepository
+from ..alias_repository import (
+    MAX_OBSERVED_NAME_LENGTH,
+    RepresentativeAliasRepository,
+)
 from ..assist import (
     PROVIDERS,
     CascadeUnavailableError,
@@ -72,9 +75,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     suggested = 0
     failures = 0
     local_fallbacks = 0
+    oversized = 0
     cascade_exhausted = local_only
     attempts: list = []
     for alias in pending:
+        if len(alias["observed_name"]) > MAX_OBSERVED_NAME_LENGTH:
+            # A tabela recusa o nome; sem este desvio o insert derrubava o
+            # lote e a mesma autoria voltava a travar a fila toda semana.
+            oversized += 1
+            log_event(
+                logger,
+                logging.WARNING,
+                "representative_alias_name_skipped",
+                reason="observed_name_too_long",
+                length=len(alias["observed_name"]),
+                item_count=alias["item_count"],
+                source_record_keys=alias["source_record_keys"][:8],
+            )
+            continue
         candidates = alias["candidates"]
         context = (
             f"A autoria apareceu em {alias['item_count']} registro(s) oficiais. "
@@ -181,6 +199,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         contract_failures=failures,
         attempts=len(attempts),
         local_fallbacks=local_fallbacks,
+        skipped_oversized=oversized,
         prompt_version=ALIAS_ASSIST_PROMPT_VERSION,
     )
     return 0
